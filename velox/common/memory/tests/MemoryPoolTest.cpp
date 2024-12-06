@@ -3572,7 +3572,8 @@ class MockMemoryReclaimer : public MemoryReclaimer {
   }
 
  private:
-  explicit MockMemoryReclaimer(bool doThrow) : doThrow_(doThrow) {}
+  explicit MockMemoryReclaimer(bool doThrow)
+      : MemoryReclaimer(0), doThrow_(doThrow) {}
 
   const bool doThrow_;
 };

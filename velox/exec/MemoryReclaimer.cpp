@@ -20,8 +20,13 @@
 #include "velox/exec/Task.h"
 
 namespace facebook::velox::exec {
-std::unique_ptr<memory::MemoryReclaimer> MemoryReclaimer::create() {
-  return std::unique_ptr<memory::MemoryReclaimer>(new MemoryReclaimer());
+MemoryReclaimer::MemoryReclaimer(int32_t priority)
+    : memory::MemoryReclaimer(priority) {}
+
+std::unique_ptr<memory::MemoryReclaimer> MemoryReclaimer::create(
+    int32_t priority) {
+  return std::unique_ptr<memory::MemoryReclaimer>(
+      new MemoryReclaimer(priority));
 }
 
 void MemoryReclaimer::enterArbitration() {
@@ -67,13 +72,15 @@ void MemoryReclaimer::abort(
 }
 
 /*static*/ std::unique_ptr<memory::MemoryReclaimer>
-ParallelMemoryReclaimer::create(folly::Executor* executor) {
+ParallelMemoryReclaimer::create(folly::Executor* executor, int32_t priority) {
   return std::unique_ptr<memory::MemoryReclaimer>(
-      new ParallelMemoryReclaimer(executor));
+      new ParallelMemoryReclaimer(executor, priority));
 }
 
-ParallelMemoryReclaimer::ParallelMemoryReclaimer(folly::Executor* executor)
-    : executor_(executor) {}
+ParallelMemoryReclaimer::ParallelMemoryReclaimer(
+    folly::Executor* executor,
+    int32_t priority)
+    : MemoryReclaimer(priority), executor_(executor) {}
 
 uint64_t ParallelMemoryReclaimer::reclaim(
     memory::MemoryPool* pool,
@@ -85,8 +92,7 @@ uint64_t ParallelMemoryReclaimer::reclaim(
         pool, targetBytes, maxWaitMs, stats);
   }
 
-  // Sort the child pools based on their reserved memory and reclaim from the
-  // child pool with most reservation first.
+  // Sort candidates based on priority.
   struct Candidate {
     std::shared_ptr<memory::MemoryPool> pool;
     int64_t reclaimableBytes;
@@ -98,11 +104,17 @@ uint64_t ParallelMemoryReclaimer::reclaim(
     for (auto& entry : pool->children_) {
       auto child = entry.second.lock();
       if (child != nullptr) {
-        const int64_t reclaimableBytes = child->reclaimableBytes().value_or(0);
-        candidates.push_back(Candidate{std::move(child), reclaimableBytes});
+        const auto reclaimableBytesOpt = child->reclaimableBytes();
+        if (!reclaimableBytesOpt.has_value()) {
+          continue;
+        }
+        candidates.push_back(Candidate{
+            std::move(child),
+            static_cast<int64_t>(reclaimableBytesOpt.value())});
       }
     }
   }
+
   struct ReclaimResult {
     const uint64_t reclaimedBytes{0};
     const Stats stats;

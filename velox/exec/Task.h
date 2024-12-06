@@ -51,24 +51,29 @@ class Task : public std::enable_shared_from_this<Task> {
     kParallel,
   };
 
-  /// Creates a task to execute a plan fragment, but doesn't start execution
-  /// until Task::start() method is called.
-  /// @param taskId Unique task identifier.
-  /// @param planFragment Plan fragment.
-  /// @param destination Partition number if task is expected to receive data
-  /// for a particular partition from a set of upstream tasks participating in a
-  /// distributed execution. Used to initialize an ExchangeClient. Ignored if
-  /// plan fragment doesn't have an ExchangeNode.
-  /// @param queryCtx Query context containing MemoryPool and MemoryAllocator
-  /// instances to use for memory allocations during execution, executor to
-  /// schedule operators on, and session properties.
-  /// @param mode Execution mode for this task. The task can be executed in
-  /// Serial and Parallel mode.
-  /// @param consumer Optional factory function to get callbacks to pass the
-  /// results of the execution. In a parallel execution mode, results from each
-  /// thread are passed on to a separate consumer.
-  /// @param onError Optional callback to receive an exception if task
-  /// execution fails.
+/// Creates a task to execute a plan fragment, but doesn't start execution
+/// until Task::start() method is called.
+/// @param taskId Unique task identifier.
+/// @param planFragment Plan fragment.
+/// @param destination Partition number if task is expected to receive data
+/// for a particular partition from a set of upstream tasks participating in a
+/// distributed execution. Used to initialize an ExchangeClient. Ignored if
+/// plan fragment doesn't have an ExchangeNode.
+/// @param queryCtx Query context containing MemoryPool and MemoryAllocator
+/// instances to use for memory allocations during execution, executor to
+/// schedule operators on, and session properties.
+/// @param mode Execution mode for this task. The task can be executed in
+/// Serial and Parallel mode.
+/// @param consumer Optional factory function to get callbacks to pass the
+/// results of the execution. In a parallel execution mode, results from each
+/// thread are passed on to a separate consumer.
+/// @param onError Optional callback to receive an exception if task
+/// execution fails.
+/// @param memoryArbitrationPriority Optional priority on task that, in a
+/// multi task system, is used for memory arbitration to decide the order of
+/// reclaiming.
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  // TODO: Remove this overload once call sites are updated.
   static std::shared_ptr<Task> create(
       const std::string& taskId,
       core::PlanFragment planFragment,
@@ -76,7 +81,64 @@ class Task : public std::enable_shared_from_this<Task> {
       std::shared_ptr<core::QueryCtx> queryCtx,
       ExecutionMode mode,
       Consumer consumer = nullptr,
-      std::function<void(std::exception_ptr)> onError = nullptr);
+      std::function<void(std::exception_ptr)> onError = nullptr) {
+    return Task::create(
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        mode,
+        (consumer ? [c = std::move(consumer)]() { return c; }
+                  : ConsumerSupplier{}),
+        std::move(onError));
+  }
+
+  // TODO: Remove this overload once call sites are updated.
+  static std::shared_ptr<Task> create(
+      const std::string& taskId,
+      core::PlanFragment planFragment,
+      int destination,
+      std::shared_ptr<core::QueryCtx> queryCtx,
+      ExecutionMode mode,
+      ConsumerSupplier consumerSupplier,
+      std::function<void(std::exception_ptr)> onError = nullptr) {
+    auto task = std::shared_ptr<Task>(new Task(
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        mode,
+        std::move(consumerSupplier),
+        0,
+        std::move(onError)));
+    task->initTaskPool();
+    task->addToTaskList();
+    return task;
+  }
+#else
+  // TODO: Move the definition of this function to the cpp file after above is
+  // cleaned up. The temporary move of definition from cpp to header is because
+  // compatibility macro does not work in cpp file.
+  static std::shared_ptr<Task> create(
+      const std::string& taskId,
+      core::PlanFragment planFragment,
+      int destination,
+      std::shared_ptr<core::QueryCtx> queryCtx,
+      ExecutionMode mode,
+      Consumer consumer = nullptr,
+      int32_t memoryArbitrationPriority = 0,
+      std::function<void(std::exception_ptr)> onError = nullptr) {
+    return Task::create(
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        mode,
+        (consumer ? [c = std::move(consumer)]() { return c; }
+                  : ConsumerSupplier{}),
+        memoryArbitrationPriority,
+        std::move(onError));
+  }
 
   static std::shared_ptr<Task> create(
       const std::string& taskId,
@@ -85,7 +147,22 @@ class Task : public std::enable_shared_from_this<Task> {
       std::shared_ptr<core::QueryCtx> queryCtx,
       ExecutionMode mode,
       ConsumerSupplier consumerSupplier,
-      std::function<void(std::exception_ptr)> onError = nullptr);
+      int32_t memoryArbitrationPriority = 0,
+      std::function<void(std::exception_ptr)> onError = nullptr) {
+    auto task = std::shared_ptr<Task>(new Task(
+        taskId,
+        std::move(planFragment),
+        destination,
+        std::move(queryCtx),
+        mode,
+        std::move(consumerSupplier),
+        memoryArbitrationPriority,
+        std::move(onError)));
+    task->initTaskPool();
+    task->addToTaskList();
+    return task;
+  }
+#endif
 
   /// Convenience function for shortening a Presto taskId. To be used
   /// in debugging messages and listings.
@@ -718,6 +795,7 @@ class Task : public std::enable_shared_from_this<Task> {
       std::shared_ptr<core::QueryCtx> queryCtx,
       ExecutionMode mode,
       ConsumerSupplier consumerSupplier,
+      int32_t memoryArbitrationPriority = 0,
       std::function<void(std::exception_ptr)> onError = nullptr);
 
   // Invoked to add this to the system-wide running task list on task creation.
@@ -816,7 +894,8 @@ class Task : public std::enable_shared_from_this<Task> {
   class MemoryReclaimer : public exec::MemoryReclaimer {
    public:
     static std::unique_ptr<memory::MemoryReclaimer> create(
-        const std::shared_ptr<Task>& task);
+        const std::shared_ptr<Task>& task,
+        int64_t priority = 0);
 
     uint64_t reclaim(
         memory::MemoryPool* pool,
@@ -828,7 +907,8 @@ class Task : public std::enable_shared_from_this<Task> {
         override;
 
    private:
-    explicit MemoryReclaimer(const std::shared_ptr<Task>& task) : task_(task) {
+    MemoryReclaimer(const std::shared_ptr<Task>& task, int64_t priority)
+        : exec::MemoryReclaimer(priority), task_(task) {
       VELOX_CHECK_NOT_NULL(task);
     }
 
@@ -1016,6 +1096,10 @@ class Task : public std::enable_shared_from_this<Task> {
   // The execution mode of the task. It is enforced that a task can only be
   // executed in a single mode throughout its lifetime
   const ExecutionMode mode_;
+
+  // In a multi-task system, it is used to make cross task decisions by memory
+  // arbitration to determine which task to reclaim first.
+  const int32_t memoryArbitrationPriority_;
 
   std::shared_ptr<core::QueryCtx> queryCtx_;
 

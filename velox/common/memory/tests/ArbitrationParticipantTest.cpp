@@ -131,7 +131,8 @@ class MockTask : public std::enable_shared_from_this<MockTask> {
 
   class RootMemoryReclaimer : public memory::MemoryReclaimer {
    public:
-    RootMemoryReclaimer(const std::shared_ptr<MockTask>& task) : task_(task) {}
+    RootMemoryReclaimer(const std::shared_ptr<MockTask>& task)
+        : memory::MemoryReclaimer(0), task_(task) {}
 
     static std::unique_ptr<MemoryReclaimer> create(
         const std::shared_ptr<MockTask>& task) {
@@ -179,7 +180,8 @@ class MockTask : public std::enable_shared_from_this<MockTask> {
         bool reclaimable,
         ReclaimInjectionCallback reclaimInjectCb = nullptr,
         ArbitrationInjectionCallback arbitrationInjectCb = nullptr)
-        : task_(task),
+        : memory::MemoryReclaimer(0),
+          task_(task),
           reclaimable_(reclaimable),
           reclaimInjectCb_(std::move(reclaimInjectCb)),
           arbitrationInjectCb_(std::move(arbitrationInjectCb)) {}

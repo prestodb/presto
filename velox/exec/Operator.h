@@ -708,7 +708,7 @@ class Operator : public BaseRuntimeStatWriter {
 
    protected:
     MemoryReclaimer(const std::shared_ptr<Driver>& driver, Operator* op)
-        : driver_(driver), op_(op) {
+        : memory::MemoryReclaimer(0), driver_(driver), op_(op) {
       VELOX_CHECK_NOT_NULL(op_);
     }
 

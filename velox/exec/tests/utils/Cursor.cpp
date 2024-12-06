@@ -243,6 +243,7 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
           copy->copy(vector.get(), 0, 0, vector->size());
           return queue->enqueue(std::move(copy), future);
         },
+        0,
         [queue](std::exception_ptr) {
           // onError close the queue to unblock producers and consumers.
           // moveNext will handle rethrowing the error once it's

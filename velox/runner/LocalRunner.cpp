@@ -166,6 +166,7 @@ LocalRunner::makeStages() {
           params_.queryCtx,
           exec::Task::ExecutionMode::kParallel,
           consumer,
+          0,
           onError);
       stages_.back().push_back(task);
       if (fragment.numBroadcastDestinations) {

@@ -170,8 +170,9 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
    protected:
     MemoryReclaimer(
         const std::shared_ptr<QueryCtx>& queryCtx,
-        memory::MemoryPool* pool)
-        : queryCtx_(queryCtx), pool_(pool) {
+        memory::MemoryPool* pool,
+        int32_t priority = 0)
+        : memory::MemoryReclaimer(priority), queryCtx_(queryCtx), pool_(pool) {
       VELOX_CHECK_NOT_NULL(pool_);
     }
 

@@ -92,7 +92,8 @@ class MockTask : public std::enable_shared_from_this<MockTask> {
 
   class MemoryReclaimer : public memory::MemoryReclaimer {
    public:
-    MemoryReclaimer(const std::shared_ptr<MockTask>& task) : task_(task) {}
+    MemoryReclaimer(const std::shared_ptr<MockTask>& task)
+        : memory::MemoryReclaimer(0), task_(task) {}
 
     static std::unique_ptr<MemoryReclaimer> create(
         const std::shared_ptr<MockTask>& task) {
@@ -178,7 +179,8 @@ class MockMemoryOperator {
         bool reclaimable,
         ReclaimInjectionCallback reclaimInjectCb = nullptr,
         ArbitrationInjectionCallback arbitrationInjectCb = nullptr)
-        : op_(op),
+        : memory::MemoryReclaimer(0),
+          op_(op),
           reclaimable_(reclaimable),
           reclaimInjectCb_(std::move(reclaimInjectCb)),
           arbitrationInjectCb_(std::move(arbitrationInjectCb)) {}

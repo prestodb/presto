@@ -494,7 +494,7 @@ class HiveDataSink : public DataSink {
         HiveDataSink* dataSink,
         HiveWriterInfo* writerInfo,
         io::IoStatistics* ioStats)
-        : exec::MemoryReclaimer(),
+        : exec::MemoryReclaimer(0),
           dataSink_(dataSink),
           writerInfo_(writerInfo),
           ioStats_(ioStats) {

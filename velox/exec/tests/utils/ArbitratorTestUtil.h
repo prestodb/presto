@@ -36,7 +36,7 @@ constexpr uint64_t kMemoryPoolInitCapacity = 16 * MB;
 
 class FakeMemoryReclaimer : public exec::MemoryReclaimer {
  public:
-  FakeMemoryReclaimer() = default;
+  FakeMemoryReclaimer() : exec::MemoryReclaimer(0) {}
 
   static std::unique_ptr<MemoryReclaimer> create() {
     return std::make_unique<FakeMemoryReclaimer>();

@@ -174,9 +174,10 @@ bool isLeftNullAwareJoinWithFilter(
 class HashJoinMemoryReclaimer final : public MemoryReclaimer {
  public:
   static std::unique_ptr<memory::MemoryReclaimer> create(
-      std::shared_ptr<HashJoinBridge> joinBridge) {
+      std::shared_ptr<HashJoinBridge> joinBridge,
+      int32_t priority = 0) {
     return std::unique_ptr<memory::MemoryReclaimer>(
-        new HashJoinMemoryReclaimer(joinBridge));
+        new HashJoinMemoryReclaimer(joinBridge, priority));
   }
 
   uint64_t reclaim(
@@ -186,9 +187,10 @@ class HashJoinMemoryReclaimer final : public MemoryReclaimer {
       memory::MemoryReclaimer::Stats& stats) final;
 
  private:
-  explicit HashJoinMemoryReclaimer(
-      const std::shared_ptr<HashJoinBridge>& joinBridge)
-      : MemoryReclaimer(), joinBridge_(joinBridge) {}
+  HashJoinMemoryReclaimer(
+      const std::shared_ptr<HashJoinBridge>& joinBridge,
+      int32_t priority)
+      : MemoryReclaimer(priority), joinBridge_(joinBridge) {}
   std::weak_ptr<HashJoinBridge> joinBridge_;
 };
 

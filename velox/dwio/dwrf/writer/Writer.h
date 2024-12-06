@@ -163,7 +163,8 @@ class Writer : public dwio::common::Writer {
         memory::MemoryReclaimer::Stats& stats) override;
 
    private:
-    explicit MemoryReclaimer(Writer* writer) : writer_(writer) {
+    MemoryReclaimer(Writer* writer)
+        : exec::MemoryReclaimer(0), writer_(writer) {
       VELOX_CHECK_NOT_NULL(writer_);
     }
 

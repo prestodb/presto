@@ -25,7 +25,7 @@ class MemoryReclaimer : public memory::MemoryReclaimer {
  public:
   virtual ~MemoryReclaimer() = default;
 
-  static std::unique_ptr<memory::MemoryReclaimer> create();
+  static std::unique_ptr<memory::MemoryReclaimer> create(int32_t priority = 0);
 
   void enterArbitration() override;
 
@@ -35,7 +35,7 @@ class MemoryReclaimer : public memory::MemoryReclaimer {
       override;
 
  protected:
-  MemoryReclaimer() = default;
+  explicit MemoryReclaimer(int32_t priortity);
 };
 
 /// Provides the parallel memory reclaimer implementation for velox task
@@ -46,7 +46,8 @@ class ParallelMemoryReclaimer : public memory::MemoryReclaimer {
   virtual ~ParallelMemoryReclaimer() = default;
 
   static std::unique_ptr<memory::MemoryReclaimer> create(
-      folly::Executor* executor);
+      folly::Executor* executor,
+      int32_t priority = 0);
 
   uint64_t reclaim(
       memory::MemoryPool* pool,
@@ -55,7 +56,7 @@ class ParallelMemoryReclaimer : public memory::MemoryReclaimer {
       Stats& stats) override;
 
  protected:
-  explicit ParallelMemoryReclaimer(folly::Executor* executor);
+  ParallelMemoryReclaimer(folly::Executor* executor, int32_t priority);
 
   folly::Executor* const executor_{nullptr};
 };

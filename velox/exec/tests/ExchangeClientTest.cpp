@@ -18,7 +18,6 @@
 #include <atomic>
 #include <thread>
 #include "velox/common/base/tests/GTestUtils.h"
-// #include "velox/exec/Exchange.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"

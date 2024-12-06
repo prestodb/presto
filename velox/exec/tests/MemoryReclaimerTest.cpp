@@ -170,15 +170,18 @@ TEST(ReclaimableSectionGuard, basic) {
 }
 
 namespace {
+
+using ReclaimCallback = const std::function<void(memory::MemoryPool*)>;
+
 class MockMemoryReclaimer : public memory::MemoryReclaimer {
  public:
   static std::unique_ptr<MemoryReclaimer> create(
       bool reclaimable,
       uint64_t memoryBytes,
-      const std::function<void(memory::MemoryPool*)>& reclaimCallback =
-          nullptr) {
-    return std::unique_ptr<MemoryReclaimer>(
-        new MockMemoryReclaimer(reclaimable, memoryBytes, reclaimCallback));
+      ReclaimCallback& reclaimCallback = nullptr,
+      int32_t priority = 0) {
+    return std::unique_ptr<MemoryReclaimer>(new MockMemoryReclaimer(
+        reclaimable, memoryBytes, reclaimCallback, priority));
   }
 
   bool reclaimableBytes(const MemoryPool& pool, uint64_t& reclaimableBytes)
@@ -210,18 +213,25 @@ class MockMemoryReclaimer : public memory::MemoryReclaimer {
     return memoryBytes_;
   }
 
+  int32_t priority() const override {
+    return priority_;
+  }
+
  private:
   MockMemoryReclaimer(
       bool reclaimable,
       uint64_t memoryBytes,
-      const std::function<void(memory::MemoryPool*)>& reclaimCallback)
-      : reclaimCallback_(reclaimCallback),
+      const std::function<void(memory::MemoryPool*)>& reclaimCallback,
+      int32_t priority)
+      : MemoryReclaimer(priority),
+        reclaimCallback_(reclaimCallback),
+        priority_(priority),
         reclaimable_(reclaimable),
         memoryBytes_(memoryBytes) {}
 
-  const std::function<void(memory::MemoryPool*)> reclaimCallback_;
+  const ReclaimCallback reclaimCallback_;
+  const int32_t priority_;
   bool reclaimable_{false};
-  int reclaimCount_{0};
   uint64_t memoryBytes_{0};
 };
 } // namespace
@@ -312,4 +322,154 @@ TEST_F(MemoryReclaimerTest, recursiveArbitrationWithParallelReclaim) {
     leafPools[i]->free(buffers[i], bufferSize);
   }
   ASSERT_TRUE(reclaimExecuted);
+}
+
+TEST_F(MemoryReclaimerTest, reclaimerPriorities) {
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "reclaimerPriorities", kMaxMemory, exec::MemoryReclaimer::create());
+  std::vector<std::shared_ptr<MemoryPool>> leafPools;
+
+  const uint32_t kNumChildren = 10;
+  const uint64_t kPoolMemoryBytes = 1024;
+  std::vector<int32_t> priorityOrder;
+  priorityOrder.reserve(kNumChildren);
+  ReclaimCallback reclaimerCb = [&](MemoryPool* pool) {
+    auto* mockReclaimer = dynamic_cast<MockMemoryReclaimer*>(pool->reclaimer());
+    ASSERT_TRUE(mockReclaimer != nullptr);
+    priorityOrder.push_back(mockReclaimer->priority());
+  };
+
+  for (uint32_t i = 0; i < kNumChildren; ++i) {
+    auto reclaimer = MockMemoryReclaimer::create(
+        kPoolMemoryBytes,
+        kPoolMemoryBytes,
+        reclaimerCb,
+        static_cast<int32_t>(folly::Random::rand32(10000)) - 5000);
+    leafPools.push_back(rootPool->addLeafChild(
+        fmt::format("leaf-{}", i), true, std::move(reclaimer)));
+  }
+
+  memory::ScopedMemoryArbitrationContext context(rootPool.get());
+  memory::MemoryReclaimer::Stats stats;
+  rootPool->reclaim(kNumChildren * kPoolMemoryBytes, 0, stats);
+
+  ASSERT_EQ(priorityOrder.size(), kNumChildren);
+  for (uint32_t i = 0; i < priorityOrder.size() - 1; i++) {
+    ASSERT_LE(priorityOrder[i], priorityOrder[i + 1]);
+  }
+}
+
+TEST_F(MemoryReclaimerTest, multiLevelReclaimerPriorities) {
+  // Following tree structure is built with priorities
+  //  rootPool
+  //  ├── serial-aggr-0 (priority: 4)
+  //  │   ├── serial-aggr-0.leaf-0 (priority: 0)
+  //  │   ├── serial-aggr-0.leaf-1 (priority: 0)
+  //  │   ├── serial-aggr-0.leaf-2 (priority: 1)
+  //  │   ├── serial-aggr-0.leaf-3 (priority: 1)
+  //  │   ├── ...
+  //  │   └── serial-aggr-0.leaf-9 (priority: 4)
+  //  ├── parallel-aggr-1 (priority: 3)
+  //  │   ├── parallel-aggr-1.leaf-0 (priority: 0)
+  //  │   ├── parallel-aggr-1.leaf-1 (priority: 0)
+  //  │   ├── parallel-aggr-1.leaf-2 (priority: 1)
+  //  │   ├── parallel-aggr-1.leaf-3 (priority: 1)
+  //  │   ├── ...
+  //  │   └── parallel-aggr-1.leaf-9 (priority: 4)
+  //  ├── serial-aggr-2 (priority: 2)
+  //  │   ├── serial-aggr-2.leaf-0 (priority: 0)
+  //  │   ├── serial-aggr-2.leaf-1 (priority: 0)
+  //  │   ├── serial-aggr-2.leaf-2 (priority: 1)
+  //  │   ├── serial-aggr-2.leaf-3 (priority: 1)
+  //  │   ├── ...
+  //  │   └── serial-aggr-2.leaf-9 (priority: 4)
+  //  └── parallel-aggr-3 (priority: 1)
+  //      ├── parallel-aggr-3.leaf-0 (priority: 0)
+  //      ├── parallel-aggr-3.leaf-1 (priority: 0)
+  //      ├── parallel-aggr-3.leaf-2 (priority: 1)
+  //      ├── parallel-aggr-3.leaf-3 (priority: 1)
+  //      ├── ...
+  //      └── parallel-aggr-3.leaf-9 (priority: 4)
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "multiLevelReclaimerPriorities",
+      32 << 20,
+      exec::MemoryReclaimer::create());
+  const uint32_t kNumAggrPools = 4;
+  const uint32_t kNumLeafPerAggr = 10;
+  const uint64_t kPoolMemoryBytes = 1024;
+  std::vector<std::shared_ptr<MemoryPool>> aggrPools;
+  std::vector<std::shared_ptr<MemoryPool>> leafPools;
+  std::mutex reclaimOrderMutex;
+  std::vector<MemoryPool*> reclaimOrder;
+  uint32_t poolIdx{0};
+  for (uint32_t i = 0; i < kNumAggrPools; i++) {
+    if (i % 2 == 0) {
+      aggrPools.push_back(rootPool->addAggregateChild(
+          fmt::format("serial-aggr-{}", poolIdx++),
+          exec::MemoryReclaimer::create(kNumAggrPools - i)));
+    } else {
+      aggrPools.push_back(rootPool->addAggregateChild(
+          fmt::format("parallel-aggr-{}", poolIdx++),
+          exec::ParallelMemoryReclaimer::create(
+              executor_.get(), kNumAggrPools - i)));
+    }
+    auto& aggrPool = aggrPools.back();
+    const auto aggrPoolName = aggrPool->name();
+    for (uint32_t j = 0; j < kNumLeafPerAggr; j++) {
+      leafPools.push_back(aggrPools.back()->addLeafChild(
+          fmt::format("{}.leaf-{}", aggrPoolName, j),
+          true,
+          MockMemoryReclaimer::create(
+              kPoolMemoryBytes,
+              kPoolMemoryBytes,
+              [&](MemoryPool* pool) {
+                std::lock_guard<std::mutex> l(reclaimOrderMutex);
+                reclaimOrder.push_back(pool);
+              },
+              j / 2)));
+    }
+  }
+
+  memory::ScopedMemoryArbitrationContext context(rootPool.get());
+  memory::MemoryReclaimer::Stats stats;
+  rootPool->reclaim(
+      kNumAggrPools * kNumLeafPerAggr * kPoolMemoryBytes, 0, stats);
+
+  ASSERT_EQ(reclaimOrder.size(), kNumAggrPools * kNumLeafPerAggr);
+  for (uint32_t i = 0; i < kNumAggrPools; i++) {
+    uint32_t start = i * kNumLeafPerAggr;
+    const auto poolName = reclaimOrder[start]->name();
+    bool isParallel = false;
+    switch (i) {
+      case 0:
+        ASSERT_TRUE(poolName.find("parallel-aggr-3") != std::string::npos);
+        isParallel = true;
+        break;
+      case 1:
+        ASSERT_TRUE(poolName.find("serial-aggr-2") != std::string::npos);
+        break;
+      case 2:
+        ASSERT_TRUE(poolName.find("parallel-aggr-1") != std::string::npos);
+        isParallel = true;
+        break;
+      case 3:
+        ASSERT_TRUE(poolName.find("serial-aggr-0") != std::string::npos);
+        break;
+      default:
+        FAIL();
+    }
+    for (uint32_t j = start; j < start + kNumLeafPerAggr - 1; j++) {
+      if (isParallel) {
+        // Priority is not applicable to parallel reclaimer.
+        continue;
+      }
+      const auto* firstReclaimer =
+          dynamic_cast<MockMemoryReclaimer*>(reclaimOrder[j]->reclaimer());
+      ASSERT_TRUE(firstReclaimer != nullptr);
+      const auto* secondReclaimer =
+          dynamic_cast<MockMemoryReclaimer*>(reclaimOrder[j + 1]->reclaimer());
+      ASSERT_TRUE(secondReclaimer != nullptr);
+      ASSERT_LE(firstReclaimer->priority(), secondReclaimer->priority());
+    }
+  }
 }

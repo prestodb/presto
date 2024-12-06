@@ -178,7 +178,8 @@ class TableWriter : public Operator {
         const std::shared_ptr<Driver>& driver,
         Operator* op)
         : ParallelMemoryReclaimer(
-              spillConfig.has_value() ? spillConfig.value().executor : nullptr),
+              spillConfig.has_value() ? spillConfig.value().executor : nullptr,
+              0),
           canReclaim_(spillConfig.has_value()),
           driver_(driver),
           op_(op) {}
