@@ -209,6 +209,12 @@
         <dependencies>
             <dependency>
                 <groupId>io.netty</groupId>
+                <artifactId>netty-common</artifactId>
+                <version>4.1.115.Final</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.netty</groupId>
                 <artifactId>netty-handler</artifactId>
                 <version>4.1.107.Final</version>
             </dependency>
