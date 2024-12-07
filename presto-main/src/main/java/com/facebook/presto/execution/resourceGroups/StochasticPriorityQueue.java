@@ -219,7 +219,7 @@ final class StochasticPriorityQueue<E>
             int rightDescendants = right.map(node -> node.descendants).orElse(0);
 
             if (leftDescendants == 0 && rightDescendants == 0) {
-                return left.orElse(right.orElse(this));
+                return left.orElseGet(() -> right.orElse(this));
             }
             if (leftDescendants > rightDescendants) {
                 return left.get().findLeaf();

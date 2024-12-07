@@ -315,7 +315,7 @@ public class IcebergPageSink
     {
         String fileName = fileFormat.addExtension(randomUUID().toString());
         Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
-                .orElse(new Path(locationProvider.newDataLocation(fileName)));
+                .orElseGet(() -> new Path(locationProvider.newDataLocation(fileName)));
 
         IcebergFileWriter writer = fileWriterFactory.createFileWriter(
                 outputPath,

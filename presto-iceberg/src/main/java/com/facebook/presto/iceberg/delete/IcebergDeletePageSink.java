@@ -104,7 +104,7 @@ public class IcebergDeletePageSink
         this.partitionData = partitionDataFromJson(partitionSpec, partitionDataAsJson);
         String fileName = fileFormat.addExtension(String.format("delete_file_%s", randomUUID().toString()));
         this.outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
-                .orElse(new Path(locationProvider.newDataLocation(fileName)));
+                .orElseGet(() -> new Path(locationProvider.newDataLocation(fileName)));
         this.positionDeleteWriter = new IcebergPositionDeleteWriter();
     }
 
