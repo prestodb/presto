@@ -32,6 +32,7 @@ class GroupingSet {
       const RowTypePtr& inputType,
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       std::vector<column_index_t>&& preGroupedKeys,
+      std::vector<column_index_t>&& groupingKeyOutputProjections,
       std::vector<AggregateInfo>&& aggregates,
       bool ignoreNullKeys,
       bool isPartial,
@@ -272,8 +273,13 @@ class GroupingSet {
 
   std::vector<column_index_t> keyChannels_;
 
-  /// A subset of grouping keys on which the input is clustered.
+  // A subset of grouping keys on which the input is clustered.
   const std::vector<column_index_t> preGroupedKeyChannels_;
+
+  // Provides the column projections for extracting the grouping keys from
+  // 'table_' for output. The vector index is the output channel and the value
+  // is the corresponding column index stored in 'table_'.
+  std::vector<column_index_t> groupingKeyOutputProjections_;
 
   std::vector<std::unique_ptr<VectorHasher>> hashers_;
   const bool isGlobal_;

@@ -325,5 +325,51 @@ TEST_F(PrefixSortTest, checkMaxNormalizedKeySizeForMultipleKeys) {
   ASSERT_EQ(sortLayoutTwoKeys.prefixOffsets[0], 0);
   ASSERT_EQ(sortLayoutTwoKeys.prefixOffsets[1], 9);
 }
+
+TEST_F(PrefixSortTest, optimizeSortKeysOrder) {
+  struct {
+    RowTypePtr inputType;
+    std::vector<column_index_t> keyChannels;
+    std::vector<column_index_t> expectedSortedKeyChannels;
+
+    std::string debugString() const {
+      return fmt::format(
+          "inputType {}, keyChannels {}, expectedSortedKeyChannels {}",
+          inputType->toString(),
+          fmt::join(keyChannels, ":"),
+          fmt::join(expectedSortedKeyChannels, ":"));
+    }
+  } testSettings[] = {
+      {ROW({BIGINT(), BIGINT()}), {0, 1}, {0, 1}},
+      {ROW({BIGINT(), BIGINT()}), {1, 0}, {1, 0}},
+      {ROW({BIGINT(), BIGINT(), BIGINT()}), {1, 0}, {1, 0}},
+      {ROW({BIGINT(), BIGINT(), BIGINT()}), {1, 0}, {1, 0}},
+      {ROW({BIGINT(), SMALLINT(), BIGINT()}), {0, 1}, {1, 0}},
+      {ROW({BIGINT(), SMALLINT(), VARCHAR()}), {0, 1, 2}, {1, 0, 2}},
+      {ROW({TINYINT(), BIGINT(), VARCHAR(), TINYINT(), INTEGER(), VARCHAR()}),
+       {2, 1, 0, 4, 5, 3},
+       {4, 1, 2, 0, 5, 3}},
+      {ROW({INTEGER(), BIGINT(), VARCHAR(), TINYINT(), INTEGER(), VARCHAR()}),
+       {5, 4, 3, 2, 1, 0},
+       {4, 0, 1, 5, 3, 2}}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    std::vector<IdentityProjection> projections;
+    for (auto i = 0; i < testData.keyChannels.size(); ++i) {
+      projections.emplace_back(testData.keyChannels[i], i);
+    }
+    PrefixSortLayout::optimizeSortKeysOrder(testData.inputType, projections);
+    std::unordered_set<column_index_t> outputChannelSet;
+    for (auto i = 0; i < projections.size(); ++i) {
+      ASSERT_EQ(
+          projections[i].inputChannel, testData.expectedSortedKeyChannels[i]);
+      ASSERT_EQ(
+          testData.keyChannels[projections[i].outputChannel],
+          projections[i].inputChannel);
+    }
+  }
+}
 } // namespace
 } // namespace facebook::velox::exec::prefixsort::test

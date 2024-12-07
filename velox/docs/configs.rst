@@ -142,7 +142,7 @@ Generic Configuration
      - Maximum number of bytes to use for the normalized key in prefix-sort. Use 0 to disable prefix-sort.
    * - prefixsort_min_rows
      - integer
-     - 130
+     - 128
      - Minimum number of rows to use prefix-sort. The default value has been derived using micro-benchmarking.
 
 .. _expression-evaluation-conf:

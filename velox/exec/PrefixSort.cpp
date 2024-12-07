@@ -126,6 +126,7 @@ compareByWord(uint64_t* left, uint64_t* right, int32_t bytes) {
 
 } // namespace
 
+// static.
 PrefixSortLayout PrefixSortLayout::makeSortLayout(
     const std::vector<TypePtr>& types,
     const std::vector<CompareFlags>& compareFlags,
@@ -167,6 +168,42 @@ PrefixSortLayout PrefixSortLayout::makeSortLayout(
       std::move(prefixOffsets),
       std::move(encoders),
       numPaddingBytes};
+}
+
+// static.
+void PrefixSortLayout::optimizeSortKeysOrder(
+    const RowTypePtr& rowType,
+    std::vector<IdentityProjection>& keyColumnProjections) {
+  std::vector<std::optional<uint32_t>> encodedKeySizes(
+      rowType->size(), std::nullopt);
+  for (const auto& projection : keyColumnProjections) {
+    encodedKeySizes[projection.inputChannel] = PrefixSortEncoder::encodedSize(
+        rowType->childAt(projection.inputChannel)->kind());
+  }
+
+  std::sort(
+      keyColumnProjections.begin(),
+      keyColumnProjections.end(),
+      [&](const IdentityProjection& lhs, const IdentityProjection& rhs) {
+        const auto& lhsEncodedSize = encodedKeySizes[lhs.inputChannel];
+        const auto& rhsEncodedSize = encodedKeySizes[rhs.inputChannel];
+        if (lhsEncodedSize.has_value() && !rhsEncodedSize.has_value()) {
+          return true;
+        }
+        if (!lhsEncodedSize.has_value() && rhsEncodedSize.has_value()) {
+          return false;
+        }
+        if (lhsEncodedSize.has_value() && rhsEncodedSize.has_value()) {
+          if (lhsEncodedSize.value() < rhsEncodedSize.value()) {
+            return true;
+          }
+          if (lhsEncodedSize.value() > rhsEncodedSize.value()) {
+            return false;
+          }
+        }
+        // Tie breaks with the original key column order.
+        return lhs.outputChannel < rhs.outputChannel;
+      });
 }
 
 FOLLY_ALWAYS_INLINE int PrefixSort::compareAllNormalizedKeys(
@@ -236,12 +273,12 @@ uint32_t PrefixSort::maxRequiredBytes(
     const std::vector<CompareFlags>& compareFlags,
     const velox::common::PrefixSortConfig& config,
     memory::MemoryPool* pool) {
-  if (rowContainer->numRows() < config.threshold) {
+  if (rowContainer->numRows() < config.minNumRows) {
     return 0;
   }
   VELOX_CHECK_EQ(rowContainer->keyTypes().size(), compareFlags.size());
   const auto sortLayout = PrefixSortLayout::makeSortLayout(
-      rowContainer->keyTypes(), compareFlags, config.maxNormalizedKeySize);
+      rowContainer->keyTypes(), compareFlags, config.maxNormalizedKeyBytes);
   if (!sortLayout.hasNormalizedKeys) {
     return 0;
   }
@@ -303,6 +340,12 @@ void PrefixSort::sortInternal(
     PrefixSortRunner sortRunner(entrySize, swapBuffer->asMutable<char>());
     auto* prefixBufferStart = prefixBuffer;
     auto* prefixBufferEnd = prefixBuffer + numRows * entrySize;
+    if (sortLayout_.numNormalizedKeys > 0) {
+      addThreadLocalRuntimeStat(
+          PrefixSort::kNumPrefixSortKeys,
+          RuntimeCounter(
+              sortLayout_.numNormalizedKeys, RuntimeCounter::Unit::kNone));
+    }
     if (sortLayout_.hasNonNormalizedKey) {
       sortRunner.quickSort(
           prefixBufferStart, prefixBufferEnd, [&](char* lhs, char* rhs) {

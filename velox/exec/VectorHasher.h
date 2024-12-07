@@ -709,6 +709,10 @@ std::vector<std::unique_ptr<VectorHasher>> createVectorHashers(
     const RowTypePtr& rowType,
     const std::vector<core::FieldAccessTypedExprPtr>& keys);
 
+std::vector<std::unique_ptr<VectorHasher>> createVectorHashers(
+    const RowTypePtr& rowType,
+    const std::vector<column_index_t>& keyChannels);
+
 } // namespace facebook::velox::exec
 
 #include "velox/exec/VectorHasher-inl.h"

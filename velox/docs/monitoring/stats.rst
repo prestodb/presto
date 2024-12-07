@@ -190,3 +190,18 @@ These stats are reported by shuffle operators.
      - Indicates the vector serde kind used by an operator for shuffle with 1
        for Presto, 2 for CompactRow, 3 for UnsafeRow. It is reported by Exchange,
        MergeExchange and PartitionedOutput operators for now.
+
+PrefixSort
+----------
+These stats are reported by prefix sort.
+
+.. list-table::
+   :widths: 50 25 50
+   :header-rows: 1
+
+   * - Stats
+     - Unit
+     - Description
+   * - numPrefixSortKeys
+     -
+     - The number of columns sorted using prefix sort.

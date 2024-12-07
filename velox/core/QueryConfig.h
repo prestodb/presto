@@ -836,12 +836,12 @@ class QueryConfig {
     return get<uint32_t>(kDriverCpuTimeSliceLimitMs, 0);
   }
 
-  int64_t prefixSortNormalizedKeyMaxBytes() const {
-    return get<int64_t>(kPrefixSortNormalizedKeyMaxBytes, 128);
+  uint32_t prefixSortNormalizedKeyMaxBytes() const {
+    return get<uint32_t>(kPrefixSortNormalizedKeyMaxBytes, 128);
   }
 
-  int32_t prefixSortMinRows() const {
-    return get<int32_t>(kPrefixSortMinRows, 130);
+  uint32_t prefixSortMinRows() const {
+    return get<uint32_t>(kPrefixSortMinRows, 128);
   }
 
   double scaleWriterRebalanceMaxMemoryUsageRatio() const {

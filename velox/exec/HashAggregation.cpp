@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 #include "velox/exec/HashAggregation.h"
+
 #include <optional>
+#include "velox/exec/PrefixSort.h"
 #include "velox/exec/Task.h"
 #include "velox/expression/Expr.h"
 
@@ -54,9 +56,13 @@ void HashAggregation::initialize() {
   VELOX_CHECK(pool()->trackUsage());
 
   const auto& inputType = aggregationNode_->sources()[0]->outputType();
-  auto hashers =
-      createVectorHashers(inputType, aggregationNode_->groupingKeys());
-  auto numHashers = hashers.size();
+  std::vector<column_index_t> groupingKeyInputChannels;
+  std::vector<column_index_t> groupingKeyOutputChannels;
+  setupGroupingKeyChannelProjections(
+      groupingKeyInputChannels, groupingKeyOutputChannels);
+
+  auto hashers = createVectorHashers(inputType, groupingKeyInputChannels);
+  const auto numHashers = hashers.size();
 
   std::vector<column_index_t> preGroupedChannels;
   preGroupedChannels.reserve(aggregationNode_->preGroupedKeys().size());
@@ -82,7 +88,8 @@ void HashAggregation::initialize() {
   }
 
   for (auto i = 0; i < hashers.size(); ++i) {
-    identityProjections_.emplace_back(hashers[i]->channel(), i);
+    identityProjections_.emplace_back(
+        hashers[groupingKeyOutputChannels[i]]->channel(), i);
   }
 
   std::optional<column_index_t> groupIdChannel;
@@ -96,6 +103,7 @@ void HashAggregation::initialize() {
       inputType,
       std::move(hashers),
       std::move(preGroupedChannels),
+      std::move(groupingKeyOutputChannels),
       std::move(aggregateInfos),
       aggregationNode_->ignoreNullKeys(),
       isPartialOutput_,
@@ -108,6 +116,54 @@ void HashAggregation::initialize() {
       &spillStats_);
 
   aggregationNode_.reset();
+}
+
+void HashAggregation::setupGroupingKeyChannelProjections(
+    std::vector<column_index_t>& groupingKeyInputChannels,
+    std::vector<column_index_t>& groupingKeyOutputChannels) const {
+  VELOX_CHECK(groupingKeyInputChannels.empty());
+  VELOX_CHECK(groupingKeyOutputChannels.empty());
+
+  const auto& inputType = aggregationNode_->sources()[0]->outputType();
+  const auto& groupingKeys = aggregationNode_->groupingKeys();
+  // The map from the grouping key output channel to the input channel.
+  //
+  // NOTE: grouping key output order is specified as 'groupingKeys' in
+  // 'aggregationNode_'.
+  std::vector<IdentityProjection> groupingKeyProjections;
+  groupingKeyProjections.reserve(groupingKeys.size());
+  for (auto i = 0; i < groupingKeys.size(); ++i) {
+    groupingKeyProjections.emplace_back(
+        exprToChannel(groupingKeys[i].get(), inputType), i);
+  }
+
+  const bool reorderGroupingKeys =
+      canSpill() && spillConfig()->prefixSortEnabled();
+  // If prefix sort is enabled, we need to sort the grouping key's layout in the
+  // grouping set to maximize the prefix sort acceleration if spill is
+  // triggered. The reorder stores the grouping key with smaller prefix sort
+  // encoded size first.
+  if (reorderGroupingKeys) {
+    PrefixSortLayout::optimizeSortKeysOrder(inputType, groupingKeyProjections);
+  }
+
+  groupingKeyInputChannels.reserve(groupingKeys.size());
+  for (auto i = 0; i < groupingKeys.size(); ++i) {
+    groupingKeyInputChannels.push_back(groupingKeyProjections[i].inputChannel);
+  }
+
+  groupingKeyOutputChannels.resize(groupingKeys.size());
+  if (!reorderGroupingKeys) {
+    // If there is no reorder, then grouping key output channels are the same as
+    // the column index order int he grouping set.
+    std::iota(
+        groupingKeyOutputChannels.begin(), groupingKeyOutputChannels.end(), 0);
+    return;
+  }
+
+  for (auto i = 0; i < groupingKeys.size(); ++i) {
+    groupingKeyOutputChannels[groupingKeyProjections[i].outputChannel] = i;
+  }
 }
 
 bool HashAggregation::abandonPartialAggregationEarly(int64_t numOutput) const {
@@ -328,7 +384,7 @@ RowVectorPtr HashAggregation::getDistinctOutput() {
     auto& lookup = groupingSet_->hashLookup();
     const auto size = lookup.newGroups.size();
     BufferPtr indices = allocateIndices(size, operatorCtx_->pool());
-    auto indicesPtr = indices->asMutable<vector_size_t>();
+    auto* indicesPtr = indices->asMutable<vector_size_t>();
     std::copy(lookup.newGroups.begin(), lookup.newGroups.end(), indicesPtr);
     newDistincts_ = false;
     auto output = fillOutput(size, indices);

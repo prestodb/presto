@@ -75,6 +75,11 @@ struct SpillConfig {
   /// Checks if the given 'startBitOffset' has exceeded the max spill limit.
   bool exceedSpillLevelLimit(uint8_t startBitOffset) const;
 
+  /// Returns true if prefix sort is enabled.
+  bool prefixSortEnabled() const {
+    return prefixSortConfig.has_value();
+  }
+
   /// A callback function that returns the spill directory path. Implementations
   /// can use it to ensure the path exists before returning.
   GetSpillDirectoryPathCB getSpillDirPathCb;

@@ -44,6 +44,7 @@ GroupingSet::GroupingSet(
     const RowTypePtr& inputType,
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
     std::vector<column_index_t>&& preGroupedKeys,
+    std::vector<column_index_t>&& groupingKeyOutputProjections,
     std::vector<AggregateInfo>&& aggregates,
     bool ignoreNullKeys,
     bool isPartial,
@@ -55,6 +56,7 @@ GroupingSet::GroupingSet(
     OperatorCtx* operatorCtx,
     folly::Synchronized<common::SpillStats>* spillStats)
     : preGroupedKeyChannels_(std::move(preGroupedKeys)),
+      groupingKeyOutputProjections_(std::move(groupingKeyOutputProjections)),
       hashers_(std::move(hashers)),
       isGlobal_(hashers_.empty()),
       isPartial_(isPartial),
@@ -74,9 +76,21 @@ GroupingSet::GroupingSet(
       spillStats_(spillStats) {
   VELOX_CHECK_NOT_NULL(nonReclaimableSection_);
   VELOX_CHECK(pool_.trackUsage());
+
   for (auto& hasher : hashers_) {
     keyChannels_.push_back(hasher->channel());
   }
+
+  if (groupingKeyOutputProjections_.empty()) {
+    groupingKeyOutputProjections_.resize(keyChannels_.size());
+    std::iota(
+        groupingKeyOutputProjections_.begin(),
+        groupingKeyOutputProjections_.end(),
+        0);
+  } else {
+    VELOX_CHECK_EQ(groupingKeyOutputProjections_.size(), keyChannels_.size());
+  }
+
   std::unordered_map<column_index_t, int> channelUseCount;
   for (const auto& aggregate : aggregates_) {
     for (auto channel : aggregate.inputs) {
@@ -124,17 +138,18 @@ std::unique_ptr<GroupingSet> GroupingSet::createForMarkDistinct(
   return std::make_unique<GroupingSet>(
       inputType,
       std::move(hashers),
-      /*preGroupedKeys*/ std::vector<column_index_t>{},
-      /*aggregates*/ std::vector<AggregateInfo>{},
-      /*ignoreNullKeys*/ false,
-      /*isPartial*/ false,
-      /*isRawInput*/ false,
-      /*globalGroupingSets*/ std::vector<vector_size_t>{},
-      /*groupIdColumn*/ std::nullopt,
-      /*spillConfig*/ nullptr,
+      /*preGroupedKeys=*/std::vector<column_index_t>{},
+      /*groupingKeyOutputProjections=*/std::vector<column_index_t>{},
+      /*aggregates=*/std::vector<AggregateInfo>{},
+      /*ignoreNullKeys=*/false,
+      /*isPartial=*/false,
+      /*isRawInput=*/false,
+      /*globalGroupingSets=*/std::vector<vector_size_t>{},
+      /*groupIdColumn=*/std::nullopt,
+      /*spillConfig=*/nullptr,
       nonReclaimableSection,
       operatorCtx,
-      /*spillStats_*/ nullptr);
+      /*spillStats=*/nullptr);
 };
 
 namespace {
@@ -302,7 +317,6 @@ void GroupingSet::addRemainingInput() {
 }
 
 namespace {
-
 void initializeAggregates(
     const std::vector<AggregateInfo>& aggregates,
     RowContainer& rows,
@@ -758,10 +772,14 @@ void GroupingSet::extractGroups(
     return;
   }
   RowContainer& rows = *table_->rows();
-  auto totalKeys = rows.keyTypes().size();
+  const auto totalKeys = rows.keyTypes().size();
   for (int32_t i = 0; i < totalKeys; ++i) {
-    auto keyVector = result->childAt(i);
-    rows.extractColumn(groups.data(), groups.size(), i, keyVector);
+    auto& keyVector = result->childAt(i);
+    rows.extractColumn(
+        groups.data(),
+        groups.size(),
+        groupingKeyOutputProjections_[i],
+        keyVector);
   }
   for (int32_t i = 0; i < aggregates_.size(); ++i) {
     if (!aggregates_[i].sortingKeys.empty()) {
@@ -1330,7 +1348,8 @@ void GroupingSet::toIntermediate(
   }
 
   for (auto i = 0; i < keyChannels_.size(); ++i) {
-    result->childAt(i) = input->childAt(keyChannels_[i]);
+    const auto inputKeyChannel = keyChannels_[groupingKeyOutputProjections_[i]];
+    result->childAt(i) = input->childAt(inputKeyChannel);
   }
   for (auto i = 0; i < aggregates_.size(); ++i) {
     auto& function = aggregates_[i].function;

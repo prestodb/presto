@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/common/base/PrefixSortConfig.h"
+#include "velox/exec/Operator.h"
 #include "velox/exec/RowContainer.h"
 #include "velox/exec/prefixsort/PrefixSortAlgorithm.h"
 #include "velox/exec/prefixsort/PrefixSortEncoder.h"
@@ -67,6 +68,17 @@ struct PrefixSortLayout {
       const std::vector<TypePtr>& types,
       const std::vector<CompareFlags>& compareFlags,
       uint32_t maxNormalizedKeySize);
+
+  /// Optimizes the order of sort key columns to maximize the number of prefix
+  /// sort keys for acceleration. This only applies for use case which doesn't
+  /// need a total order such as spill sort for hash aggregation.
+  /// 'keyColumnProjections' provides the mapping from the orginal key column
+  /// order to its channel in 'rowType'. The function reoders
+  /// 'keyColumnProjections' based on the prefix sort encoded size of each key
+  /// column type with smaller size first.
+  static void optimizeSortKeysOrder(
+      const RowTypePtr& rowType,
+      std::vector<IdentityProjection>& keyColumnProjections);
 };
 
 class PrefixSort {
@@ -105,14 +117,14 @@ class PrefixSort {
       const velox::common::PrefixSortConfig& config,
       memory::MemoryPool* pool,
       std::vector<char*, memory::StlAllocator<char*>>& rows) {
-    if (rowContainer->numRows() < config.threshold) {
+    if (rowContainer->numRows() < config.minNumRows) {
       stdSort(rows, rowContainer, compareFlags);
       return;
     }
 
     VELOX_CHECK_EQ(rowContainer->keyTypes().size(), compareFlags.size());
     const auto sortLayout = PrefixSortLayout::makeSortLayout(
-        rowContainer->keyTypes(), compareFlags, config.maxNormalizedKeySize);
+        rowContainer->keyTypes(), compareFlags, config.maxNormalizedKeyBytes);
     // All keys can not normalize, skip the binary string compare opt.
     // Putting this outside sort-internal helps with stdSort.
     if (!sortLayout.hasNormalizedKeys) {
@@ -132,6 +144,10 @@ class PrefixSort {
       const std::vector<CompareFlags>& compareFlags,
       const velox::common::PrefixSortConfig& config,
       memory::MemoryPool* pool);
+
+  /// The runtime stats name collected for prefix sort.
+  /// The number of prefix sort keys.
+  static inline const std::string kNumPrefixSortKeys{"numPrefixSortKeys"};
 
  private:
   /// Fallback to stdSort when prefix sort conditions such as config and memory

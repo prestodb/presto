@@ -31,6 +31,23 @@ using namespace facebook::velox;
 using namespace facebook::velox::memory;
 
 namespace facebook::velox::functions::test {
+namespace {
+// Class to write runtime stats in the tests to the stats container.
+class TestRuntimeStatWriter : public BaseRuntimeStatWriter {
+ public:
+  explicit TestRuntimeStatWriter(
+      std::unordered_map<std::string, RuntimeMetric>& stats)
+      : stats_{stats} {}
+
+  void addRuntimeStat(const std::string& name, const RuntimeCounter& value)
+      override {
+    addOperatorRuntimeStats(name, value, stats_);
+  }
+
+ private:
+  std::unordered_map<std::string, RuntimeMetric>& stats_;
+};
+} // namespace
 
 class SortBufferTest : public OperatorTestBase,
                        public testing::WithParamInterface<bool> {
@@ -39,6 +56,8 @@ class SortBufferTest : public OperatorTestBase,
     OperatorTestBase::SetUp();
     filesystems::registerLocalFileSystem();
     rng_.seed(123);
+    statWriter_ = std::make_unique<TestRuntimeStatWriter>(stats_);
+    setThreadLocalRunTimeStatWriter(statWriter_.get());
   }
 
   void TearDown() override {
@@ -69,7 +88,9 @@ class SortBufferTest : public OperatorTestBase,
 
   const bool enableSpillPrefixSort_{GetParam()};
   const velox::common::PrefixSortConfig prefixSortConfig_ =
-      velox::common::PrefixSortConfig{std::numeric_limits<int32_t>::max(), 130};
+      velox::common::PrefixSortConfig{
+          std::numeric_limits<uint32_t>::max(),
+          GetParam() ? 8 : std::numeric_limits<uint32_t>::max()};
   const std::optional<common::PrefixSortConfig> spillPrefixSortConfig_ =
       enableSpillPrefixSort_
       ? std::optional<common::PrefixSortConfig>(prefixSortConfig_)
@@ -101,9 +122,32 @@ class SortBufferTest : public OperatorTestBase,
 
   tsan_atomic<bool> nonReclaimableSection_{false};
   folly::Random::DefaultGenerator rng_;
+  std::unordered_map<std::string, RuntimeMetric> stats_;
+  std::unique_ptr<TestRuntimeStatWriter> statWriter_;
 };
 
 TEST_P(SortBufferTest, singleKey) {
+  const RowVectorPtr data = makeRowVector(
+      {makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 8, 10, 12, 15}),
+       makeFlatVector<int32_t>(
+           {17, 16, 15, 14, 13, 10, 8, 7, 4, 3}), // sorted column
+       makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6, 8, 10, 12, 15}),
+       makeFlatVector<float>(
+           {1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.1}),
+       makeFlatVector<double>(
+           {1.1, 2.2, 2.2, 5.5, 5.5, 6.6, 7.7, 8.8, 9.9, 10.1}),
+       makeFlatVector<std::string>(
+           {"hello",
+            "world",
+            "today",
+            "is",
+            "great",
+            "hello",
+            "world",
+            "is",
+            "great",
+            "today"})});
+
   struct {
     std::vector<CompareFlags> sortCompareFlags;
     std::vector<int32_t> expectedResult;
@@ -124,12 +168,12 @@ TEST_P(SortBufferTest, singleKey) {
          true,
          false,
          CompareFlags::NullHandlingMode::kNullAsValue}}, // Ascending
-       {1, 2, 3, 4, 5}},
+       {3, 4, 7, 8, 10, 13, 14, 15, 16, 17}},
       {{{true,
          false,
          false,
          CompareFlags::NullHandlingMode::kNullAsValue}}, // Descending
-       {5, 4, 3, 2, 1}}};
+       {17, 16, 15, 14, 13, 10, 8, 7, 4, 3}}};
 
   // Specifies the sort columns ["c1"].
   sortColumnIndices_ = {1};
@@ -143,25 +187,30 @@ TEST_P(SortBufferTest, singleKey) {
         &nonReclaimableSection_,
         prefixSortConfig_);
 
-    RowVectorPtr data = makeRowVector(
-        {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
-         makeFlatVector<int32_t>({5, 4, 3, 2, 1}), // sorted column
-         makeFlatVector<int16_t>({1, 2, 3, 4, 5}),
-         makeFlatVector<float>({1.1, 2.2, 3.3, 4.4, 5.5}),
-         makeFlatVector<double>({1.1, 2.2, 2.2, 5.5, 5.5}),
-         makeFlatVector<std::string>(
-             {"hello", "world", "today", "is", "great"})});
-
     sortBuffer->addInput(data);
     sortBuffer->noMoreInput();
     auto output = sortBuffer->getOutput(10000);
-    ASSERT_EQ(output->size(), 5);
+    ASSERT_EQ(output->size(), 10);
     int resultIndex = 0;
     for (int expectedValue : testData.expectedResult) {
       ASSERT_EQ(
           output->childAt(1)->asFlatVector<int32_t>()->valueAt(resultIndex++),
           expectedValue);
     }
+    if (GetParam()) {
+      ASSERT_EQ(
+          stats_.at(PrefixSort::kNumPrefixSortKeys).sum,
+          sortColumnIndices_.size());
+      ASSERT_EQ(
+          stats_.at(PrefixSort::kNumPrefixSortKeys).max,
+          sortColumnIndices_.size());
+      ASSERT_EQ(
+          stats_.at(PrefixSort::kNumPrefixSortKeys).min,
+          sortColumnIndices_.size());
+    } else {
+      ASSERT_EQ(stats_.count(PrefixSort::kNumPrefixSortKeys), 0);
+    }
+    stats_.clear();
   }
 }
 
@@ -175,23 +224,54 @@ TEST_P(SortBufferTest, multipleKeys) {
       prefixSortConfig_);
 
   RowVectorPtr data = makeRowVector(
-      {makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
-       makeFlatVector<int32_t>({5, 4, 3, 2, 1}), // sorted-2 column
-       makeFlatVector<int16_t>({1, 2, 3, 4, 5}),
-       makeFlatVector<float>({1.1, 2.2, 3.3, 4.4, 5.5}),
-       makeFlatVector<double>({1.1, 2.2, 2.2, 5.5, 5.5}), // sorted-1 column
+      {makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 8, 10, 12, 15}),
+       makeFlatVector<int32_t>(
+           {15, 12, 9, 8, 7, 6, 5, 4, 3, 1}), // sorted-2 column
+       makeFlatVector<int16_t>({1, 2, 3, 4, 5, 6, 8, 10, 12, 15}),
+       makeFlatVector<float>(
+           {1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.1}),
+       makeFlatVector<double>(
+           {1.1, 2.2, 2.2, 5.5, 5.5, 7.7, 8.1, 8, 8.1, 8.1, 10.0}), // sorted-1
+                                                                    // column
        makeFlatVector<std::string>(
-           {"hello", "world", "today", "is", "great"})});
+           {"hello",
+            "world",
+            "today",
+            "is",
+            "great",
+            "hello",
+            "world",
+            "is",
+            "sort",
+            "sorted"})});
 
   sortBuffer->addInput(data);
   sortBuffer->noMoreInput();
   auto output = sortBuffer->getOutput(10000);
-  ASSERT_EQ(output->size(), 5);
-  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(0), 5);
-  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(1), 3);
-  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(2), 4);
-  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(3), 1);
-  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(4), 2);
+  ASSERT_EQ(output->size(), 10);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(0), 15);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(1), 9);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(2), 12);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(3), 7);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(4), 8);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(5), 6);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(6), 4);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(7), 1);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(8), 3);
+  ASSERT_EQ(output->childAt(1)->asFlatVector<int32_t>()->valueAt(9), 5);
+  if (GetParam()) {
+    ASSERT_EQ(
+        stats_.at(PrefixSort::kNumPrefixSortKeys).sum,
+        sortColumnIndices_.size());
+    ASSERT_EQ(
+        stats_.at(PrefixSort::kNumPrefixSortKeys).max,
+        sortColumnIndices_.size());
+    ASSERT_EQ(
+        stats_.at(PrefixSort::kNumPrefixSortKeys).min,
+        sortColumnIndices_.size());
+  } else {
+    ASSERT_EQ(stats_.count(PrefixSort::kNumPrefixSortKeys), 0);
+  }
 }
 
 // TODO: enable it later with test utility to compare the sorted result.
@@ -267,6 +347,7 @@ TEST_P(SortBufferTest, DISABLED_randomData) {
       inputVectors.push_back(input);
     }
     sortBuffer->noMoreInput();
+    stats_.clear();
     // todo: have a utility function buildExpectedSortResult and verify the
     // sorting result for random data.
   }
@@ -469,6 +550,20 @@ TEST_P(SortBufferTest, spill) {
             memory::spillMemoryPool()->stats().peakBytes, peakSpillMemoryUsage);
       }
     }
+    if (GetParam()) {
+      ASSERT_GE(
+          stats_.at(PrefixSort::kNumPrefixSortKeys).sum,
+          sortColumnIndices_.size());
+      ASSERT_EQ(
+          stats_.at(PrefixSort::kNumPrefixSortKeys).max,
+          sortColumnIndices_.size());
+      ASSERT_EQ(
+          stats_.at(PrefixSort::kNumPrefixSortKeys).min,
+          sortColumnIndices_.size());
+    } else {
+      ASSERT_EQ(stats_.count(PrefixSort::kNumPrefixSortKeys), 0);
+    }
+    stats_.clear();
   }
 }
 

@@ -72,6 +72,16 @@ class HashAggregation : public Operator {
 
   RowVectorPtr getDistinctOutput();
 
+  // Setups the projections for accessing grouping keys stored in grouping
+  // set.
+  // For 'groupingKeyInputChannels', the index is the key column index from
+  // the grouping set, and the value is the key column channel from the input.
+  // For 'outputChannelProjections', the index is the key column channel from
+  // the output, and the value is the key column index from the grouping set.
+  void setupGroupingKeyChannelProjections(
+      std::vector<column_index_t>& groupingKeyInputChannels,
+      std::vector<column_index_t>& groupingKeyOutputChannels) const;
+
   void updateEstimatedOutputRowSize();
 
   std::shared_ptr<const core::AggregationNode> aggregationNode_;

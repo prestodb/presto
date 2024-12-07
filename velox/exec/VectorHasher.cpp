@@ -896,14 +896,25 @@ std::vector<std::unique_ptr<VectorHasher>> createVectorHashers(
     const RowTypePtr& rowType,
     const std::vector<core::FieldAccessTypedExprPtr>& keys) {
   const auto numKeys = keys.size();
-
-  std::vector<std::unique_ptr<VectorHasher>> hashers;
-  hashers.reserve(numKeys);
+  std::vector<column_index_t> keyChannels;
+  keyChannels.reserve(numKeys);
   for (const auto& key : keys) {
     const auto channel = exprToChannel(key.get(), rowType);
-    hashers.push_back(VectorHasher::create(key->type(), channel));
+    keyChannels.push_back(channel);
   }
+  return createVectorHashers(rowType, keyChannels);
+}
 
+std::vector<std::unique_ptr<VectorHasher>> createVectorHashers(
+    const RowTypePtr& rowType,
+    const std::vector<column_index_t>& keyChannels) {
+  const auto numKeys = keyChannels.size();
+  std::vector<std::unique_ptr<VectorHasher>> hashers;
+  hashers.reserve(numKeys);
+  for (const auto& keyChannel : keyChannels) {
+    hashers.push_back(
+        VectorHasher::create(rowType->childAt(keyChannel), keyChannel));
+  }
   return hashers;
 }
 

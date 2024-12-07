@@ -28,7 +28,9 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/GroupingSet.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/PrefixSort.h"
 #include "velox/exec/Values.h"
+#include "velox/exec/prefixsort/PrefixSortEncoder.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -958,6 +960,42 @@ TEST_F(AggregationTest, partialDistinctWithAbandon) {
                        .finalAggregation()
                        .planNode())
              .assertResults("SELECT distinct c0, sum(c0) FROM tmp group by c0");
+}
+
+TEST_F(AggregationTest, distinctWithGroupingKeysReordered) {
+  rowType_ = ROW(
+      {"c0", "c1", "c2", "c3"}, {BIGINT(), INTEGER(), VARCHAR(), VARCHAR()});
+
+  const int vectorSize = 2'000;
+  VectorFuzzer::Options options;
+  options.vectorSize = vectorSize;
+  options.stringVariableLength = false;
+  options.stringLength = 128;
+  VectorFuzzer fuzzer(options, pool());
+  const int numVectors{5};
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < numVectors; ++i) {
+    vectors.push_back(fuzzer.fuzzRow(rowType_));
+  }
+
+  createDuckDbTable(vectors);
+
+  // Distinct aggregation with grouping key with larger prefix encoded size
+  // first.
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                  .config(QueryConfig::kAbandonPartialAggregationMinRows, 100)
+                  .config(QueryConfig::kAbandonPartialAggregationMinPct, 50)
+                  .spillDirectory(spillDirectory->getPath())
+                  .config(QueryConfig::kSpillEnabled, true)
+                  .config(QueryConfig::kAggregationSpillEnabled, true)
+                  .config(QueryConfig::kSpillPrefixSortEnabled, true)
+                  .config("max_drivers_per_task", 1)
+                  .plan(PlanBuilder()
+                            .values(vectors)
+                            .singleAggregation({"c2", "c0"}, {})
+                            .planNode())
+                  .assertResults("SELECT distinct c2, c0 FROM tmp");
 }
 
 TEST_F(AggregationTest, largeValueRangeArray) {
@@ -1955,6 +1993,201 @@ TEST_F(AggregationTest, spillingForAggrsWithSorting) {
              .planNode();
   testPlan(
       plan, "SELECT c0 % 7, array_agg(c1 ORDER BY c1) FROM tmp GROUP BY 1");
+}
+
+TEST_F(AggregationTest, spillPrefixSortOptimization) {
+  const RowTypePtr rowType{
+      ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "c8"},
+          {BIGINT(),
+           SMALLINT(),
+           VARCHAR(),
+           TINYINT(),
+           INTEGER(),
+           BIGINT(),
+           REAL(),
+           DOUBLE(),
+           VARCHAR()})};
+  auto vectors = makeVectors(rowType, 1024, 2);
+  int64_t groupingKeyValue{0};
+  for (auto& vector : vectors) {
+    auto groupingVector = BaseVector::create(
+        vector->childAt(0)->type(), vector->childAt(0)->size(), pool_.get());
+    auto* flatGroupingKeyVector = groupingVector->asFlatVector<int64_t>();
+    for (auto i = 0; i < flatGroupingKeyVector->size(); ++i) {
+      flatGroupingKeyVector->set(i, groupingKeyValue++);
+    }
+    vector->childAt(0) = groupingVector;
+  }
+
+  createDuckDbTable(vectors);
+  struct {
+    bool prefixSortSpillEnabled;
+    uint32_t maxNormalizedKeyBytes;
+    uint32_t minNumRows;
+    uint32_t expectedNumPrefixSortKeys;
+
+    std::string debugString() const {
+      return fmt::format(
+          "prefixSortSpillEnabled {}, maxNormalizedKeyBytes {}, minNumRows {}, expectedNumPrefixSortKeys {}",
+          prefixSortSpillEnabled,
+          maxNormalizedKeyBytes,
+          minNumRows,
+          expectedNumPrefixSortKeys);
+    }
+  } testSettings[] = {
+      {true, 0, 0, 0},
+      {false, 0, 0, 0},
+      {true,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() -
+           1,
+       0,
+       0},
+      {false,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() -
+           1,
+       0,
+       0},
+      {true,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value(),
+       0,
+       1},
+      {false,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value(),
+       0,
+       0},
+      {true, 1'000'000, 0, 3},
+      {false, 1'000'000, 0, 0},
+      {true, 1'000'000, 1'000'000, 0},
+      {false, 1'000'000, 1'000'000, 0},
+      {true,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::INTEGER)
+               .value(),
+       0,
+       2},
+      {false,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::INTEGER)
+               .value(),
+       0,
+       0},
+      {true,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::INTEGER)
+               .value(),
+       1'000'000,
+       0},
+      {false,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::INTEGER)
+               .value(),
+       1'000'000,
+       0},
+      {true,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::BIGINT).value(),
+       0,
+       2},
+      {false,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::BIGINT).value(),
+       0,
+       0},
+      {true,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::BIGINT)
+               .value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::INTEGER)
+               .value() -
+           1,
+       0,
+       2},
+      {false,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::BIGINT)
+               .value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::INTEGER)
+               .value() -
+           1,
+       0,
+       0},
+      {true,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::BIGINT)
+               .value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::INTEGER)
+               .value(),
+       0,
+       3},
+      {false,
+       prefixsort::PrefixSortEncoder::encodedSize(TypeKind::SMALLINT).value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::BIGINT)
+               .value() +
+           prefixsort::PrefixSortEncoder::encodedSize(TypeKind::INTEGER)
+               .value(),
+       0,
+       0}};
+
+  for (const auto& testData : testSettings) {
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+    core::PlanNodeId aggrNodeId;
+
+    auto testPlan = [&](const core::PlanNodePtr& plan, const std::string& sql) {
+      SCOPED_TRACE(sql);
+      TestScopedSpillInjection scopedSpillInjection(100);
+      auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                      .spillDirectory(spillDirectory->getPath())
+                      .config(QueryConfig::kSpillEnabled, true)
+                      .config(QueryConfig::kAggregationSpillEnabled, true)
+                      .config(
+                          QueryConfig::kSpillPrefixSortEnabled,
+                          testData.prefixSortSpillEnabled)
+                      .config(
+                          QueryConfig::kPrefixSortMinRows,
+                          std::to_string(testData.minNumRows))
+                      .config(
+                          QueryConfig::kPrefixSortNormalizedKeyMaxBytes,
+                          std::to_string(testData.maxNormalizedKeyBytes))
+                      .plan(plan)
+                      .assertResults(sql);
+
+      auto taskStats = exec::toPlanStats(task->taskStats());
+      auto& stats = taskStats.at(aggrNodeId);
+      checkSpillStats(stats, true);
+      if (testData.expectedNumPrefixSortKeys > 0) {
+        ASSERT_GE(
+            stats.customStats.at(PrefixSort::kNumPrefixSortKeys).sum,
+            testData.expectedNumPrefixSortKeys);
+        ASSERT_EQ(
+            stats.customStats.at(PrefixSort::kNumPrefixSortKeys).max,
+            testData.expectedNumPrefixSortKeys);
+        ASSERT_EQ(
+            stats.customStats.at(PrefixSort::kNumPrefixSortKeys).min,
+            testData.expectedNumPrefixSortKeys);
+      } else {
+        ASSERT_EQ(stats.customStats.count(PrefixSort::kNumPrefixSortKeys), 0);
+      }
+      OperatorTestBase::deleteTaskAndCheckSpillDirectory(task);
+    };
+
+    auto plan = PlanBuilder()
+                    .values(vectors)
+                    .singleAggregation(
+                        {"c8", "c2", "c1", "c0", "c4", "c3"},
+                        {"max(c8)",
+                         "max(c2)",
+                         "sum(c1)",
+                         "sum(c0)",
+                         "min(c4)",
+                         "max(c3)"},
+                        {})
+                    .capturePlanNodeId(aggrNodeId)
+                    .planNode();
+    testPlan(
+        plan,
+        "SELECT c8, c2, c1, c0, c4, c3, max(c8), max(c2), sum(c1), sum(c0), min(c4), max(c3) FROM tmp GROUP BY 1, 2, 3, 4, 5, 6");
+  }
 }
 
 TEST_F(AggregationTest, preGroupedAggregationWithSpilling) {
