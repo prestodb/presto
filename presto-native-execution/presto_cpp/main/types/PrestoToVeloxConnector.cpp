@@ -1097,7 +1097,8 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
 std::unique_ptr<velox::connector::ConnectorSplit>
 HivePrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
-    const protocol::ConnectorSplit* const connectorSplit) const {
+    const protocol::ConnectorSplit* const connectorSplit,
+    const std::map<std::string, std::string>& extraCredentials) const {
   auto hiveSplit =
       dynamic_cast<const protocol::hive::HiveSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
@@ -1331,7 +1332,8 @@ HivePrestoToVeloxConnector::createConnectorProtocol() const {
 std::unique_ptr<velox::connector::ConnectorSplit>
 IcebergPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
-    const protocol::ConnectorSplit* const connectorSplit) const {
+    const protocol::ConnectorSplit* const connectorSplit,
+    const std::map<std::string, std::string>& extraCredentials) const {
   auto icebergSplit =
       dynamic_cast<const protocol::iceberg::IcebergSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
@@ -1482,7 +1484,8 @@ IcebergPrestoToVeloxConnector::createConnectorProtocol() const {
 std::unique_ptr<velox::connector::ConnectorSplit>
 TpchPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
-    const protocol::ConnectorSplit* const connectorSplit) const {
+    const protocol::ConnectorSplit* const connectorSplit,
+    const std::map<std::string, std::string>& extraCredentials) const {
   auto tpchSplit =
       dynamic_cast<const protocol::tpch::TpchSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(

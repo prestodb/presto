@@ -350,7 +350,8 @@ std::optional<RowVectorPtr> SystemDataSource::next(
 std::unique_ptr<velox::connector::ConnectorSplit>
 SystemPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
-    const protocol::ConnectorSplit* const connectorSplit) const {
+    const protocol::ConnectorSplit* const connectorSplit,
+    const std::map<std::string, std::string>& extraCredentials) const {
   auto systemSplit = dynamic_cast<const protocol::SystemSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
       systemSplit, "Unexpected split type {}", connectorSplit->_type);

@@ -26,6 +26,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/ConnectorRegistration.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -276,6 +277,8 @@ void PrestoServer::run() {
       std::make_unique<SystemPrestoToVeloxConnector>("system"));
   registerPrestoToVeloxConnector(
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
+
+  presto::connector::registerAllPrestoConnectors();
 
   initializeVeloxMemory();
   initializeThreadPools();
