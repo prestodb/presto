@@ -516,6 +516,9 @@
                         <ignoredDependency>org.glassfish.jersey.core:jersey-common:jar</ignoredDependency>
                         <ignoredDependency>org.eclipse.jetty:jetty-server:jar</ignoredDependency>
                     </ignoredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>org.apache.lucene:lucene-core:jar:8.10.0</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
