@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -218,7 +219,6 @@ public class ElasticsearchConnectorTest
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+        ElasticSearchClientUtils.performRequest("PUT", format("/%s/_alias/%s", index, alias), client);
     }
 }
