@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
@@ -59,8 +60,13 @@ public final class ArraysOverlapFunction
                     hasNull = true;
                     continue;
                 }
-                if (elementType.equalTo(leftArray, i, rightArray, j)) {
-                    return true;
+                try {
+                    if (elementType.equalTo(leftArray, i, rightArray, j)) {
+                        return true;
+                    }
+                }
+                catch (NotSupportedException e) {
+                    hasNull = true;
                 }
             }
         }
