@@ -66,7 +66,7 @@
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
-        <dep.kafka.version>2.3.1</dep.kafka.version>
+        <dep.kafka.version>3.9.0</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
@@ -1290,7 +1290,7 @@
             <dependency>
                 <groupId>org.pcollections</groupId>
                 <artifactId>pcollections</artifactId>
-                <version>2.1.2</version>
+                <version>4.0.1</version>
             </dependency>
 
             <dependency>
@@ -1807,6 +1807,18 @@
                         <groupId>org.apache.zookeeper</groupId>
                         <artifactId>zookeeper</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.dataformat</groupId>
+                        <artifactId>jackson-dataformat-csv</artifactId>
+                    </exclusion>    
+                    <exclusion>
+                        <groupId>commons-io</groupId>
+                        <artifactId>commons-io</artifactId>
+                    </exclusion>                                    
                 </exclusions>
             </dependency>
 
