@@ -69,7 +69,6 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcOptimiz
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcOptimizedWriterEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcOptimizedWriterValidate;
-import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
@@ -82,7 +81,6 @@ import static com.facebook.presto.hive.HiveSessionProperties.getOrcOptimizedWrit
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStringStatisticsLimit;
 import static com.facebook.presto.hive.HiveSessionProperties.isDwrfWriterStripeCacheEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isExecutionBasedMemoryAccountingEnabled;
-import static com.facebook.presto.hive.HiveSessionProperties.isFlatMapWriterEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isIntegerDictionaryEncodingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStringDictionaryEncodingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStringDictionarySortingEnabled;
@@ -95,13 +93,11 @@ import static com.facebook.presto.orc.metadata.KeyProvider.UNKNOWN;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Boolean.parseBoolean;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMN_TYPES;
-import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_NAME;
 
 public class OrcFileWriterFactory
         implements HiveFileWriterFactory
@@ -301,7 +297,7 @@ public class OrcFileWriterFactory
     {
         boolean mapStatisticsEnabled = isMapStatisticsEnabled(schema);
         int flatMapKeyLimit = getFlatMapKeyLimit(schema);
-        Set<Integer> flattenedColumns = getFlattenedColumns(schema, session);
+        Set<Integer> flattenedColumns = getFlattenedColumns(schema);
 
         return orcFileWriterConfig
                 .toOrcWriterOptionsBuilder()
@@ -389,28 +385,17 @@ public class OrcFileWriterFactory
         return compression;
     }
 
-    private Set<Integer> getFlattenedColumns(Properties schema, ConnectorSession session)
+    private Set<Integer> getFlattenedColumns(Properties schema)
     {
         boolean flatMapsEnabled = parseBoolean(schema.getProperty(ORC_FLAT_MAP_WRITER_ENABLED_KEY, "false"));
-        ImmutableSet.Builder<Integer> flattenedColumnsBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<Integer> flattenedColumns = ImmutableSet.builder();
         if (flatMapsEnabled) {
             String columnsValue = schema.getProperty(ORC_FLAT_MAP_COLUMN_NUMBERS_KEY, "");
             FLAT_MAP_COLUMN_NUMBERS_SPLITTER.splitToList(columnsValue).stream()
                     .map(Integer::valueOf)
-                    .forEach(flattenedColumnsBuilder::add);
+                    .forEach(flattenedColumns::add);
         }
-        Set<Integer> flattenedColumns = flattenedColumnsBuilder.build();
-
-        // fail if flat maps are enabled for the table, but flat map writer is not enabled in the session
-        boolean flatMapWriterEnabled = isFlatMapWriterEnabled(session);
-        if (!flattenedColumns.isEmpty() && !flatMapWriterEnabled) {
-            String tableName = schema.getProperty(META_TABLE_NAME);
-            throw new PrestoException(
-                    HIVE_INVALID_METADATA,
-                    format("Table '%s' is flattened, but flat map writer is not enabled for this session.", tableName));
-        }
-
-        return flattenedColumns;
+        return flattenedColumns.build();
     }
 
     private boolean isMapStatisticsEnabled(Properties schema)
