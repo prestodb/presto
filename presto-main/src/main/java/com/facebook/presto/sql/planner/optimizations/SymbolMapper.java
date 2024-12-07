@@ -258,8 +258,7 @@ public class SymbolMapper
                 notNullColumnVariables,
                 node.getTablePartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
                 node.getStatisticsAggregation().map(this::map),
-                node.getTaskCountIfScaledWriter(),
-                node.getIsTemporaryTableWriter());
+                node.getTaskCountIfScaledWriter());
     }
 
     public StatisticsWriterNode map(StatisticsWriterNode node, PlanNode source)
@@ -283,7 +282,8 @@ public class SymbolMapper
                 node.getTarget(),
                 map(node.getRowCountVariable()),
                 node.getStatisticsAggregation().map(this::map),
-                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)),
+                node.getCteMaterializationInfo());
     }
 
     public TableWriterMergeNode map(TableWriterMergeNode node, PlanNode source)

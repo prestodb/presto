@@ -482,7 +482,8 @@ public class PruneUnreferencedOutputs
                     newAssignments,
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.getCteMaterializationInfo());
         }
 
         @Override
@@ -749,8 +750,7 @@ public class PruneUnreferencedOutputs
                     node.getNotNullColumnVariables(),
                     node.getTablePartitioningScheme(),
                     node.getStatisticsAggregation(),
-                    node.getTaskCountIfScaledWriter(),
-                    node.getIsTemporaryTableWriter());
+                    node.getTaskCountIfScaledWriter());
         }
 
         @Override
@@ -795,7 +795,8 @@ public class PruneUnreferencedOutputs
                     node.getTarget(),
                     node.getRowCountVariable(),
                     node.getStatisticsAggregation(),
-                    node.getStatisticsAggregationDescriptor());
+                    node.getStatisticsAggregationDescriptor(),
+                    node.getCteMaterializationInfo());
         }
 
         @Override
