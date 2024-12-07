@@ -70,6 +70,15 @@ When enabled, the logical plan will begin to be built and validated before
 queueing and allocation of cluster resources so that any errors or
 incompatibilities in the query plan will fail quickly and inform the user.
 
+``single-node-execution-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property enables running the query on a single node under a distributed cluster setup.
+This feature can benefit the low latency use cases such as tiny queries.
+
 .. _tuning-memory:
 
 Memory Management Properties
