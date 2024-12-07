@@ -35,6 +35,7 @@ import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -405,6 +406,16 @@ public class PushdownSubfields
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Context> context)
         {
             context.get().variables.addAll(node.getColumns());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Context> context)
+        {
+            if (node.getInputDistribution().isPresent()) {
+                context.get().variables.addAll(node.getInputDistribution().get().getInputVariables());
+            }
+            context.get().variables.add(node.getRowId());
             return context.defaultRewrite(node, context.get());
         }
 
