@@ -207,6 +207,16 @@ class SessionProperties {
   static constexpr const char* kQueryTraceTaskRegExp =
       "native_query_trace_task_reg_exp";
 
+  /// The fragment id of the traced task. Used to construct
+  /// the regular expression for matching
+  static constexpr const char* kQueryTraceFragmentId =
+      "native_query_trace_fragment_id";
+
+  /// The shard id of the traced task. Used to construct
+  /// the regular expression for matching
+  static constexpr const char* kQueryTraceShardId =
+      "native_query_trace_shard_id";
+
   /// Config used to create operator trace directory. This config is provided to
   /// underlying file system and the config is free form. The form should be
   /// defined by the underlying file system.
