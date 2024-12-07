@@ -20,7 +20,7 @@
 
 namespace facebook::velox::functions {
 
-namespace detail {
+namespace {
 using Mask = std::bitset<128>;
 
 Mask createMask(size_t low, size_t high) {
@@ -321,101 +321,6 @@ bool isAtCompression(const char* str, const size_t len, const int32_t pos) {
   return pos < len - 1 && str[pos] == ':' && str[pos + 1] == ':';
 }
 
-// IPv6address   =                            6( h16 ":" ) ls32
-//               /                       "::" 5( h16 ":" ) ls32
-//               / [               h16 ] "::" 4( h16 ":" ) ls32
-//               / [ *1( h16 ":" ) h16 ] "::" 3( h16 ":" ) ls32
-//               / [ *2( h16 ":" ) h16 ] "::" 2( h16 ":" ) ls32
-//               / [ *3( h16 ":" ) h16 ] "::"    h16 ":"   ls32
-//               / [ *4( h16 ":" ) h16 ] "::"              ls32
-//               / [ *5( h16 ":" ) h16 ] "::"              h16
-//               / [ *6( h16 ":" ) h16 ] "::"
-// h16           = 1*4HEXDIG
-// ls32          = ( h16 ":" h16 ) / IPv4address
-bool tryConsumeIPV6Address(const char* str, const size_t len, int32_t& pos) {
-  bool hasCompression = false;
-  uint8_t numBytes = 0;
-  int32_t posInAddress = pos;
-
-  if (isAtCompression(str, len, posInAddress)) {
-    hasCompression = true;
-    // Consume the compression '::'.
-    posInAddress += 2;
-  }
-
-  while (posInAddress < len && numBytes < 16) {
-    int32_t posInHex = posInAddress;
-    for (int i = 0; i < 4; i++) {
-      if (posInHex == len || !test(kHex, str[posInHex])) {
-        break;
-      }
-
-      posInHex++;
-    }
-
-    if (posInHex == posInAddress) {
-      // We need to be able to consume at least one hex digit.
-      break;
-    }
-
-    if (posInHex < len) {
-      if (str[posInHex] == '.') {
-        // We may be in the IPV4 Address.
-        if (tryConsumeIPV4Address(str, len, posInAddress)) {
-          numBytes += 4;
-          break;
-        } else {
-          // A '.' can't appear anywhere except in a valid IPV4 address.
-          return false;
-        }
-      }
-      if (str[posInHex] == ':') {
-        if (isAtCompression(str, len, posInHex)) {
-          if (hasCompression) {
-            // We can't have two compressions.
-            return false;
-          } else {
-            // We found a 2 byte hex value followed by a compression.
-            numBytes += 2;
-            hasCompression = true;
-            // Consume the hex block and the compression '::'.
-            posInAddress = posInHex + 2;
-
-            continue;
-          }
-        } else {
-          if (posInHex == len || !test(kHex, str[posInHex + 1])) {
-            // Peak ahead, we can't end on a single ':'.
-            return false;
-          }
-          // We found a 2 byte hex value followed by a single ':'.
-          numBytes += 2;
-          // Consume the hex block and the ':'.
-          posInAddress = posInHex + 1;
-
-          continue;
-        }
-      } else {
-        // We found a 2 byte hex value at the end of the string.
-        numBytes += 2;
-        posInAddress = posInHex;
-        break;
-      }
-    }
-
-    break;
-  }
-
-  // A valid IPv6 address must have exactly 16 bytes, or a compression.
-  if ((numBytes == 16 && !hasCompression) ||
-      (hasCompression && numBytes <= 14 && numBytes % 2 == 0)) {
-    pos = posInAddress;
-    return true;
-  } else {
-    return false;
-  }
-}
-
 // IPvFuture     = "v" 1*HEXDIG "." 1*( unreserved / sub-delims / ":" )
 bool tryConsumeIPVFuture(const char* str, const size_t len, int32_t& pos) {
   int32_t posInAddress = pos;
@@ -712,18 +617,113 @@ bool tryConsumeUri(const char* str, const size_t len, int32_t& pos, URI& uri) {
   return true;
 }
 
-} // namespace detail
+} // namespace
+
+// IPv6address   =                            6( h16 ":" ) ls32
+//               /                       "::" 5( h16 ":" ) ls32
+//               / [               h16 ] "::" 4( h16 ":" ) ls32
+//               / [ *1( h16 ":" ) h16 ] "::" 3( h16 ":" ) ls32
+//               / [ *2( h16 ":" ) h16 ] "::" 2( h16 ":" ) ls32
+//               / [ *3( h16 ":" ) h16 ] "::"    h16 ":"   ls32
+//               / [ *4( h16 ":" ) h16 ] "::"              ls32
+//               / [ *5( h16 ":" ) h16 ] "::"              h16
+//               / [ *6( h16 ":" ) h16 ] "::"
+// h16           = 1*4HEXDIG
+// ls32          = ( h16 ":" h16 ) / IPv4address
+bool tryConsumeIPV6Address(const char* str, const size_t len, int32_t& pos) {
+  bool hasCompression = false;
+  uint8_t numBytes = 0;
+  int32_t posInAddress = pos;
+
+  if (isAtCompression(str, len, posInAddress)) {
+    hasCompression = true;
+    // Consume the compression '::'.
+    posInAddress += 2;
+  }
+
+  while (posInAddress < len && numBytes < 16) {
+    int32_t posInHex = posInAddress;
+    for (int i = 0; i < 4; i++) {
+      if (posInHex == len || !test(kHex, str[posInHex])) {
+        break;
+      }
+
+      posInHex++;
+    }
+
+    if (posInHex == posInAddress) {
+      // We need to be able to consume at least one hex digit.
+      break;
+    }
+
+    if (posInHex < len) {
+      if (str[posInHex] == '.') {
+        // We may be in the IPV4 Address.
+        if (tryConsumeIPV4Address(str, len, posInAddress)) {
+          numBytes += 4;
+          break;
+        } else {
+          // A '.' can't appear anywhere except in a valid IPV4 address.
+          return false;
+        }
+      }
+      if (str[posInHex] == ':') {
+        if (isAtCompression(str, len, posInHex)) {
+          if (hasCompression) {
+            // We can't have two compressions.
+            return false;
+          } else {
+            // We found a 2 byte hex value followed by a compression.
+            numBytes += 2;
+            hasCompression = true;
+            // Consume the hex block and the compression '::'.
+            posInAddress = posInHex + 2;
+
+            continue;
+          }
+        } else {
+          if (posInHex == len || !test(kHex, str[posInHex + 1])) {
+            // Peak ahead, we can't end on a single ':'.
+            return false;
+          }
+          // We found a 2 byte hex value followed by a single ':'.
+          numBytes += 2;
+          // Consume the hex block and the ':'.
+          posInAddress = posInHex + 1;
+
+          continue;
+        }
+      } else {
+        // We found a 2 byte hex value at the end of the string.
+        numBytes += 2;
+        posInAddress = posInHex;
+        break;
+      }
+    }
+
+    break;
+  }
+
+  // A valid IPv6 address must have exactly 16 bytes, or a compression.
+  if ((numBytes == 16 && !hasCompression) ||
+      (hasCompression && numBytes <= 14 && numBytes % 2 == 0)) {
+    pos = posInAddress;
+    return true;
+  } else {
+    return false;
+  }
+}
 
 // URI-reference = URI / relative-ref
 bool parseUri(const StringView& uriStr, URI& uri) {
   int32_t pos = 0;
-  if (detail::tryConsumeUri(uriStr.data(), uriStr.size(), pos, uri) &&
+  if (tryConsumeUri(uriStr.data(), uriStr.size(), pos, uri) &&
       pos == uriStr.size()) {
     return true;
   }
 
   pos = 0;
-  detail::consumeRelativeRef(uriStr.data(), uriStr.size(), pos, uri);
+  consumeRelativeRef(uriStr.data(), uriStr.size(), pos, uri);
 
   return pos == uriStr.size();
 }
