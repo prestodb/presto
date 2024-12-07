@@ -433,7 +433,8 @@ public class TestExpressionInterpreter
         functionAndTypeManager.loadFunctionNamespaceManager(
                 JsonFileBasedFunctionNamespaceManagerFactory.NAME,
                 "json",
-                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"));
+                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"),
+                Optional.empty());
     }
 
     @Test

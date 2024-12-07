@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleResolver;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.common.collect.ImmutableMap;
@@ -70,6 +71,7 @@ public abstract class AbstractTestType
             blockEncodingSerde,
             new FeaturesConfig(),
             new FunctionsConfig(),
+            new ServerConfig(),
             new HandleResolver(),
             ImmutableSet.of());
 
