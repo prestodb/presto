@@ -15,7 +15,7 @@ See [PrestoDB: Mission and Architecture](ARCHITECTURE.md).
 
 * Mac OS X or Linux
 * Java 8 Update 151 or higher (8u151+), 64-bit. Both Oracle JDK and OpenJDK are supported.
-* Maven 3.6.1+ (for building)
+* Maven 3.6.3+ (for building)
 * Python 2.4+ (for running with the launcher script)
 
 <details> <!-- from: https://github.com/prestodb/presto/blob/master/README.md -->

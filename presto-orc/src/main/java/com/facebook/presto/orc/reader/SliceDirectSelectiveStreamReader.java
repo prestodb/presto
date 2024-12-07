@@ -32,7 +32,6 @@ import com.facebook.presto.orc.stream.LongInputStream;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -57,8 +56,6 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMis
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -66,7 +63,6 @@ public class SliceDirectSelectiveStreamReader
         implements SelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectSelectiveStreamReader.class).instanceSize();
-    private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     private final SelectiveReaderContext context;
     private final boolean isCharType;
@@ -721,10 +717,12 @@ public class SliceDirectSelectiveStreamReader
             }
 
             // TODO Do not throw if outputRequired == false
-            if (totalLength > ONE_GIGABYTE) {
+            if (totalLength > context.getMaxSliceSize()) {
                 throw new GenericInternalException(
-                        format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]",
-                                context.getStreamDescriptor().getFieldName(), positionCount,
+                        format("Values in column \"%s\" are too large to process for Presto. Requested to read [%s] bytes, when max allowed is [%s] bytes [%s]",
+                                context.getStreamDescriptor().getFieldName(),
+                                totalLength,
+                                context.getMaxSliceSize(),
                                 context.getStreamDescriptor().getOrcDataSourceId()));
             }
         }

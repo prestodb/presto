@@ -36,6 +36,42 @@ Property                             Description
                                      Defaults to ``1000``.
 ==================================== ==============================================
 
+Password Validation
+-------------------
+
+Password validation in Presto supports both `PBKDF2WithHmacSHA256` and `PBKDF2WithHmacSHA1` algorithms. 
+To ensure modern cryptographic standards, clients are encouraged to use `PBKDF2WithHmacSHA256`. 
+A fallback mechanism is available to maintain compatibility with legacy systems using `PBKDF2WithHmacSHA1`.
+
+Migration to `PBKDF2WithHmacSHA256` is strongly recommended to maintain security.
+
+API Method
+^^^^^^^^^^
+The following method uses the `PBKDF2WithHmacSHA256` validation mechanism and includes a fallback mechanism:
+
+.. code-block:: java
+
+    /**
+     * @Deprecated using PBKDF2WithHmacSHA1 is deprecated and clients should switch to PBKDF2WithHmacSHA256
+     */
+    public static boolean doesPBKDF2PasswordMatch(String inputPassword, String hashedPassword)
+    {
+        PBKDF2Password password = PBKDF2Password.fromString(hashedPassword);
+
+        // Validate using PBKDF2WithHmacSHA256
+        if (validatePBKDF2Password(inputPassword, password, "PBKDF2WithHmacSHA256")) {
+            return true;
+        }
+
+        // Fallback to PBKDF2WithHmacSHA1
+        LOG.warn("Using deprecated PBKDF2WithHmacSHA1 for password validation.");
+        return validatePBKDF2Password(inputPassword, password, "PBKDF2WithHmacSHA1");
+    }
+
+**Fallback Mechanism**
+
+If `PBKDF2WithHmacSHA256` fails for legacy reasons, the system gracefully falls back to `PBKDF2WithHmacSHA1` while logging a warning.
+
 Password Files
 --------------
 
