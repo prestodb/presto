@@ -18,12 +18,14 @@ import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.PrestoAuthenticator;
 import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
+import com.facebook.presto.spi.security.ReadOnlyHttpServletRequest;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import javax.servlet.http.HttpServletRequest;
 
+import java.io.IOException;
 import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
@@ -62,7 +64,10 @@ public class TestPrestoAuthenticator
                 TEST_REMOTE_ADDRESS,
                 ImmutableMap.of());
 
-        Optional<Principal> principal = checkAuthentication(prestoAuthenticatorManager.getAuthenticator(), request);
+        // Wrap the request in RestrictedHttpServletRequest
+        ReadOnlyHttpServletRequest restrictedRequest = new ReadOnlyHttpServletRequest(request);
+
+        Optional<Principal> principal = checkAuthentication(prestoAuthenticatorManager.getAuthenticator(), restrictedRequest);
         assertTrue(principal.isPresent());
         assertEquals(principal.get().getName(), TEST_USER);
 
@@ -72,11 +77,27 @@ public class TestPrestoAuthenticator
                 TEST_REMOTE_ADDRESS,
                 ImmutableMap.of());
 
-        principal = checkAuthentication(prestoAuthenticatorManager.getAuthenticator(), request);
+        restrictedRequest = new ReadOnlyHttpServletRequest(request);
+
+        principal = checkAuthentication(prestoAuthenticatorManager.getAuthenticator(), restrictedRequest);
         assertFalse(principal.isPresent());
     }
 
-    private Optional<Principal> checkAuthentication(PrestoAuthenticator authenticator, HttpServletRequest request)
+    @Test(expectedExceptions = UnsupportedOperationException.class)
+    public void testRestrictedHttpServletRequestDisallowedMethods() throws IOException
+    {
+        HttpServletRequest mockRequest = new MockHttpServletRequest(
+                ImmutableListMultimap.of(TEST_HEADER, TEST_HEADER_VALID_VALUE + ":" + TEST_USER),
+                TEST_REMOTE_ADDRESS,
+                ImmutableMap.of());
+
+        ReadOnlyHttpServletRequest restrictedRequest = new ReadOnlyHttpServletRequest(mockRequest);
+
+        // Attempt to call a disallowed method
+        restrictedRequest.getInputStream(); // Should throw UnsupportedOperationException
+    }
+
+    private Optional<Principal> checkAuthentication(PrestoAuthenticator authenticator, ReadOnlyHttpServletRequest request)
     {
         try {
             return Optional.of(authenticator.createAuthenticatedPrincipal(request));

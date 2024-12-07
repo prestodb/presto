@@ -61,7 +61,7 @@ public class ServerSecurityModule
                 authBinder.addBinding().to(JsonWebTokenAuthenticator.class).in(Scopes.SINGLETON);
             }
             else if (authType == CUSTOM) {
-                authBinder.addBinding().to(PrestoAuthenticator.class).in(Scopes.SINGLETON);
+                authBinder.addBinding().to(CustomPrestoAuthenticator.class).in(Scopes.SINGLETON);
             }
             else {
                 throw new AssertionError("Unhandled auth type: " + authType);

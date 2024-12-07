@@ -15,6 +15,7 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.presto.spi.security.ReadOnlyHttpServletRequest;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -23,13 +24,13 @@ import java.security.Principal;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrestoAuthenticator
+public class CustomPrestoAuthenticator
         implements Authenticator
 {
     private PrestoAuthenticatorManager authenticatorManager;
 
     @Inject
-    public PrestoAuthenticator(PrestoAuthenticatorManager authenticatorManager)
+    public CustomPrestoAuthenticator(PrestoAuthenticatorManager authenticatorManager)
     {
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
         authenticatorManager.setRequired();
@@ -40,7 +41,8 @@ public class PrestoAuthenticator
             throws AuthenticationException
     {
         try {
-            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(request);
+            ReadOnlyHttpServletRequest restrictedRequest = new ReadOnlyHttpServletRequest(request);
+            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(restrictedRequest);
         }
         catch (RuntimeException e) {
             throw new RuntimeException("Authentication error", e);
