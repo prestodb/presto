@@ -348,8 +348,21 @@ std::shared_ptr<ColumnSelector> ColumnSelector::fromScanSpec(
     }
     std::string name = child->fieldName();
     if (!child->flatMapFeatureSelection().empty()) {
+      const auto& featureIds = child->flatMapFeatureSelection();
+      const auto& type = rowType->findChild(name);
+      VELOX_CHECK(type->isMap());
+      const bool isVarchar = type->asMap().keyType()->isVarchar();
       name += "#[";
-      name += folly::join(',', child->flatMapFeatureSelection());
+      for (int i = 0; i < featureIds.size(); ++i) {
+        if (i > 0) {
+          name += ',';
+        }
+        if (isVarchar) {
+          folly::json::escapeString(featureIds[i], name, {});
+        } else {
+          name += featureIds[i];
+        }
+      }
       name += ']';
     }
     columnNames.push_back(std::move(name));

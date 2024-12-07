@@ -206,6 +206,25 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
   ASSERT_FALSE(values->childByName("c0c2")->isConstant());
 }
 
+TEST_F(
+    HiveConnectorTest,
+    makeScanSpec_requiredSubfields_flatMapFeatureSelectionStringKeys) {
+  auto rowType = ROW({{"c0", MAP(VARCHAR(), BIGINT())}});
+  auto scanSpec = makeScanSpec(
+      rowType,
+      groupSubfields(makeSubfields({"c0[\"foo\"]"})),
+      {},
+      nullptr,
+      {},
+      {},
+      {},
+      pool_.get());
+  auto* c0 = scanSpec->childByName("c0");
+  ASSERT_EQ(c0->flatMapFeatureSelection(), std::vector<std::string>({"foo"}));
+  auto cs = dwio::common::ColumnSelector::fromScanSpec(*scanSpec, rowType);
+  ASSERT_EQ(cs->findNode("c0")->getNode().expression, "[\"foo\"]");
+}
+
 TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
   auto columnType =
       MAP(BIGINT(), ARRAY(ROW({{"c0c0", BIGINT()}, {"c0c1", BIGINT()}})));

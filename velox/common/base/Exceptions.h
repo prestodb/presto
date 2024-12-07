@@ -190,7 +190,7 @@ std::string errorMessage(fmt::string_view fmt, const Args&... args) {
 #define _VELOX_THROW(exception, ...) \
   _VELOX_THROW_IMPL(exception, "", ##__VA_ARGS__)
 
-DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
+DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError)
 
 #define _VELOX_CHECK_IMPL(expr, exprStr, ...)                       \
   _VELOX_CHECK_AND_THROW_IMPL(                                      \
@@ -367,7 +367,7 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
       /* isRetriable */ false,                                             \
       ##__VA_ARGS__)
 
-DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxUserError);
+DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxUserError)
 
 // For all below macros, an additional message can be passed using a
 // format string and arguments, as with `fmt::format`.
