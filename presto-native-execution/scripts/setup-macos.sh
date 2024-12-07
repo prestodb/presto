@@ -30,6 +30,7 @@ function install_proxygen {
 
 function install_presto_deps {
   install_from_brew "gperf"
+  install_from_brew "vim"
   run_and_time install_proxygen
 }
 
