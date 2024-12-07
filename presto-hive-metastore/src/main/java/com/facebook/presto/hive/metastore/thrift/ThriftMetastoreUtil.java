@@ -150,6 +150,7 @@ public final class ThriftMetastoreUtil
         result.setOwnerType(toMetastoreApiPrincipalType(database.getOwnerType()));
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
+        database.getCatalogName().ifPresent(result::setCatalogName);
         return result;
     }
 
