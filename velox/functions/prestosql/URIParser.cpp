@@ -380,6 +380,8 @@ bool tryConsumeIPV6Address(const char* str, const size_t len, int32_t& pos) {
             hasCompression = true;
             // Consume the hex block and the compression '::'.
             posInAddress = posInHex + 2;
+
+            continue;
           }
         } else {
           if (posInHex == len || !test(kHex, str[posInHex + 1])) {
@@ -390,6 +392,8 @@ bool tryConsumeIPV6Address(const char* str, const size_t len, int32_t& pos) {
           numBytes += 2;
           // Consume the hex block and the ':'.
           posInAddress = posInHex + 1;
+
+          continue;
         }
       } else {
         // We found a 2 byte hex value at the end of the string.
@@ -398,6 +402,8 @@ bool tryConsumeIPV6Address(const char* str, const size_t len, int32_t& pos) {
         break;
       }
     }
+
+    break;
   }
 
   // A valid IPv6 address must have exactly 16 bytes, or a compression.
