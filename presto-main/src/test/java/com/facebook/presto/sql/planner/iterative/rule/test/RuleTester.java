@@ -103,7 +103,7 @@ public class RuleTester
         queryRunner = nodeCountForStats
                 .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
                 .orElseGet(() -> new LocalQueryRunner(session));
-        queryRunner.createCatalog(session.getCatalog().get(),
+        queryRunner.createCatalog(session.getCatalog().orElseThrow(),
                 connectorFactory,
                 ImmutableMap.of());
         plugins.stream().forEach(queryRunner::installPlugin);
@@ -187,13 +187,13 @@ public class RuleTester
 
     public ConnectorId getCurrentConnectorId()
     {
-        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().get())).get();
+        return queryRunner.inTransaction(transactionSession -> metadata.getCatalogHandle(transactionSession, session.getCatalog().orElseThrow())).orElseThrow();
     }
 
     public List<TableConstraint<ColumnHandle>> getTableConstraints(TableHandle tableHandle)
     {
         return queryRunner.inTransaction(transactionSession -> {
-            metadata.getCatalogHandle(transactionSession, session.getCatalog().get());
+            metadata.getCatalogHandle(transactionSession, session.getCatalog().orElseThrow());
             return metadata.getTableMetadata(transactionSession, tableHandle).getMetadata().getTableConstraintsHolder().getTableConstraintsWithColumnHandles();
         });
     }

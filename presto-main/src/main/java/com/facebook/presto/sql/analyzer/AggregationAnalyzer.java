@@ -410,7 +410,7 @@ class AggregationAnalyzer
                     }
 
                     if (node.getOrderBy().isPresent()) {
-                        List<Expression> sortKeys = node.getOrderBy().get().getSortItems().stream()
+                        List<Expression> sortKeys = node.getOrderBy().orElseThrow().getSortItems().stream()
                                 .map(SortItem::getSortKey)
                                 .collect(toImmutableList());
                         if (node.isDistinct()) {
@@ -465,7 +465,7 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getWindow().isPresent() && !process(node.getWindow().get(), context)) {
+            if (node.getWindow().isPresent() && !process(node.getWindow().orElseThrow(), context)) {
                 return false;
             }
 
@@ -512,7 +512,7 @@ class AggregationAnalyzer
             }
 
             if (node.getFrame().isPresent()) {
-                process(node.getFrame().get(), context);
+                process(node.getFrame().orElseThrow(), context);
             }
 
             return true;
@@ -523,12 +523,12 @@ class AggregationAnalyzer
         {
             Optional<Expression> start = node.getStart().getValue();
             if (start.isPresent()) {
-                if (!process(start.get(), context)) {
-                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, start.get(), "Window frame start must be an aggregate expression or appear in GROUP BY clause");
+                if (!process(start.orElseThrow(), context)) {
+                    throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, start.orElseThrow(), "Window frame start must be an aggregate expression or appear in GROUP BY clause");
                 }
             }
-            if (node.getEnd().isPresent() && node.getEnd().get().getValue().isPresent()) {
-                Expression endValue = node.getEnd().get().getValue().get();
+            if (node.getEnd().isPresent() && node.getEnd().orElseThrow().getValue().isPresent()) {
+                Expression endValue = node.getEnd().orElseThrow().getValue().orElseThrow();
                 if (!process(endValue, context)) {
                     throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, endValue, "Window frame end must be an aggregate expression or appear in GROUP BY clause");
                 }
@@ -561,7 +561,7 @@ class AggregationAnalyzer
         {
             FieldId fieldId = checkAndGetColumnReferenceField(node, columnReferences);
 
-            if (orderByScope.isPresent() && isFieldFromScope(fieldId, orderByScope.get())) {
+            if (orderByScope.isPresent() && isFieldFromScope(fieldId, orderByScope.orElseThrow())) {
                 return true;
             }
 
@@ -585,10 +585,10 @@ class AggregationAnalyzer
                     column = Integer.toString(node.getFieldIndex() + 1);
                 }
                 else if (field.getRelationAlias().isPresent()) {
-                    column = String.format("'%s.%s'", field.getRelationAlias().get(), field.getName().get());
+                    column = String.format("'%s.%s'", field.getRelationAlias().orElseThrow(), field.getName().orElseThrow());
                 }
                 else {
-                    column = "'" + field.getName().get() + "'";
+                    column = "'" + field.getName().orElseThrow() + "'";
                 }
 
                 throw new SemanticException(MUST_BE_AGGREGATE_OR_GROUP_BY, node, "Column %s not in GROUP BY clause", column);
@@ -622,7 +622,7 @@ class AggregationAnalyzer
                     .add(node.getTrueValue());
 
             if (node.getFalseValue().isPresent()) {
-                expressions.add(node.getFalseValue().get());
+                expressions.add(node.getFalseValue().orElseThrow());
             }
 
             return expressions.build().stream().allMatch(expression -> process(expression, context));
@@ -641,7 +641,7 @@ class AggregationAnalyzer
                 }
             }
 
-            if (node.getDefaultValue().isPresent() && !process(node.getDefaultValue().get(), context)) {
+            if (node.getDefaultValue().isPresent() && !process(node.getDefaultValue().orElseThrow(), context)) {
                 return false;
             }
 
@@ -657,7 +657,7 @@ class AggregationAnalyzer
                 }
             }
 
-            return !node.getDefaultValue().isPresent() || process(node.getDefaultValue().get(), context);
+            return !node.getDefaultValue().isPresent() || process(node.getDefaultValue().orElseThrow(), context);
         }
 
         @Override
@@ -702,7 +702,7 @@ class AggregationAnalyzer
                         INVALID_PROCEDURE_ARGUMENTS,
                         node,
                         "The arguments to GROUPING() must be expressions referenced by the GROUP BY at the associated query level. Mismatch due to %s.",
-                        argumentNotInGroupBy.get());
+                        argumentNotInGroupBy.orElseThrow());
             }
             return true;
         }
@@ -722,12 +722,12 @@ class AggregationAnalyzer
 
     private boolean hasOrderByReferencesToOutputColumns(Node node)
     {
-        return hasReferencesToScope(node, analysis, orderByScope.get());
+        return hasReferencesToScope(node, analysis, orderByScope.orElseThrow());
     }
 
     private void verifyNoOrderByReferencesToOutputColumns(Node node, SemanticErrorCode errorCode, String errorString)
     {
-        getReferencesToScope(node, analysis, orderByScope.get())
+        getReferencesToScope(node, analysis, orderByScope.orElseThrow())
                 .findFirst()
                 .ifPresent(expression -> {
                     throw new SemanticException(errorCode, expression, errorString);

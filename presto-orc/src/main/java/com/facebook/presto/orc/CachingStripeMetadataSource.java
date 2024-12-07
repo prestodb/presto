@@ -130,7 +130,7 @@ public class CachingStripeMetadataSource
             throws IOException
     {
         if (rowGroupIndexCache.isPresent()) {
-            List<RowGroupIndex> rowGroupIndices = rowGroupIndexCache.get().getIfPresent(new StripeStreamId(stripId, streamId));
+            List<RowGroupIndex> rowGroupIndices = rowGroupIndexCache.orElseThrow().getIfPresent(new StripeStreamId(stripId, streamId));
             if (rowGroupIndices != null) {
                 runtimeStats.addMetricValue("OrcRowGroupIndexCacheHit", NONE, 1);
                 runtimeStats.addMetricValue("OrcRowGroupIndexInMemoryBytesRead", BYTE, rowGroupIndices.stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum());
@@ -143,7 +143,7 @@ public class CachingStripeMetadataSource
         }
         List<RowGroupIndex> rowGroupIndices = delegate.getRowIndexes(metadataReader, hiveWriterVersion, stripId, streamId, inputStream, bloomFilters, runtimeStats);
         if (rowGroupIndexCache.isPresent()) {
-            rowGroupIndexCache.get().put(new StripeStreamId(stripId, streamId), rowGroupIndices);
+            rowGroupIndexCache.orElseThrow().put(new StripeStreamId(stripId, streamId), rowGroupIndices);
         }
         return rowGroupIndices;
     }

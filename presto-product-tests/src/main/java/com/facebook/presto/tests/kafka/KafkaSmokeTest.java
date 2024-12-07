@@ -76,7 +76,7 @@ public class KafkaSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA})
+    @Test(groups = KAFKA)
     @Requires(SimpleKeyAndValueTable.class)
     public void testSelectSimpleKeyAndValue()
     {
@@ -128,7 +128,7 @@ public class KafkaSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA})
+    @Test(groups = KAFKA)
     @Requires(AllDataTypesRawTable.class)
     public void testSelectAllRawTable()
     {
@@ -199,7 +199,7 @@ public class KafkaSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA})
+    @Test(groups = KAFKA)
     @Requires(AllDataTypesCsvTable.class)
     public void testSelectAllCsvTable()
     {
@@ -274,7 +274,7 @@ public class KafkaSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA})
+    @Test(groups = KAFKA)
     @Requires(AllDataTypesJsonTable.class)
     public void testSelectAllJsonTable()
     {

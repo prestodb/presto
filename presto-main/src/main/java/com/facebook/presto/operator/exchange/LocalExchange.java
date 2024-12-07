@@ -168,10 +168,10 @@ public class LocalExchange
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }
 
-        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioning.getConnectorId().get());
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioning.getConnectorId().orElseThrow());
         int bucketCount = partitioningProvider.getBucketCount(
                 partitioning.getTransactionHandle().orElse(null),
-                session.toConnectorSession(partitioning.getConnectorId().get()),
+                session.toConnectorSession(partitioning.getConnectorId().orElseThrow()),
                 partitioning.getConnectorHandle());
         int[] bucketToPartition = new int[bucketCount];
         for (int bucket = 0; bucket < bucketCount; bucket++) {
@@ -180,7 +180,7 @@ public class LocalExchange
 
         BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
                 partitioning.getTransactionHandle().orElse(null),
-                session.toConnectorSession(partitioning.getConnectorId().get()),
+                session.toConnectorSession(partitioning.getConnectorId().orElseThrow()),
                 partitioning.getConnectorHandle(),
                 partitioningChannelTypes,
                 bucketCount);

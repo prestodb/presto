@@ -283,7 +283,7 @@ public class QueryMonitor
         QueryStats queryStats = queryInfo.getQueryStats();
         ImmutableList.Builder<StageStatistics> stageStatisticsBuilder = ImmutableList.builder();
         if (queryInfo.getOutputStage().isPresent()) {
-            computeStageStatistics(queryInfo.getOutputStage().get(), stageStatisticsBuilder);
+            computeStageStatistics(queryInfo.getOutputStage().orElseThrow(), stageStatisticsBuilder);
         }
 
         eventListenerManager.queryCompleted(
@@ -523,7 +523,7 @@ public class QueryMonitor
         try {
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(textDistributedPlan(
-                        queryInfo.getOutputStage().get(),
+                        queryInfo.getOutputStage().orElseThrow(),
                         functionAndTypeManager,
                         queryInfo.getSession().toSession(sessionPropertyManager),
                         false));
@@ -542,7 +542,7 @@ public class QueryMonitor
         try {
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(jsonDistributedPlan(
-                        queryInfo.getOutputStage().get(),
+                        queryInfo.getOutputStage().orElseThrow(),
                         functionAndTypeManager,
                         queryInfo.getSession().toSession(sessionPropertyManager)));
             }
@@ -559,7 +559,7 @@ public class QueryMonitor
         try {
             if (queryInfo.getOutputStage().isPresent()) {
                 return Optional.of(graphvizDistributedPlan(
-                        queryInfo.getOutputStage().get(),
+                        queryInfo.getOutputStage().orElseThrow(),
                         functionAndTypeManager,
                         queryInfo.getSession().toSession(sessionPropertyManager)));
             }
@@ -596,12 +596,12 @@ public class QueryMonitor
 
             output = Optional.of(
                     new QueryOutputMetadata(
-                            queryInfo.getOutput().get().getConnectorId().getCatalogName(),
-                            queryInfo.getOutput().get().getSchema(),
-                            queryInfo.getOutput().get().getTable(),
+                            queryInfo.getOutput().orElseThrow().getConnectorId().getCatalogName(),
+                            queryInfo.getOutput().orElseThrow().getSchema(),
+                            queryInfo.getOutput().orElseThrow().getTable(),
                             tableFinishInfo.map(TableFinishInfo::getSerializedConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded),
-                            queryInfo.getOutput().get().getSerializedCommitOutput()));
+                            queryInfo.getOutput().orElseThrow().getSerializedCommitOutput()));
         }
         return new QueryIOMetadata(inputs.build(), output);
     }
@@ -820,7 +820,7 @@ public class QueryMonitor
     private Map<PlanCanonicalizationStrategy, String> getPlanHash(List<CanonicalPlanWithInfo> canonicalPlanWithInfos, Optional<PlanNode> root)
     {
         if (root.isPresent()) {
-            return canonicalPlanWithInfos.stream().filter(x -> x.getCanonicalPlan().getPlan().equals(root.get())).collect(toImmutableMap(x -> x.getCanonicalPlan().getStrategy(), x -> x.getInfo().getHash(), (a, b) -> a));
+            return canonicalPlanWithInfos.stream().filter(x -> x.getCanonicalPlan().getPlan().equals(root.orElseThrow())).collect(toImmutableMap(x -> x.getCanonicalPlan().getStrategy(), x -> x.getInfo().getHash(), (a, b) -> a));
         }
         return ImmutableMap.of();
     }

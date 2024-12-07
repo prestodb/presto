@@ -85,7 +85,7 @@ public class TestQueryStateInfo
         assertEquals(query.getQueryState(), QUEUED);
         assertEquals(query.getProgress(), Optional.empty());
 
-        List<ResourceGroupInfo> chainInfo = query.getPathToRoot().get();
+        List<ResourceGroupInfo> chainInfo = query.getPathToRoot().orElseThrow();
 
         assertEquals(chainInfo.size(), 3);
 
@@ -175,7 +175,7 @@ public class TestQueryStateInfo
         assertTrue(queryStateInfo.getProgress().isPresent());
         assertEquals(queryStateInfo.getErrorCode(), Optional.ofNullable(queryInfo.getErrorCode()));
 
-        QueryProgressStats progress = queryStateInfo.getProgress().get();
+        QueryProgressStats progress = queryStateInfo.getProgress().orElseThrow();
         QueryStats stats = queryInfo.getQueryStats();
 
         assertEquals(progress.getElapsedTimeMillis(), stats.getElapsedTime().toMillis());

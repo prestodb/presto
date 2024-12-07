@@ -103,9 +103,9 @@ public class RemoveCrossJoinWithConstantInput
         if (!mapping.isPresent()) {
             return Result.empty();
         }
-        PlanNode resultNode = addProjections(joinInput, context.getIdAllocator(), mapping.get());
+        PlanNode resultNode = addProjections(joinInput, context.getIdAllocator(), mapping.orElseThrow());
         if (node.getFilter().isPresent()) {
-            resultNode = new FilterNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), resultNode, node.getFilter().get());
+            resultNode = new FilterNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), resultNode, node.getFilter().orElseThrow());
         }
         return Result.ofPlanNode(resultNode);
     }

@@ -26,7 +26,6 @@ import java.io.UncheckedIOException;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -156,7 +155,7 @@ public class Processes
     {
         Thread thread = new Thread(() -> {
             try {
-                copy(input, output);
+                input.transferTo(output);
             }
             catch (IOException ignored) {
             }

@@ -154,7 +154,7 @@ public class DefaultTreeRewriter<C>
             return node;
         }
 
-        return node.getName().isPresent() ? new CallArgument(node.getName().get(), (Expression) value) : new CallArgument((Expression) value);
+        return node.getName().isPresent() ? new CallArgument(node.getName().orElseThrow(), (Expression) value) : new CallArgument((Expression) value);
     }
 
     @Override
@@ -210,7 +210,7 @@ public class DefaultTreeRewriter<C>
         Node query = process(node.getQuery(), context);
         List<Property> properties = process(node.getProperties(), context);
         Optional<List<Identifier>> columnAliases = node.getColumnAliases().map(aliases -> process(aliases, context));
-        if (node.getQuery() == query && node.getProperties() == properties && (!columnAliases.isPresent() || sameElements(node.getColumnAliases().get(), columnAliases.get()))) {
+        if (node.getQuery() == query && node.getProperties() == properties && (!columnAliases.isPresent() || sameElements(node.getColumnAliases().orElseThrow(), columnAliases.orElseThrow()))) {
             return node;
         }
 
@@ -305,7 +305,7 @@ public class DefaultTreeRewriter<C>
             return node;
         }
 
-        return value.isPresent() ? new FrameBound(node.getType(), value.get()) : new FrameBound(node.getType());
+        return value.isPresent() ? new FrameBound(node.getType(), value.orElseThrow()) : new FrameBound(node.getType());
     }
 
     @Override
@@ -336,7 +336,7 @@ public class DefaultTreeRewriter<C>
     {
         Node query = process(node.getQuery(), context);
         Optional<List<Identifier>> columns = node.getColumns().map(columnList -> process(columnList, context));
-        if (node.getQuery() == query && (!columns.isPresent() || sameElements(node.getColumns().get(), columns.get()))) {
+        if (node.getQuery() == query && (!columns.isPresent() || sameElements(node.getColumns().orElseThrow(), columns.orElseThrow()))) {
             return node;
         }
 
@@ -699,7 +699,7 @@ public class DefaultTreeRewriter<C>
             return false;
         }
 
-        return a.get() == b.get();
+        return a.orElseThrow() == b.orElseThrow();
     }
 
     @SuppressWarnings("ObjectEquality")

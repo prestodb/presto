@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
@@ -48,7 +49,7 @@ import static com.facebook.presto.operator.GroupByHashYieldAssertion.createPages
 import static com.facebook.presto.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -136,7 +137,7 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), Stream.concat(probeTypes.stream(), ImmutableList.of(BOOLEAN).stream()).collect(toImmutableList()))
                 .row(30L, 0L, true)
                 .row(31L, 1L, false)
                 .row(32L, 2L, false)
@@ -201,7 +202,7 @@ public class TestHashSemiJoinOperator
         //probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), Stream.concat(probeTypes.stream(), ImmutableList.of(BOOLEAN).stream()).collect(toImmutableList()))
                 .row("30", 0L, true)
                 .row("31", 1L, false)
                 .row("32", 2L, false)
@@ -294,7 +295,8 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(),
+                Stream.concat(probeTypes.stream(), ImmutableList.of(BOOLEAN).stream()).collect(toImmutableList()))
                 .row(1L, true)
                 .row(2L, true)
                 .row(3L, true)
@@ -352,7 +354,7 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), Stream.concat(probeTypes.stream(), ImmutableList.of(BOOLEAN).stream()).collect(toImmutableList()))
                 .row(0L, true)
                 .row(null, null)
                 .row(1L, true)
@@ -411,7 +413,8 @@ public class TestHashSemiJoinOperator
                 probeHashChannel);
 
         // expected
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), concat(probeTypes, ImmutableList.of(BOOLEAN)))
+        MaterializedResult expected = resultBuilder(driverContext.getSession(),
+                Stream.concat(probeTypes.stream(), ImmutableList.of(BOOLEAN).stream()).collect(toImmutableList()))
                 .row(0L, true)
                 .row(null, null)
                 .row(1L, true)

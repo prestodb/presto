@@ -47,8 +47,8 @@ public final class ConnectorBucketNodeMap
         if (bucketCount <= 0) {
             throw new IllegalArgumentException("bucketCount must be positive");
         }
-        if (bucketToNode.isPresent() && bucketToNode.get().size() != bucketCount) {
-            throw new IllegalArgumentException(format("Mismatched bucket count in bucketToNode (%s) and bucketCount (%s)", bucketToNode.get().size(), bucketCount));
+        if (bucketToNode.isPresent() && bucketToNode.orElseThrow().size() != bucketCount) {
+            throw new IllegalArgumentException(format("Mismatched bucket count in bucketToNode (%s) and bucketCount (%s)", bucketToNode.orElseThrow().size(), bucketCount));
         }
         this.bucketCount = bucketCount;
         this.bucketToNode = bucketToNode.map(ArrayList::new).map(Collections::unmodifiableList);

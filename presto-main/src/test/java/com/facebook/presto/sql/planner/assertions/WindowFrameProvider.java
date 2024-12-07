@@ -94,13 +94,13 @@ public class WindowFrameProvider
             return Optional.empty();
         }
 
-        String alias = symbolAlias.get().toSymbol(aliases).getName();
+        String alias = symbolAlias.orElseThrow().toSymbol(aliases).getName();
         Type variableType = type.orElseGet(() -> BIGINT);
         if (alias.startsWith("field")) {
-            return Optional.of(new VariableReferenceExpression(Optional.empty(), symbolAlias.get().toString(), variableType));
+            return Optional.of(new VariableReferenceExpression(Optional.empty(), symbolAlias.orElseThrow().toString(), variableType));
         }
 
-        return Optional.of(new VariableReferenceExpression(Optional.empty(), symbolAlias.get().toSymbol(aliases).getName(), variableType));
+        return Optional.of(new VariableReferenceExpression(Optional.empty(), symbolAlias.orElseThrow().toSymbol(aliases).getName(), variableType));
     }
 
     @Override

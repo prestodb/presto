@@ -387,8 +387,8 @@ public final class InternalResourceGroupManager<C>
         if (!groups.containsKey(id)) {
             InternalResourceGroup group;
             if (id.getParent().isPresent()) {
-                createGroupIfNecessary(new SelectionContext<>(id.getParent().get(), context.getContext()), executor);
-                InternalResourceGroup parent = groups.get(id.getParent().get());
+                createGroupIfNecessary(new SelectionContext<>(id.getParent().orElseThrow(), context.getContext()), executor);
+                InternalResourceGroup parent = groups.get(id.getParent().orElseThrow());
                 requireNonNull(parent, "parent is null");
                 // parent segments size equals to subgroup segment index
                 int subGroupSegmentIndex = parent.getId().getSegments().size();

@@ -307,16 +307,16 @@ public final class ThriftMetastoreUtil
             return true;
         }
 
-        if (identity.getRole().isPresent() && identity.getRole().get().getType() == SelectedRole.Type.NONE) {
+        if (identity.getRole().isPresent() && identity.getRole().orElseThrow().getType() == SelectedRole.Type.NONE) {
             return false;
         }
 
         PrestoPrincipal principal;
-        if (!identity.getRole().isPresent() || identity.getRole().get().getType() == SelectedRole.Type.ALL) {
+        if (!identity.getRole().isPresent() || identity.getRole().orElseThrow().getType() == SelectedRole.Type.ALL) {
             principal = new PrestoPrincipal(USER, identity.getUser());
         }
         else {
-            principal = new PrestoPrincipal(ROLE, identity.getRole().get().getRole().get());
+            principal = new PrestoPrincipal(ROLE, identity.getRole().orElseThrow().getRole().orElseThrow());
         }
 
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
@@ -336,15 +336,15 @@ public final class ThriftMetastoreUtil
     public static Stream<String> listEnabledRoles(ConnectorIdentity identity, Function<PrestoPrincipal, Set<RoleGrant>> listRoleGrants)
     {
         Optional<SelectedRole> role = identity.getRole();
-        if (role.isPresent() && role.get().getType() == SelectedRole.Type.NONE) {
+        if (role.isPresent() && role.orElseThrow().getType() == SelectedRole.Type.NONE) {
             return Stream.of(PUBLIC_ROLE_NAME);
         }
         PrestoPrincipal principal;
-        if (!role.isPresent() || role.get().getType() == SelectedRole.Type.ALL) {
+        if (!role.isPresent() || role.orElseThrow().getType() == SelectedRole.Type.ALL) {
             principal = new PrestoPrincipal(USER, identity.getUser());
         }
         else {
-            principal = new PrestoPrincipal(ROLE, role.get().getRole().get());
+            principal = new PrestoPrincipal(ROLE, role.orElseThrow().getRole().orElseThrow());
         }
 
         Stream<String> roles = Stream.of(PUBLIC_ROLE_NAME);
@@ -714,10 +714,10 @@ public final class ThriftMetastoreUtil
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
-            sd.setNumBuckets(bucketProperty.get().getBucketCount());
-            sd.setBucketCols(bucketProperty.get().getBucketedBy());
-            if (!bucketProperty.get().getSortedBy().isEmpty()) {
-                sd.setSortCols(bucketProperty.get().getSortedBy().stream()
+            sd.setNumBuckets(bucketProperty.orElseThrow().getBucketCount());
+            sd.setBucketCols(bucketProperty.orElseThrow().getBucketedBy());
+            if (!bucketProperty.orElseThrow().getSortedBy().isEmpty()) {
+                sd.setSortCols(bucketProperty.orElseThrow().getSortedBy().stream()
                         .map(column -> new Order(column.getColumnName(), column.getOrder().getHiveOrder()))
                         .collect(toList()));
             }

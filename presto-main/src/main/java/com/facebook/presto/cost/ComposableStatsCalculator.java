@@ -69,7 +69,7 @@ public class ComposableStatsCalculator
             Rule<?> rule = ruleIterator.next();
             Optional<PlanNodeStatsEstimate> calculatedStats = calculateStats(rule, node, sourceStats, lookup, session, types);
             if (calculatedStats.isPresent()) {
-                return calculatedStats.get();
+                return calculatedStats.orElseThrow();
             }
         }
         return PlanNodeStatsEstimate.unknown();

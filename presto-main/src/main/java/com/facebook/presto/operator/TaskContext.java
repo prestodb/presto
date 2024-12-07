@@ -37,6 +37,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
@@ -61,8 +62,6 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getLast;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -452,7 +451,9 @@ public class TaskContext
         // check for end state to avoid callback ordering problems
         updateStatsIfDone(taskStateMachine.getState());
 
-        List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, PipelineContext::getPipelineStats));
+        List<PipelineStats> pipelineStats = pipelineContexts.stream()
+                .map(PipelineContext::getPipelineStats)
+                .collect(toImmutableList());
 
         long lastExecutionEndTime = 0;
 
@@ -691,7 +692,7 @@ public class TaskContext
         }, null);
         ImmutableList.Builder<OperatorMemoryReservationSummary> result = ImmutableList.builder();
         for (Collection<OperatorContext> operators : operatorContexts.asMap().values()) {
-            OperatorContext lastContext = getLast(operators);
+            OperatorContext lastContext = Streams.findLast(operators.stream()).orElseThrow();
             long totalOperatorMemoryReservationInBytes = 0;
             List<DataSize> reservations = new ArrayList<>();
             for (OperatorContext context : operators) {
@@ -722,9 +723,9 @@ public class TaskContext
             if (!planNode.isPresent()) {
                 return Optional.empty();
             }
-            String info = planNode.get().getType().toString() + ";";
-            if (planNode.get().getDistributionType().isPresent()) {
-                info += planNode.get().getDistributionType().get() + ";";
+            String info = planNode.orElseThrow().getType().toString() + ";";
+            if (planNode.orElseThrow().getDistributionType().isPresent()) {
+                info += planNode.orElseThrow().getDistributionType().orElseThrow() + ";";
             }
             return Optional.of(info);
         }
@@ -735,9 +736,9 @@ public class TaskContext
             if (!planNode.isPresent()) {
                 return Optional.empty();
             }
-            boolean isDistinct = planNode.get().getAggregations().values().stream().anyMatch(AggregationNode.Aggregation::isDistinct);
-            boolean isOrderBy = planNode.get().getAggregations().values().stream().anyMatch(aggregation -> aggregation.getOrderBy().isPresent());
-            String info = planNode.get().getStep() + ";";
+            boolean isDistinct = planNode.orElseThrow().getAggregations().values().stream().anyMatch(AggregationNode.Aggregation::isDistinct);
+            boolean isOrderBy = planNode.orElseThrow().getAggregations().values().stream().anyMatch(aggregation -> aggregation.getOrderBy().isPresent());
+            String info = planNode.orElseThrow().getStep() + ";";
             if (isDistinct) {
                 info += "DISTINCT;";
             }
@@ -753,7 +754,7 @@ public class TaskContext
     private <T extends PlanNode> Optional<T> findPlanNode(PlanNodeId planNodeId, Class<T> nodeType)
     {
         checkState(taskPlan.isPresent(), "taskPlan is expected to be present");
-        return searchFrom(taskPlan.get())
+        return searchFrom(taskPlan.orElseThrow())
                 .where(node -> node.getId().equals(planNodeId) && nodeType.isInstance(node))
                 .findSingle();
     }

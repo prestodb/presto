@@ -118,7 +118,7 @@ public class TestHighMemoryTaskKiller
         Optional<QueryId> optionalQueryId = HighMemoryTaskKiller.getMaxMemoryConsumingQuery(activeQueriesToTasksMap);
 
         assertTrue(optionalQueryId.isPresent());
-        assertEquals(optionalQueryId.get(), highMemoryQueryId);
+        assertEquals(optionalQueryId.orElseThrow(), highMemoryQueryId);
     }
 
     public void updateTaskMemory(SqlTask sqlTask, long systemMemory)
@@ -131,7 +131,7 @@ public class TestHighMemoryTaskKiller
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        TaskContext taskContext = sqlTask.getTaskContext().get();
+        TaskContext taskContext = sqlTask.getTaskContext().orElseThrow();
         PipelineContext pipelineContext = taskContext.addPipelineContext(0, true, true, false);
 
         pipelineContext.localSystemMemoryContext().setBytes(systemMemory);

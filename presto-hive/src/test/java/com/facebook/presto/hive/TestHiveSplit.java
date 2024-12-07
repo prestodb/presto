@@ -145,7 +145,7 @@ public class TestHiveSplit
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
         assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
         assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
-        assertEquals(actual.getRowIdPartitionComponent().get(), expected.getRowIdPartitionComponent().get());
+        assertEquals(actual.getRowIdPartitionComponent().orElseThrow(), expected.getRowIdPartitionComponent().orElseThrow());
     }
 
     private JsonCodec<HiveSplit> getJsonCodec()

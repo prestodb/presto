@@ -142,7 +142,7 @@ class PreferredProperties
                 .local(newLocal);
 
         if (globalProperties.isPresent()) {
-            Global currentGlobal = globalProperties.get();
+            Global currentGlobal = globalProperties.orElseThrow();
             Global newGlobal = parent.getGlobalProperties()
                     .map(global -> currentGlobal.mergeWithParent(global, mergePartitionPreference))
                     .orElse(currentGlobal);
@@ -298,7 +298,7 @@ class PreferredProperties
             if (!parent.partitioningProperties.isPresent() || !mergePartitionPreference) {
                 return this;
             }
-            return new Global(distributed, Optional.of(partitioningProperties.get().mergeWithParent(parent.partitioningProperties.get())));
+            return new Global(distributed, Optional.of(partitioningProperties.orElseThrow().mergeWithParent(parent.partitioningProperties.orElseThrow())));
         }
     }
 
@@ -315,7 +315,7 @@ class PreferredProperties
             this.partitioning = requireNonNull(partitioning, "function is null");
             this.nullsAndAnyReplicated = nullsAndAnyReplicated;
 
-            checkArgument(!partitioning.isPresent() || partitioning.get().getVariableReferences().equals(partitioningColumns), "Partitioning input must match partitioningColumns");
+            checkArgument(!partitioning.isPresent() || partitioning.orElseThrow().getVariableReferences().equals(partitioningColumns), "Partitioning input must match partitioningColumns");
         }
 
         public PartitioningProperties withNullsAndAnyReplicated(boolean nullsAndAnyReplicated)
@@ -358,7 +358,7 @@ class PreferredProperties
             Set<VariableReferenceExpression> newPartitioningColumns = partitioningColumns.stream()
                     .map(translator)
                     .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .map(Optional::orElseThrow)
                     .collect(toImmutableSet());
 
             // Translation fails if we have prior partitioning columns and none could be translated
@@ -370,7 +370,7 @@ class PreferredProperties
                 return Optional.of(new PartitioningProperties(newPartitioningColumns, Optional.empty(), nullsAndAnyReplicated));
             }
 
-            Optional<Partitioning> newPartitioning = translateVariableToRowExpression(partitioning.get(), variable -> translator.apply(variable).map(RowExpression.class::cast));
+            Optional<Partitioning> newPartitioning = translateVariableToRowExpression(partitioning.orElseThrow(), variable -> translator.apply(variable).map(RowExpression.class::cast));
             if (!newPartitioning.isPresent()) {
                 return Optional.empty();
             }

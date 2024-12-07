@@ -95,10 +95,10 @@ public class ParquetColumnChunk
         InternalColumnDecryptionSetup columnDecryptionSetup = null;
         if (fileDecryptor.isPresent()) {
             ColumnPath columnPath = ColumnPath.get(descriptor.getColumnDescriptor().getPath());
-            columnDecryptionSetup = fileDecryptor.get().getColumnSetup(columnPath);
+            columnDecryptionSetup = fileDecryptor.orElseThrow().getColumnSetup(columnPath);
             headerBlockDecryptor = columnDecryptionSetup.getMetaDataDecryptor();
             if (headerBlockDecryptor != null) {
-                dataPageHeaderAdditionalAuthenticationData = AesCipher.createModuleAAD(fileDecryptor.get().getFileAAD(), ModuleType.DataPageHeader, rowGroupOrdinal, columnOrdinal, 0);
+                dataPageHeaderAdditionalAuthenticationData = AesCipher.createModuleAAD(fileDecryptor.orElseThrow().getFileAAD(), ModuleType.DataPageHeader, rowGroupOrdinal, columnOrdinal, 0);
             }
         }
 
@@ -108,7 +108,7 @@ public class ParquetColumnChunk
         DictionaryPage dictionaryPage = null;
         if (hasDictionaryPage(descriptor.getColumnChunkMetaData())) {
             byte[] pageHeaderAAD = headerBlockDecryptor != null ?
-                    AesCipher.createModuleAAD(fileDecryptor.get().getFileAAD(), ModuleType.DictionaryPageHeader, rowGroupOrdinal, columnOrdinal, -1)
+                    AesCipher.createModuleAAD(fileDecryptor.orElseThrow().getFileAAD(), ModuleType.DictionaryPageHeader, rowGroupOrdinal, columnOrdinal, -1)
                     : null;
             PageHeader pageHeader = readPageHeader(headerBlockDecryptor, pageHeaderAAD);
             int uncompressedPageSize = pageHeader.getUncompressed_page_size();

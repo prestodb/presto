@@ -66,7 +66,7 @@ public class DropColumnTask
             return immediateFuture(null);
         }
 
-        TableHandle tableHandle = tableHandleOptional.get();
+        TableHandle tableHandle = tableHandleOptional.orElseThrow();
         String column = statement.getColumn().getValueLowerCase();
 
         accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);

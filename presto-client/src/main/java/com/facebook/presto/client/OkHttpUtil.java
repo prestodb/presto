@@ -196,15 +196,15 @@ public final class OkHttpUtil
                 char[] keyManagerPassword;
                 try {
                     // attempt to read the key store as a PEM file
-                    keyStore = PemReader.loadKeyStore(new File(keyStorePath.get()), new File(keyStorePath.get()), keyStorePassword);
+                    keyStore = PemReader.loadKeyStore(new File(keyStorePath.orElseThrow()), new File(keyStorePath.orElseThrow()), keyStorePassword);
                     // for PEM encoded keys, the password is used to decrypt the specific key (and does not protect the keystore itself)
                     keyManagerPassword = new char[0];
                 }
                 catch (IOException | GeneralSecurityException ignored) {
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
-                    keyStore = KeyStore.getInstance(keystoreType.get());
-                    try (InputStream in = new FileInputStream(keyStorePath.get())) {
+                    keyStore = KeyStore.getInstance(keystoreType.orElseThrow());
+                    try (InputStream in = new FileInputStream(keyStorePath.orElseThrow())) {
                         keyStore.load(in, keyManagerPassword);
                     }
                 }
@@ -218,7 +218,7 @@ public final class OkHttpUtil
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
                 checkArgument(trustStoreType.isPresent(), "truststore type is not present");
-                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType.get());
+                trustStore = loadTrustStore(new File(trustStorePath.orElseThrow()), trustStorePassword, trustStoreType.orElseThrow());
             }
 
             // create TrustManagerFactory

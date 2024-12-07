@@ -109,14 +109,14 @@ public class TaskInfoResource
             Optional<StageInfo> stageInfo = queryManager.getFullQueryInfo(queryId).getOutputStage();
 
             if (stageInfo.isPresent()) {
-                Optional<StageInfo> stage = stageInfo.get().getStageWithStageId(taskId.getStageExecutionId().getStageId());
+                Optional<StageInfo> stage = stageInfo.orElseThrow().getStageWithStageId(taskId.getStageExecutionId().getStageId());
                 if (stage.isPresent()) {
-                    Optional<TaskInfo> taskInfo = stage.get().getLatestAttemptExecutionInfo().getTasks().stream()
+                    Optional<TaskInfo> taskInfo = stage.orElseThrow().getLatestAttemptExecutionInfo().getTasks().stream()
                             .filter(info -> info.getTaskId().equals(taskId))
                             .findFirst();
 
                     if (taskInfo.isPresent()) {
-                        return taskInfo.get();
+                        return taskInfo.orElseThrow();
                     }
                 }
             }
@@ -152,9 +152,9 @@ public class TaskInfoResource
             Optional<InternalNode> resourceManager = internalNodeManager.getResourceManagers().stream()
                     .findAny();
             if (resourceManager.isPresent()) {
-                InternalNode resourceManagerNode = resourceManager.get();
+                InternalNode resourceManagerNode = resourceManager.orElseThrow();
                 URI uri = createTaskInfoUri(uriInfo, resourceManagerNode);
-                proxyHelper.get().performRequest(servletRequest, asyncResponse, uri);
+                proxyHelper.orElseThrow().performRequest(servletRequest, asyncResponse, uri);
             }
             else {
                 asyncResponse.resume(Response.serverError().entity("Could not find the resource manager").build());

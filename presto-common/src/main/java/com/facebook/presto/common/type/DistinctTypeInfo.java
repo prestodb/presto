@@ -134,7 +134,7 @@ public class DistinctTypeInfo
                 name,
                 baseType,
                 isOrderable,
-                topMostAncestor.isPresent() ? topMostAncestor.get().toString() : "null",
+                topMostAncestor.isPresent() ? topMostAncestor.orElseThrow().toString() : "null",
                 otherAncestors);
     }
 }

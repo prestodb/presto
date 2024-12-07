@@ -37,7 +37,7 @@ public class PrestoCacheContext
             CacheScope scope = CacheScope.create(hiveFileContext.getCacheQuota().getIdentity());
             context.setCacheScope(scope);
             if (hiveFileContext.getCacheQuota().getQuota().isPresent()) {
-                context.setCacheQuota(new CacheQuota(ImmutableMap.of(scope.level(), hiveFileContext.getCacheQuota().getQuota().get().toBytes())));
+                context.setCacheQuota(new CacheQuota(ImmutableMap.of(scope.level(), hiveFileContext.getCacheQuota().getQuota().orElseThrow().toBytes())));
             }
             else {
                 context.setCacheQuota(CacheQuota.UNLIMITED);

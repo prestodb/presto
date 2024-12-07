@@ -46,7 +46,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.assignment;
 import static com.facebook.presto.sql.relational.Expressions.callOperator;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -115,7 +115,7 @@ public class TestEliminateCrossJoins
                         variable("a"), variable("c"),
                         variable("c"), variable("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan).stream().collect(onlyElement());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -145,7 +145,7 @@ public class TestEliminateCrossJoins
 
         PlanNode plan = joinNode(leftPlan, rightPlan);
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan).stream().collect(onlyElement());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -165,7 +165,7 @@ public class TestEliminateCrossJoins
                         variable("c1"), variable("b1"),
                         variable("c2"), variable("b2"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan).stream().collect(onlyElement());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -184,7 +184,7 @@ public class TestEliminateCrossJoins
                         values(variable("c")),
                         variable("c"), variable("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan).stream().collect(onlyElement());
 
         assertEquals(
                 getJoinOrder(joinGraph),
@@ -202,7 +202,7 @@ public class TestEliminateCrossJoins
                         values(variable("c")),
                         variable("c"), variable("b"));
 
-        JoinGraph joinGraph = getOnlyElement(JoinGraph.buildFrom(plan));
+        JoinGraph joinGraph = JoinGraph.buildFrom(plan).stream().collect(onlyElement());
 
         assertEquals(
                 getJoinOrder(joinGraph),

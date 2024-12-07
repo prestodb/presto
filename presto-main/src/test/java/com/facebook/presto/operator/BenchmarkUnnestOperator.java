@@ -153,7 +153,7 @@ public class BenchmarkUnnestOperator
 
             String[] replicatedTypes = replicateType.split("\\|");
             for (int i = 0; i < replicatedTypes.length; i++) {
-                Type replicateType = getType(metadata, replicatedTypes[i]).get();
+                Type replicateType = getType(metadata, replicatedTypes[i]).orElseThrow();
                 typesBuilder.add(replicateType);
                 replicatedTypesBuilder.add(replicateType);
                 replicatedChannelsBuilder.add(i);
@@ -161,7 +161,7 @@ public class BenchmarkUnnestOperator
 
             String[] unnestTypes = nestedType.split("\\|");
             for (int i = 0; i < unnestTypes.length; i++) {
-                Type unnestType = getType(metadata, unnestTypes[i]).get();
+                Type unnestType = getType(metadata, unnestTypes[i]).orElseThrow();
                 typesBuilder.add(unnestType);
                 unnestTypesBuilder.add(unnestType);
                 unnestChannelsBuilder.add(i + replicatedTypes.length);

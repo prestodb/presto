@@ -294,7 +294,7 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getUserMemoryReservation();
+            return finalQueryInfo.orElseThrow().getQueryStats().getUserMemoryReservation();
         }
         if (scheduler == null) {
             return new DataSize(0, BYTE);
@@ -314,7 +314,7 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation();
+            return finalQueryInfo.orElseThrow().getQueryStats().getTotalMemoryReservation();
         }
         if (scheduler == null) {
             return new DataSize(0, BYTE);
@@ -366,7 +366,7 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getTotalCpuTime();
+            return finalQueryInfo.orElseThrow().getQueryStats().getTotalCpuTime();
         }
         if (scheduler == null) {
             return new Duration(0, SECONDS);
@@ -380,7 +380,7 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getRawInputDataSize();
+            return finalQueryInfo.orElseThrow().getQueryStats().getRawInputDataSize();
         }
         if (scheduler == null) {
             return new DataSize(0, BYTE);
@@ -394,7 +394,7 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getWrittenIntermediatePhysicalDataSize();
+            return finalQueryInfo.orElseThrow().getQueryStats().getWrittenIntermediatePhysicalDataSize();
         }
         if (scheduler == null) {
             return new DataSize(0, BYTE);
@@ -408,7 +408,7 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getOutputPositions();
+            return finalQueryInfo.orElseThrow().getQueryStats().getOutputPositions();
         }
         if (scheduler == null) {
             return 0;
@@ -422,7 +422,7 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getOutputDataSize();
+            return finalQueryInfo.orElseThrow().getQueryStats().getOutputDataSize();
         }
         if (scheduler == null) {
             return new DataSize(0, BYTE);

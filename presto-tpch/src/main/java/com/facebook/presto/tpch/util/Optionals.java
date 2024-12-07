@@ -30,7 +30,7 @@ public class Optionals
     public static <T> Optional<T> combine(Optional<T> left, Optional<T> right, BinaryOperator<T> combiner)
     {
         if (left.isPresent() && right.isPresent()) {
-            return Optional.of(combiner.apply(left.get(), right.get()));
+            return Optional.of(combiner.apply(left.orElseThrow(), right.orElseThrow()));
         }
         else if (left.isPresent()) {
             return left;

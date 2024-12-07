@@ -67,7 +67,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.searchedCaseExpression;
 import static com.facebook.presto.sql.relational.Expressions.specialForm;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Streams.stream;
 import static java.util.Objects.requireNonNull;
 
@@ -120,12 +120,12 @@ public class TransformCorrelatedInPredicateToJoin
         if (subqueryAssignments.size() != 1) {
             return Result.empty();
         }
-        RowExpression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
+        RowExpression assignmentExpression = subqueryAssignments.getExpressions().stream().collect(onlyElement());
         if (!(assignmentExpression instanceof InSubqueryExpression)) {
             return Result.empty();
         }
         InSubqueryExpression inPredicate = (InSubqueryExpression) assignmentExpression;
-        VariableReferenceExpression inPredicateOutputVariable = getOnlyElement(subqueryAssignments.getVariables());
+        VariableReferenceExpression inPredicateOutputVariable = subqueryAssignments.getVariables().stream().collect(onlyElement());
 
         return apply(apply, inPredicate, inPredicateOutputVariable, context.getLookup(), context.getIdAllocator(), context.getVariableAllocator());
     }
@@ -149,7 +149,7 @@ public class TransformCorrelatedInPredicateToJoin
                 apply,
                 inPredicate,
                 inPredicateOutputVariable,
-                decorrelated.get(),
+                decorrelated.orElseThrow(),
                 idAllocator,
                 variableAllocator);
 

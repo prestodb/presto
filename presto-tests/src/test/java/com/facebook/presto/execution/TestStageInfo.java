@@ -60,14 +60,14 @@ public class TestStageInfo
         Optional<StageInfo> stageInfo = server.getQueryManager().getFullQueryInfo(queryId).getOutputStage();
 
         if (stageInfo.isPresent()) {
-            List<StageInfo> allStages = stageInfo.get().getAllStages();
+            List<StageInfo> allStages = stageInfo.orElseThrow().getAllStages();
 
             for (StageInfo expectedStage : allStages) {
-                Optional<StageInfo> actualStage = stageInfo.get().getStageWithStageId(expectedStage.getStageId());
+                Optional<StageInfo> actualStage = stageInfo.orElseThrow().getStageWithStageId(expectedStage.getStageId());
                 if (!actualStage.isPresent()) {
                     fail("StageInfo with id " + expectedStage.getStageId() + "not found");
                 }
-                assertEquals(expectedStage.getStageId(), actualStage.get().getStageId());
+                assertEquals(expectedStage.getStageId(), actualStage.orElseThrow().getStageId());
             }
         }
     }

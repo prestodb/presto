@@ -250,7 +250,7 @@ public class PrestoStatement
             if (shouldIntercept) {
                 Optional<PrestoResultSet> newResultSet = connection().invokeQueryInterceptorsPre(sql, this);
                 if (newResultSet.isPresent()) {
-                    resultSet = newResultSet.get();
+                    resultSet = newResultSet.orElseThrow();
                 }
             }
 

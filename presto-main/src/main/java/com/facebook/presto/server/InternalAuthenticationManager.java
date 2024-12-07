@@ -57,7 +57,7 @@ public class InternalAuthenticationManager
         requireNonNull(nodeId, "nodeId is null");
         this.internalJwtEnabled = internalJwtEnabled;
         if (internalJwtEnabled) {
-            this.hmac = Hashing.sha256().hashString(sharedSecret.get(), UTF_8).asBytes();
+            this.hmac = Hashing.sha256().hashString(sharedSecret.orElseThrow(), UTF_8).asBytes();
         }
         else {
             this.hmac = null;

@@ -51,7 +51,7 @@ public class DbSourceExactMatchSelector
             return Optional.empty();
         }
         try {
-            String resourceGroupId = dao.getExactMatchResourceGroup(environment, criteria.getSource().get(), criteria.getQueryType().orElse(""));
+            String resourceGroupId = dao.getExactMatchResourceGroup(environment, criteria.getSource().orElseThrow(), criteria.getQueryType().orElse(""));
 
             Long start = daoOfflineStart.get();
             if (start != null && daoOfflineStart.compareAndSet(start, null)) {

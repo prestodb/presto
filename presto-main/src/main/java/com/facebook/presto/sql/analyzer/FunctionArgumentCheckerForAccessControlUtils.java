@@ -84,7 +84,7 @@ public class FunctionArgumentCheckerForAccessControlUtils
             if (resolvedSubfield.isPresent()) {
                 resolvedLambdaArguments.put(
                         lambdaExpression.getArguments().get(0).getName(),
-                        resolvedSubfield.get());
+                        resolvedSubfield.orElseThrow());
             }
         }
         return resolvedLambdaArguments.build();
@@ -118,7 +118,7 @@ public class FunctionArgumentCheckerForAccessControlUtils
                 if (!dereference.isPresent()) {
                     break;
                 }
-                columnDereferences.add(new Subfield.NestedField(dereference.get()));
+                columnDereferences.add(new Subfield.NestedField(dereference.orElseThrow()));
                 continue;
             }
 
@@ -137,21 +137,21 @@ public class FunctionArgumentCheckerForAccessControlUtils
             // If we found the full de-referenced expression, return it as a ResolvedSubfield
             if (childQualifiedName != null) {
                 Optional<ResolvedField> resolvedField = scope.tryResolveField(childNode, childQualifiedName);
-                if (resolvedField.isPresent() && !resolvedField.get().getField().getOriginTable().isPresent()) {
+                if (resolvedField.isPresent() && !resolvedField.orElseThrow().getField().getOriginTable().isPresent()) {
                     // Try to resolve using lambda expressions
                     Optional<ResolvedSubfield> resolvedSubField = Optional.ofNullable(context.getContext().getResolvedLambdaArguments().get(childNode));
                     if (resolvedSubField.isPresent()) {
-                        resolvedField = Optional.of(resolvedSubField.get().getResolvedField());
-                        columnDereferences.addAll(Lists.reverse(resolvedSubField.get().getSubfield().getPath()));
+                        resolvedField = Optional.of(resolvedSubField.orElseThrow().getResolvedField());
+                        columnDereferences.addAll(Lists.reverse(resolvedSubField.orElseThrow().getSubfield().getPath()));
                     }
                 }
                 if (resolvedField.isPresent() &&
-                        resolvedField.get().getField().getOriginColumnName().isPresent() &&
-                        resolvedField.get().getField().getOriginTable().isPresent()) {
+                        resolvedField.orElseThrow().getField().getOriginColumnName().isPresent() &&
+                        resolvedField.orElseThrow().getField().getOriginTable().isPresent()) {
                     reverse(columnDereferences);
                     return Optional.of(new ResolvedSubfield(
-                            resolvedField.get(),
-                            new Subfield(resolvedField.get().getField().getOriginColumnName().get(), columnDereferences)));
+                            resolvedField.orElseThrow(),
+                            new Subfield(resolvedField.orElseThrow().getField().getOriginColumnName().orElseThrow(), columnDereferences)));
                 }
             }
             // If we cannot resolve full de-referenced name, that means that there are
@@ -176,6 +176,6 @@ public class FunctionArgumentCheckerForAccessControlUtils
         if (!context.getPreviousNode().isPresent()) {
             return true;
         }
-        return !isDereferenceOrSubscript((Expression) context.getPreviousNode().get());
+        return !isDereferenceOrSubscript((Expression) context.getPreviousNode().orElseThrow());
     }
 }

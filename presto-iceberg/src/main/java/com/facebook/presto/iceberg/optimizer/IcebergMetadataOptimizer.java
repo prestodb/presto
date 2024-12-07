@@ -75,7 +75,7 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergMetadataOptimizer
@@ -175,7 +175,7 @@ public class IcebergMetadataOptimizer
             }
 
             // verify all outputs of table scan are partition keys
-            TableScanNode tableScan = result.get();
+            TableScanNode tableScan = result.orElseThrow();
 
             ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columnBuilder = ImmutableMap.builder();
 
@@ -194,18 +194,18 @@ public class IcebergMetadataOptimizer
                 layout = getConnectorMetadata(tableScan.getTable()).getTableLayoutForConstraint(connectorSession, tableScan.getTable().getConnectorHandle(), Constraint.alwaysTrue(), Optional.empty()).getTableLayout();
             }
             else {
-                layout = getConnectorMetadata(tableScan.getTable()).getTableLayout(connectorSession, tableScan.getTable().getLayout().get());
+                layout = getConnectorMetadata(tableScan.getTable()).getTableLayout(connectorSession, tableScan.getTable().getLayout().orElseThrow());
             }
 
             if (!layout.getDiscretePredicates().isPresent()) {
                 return context.defaultRewrite(node);
             }
 
-            DiscretePredicates discretePredicates = layout.getDiscretePredicates().get();
+            DiscretePredicates discretePredicates = layout.getDiscretePredicates().orElseThrow();
 
             // the optimization is only valid if there is no filter on non-partition columns
             if (layout.getPredicate().getColumnDomains().isPresent()) {
-                List<ColumnHandle> predicateColumns = layout.getPredicate().getColumnDomains().get().stream()
+                List<ColumnHandle> predicateColumns = layout.getPredicate().getColumnDomains().orElseThrow().stream()
                         .map(ColumnDomain::getColumn)
                         .collect(toImmutableList());
                 if (!discretePredicates.getColumns().containsAll(predicateColumns)) {
@@ -216,7 +216,7 @@ public class IcebergMetadataOptimizer
             // Remaining predicate after tuple domain pushdown in getTableLayout(). This doesn't have overlap with discretePredicates.
             // So it only references non-partition columns. Disable the optimization in this case.
             Optional<RowExpression> remainingPredicate = layout.getRemainingPredicate();
-            if (remainingPredicate.isPresent() && !remainingPredicate.get().equals(TRUE_CONSTANT)) {
+            if (remainingPredicate.isPresent() && !remainingPredicate.orElseThrow().equals(TRUE_CONSTANT)) {
                 return context.defaultRewrite(node);
             }
 
@@ -240,7 +240,7 @@ public class IcebergMetadataOptimizer
                 if (domain.isNone()) {
                     continue;
                 }
-                Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
+                Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).orElseThrow();
 
                 ImmutableList.Builder<RowExpression> rowBuilder = ImmutableList.builder();
                 // for each input column, add a literal expression using the entry value
@@ -300,7 +300,7 @@ public class IcebergMetadataOptimizer
                     if (domain.isNone()) {
                         continue;
                     }
-                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
+                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).orElseThrow();
                     NullableValue value = entries.get(column);
                     if (value == null) {
                         // partition key does not have a single value, so bail out to be safe
@@ -322,7 +322,7 @@ public class IcebergMetadataOptimizer
             Assignments.Builder assignmentsBuilder = Assignments.builder();
             for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
                 Aggregation aggregation = node.getAggregations().get(outputVariable);
-                RowExpression inputVariable = getOnlyElement(aggregation.getArguments());
+                RowExpression inputVariable = aggregation.getArguments().stream().collect(onlyElement());
                 RowExpression result = evaluateMinMax(
                         functionMetadataManager.getFunctionMetadata(node.getAggregations().get(outputVariable).getFunctionHandle()),
                         inputColumnValues.get(inputVariable));
@@ -370,7 +370,7 @@ public class IcebergMetadataOptimizer
                 }
                 arguments = reducedArguments;
             }
-            return getOnlyElement(arguments);
+            return arguments.stream().collect(onlyElement());
         }
 
         private static Optional<TableScanNode> findTableScan(PlanNode source, DeterminismEvaluator determinismEvaluator)
@@ -385,7 +385,7 @@ public class IcebergMetadataOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getAssignments().getExpressions(), determinismEvaluator::isDeterministic)) {
+                    if (!project.getAssignments().getExpressions().stream().allMatch(determinismEvaluator::isDeterministic)) {
                         return Optional.empty();
                     }
                     source = project.getSource();

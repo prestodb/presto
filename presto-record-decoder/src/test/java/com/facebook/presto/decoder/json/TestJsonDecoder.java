@@ -125,12 +125,12 @@ public class TestJsonDecoder
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null);
         assertTrue(decodedRow.isPresent());
 
-        assertEquals(decodedRow.get().size(), columns.size());
+        assertEquals(decodedRow.orElseThrow().size(), columns.size());
 
-        checkValue(decodedRow.get(), column1, "481516");
-        checkValue(decodedRow.get(), column2, 481516);
-        checkValue(decodedRow.get(), column3, "2342");
-        checkValue(decodedRow.get(), column4, 2342);
+        checkValue(decodedRow.orElseThrow(), column1, "481516");
+        checkValue(decodedRow.orElseThrow(), column2, 481516);
+        checkValue(decodedRow.orElseThrow(), column3, "2342");
+        checkValue(decodedRow.orElseThrow(), column4, 2342);
     }
 
     @Test

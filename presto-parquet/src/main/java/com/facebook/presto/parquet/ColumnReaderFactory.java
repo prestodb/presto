@@ -93,7 +93,7 @@ public class ColumnReaderFactory
                 case BINARY:
                     Optional<ColumnReader> decimalBatchColumnReader = createDecimalBatchColumnReader(descriptor);
                     if (decimalBatchColumnReader.isPresent()) {
-                        return decimalBatchColumnReader.get();
+                        return decimalBatchColumnReader.orElseThrow();
                     }
 
                     return isNested ? new BinaryNestedBatchReader(descriptor) : new BinaryFlatBatchReader(descriptor);
@@ -105,7 +105,7 @@ public class ColumnReaderFactory
 
                         decimalBatchColumnReader = createDecimalBatchColumnReader(descriptor);
                         if (decimalBatchColumnReader.isPresent()) {
-                            return decimalBatchColumnReader.get();
+                            return decimalBatchColumnReader.orElseThrow();
                         }
                     }
             }

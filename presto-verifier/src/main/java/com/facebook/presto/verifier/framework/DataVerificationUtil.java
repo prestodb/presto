@@ -54,12 +54,12 @@ public class DataVerificationUtil
             return;
         }
 
-        for (Statement teardownQuery : bundle.get().getTeardownQueries()) {
+        for (Statement teardownQuery : bundle.orElseThrow().getTeardownQueries()) {
             try {
-                runAndConsume(() -> queryAction.execute(teardownQuery, forTeardown(bundle.get().getCluster())), queryStatsConsumer);
+                runAndConsume(() -> queryAction.execute(teardownQuery, forTeardown(bundle.orElseThrow().getCluster())), queryStatsConsumer);
             }
             catch (Throwable t) {
-                log.warn("Failed to teardown %s: %s", bundle.get().getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery, Optional.empty()));
+                log.warn("Failed to teardown %s: %s", bundle.orElseThrow().getCluster().name().toLowerCase(ENGLISH), formatSql(teardownQuery, Optional.empty()));
             }
         }
     }

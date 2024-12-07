@@ -42,7 +42,7 @@ import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 @ThriftStruct
 public final class PrestoThriftBlock
@@ -278,7 +278,7 @@ public final class PrestoThriftBlock
             case HYPER_LOG_LOG:
                 return PrestoThriftHyperLogLog.fromBlock(block);
             case ARRAY:
-                Type elementType = getOnlyElement(type.getTypeParameters());
+                Type elementType = type.getTypeParameters().stream().collect(onlyElement());
                 if (BigintType.BIGINT.equals(elementType)) {
                     return PrestoThriftBigintArray.fromBlock(block);
                 }

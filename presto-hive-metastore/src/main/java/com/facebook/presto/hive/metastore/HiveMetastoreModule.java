@@ -40,7 +40,7 @@ public class HiveMetastoreModule
     protected void setup(Binder binder)
     {
         if (metastore.isPresent()) {
-            binder.bind(ExtendedHiveMetastore.class).toInstance(metastore.get());
+            binder.bind(ExtendedHiveMetastore.class).toInstance(metastore.orElseThrow());
         }
         else {
             bindMetastoreModule("thrift", new ThriftMetastoreModule(connectorId));

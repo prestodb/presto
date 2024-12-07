@@ -143,7 +143,7 @@ public abstract class AbstractTestVerboseMemoryExceededErrors
             assertEquals(summaries.get(0).getTopConsumers().get(0).getType(), expectedTopConsumerOperatorName);
             if (expectedTopConsumerOperatorInfo.isPresent()) {
                 assertTrue(summaries.get(0).getTopConsumers().get(0).getInfo().isPresent());
-                assertThat(summaries.get(0).getTopConsumers().get(0).getInfo().get()).contains(expectedTopConsumerOperatorInfo.get());
+                assertThat(summaries.get(0).getTopConsumers().get(0).getInfo().orElseThrow()).contains(expectedTopConsumerOperatorInfo.orElseThrow());
             }
         }
     }

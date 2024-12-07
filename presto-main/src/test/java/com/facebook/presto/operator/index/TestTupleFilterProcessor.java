@@ -20,7 +20,6 @@ import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -37,24 +36,29 @@ import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.collect.Iterators.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public class TestTupleFilterProcessor
 {
     @Test
     public void testFilter()
     {
-        Page tuplePage = Iterables.getOnlyElement(rowPagesBuilder(BIGINT, VARCHAR, DOUBLE)
+        Page tuplePage = rowPagesBuilder(BIGINT, VARCHAR, DOUBLE)
                 .row(1L, "a", 0.1)
-                .build());
+                .build()
+                .stream()
+                .collect(onlyElement());
 
         List<Type> outputTypes = ImmutableList.of(VARCHAR, BIGINT, BOOLEAN, DOUBLE, DOUBLE);
 
-        Page inputPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
+        Page inputPage = rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)
                 .row("b", 1L, true, 0.1, 2.0)
                 .row("a", 1L, false, 0.1, 2.0)
                 .row("a", 0L, false, 0.2, 0.2)
-                .build());
+                .build()
+                .stream()
+                .collect(onlyElement());
 
         DynamicTupleFilterFactory filterFactory = new DynamicTupleFilterFactory(
                 42,
@@ -74,10 +78,12 @@ public class TestTupleFilterProcessor
                         inputPage))
                 .orElseThrow(() -> new AssertionError("page is not present"));
 
-        Page expectedPage = Iterables.getOnlyElement(rowPagesBuilder(outputTypes)
+        Page expectedPage = rowPagesBuilder(outputTypes)
                 .row("a", 1L, true, 0.1, 0.0)
                 .row("a", 1L, false, 0.1, 2.0)
-                .build());
+                .build()
+                .stream()
+                .collect(onlyElement());
 
         assertPageEquals(outputTypes, actualPage, expectedPage);
     }

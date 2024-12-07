@@ -58,7 +58,7 @@ public class IntersectStatsRule
 
             if (estimate.isPresent()) {
                 PlanNodeStatsEstimateMath calculator = new PlanNodeStatsEstimateMath(shouldOptimizerUseHistograms(session));
-                estimate = Optional.of(calculator.addStatsAndIntersect(estimate.get(), sourceStatsWithMappedSymbols));
+                estimate = Optional.of(calculator.addStatsAndIntersect(estimate.orElseThrow(), sourceStatsWithMappedSymbols));
             }
             else {
                 estimate = Optional.of(sourceStatsWithMappedSymbols);

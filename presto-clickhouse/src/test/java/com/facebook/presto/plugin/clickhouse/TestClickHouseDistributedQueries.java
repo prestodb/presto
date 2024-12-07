@@ -176,8 +176,8 @@ public class TestClickHouseDistributedQueries
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "integer", 4, false)
-                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar", 0, false)
-                .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "bigint", 8, true)
+                .row("name", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "nation", "varchar", 0, false)
+                .row("my_alias", session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "nation", "bigint", 8, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -188,7 +188,7 @@ public class TestClickHouseDistributedQueries
     {
         skipTestUnless(supportsNotNullColumns());
 
-        String catalog = getSession().getCatalog().get();
+        String catalog = getSession().getCatalog().orElseThrow();
         String createTableFormat = "CREATE TABLE %s.tpch.test_not_null_with_insert (\n" +
                 "   %s date,\n" +
                 "   %s date NOT NULL,\n" +
@@ -196,13 +196,13 @@ public class TestClickHouseDistributedQueries
                 ")";
         @Language("SQL") String createTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "column_a",
                 "column_b",
                 "column_c");
         @Language("SQL") String expectedCreateTableSql = format(
                 createTableFormat,
-                getSession().getCatalog().get(),
+                getSession().getCatalog().orElseThrow(),
                 "\"column_a\"",
                 "\"column_b\"",
                 "\"column_c\"");

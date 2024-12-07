@@ -49,7 +49,7 @@ public class TestOrcReaderDwrfStripeCaching
     {
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
-        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
+        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.orElseThrow();
 
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
@@ -70,7 +70,7 @@ public class TestOrcReaderDwrfStripeCaching
     {
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
-        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
+        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.orElseThrow();
 
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
@@ -97,7 +97,7 @@ public class TestOrcReaderDwrfStripeCaching
     {
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
-        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
+        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.orElseThrow();
 
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
@@ -118,7 +118,7 @@ public class TestOrcReaderDwrfStripeCaching
     {
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
-        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
+        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.orElseThrow();
 
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
@@ -144,7 +144,7 @@ public class TestOrcReaderDwrfStripeCaching
     {
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
-        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
+        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.orElseThrow();
 
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
@@ -165,7 +165,7 @@ public class TestOrcReaderDwrfStripeCaching
     {
         Optional<DwrfStripeCache> optionalDwrfStripeCache = getDwrfStripeCache(orcFile);
         assertTrue(optionalDwrfStripeCache.isPresent());
-        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.get();
+        DwrfStripeCache dwrfStripeCache = optionalDwrfStripeCache.orElseThrow();
 
         DwrfProto.Footer footer = readFileFooter(orcFile);
         List<DwrfProto.StripeInformation> stripes = footer.getStripesList();
@@ -207,7 +207,7 @@ public class TestOrcReaderDwrfStripeCaching
         StripeId stripeId = new StripeId(TEST_DATA_SOURCE_ID, stripe.getOffset());
         Optional<Slice> stripeIndexSlice = dwrfStripeCache.getIndexStreamsSlice(stripeId);
         assertTrue(stripeIndexSlice.isPresent());
-        assertEquals(stripeIndexSlice.get().getBytes(), readBytes(file, stripe.getOffset(), stripe.getIndexLength()));
+        assertEquals(stripeIndexSlice.orElseThrow().getBytes(), readBytes(file, stripe.getOffset(), stripe.getIndexLength()));
     }
 
     private void assertStripeIndexCacheAbsent(DwrfStripeCache dwrfStripeCache, DwrfProto.StripeInformation stripe)
@@ -224,7 +224,7 @@ public class TestOrcReaderDwrfStripeCaching
         Optional<Slice> stripeFooterSlice = dwrfStripeCache.getStripeFooterSlice(stripeId, toIntExact(stripe.getFooterLength()));
         assertTrue(stripeFooterSlice.isPresent());
         long footerOffset = stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength();
-        assertEquals(stripeFooterSlice.get().getBytes(), readBytes(file, footerOffset, stripe.getFooterLength()));
+        assertEquals(stripeFooterSlice.orElseThrow().getBytes(), readBytes(file, footerOffset, stripe.getFooterLength()));
     }
 
     private void assertStripeFooterCacheAbsent(DwrfStripeCache dwrfStripeCache, DwrfProto.StripeInformation stripe)

@@ -67,7 +67,7 @@ public class HudiPartitionManager
         MetastoreContext metastoreContext = toMetastoreContext(connectorSession);
         Optional<Table> table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         Verify.verify(table.isPresent());
-        List<Column> partitionColumns = table.get().getPartitionColumns();
+        List<Column> partitionColumns = table.orElseThrow().getPartitionColumns();
         if (partitionColumns.isEmpty()) {
             return ImmutableList.of("");
         }

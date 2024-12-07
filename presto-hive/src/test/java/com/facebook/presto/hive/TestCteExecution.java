@@ -34,7 +34,7 @@ import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENA
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_WRITTEN_INTERMEDIATE_BYTES;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.NATION;
@@ -465,6 +465,7 @@ public class TestCteExecution
         QueryRunner queryRunner = getQueryRunner();
         verifyResults(queryRunner, testQuery, ImmutableList.of(generateMaterializedCTEInformation("dataset", 1, false, true)));
     }
+
     @Test
     public void testComplexRefinedCtesOutsideScope()
     {
@@ -1217,7 +1218,7 @@ public class TestCteExecution
     {
         //Verify CTE Explain plan
         MaterializedResult materializedResult = computeActual(materializedSession, "explain " + query);
-        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        String explain = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
         checkCTEInfoMatch(explain, expectedCTEInfoValues);
     }
 
@@ -1260,6 +1261,7 @@ public class TestCteExecution
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "NONE")
                 .build();
     }
+
     protected Session getMaterializedSession()
     {
         return Session.builder(super.getSession())

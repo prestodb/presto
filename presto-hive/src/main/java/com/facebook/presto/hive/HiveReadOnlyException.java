@@ -39,7 +39,7 @@ public class HiveReadOnlyException
     private static String composeMessage(SchemaTableName tableName, Optional<String> partition)
     {
         return partition.isPresent()
-                ? format("Table '%s' partition '%s' is read-only", tableName, partition.get())
+                ? format("Table '%s' partition '%s' is read-only", tableName, partition.orElseThrow())
                 : format("Table '%s' is read-only", tableName);
     }
 

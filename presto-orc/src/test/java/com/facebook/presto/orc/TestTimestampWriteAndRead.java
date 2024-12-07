@@ -91,7 +91,7 @@ public class TestTimestampWriteAndRead
         List<SqlTimestamp> microSecondValuesInMilli = MICROSECOND_VALUES.stream()
                 .map(microTimestamp -> new SqlTimestamp(
                         floorDiv(microTimestamp.getMicrosUtc(), 1000),
-                        microTimestamp.getSessionTimeZoneKey().get(),
+                        microTimestamp.getSessionTimeZoneKey().orElseThrow(),
                         TimeUnit.MILLISECONDS))
                 .collect(toList());
 
@@ -213,7 +213,7 @@ public class TestTimestampWriteAndRead
         return millisecondValues.stream()
                 .map(milliTimestamp -> new SqlTimestamp(
                         milliTimestamp.getMillisUtc() * 1000,
-                        milliTimestamp.getSessionTimeZoneKey().get(),
+                        milliTimestamp.getSessionTimeZoneKey().orElseThrow(),
                         MICROSECONDS))
                 .collect(toList());
     }

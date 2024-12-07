@@ -82,7 +82,7 @@ public final class SortExpressionExtractor
                 .filter(determinismEvaluator::isDeterministic)
                 .map(conjunct -> conjunct.accept(visitor, null))
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toMap(SortExpressionContext::getSortExpression, identity(), SortExpressionExtractor::merge))
                 .values()
                 .stream()
@@ -124,7 +124,7 @@ public final class SortExpressionExtractor
                 return Optional.empty();
             }
 
-            switch (functionMetadata.getOperatorType().get()) {
+            switch (functionMetadata.getOperatorType().orElseThrow()) {
                 case GREATER_THAN:
                 case GREATER_THAN_OR_EQUAL:
                 case LESS_THAN:

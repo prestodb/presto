@@ -104,7 +104,7 @@ public class CallTask
         for (int i = 0; i < call.getArguments().size(); i++) {
             CallArgument argument = call.getArguments().get(i);
             if (argument.getName().isPresent()) {
-                String name = argument.getName().get();
+                String name = argument.getName().orElseThrow();
                 if (names.put(name, argument) != null) {
                     throw new SemanticException(INVALID_PROCEDURE_ARGUMENTS, argument, "Duplicate procedure argument: %s", name);
                 }

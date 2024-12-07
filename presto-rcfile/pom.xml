@@ -137,6 +137,12 @@
             <artifactId>lzo-hadoop</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

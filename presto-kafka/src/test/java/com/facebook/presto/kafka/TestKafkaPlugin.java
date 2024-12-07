@@ -19,8 +19,10 @@ import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.stream.StreamSupport;
+
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertNotNull;
 
 @Test
@@ -31,7 +33,8 @@ public class TestKafkaPlugin
     {
         KafkaPlugin plugin = new KafkaPlugin();
 
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = StreamSupport.stream(
+                plugin.getConnectorFactories().spliterator(), false).collect(onlyElement());
         assertInstanceOf(factory, KafkaConnectorFactory.class);
 
         Connector c = factory.create(

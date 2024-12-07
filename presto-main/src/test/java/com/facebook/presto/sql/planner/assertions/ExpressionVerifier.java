@@ -486,7 +486,7 @@ final class ExpressionVerifier
             return false;
         }
         if (actual.isPresent()) {
-            return process(actual.get(), expected.get());
+            return process(actual.orElseThrow(), expected.orElseThrow());
         }
         return true;
     }

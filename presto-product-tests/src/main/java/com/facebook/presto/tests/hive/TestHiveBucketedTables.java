@@ -77,7 +77,7 @@ public class TestHiveBucketedTables
                 immutableTable(NATION));
     }
 
-    @Test(groups = {BIG_QUERY})
+    @Test(groups = BIG_QUERY)
     public void testIgnorePartitionBucketingIfNotBucketed()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -94,7 +94,7 @@ public class TestHiveBucketedTables
                 .containsExactly(row(2));
     }
 
-    @Test(groups = {BIG_QUERY})
+    @Test(groups = BIG_QUERY)
     public void testAllowMultipleFilesPerBucket()
     {
         String tableName = mutableTablesState().get(BUCKETED_PARTITIONED_NATION).getNameInDatabase();
@@ -110,7 +110,7 @@ public class TestHiveBucketedTables
                 .containsExactly(row(3));
     }
 
-    @Test(groups = {BIG_QUERY})
+    @Test(groups = BIG_QUERY)
     public void testIgnorePartitionBucketingIfBucketedExecutionDisabled()
     {
         String tableName = mutableTablesState().get(PARTITIONED_NATION).getNameInDatabase();
@@ -125,7 +125,7 @@ public class TestHiveBucketedTables
                 .containsExactly(row(3));
     }
 
-    @Test(groups = {BIG_QUERY})
+    @Test(groups = BIG_QUERY)
     public void testIgnoreTableBucketingIfBucketedExecutionDisabled()
     {
         String tableName = mutableTablesState().get(NATION).getNameInDatabase();

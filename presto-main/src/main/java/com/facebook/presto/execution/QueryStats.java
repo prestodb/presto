@@ -370,7 +370,7 @@ public class QueryStats
             totalAllocation += stageExecutionStats.getTotalAllocation().toBytes();
 
             if (stageInfo.getPlan().isPresent()) {
-                PlanFragment plan = stageInfo.getPlan().get();
+                PlanFragment plan = stageInfo.getPlan().orElseThrow();
                 for (OperatorStats operatorStats : stageExecutionStats.getOperatorSummaries()) {
                     // NOTE: we need to literally check each operator type to tell if the source is from table input or shuffled input. A stage can have input from both types of source.
                     String operatorType = operatorStats.getOperatorType();
@@ -414,7 +414,7 @@ public class QueryStats
         }
 
         if (rootStage.isPresent()) {
-            StageExecutionStats outputStageStats = rootStage.get().getLatestAttemptExecutionInfo().getStats();
+            StageExecutionStats outputStageStats = rootStage.orElseThrow().getLatestAttemptExecutionInfo().getStats();
             outputDataSize += outputStageStats.getOutputDataSize().toBytes();
             outputPositions += outputStageStats.getOutputPositions();
         }

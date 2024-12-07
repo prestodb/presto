@@ -398,7 +398,7 @@ public final class WindowPartition
     private int getFrameStartPreceding(int recent, FrameInfo frameInfo, PagesIndexComparator comparator)
     {
         int sortKeyChannel = frameInfo.getSortKeyChannelForStartComparison();
-        Ordering ordering = frameInfo.getOrdering().get();
+        Ordering ordering = frameInfo.getOrdering().orElseThrow();
 
         // If the recent frame start points at a null, it means that we are now processing first non-null position.
         // For frame start "X PRECEDING", the frame starts at the first null for all null values, and it never includes nulls for non-null values.
@@ -419,7 +419,7 @@ public final class WindowPartition
     private int getFrameStartFollowing(int recent, FrameInfo frameInfo, PagesIndexComparator comparator)
     {
         int sortKeyChannel = frameInfo.getSortKeyChannelForStartComparison();
-        Ordering ordering = frameInfo.getOrdering().get();
+        Ordering ordering = frameInfo.getOrdering().orElseThrow();
 
         int position = recent;
 
@@ -446,7 +446,7 @@ public final class WindowPartition
     private int getFrameEndPreceding(int recent, FrameInfo frameInfo, PagesIndexComparator comparator)
     {
         int sortKeyChannel = frameInfo.getSortKeyChannelForEndComparison();
-        Ordering ordering = frameInfo.getOrdering().get();
+        Ordering ordering = frameInfo.getOrdering().orElseThrow();
 
         int position = recent;
 
@@ -467,7 +467,7 @@ public final class WindowPartition
 
     private int getFrameEndFollowing(int recent, FrameInfo frameInfo, PagesIndexComparator comparator)
     {
-        Ordering ordering = frameInfo.getOrdering().get();
+        Ordering ordering = frameInfo.getOrdering().orElseThrow();
         int sortKeyChannel = frameInfo.getSortKeyChannelForEndComparison();
 
         int position = recent;

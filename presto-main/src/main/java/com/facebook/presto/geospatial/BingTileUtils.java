@@ -200,7 +200,7 @@ public class BingTileUtils
         Envelope envelope = getEnvelope(ogcGeometry);
         Optional<List<BingTile>> trivialResult = handleTrivialCases(envelope, maxZoom);
         if (trivialResult.isPresent()) {
-            return trivialResult.get();
+            return trivialResult.orElseThrow();
         }
 
         accelerateGeometry(
@@ -363,7 +363,7 @@ public class BingTileUtils
     {
         Optional<List<BingTile>> maybeResult = handleTrivialCases(envelope, zoom);
         if (maybeResult.isPresent()) {
-            return maybeResult.get();
+            return maybeResult.orElseThrow();
         }
 
         // envelope x,y (longitude,latitude) goes NE as they increase.

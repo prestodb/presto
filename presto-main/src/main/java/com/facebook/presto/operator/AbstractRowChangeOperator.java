@@ -171,6 +171,6 @@ public abstract class AbstractRowChangeOperator
     {
         Optional<UpdatablePageSource> source = pageSource.get();
         checkState(source.isPresent(), "UpdatablePageSource not set");
-        return source.get();
+        return source.orElseThrow();
     }
 }

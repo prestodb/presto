@@ -81,7 +81,7 @@ public class PinotAggregationProjectConverter
         FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(functionHandle);
         Optional<OperatorType> operatorTypeOptional = functionMetadata.getOperatorType();
         if (operatorTypeOptional.isPresent()) {
-            OperatorType operatorType = operatorTypeOptional.get();
+            OperatorType operatorType = operatorTypeOptional.orElseThrow();
             if (operatorType.isArithmeticOperator()) {
                 return handleArithmeticExpression(call, operatorType, context);
             }

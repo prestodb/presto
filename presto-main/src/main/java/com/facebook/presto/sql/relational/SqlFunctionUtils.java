@@ -76,7 +76,7 @@ public final class SqlFunctionUtils
         Expression expression = getSqlFunctionImplementationExpression(functionMetadata, implementation, functionAndTypeResolver, variableAllocator, sqlFunctionProperties, argumentVariables);
         return SqlFunctionArgumentBinder.bindFunctionArguments(
                 expression,
-                functionMetadata.getArgumentNames().get(),
+                functionMetadata.getArgumentNames().orElseThrow(),
                 arguments,
                 argumentVariables);
     }
@@ -110,7 +110,7 @@ public final class SqlFunctionUtils
                         sqlFunctionProperties,
                         sessionFunctions,
                         new SqlToRowExpressionTranslator.Context()),
-                functionMetadata.getArgumentNames().get(),
+                functionMetadata.getArgumentNames().orElseThrow(),
                 arguments,
                 argumentVariables);
     }
@@ -169,7 +169,7 @@ public final class SqlFunctionUtils
     {
         checkArgument(functionMetadata.getImplementationType().equals(SQL), format("Expect SQL function, get %s", functionMetadata.getImplementationType()));
         checkArgument(functionMetadata.getArgumentNames().isPresent(), "ArgumentNames is missing");
-        Expression expression = normalizeParameters(functionMetadata.getArgumentNames().get(), parseSqlFunctionExpression(implementation, sqlFunctionProperties));
+        Expression expression = normalizeParameters(functionMetadata.getArgumentNames().orElseThrow(), parseSqlFunctionExpression(implementation, sqlFunctionProperties));
         ExpressionAnalysis functionAnalysis = analyzeSqlFunctionExpression(
                 functionAndTypeResolver,
                 sqlFunctionProperties,
@@ -207,7 +207,7 @@ public final class SqlFunctionUtils
 
     private static Map<String, VariableReferenceExpression> allocateFunctionArgumentVariables(FunctionMetadata functionMetadata, FunctionAndTypeResolver functionAndTypeResolver, VariableAllocator variableAllocator)
     {
-        List<String> argumentNames = functionMetadata.getArgumentNames().get();
+        List<String> argumentNames = functionMetadata.getArgumentNames().orElseThrow();
         List<Type> argumentTypes = functionMetadata.getArgumentTypes().stream().map(functionAndTypeResolver::getType).collect(toImmutableList());
         checkState(argumentNames.size() == argumentTypes.size(), format("Expect argumentNames (size %d) and argumentTypes (size %d) to be of the same size", argumentNames.size(), argumentTypes.size()));
         ImmutableMap.Builder<String, VariableReferenceExpression> builder = ImmutableMap.builder();

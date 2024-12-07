@@ -160,6 +160,6 @@ public final class VarcharEnumOperators
         if (!key.isPresent()) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("No value '%s' in enum type %s", value.toStringUtf8(), enumType.getTypeSignature().getBase()));
         }
-        return utf8Slice(key.get());
+        return utf8Slice(key.orElseThrow());
     }
 }

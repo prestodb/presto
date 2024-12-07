@@ -214,8 +214,8 @@ public class TpcdsMetadata
         if (!schemaName.isPresent()) {
             return listSchemaNames(session);
         }
-        if (schemaNameToScaleFactor(schemaName.get()) > 0) {
-            return ImmutableList.of(schemaName.get());
+        if (schemaNameToScaleFactor(schemaName.orElseThrow()) > 0) {
+            return ImmutableList.of(schemaName.orElseThrow());
         }
         return ImmutableList.of();
     }
@@ -253,11 +253,11 @@ public class TpcdsMetadata
             case DATE:
                 return DateType.DATE;
             case DECIMAL:
-                return createDecimalType(tpcdsType.getPrecision().get(), tpcdsType.getScale().get());
+                return createDecimalType(tpcdsType.getPrecision().orElseThrow(), tpcdsType.getScale().orElseThrow());
             case CHAR:
-                return createCharType(tpcdsType.getPrecision().get());
+                return createCharType(tpcdsType.getPrecision().orElseThrow());
             case VARCHAR:
-                return createVarcharType(tpcdsType.getPrecision().get());
+                return createVarcharType(tpcdsType.getPrecision().orElseThrow());
             case TIME:
                 return TimeType.TIME;
         }

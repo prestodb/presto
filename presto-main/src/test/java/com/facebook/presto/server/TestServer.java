@@ -251,7 +251,7 @@ public class TestServer
                 .build());
 
         // verify client info in session
-        assertEquals(queryInfo.getSession().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryInfo.getSession().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
 
         // verify prepared statements
         assertEquals(queryInfo.getSession().getPreparedStatements(), ImmutableMap.builder()

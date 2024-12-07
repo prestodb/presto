@@ -303,7 +303,7 @@ public final class OperatorAssertion
     {
         if (hashEnabled && hashChannel.isPresent()) {
             // Drop the hashChannel for all pages
-            actualPages = dropChannel(actualPages, ImmutableList.of(hashChannel.get()));
+            actualPages = dropChannel(actualPages, ImmutableList.of(hashChannel.orElseThrow()));
         }
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), actualPages);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());

@@ -149,7 +149,7 @@ public class PartitioningUtils
                 // mapping from the variable to a constant value and that constant value matches the
                 // right value, then we are co-partitioned.
                 Optional<ConstantExpression> leftConstant = leftConstantMapping.apply((VariableReferenceExpression) leftArgument);
-                return leftConstant.isPresent() && leftConstant.get().equals(rightArgument);
+                return leftConstant.isPresent() && leftConstant.orElseThrow().equals(rightArgument);
             }
             else {
                 // variable == coalesce
@@ -164,7 +164,7 @@ public class PartitioningUtils
             else if (rightArgument instanceof VariableReferenceExpression) {
                 // constant == variable
                 Optional<ConstantExpression> rightConstant = rightConstantMapping.apply((VariableReferenceExpression) rightArgument);
-                return rightConstant.isPresent() && rightConstant.get().equals(leftArgument);
+                return rightConstant.isPresent() && rightConstant.orElseThrow().equals(leftArgument);
             }
             else {
                 // constant == coalesce
@@ -246,7 +246,7 @@ public class PartitioningUtils
                 if (!newArgument.isPresent()) {
                     return Optional.empty();
                 }
-                newArguments.add(newArgument.get());
+                newArguments.add(newArgument.orElseThrow());
             }
             else {
                 return Optional.empty();

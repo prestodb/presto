@@ -139,7 +139,7 @@ public final class SqlTimestamp
     private String formatInstant(Instant instant, DateTimeFormatter formatter)
     {
         if (isLegacyTimestamp()) {
-            return instant.atZone(ZoneId.of(sessionTimeZoneKey.get().getId())).format(formatter);
+            return instant.atZone(ZoneId.of(sessionTimeZoneKey.orElseThrow().getId())).format(formatter);
         }
         else {
             return instant.atZone(ZoneId.of(UTC_KEY.getId())).format(formatter);

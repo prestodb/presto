@@ -73,20 +73,20 @@ import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static com.facebook.presto.plugin.jdbc.StandardReadMappings.jdbcTypeToPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.ResultSetMetaData.columnNullable;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class BaseJdbcClient
@@ -219,7 +219,7 @@ public class BaseJdbcClient
                 if (tableHandles.size() > 1) {
                     throw new PrestoException(NOT_SUPPORTED, "Multiple tables matched: " + schemaTableName);
                 }
-                return getOnlyElement(tableHandles);
+                return tableHandles.stream().collect(onlyElement());
             }
         }
         catch (SQLException e) {
@@ -247,7 +247,7 @@ public class BaseJdbcClient
                         String columnName = resultSet.getString("COLUMN_NAME");
                         boolean nullable = columnNullable == resultSet.getInt("NULLABLE");
                         Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
-                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.get().getType(), nullable, comment));
+                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, columnMapping.orElseThrow().getType(), nullable, comment));
                     }
                 }
                 if (columns.isEmpty()) {
@@ -645,7 +645,7 @@ public class BaseJdbcClient
                 }
             }
             catch (RuntimeException e) {
-                throw new PrestoException(JDBC_ERROR, "Failed to find remote schema name: " + firstNonNull(e.getMessage(), e), e);
+                throw new PrestoException(JDBC_ERROR, "Failed to find remote schema name: " + requireNonNullElse(e.getMessage(), e), e);
             }
         }
 
@@ -691,7 +691,7 @@ public class BaseJdbcClient
                 }
             }
             catch (RuntimeException e) {
-                throw new PrestoException(JDBC_ERROR, "Failed to find remote table name: " + firstNonNull(e.getMessage(), e), e);
+                throw new PrestoException(JDBC_ERROR, "Failed to find remote table name: " + requireNonNullElse(e.getMessage(), e), e);
             }
         }
 
@@ -787,7 +787,7 @@ public class BaseJdbcClient
         if (!name.isPresent() || !escape.isPresent()) {
             return name;
         }
-        return Optional.of(escapeNamePattern(name.get(), escape.get()));
+        return Optional.of(escapeNamePattern(name.orElseThrow(), escape.orElseThrow()));
     }
 
     private static String escapeNamePattern(String name, String escape)

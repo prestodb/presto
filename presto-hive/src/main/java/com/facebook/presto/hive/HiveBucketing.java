@@ -304,7 +304,7 @@ public final class HiveBucketing
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();
-        for (String bucketColumnName : hiveBucketProperty.get().getBucketedBy()) {
+        for (String bucketColumnName : hiveBucketProperty.orElseThrow().getBucketedBy()) {
             HiveColumnHandle bucketColumnHandle = map.get(bucketColumnName);
             if (bucketColumnHandle == null) {
                 throw new PrestoException(
@@ -314,7 +314,7 @@ public final class HiveBucketing
             bucketColumns.add(bucketColumnHandle);
         }
 
-        int bucketCount = hiveBucketProperty.get().getBucketCount();
+        int bucketCount = hiveBucketProperty.orElseThrow().getBucketCount();
         return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketCount, bucketCount));
     }
 
@@ -333,7 +333,7 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        if (!hiveBucketProperty.get().getBucketFunctionType().equals(HIVE_COMPATIBLE)) {
+        if (!hiveBucketProperty.orElseThrow().getBucketFunctionType().equals(HIVE_COMPATIBLE)) {
             // bucket filtering is only supported for tables bucketed with HIVE_COMPATIBLE hash function
             return Optional.empty();
         }
@@ -343,24 +343,24 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        Optional<Set<Integer>> buckets = getHiveBuckets(hiveBucketProperty, dataColumns, bindings.get(), useLegacyTimestampBucketing);
+        Optional<Set<Integer>> buckets = getHiveBuckets(hiveBucketProperty, dataColumns, bindings.orElseThrow(), useLegacyTimestampBucketing);
         if (buckets.isPresent()) {
-            return Optional.of(new HiveBucketFilter(buckets.get()));
+            return Optional.of(new HiveBucketFilter(buckets.orElseThrow()));
         }
 
         if (!effectivePredicate.getDomains().isPresent()) {
             return Optional.empty();
         }
-        Optional<Domain> domain = effectivePredicate.getDomains().get().entrySet().stream()
+        Optional<Domain> domain = effectivePredicate.getDomains().orElseThrow().entrySet().stream()
                 .filter(entry -> ((HiveColumnHandle) entry.getKey()).getName().equals(BUCKET_COLUMN_NAME))
                 .findFirst()
                 .map(Entry::getValue);
         if (!domain.isPresent()) {
             return Optional.empty();
         }
-        ValueSet values = domain.get().getValues();
+        ValueSet values = domain.orElseThrow().getValues();
         ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-        int bucketCount = hiveBucketProperty.get().getBucketCount();
+        int bucketCount = hiveBucketProperty.orElseThrow().getBucketCount();
         for (int i = 0; i < bucketCount; i++) {
             if (values.containsValue((long) i)) {
                 builder.add(i);
@@ -379,7 +379,7 @@ public final class HiveBucketing
             return Optional.empty();
         }
 
-        HiveBucketProperty hiveBucketProperty = hiveBucketPropertyOptional.get();
+        HiveBucketProperty hiveBucketProperty = hiveBucketPropertyOptional.orElseThrow();
         checkArgument(hiveBucketProperty.getBucketFunctionType().equals(HIVE_COMPATIBLE),
                 "bucketFunctionType is expected to be HIVE_COMPATIBLE, got: %s",
                 hiveBucketProperty.getBucketFunctionType());

@@ -111,7 +111,7 @@ public final class ComparisonStatsCalculator
                     .setNullsFraction(0.0)
                     .setDistinctValuesCount(max(expressionStatistics.getDistinctValuesCount() - 1, 0))
                     .build();
-            estimate = estimate.addVariableStatistics(expressionVariable.get(), symbolNewEstimate);
+            estimate = estimate.addVariableStatistics(expressionVariable.orElseThrow(), symbolNewEstimate);
         }
         return estimate.build();
     }
@@ -159,7 +159,7 @@ public final class ComparisonStatsCalculator
                 symbolNewEstimate.setHistogram(expressionStatistics.getHistogram().map(expressionHistogram -> DisjointRangeDomainHistogram.addConjunction(expressionHistogram, intersectRange)));
             }
 
-            estimate = estimate.mapVariableColumnStatistics(expressionVariable.get(), oldStats -> symbolNewEstimate.build());
+            estimate = estimate.mapVariableColumnStatistics(expressionVariable.orElseThrow(), oldStats -> symbolNewEstimate.build());
         }
         return estimate;
     }

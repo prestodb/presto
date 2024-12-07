@@ -32,7 +32,6 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -57,7 +56,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -210,7 +208,7 @@ public class IndexLoader
                 // Try loading just my request
                 if (requests.size() > 1) {
                     // Add all other requests back into the queue
-                    Iterables.addAll(updateRequests, filter(requests, not(equalTo(myUpdateRequest))));
+                    requests.stream().filter(not(equalTo(myUpdateRequest))).forEach(updateRequests::add);
 
                     if (indexSnapshotLoader.load(ImmutableList.of(myUpdateRequest))) {
                         stats.recordSuccessfulIndexJoinLookupBySingleRequest();
@@ -249,7 +247,7 @@ public class IndexLoader
         Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext());
 
         PageRecordSet pageRecordSet = new PageRecordSet(keyTypes, indexKeyTuple);
-        PlanNodeId planNodeId = driverFactory.getSourceId().get();
+        PlanNodeId planNodeId = driverFactory.getSourceId().orElseThrow();
         ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new ConnectorTransactionHandle() {}, new IndexSplit(pageRecordSet)));
         driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(split), true));
 
@@ -345,7 +343,7 @@ public class IndexLoader
 
             // Drive index lookup to produce the output (landing in indexSnapshotBuilder)
             try (Driver driver = driverFactory.createDriver(pipelineContext.addDriverContext())) {
-                PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().get();
+                PlanNodeId sourcePlanNodeId = driverFactory.getSourceId().orElseThrow();
                 ScheduledSplit split = new ScheduledSplit(0, sourcePlanNodeId, new Split(INDEX_CONNECTOR_ID, new ConnectorTransactionHandle() {}, new IndexSplit(recordSetForLookupSource)));
                 driver.updateSource(new TaskSource(sourcePlanNodeId, ImmutableSet.of(split), true));
                 while (!driver.isFinished()) {

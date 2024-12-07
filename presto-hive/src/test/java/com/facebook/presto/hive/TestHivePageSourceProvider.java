@@ -257,7 +257,7 @@ public class TestHivePageSourceProvider
                 Optional.empty(),
                 Optional.empty());
         assertTrue(pageSource.isPresent());
-        assertTrue(pageSource.get() instanceof RecordPageSource);
+        assertTrue(pageSource.orElseThrow() instanceof RecordPageSource);
     }
 
     @Test
@@ -311,7 +311,7 @@ public class TestHivePageSourceProvider
                 Optional.empty(),
                 Optional.empty());
         assertTrue(pageSource.isPresent());
-        assertTrue(pageSource.get() instanceof HivePageSource);
+        assertTrue(pageSource.orElseThrow() instanceof HivePageSource);
     }
 
     @Test

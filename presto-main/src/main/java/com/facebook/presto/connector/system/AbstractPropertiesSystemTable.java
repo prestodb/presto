@@ -35,8 +35,8 @@ import java.util.function.Supplier;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.spi.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 abstract class AbstractPropertiesSystemTable
         implements SystemTable
@@ -84,7 +84,7 @@ abstract class AbstractPropertiesSystemTable
                 table.addRow(
                         catalog,
                         propertyMetadata.getName(),
-                        firstNonNull(propertyMetadata.getDefaultValue(), "").toString(),
+                        requireNonNullElse(propertyMetadata.getDefaultValue(), "").toString(),
                         propertyMetadata.getSqlType().toString(),
                         propertyMetadata.getDescription());
             }

@@ -136,7 +136,7 @@ public class PrestoS3ClientFactory
     {
         Optional<AWSCredentials> credentials = getAwsCredentials(conf);
         if (credentials.isPresent()) {
-            return new AWSStaticCredentialsProvider(credentials.get());
+            return new AWSStaticCredentialsProvider(credentials.orElseThrow());
         }
 
         boolean useInstanceCredentials = conf.getBoolean(S3_USE_INSTANCE_CREDENTIALS, defaults.isS3UseInstanceCredentials());

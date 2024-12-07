@@ -46,7 +46,7 @@ import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_R
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -109,7 +109,7 @@ class GroupedExecutionTagger
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }
 
-        switch (node.getDistributionType().get()) {
+        switch (node.getDistributionType().orElseThrow()) {
             case REPLICATED:
                 // Broadcast join maintains partitioning for the left side.
                 // Right side of a broadcast is not capable of grouped execution because it always comes from a remote exchange.
@@ -209,7 +209,7 @@ class GroupedExecutionTagger
 
     private GroupedExecutionTagger.GroupedExecutionProperties processWindowFunction(PlanNode node)
     {
-        GroupedExecutionTagger.GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
+        GroupedExecutionTagger.GroupedExecutionProperties properties = node.getSources().stream().collect(onlyElement()).accept(this, null);
         if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
             return new GroupedExecutionTagger.GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans, properties.recoveryEligible);
         }
@@ -219,7 +219,7 @@ class GroupedExecutionTagger
     @Override
     public GroupedExecutionTagger.GroupedExecutionProperties visitMarkDistinct(MarkDistinctNode node, Void context)
     {
-        GroupedExecutionTagger.GroupedExecutionProperties properties = getOnlyElement(node.getSources()).accept(this, null);
+        GroupedExecutionTagger.GroupedExecutionProperties properties = node.getSources().stream().collect(onlyElement()).accept(this, null);
         if (groupedExecutionEnabled && properties.isCurrentNodeCapable()) {
             return new GroupedExecutionTagger.GroupedExecutionProperties(true, true, properties.capableTableScanNodes, properties.totalLifespans, properties.recoveryEligible);
         }
@@ -253,7 +253,7 @@ class GroupedExecutionTagger
         if (!tablePartitioning.isPresent()) {
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }
-        List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
+        List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.orElseThrow().getPartitioningHandle());
         if (ImmutableList.of(NOT_PARTITIONED).equals(partitionHandles)) {
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }

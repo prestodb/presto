@@ -34,7 +34,7 @@ public class TestNoisyApproximateCountDistinctSfmAggregation
 
     protected long getCardinalityFromResult(Object result)
     {
-        return new Long(result.toString());
+        return Long.parseLong(result.toString());
     }
 
     @Test

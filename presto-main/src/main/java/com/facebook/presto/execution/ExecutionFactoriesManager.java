@@ -47,7 +47,7 @@ public class ExecutionFactoriesManager
     public QueryExecutionFactory<?> getExecutionFactory(PreparedQuery preparedQuery)
     {
         checkState(preparedQuery != null && preparedQuery.getQueryType().isPresent(), "preparedQuery is null or preparedQuery does not have queryType");
-        QueryType queryType = preparedQuery.getQueryType().get();
+        QueryType queryType = preparedQuery.getQueryType().orElseThrow();
 
         if (queryType == QueryType.DATA_DEFINITION) {
             return ddlDefinitionExecutionFactory;

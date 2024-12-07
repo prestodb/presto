@@ -529,7 +529,7 @@ public class TestUtilizedColumnsAnalyzer
                     Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP);
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyze(statement);
-                    assertEquals(analysis.getUtilizedTableColumnReferences().values().stream().findFirst().get(), expected);
+                    assertEquals(analysis.getUtilizedTableColumnReferences().values().stream().findFirst().orElseThrow(), expected);
                 });
     }
 }

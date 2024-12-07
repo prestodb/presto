@@ -57,7 +57,7 @@ public class TestMapredParquetOutputFormat
             throws IOException
     {
         if (schema.isPresent()) {
-            DataWritableWriteSupport.setSchema(schema.get(), jobConf);
+            DataWritableWriteSupport.setSchema(schema.orElseThrow(), jobConf);
             return getParquerRecordWriterWrapper(realOutputFormat, jobConf, finalOutPath.toString(), progress, tableProperties);
         }
         return super.getHiveRecordWriter(jobConf, finalOutPath, valueClass, isCompressed, tableProperties, progress);

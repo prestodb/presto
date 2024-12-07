@@ -27,8 +27,8 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -49,6 +49,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_PARTITION_CACHE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -66,7 +67,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
-import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.lang.String.format;
@@ -412,12 +412,12 @@ public class InMemoryCachingHiveMetastore
         Map<KeyAndContext<HivePartitionName>, PartitionStatistics> statistics = getAll(partitionStatisticsCache, partitions);
         return statistics.entrySet()
                 .stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getKey().getPartitionNameWithVersion().get().getPartitionName(), Entry::getValue));
+                .collect(toImmutableMap(entry -> entry.getKey().getKey().getPartitionNameWithVersion().orElseThrow().getPartitionName(), Entry::getValue));
     }
 
     private PartitionStatistics loadPartitionColumnStatistics(KeyAndContext<HivePartitionName> partition)
     {
-        String partitionName = partition.getKey().getPartitionNameWithVersion().get().getPartitionName();
+        String partitionName = partition.getKey().getPartitionNameWithVersion().orElseThrow().getPartitionName();
         Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(
                 partition.getContext(),
                 partition.getKey().getHiveTableName().getDatabaseName(),
@@ -436,7 +436,7 @@ public class InMemoryCachingHiveMetastore
         ImmutableMap.Builder<KeyAndContext<HivePartitionName>, PartitionStatistics> result = ImmutableMap.builder();
         tablePartitions.keySet().forEach(table -> {
             Set<String> partitionNames = tablePartitions.get(table).stream()
-                    .map(partitionName -> partitionName.getKey().getPartitionNameWithVersion().get().getPartitionName())
+                    .map(partitionName -> partitionName.getKey().getPartitionNameWithVersion().orElseThrow().getPartitionName())
                     .collect(toImmutableSet());
             Map<String, PartitionStatistics> partitionStatistics = delegate.getPartitionStatistics(table.getContext(), table.getKey().getDatabaseName(), table.getKey().getTableName(), partitionNames);
             for (String partitionName : partitionNames) {
@@ -612,7 +612,7 @@ public class InMemoryCachingHiveMetastore
                 partitionStatisticsCache.invalidate(partitionNameKey);
             }
             else {
-                Optional<Long> partitionVersion = partition.get().getPartitionVersion();
+                Optional<Long> partitionVersion = partition.orElseThrow().getPartitionVersion();
                 if (!partitionVersion.isPresent() || !partitionVersion.equals(partitionNameWithVersion.getPartitionVersion())) {
                     partitionCache.invalidate(partitionNameKey);
                     partitionStatisticsCache.invalidate(partitionNameKey);
@@ -624,7 +624,7 @@ public class InMemoryCachingHiveMetastore
     private void invalidatePartitionsWithHighColumnCount(Optional<Partition> partition, KeyAndContext<HivePartitionName> partitionCacheKey)
     {
         // Do NOT cache partitions with # of columns > partitionCacheColumnLimit
-        if (partition.isPresent() && partition.get().getColumns().size() > partitionCacheColumnCountLimit) {
+        if (partition.isPresent() && partition.orElseThrow().getColumns().size() > partitionCacheColumnCountLimit) {
             partitionCache.invalidate(partitionCacheKey);
             metastoreCacheStats.incrementPartitionsWithColumnCountGreaterThanThreshold();
         }
@@ -679,9 +679,10 @@ public class InMemoryCachingHiveMetastore
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionNameWithVersion> partitionNames)
     {
-        Iterable<KeyAndContext<HivePartitionName>> names = transform(partitionNames, name -> getCachingKey(metastoreContext, HivePartitionName.hivePartitionName(databaseName, tableName, name)));
+        Stream<KeyAndContext<HivePartitionName>> names = partitionNames.stream()
+                .map(name -> getCachingKey(metastoreContext, HivePartitionName.hivePartitionName(databaseName, tableName, name)));
 
-        Map<KeyAndContext<HivePartitionName>, Optional<Partition>> all = getAll(partitionCache, names);
+        Map<KeyAndContext<HivePartitionName>, Optional<Partition>> all = getAll(partitionCache, names.toList());
         if (isPartitionCacheValidationEnabled()) {
             validatePartitionCache(all);
         }
@@ -689,7 +690,7 @@ public class InMemoryCachingHiveMetastore
         for (Entry<KeyAndContext<HivePartitionName>, Optional<Partition>> entry : all.entrySet()) {
             Optional<Partition> value = entry.getValue();
             invalidatePartitionsWithHighColumnCount(value, entry.getKey());
-            partitionsByName.put(entry.getKey().getKey().getPartitionNameWithVersion().get().getPartitionName(), value);
+            partitionsByName.put(entry.getKey().getKey().getPartitionNameWithVersion().orElseThrow().getPartitionName(), value);
         }
         return partitionsByName.build();
     }
@@ -709,12 +710,14 @@ public class InMemoryCachingHiveMetastore
     private Map<KeyAndContext<HivePartitionName>, Optional<Partition>> loadPartitionsByNames(Iterable<? extends KeyAndContext<HivePartitionName>> partitionNamesKey)
     {
         requireNonNull(partitionNamesKey, "partitionNames is null");
-        checkArgument(!Iterables.isEmpty(partitionNamesKey), "partitionNames is empty");
+        checkArgument(Streams.stream(partitionNamesKey).findAny().isPresent(), "partitionNames is empty");
 
         //Invalidate Partition Statistics Cache on a partition cache miss.
-        partitionStatisticsCache.invalidateAll(transform(partitionNamesKey, partitionNameKey -> getCachingKey(partitionNameKey.getContext(), partitionNameKey.getKey())));
+        Streams.stream(partitionNamesKey)
+                .map(partitionNameKey -> getCachingKey(partitionNameKey.getContext(), partitionNameKey.getKey()))
+                .forEach(partitionStatisticsCache::invalidate);
 
-        KeyAndContext<HivePartitionName> firstPartitionKey = Iterables.get(partitionNamesKey, 0);
+        KeyAndContext<HivePartitionName> firstPartitionKey = Streams.stream(partitionNamesKey).findFirst().orElseThrow();
 
         HiveTableName hiveTableName = firstPartitionKey.getKey().getHiveTableName();
         String databaseName = hiveTableName.getDatabaseName();
@@ -725,8 +728,8 @@ public class InMemoryCachingHiveMetastore
         for (KeyAndContext<HivePartitionName> partitionNameKey : partitionNamesKey) {
             checkArgument(partitionNameKey.getKey().getHiveTableName().equals(hiveTableName), "Expected table name %s but got %s", hiveTableName, partitionNameKey.getKey().getHiveTableName());
             checkArgument(partitionNameKey.getContext().equals(firstPartitionKey.getContext()), "Expected context %s but got %s", firstPartitionKey.getContext(), partitionNameKey.getContext());
-            partitionsToFetch.add(partitionNameKey.getKey().getPartitionNameWithVersion().get());
-            partitionNameToVersionMap.put(partitionNameKey.getKey().getPartitionNameWithVersion().get().getPartitionName(), partitionNameKey.getKey().getPartitionNameWithVersion().get());
+            partitionsToFetch.add(partitionNameKey.getKey().getPartitionNameWithVersion().orElseThrow());
+            partitionNameToVersionMap.put(partitionNameKey.getKey().getPartitionNameWithVersion().orElseThrow().getPartitionName(), partitionNameKey.getKey().getPartitionNameWithVersion().orElseThrow());
         }
 
         ImmutableMap.Builder<KeyAndContext<HivePartitionName>, Optional<Partition>> partitions = ImmutableMap.builder();

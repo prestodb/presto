@@ -37,7 +37,7 @@ import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.common.type.VarcharType.MAX_LENGTH;
 import static com.facebook.presto.jdbc.TestPrestoDriver.closeQuietly;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -95,7 +95,7 @@ public class TestPrestoDatabaseMetaData
         });
 
         assertEquals(queries.size(), 1, "Expected exactly one query, got " + queries.size());
-        String query = getOnlyElement(queries);
+        String query = queries.stream().collect(onlyElement());
 
         assertContains(query, "_t' ESCAPE '", "Metadata query does not contain ESCAPE");
     }

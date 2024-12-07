@@ -64,13 +64,13 @@ public class ApplyChangelogFunction
             return;
         }
         else if (!state.getRecord().isPresent() && otherState.getRecord().isPresent()) {
-            record = otherState.getRecord().get();
+            record = otherState.getRecord().orElseThrow();
         }
         else if (state.getRecord().isPresent() && !otherState.getRecord().isPresent()) {
-            record = state.getRecord().get();
+            record = state.getRecord().orElseThrow();
         }
         else {
-            record = state.getRecord().get().merge(otherState.getRecord().get());
+            record = state.getRecord().orElseThrow().merge(otherState.getRecord().orElseThrow());
         }
         state.setRecord(record);
     }
@@ -87,11 +87,11 @@ public class ApplyChangelogFunction
             return;
         }
 
-        if (ChangelogOperation.valueOf(record.get().getLastOperation().toStringUtf8().toUpperCase()).equals(DELETE)) {
+        if (ChangelogOperation.valueOf(record.orElseThrow().getLastOperation().toStringUtf8().toUpperCase()).equals(DELETE)) {
             out.appendNull();
         }
         else {
-            elementType.appendTo(record.get().getRow(), 0, out);
+            elementType.appendTo(record.orElseThrow().getRow(), 0, out);
         }
     }
 }

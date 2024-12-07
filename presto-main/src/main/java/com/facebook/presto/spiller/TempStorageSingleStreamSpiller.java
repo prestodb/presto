@@ -96,7 +96,7 @@ public class TempStorageSingleStreamSpiller
         this.localSpillContext = spillContext.newLocalSpillContext();
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.spillCipher = requireNonNull(spillCipher, "spillCipher is null");
-        checkState(!spillCipher.isPresent() || !spillCipher.get().isDestroyed(), "spillCipher is already destroyed");
+        checkState(!spillCipher.isPresent() || !spillCipher.orElseThrow().isDestroyed(), "spillCipher is already destroyed");
         this.spillCipher.ifPresent(cipher -> closer.register(cipher::destroy));
 
         Session session = spillContext.getSession();

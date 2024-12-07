@@ -70,7 +70,7 @@ public class TestHiveStorageFormats
         };
     }
 
-    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
+    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
@@ -113,7 +113,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
+    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
     public void testCreateTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
@@ -139,7 +139,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
+    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
@@ -182,7 +182,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = {STORAGE_FORMATS})
+    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties

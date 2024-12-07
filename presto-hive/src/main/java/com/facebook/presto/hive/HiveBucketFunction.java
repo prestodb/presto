@@ -78,9 +78,9 @@ public class HiveBucketFunction
     {
         switch (bucketFunctionType) {
             case HIVE_COMPATIBLE:
-                return getHiveBucket(bucketCount, typeInfos.get(), page, position, useLegacyTimestampBucketing);
+                return getHiveBucket(bucketCount, typeInfos.orElseThrow(), page, position, useLegacyTimestampBucketing);
             case PRESTO_NATIVE:
-                return HiveBucketing.getBucket(bucketCount, types.get(), page, position);
+                return HiveBucketing.getBucket(bucketCount, types.orElseThrow(), page, position);
             default:
                 throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
         }
@@ -92,7 +92,7 @@ public class HiveBucketFunction
         return toStringHelper(this)
                 .add("bucketCount", bucketCount)
                 .add("bucketFunctionType", bucketFunctionType)
-                .add("types", bucketFunctionType.equals(HIVE_COMPATIBLE) ? typeInfos.get() : types.get())
+                .add("types", bucketFunctionType.equals(HIVE_COMPATIBLE) ? typeInfos.orElseThrow() : types.orElseThrow())
                 .toString();
     }
 }

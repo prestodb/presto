@@ -15,7 +15,7 @@ package com.facebook.presto.cli;
 
 import io.airlift.airline.Option;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class VersionOption
 {
@@ -26,7 +26,7 @@ public class VersionOption
     {
         if (version) {
             String clientVersion = Presto.class.getPackage().getImplementationVersion();
-            System.out.println("Presto CLI " + firstNonNull(clientVersion, "(version unknown)"));
+            System.out.println("Presto CLI " + requireNonNullElse(clientVersion, "(version unknown)"));
         }
         return version;
     }

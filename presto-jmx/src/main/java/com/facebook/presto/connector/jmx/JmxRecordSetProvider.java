@@ -81,7 +81,7 @@ public class JmxRecordSetProvider
                     row.add(null);
                 }
                 else {
-                    Object value = optionalValue.get();
+                    Object value = optionalValue.orElseThrow();
                     Class<?> javaType = jmxColumn.getColumnType().getJavaType();
                     if (javaType == boolean.class) {
                         if (value instanceof Boolean) {

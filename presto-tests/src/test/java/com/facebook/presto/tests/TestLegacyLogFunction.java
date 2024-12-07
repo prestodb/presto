@@ -39,7 +39,7 @@ public class TestLegacyLogFunction
         }
     }
 
-    @Test(expectedExceptions = {SemanticException.class},
+    @Test(expectedExceptions = SemanticException.class,
             expectedExceptionsMessageRegExp = ".*Function log not registered")
     public void testLegacyLogFunctionDisabled()
     {

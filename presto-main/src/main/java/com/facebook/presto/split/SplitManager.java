@@ -83,7 +83,7 @@ public class SplitManager
             layout = result.getLayout().getLayoutHandle();
         }
         else {
-            layout = table.getLayout().get();
+            layout = table.getLayout().orElseThrow();
         }
 
         ConnectorSplitSource source = splitManager.getSplits(

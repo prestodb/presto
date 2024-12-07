@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 import static com.facebook.presto.execution.TestQueues.createResourceGroupId;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.utils.ResourceUtils.getResourceFilePath;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -79,7 +79,7 @@ public class TestEventListener
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
         queryRunner.installPlugin(new ResourceGroupManagerPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of("tpch.splits-per-node", Integer.toString(SPLITS_PER_NODE)));
-        queryRunner.getCoordinator().getResourceGroupManager().get()
+        queryRunner.getCoordinator().getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 
@@ -113,11 +113,11 @@ public class TestEventListener
         // QueryCreated: 1, QueryProgressEvent:1, QueryCompleted: 1, Splits: 1
         runQueryAndWaitForEvents("SELECT 1", 4);
 
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        QueryCreatedEvent queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCreatedEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT 1");
         assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
@@ -126,16 +126,16 @@ public class TestEventListener
         assertTrue(queryProgressEvent.getMonotonicallyIncreasingEventId() > lastSeenQueryProgressEventId);
         lastSeenQueryProgressEventId = queryProgressEvent.getMonotonicallyIncreasingEventId();
         assertTrue(queryProgressEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryProgressEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
+        assertEquals(queryProgressEvent.getContext().getResourceGroupId().orElseThrow(), createResourceGroupId("global", "user-user"));
         assertEquals(queryProgressEvent.getStatistics().getTotalRows(), 0L);
-        assertEquals(queryProgressEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryProgressEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryProgressEvent.getMetadata().getQueryId());
 
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryCompletedEvent queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
+        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().orElseThrow(), createResourceGroupId("global", "user-user"));
         assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), 0L);
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCompletedEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
 
@@ -154,11 +154,11 @@ public class TestEventListener
         int expectedEvents = 1 + 1 + 1 + SPLITS_PER_NODE + 1 + 1;
         runQueryAndWaitForEvents("SELECT sum(linenumber) FROM lineitem", expectedEvents);
 
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        QueryCreatedEvent queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCreatedEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "SELECT sum(linenumber) FROM lineitem");
         assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
@@ -167,18 +167,18 @@ public class TestEventListener
         assertTrue(queryProgressEvent.getMonotonicallyIncreasingEventId() > lastSeenQueryProgressEventId);
         lastSeenQueryProgressEventId = queryProgressEvent.getMonotonicallyIncreasingEventId();
         assertTrue(queryProgressEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryProgressEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryProgressEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryProgressEvent.getContext().getResourceGroupId().orElseThrow(), createResourceGroupId("global", "user-user"));
+        assertEquals(queryProgressEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryProgressEvent.getMetadata().getQueryId());
         assertFalse(queryProgressEvent.getMetadata().getPreparedQuery().isPresent());
 
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryCompletedEvent queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
+        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().orElseThrow(), createResourceGroupId("global", "user-user"));
         assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
         assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 1);
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName(), "tpch");
+        assertEquals(queryCompletedEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCompletedEvent.getIoMetadata().getInputs().stream().collect(onlyElement()).getCatalogName(), "tpch");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
         assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
@@ -215,11 +215,11 @@ public class TestEventListener
         // QueryCreated: 1, QueryProgressEvent: 1, QueryCompleted: 1, Splits: 0
         runQueryAndWaitForEvents(prepareQuery, 3);
 
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        QueryCreatedEvent queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCreatedEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), prepareQuery);
         assertFalse(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
 
@@ -228,17 +228,17 @@ public class TestEventListener
         assertTrue(queryProgressEvent.getMonotonicallyIncreasingEventId() > lastSeenQueryProgressEventId);
         lastSeenQueryProgressEventId = queryProgressEvent.getMonotonicallyIncreasingEventId();
         assertTrue(queryProgressEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryProgressEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryProgressEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryProgressEvent.getContext().getResourceGroupId().orElseThrow(), createResourceGroupId("global", "user-user"));
+        assertEquals(queryProgressEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryProgressEvent.getMetadata().getQueryId());
         assertFalse(queryProgressEvent.getMetadata().getPreparedQuery().isPresent());
 
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryCompletedEvent queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
+        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().orElseThrow(), createResourceGroupId("global", "user-user"));
         assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
         assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 0);  // Prepare has no inputs
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCompletedEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
         assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), 0); // Prepare has no splits
@@ -251,36 +251,36 @@ public class TestEventListener
         int expectedEvents = 1 + 1 + 1 + SPLITS_PER_NODE + 1 + 1;
         runQueryAndWaitForEvents("EXECUTE stmt USING 'SHIP'", expectedEvents, sessionWithPrepare);
 
-        queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
         assertEquals(queryCreatedEvent.getContext().getServerVersion(), "testversion");
         assertEquals(queryCreatedEvent.getContext().getServerAddress(), "127.0.0.1");
         assertEquals(queryCreatedEvent.getContext().getEnvironment(), "testing");
-        assertEquals(queryCreatedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCreatedEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQuery(), "EXECUTE stmt USING 'SHIP'");
         assertTrue(queryCreatedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCreatedEvent.getMetadata().getPreparedQuery().get(), selectQuery);
+        assertEquals(queryCreatedEvent.getMetadata().getPreparedQuery().orElseThrow(), selectQuery);
 
         queryProgressEvent = generatedEvents.getQueryProgressEvent();
         assertNotNull(queryProgressEvent);
         assertTrue(queryProgressEvent.getMonotonicallyIncreasingEventId() > lastSeenQueryProgressEventId);
         lastSeenQueryProgressEventId = queryProgressEvent.getMonotonicallyIncreasingEventId();
         assertTrue(queryProgressEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryProgressEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryProgressEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryProgressEvent.getContext().getResourceGroupId().orElseThrow(), createResourceGroupId("global", "user-user"));
+        assertEquals(queryProgressEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryProgressEvent.getMetadata().getQueryId());
         assertTrue(queryProgressEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryProgressEvent.getMetadata().getPreparedQuery().get(), selectQuery);
+        assertEquals(queryProgressEvent.getMetadata().getPreparedQuery().orElseThrow(), selectQuery);
 
-        queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
-        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
+        assertEquals(queryCompletedEvent.getContext().getResourceGroupId().orElseThrow(), createResourceGroupId("global", "user-user"));
         assertEquals(queryCompletedEvent.getIoMetadata().getOutput(), Optional.empty());
         assertEquals(queryCompletedEvent.getIoMetadata().getInputs().size(), 1);
-        assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
-        assertEquals(getOnlyElement(queryCompletedEvent.getIoMetadata().getInputs()).getCatalogName(), "tpch");
+        assertEquals(queryCompletedEvent.getContext().getClientInfo().orElseThrow(), "{\"clientVersion\":\"testVersion\"}");
+        assertEquals(queryCompletedEvent.getIoMetadata().getInputs().stream().collect(onlyElement()).getCatalogName(), "tpch");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertTrue(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
-        assertEquals(queryCompletedEvent.getMetadata().getPreparedQuery().get(), selectQuery);
+        assertEquals(queryCompletedEvent.getMetadata().getPreparedQuery().orElseThrow(), selectQuery);
         assertEquals(queryCompletedEvent.getStatistics().getCompletedSplits(), SPLITS_PER_NODE + 2);
     }
 
@@ -292,9 +292,9 @@ public class TestEventListener
         // QueryCreated: 1, QueryProgressEvent:1, QueryCompleted: 1, Splits: SPLITS_PER_NODE (leaf splits) + LocalExchange[SINGLE] split + Aggregation/Output split
         int expectedEvents = 1 + 1 + 1 + SPLITS_PER_NODE + 1 + 1;
         MaterializedResult result = runQueryAndWaitForEvents("SELECT 1 FROM lineitem", expectedEvents);
-        QueryCreatedEvent queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        QueryCreatedEvent queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
         QueryProgressEvent queryProgressEvent = generatedEvents.getQueryProgressEvent();
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryCompletedEvent queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         QueryStats queryStats = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
         assertNotNull(queryProgressEvent);
@@ -306,9 +306,9 @@ public class TestEventListener
         assertEquals(result.getRowCount(), queryCompletedEvent.getStatistics().getOutputRows());
 
         runQueryAndWaitForEvents("SELECT COUNT(1) FROM lineitem", expectedEvents);
-        queryCreatedEvent = getOnlyElement(generatedEvents.getQueryCreatedEvents());
+        queryCreatedEvent = generatedEvents.getQueryCreatedEvents().stream().collect(onlyElement());
         queryProgressEvent = generatedEvents.getQueryProgressEvent();
-        queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         queryStats = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(queryCreatedEvent.getMetadata().getQueryId())).getQueryStats();
 
         assertNotNull(queryProgressEvent);
@@ -330,9 +330,9 @@ public class TestEventListener
                 .setSystemProperty("print_stats_for_non_join_query", "true")
                 .build();
         runQueryAndWaitForEvents("SELECT * FROM lineitem limit 1", expectedEvents, sessionForEventLoggingWithStats);
-        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        QueryCompletedEvent queryCompletedEvent = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement());
         MaterializedResult expected = runQueryAndWaitForEvents(query, expectedEvents);
-        assertEquals(queryCompletedEvent.getMetadata().getGraphvizPlan().get(), getOnlyElement(expected.getOnlyColumnAsSet()));
+        assertEquals(queryCompletedEvent.getMetadata().getGraphvizPlan().orElseThrow(), expected.getOnlyColumnAsSet().stream().collect(onlyElement()));
     }
 
     public static class EventsBuilder

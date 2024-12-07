@@ -39,10 +39,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.io.ByteStreams.copy;
-import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
+import static java.io.OutputStream.nullOutputStream;
 import static java.util.Objects.requireNonNull;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
@@ -163,7 +162,7 @@ public class AuthenticationFilter
         // in the client by reading and discarding the entire body of the
         // unauthenticated request before sending the response.
         try (InputStream inputStream = request.getInputStream()) {
-            copy(inputStream, nullOutputStream());
+            inputStream.transferTo(nullOutputStream());
         }
     }
 }

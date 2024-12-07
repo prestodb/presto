@@ -189,8 +189,8 @@ public class AccumuloMetadata
     {
         ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
         if (filterSchema.isPresent()) {
-            for (String view : client.getViewNames(filterSchema.get())) {
-                builder.add(new SchemaTableName(filterSchema.get(), view));
+            for (String view : client.getViewNames(filterSchema.orElseThrow())) {
+                builder.add(new SchemaTableName(filterSchema.orElseThrow(), view));
             }
         }
         else {

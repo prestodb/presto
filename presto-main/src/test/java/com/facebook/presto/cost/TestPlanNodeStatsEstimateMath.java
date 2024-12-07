@@ -374,31 +374,31 @@ public class TestPlanNodeStatsEstimateMath
         assertEquals(calculator.addStatsAndCollapseDistinctValues(unknownRowCount, unknownRowCount).getVariableStatistics(VARIABLE).getHistogram(), Optional.empty());
 
         // check when rows are available histograms are added properly.
-        ConnectorHistogram addedSameRange = DisjointRangeDomainHistogram.addDisjunction(unknownNullsFraction.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToTen);
+        ConnectorHistogram addedSameRange = DisjointRangeDomainHistogram.addDisjunction(unknownNullsFraction.getVariableStatistics(VARIABLE).getHistogram().orElseThrow(), zeroToTen);
         assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndSumDistinctValues, addedSameRange);
         assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndCollapseDistinctValues, addedSameRange);
         assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndMaxDistinctValues, addedSameRange);
         assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndIntersect, addedSameRange);
 
         // check when only a sub-range is added, that the histogram still represents the full range
-        ConnectorHistogram fullRangeFirst = DisjointRangeDomainHistogram.addDisjunction(first.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToTen);
-        ConnectorHistogram intersectedRangeSecond = DisjointRangeDomainHistogram.addConjunction(first.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToFive);
+        ConnectorHistogram fullRangeFirst = DisjointRangeDomainHistogram.addDisjunction(first.getVariableStatistics(VARIABLE).getHistogram().orElseThrow(), zeroToTen);
+        ConnectorHistogram intersectedRangeSecond = DisjointRangeDomainHistogram.addConjunction(first.getVariableStatistics(VARIABLE).getHistogram().orElseThrow(), zeroToFive);
         assertAddStatsHistogram(first, second, calculator::addStatsAndSumDistinctValues, fullRangeFirst);
         assertAddStatsHistogram(first, second, calculator::addStatsAndCollapseDistinctValues, fullRangeFirst);
         assertAddStatsHistogram(first, second, calculator::addStatsAndMaxDistinctValues, fullRangeFirst);
         assertAddStatsHistogram(first, second, calculator::addStatsAndIntersect, intersectedRangeSecond);
 
         // check when two ranges overlap, the new stats span both ranges
-        ConnectorHistogram fullRangeSecondThird = DisjointRangeDomainHistogram.addDisjunction(second.getVariableStatistics(VARIABLE).getHistogram().get(), fiveToTen);
-        ConnectorHistogram intersectedRangeSecondThird = DisjointRangeDomainHistogram.addConjunction(second.getVariableStatistics(VARIABLE).getHistogram().get(), fiveToTen);
+        ConnectorHistogram fullRangeSecondThird = DisjointRangeDomainHistogram.addDisjunction(second.getVariableStatistics(VARIABLE).getHistogram().orElseThrow(), fiveToTen);
+        ConnectorHistogram intersectedRangeSecondThird = DisjointRangeDomainHistogram.addConjunction(second.getVariableStatistics(VARIABLE).getHistogram().orElseThrow(), fiveToTen);
         assertAddStatsHistogram(second, third, calculator::addStatsAndSumDistinctValues, fullRangeSecondThird);
         assertAddStatsHistogram(second, third, calculator::addStatsAndCollapseDistinctValues, fullRangeSecondThird);
         assertAddStatsHistogram(second, third, calculator::addStatsAndMaxDistinctValues, fullRangeSecondThird);
         assertAddStatsHistogram(second, third, calculator::addStatsAndIntersect, intersectedRangeSecondThird);
 
         // check when two ranges partially overlap, the addition/intersection is applied correctly
-        ConnectorHistogram fullRangeThirdFourth = DisjointRangeDomainHistogram.addDisjunction(third.getVariableStatistics(VARIABLE).getHistogram().get(), threeToSeven);
-        ConnectorHistogram intersectedRangeThirdFourth = DisjointRangeDomainHistogram.addConjunction(third.getVariableStatistics(VARIABLE).getHistogram().get(), threeToSeven);
+        ConnectorHistogram fullRangeThirdFourth = DisjointRangeDomainHistogram.addDisjunction(third.getVariableStatistics(VARIABLE).getHistogram().orElseThrow(), threeToSeven);
+        ConnectorHistogram intersectedRangeThirdFourth = DisjointRangeDomainHistogram.addConjunction(third.getVariableStatistics(VARIABLE).getHistogram().orElseThrow(), threeToSeven);
         assertAddStatsHistogram(third, fourth, calculator::addStatsAndSumDistinctValues, fullRangeThirdFourth);
         assertAddStatsHistogram(third, fourth, calculator::addStatsAndCollapseDistinctValues, fullRangeThirdFourth);
         assertAddStatsHistogram(third, fourth, calculator::addStatsAndMaxDistinctValues, fullRangeThirdFourth);
@@ -407,7 +407,7 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertAddStatsHistogram(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, BiFunction<PlanNodeStatsEstimate, PlanNodeStatsEstimate, PlanNodeStatsEstimate> function, ConnectorHistogram expected)
     {
-        assertEquals(function.apply(first, second).getVariableStatistics(VARIABLE).getHistogram().get(), expected);
+        assertEquals(function.apply(first, second).getVariableStatistics(VARIABLE).getHistogram().orElseThrow(), expected);
     }
 
     private static PlanNodeStatsEstimate statistics(double rowCount, double totalSize, double nullsFraction, double averageRowSize, StatisticRange range)

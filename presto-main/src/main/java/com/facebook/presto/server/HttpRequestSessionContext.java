@@ -46,7 +46,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
@@ -87,6 +86,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_FOR;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class HttpRequestSessionContext
@@ -224,7 +224,7 @@ public final class HttpRequestSessionContext
 
         if (isTracingEnabled()) {
             this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(tracerHandle), "tracer is null"));
-            traceToken = Optional.ofNullable(this.tracer.get().getTracerId());
+            traceToken = Optional.ofNullable(this.tracer.orElseThrow().getTracerId());
         }
         else {
             this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
@@ -394,12 +394,7 @@ public final class HttpRequestSessionContext
 
     private static String urlDecode(String value)
     {
-        try {
-            return URLDecoder.decode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
+        return URLDecoder.decode(value, UTF_8);
     }
 
     @Override

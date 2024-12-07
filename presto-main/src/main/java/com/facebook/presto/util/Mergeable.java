@@ -27,7 +27,7 @@ public interface Mergeable<T>
     static <T extends Mergeable<T>> Optional<T> merge(Optional<T> first, Optional<T> second)
     {
         if (first.isPresent() && second.isPresent()) {
-            return Optional.of(first.get().mergeWith(second.get()));
+            return Optional.of(first.orElseThrow().mergeWith(second.orElseThrow()));
         }
         else if (first.isPresent()) {
             return first;

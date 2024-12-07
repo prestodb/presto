@@ -54,7 +54,7 @@ public class InMemoryHistoryBasedPlanStatisticsProvider
                 planNodeWithHash -> planNodeWithHash,
                 planNodeWithHash -> {
                     if (planNodeWithHash.getHash().isPresent()) {
-                        return cache.getOrDefault(planNodeWithHash.getHash().get(), HistoricalPlanStatistics.empty());
+                        return cache.getOrDefault(planNodeWithHash.getHash().orElseThrow(), HistoricalPlanStatistics.empty());
                     }
                     return HistoricalPlanStatistics.empty();
                 }));
@@ -65,7 +65,7 @@ public class InMemoryHistoryBasedPlanStatisticsProvider
     {
         hashesAndStatistics.forEach((planNodeWithHash, historicalPlanStatistics) -> {
             if (planNodeWithHash.getHash().isPresent()) {
-                cache.put(planNodeWithHash.getHash().get(), historicalPlanStatistics);
+                cache.put(planNodeWithHash.getHash().orElseThrow(), historicalPlanStatistics);
             }
         });
         semaphore.release();

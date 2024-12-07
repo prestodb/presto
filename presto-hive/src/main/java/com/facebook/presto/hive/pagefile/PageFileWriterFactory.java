@@ -137,7 +137,7 @@ public class PageFileWriterFactory
         PageCompressor pageCompressor = null;
         PageDecompressor pageDecompressor = null;
 
-        switch (compressionCodec.get()) {
+        switch (compressionCodec.orElseThrow()) {
             case NONE:
                 break;
             case SNAPPY:
@@ -159,7 +159,7 @@ public class PageFileWriterFactory
             default:
                 throw new PrestoException(
                         GENERIC_INTERNAL_ERROR,
-                        format("%s compression is not supported for %s", compressionCodec.get().name(), PAGEFILE.getOutputFormat()));
+                        format("%s compression is not supported for %s", compressionCodec.orElseThrow().name(), PAGEFILE.getOutputFormat()));
         }
 
         return new PagesSerde(blockEncodingSerde, Optional.ofNullable(pageCompressor), Optional.ofNullable(pageDecompressor), Optional.empty());

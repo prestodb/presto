@@ -125,10 +125,10 @@ public final class GlueInputConverter
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
-            sd.setNumberOfBuckets(bucketProperty.get().getBucketCount());
-            sd.setBucketColumns(bucketProperty.get().getBucketedBy());
-            if (!bucketProperty.get().getSortedBy().isEmpty()) {
-                sd.setSortColumns(bucketProperty.get().getSortedBy().stream()
+            sd.setNumberOfBuckets(bucketProperty.orElseThrow().getBucketCount());
+            sd.setBucketColumns(bucketProperty.orElseThrow().getBucketedBy());
+            if (!bucketProperty.orElseThrow().getSortedBy().isEmpty()) {
+                sd.setSortColumns(bucketProperty.orElseThrow().getSortedBy().stream()
                         .map(column -> new Order().withColumn(column.getColumnName()).withSortOrder(column.getOrder().getHiveOrder()))
                         .collect(toImmutableList()));
             }

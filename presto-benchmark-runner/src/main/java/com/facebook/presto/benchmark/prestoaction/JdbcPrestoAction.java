@@ -100,7 +100,7 @@ public class JdbcPrestoAction
                 if (converter.isPresent()) {
                     try (ResultSet resultSet = jdbcStatement.executeQuery(query)) {
                         while (resultSet.next()) {
-                            rows.add(converter.get().apply(resultSet));
+                            rows.add(converter.orElseThrow().apply(resultSet));
                         }
                     }
                 }
@@ -119,7 +119,7 @@ public class JdbcPrestoAction
                 }
 
                 checkState(progressMonitor.getLastQueryStats().isPresent(), "lastQueryStats is missing");
-                return new QueryResult<>(rows.build(), progressMonitor.getLastQueryStats().get());
+                return new QueryResult<>(rows.build(), progressMonitor.getLastQueryStats().orElseThrow());
             }
         }
         catch (SQLException e) {

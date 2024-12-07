@@ -63,7 +63,7 @@ import static com.facebook.presto.druid.DruidResultFormat.OBJECT;
 import static com.facebook.presto.druid.DruidResultFormat.OBJECT_LINES;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static java.lang.String.format;
@@ -130,7 +130,7 @@ public class DruidClient
             mapping.merge(
                     cacheKey,
                     Optional.of(RemoteTableObject.of(table)),
-                    (currentValue, collision) -> currentValue.map(current -> current.registerCollision(collision.get().getOnlyRemoteTableName())));
+                    (currentValue, collision) -> currentValue.map(current -> current.registerCollision(collision.orElseThrow().getOnlyRemoteTableName())));
             remoteTables.put(cacheKey, mapping.get(cacheKey));
         }
 
@@ -336,7 +336,7 @@ public class DruidClient
         public String getOnlyRemoteTableName()
         {
             if (!isAmbiguous()) {
-                return getOnlyElement(remoteTableNames);
+                return remoteTableNames.stream().collect(onlyElement());
             }
 
             throw new PrestoException(DRUID_AMBIGUOUS_OBJECT_NAME, "Found ambiguous names in Druid when looking up '" + getAnyRemoteTableName().toLowerCase(ENGLISH) + "': " + remoteTableNames);

@@ -115,7 +115,7 @@ public class TestFileFragmentResultCacheManager
         fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1);
         Optional<Iterator<Page>> result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
-        assertFalse(result.get().hasNext());
+        assertFalse(result.orElseThrow().hasNext());
         assertEquals(fragmentCacheResult.getInputDataSize(), INPUT_DATA_SIZE_1);
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 1);
@@ -128,7 +128,7 @@ public class TestFileFragmentResultCacheManager
         fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_2, SPLIT_2);
         result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
-        assertPagesEqual(result.get(), pages.iterator());
+        assertPagesEqual(result.orElseThrow(), pages.iterator());
         assertEquals(fragmentCacheResult.getInputDataSize(), INPUT_DATA_SIZE_2);
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 2);
@@ -174,7 +174,7 @@ public class TestFileFragmentResultCacheManager
         FragmentCacheResult fragmentCacheResult = cacheManager.get(SERIALIZED_PLAN_FRAGMENT_1, SPLIT_1);
         Optional<Iterator<Page>> result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
-        assertPagesEqual(result.get(), pages.iterator());
+        assertPagesEqual(result.orElseThrow(), pages.iterator());
         assertEquals(fragmentCacheResult.getInputDataSize(), INPUT_DATA_SIZE_1);
         assertEquals(stats.getCacheMiss(), 0);
         assertEquals(stats.getCacheHit(), 1);
@@ -198,7 +198,7 @@ public class TestFileFragmentResultCacheManager
         result = fragmentCacheResult.getPages();
         assertTrue(result.isPresent());
         assertEquals(fragmentCacheResult.getInputDataSize(), 0);
-        assertFalse(result.get().hasNext());
+        assertFalse(result.orElseThrow().hasNext());
         assertEquals(stats.getCacheMiss(), 1);
         assertEquals(stats.getCacheHit(), 2);
         assertEquals(stats.getCacheEntries(), 2);
@@ -247,7 +247,7 @@ public class TestFileFragmentResultCacheManager
                     FragmentCacheResult fragmentCacheResult = threadWriteCacheManager.get(threadInfo, SPLIT_2);
                     Optional<Iterator<Page>> result = fragmentCacheResult.getPages();
                     assertTrue(result.isPresent());
-                    assertPagesEqual(result.get(), pages.iterator());
+                    assertPagesEqual(result.orElseThrow(), pages.iterator());
                     assertEquals(fragmentCacheResult.getInputDataSize(), INPUT_DATA_SIZE_2);
                     return true;
                 }

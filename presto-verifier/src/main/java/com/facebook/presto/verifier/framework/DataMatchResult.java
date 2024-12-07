@@ -111,7 +111,7 @@ public class DataMatchResult
     public ChecksumResult getControlChecksum()
     {
         checkState(controlChecksum.isPresent(), "controlChecksum is missing");
-        return controlChecksum.get();
+        return controlChecksum.orElseThrow();
     }
 
     public List<ColumnMatchResult<?>> getMismatchedColumns()

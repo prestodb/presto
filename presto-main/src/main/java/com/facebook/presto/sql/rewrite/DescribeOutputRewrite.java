@@ -147,7 +147,7 @@ final class DescribeOutputRewrite
 
             String columnName;
             if (field.getName().isPresent()) {
-                columnName = field.getName().get();
+                columnName = field.getName().orElseThrow();
             }
             else {
                 int columnIndex = ImmutableList.copyOf(analysis.getOutputDescriptor().getVisibleFields()).indexOf(field);

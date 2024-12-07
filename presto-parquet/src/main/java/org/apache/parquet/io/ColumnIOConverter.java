@@ -63,7 +63,7 @@ public class ColumnIOConverter
             boolean structHasParameters = false;
             for (int i = 0; i < fields.size(); i++) {
                 NamedTypeSignature namedTypeSignature = fields.get(i).getNamedTypeSignature();
-                String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
+                String name = namedTypeSignature.getName().orElseThrow().toLowerCase(Locale.ENGLISH);
                 Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name));
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);

@@ -145,7 +145,7 @@ public final class ExpressionTreeUtils
             return Optional.empty();
         }
         try {
-            Type baseType = functionAndTypeResolver.getType(parseTypeSignature(prefix.get().toString()));
+            Type baseType = functionAndTypeResolver.getType(parseTypeSignature(prefix.orElseThrow().toString()));
             if (baseType instanceof TypeWithName
                     && ((TypeWithName) baseType).getType() instanceof EnumType
                     && ((EnumType<?>) ((TypeWithName) baseType).getType()).getEnumMap().containsKey(qualifiedName.getSuffix().toUpperCase(ENGLISH))) {
@@ -226,7 +226,7 @@ public final class ExpressionTreeUtils
     public static Optional<SourceLocation> getSourceLocation(Optional<NodeLocation> nodeLocation)
     {
         return nodeLocation.isPresent()
-                ? Optional.of(new SourceLocation(nodeLocation.get().getLineNumber(), nodeLocation.get().getColumnNumber()))
+                ? Optional.of(new SourceLocation(nodeLocation.orElseThrow().getLineNumber(), nodeLocation.orElseThrow().getColumnNumber()))
                 : Optional.empty();
     }
 
@@ -239,7 +239,7 @@ public final class ExpressionTreeUtils
                     .map(x -> x.getLocation())
                     .filter(Optional::isPresent)
                     .findFirst()
-                    .map(x -> x.get());
+                    .map(x -> x.orElseThrow());
         }
 
         return getSourceLocation(nodeLocation);
@@ -248,7 +248,7 @@ public final class ExpressionTreeUtils
     public static Optional<NodeLocation> getNodeLocation(Optional<SourceLocation> sourceLocation)
     {
         if (sourceLocation.isPresent()) {
-            return Optional.of(new NodeLocation(sourceLocation.get().getLine(), sourceLocation.get().getColumn()));
+            return Optional.of(new NodeLocation(sourceLocation.orElseThrow().getLine(), sourceLocation.orElseThrow().getColumn()));
         }
 
         return Optional.empty();

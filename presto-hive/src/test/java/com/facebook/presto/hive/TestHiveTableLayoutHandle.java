@@ -97,8 +97,8 @@ public class TestHiveTableLayoutHandle
                 new Subfield("col"), singleValue(VARCHAR, utf8Slice("id"))));
         TupleDomain<Subfield> newDomain = canonicalizeDomainPredicate(domain, predicateColumns, CONNECTOR);
         assertTrue(newDomain.getDomains().isPresent());
-        assertEquals(newDomain.getDomains().get().size(), 1);
-        assertEquals(newDomain.getDomains().get().get(new Subfield("col")), singleValue(VARCHAR, utf8Slice("id")));
+        assertEquals(newDomain.getDomains().orElseThrow().size(), 1);
+        assertEquals(newDomain.getDomains().orElseThrow().get(new Subfield("col")), singleValue(VARCHAR, utf8Slice("id")));
     }
 
     private HiveColumnHandle getColumnHandle(String name, boolean partitioned)

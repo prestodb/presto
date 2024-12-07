@@ -337,11 +337,11 @@ public class TestJdbcComputePushdown
             checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
             TableScanNode tableScanNode = (TableScanNode) node;
-            JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) tableScanNode.getTable().getLayout().get();
+            JdbcTableLayoutHandle layoutHandle = (JdbcTableLayoutHandle) tableScanNode.getTable().getLayout().orElseThrow();
             if (jdbcTableLayoutHandle.getTable().equals(layoutHandle.getTable())
                     && jdbcTableLayoutHandle.getTupleDomain().equals(layoutHandle.getTupleDomain())
                     && ((!jdbcTableLayoutHandle.getAdditionalPredicate().isPresent() && !layoutHandle.getAdditionalPredicate().isPresent())
-                        || jdbcTableLayoutHandle.getAdditionalPredicate().get().getExpression().equals(layoutHandle.getAdditionalPredicate().get().getExpression()))) {
+                        || jdbcTableLayoutHandle.getAdditionalPredicate().orElseThrow().getExpression().equals(layoutHandle.getAdditionalPredicate().orElseThrow().getExpression()))) {
                 return MatchResult.match(
                         SymbolAliases.builder().putAll(
                         columns.stream()

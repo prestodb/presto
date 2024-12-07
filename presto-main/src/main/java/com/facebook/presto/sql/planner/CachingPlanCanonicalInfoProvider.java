@@ -98,7 +98,7 @@ public class CachingPlanCanonicalInfoProvider
         }
         // Only log the canonicalized plan when the plan node is root node, whose serialized form will include the whole plan
         Optional<PlanNode> statsEquivalentRootNode = historyBasedStatisticsCacheManager.getStatsEquivalentPlanRootNode(session.getQueryId());
-        boolean isRootNode = statsEquivalentRootNode.isPresent() && statsEquivalentRootNode.get() == key.getNode();
+        boolean isRootNode = statsEquivalentRootNode.isPresent() && statsEquivalentRootNode.orElseThrow() == key.getNode();
         for (Map.Entry<PlanNode, CanonicalPlan> entry : context.getCanonicalPlans().entrySet()) {
             CanonicalPlan canonicalPlan = entry.getValue();
             PlanNode plan = entry.getKey();

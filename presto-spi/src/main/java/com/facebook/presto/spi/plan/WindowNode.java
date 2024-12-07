@@ -85,7 +85,7 @@ public class WindowNode
         requireNonNull(hashVariable, "hashVariable is null");
         checkArgument(specification.getPartitionBy().containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         Optional<OrderingScheme> orderingScheme = specification.getOrderingScheme();
-        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().getOrderByVariables().size()), "Cannot have sorted more symbols than those requested");
+        checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.orElseThrow().getOrderByVariables().size()), "Cannot have sorted more symbols than those requested");
         checkArgument(preSortedOrderPrefix == 0 || prePartitionedInputs.equals(new HashSet<>(specification.getPartitionBy())), "preSortedOrderPrefix can only be greater than zero if all partition symbols are pre-partitioned");
 
         this.source = source;

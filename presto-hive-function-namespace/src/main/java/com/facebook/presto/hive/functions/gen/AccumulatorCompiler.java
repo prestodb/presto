@@ -75,7 +75,7 @@ import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.c
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -789,7 +789,7 @@ public class AccumulatorCompiler
 
         if (type.size() == 1) {
             methodDefinition.getBody()
-                    .append(constantType(callSiteBinder, getOnlyElement(type)))
+                    .append(constantType(callSiteBinder, type.stream().collect(onlyElement())))
                     .retObject();
         }
         else {
@@ -963,8 +963,8 @@ public class AccumulatorCompiler
         BytecodeBlock body = method.getBody();
 
         if (stateFieldAndDescriptors.size() == 1) {
-            BytecodeExpression stateSerializer = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateSerializerField());
-            BytecodeExpression state = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateField());
+            BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptors.stream().collect(onlyElement()).getStateSerializerField());
+            BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptors.stream().collect(onlyElement()).getStateField());
 
             body.append(state.invoke("setGroupId", void.class, groupId.cast(long.class)))
                     .append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), out))
@@ -999,8 +999,8 @@ public class AccumulatorCompiler
         BytecodeBlock body = method.getBody();
 
         if (stateFieldAndDescriptors.size() == 1) {
-            BytecodeExpression stateSerializer = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateSerializerField());
-            BytecodeExpression state = thisVariable.getField(getOnlyElement(stateFieldAndDescriptors).getStateField());
+            BytecodeExpression stateSerializer = thisVariable.getField(stateFieldAndDescriptors.stream().collect(onlyElement()).getStateSerializerField());
+            BytecodeExpression state = thisVariable.getField(stateFieldAndDescriptors.stream().collect(onlyElement()).getStateField());
 
             body.append(stateSerializer.invoke("serialize", void.class, state.cast(Object.class), out))
                     .ret();

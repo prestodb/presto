@@ -71,13 +71,13 @@ public class DruidAggregationProjectConverter
     {
         Optional<DruidExpression> basicCallHandlingResult = basicCallHandling(call, context);
         if (basicCallHandlingResult.isPresent()) {
-            return basicCallHandlingResult.get();
+            return basicCallHandlingResult.orElseThrow();
         }
 
         FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(call.getFunctionHandle());
         Optional<OperatorType> operatorTypeOptional = functionMetadata.getOperatorType();
         if (operatorTypeOptional.isPresent()) {
-            OperatorType operatorType = operatorTypeOptional.get();
+            OperatorType operatorType = operatorTypeOptional.orElseThrow();
             if (operatorType.isArithmeticOperator()) {
                 return handleArithmeticExpression(call, operatorType, context);
             }

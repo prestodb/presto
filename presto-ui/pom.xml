@@ -38,10 +38,14 @@
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
                 <configuration>
-                    <excludes combine.children="append">
-                        <exclude>**/*.graffle</exclude>
-                        <exclude>src/**</exclude>
-                    </excludes>
+                    <licenseSets>
+                        <licenseSet>
+                            <excludes combine.children="append">
+                                <exclude>**/*.graffle</exclude>
+                                <exclude>src/**</exclude>
+                            </excludes>
+                        </licenseSet>
+                    </licenseSets>
                 </configuration>
             </plugin>
             <plugin>

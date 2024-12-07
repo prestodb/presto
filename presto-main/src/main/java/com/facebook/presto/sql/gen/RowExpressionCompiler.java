@@ -196,7 +196,7 @@ public class RowExpressionCompiler
                             ImmutableList.of(
                                     call.getArguments().stream()
                                             .map(argument -> new SpecialFormExpression(IS_NULL, BOOLEAN, argument))
-                                            .reduce((a, b) -> new SpecialFormExpression(OR, BOOLEAN, a, b)).get(),
+                                            .reduce((a, b) -> new SpecialFormExpression(OR, BOOLEAN, a, b)).orElseThrow(),
                                     new ConstantExpression(null, call.getType()),
                                     function),
                             context.getOutputBlockVariable());
@@ -255,7 +255,7 @@ public class RowExpressionCompiler
                         context.getScope(),
                         context.getScope().getVariable("wasNull"),
                         constant.getType(),
-                        context.getOutputBlockVariable().get()));
+                        context.getOutputBlockVariable().orElseThrow()));
             }
 
             return block;
@@ -276,7 +276,7 @@ public class RowExpressionCompiler
                             context.getScope(),
                             context.getScope().getVariable("wasNull"),
                             node.getType(),
-                            context.getOutputBlockVariable().get()));
+                            context.getOutputBlockVariable().orElseThrow()));
         }
 
         @Override
@@ -284,7 +284,7 @@ public class RowExpressionCompiler
         {
             checkArgument(!context.getOutputBlockVariable().isPresent(), "lambda definition expression does not support writing to block");
             checkState(compiledLambdaMap.containsKey(lambda), "lambda expressions map does not contain this lambda definition");
-            if (!context.lambdaInterface.get().isAnnotationPresent(FunctionalInterface.class)) {
+            if (!context.lambdaInterface.orElseThrow().isAnnotationPresent(FunctionalInterface.class)) {
                 // lambdaInterface is checked to be annotated with FunctionalInterface when generating ScalarFunctionImplementation
                 throw new VerifyException("lambda should be generated as class annotated with FunctionalInterface");
             }
@@ -300,7 +300,7 @@ public class RowExpressionCompiler
                     generatorContext,
                     ImmutableList.of(),
                     compiledLambdaMap.get(lambda),
-                    context.getLambdaInterface().get());
+                    context.getLambdaInterface().orElseThrow());
         }
 
         @Override
@@ -318,7 +318,7 @@ public class RowExpressionCompiler
                             context.getScope(),
                             context.getScope().getVariable("wasNull"),
                             reference.getType(),
-                            context.getOutputBlockVariable().get()));
+                            context.getOutputBlockVariable().orElseThrow()));
         }
 
         @Override
@@ -362,7 +362,7 @@ public class RowExpressionCompiler
                     generator = new RowConstructorCodeGenerator();
                     break;
                 case BIND:
-                    generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
+                    generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().orElseThrow());
                     break;
                 default:
                     throw new IllegalStateException("Cannot compile special form: " + specialForm.getForm());

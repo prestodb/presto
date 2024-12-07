@@ -76,7 +76,9 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
@@ -85,7 +87,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -191,7 +192,7 @@ public class CanonicalPlanGenerator
             return Optional.empty();
         }
 
-        PlanNode result = new StatsEquivalentPlanNodeWithLimit(plan.get().getId(), plan.get(), limit.get());
+        PlanNode result = new StatsEquivalentPlanNodeWithLimit(plan.orElseThrow().getId(), plan.orElseThrow(), limit.orElseThrow());
         context.addPlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
     }
@@ -217,7 +218,7 @@ public class CanonicalPlanGenerator
         PlanNode result = new TableWriterNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 node.getTarget().map(target -> CanonicalWriterTarget.from(target)),
                 node.getRowCountVariable(),
                 node.getFragmentVariable(),
@@ -248,7 +249,7 @@ public class CanonicalPlanGenerator
         PlanNode result = new TableFinishNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 node.getTarget().map(target -> CanonicalWriterTarget.from(target)),
                 node.getRowCountVariable(),
                 Optional.empty(),
@@ -269,7 +270,7 @@ public class CanonicalPlanGenerator
             return Optional.empty();
         }
 
-        PlanNode result = new LimitNode(Optional.empty(), planNodeidAllocator.getNextId(), source.get(), node.getCount(), node.getStep());
+        PlanNode result = new LimitNode(Optional.empty(), planNodeidAllocator.getNextId(), source.orElseThrow(), node.getCount(), node.getStep());
         context.addLimitingNodePlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
     }
@@ -289,7 +290,7 @@ public class CanonicalPlanGenerator
         PlanNode result = new TopNNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 node.getCount(),
                 getCanonicalOrderingScheme(node.getOrderingScheme(), context.getExpressions()),
                 node.getStep());
@@ -309,16 +310,16 @@ public class CanonicalPlanGenerator
         List<PlanNode> sources = new ArrayList<>();
         ImmutableList.Builder<RowExpression> allFilters = ImmutableList.builder();
         ImmutableList.Builder<EquiJoinClause> criterias = ImmutableList.builder();
-        Stack<JoinNode> stack = new Stack<>();
+        Deque<JoinNode> stack = new ArrayDeque<>();
 
         stack.push(node);
-        while (!stack.empty()) {
+        while (!stack.isEmpty()) {
             JoinNode top = stack.pop();
             top.getCriteria().forEach(criterias::add);
             // ReorderJoins can move predicates between `criteria` and `filters`, so we put all equalities
             // in `criteria` to make it consistent.
             if (top.getFilter().isPresent()) {
-                List<RowExpression> filters = extractConjuncts(top.getFilter().get());
+                List<RowExpression> filters = extractConjuncts(top.getFilter().orElseThrow());
                 filters.forEach(filter -> {
                     Optional<EquiJoinClause> criteria = toEquiJoinClause(filter);
                     criteria.ifPresent(criterias::add);
@@ -343,7 +344,7 @@ public class CanonicalPlanGenerator
             if (!sourceIndexes.isPresent()) {
                 return Optional.empty();
             }
-            sources = sourceIndexes.get().stream().map(sources::get).collect(toImmutableList());
+            sources = sourceIndexes.orElseThrow().stream().map(sources::get).collect(toImmutableList());
         }
 
         ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
@@ -352,7 +353,7 @@ public class CanonicalPlanGenerator
             if (!newSource.isPresent()) {
                 return Optional.empty();
             }
-            newSources.add(newSource.get());
+            newSources.add(newSource.orElseThrow());
         }
         Set<EquiJoinClause> newCriterias = criterias.build().stream()
                 .map(criteria -> canonicalize(criteria, context))
@@ -402,8 +403,8 @@ public class CanonicalPlanGenerator
         PlanNode result = new SemiJoinNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
-                filteringSource.get(),
+                source.orElseThrow(),
+                filteringSource.orElseThrow(),
                 sourceJoinVariable,
                 filteringSourceJoinVariable,
                 semiJoinOutput,
@@ -431,17 +432,17 @@ public class CanonicalPlanGenerator
         ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> outputsToInputs = ImmutableMap.builder();
 
-        for (Integer sourceIndex : sourceIndexes.get()) {
+        for (Integer sourceIndex : sourceIndexes.orElseThrow()) {
             Optional<PlanNode> canonicalSource = node.getSources().get(sourceIndex).accept(this, context);
             if (!canonicalSource.isPresent()) {
                 return Optional.empty();
             }
-            canonicalSources.add(canonicalSource.get());
+            canonicalSources.add(canonicalSource.orElseThrow());
         }
 
         node.getVariableMapping().forEach((outputVariable, sourceVariables) -> {
             ImmutableList.Builder<VariableReferenceExpression> newSourceVariablesBuilder = ImmutableList.builder();
-            sourceIndexes.get().forEach(index -> {
+            sourceIndexes.orElseThrow().forEach(index -> {
                 newSourceVariablesBuilder.add(inlineAndCanonicalize(context.getExpressions(), sourceVariables.get(index)));
             });
             ImmutableList<VariableReferenceExpression> newSourceVariables = newSourceVariablesBuilder.build();
@@ -532,7 +533,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new WindowNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 specification,
                 windowFunctions,
                 Optional.empty(),
@@ -589,7 +590,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new MarkDistinctNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 markerVariable,
                 distinctVariables,
                 Optional.empty());
@@ -614,7 +615,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new AssignUniqueId(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 idVariable);
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
@@ -635,7 +636,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new EnforceSingleRowNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get());
+                source.orElseThrow());
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
@@ -661,7 +662,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new RowNumberNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 partitionBy,
                 rowNumberVariable,
                 node.getMaxRowCountPerPartition(),
@@ -692,7 +693,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new TopNRowNumberNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 new WindowNode.Specification(
                         partitionBy,
                         node.getSpecification().getOrderingScheme().map(scheme -> getCanonicalOrderingScheme(scheme, context.getExpressions()))),
@@ -724,7 +725,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new DistinctLimitNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 node.getLimit(),
                 node.isPartial(),
                 distinctVariables,
@@ -749,7 +750,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new SortNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 getCanonicalOrderingScheme(node.getOrderingScheme(), context.getExpressions()),
                 node.isPartial(),
                 node.getPartitionBy());
@@ -784,7 +785,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new ProjectNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 new Assignments(assignments.build()),
                 ProjectNode.Locality.LOCAL);
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
@@ -819,7 +820,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new AggregationNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 aggregations.build(),
                 getCanonicalGroupingSetDescriptor(node.getGroupingSets(), context.getExpressions()),
                 node.getPreGroupedVariables().stream()
@@ -939,7 +940,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new GroupIdNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 groupingSets.build(),
                 groupingColumns.build(),
                 node.getAggregationArguments().stream()
@@ -983,7 +984,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new UnnestNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 node.getReplicateVariables().stream()
                         .map(variable -> (VariableReferenceExpression) inlineAndCanonicalize(context.getExpressions(), variable))
                         .collect(toImmutableList()),
@@ -1016,7 +1017,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new ProjectNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 new Assignments(assignments.build()),
                 node.getLocality());
 
@@ -1047,7 +1048,7 @@ public class CanonicalPlanGenerator
             if (!canonicalSource.isPresent()) {
                 return Optional.empty();
             }
-            sourceToPosition.put(canonicalSource.get().toString(objectMapper), i);
+            sourceToPosition.put(canonicalSource.orElseThrow().toString(objectMapper), i);
         }
         return Optional.of(sourceToPosition.values().stream().collect(toImmutableList()));
     }
@@ -1158,7 +1159,7 @@ public class CanonicalPlanGenerator
         PlanNode canonicalPlan = new FilterNode(
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
-                source.get(),
+                source.orElseThrow(),
                 inlineAndCanonicalize(context.getExpressions(), node.getPredicate()));
 
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
@@ -1313,7 +1314,7 @@ public class CanonicalPlanGenerator
             }
             // When limits are involved, we can only know canonicalized plans after topmost limit has been canonicalized.
             // Once we are at topmost limit, we cache canonicalized plans for all sub-plans.
-            PlanNode statsEquivalentPlanNode = limit.getStatsEquivalentPlanNode().get();
+            PlanNode statsEquivalentPlanNode = limit.getStatsEquivalentPlanNode().orElseThrow();
             StatsEquivalentPlanNodeWithLimit statsEquivalentPlanNodeWithLimit = (StatsEquivalentPlanNodeWithLimit) statsEquivalentPlanNode;
             if (childrenCount(statsEquivalentPlanNodeWithLimit.getLimit()) != childrenCount(statsEquivalentPlanNodeWithLimit.getPlan())) {
                 addPlanInternal(limit, canonicalPlan);
@@ -1330,7 +1331,7 @@ public class CanonicalPlanGenerator
                         canonicalPlans.remove(child);
                         inputTables.remove(child);
                         addPlanInternal(
-                                child.getStatsEquivalentPlanNode().get(),
+                                child.getStatsEquivalentPlanNode().orElseThrow(),
                                 new CanonicalPlan(
                                         new StatsEquivalentPlanNodeWithLimit(childCanonicalPlan.getPlan().getId(), childCanonicalPlan.getPlan(), canonicalPlan.getPlan()),
                                         canonicalPlan.getStrategy()));
@@ -1343,7 +1344,7 @@ public class CanonicalPlanGenerator
                 addPlanInternal(plan, canonicalPlan);
                 return;
             }
-            PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
+            PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().orElseThrow();
             if (childrenCount(plan) == childrenCount(statsEquivalentPlanNode)) {
                 addPlanInternal(statsEquivalentPlanNode, canonicalPlan);
             }

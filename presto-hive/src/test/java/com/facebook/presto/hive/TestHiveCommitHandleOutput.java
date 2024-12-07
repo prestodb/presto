@@ -202,7 +202,7 @@ public class TestHiveCommitHandleOutput
         assertTrue(partition.isPresent());
         assertEquals(
                 handle.getSerializedCommitOutputForRead(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)),
-                Long.toString(partition.get().getLastDataCommitTime()));
+                Long.toString(partition.orElseThrow().getLastDataCommitTime()));
         assertEquals(handle.getSerializedCommitOutputForRead(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)), serializedCommitOutput);
         assertTrue(handle.getSerializedCommitOutputForWrite(new SchemaTableName(TEST_SCHEMA, TEST_TABLE)).isEmpty());
 

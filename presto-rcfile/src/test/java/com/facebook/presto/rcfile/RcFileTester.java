@@ -89,6 +89,7 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import org.joda.time.DateTimeZone;
 
 import java.io.Closeable;
@@ -184,6 +185,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @SuppressWarnings("StaticPseudoFunctionalStyleMethod")
+@SuppressModernizer
 public class RcFileTester
 {
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestFunctionAndTypeManager();

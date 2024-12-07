@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.google.common.collect.ImmutableList;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class H2ResourceGroupManagerPlugin
         implements Plugin
@@ -31,6 +31,6 @@ public class H2ResourceGroupManagerPlugin
 
     private static ClassLoader getClassLoader()
     {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), H2ResourceGroupManagerPlugin.class.getClassLoader());
+        return requireNonNullElse(Thread.currentThread().getContextClassLoader(), H2ResourceGroupManagerPlugin.class.getClassLoader());
     }
 }

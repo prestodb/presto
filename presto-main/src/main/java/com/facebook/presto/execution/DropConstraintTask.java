@@ -71,7 +71,7 @@ public class DropConstraintTask
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
         accessControl.checkCanDropConstraint(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        metadata.dropConstraint(session, tableHandleOptional.get(), Optional.of(statement.getConstraintName().toString()), Optional.empty());
+        metadata.dropConstraint(session, tableHandleOptional.orElseThrow(), Optional.of(statement.getConstraintName().toString()), Optional.empty());
         return immediateFuture(null);
     }
 }

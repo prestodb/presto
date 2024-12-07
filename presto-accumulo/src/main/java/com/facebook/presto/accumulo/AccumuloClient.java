@@ -194,14 +194,14 @@ public class AccumuloClient
         Optional<Map<String, Pair<String, String>>> columnMapping = AccumuloTableProperties.getColumnMapping(meta.getProperties());
         if (columnMapping.isPresent()) {
             // Validate there are no duplicates in the column mapping
-            long distinctMappings = columnMapping.get().values().stream().distinct().count();
-            if (distinctMappings != columnMapping.get().size()) {
+            long distinctMappings = columnMapping.orElseThrow().values().stream().distinct().count();
+            if (distinctMappings != columnMapping.orElseThrow().size()) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, "Duplicate column family/qualifier pair detected in column mapping, check the value of " + AccumuloTableProperties.COLUMN_MAPPING);
             }
 
             // Validate no column is mapped to the reserved entry
             String reservedRowIdColumn = AccumuloPageSink.ROW_ID_COLUMN.toString();
-            if (columnMapping.get().values().stream()
+            if (columnMapping.orElseThrow().values().stream()
                     .filter(pair -> pair.getKey().equals(reservedRowIdColumn) && pair.getValue().equals(reservedRowIdColumn))
                     .count() > 0) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, format("Column family/qualifier mapping of %s:%s is reserved", reservedRowIdColumn, reservedRowIdColumn));
@@ -225,7 +225,7 @@ public class AccumuloClient
         String rowIdColumn = getRowIdColumn(meta);
 
         // For each locality group
-        for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
+        for (Map.Entry<String, Set<String>> g : groups.orElseThrow().entrySet()) {
             if (g.getValue().contains(rowIdColumn)) {
                 throw new PrestoException(INVALID_TABLE_PROPERTY, "Row ID column cannot be in a locality group");
             }
@@ -314,7 +314,7 @@ public class AccumuloClient
 
                 // Get the mapping for this column
                 Pair<String, String> famqual = mapping.get(cm.getName());
-                boolean indexed = indexedColumns.isPresent() && indexedColumns.get().contains(cm.getName().toLowerCase(Locale.ENGLISH));
+                boolean indexed = indexedColumns.isPresent() && indexedColumns.orElseThrow().contains(cm.getName().toLowerCase(Locale.ENGLISH));
                 String comment = format("Accumulo column %s:%s. Indexed: %b", famqual.getLeft(), famqual.getRight(), indexed);
 
                 // Create a new AccumuloColumnHandle object
@@ -342,7 +342,7 @@ public class AccumuloClient
         }
 
         ImmutableMap.Builder<String, Set<Text>> localityGroupsBuilder = ImmutableMap.builder();
-        for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
+        for (Map.Entry<String, Set<String>> g : groups.orElseThrow().entrySet()) {
             ImmutableSet.Builder<Text> familyBuilder = ImmutableSet.builder();
             // For each configured column for this locality group
             for (String col : g.getValue()) {
@@ -353,7 +353,7 @@ public class AccumuloClient
                         .filter(x -> x.getName().equals(col))
                         .collect(Collectors.toList())
                         .get(0);
-                familyBuilder.add(new Text(handle.getFamily().get()));
+                familyBuilder.add(new Text(handle.getFamily().orElseThrow()));
             }
 
             localityGroupsBuilder.put(g.getKey(), familyBuilder.build());
@@ -425,7 +425,7 @@ public class AccumuloClient
     private static Optional<String> getColumnLocalityGroup(String columnName, Optional<Map<String, Set<String>>> groups)
     {
         if (groups.isPresent()) {
-            for (Map.Entry<String, Set<String>> group : groups.get().entrySet()) {
+            for (Map.Entry<String, Set<String>> group : groups.orElseThrow().entrySet()) {
                 if (group.getValue().contains(columnName.toLowerCase(Locale.ENGLISH))) {
                     return Optional.of(group.getKey());
                 }
@@ -743,7 +743,7 @@ public class AccumuloClient
 
         Optional<String> strAuths = accumuloTable.getScanAuthorizations();
         if (strAuths.isPresent()) {
-            Authorizations scanAuths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(strAuths.get()), String.class));
+            Authorizations scanAuths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(strAuths.orElseThrow()), String.class));
             LOG.debug("scan_auths table property set, using: %s", scanAuths);
             return scanAuths;
         }
@@ -901,7 +901,7 @@ public class AccumuloClient
         }
 
         ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
-        for (com.facebook.presto.common.predicate.Range range : domain.get().getValues().getRanges().getOrderedRanges()) {
+        for (com.facebook.presto.common.predicate.Range range : domain.orElseThrow().getValues().getRanges().getOrderedRanges()) {
             rangeBuilder.add(getRangeFromPrestoRange(range, serializer));
         }
 

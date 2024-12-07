@@ -682,7 +682,7 @@ public class TestResourceManagerClusterStateProvider
                 .filter(resourceGroupInfo -> currResourceGroupId.equals(resourceGroupInfo.getResourceGroupId()))
                 .findFirst();
         assertTrue(resourceGroupRuntimeInfo.isPresent(), "Resource group " + resourceGroupId + " not found");
-        ResourceGroupRuntimeInfo info = resourceGroupRuntimeInfo.get();
+        ResourceGroupRuntimeInfo info = resourceGroupRuntimeInfo.orElseThrow();
         ResourceGroupId rg = new ResourceGroupId(Arrays.asList(resourceGroupId.split("\\.")));
         assertEquals(info.getQueuedQueries(), queuedQueries, format("Expected %s queued queries, found %s", queuedQueries, info.getQueuedQueries()));
         assertEquals(info.getRunningQueries(), runningQueries, format("Expected %s running queries, found %s", runningQueries, info.getRunningQueries()));
@@ -697,7 +697,7 @@ public class TestResourceManagerClusterStateProvider
                 .filter(resourceGroupInfo -> new ResourceGroupId(resourceGroupId).equals(resourceGroupInfo.getResourceGroupId()))
                 .findFirst();
         assertTrue(resourceGroupRuntimeInfo.isPresent(), "Resource group " + resourceGroupId + " not found");
-        ResourceGroupRuntimeInfo info = resourceGroupRuntimeInfo.get();
+        ResourceGroupRuntimeInfo info = resourceGroupRuntimeInfo.orElseThrow();
 
         assertEquals(info.getQueuedQueries(), queuedQueries, format("Expected %s queued queries, found %s", queuedQueries, info.getQueuedQueries()));
         assertEquals(info.getRunningQueries(), runningQueries, format("Expected %s running queries, found %s", runningQueries, info.getRunningQueries()));

@@ -81,7 +81,7 @@ public class AlterColumnNotNullTask
             throw new SemanticException(NOT_SUPPORTED, statement, "Catalog %s does not support ALTER COLUMN with NOT NULL", connectorId.getCatalogName());
         }
 
-        TableHandle tableHandle = tableHandleOptional.get();
+        TableHandle tableHandle = tableHandleOptional.orElseThrow();
 
         String column = statement.getColumn().getValueLowerCase();
 

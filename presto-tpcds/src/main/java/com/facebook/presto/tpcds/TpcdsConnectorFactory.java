@@ -27,10 +27,10 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Integer.parseInt;
+import static java.util.Objects.requireNonNullElse;
 
 public class TpcdsConnectorFactory
         implements ConnectorFactory
@@ -102,7 +102,7 @@ public class TpcdsConnectorFactory
     private int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return parseInt(firstNonNull(properties.get("tpcds.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return parseInt(requireNonNullElse(properties.get("tpcds.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpcds.splits-per-node");
@@ -111,6 +111,6 @@ public class TpcdsConnectorFactory
 
     private boolean isWithNoSexism(Map<String, String> properties)
     {
-        return parseBoolean(firstNonNull(properties.get("tpcds.with-no-sexism"), String.valueOf(false)));
+        return parseBoolean(requireNonNullElse(properties.get("tpcds.with-no-sexism"), String.valueOf(false)));
     }
 }

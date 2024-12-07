@@ -133,7 +133,7 @@ public class IcebergUpdateablePageSource
 
             Optional<RowPredicate> deleteFilterPredicate = deletePredicate.get();
             if (deleteFilterPredicate.isPresent()) {
-                dataPage = deleteFilterPredicate.get().filterPage(dataPage);
+                dataPage = deleteFilterPredicate.orElseThrow().filterPage(dataPage);
             }
 
             int batchSize = dataPage.getPositionCount();

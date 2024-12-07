@@ -94,7 +94,7 @@ public class DwrfMetadataWriter
     {
         int size = 0;
         if (dwrfStripeCacheData.isPresent()) {
-            DwrfStripeCacheData cache = dwrfStripeCacheData.get();
+            DwrfStripeCacheData cache = dwrfStripeCacheData.orElseThrow();
             size = cache.getDwrfStripeCacheSize();
             output.writeBytes(cache.getDwrfStripeCacheSlice(), 0, size);
         }
@@ -131,7 +131,7 @@ public class DwrfMetadataWriter
                         .collect(toImmutableList()));
 
         if (footer.getEncryption().isPresent()) {
-            footerProtobuf.setEncryption(toEncryption(footer.getEncryption().get()));
+            footerProtobuf.setEncryption(toEncryption(footer.getEncryption().orElseThrow()));
         }
 
         if (footer.getRawSize().isPresent()) {
@@ -139,7 +139,7 @@ public class DwrfMetadataWriter
         }
 
         if (footer.getDwrfStripeCacheOffsets().isPresent()) {
-            footerProtobuf.addAllStripeCacheOffsets(footer.getDwrfStripeCacheOffsets().get());
+            footerProtobuf.addAllStripeCacheOffsets(footer.getDwrfStripeCacheOffsets().orElseThrow());
         }
 
         return writeProtobufObject(output, footerProtobuf.build());
@@ -355,7 +355,7 @@ public class DwrfMetadataWriter
             ColumnEncoding columnEncoding = entry.getValue();
 
             if (columnEncoding.getAdditionalSequenceEncodings().isPresent()) {
-                Map<Integer, DwrfSequenceEncoding> sequences = columnEncoding.getAdditionalSequenceEncodings().get();
+                Map<Integer, DwrfSequenceEncoding> sequences = columnEncoding.getAdditionalSequenceEncodings().orElseThrow();
                 for (Entry<Integer, DwrfSequenceEncoding> sequenceEntry : sequences.entrySet()) {
                     int sequence = sequenceEntry.getKey();
                     DwrfSequenceEncoding sequenceEncoding = sequenceEntry.getValue();

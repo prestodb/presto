@@ -25,9 +25,10 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.InetSocketAddress;
+import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.mongodb.ObjectIdType.OBJECT_ID;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertEquals;
 
 public class TestMongoPlugin
@@ -49,10 +50,10 @@ public class TestMongoPlugin
     {
         MongoPlugin plugin = new MongoPlugin();
 
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = StreamSupport.stream(plugin.getConnectorFactories().spliterator(), false).collect(onlyElement());
         Connector connector = factory.create("test", ImmutableMap.of("mongodb.seeds", seed), new TestingConnectorContext());
 
-        Type type = getOnlyElement(plugin.getTypes());
+        Type type = StreamSupport.stream(plugin.getTypes().spliterator(), false).collect(onlyElement());
         assertEquals(type, OBJECT_ID);
 
         connector.shutdown();

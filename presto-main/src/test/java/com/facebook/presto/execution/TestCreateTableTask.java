@@ -213,8 +213,8 @@ public class TestCreateTableTask
         List<TableConstraint<String>> constraints = metadata.getReceivedTableMetadata().get(0).getTableConstraintsHolder().getTableConstraints();
         assertEquals(constraints.size(), 2);
 
-        assertEquals(constraints.get(0).getName().get(), "pk");
-        assertEquals(constraints.get(1).getName().get(), "uq");
+        assertEquals(constraints.get(0).getName().orElseThrow(), "pk");
+        assertEquals(constraints.get(1).getName().orElseThrow(), "uq");
     }
 
     @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = ".*does not support Primary Key constraints")

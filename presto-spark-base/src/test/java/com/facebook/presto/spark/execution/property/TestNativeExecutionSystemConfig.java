@@ -20,6 +20,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -216,7 +217,7 @@ public class TestNativeExecutionSystemConfig
         Properties properties = new Properties();
         File file = new File(path.toString());
         try {
-            FileReader fileReader = new FileReader(file);
+            FileReader fileReader = new FileReader(file, Charset.defaultCharset());
             properties.load(fileReader);
             fileReader.close();
             return properties;

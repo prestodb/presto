@@ -62,7 +62,7 @@ public class DataTypesTableDefinition
                                 "\0", BigInteger.valueOf(Long.MIN_VALUE)),
                         ImmutableList.of("the quick brown fox jumped over the lazy dog", Long.MAX_VALUE,
                                 Bytes.fromHexString("0x3031323334"), true,
-                                new BigDecimal(new Double("99999999999999999999999999999999999999")),
+                                new BigDecimal(Double.valueOf("99999999999999999999999999999999999999")),
                                 Double.MAX_VALUE, LocalDate.fromYearMonthDay(9999, 12, 31), Float.MAX_VALUE, ImmutableSet.of(4, 5, 6, 7),
                                 Inet4Address.getByName("255.255.255.255"), Integer.MAX_VALUE,
                                 ImmutableList.of(4, 5, 6), ImmutableMap.of("a", 1, "b", 2), ImmutableSet.of(4, 5, 6), Short.MAX_VALUE,

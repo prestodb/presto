@@ -159,7 +159,7 @@ public class JoinStatsRule
                 return crossJoinStats;
             }
             // TODO: this might explode stats
-            return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().get(), session);
+            return filterStatsCalculator.filterStats(crossJoinStats, node.getFilter().orElseThrow(), session);
         }
 
         PlanNodeStatsEstimate equiJoinEstimate = filterByEquiJoinClauses(crossJoinStats, node.getCriteria(), session, types);
@@ -177,7 +177,7 @@ public class JoinStatsRule
             return equiJoinEstimate;
         }
 
-        PlanNodeStatsEstimate filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().get(), session);
+        PlanNodeStatsEstimate filteredEquiJoinEstimate = filterStatsCalculator.filterStats(equiJoinEstimate, node.getFilter().orElseThrow(), session);
 
         if (filteredEquiJoinEstimate.isOutputRowCountUnknown()) {
             return normalizer.normalize(equiJoinEstimate.mapOutputRowCount(rowCount -> rowCount * UNKNOWN_FILTER_COEFFICIENT));

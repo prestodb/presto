@@ -104,7 +104,7 @@ public final class Key
         for (VariableReferenceExpression v : variables) {
             mappedVariable = inverseVariableMappings.get(v);
             if (mappedVariable.isPresent()) {
-                mappedVariables.add(mappedVariable.get());
+                mappedVariables.add(mappedVariable.orElseThrow());
             }
             else {
                 return Optional.empty();

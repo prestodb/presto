@@ -98,7 +98,7 @@ public class TestGracefulShutdown
                     .stream()
                     .filter(server -> server.isCoordinator() == isCoordinatorInstance)
                     .findFirst()
-                    .get();
+                    .orElseThrow();
             if (!isCoordinatorInstance) {
                 TaskManager taskManager = testServer.getTaskManager();
                 while (taskManager.getAllTaskInfo().isEmpty()) {
@@ -129,7 +129,7 @@ public class TestGracefulShutdown
                     .stream()
                     .filter(TestingPrestoServer::isCoordinator)
                     .findFirst()
-                    .get();
+                    .orElseThrow();
 
             coordinator.getGracefulShutdownHandler().requestShutdown();
             TestShutdownAction shutdownAction = (TestShutdownAction) coordinator.getShutdownAction();

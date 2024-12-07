@@ -98,7 +98,7 @@ public class IcebergSplitManager
         }
         else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
             CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
-                    table.getIcebergTableName().getSnapshotId().get(),
+                    table.getIcebergTableName().getSnapshotId().orElseThrow(),
                     predicate,
                     table.getPartitionSpecId(),
                     table.getEqualityFieldIds());
@@ -108,7 +108,7 @@ public class IcebergSplitManager
         else {
             TableScan tableScan = icebergTable.newScan()
                     .filter(toIcebergExpression(predicate))
-                    .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
+                    .useSnapshot(table.getIcebergTableName().getSnapshotId().orElseThrow())
                     .planWith(executor);
 
             // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can

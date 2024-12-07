@@ -83,12 +83,12 @@ public class MetadataExtractor
                 throw new SemanticException(MISSING_SCHEMA, "Schema name is empty");
             }
 
-            metadataHandle.addViewDefinition(tableName, executor.get().submit(() -> {
+            metadataHandle.addViewDefinition(tableName, executor.orElseThrow().submit(() -> {
                 Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
                         GET_VIEW_TIME_NANOS,
                         () -> metadataResolver.getView(tableName));
                 if (optionalView.isPresent()) {
-                    ViewDefinition view = optionalView.get();
+                    ViewDefinition view = optionalView.orElseThrow();
                     Statement viewStatement = sqlParser.createStatement(view.getOriginalSql(), createParsingOptions(session, warningCollector));
                     Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                             .setQueryId(session.getQueryId())
@@ -108,18 +108,18 @@ public class MetadataExtractor
                 return optionalView;
             }));
 
-            metadataHandle.addMaterializedViewDefinition(tableName, executor.get().submit(() -> {
+            metadataHandle.addMaterializedViewDefinition(tableName, executor.orElseThrow().submit(() -> {
                 Optional<MaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
                         GET_MATERIALIZED_VIEW_TIME_NANOS,
                         () -> metadataResolver.getMaterializedView(tableName));
                 if (optionalMaterializedView.isPresent()) {
-                    Statement materializedViewStatement = sqlParser.createStatement(optionalMaterializedView.get().getOriginalSql(), createParsingOptions(session, warningCollector));
+                    Statement materializedViewStatement = sqlParser.createStatement(optionalMaterializedView.orElseThrow().getOriginalSql(), createParsingOptions(session, warningCollector));
                     populateMetadataHandle(session, materializedViewStatement, metadataHandle, new MetadataExtractorContext(Optional.of(metadataExtractorContext)));
                 }
                 return optionalMaterializedView;
             }));
 
-            metadataHandle.addTableColumnMetadata(tableName, executor.get().submit(() -> getTableColumnMetadata(session, metadataResolver, tableName)));
+            metadataHandle.addTableColumnMetadata(tableName, executor.orElseThrow().submit(() -> getTableColumnMetadata(session, metadataResolver, tableName)));
         });
     }
 

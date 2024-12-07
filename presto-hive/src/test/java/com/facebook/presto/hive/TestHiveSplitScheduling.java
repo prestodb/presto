@@ -74,8 +74,8 @@ public class TestHiveSplitScheduling
     {
         Optional<EventListener> eventListener = getQueryRunner().getEventListener();
         assertTrue(eventListener.isPresent());
-        assertTrue(eventListener.get() instanceof TestHiveEventListenerPlugin.TestingHiveEventListener, eventListener.get().getClass().getName());
-        return (TestHiveEventListenerPlugin.TestingHiveEventListener) eventListener.get();
+        assertTrue(eventListener.orElseThrow() instanceof TestHiveEventListenerPlugin.TestingHiveEventListener, eventListener.orElseThrow().getClass().getName());
+        return (TestHiveEventListenerPlugin.TestingHiveEventListener) eventListener.orElseThrow();
     }
 
     private Session dynamicSplitsSession()

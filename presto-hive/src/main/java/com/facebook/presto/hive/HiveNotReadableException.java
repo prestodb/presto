@@ -39,7 +39,7 @@ public class HiveNotReadableException
     private static String composeMessage(SchemaTableName tableName, Optional<String> partition, String message)
     {
         return partition.isPresent()
-                ? format("Table '%s' partition '%s' is not readable: %s", tableName, partition.get(), message)
+                ? format("Table '%s' partition '%s' is not readable: %s", tableName, partition.orElseThrow(), message)
                 : format("Table '%s' is not readable: %s", tableName, message);
     }
 

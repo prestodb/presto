@@ -125,7 +125,7 @@ public class AccumuloRecordSet
 
         Optional<String> scanAuths = split.getScanAuthorizations();
         if (scanAuths.isPresent()) {
-            Authorizations auths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(scanAuths.get()), String.class));
+            Authorizations auths = new Authorizations(Iterables.toArray(COMMA_SPLITTER.split(scanAuths.orElseThrow()), String.class));
             LOG.debug("scan_auths table property set: %s", auths);
             return auths;
         }

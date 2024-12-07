@@ -60,7 +60,7 @@ public class ShortDecimalStatisticsBuilder
     {
         Optional<DecimalStatistics> decimalStatistics = buildDecimalStatistics();
         if (decimalStatistics.isPresent()) {
-            return new DecimalColumnStatistics(nonNullValueCount, null, rawSize, storageSize, decimalStatistics.get());
+            return new DecimalColumnStatistics(nonNullValueCount, null, rawSize, storageSize, decimalStatistics.orElseThrow());
         }
         return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }

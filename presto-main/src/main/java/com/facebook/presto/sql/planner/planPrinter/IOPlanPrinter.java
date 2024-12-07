@@ -513,7 +513,7 @@ public class IOPlanPrinter
         {
             checkArgument(!constraint.isNone());
             ImmutableSet.Builder<ColumnConstraint> columnConstraints = ImmutableSet.builder();
-            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
+            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getDomains().orElseThrow().entrySet()) {
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle, entry.getKey());
                 columnConstraints.add(new ColumnConstraint(
                         columnMetadata.getName(),

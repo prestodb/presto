@@ -29,7 +29,7 @@ public class TestAssignments
 {
     private final Assignments assignments = assignment(new VariableReferenceExpression(Optional.empty(), "test", BIGINT), TRUE_CONSTANT);
 
-    @Test(expectedExceptions = {UnsupportedOperationException.class})
+    @Test(expectedExceptions = UnsupportedOperationException.class)
     public void testOutputsImmutable()
     {
         List<VariableReferenceExpression> outputs = assignments.getOutputs();

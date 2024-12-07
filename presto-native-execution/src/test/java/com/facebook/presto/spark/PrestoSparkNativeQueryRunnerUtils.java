@@ -184,7 +184,7 @@ public class PrestoSparkNativeQueryRunnerUtils
     public static synchronized Path getBaseDataPath()
     {
         if (dataDirectory.isPresent()) {
-            return dataDirectory.get();
+            return dataDirectory.orElseThrow();
         }
 
         Optional<String> dataDirectoryStr = getProperty("DATA_DIR");
@@ -199,6 +199,6 @@ public class PrestoSparkNativeQueryRunnerUtils
         else {
             dataDirectory = Optional.of(getNativeQueryRunnerParameters().dataDirectory);
         }
-        return dataDirectory.get();
+        return dataDirectory.orElseThrow();
     }
 }

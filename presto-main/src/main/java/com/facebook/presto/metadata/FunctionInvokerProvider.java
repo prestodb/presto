@@ -62,7 +62,7 @@ public class FunctionInvokerProvider
     static boolean checkChoice(List<ArgumentProperty> definitionArgumentProperties, boolean definitionReturnsNullable, boolean definitionHasSession, Optional<InvocationConvention> invocationConvention)
     {
         for (int i = 0; i < definitionArgumentProperties.size(); i++) {
-            InvocationArgumentConvention invocationArgumentConvention = invocationConvention.get().getArgumentConvention(i);
+            InvocationArgumentConvention invocationArgumentConvention = invocationConvention.orElseThrow().getArgumentConvention(i);
             NullConvention nullConvention = definitionArgumentProperties.get(i).getNullConvention();
             // return false because function types do not have a null convention
             if (definitionArgumentProperties.get(i).getArgumentType() == FUNCTION_TYPE) {
@@ -86,7 +86,7 @@ public class FunctionInvokerProvider
             }
         }
 
-        if (definitionReturnsNullable && invocationConvention.get().getReturnConvention() != InvocationReturnConvention.NULLABLE_RETURN) {
+        if (definitionReturnsNullable && invocationConvention.orElseThrow().getReturnConvention() != InvocationReturnConvention.NULLABLE_RETURN) {
             return false;
         }
         if (!definitionReturnsNullable) {
@@ -94,11 +94,11 @@ public class FunctionInvokerProvider
             // when the  corresponding definition convention has RETURN_NULL_ON_NULL convention.
             // As a result, when `definitionReturnsNullable` is false, the function
             // can never return a null value. Therefore, the if below is sufficient.
-            if (invocationConvention.get().getReturnConvention() != InvocationReturnConvention.FAIL_ON_NULL) {
+            if (invocationConvention.orElseThrow().getReturnConvention() != InvocationReturnConvention.FAIL_ON_NULL) {
                 return false;
             }
         }
-        if (definitionHasSession != invocationConvention.get().hasSession()) {
+        if (definitionHasSession != invocationConvention.orElseThrow().hasSession()) {
             return false;
         }
         return true;

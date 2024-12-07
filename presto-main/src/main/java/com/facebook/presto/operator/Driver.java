@@ -228,7 +228,7 @@ public class Driver
     {
         checkLockNotHeld("Can not update sources while holding the driver lock");
         checkArgument(
-                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()),
+                sourceOperator.isPresent() && sourceOperator.orElseThrow().getSourceId().equals(sourceUpdate.getPlanNodeId()),
                 "sourceUpdate is for a canonicalPlan node that is different from this Driver's source node");
 
         // stage the new updates
@@ -273,9 +273,9 @@ public class Driver
             if (fragmentResultCacheContext.get().isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
                 checkState(!this.cachedResult.get().isPresent());
                 this.fragmentResultCacheContext.set(this.fragmentResultCacheContext.get().map(context -> context.updateRuntimeInformation(split.getConnectorSplit())));
-                FragmentCacheResult fragmentCacheResult = fragmentResultCacheContext.get().get()
+                FragmentCacheResult fragmentCacheResult = fragmentResultCacheContext.get().orElseThrow()
                         .getFragmentResultCacheManager()
-                        .get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split);
+                        .get(fragmentResultCacheContext.get().orElseThrow().getHashedCanonicalPlanFragment(), split);
                 Optional<Iterator<Page>> pages = fragmentCacheResult.getPages();
                 sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue(
                         pages.isPresent() ? FRAGMENT_RESULT_CACHE_HIT : FRAGMENT_RESULT_CACHE_MISS, NONE, 1);
@@ -413,7 +413,7 @@ public class Driver
 
             boolean movedPage = false;
             if (cachedResult.get().isPresent()) {
-                Iterator<Page> remainingPages = cachedResult.get().get();
+                Iterator<Page> remainingPages = cachedResult.get().orElseThrow();
                 Operator outputOperator = activeOperators.get(activeOperators.size() - 1);
                 if (remainingPages.hasNext()) {
                     Page outputPage = remainingPages.next();
@@ -482,12 +482,12 @@ public class Driver
                     if (shouldUseFragmentResultCache() && outputOperatorFinished && !cachedResult.get().isPresent()) {
                         checkState(split.get() != null);
                         checkState(fragmentResultCacheContext.get().isPresent());
-                        fragmentResultCacheContext.get().get().getFragmentResultCacheManager().put(
-                                fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(),
+                        fragmentResultCacheContext.get().orElseThrow().getFragmentResultCacheManager().put(
+                                fragmentResultCacheContext.get().orElseThrow().getHashedCanonicalPlanFragment(),
                                 split.get(),
                                 outputPages,
                                 // also cache the bytes read count from the source operator for this fragment
-                                sourceOperator.get().getOperatorContext().getInputDataSize().getTotalCount());
+                                sourceOperator.orElseThrow().getOperatorContext().getInputDataSize().getTotalCount());
                     }
 
                     // Finish the next operator, which is now the first operator.
@@ -508,7 +508,7 @@ public class Driver
                     Optional<ListenableFuture<?>> blocked = getBlockedFuture(operator);
                     if (blocked.isPresent()) {
                         blockedOperators.add(operator);
-                        blockedFutures.add(blocked.get());
+                        blockedFutures.add(blocked.orElseThrow());
                     }
                 }
 

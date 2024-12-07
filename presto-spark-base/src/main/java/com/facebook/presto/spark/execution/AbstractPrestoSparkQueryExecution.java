@@ -363,7 +363,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                         wrappedPrestoException = new PrestoException(SPARK_EXECUTOR_LOST, executionException);
                     }
                     else if (errorClassifier.isPresent()) {
-                        wrappedPrestoException = errorClassifier.get().classify(executionException);
+                        wrappedPrestoException = errorClassifier.orElseThrow().classify(executionException);
                     }
                     else {
                         wrappedPrestoException = new PrestoException(GENERIC_SPARK_ERROR, executionException);
@@ -392,7 +392,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 log.error(eventFailure, "Error publishing query completed event");
             }
 
-            throw toPrestoSparkFailure(session, failureInfo.get());
+            throw toPrestoSparkFailure(session, failureInfo.orElseThrow());
         }
 
         processShuffleStats();
@@ -434,7 +434,7 @@ public abstract class AbstractPrestoSparkQueryExecution
 
         if (queryDataOutputLocation.isPresent()) {
             metadataStorage.write(
-                    queryDataOutputLocation.get(),
+                    queryDataOutputLocation.orElseThrow(),
                     queryDataJsonCodec.toJsonBytes(new PrestoSparkQueryData(PrestoSparkQueryExecutionFactory.getOutputColumns(planAndMore), results)));
         }
 
@@ -445,7 +445,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         Optional<SubPlan> subPlanOptional = getFinalFragmentedPlan();
         verify(subPlanOptional.isPresent(), "finalFragmentedPlan is null");
-        return subPlanOptional.get().getFragment().getTypes();
+        return subPlanOptional.orElseThrow().getFragment().getTypes();
     }
 
     public Optional<String> getUpdateType()
@@ -612,7 +612,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                     warningCollector,
                     updateCount);
             metadataStorage.write(
-                    queryStatusInfoOutputLocation.get(),
+                    queryStatusInfoOutputLocation.orElseThrow(),
                     queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
         }
         processBootstrapStats();
@@ -749,7 +749,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         StreamingSubPlan streamingSubPlan = streamingPlanSection.getPlan();
         TableWriteInfo tableWriteInfo = createTableWriteInfo(streamingSubPlan, metadata, session);
         if (tableWriteInfo.getWriterTarget().isPresent()) {
-            checkPageSinkCommitIsSupported(session, tableWriteInfo.getWriterTarget().get());
+            checkPageSinkCommitIsSupported(session, tableWriteInfo.getWriterTarget().orElseThrow());
         }
         return tableWriteInfo;
     }
@@ -759,7 +759,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     {
         TableWriteInfo tableWriteInfo = createTableWriteInfo(planNode, metadata, session);
         if (tableWriteInfo.getWriterTarget().isPresent()) {
-            checkPageSinkCommitIsSupported(session, tableWriteInfo.getWriterTarget().get());
+            checkPageSinkCommitIsSupported(session, tableWriteInfo.getWriterTarget().orElseThrow());
         }
         return tableWriteInfo;
     }
@@ -999,7 +999,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         if (!this.bootstrapMetricsCollector.isPresent()) {
             return;
         }
-        List<Map<String, Long>> bootstrapStats = this.bootstrapMetricsCollector.get().value();
+        List<Map<String, Long>> bootstrapStats = this.bootstrapMetricsCollector.orElseThrow().value();
         int loggedBootstrapCount = bootstrapStats.size();
         if (loggedBootstrapCount > 0) {
             Set<String> statsKeySet = bootstrapStats.get(0).keySet();

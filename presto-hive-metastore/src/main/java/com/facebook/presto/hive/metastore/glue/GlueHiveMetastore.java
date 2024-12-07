@@ -210,11 +210,11 @@ public class GlueHiveMetastore
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
             asyncGlueClientBuilder.setEndpointConfiguration(new EndpointConfiguration(
-                    config.getGlueEndpointUrl().get(),
-                    config.getGlueRegion().get()));
+                    config.getGlueEndpointUrl().orElseThrow(),
+                    config.getGlueRegion().orElseThrow()));
         }
         else if (config.getGlueRegion().isPresent()) {
-            asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
+            asyncGlueClientBuilder.setRegion(config.getGlueRegion().orElseThrow());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
             Region currentRegion = Regions.getCurrentRegion();
@@ -225,12 +225,12 @@ public class GlueHiveMetastore
 
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
             AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(
-                    new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
+                    new BasicAWSCredentials(config.getAwsAccessKey().orElseThrow(), config.getAwsSecretKey().orElseThrow()));
             asyncGlueClientBuilder.setCredentials(credentialsProvider);
         }
         else if (config.getIamRole().isPresent()) {
             AWSCredentialsProvider credentialsProvider = new STSAssumeRoleSessionCredentialsProvider
-                    .Builder(config.getIamRole().get(), "roleSessionName")
+                    .Builder(config.getIamRole().orElseThrow(), "roleSessionName")
                     .build();
             asyncGlueClientBuilder.setCredentials(credentialsProvider);
         }
@@ -470,7 +470,7 @@ public class GlueHiveMetastore
     public void createDatabase(MetastoreContext metastoreContext, Database database)
     {
         if (!database.getLocation().isPresent() && defaultDir.isPresent()) {
-            String databaseLocation = new Path(defaultDir.get(), database.getDatabaseName()).toString();
+            String databaseLocation = new Path(defaultDir.orElseThrow(), database.getDatabaseName()).toString();
             database = Database.builder(database)
                     .setLocation(Optional.of(databaseLocation))
                     .build();
@@ -488,7 +488,7 @@ public class GlueHiveMetastore
         }
 
         if (database.getLocation().isPresent()) {
-            createDirectory(hdfsContext, hdfsEnvironment, new Path(database.getLocation().get()));
+            createDirectory(hdfsContext, hdfsEnvironment, new Path(database.getLocation().orElseThrow()));
         }
     }
 

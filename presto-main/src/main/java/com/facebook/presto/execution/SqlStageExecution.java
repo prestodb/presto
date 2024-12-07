@@ -75,7 +75,7 @@ import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
@@ -458,7 +458,7 @@ public final class SqlStageExecution
         if (allTasks.size() > 1) {
             return;
         }
-        getOnlyElement(allTasks).removeRemoteSource(remoteSourceTaskId);
+        allTasks.stream().collect(onlyElement()).removeRemoteSource(remoteSourceTaskId);
     }
 
     public synchronized Optional<RemoteTask> scheduleTask(InternalNode node, int partition)
@@ -613,7 +613,7 @@ public final class SqlStageExecution
                     .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
             if (isRecoverable(taskStatus.getFailures())) {
                 try {
-                    stageTaskRecoveryCallback.get().recover(taskId);
+                    stageTaskRecoveryCallback.orElseThrow().recover(taskId);
                     finishedTasks.add(taskId);
                 }
                 catch (Throwable t) {

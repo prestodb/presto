@@ -55,7 +55,7 @@ public class HiveAddRequestedColumnsToLayout
                 return tableScan;
             }
 
-            HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout.get();
+            HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout.orElseThrow();
             Optional<Set<HiveColumnHandle>> requestedColumns = Optional.of(tableScan.getOutputVariables().stream().map(output -> (HiveColumnHandle) tableScan.getAssignments().get(output)).collect(toImmutableSet()));
             HiveTableLayoutHandle hiveLayoutWithDesiredColumns = hiveLayout.builder().setRequestedColumns(requestedColumns).build();
 

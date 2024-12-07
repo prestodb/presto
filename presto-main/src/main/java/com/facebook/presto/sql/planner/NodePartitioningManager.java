@@ -88,28 +88,28 @@ public class NodePartitioningManager
             return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
                     partitionChannelTypes,
                     partitioningScheme.getHashColumn().isPresent(),
-                    partitioningScheme.getBucketToPartition().get());
+                    partitioningScheme.getBucketToPartition().orElseThrow());
         }
         else {
-            ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
+            ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().orElseThrow());
 
             bucketFunction = partitioningProvider.getBucketFunction(
                     partitioningHandle.getTransactionHandle().orElse(null),
-                    session.toConnectorSession(partitioningHandle.getConnectorId().get()),
+                    session.toConnectorSession(partitioningHandle.getConnectorId().orElseThrow()),
                     partitioningHandle.getConnectorHandle(),
                     partitionChannelTypes,
-                    bucketToPartition.get().length);
+                    bucketToPartition.orElseThrow().length);
 
             checkArgument(bucketFunction != null, "No function %s", partitioningHandle);
         }
-        return new BucketPartitionFunction(bucketFunction, partitioningScheme.getBucketToPartition().get());
+        return new BucketPartitionFunction(bucketFunction, partitioningScheme.getBucketToPartition().orElseThrow());
     }
 
     public List<ConnectorPartitionHandle> listPartitionHandles(
             Session session,
             PartitioningHandle partitioningHandle)
     {
-        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().orElseThrow());
         return partitioningProvider.listPartitionHandles(
                 partitioningHandle.getTransactionHandle().orElse(null),
                 session.toConnectorSession(),
@@ -198,7 +198,7 @@ public class NodePartitioningManager
                 return new FixedBucketNodeMap(
                         getSplitToBucket(session, partitioningHandle),
                         createArbitraryBucketToNode(
-                                nodeScheduler.createNodeSelector(session, partitioningHandle.getConnectorId().get()).selectRandomNodes(getMaxTasksPerStage(session)),
+                                nodeScheduler.createNodeSelector(session, partitioningHandle.getConnectorId().orElseThrow()).selectRandomNodes(getMaxTasksPerStage(session)),
                                 connectorBucketNodeMap.getBucketCount()),
                         false);
             default:
@@ -220,11 +220,11 @@ public class NodePartitioningManager
                 .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
         List<Node> nodes = getNodes(session, connectorId, nodePredicate);
 
-        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().orElseThrow());
 
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
                 partitioningHandle.getTransactionHandle().orElse(null),
-                session.toConnectorSession(partitioningHandle.getConnectorId().get()),
+                session.toConnectorSession(partitioningHandle.getConnectorId().orElseThrow()),
                 partitioningHandle.getConnectorHandle(),
                 nodes);
 
@@ -234,7 +234,7 @@ public class NodePartitioningManager
 
     private ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle)
     {
-        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().get());
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviderManager.getPartitioningProvider(partitioningHandle.getConnectorId().orElseThrow());
 
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
                 partitioningHandle.getTransactionHandle().orElse(null),

@@ -114,7 +114,7 @@ public class BasePlanTest
 
         LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
 
-        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
+        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
         return queryRunner;
@@ -136,7 +136,7 @@ public class BasePlanTest
 
     public ConnectorId getCurrentConnectorId()
     {
-        return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
+        return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().orElseThrow())).orElseThrow();
     }
 
     protected LocalQueryRunner getQueryRunner()

@@ -69,7 +69,7 @@ public class TestPlannerWarnings
                 .build());
 
         queryRunner.createCatalog(
-                queryRunner.getDefaultSession().getCatalog().get(),
+                queryRunner.getDefaultSession().getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
     }
@@ -93,14 +93,14 @@ public class TestPlannerWarnings
     public static void assertPlannerWarnings(LocalQueryRunner queryRunner, @Language("SQL") String sql, Map<String, String> sessionProperties, List<WarningCode> expectedWarnings, Optional<List<Rule<?>>> rules)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
-                .setCatalog(queryRunner.getDefaultSession().getCatalog().get())
-                .setSchema(queryRunner.getDefaultSession().getSchema().get());
+                .setCatalog(queryRunner.getDefaultSession().getCatalog().orElseThrow())
+                .setSchema(queryRunner.getDefaultSession().getSchema().orElseThrow());
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig(), WarningHandlingLevel.NORMAL);
         try {
             queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
                 if (rules.isPresent()) {
-                    createPlan(queryRunner, transactionSession, sql, warningCollector, rules.get());
+                    createPlan(queryRunner, transactionSession, sql, warningCollector, rules.orElseThrow());
                 }
                 else {
                     queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.CREATED, false, warningCollector);

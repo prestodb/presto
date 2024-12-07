@@ -47,7 +47,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
@@ -261,14 +260,14 @@ public class OrcWriter
         dwrfWriterEncryption = requireNonNull(encryption, "encryption is null");
         this.dwrfEncryptionProvider = requireNonNull(dwrfEncryptionProvider, "dwrfEncryptionProvider is null");
         if (dwrfWriterEncryption.isPresent()) {
-            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.get().getWriterEncryptionGroups();
+            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.orElseThrow().getWriterEncryptionGroups();
             Map<Integer, Integer> nodeToGroupMap = createNodeToGroupMap(
                     writerEncryptionGroups
                             .stream()
                             .map(WriterEncryptionGroup::getNodes)
                             .collect(toImmutableList()),
                     orcTypes);
-            EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(dwrfWriterEncryption.get().getKeyProvider());
+            EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(dwrfWriterEncryption.orElseThrow().getKeyProvider());
             List<byte[]> dataEncryptionKeys = writerEncryptionGroups.stream()
                     .map(group -> encryptionLibrary.generateDataEncryptionKey(group.getIntermediateKeyMetadata().getBytes()))
                     .collect(toImmutableList());
@@ -466,7 +465,7 @@ public class OrcWriter
         boolean dictionaryIsFull = dictionaryCompressionOptimizer.isFull(bufferedBytes);
         Optional<FlushReason> flushReason = flushPolicy.shouldFlushStripe(stripeRowCount, bufferedBytes, dictionaryIsFull);
         if (flushReason.isPresent()) {
-            flushStripe(flushReason.get());
+            flushStripe(flushReason.orElseThrow());
         }
         columnWritersRetainedBytes = columnWriters.stream().mapToLong(ColumnWriter::getRetainedBytes).sum();
     }
@@ -558,9 +557,9 @@ public class OrcWriter
                 // if the previous stream was part of a different encryption group, need to specify an offset so we know the column order
                 Optional<Integer> encryptionGroup = dwrfEncryptionInfo.getGroupByNodeId(indexStream.getStream().getColumn());
                 if (encryptionGroup.isPresent()) {
-                    Stream stream = previousEncryptionGroup == encryptionGroup.get() ? indexStream.getStream() : indexStream.getStream().withOffset(offset);
-                    encryptedStreams.put(encryptionGroup.get(), stream);
-                    previousEncryptionGroup = encryptionGroup.get();
+                    Stream stream = previousEncryptionGroup == encryptionGroup.orElseThrow() ? indexStream.getStream() : indexStream.getStream().withOffset(offset);
+                    encryptedStreams.put(encryptionGroup.orElseThrow(), stream);
+                    previousEncryptionGroup = encryptionGroup.orElseThrow();
                 }
                 else {
                     Stream stream = previousEncryptionGroup == -1 ? indexStream.getStream() : indexStream.getStream().withOffset(offset);
@@ -573,7 +572,7 @@ public class OrcWriter
         }
 
         if (dwrfStripeCacheWriter.isPresent()) {
-            dwrfStripeCacheWriter.get().addIndexStreams(ImmutableList.copyOf(indexStreams), indexLength);
+            dwrfStripeCacheWriter.orElseThrow().addIndexStreams(ImmutableList.copyOf(indexStreams), indexLength);
         }
 
         // data streams (sorted by size)
@@ -594,7 +593,7 @@ public class OrcWriter
 
         // reorder data streams
         streamLayout.reorder(dataStreams, nodeIdToColumn, columnEncodings);
-        streamSizeHelper.collectStreamSizes(Iterables.concat(indexStreams, dataStreams), columnEncodings);
+        streamSizeHelper.collectStreamSizes(java.util.stream.Stream.concat(indexStreams.stream(), dataStreams.stream()).toList(), columnEncodings);
 
         // add data streams
         for (StreamDataOutput dataStream : dataStreams) {
@@ -602,9 +601,9 @@ public class OrcWriter
             // if the previous stream was part of a different encryption group, need to specify an offset so we know the column order
             Optional<Integer> encryptionGroup = dwrfEncryptionInfo.getGroupByNodeId(dataStream.getStream().getColumn());
             if (encryptionGroup.isPresent()) {
-                Stream stream = previousEncryptionGroup == encryptionGroup.get() ? dataStream.getStream() : dataStream.getStream().withOffset(offset);
-                encryptedStreams.put(encryptionGroup.get(), stream);
-                previousEncryptionGroup = encryptionGroup.get();
+                Stream stream = previousEncryptionGroup == encryptionGroup.orElseThrow() ? dataStream.getStream() : dataStream.getStream().withOffset(offset);
+                encryptedStreams.put(encryptionGroup.orElseThrow(), stream);
+                previousEncryptionGroup = encryptionGroup.orElseThrow();
             }
             else {
                 Stream stream = previousEncryptionGroup == -1 ? dataStream.getStream() : dataStream.getStream().withOffset(offset);
@@ -737,7 +736,7 @@ public class OrcWriter
         Optional<DwrfEncryption> dwrfEncryption;
         if (dwrfWriterEncryption.isPresent()) {
             ImmutableList.Builder<EncryptionGroup> encryptionGroupBuilder = ImmutableList.builder();
-            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.get().getWriterEncryptionGroups();
+            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.orElseThrow().getWriterEncryptionGroups();
             for (int i = 0; i < writerEncryptionGroups.size(); i++) {
                 WriterEncryptionGroup group = writerEncryptionGroups.get(i);
                 Map<Integer, Slice> groupStats = encryptedStats.get(i);
@@ -751,7 +750,7 @@ public class OrcWriter
             }
             dwrfEncryption = Optional.of(
                     new DwrfEncryption(
-                            dwrfWriterEncryption.get().getKeyProvider(),
+                            dwrfWriterEncryption.orElseThrow().getKeyProvider(),
                             encryptionGroupBuilder.build()));
         }
         else {
@@ -802,8 +801,8 @@ public class OrcWriter
         }
         ColumnStatistics columnStatistics = allStats.get(index);
         if (dwrfEncryptionInfo.getGroupByNodeId(index).isPresent()) {
-            int group = dwrfEncryptionInfo.getGroupByNodeId(index).get();
-            boolean isRootNode = dwrfWriterEncryption.get().getWriterEncryptionGroups().get(group).getNodes().contains(index);
+            int group = dwrfEncryptionInfo.getGroupByNodeId(index).orElseThrow();
+            boolean isRootNode = dwrfWriterEncryption.orElseThrow().getWriterEncryptionGroups().get(group).getNodes().contains(index);
             verify(isRootNode && nodeAndSubNodeStats.isEmpty() || nodeAndSubNodeStats.size() == 1 && nodeAndSubNodeStats.get(group) != null,
                     "nodeAndSubNodeStats should only be present for subnodes of a group");
             nodeAndSubNodeStats.computeIfAbsent(group, x -> new ArrayList<>()).add(columnStatistics);
@@ -854,7 +853,7 @@ public class OrcWriter
         checkState(validationBuilder != null, "validation is not enabled");
         ImmutableMap.Builder<Integer, Slice> intermediateKeyMetadata = ImmutableMap.builder();
         if (dwrfWriterEncryption.isPresent()) {
-            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.get().getWriterEncryptionGroups();
+            List<WriterEncryptionGroup> writerEncryptionGroups = dwrfWriterEncryption.orElseThrow().getWriterEncryptionGroups();
             for (int i = 0; i < writerEncryptionGroups.size(); i++) {
                 for (Integer node : writerEncryptionGroups.get(i).getNodes()) {
                     intermediateKeyMetadata.put(node, writerEncryptionGroups.get(i).getIntermediateKeyMetadata());

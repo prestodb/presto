@@ -22,7 +22,7 @@ import com.facebook.presto.tests.sql.TestTable;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
@@ -56,7 +56,7 @@ public class DataTypeTest
         try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(inputs))) {
             MaterializedResult materializedRows = prestoExecutor.execute(session, "SELECT * from " + testTable.getName());
             assertEquals(materializedRows.getTypes(), expectedTypes);
-            List<Object> actualResults = getOnlyElement(materializedRows).getFields();
+            List<Object> actualResults = materializedRows.getMaterializedRows().stream().collect(onlyElement()).getFields();
             assertEquals(actualResults.size(), expectedResults.size(), "lists don't have the same size");
             for (int i = 0; i < expectedResults.size(); i++) {
                 assertEquals(actualResults.get(i), expectedResults.get(i), "Element " + i);

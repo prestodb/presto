@@ -98,7 +98,7 @@ public class TestQueuesDb
     {
         queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
         while (true) {
-            ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().get().getResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"), true, true, true);
+            ResourceGroupInfo global = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow().getResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"), true, true, true);
             if (global.getSoftMemoryLimit().toBytes() > 0) {
                 break;
             }
@@ -175,7 +175,7 @@ public class TestQueuesDb
         dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         ReloadingResourceGroupConfigurationManager reloadingConfigurationManager = (ReloadingResourceGroupConfigurationManager) manager.getConfigurationManager();
 
         // Trigger reload to make the test more deterministic
@@ -199,7 +199,7 @@ public class TestQueuesDb
     public void testRejection()
             throws Exception
     {
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         ReloadingResourceGroupConfigurationManager reloadingConfigurationManager = (ReloadingResourceGroupConfigurationManager) manager.getConfigurationManager();
         // Verify the query cannot be submitted
         QueryId queryId = createQuery(queryRunner, rejectingSession(), LONG_LASTING_QUERY);
@@ -234,7 +234,7 @@ public class TestQueuesDb
     public void testSelectorPriority()
             throws Exception
     {
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         ReloadingResourceGroupConfigurationManager reloadingConfigurationManager = (ReloadingResourceGroupConfigurationManager) manager.getConfigurationManager();
 
@@ -243,7 +243,7 @@ public class TestQueuesDb
 
         Optional<ResourceGroupId> resourceGroup = queryManager.getFullQueryInfo(firstQuery).getResourceGroupId();
         assertTrue(resourceGroup.isPresent());
-        assertEquals(resourceGroup.get().toString(), "global.user-user.dashboard-user");
+        assertEquals(resourceGroup.orElseThrow().toString(), "global.user-user.dashboard-user");
 
         // create a new resource group that rejects all queries submitted to it
         dao.insertResourceGroup(10, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
@@ -267,7 +267,7 @@ public class TestQueuesDb
             throws Exception
     {
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         ReloadingResourceGroupConfigurationManager reloadingConfigurationManager = (ReloadingResourceGroupConfigurationManager) manager.getConfigurationManager();
         QueryId firstQuery = createQuery(
                 queryRunner,
@@ -320,7 +320,7 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
         Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
-        assertEquals(resourceGroupId.get(), createResourceGroupId("explain"));
+        assertEquals(resourceGroupId.orElseThrow(), createResourceGroupId("explain"));
     }
 
     @Test
@@ -340,7 +340,7 @@ public class TestQueuesDb
                 .setSchema("sf100000")
                 .setSource("non-leaf")
                 .build();
-        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().get();
+        InternalResourceGroupManager manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         ReloadingResourceGroupConfigurationManager reloadingConfigurationManager = (ReloadingResourceGroupConfigurationManager) manager.getConfigurationManager();
         int originalSize = getSelectors(queryRunner).size();
         // Add a selector for a non leaf group
@@ -373,6 +373,6 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
         Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
         assertTrue(resourceGroupId.isPresent(), "Query should have a resource group");
-        assertEquals(resourceGroupId.get(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.get()));
+        assertEquals(resourceGroupId.orElseThrow(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, resourceGroupId.orElseThrow()));
     }
 }

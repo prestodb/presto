@@ -68,11 +68,11 @@ class TableStatisticsRecorder
 
         checkState(combinedStatistics.isPresent(), "combinedStatistics empty, no stats were produced");
 
-        final Map<String, ColumnStatisticsData> combinedTableStatsRecording = combinedStatistics.get()
+        final Map<String, ColumnStatisticsData> combinedTableStatsRecording = combinedStatistics.orElseThrow()
                 .getRawColStats().entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, y -> y.getValue().getRecording()));
 
-        return new TableStatisticsData(combinedStatistics.get().getRowCount(), combinedTableStatsRecording);
+        return new TableStatisticsData(combinedStatistics.orElseThrow().getRowCount(), combinedTableStatsRecording);
     }
 
     private <E extends TpchEntity> TablePartStatistics recordStatistics(Iterable<E> rows, List<TpchColumn<E>> columns, Predicate<E> constraint)

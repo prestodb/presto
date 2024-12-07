@@ -90,7 +90,7 @@ public class TestDictionaryRowGroupBuilder
         }
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class})
+    @Test(expectedExceptions = IllegalStateException.class)
     public void testDecreasingMaxThrows()
     {
         DictionaryRowGroupBuilder rowGroupBuilder = new DictionaryRowGroupBuilder();

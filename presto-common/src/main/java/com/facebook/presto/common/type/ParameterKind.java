@@ -53,7 +53,7 @@ public enum ParameterKind
     public static ParameterKind fromJsonValue(String value)
     {
         for (ParameterKind kind : values()) {
-            if (kind.oldName.isPresent() && kind.oldName.get().equals(value)) {
+            if (kind.oldName.isPresent() && kind.oldName.orElseThrow().equals(value)) {
                 return kind;
             }
             if (kind.name().equals(value)) {

@@ -123,7 +123,7 @@ public class TupleDomainParquetPredicate
         }
         catch (Exception exception) {
             if (warningCollector.isPresent()) {
-                warningCollector.get().add(new PrestoWarning(PARQUET_FILE_STATISTICS_CORRUPTION, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\": [%s]", column.toString(), id, statistics)));
+                warningCollector.orElseThrow().add(new PrestoWarning(PARQUET_FILE_STATISTICS_CORRUPTION, format("Corrupted statistics for column \"%s\" in Parquet file \"%s\": [%s]", column.toString(), id, statistics)));
             }
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
@@ -241,7 +241,7 @@ public class TupleDomainParquetPredicate
 
         Dictionary dictionary;
         try {
-            dictionary = dictionaryPage.get().getEncoding().initDictionary(columnDescriptor, dictionaryPage.get());
+            dictionary = dictionaryPage.orElseThrow().getEncoding().initDictionary(columnDescriptor, dictionaryPage.orElseThrow());
         }
         catch (Exception e) {
             // In case of exception, just continue reading the data, not using dictionary page at all
@@ -249,7 +249,7 @@ public class TupleDomainParquetPredicate
             return Domain.all(type);
         }
 
-        int dictionarySize = dictionaryPage.get().getDictionarySize();
+        int dictionarySize = dictionaryPage.orElseThrow().getDictionarySize();
         DictionaryValueConverter converter = new DictionaryValueConverter(dictionary);
         Function<Integer, Object> convertFunction = converter.getConverter(columnDescriptor.getPrimitiveType());
         List<Object> values = new ArrayList<>();
@@ -377,7 +377,7 @@ public class TupleDomainParquetPredicate
             }
 
             if (columnIndexStore.isPresent()) {
-                ColumnIndex columnIndex = columnIndexStore.get().getColumnIndex(ColumnPath.get(column.getPath()));
+                ColumnIndex columnIndex = columnIndexStore.orElseThrow().getColumnIndex(ColumnPath.get(column.getPath()));
                 if (columnIndex == null || columnIndex.getMinValues().isEmpty() || columnIndex.getMaxValues().isEmpty() || columnIndex.getMinValues().size() != columnIndex.getMaxValues().size()) {
                     continue;
                 }
@@ -474,7 +474,7 @@ public class TupleDomainParquetPredicate
         //  For example, the 'where c1=3 or c1=10002' clause should have two domains but it has none
         //  we assume the relation cross domains are 'or'
         for (RichColumnDescriptor column : columns) {
-            Domain domain = effectivePredicate.getDomains().get().get(column);
+            Domain domain = effectivePredicate.getDomains().orElseThrow().get(column);
             if (domain == null || domain.isNone()) {
                 continue;
             }

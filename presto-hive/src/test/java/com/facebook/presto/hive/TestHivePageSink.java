@@ -96,7 +96,7 @@ import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
@@ -202,7 +202,7 @@ public class TestHivePageSink
 
         File outputDir = new File(outputPath);
         List<File> files = ImmutableList.copyOf(outputDir.listFiles((dir, name) -> !name.endsWith(".crc")));
-        File outputFile = getOnlyElement(files);
+        File outputFile = files.stream().collect(onlyElement());
         long length = outputFile.length();
 
         ConnectorPageSource pageSource = createPageSource(transaction, config, metastoreClientConfig, outputFile);
@@ -305,7 +305,7 @@ public class TestHivePageSink
                 getDefaultHiveAggregatedPageSourceFactories(config, metastoreClientConfig),
                 FUNCTION_AND_TYPE_MANAGER,
                 ROW_EXPRESSION_SERVICE);
-        return provider.createPageSource(transaction, getSession(config, new HiveCommonClientConfig()), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), NON_CACHEABLE, new RuntimeStats());
+        return provider.createPageSource(transaction, getSession(config, new HiveCommonClientConfig()), split, tableHandle.getLayout().orElseThrow(), ImmutableList.copyOf(getColumnHandles()), NON_CACHEABLE, new RuntimeStats());
     }
 
     private static ConnectorPageSink createPageSink(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, ExtendedHiveMetastore metastore, Path outputPath, HiveWriterStats stats)

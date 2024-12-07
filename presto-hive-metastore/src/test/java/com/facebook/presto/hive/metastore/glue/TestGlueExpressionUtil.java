@@ -43,7 +43,7 @@ public class TestGlueExpressionUtil
     {
         Domain domain = Domain.singleValue(VarcharType.VARCHAR, utf8Slice("2020-01-01"));
         Optional<String> foo = buildGlueExpressionForSingleDomain("foo", domain);
-        assertEquals(foo.get(), "((foo = '2020-01-01'))");
+        assertEquals(foo.orElseThrow(), "((foo = '2020-01-01'))");
     }
 
     @Test

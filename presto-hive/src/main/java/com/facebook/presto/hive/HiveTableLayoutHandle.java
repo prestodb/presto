@@ -155,7 +155,7 @@ public class HiveTableLayoutHandle
         this.layoutString = requireNonNull(layoutString, "layoutString is null");
         this.requestedColumns = requireNonNull(requestedColumns, "requestedColumns is null");
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
-        if (requestedColumns.isPresent() && requestedColumns.get().stream().anyMatch(column -> isRowIdColumnHandle(column))) {
+        if (requestedColumns.isPresent() && requestedColumns.orElseThrow().stream().anyMatch(column -> isRowIdColumnHandle(column))) {
             this.appendRowId = true;
         }
         else if (predicateColumns.values().stream().anyMatch(column -> isRowIdColumnHandle(column))) {
@@ -265,12 +265,12 @@ public class HiveTableLayoutHandle
         TupleDomain<Subfield> domainPredicate = this.getDomainPredicate();
 
         // If split is provided, we would update the identifier based on split runtime information.
-        if (split.isPresent() && (split.get() instanceof HiveSplit) && domainPredicate.getColumnDomains().isPresent()) {
-            HiveSplit hiveSplit = (HiveSplit) split.get();
+        if (split.isPresent() && (split.orElseThrow() instanceof HiveSplit) && domainPredicate.getColumnDomains().isPresent()) {
+            HiveSplit hiveSplit = (HiveSplit) split.orElseThrow();
             Set<Subfield> subfields = hiveSplit.getRedundantColumnDomains().stream()
                     .map(column -> new Subfield(((HiveColumnHandle) column).getName()))
                     .collect(toImmutableSet());
-            List<ColumnDomain<Subfield>> columnDomains = domainPredicate.getColumnDomains().get().stream()
+            List<ColumnDomain<Subfield>> columnDomains = domainPredicate.getColumnDomains().orElseThrow().stream()
                     .filter(columnDomain -> !subfields.contains(columnDomain.getColumn()))
                     .collect(toImmutableList());
             domainPredicate = TupleDomain.fromColumnDomains(Optional.of(columnDomains));
@@ -300,7 +300,7 @@ public class HiveTableLayoutHandle
         // Constants are only removed from point checks, and not range checks. Example:
         // `x = 1` is equivalent to `x = 1000`
         // `x > 1` is NOT equivalent to `x > 1000`
-        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), partitions.get());
+        TupleDomain<ColumnHandle> constraint = createPredicate(ImmutableList.copyOf(getPartitionColumns()), partitions.orElseThrow());
         constraint = getDomainPredicate()
                 .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
                 .transform(getPredicateColumns()::get)
@@ -336,7 +336,7 @@ public class HiveTableLayoutHandle
     {
         Optional<Table> table;
         if (hiveTableHandle.isPresent()) {
-            table = metastore.getTable(metastoreContext, hiveTableHandle.get());
+            table = metastore.getTable(metastoreContext, hiveTableHandle.orElseThrow());
         }
         else {
             table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());

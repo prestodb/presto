@@ -25,12 +25,12 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.SyntheticAddress.encodeSyntheticAddress;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertEquals;
 
 public class TestPositionLinks
 {
-    private static final Page TEST_PAGE = getOnlyElement(RowPagesBuilder.rowPagesBuilder(BIGINT).addSequencePage(20, 0).build());
+    private static final Page TEST_PAGE = RowPagesBuilder.rowPagesBuilder(BIGINT).addSequencePage(20, 0).build().stream().collect(onlyElement());
 
     @Test
     public void testArrayPositionLinks()

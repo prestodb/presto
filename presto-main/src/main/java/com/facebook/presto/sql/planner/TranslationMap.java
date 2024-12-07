@@ -239,7 +239,7 @@ class TranslationMap
                 if (analysis.isColumnReference(node)) {
                     Optional<ResolvedField> resolvedField = rewriteBase.getScope().tryResolveField(node);
                     if (resolvedField.isPresent()) {
-                        if (resolvedField.get().isLocal()) {
+                        if (resolvedField.orElseThrow().isLocal()) {
                             return getVariable(rewriteBase, node)
                                     .map(variable -> coerceIfNecessary(node, createSymbolReference(variable)))
                                     .orElseThrow(() -> new IllegalStateException("No symbol mapping for node " + node));

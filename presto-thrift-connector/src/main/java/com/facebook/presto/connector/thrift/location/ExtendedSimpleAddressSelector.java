@@ -49,7 +49,7 @@ public class ExtendedSimpleAddressSelector
             return delegate.selectAddress(context, attempted);
         }
 
-        List<String> list = Splitter.on(',').splitToList(context.get());
+        List<String> list = Splitter.on(',').splitToList(context.orElseThrow());
         String value = list.get(ThreadLocalRandom.current().nextInt(list.size()));
         HostAndPort address = HostAndPort.fromString(value);
         return Optional.of(new SimpleAddress(address));
