@@ -85,6 +85,16 @@ public final class FunctionResolution
         return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, LIKE_PATTERN));
     }
 
+    public FunctionHandle likeVarcharVarcharFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, VARCHAR));
+    }
+
+    public FunctionHandle likeVarcharVarcharVarcharFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, VARCHAR, VARCHAR));
+    }
+
     @Override
     public FunctionHandle likeCharFunction(Type valueType)
     {

@@ -1018,6 +1018,60 @@ components:
           type: string
         hidden:
           type: boolean
+    AggregationFunctionMetadata:
+      type: object
+      required:
+        - intermediateType
+        - isOrderSensitive
+      properties:
+        intermediateType:
+          $ref: '#/components/schemas/TypeSignature'
+          description: Intermediate TypeSignature for the aggregation function
+        isOrderSensitive:
+          type: boolean
+          description: Determines if the corresponding aggregation function is order-sensitive
+    JsonBasedUdfFunctionMetadata:
+      type: object
+      required:
+        - docString
+        - functionKind
+        - outputType
+        - paramTypes
+        - schema
+        - routineCharacteristics
+        - variableArity
+      properties:
+        docString:
+          type: string
+          description: Description of the function
+        functionKind:
+          $ref: '#/components/schemas/FunctionKind'
+          description: FunctionKind of the function
+        outputType:
+          $ref: '#/components/schemas/TypeSignature'
+          description: Output type of the function
+        paramTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeSignature'
+          description: Input types of the function
+        schema:
+          type: string
+          description: Schema the function belongs to. Catalog.schema.function uniquely identifies a function.
+        routineCharacteristics:
+          $ref: '#/components/schemas/RoutineCharacteristics'
+          description: Implement language of the function.
+        variableArity:
+          type: boolean
+          description: Arity of the function.
+        typeVariableConstraints:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeVariableConstraint'
+          description: Optional list of the typeVariableConstraints.
+        aggregationFunctionMetadata:
+          $ref: '#/components/schemas/AggregationFunctionMetadata'
+          description: Optional Aggregate-specific metadata (required for aggregation functions)
 
 
 
