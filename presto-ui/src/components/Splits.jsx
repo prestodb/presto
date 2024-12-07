@@ -159,7 +159,7 @@ export default function Split(): void {
         <>
             { queryState.query && <QueryHeader query={queryState.query}/>}
             {(!queryState.query || queryState.ended === false) && <div className="row error-message">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                     { queryState.failed && queryState.query === null ? (
                     <h4>Query not found</h4>
                     ) : (

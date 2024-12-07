@@ -1,9 +1,10 @@
 import React from "react";
-import ReactDOM from "react-dom";
 import {LivePlan} from "./components/LivePlan";
 import {getFirstParameter} from "./utils";
+import { createRoot } from 'react-dom/client';
+const container = document.getElementById('live-plan-container');
+const root = createRoot(container);
 
-ReactDOM.render(
-    <LivePlan queryId={getFirstParameter(window.location.search)} isEmbedded={true}/>,
-    document.getElementById('live-plan-container')
+root.render(
+    <LivePlan queryId={getFirstParameter(window.location.search)} isEmbedded={true}/>
 );

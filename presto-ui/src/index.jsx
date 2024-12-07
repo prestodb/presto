@@ -1,20 +1,26 @@
 import React from "react";
-import ReactDOM from "react-dom";
 import {ClusterHUD} from "./components/ClusterHUD";
 import {QueryList} from "./components/QueryList";
 import { PageTitle } from "./components/PageTitle";
+import { createRoot } from 'react-dom/client';
 
-ReactDOM.render(
-    <PageTitle titles={['Cluster Overview', 'Resource Groups', 'SQL Client']} urls={['./index.html', 'res_groups.html', 'sql_client.html']} current={0}/>,
-    document.getElementById('title')
+
+const container = document.getElementById('title');
+const root = createRoot(container);
+
+root.render(
+    <PageTitle titles={['Cluster Overview', 'Resource Groups', 'SQL Client']} urls={['./index.html', 'res_groups.html', 'sql_client.html']} current={0}/>
 );
 
-ReactDOM.render(
-    <ClusterHUD />,
-    document.getElementById('cluster-hud')
+const cluster = document.getElementById('cluster-hud');
+const cluster_root = createRoot(cluster);
+cluster_root.render(
+    <ClusterHUD />
 );
 
-ReactDOM.render(
-    <QueryList />,
-    document.getElementById('query-list')
+const query = document.getElementById('query-list');
+const query_root = createRoot(query);
+
+query_root.render(
+    <QueryList />
 );
