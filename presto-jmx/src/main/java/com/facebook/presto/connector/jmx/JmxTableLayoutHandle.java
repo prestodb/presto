@@ -36,13 +36,13 @@ public class JmxTableLayoutHandle
         this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
-    @JsonProperty
+    @JsonProperty(value = "table")
     public JmxTableHandle getTable()
     {
         return table;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "constraint")
     public TupleDomain<ColumnHandle> getConstraint()
     {
         return constraint;
