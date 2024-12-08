@@ -93,6 +93,8 @@ To enable SSL/TLS for Presto internal communication, do the following:
         http-server.https.keystore.path=<keystore path>
         http-server.https.keystore.key=<keystore password>
 
+Note: setting the ``http-server.https.port`` to ``0`` results in the use of an ephemeral port.
+
 6. Change the discovery uri to HTTPS.
 
     .. code-block:: none

@@ -19,7 +19,7 @@ add_library(
   PrestoToVeloxQueryPlan.cpp PrestoToVeloxExpr.cpp VeloxPlanValidator.cpp
   PrestoToVeloxSplit.cpp PrestoToVeloxConnector.cpp)
 add_dependencies(presto_types presto_operators presto_type_converter velox_type
-                 velox_type_fbhive velox_dwio_dwrf_proto)
+                 velox_type_fbhive)
 
 target_link_libraries(presto_types presto_type_converter velox_type_fbhive
                       velox_hive_partition_function velox_tpch_gen)

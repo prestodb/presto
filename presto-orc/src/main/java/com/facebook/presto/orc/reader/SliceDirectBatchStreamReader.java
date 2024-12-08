@@ -27,7 +27,6 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -45,10 +44,10 @@ import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBoolean
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.getByteArrayMissingStreamSource;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -57,11 +56,11 @@ public class SliceDirectBatchStreamReader
         implements BatchStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectBatchStreamReader.class).instanceSize();
-    private static final int ONE_GIGABYTE = toIntExact(new DataSize(1, GIGABYTE).toBytes());
 
     private final StreamDescriptor streamDescriptor;
     private final int maxCodePointCount;
     private final boolean isCharType;
+    private final long maxSliceSize;
 
     private int readOffset;
     private int nextBatchSize;
@@ -80,11 +79,14 @@ public class SliceDirectBatchStreamReader
 
     private boolean rowGroupOpen;
 
-    public SliceDirectBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType)
+    public SliceDirectBatchStreamReader(StreamDescriptor streamDescriptor, int maxCodePointCount, boolean isCharType, long maxSliceSize)
     {
         this.maxCodePointCount = maxCodePointCount;
         this.isCharType = isCharType;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
+        checkArgument(maxSliceSize < Integer.MAX_VALUE, "maxSliceSize cannot be larger than Integer.MAX_VALUE");
+        checkArgument(maxSliceSize > 0, "maxSliceSize must be positive");
+        this.maxSliceSize = maxSliceSize;
     }
 
     @Override
@@ -176,8 +178,13 @@ public class SliceDirectBatchStreamReader
         if (totalLength == 0) {
             return new VariableWidthBlock(currentBatchSize, EMPTY_SLICE, offsetVector, Optional.ofNullable(isNullVector));
         }
-        if (totalLength > ONE_GIGABYTE) {
-            throw new GenericInternalException(format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", streamDescriptor.getFieldName(), currentBatchSize, streamDescriptor.getOrcDataSourceId()));
+        if (totalLength > maxSliceSize) {
+            throw new GenericInternalException(
+                    format("Values in column \"%s\" are too large to process for Presto. Requested to read [%s] bytes, when max allowed is [%s] bytes [%s]",
+                            streamDescriptor.getFieldName(),
+                            totalLength,
+                            maxSliceSize,
+                            streamDescriptor.getOrcDataSourceId()));
         }
         if (dataStream == null) {
             throw new OrcCorruptionException(streamDescriptor.getOrcDataSourceId(), "Value is not null but data stream is missing");

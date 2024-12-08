@@ -70,14 +70,38 @@ static void maybeSetupTaskSpillDirectory(
   const auto includeNodeInSpillPath =
       SystemConfig::instance()->includeNodeInSpillPath();
   auto nodeConfig = NodeConfig::instance();
-  const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
-      baseSpillDirectory,
-      nodeConfig->nodeInternalAddress(),
-      nodeConfig->nodeId(),
-      execTask.queryCtx()->queryId(),
-      execTask.taskId(),
-      includeNodeInSpillPath);
+  const auto [taskSpillDirPath, dateSpillDirPath] =
+      TaskManager::buildTaskSpillDirectoryPath(
+          baseSpillDirectory,
+          nodeConfig->nodeInternalAddress(),
+          nodeConfig->nodeId(),
+          execTask.queryCtx()->queryId(),
+          execTask.taskId(),
+          includeNodeInSpillPath);
   execTask.setSpillDirectory(taskSpillDirPath, /*alreadyCreated=*/false);
+
+  execTask.setCreateSpillDirectoryCb(
+      [spillDir = taskSpillDirPath, dateStrDir = dateSpillDirPath]() {
+        auto fs = filesystems::getFileSystem(dateStrDir, nullptr);
+        // First create the top level directory (date string of the query) with
+        // TTL or other configs if set.
+        filesystems::DirectoryOptions options;
+        // Do not fail if the directory already exist because another process
+        // may have already created the dateStrDir.
+        options.failIfExists = false;
+        auto config = SystemConfig::instance()->spillerDirectoryCreateConfig();
+        if (!config.empty()) {
+          options.values.emplace(
+              filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
+              config);
+        }
+        fs->mkdir(dateStrDir, options);
+
+        // After the parent directory is created,
+        // then create the spill directory for the actual task.
+        fs->mkdir(spillDir);
+        return spillDir;
+      });
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
@@ -379,7 +403,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
   return std::make_unique<TaskInfo>(info);
 }
 
-/*static*/ std::string TaskManager::buildTaskSpillDirectoryPath(
+/*static*/ std::tuple<std::string, std::string>
+TaskManager::buildTaskSpillDirectoryPath(
     const std::string& baseSpillPath,
     const std::string& nodeIp,
     const std::string& nodeId,
@@ -397,13 +422,20 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
             queryId.substr(6, 2))
       : "1970-01-01";
 
-  std::string path;
-  folly::toAppend(fmt::format("{}/presto_native/", baseSpillPath), &path);
+  std::string taskSpillDirPath;
+  folly::toAppend(
+      fmt::format("{}/presto_native/", baseSpillPath), &taskSpillDirPath);
   if (includeNodeInSpillPath) {
-    folly::toAppend(fmt::format("{}_{}/", nodeIp, nodeId), &path);
+    folly::toAppend(fmt::format("{}_{}/", nodeIp, nodeId), &taskSpillDirPath);
   }
-  folly::toAppend(fmt::format("{}/{}/{}/", dateString, queryId, taskId), &path);
-  return path;
+
+  std::string dateSpillDirPath = taskSpillDirPath;
+  folly::toAppend(fmt::format("{}/", dateString), &dateSpillDirPath);
+
+  folly::toAppend(
+      fmt::format("{}/{}/{}/", dateString, queryId, taskId), &taskSpillDirPath);
+  return std::make_tuple(
+      std::move(taskSpillDirPath), std::move(dateSpillDirPath));
 }
 
 void TaskManager::getDataForResultRequests(
