@@ -14,11 +14,8 @@
 
 add_subdirectory(decode)
 
-velox_add_library(
-  velox_wave_dwio
-  ColumnReader.cpp
-  FormatData.cpp
-  ReadStream.cpp
-  StructColumnReader.cpp)
+add_library(velox_wave_dwio ColumnReader.cpp FormatData.cpp ReadStream.cpp
+                            StructColumnReader.cpp)
 
-velox_link_libraries(velox_wave_dwio Folly::folly fmt::fmt xsimd)
+target_link_libraries(
+  velox_wave_dwio Folly::folly fmt::fmt xsimd)

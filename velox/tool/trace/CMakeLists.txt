@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(
+add_library(
   velox_query_trace_replayer_base
   AggregationReplayer.cpp
   FilterProjectReplayer.cpp
@@ -23,7 +23,7 @@ velox_add_library(
   TableWriterReplayer.cpp
   TraceReplayRunner.cpp)
 
-velox_link_libraries(
+target_link_libraries(
   velox_query_trace_replayer_base
   velox_aggregates
   velox_type

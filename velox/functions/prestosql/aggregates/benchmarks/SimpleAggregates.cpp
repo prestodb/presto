@@ -18,7 +18,7 @@
 #include <folly/init/Init.h>
 #include <string>
 
-#include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"

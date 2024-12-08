@@ -31,6 +31,7 @@ target_include_directories(velox_wave_common_test PRIVATE ../../../breeze)
 target_link_libraries(
   velox_wave_common_test
   velox_wave_common
+  xsimd
   GTest::gtest
   GTest::gtest_main
   CUDA::cudart)

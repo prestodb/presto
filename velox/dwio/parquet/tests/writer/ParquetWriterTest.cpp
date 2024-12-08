@@ -23,8 +23,8 @@
 #include "velox/core/QueryCtx.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h" // @manual
 #include "velox/dwio/parquet/tests/ParquetTestBase.h"
+#include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"

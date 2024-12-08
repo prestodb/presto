@@ -26,7 +26,8 @@ message(STATUS "Building gtest from source")
 FetchContent_Declare(
   gtest
   URL ${VELOX_GTEST_SOURCE_URL}
-  URL_HASH ${VELOX_GTEST_BUILD_SHA256_CHECKSUM})
+  URL_HASH ${VELOX_GTEST_BUILD_SHA256_CHECKSUM}
+  OVERRIDE_FIND_PACKAGE SYSTEM EXCLUDE_FROM_ALL)
 
 FetchContent_MakeAvailable(gtest)
 

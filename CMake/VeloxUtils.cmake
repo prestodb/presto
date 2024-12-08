@@ -70,8 +70,12 @@ function(velox_add_library TARGET)
       # Target already exists, append sources to it.
       target_sources(velox PRIVATE ${ARGN})
     else()
+      set(_type STATIC)
+      if(VELOX_BUILD_SHARED)
+        set(_type SHARED)
+      endif()
       # Create the target if this is the first invocation.
-      add_library(velox ${ARGN})
+      add_library(velox ${_type} ${ARGN})
       set_target_properties(velox PROPERTIES LIBRARY_OUTPUT_DIRECTORY
                                              ${CMAKE_BINARY_DIR}/lib)
       set_target_properties(velox PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
@@ -93,13 +97,26 @@ function(velox_link_libraries TARGET)
   # TODO(assignUser): Handle scope keywords (they currently are empty calls ala
   # target_link_libraries(target PRIVATE))
   if(VELOX_MONO_LIBRARY)
-    message(DEBUG "${TARGET}: ${ARGN}")
-    foreach(_lib ${ARGN})
-      if("${_lib}" MATCHES "^velox_*")
-        message(DEBUG "\t\tDROP: ${_lib}")
+    # These targets follow the velox_* name for consistency but are NOT actually
+    # aliases to velox when building the mono lib and need to be linked
+    # explicitly (this is a hack)
+    set(explicit_targets
+        velox_exec_test_lib
+        # see velox/experimental/wave/README.md
+        velox_wave_common
+        velox_wave_decode
+        velox_wave_dwio
+        velox_wave_exec
+        velox_wave_stream
+        velox_wave_vector)
+
+    foreach(_arg ${ARGN})
+      list(FIND explicit_targets ${_arg} _explicit)
+      if(_explicit EQUAL -1 AND "${_arg}" MATCHES "^velox_*")
+        message(DEBUG "\t\tDROP: ${_arg}")
       else()
-        message(DEBUG "\t\tADDING: ${_lib}")
-        target_link_libraries(velox ${_lib})
+        message(DEBUG "\t\tADDING: ${_arg}")
+        target_link_libraries(velox ${_arg})
       endif()
     endforeach()
   else()

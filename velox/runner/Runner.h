@@ -16,8 +16,8 @@
 #pragma once
 
 #include "velox/connectors/Connector.h"
+#include "velox/exec/Cursor.h"
 #include "velox/exec/Exchange.h"
-#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/runner/LocalSchema.h"
 #include "velox/runner/MultiFragmentPlan.h"
 

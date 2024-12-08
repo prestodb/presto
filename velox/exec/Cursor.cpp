@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/exec/tests/utils/Cursor.h"
+#include "velox/exec/Cursor.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/Operator.h"
 

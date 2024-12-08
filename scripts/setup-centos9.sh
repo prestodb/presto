@@ -34,6 +34,7 @@ NPROC=$(getconf _NPROCESSORS_ONLN)
 export CXXFLAGS=$(get_cxx_flags) # Used by boost.
 export CFLAGS=${CXXFLAGS//"-std=c++17"/} # Used by LZO.
 CMAKE_BUILD_TYPE="${BUILD_TYPE:-Release}"
+VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly and gflags shared for use in libvelox.so.
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
 USE_CLANG="${USE_CLANG:-false}"
 export INSTALL_PREFIX=${INSTALL_PREFIX:-"/usr/local"}
@@ -89,7 +90,7 @@ function install_gflags {
   # Remove an older version if present.
   dnf remove -y gflags
   wget_and_untar https://github.com/gflags/gflags/archive/v2.2.2.tar.gz gflags
-  cmake_install_dir gflags -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON -DLIB_SUFFIX=64
+  cmake_install_dir gflags -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DBUILD_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON -DLIB_SUFFIX=64
 }
 
 function install_glog {
@@ -153,7 +154,7 @@ function install_fizz {
 
 function install_folly {
   wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
-  cmake_install_dir folly -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
+  cmake_install_dir folly -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
 }
 
 function install_wangle {

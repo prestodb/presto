@@ -29,8 +29,8 @@ target_link_libraries(
   velox_common_base
   velox_type
   CUDA::cuda_driver
-  CUDA::cudart
-  CUDA::nvrtc)
+  CUDA::nvrtc
+  CUDA::cudart)
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

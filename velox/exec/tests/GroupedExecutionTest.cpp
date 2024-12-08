@@ -17,9 +17,9 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/MemoryArbitrator.h"
+#include "velox/exec/Cursor.h"
 #include "velox/exec/OutputBufferManager.h"
 #include "velox/exec/PlanNodeStats.h"
-#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"

@@ -19,8 +19,8 @@
 
 #include "duckdb/common/types.hpp" // @manual
 #include "velox/duckdb/conversion/DuckConversion.h"
+#include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
-#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/VectorTypeUtils.h"

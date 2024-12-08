@@ -28,24 +28,25 @@ FetchContent_Declare(
   gflags
   URL ${VELOX_GFLAGS_SOURCE_URL}
   URL_HASH ${VELOX_GFLAGS_BUILD_SHA256_CHECKSUM}
-  PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/gflags/gflags-config.patch)
+  PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/gflags/gflags-config.patch
+                OVERRIDE_FIND_PACKAGE EXCLUDE_FROM_ALL SYSTEM)
 
-set(GFLAGS_BUILD_STATIC_LIBS ON)
-set(GFLAGS_BUILD_gflags_LIB ON)
-set(GFLAGS_BUILD_gflags_nothreads_LIB ON)
-set(GFLAGS_IS_SUBPROJECT ON)
 # glog relies on the old `google` namespace
 set(GFLAGS_NAMESPACE "google;gflags")
 
+set(GFLAGS_BUILD_SHARED_LIBS ${VELOX_BUILD_SHARED})
+set(GFLAGS_BUILD_STATIC_LIBS ${VELOX_BUILD_STATIC})
+
+set(GFLAGS_BUILD_gflags_LIB ON)
+set(GFLAGS_BUILD_gflags_nothreads_LIB ON)
+set(GFLAGS_IS_SUBPROJECT ON)
+
+# Workaround for https://github.com/gflags/gflags/issues/277
+unset(BUILD_SHARED_LIBS)
 FetchContent_MakeAvailable(gflags)
-
-# the flag has to be added to each target we build so adjust to settings choosen
-# above
-target_compile_options(gflags_static PRIVATE -Wno-cast-function-type)
-target_compile_options(gflags_nothreads_static PRIVATE -Wno-cast-function-type)
-
-# this causes find_package(gflags) to search in the build directory and prevents
-# the system gflags from being found
-set(gflags_DIR ${gflags_BINARY_DIR})
-set(gflags_LIBRARY gflags_static)
-set(gflags_INCLUDE_DIR ${gflags_BINARY_DIR}/include)
+# This causes find_package(gflags) in other dependencies to search in the build
+# directory and prevents the system gflags from being found when they don't use
+# the target directly (like folly).
+set(gflags_FOUND TRUE)
+set(gflags_LIBRARY gflags::gflags)
+set(gflags_INCLUDE_DIR)

@@ -29,7 +29,7 @@ jobs:
     # prevent errors when forks ff their main branch
     if: ${{ github.repository == 'facebookincubator/velox' }}
     runs-on: 8-core-ubuntu
-    container: ghcr.io/facebookincubator/velox-dev:adapters
+    container: ghcr.io/assignuser/velox-dev:adapters
     defaults:
       run:
         shell: bash
@@ -95,6 +95,7 @@ jobs:
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
             "-DVELOX_ENABLE_GPU=ON"
             "-DVELOX_MONO_LIBRARY=ON"
+            "-DVELOX_BUILD_SHARED=ON"
           )
           if [[ "${USE_CLANG}" = "true" ]]; then scripts/setup-centos9.sh install_clang15; export CC=/usr/bin/clang-15; export CXX=/usr/bin/clang++-15; CUDA_FLAGS="-ccbin /usr/lib64/llvm15/bin/clang++-15"; fi
           make release EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"

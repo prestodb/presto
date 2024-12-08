@@ -56,6 +56,7 @@ list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/CMake"
 # Include our ThirdPartyToolchain dependencies macros
 include(ResolveDependency)
 include(VeloxUtils)
+include(CMakeDependentOption)
 
 velox_set_with_default(VELOX_DEPENDENCY_SOURCE_DEFAULT VELOX_DEPENDENCY_SOURCE
                        AUTO)
@@ -77,6 +78,28 @@ option(
   OFF)
 option(VELOX_MONO_LIBRARY "Build single unified library." OFF)
 option(ENABLE_ALL_WARNINGS "Enable -Wall and -Wextra compiler warnings." ON)
+option(VELOX_BUILD_SHARED "Build Velox as shared libraries." OFF)
+# While it's possible to build both in one go we currently want to build either
+# static or shared.
+cmake_dependent_option(
+  VELOX_BUILD_STATIC
+  "Build Velox as static libraries."
+  ON
+  "NOT VELOX_BUILD_SHARED"
+  OFF)
+
+if(VELOX_BUILD_SHARED AND NOT VELOX_MONO_LIBRARY)
+  # The large number of targets currently in use within Velox make a shared
+  # build when not using the mono library brittle and labor intensive
+  set(VELOX_MONO_LIBRARY ON)
+endif()
+
+if(VELOX_BUILD_SHARED)
+  message(
+    WARNING
+      "When building Velox as a shared library it's recommended to build against a shared build of folly to avoid issues with linking of gflags."
+      "This is currently NOT being enforced so user discretion is advised.")
+endif()
 
 # option() always creates a BOOL variable so we have to use a normal cache
 # variable with STRING type for this option.

@@ -37,6 +37,7 @@ export COMPILER_FLAGS
 NPROC=$(getconf _NPROCESSORS_ONLN)
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
 export CMAKE_BUILD_TYPE=Release
+VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly shared for use in libvelox.so.
 SUDO="${SUDO:-"sudo --preserve-env"}"
 USE_CLANG="${USE_CLANG:-false}"
 export INSTALL_PREFIX=${INSTALL_PREFIX:-"/usr/local"}
@@ -169,7 +170,7 @@ function install_protobuf {
 
 function install_folly {
   wget_and_untar https://github.com/facebook/folly/archive/refs/tags/${FB_OS_VERSION}.tar.gz folly
-  cmake_install_dir folly -DBUILD_TESTS=OFF -DFOLLY_HAVE_INT128_T=ON
+  cmake_install_dir folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS="$VELOX_BUILD_SHARED" -DFOLLY_HAVE_INT128_T=ON
 }
 
 function install_fizz {

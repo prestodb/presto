@@ -110,6 +110,22 @@ velox_link_libraries(
   velox_arrow_bridge
   velox_common_compression)
 
+velox_add_library(velox_cursor Cursor.cpp)
+velox_link_libraries(
+  velox_cursor
+  velox_core
+  velox_exception
+  velox_expression
+  velox_dwio_common
+  velox_dwio_dwrf_reader
+  velox_dwio_dwrf_writer
+  velox_type_fbhive
+  velox_hive_connector
+  velox_tpch_connector
+  velox_presto_serializer
+  velox_functions_prestosql
+  velox_aggregates)
+
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(fuzzer)
   add_subdirectory(tests)

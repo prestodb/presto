@@ -94,6 +94,7 @@ jobs:
                 -DENABLE_ALL_WARNINGS=1 \
                 -DVELOX_ENABLE_PARQUET=ON \
                 -DVELOX_MONO_LIBRARY=ON \
+                -DVELOX_BUILD_SHARED=ON \
                 -DCMAKE_BUILD_TYPE=$BUILD_TYPE
 
       - name: Build

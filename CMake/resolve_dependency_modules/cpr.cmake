@@ -35,7 +35,7 @@ FetchContent_Declare(
   PATCH_COMMAND
     git apply ${CMAKE_CURRENT_LIST_DIR}/cpr/cpr-libcurl-compatible.patch && git
     apply ${CMAKE_CURRENT_LIST_DIR}/cpr/cpr-remove-sancheck.patch)
-set(BUILD_SHARED_LIBS OFF)
+set(BUILD_SHARED_LIBS ${VELOX_BUILD_SHARED})
 set(CPR_USE_SYSTEM_CURL OFF)
 # ZLIB has already been found by find_package(ZLIB, REQUIRED), set CURL_ZLIB=OFF
 # to save compile time.
@@ -44,3 +44,4 @@ FetchContent_MakeAvailable(cpr)
 # libcpr in its CMakeLists.txt file disables the BUILD_TESTING globally when
 # CPR_USE_SYSTEM_CURL=OFF. unset BUILD_TESTING here.
 unset(BUILD_TESTING)
+unset(BUILD_SHARED_LIBS)

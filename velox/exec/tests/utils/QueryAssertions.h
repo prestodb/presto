@@ -18,8 +18,8 @@
 
 #include "velox/common/testutil/TestValue.h"
 #include "velox/core/PlanNode.h"
+#include "velox/exec/Cursor.h"
 #include "velox/exec/Operator.h"
-#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/vector/ComplexVector.h"
 
 #include <duckdb.hpp> // @manual
