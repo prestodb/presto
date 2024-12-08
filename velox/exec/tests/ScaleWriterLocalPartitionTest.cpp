@@ -552,7 +552,7 @@ class ScaleWriterLocalPartitionTest : public HiveConnectorTestBase {
 };
 
 TEST_F(ScaleWriterLocalPartitionTest, unpartitionBasic) {
-  const std::vector<RowVectorPtr> inputVectors = makeVectors(32, 1024);
+  const std::vector<RowVectorPtr> inputVectors = makeVectors(128, 1024);
   const uint64_t queryCapacity = 256 << 20;
   const uint32_t maxDrivers = 32;
   const uint32_t maxExchanegBufferSize = 2 << 20;
