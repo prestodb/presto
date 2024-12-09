@@ -88,6 +88,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -134,6 +135,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
+import static com.google.common.io.Files.createTempDir;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -579,6 +581,24 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             assertQuerySucceeds(session, "drop table test_partition_columns");
+        }
+    }
+
+    @Test
+    public void testCreateTableWithCustomLocation()
+    {
+        String tableName = "test_table_with_custom_location";
+        URI tableTargetURI = createTempDir().toURI();
+        try {
+            assertQuerySucceeds(format("create table %s (a int, b varchar)" +
+                    " with (location = '%s')", tableName, tableTargetURI.toString()));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+            TableMetadata tableMetadata = ((BaseTable) loadTable(tableName)).operations().current();
+            assertEquals(URI.create(tableMetadata.location() + File.separator), tableTargetURI);
+        }
+        finally {
+            assertUpdate("drop table if exists " + tableName);
         }
     }
 
