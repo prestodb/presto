@@ -84,7 +84,7 @@ public final class HiveQueryRunner
     public static final String TPCDS_BUCKETED_SCHEMA = "tpcds_bucketed";
     public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
     private static final String TEMPORARY_TABLE_SCHEMA = "__temporary_tables__";
-    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
+    private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Los_Angeles");
 
     public static DistributedQueryRunner createQueryRunner(TpchTable<?>... tables)
             throws Exception
