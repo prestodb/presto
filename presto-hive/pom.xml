@@ -23,17 +23,17 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-codec-utils</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
@@ -154,7 +154,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-api</artifactId>
         </dependency>
 
@@ -516,6 +516,15 @@
                         <ignoredDependency>org.glassfish.jersey.core:jersey-common:jar</ignoredDependency>
                         <ignoredDependency>org.eclipse.jetty:jetty-server:jar</ignoredDependency>
                     </ignoredDependencies>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.github.imsayari404.drift:drift-api:jar:1.40-SNAPSHOT</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>com.github.imsayari404.drift:drift-transport-netty:jar:1.40-SNAPSHOT</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>com.facebook.drift:drift-api:jar:1.40-SNAPSHOT</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>com.facebook.drift:drift-transport-netty:jar:1.31</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>com.facebook.drift:drift-api:jar:1.31</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
