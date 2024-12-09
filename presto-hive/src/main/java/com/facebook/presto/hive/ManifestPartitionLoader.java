@@ -157,7 +157,7 @@ public class ManifestPartitionLoader
         String inputFormatName = storage.getStorageFormat().getInputFormat();
         int partitionDataColumnCount = partition.getPartition()
                 .map(p -> p.getColumns().size())
-                .orElse(table.getDataColumns().size());
+                .orElseGet(table.getDataColumns()::size);
         List<HivePartitionKey> partitionKeys = getPartitionKeys(table, partition.getPartition(), partitionName);
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);

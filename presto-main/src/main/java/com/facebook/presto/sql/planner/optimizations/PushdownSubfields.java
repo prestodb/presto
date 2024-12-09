@@ -711,7 +711,7 @@ public class PushdownSubfields
                 }
 
                 Set<Integer> argumentIndicesContainingMapOrArray = functionDescriptor.getArgumentIndicesContainingMapOrArray()
-                        .orElse(IntStream.range(0, call.getArguments().size())
+                        .orElseGet(() -> IntStream.range(0, call.getArguments().size())
                                 .filter(argIndex -> isMapOrArrayOfRowType(call.getArguments().get(argIndex)))
                                 .boxed()
                                 .collect(toImmutableSet()));

@@ -429,7 +429,7 @@ public class PagesIndex
         // if compilation fails, use interpreter
         return new SimplePagesHashStrategy(
                 types,
-                outputChannels.orElse(rangeList(types.size())),
+                outputChannels.orElseGet(() -> rangeList(types.size())),
                 ImmutableList.copyOf(channels),
                 joinChannels,
                 hashChannel,
@@ -505,7 +505,7 @@ public class PagesIndex
         // if compilation fails
         PagesHashStrategy hashStrategy = new SimplePagesHashStrategy(
                 types,
-                outputChannels.orElse(rangeList(types.size())),
+                outputChannels.orElseGet(() -> rangeList(types.size())),
                 channels,
                 joinChannels,
                 hashChannel,
