@@ -1,0 +1,198 @@
+name: linux-build-and-unit-test
+
+on:
+  pull_request:
+
+jobs:
+  linux-build-and-unit-test:
+    runs-on: 16-core
+    container:
+      image: prestocpp/prestocpp-avx-centos:root-20230613
+    env:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: Update velox
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+      - name: Install JWT adapter dependency
+        run: |
+          mkdir -p ${HOME}/adapter-deps/install
+          source /opt/rh/gcc-toolset-9/enable
+          set -xu
+          cd presto-native-execution
+          DEPENDENCY_DIR=${HOME}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
+      - name: Calculate merge-base date for CCache
+        run: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/master HEAD) | tee merge-base-date
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.10
+        with:
+          key: native-exe-linux-ccache-${{ runner.os }}-${{ hashFiles('merge-base-date') }}
+      - name: Build
+        run: |
+          mkdir -p .ccache
+          export CCACHE_DIR=$(realpath .ccache)
+          ccache -sz -M 8Gi
+          source /opt/rh/gcc-toolset-9/enable
+          cd presto-native-execution
+          cmake \
+            -B _build/debug \
+            -GNinja \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=2
+          ninja -C _build/debug -j 8
+      - name: Run Unit Tests
+        run: |
+          cd presto-native-execution/_build/debug
+          ctest -j 10 -VV --output-on-failure --exclude-regex velox.*
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: presto-native-build
+          path: |
+            presto-native-execution/_build/debug/presto_cpp/main/presto_server
+            presto-native-execution/_build/debug/velox/velox/functions/remote/server/velox_functions_remote_server_main
+  
+  linux-presto-e2e-tests:
+    needs: linux-build-and-unit-test
+    runs-on: 16-core
+    container:
+      image: prestocpp/prestocpp-avx-centos:root-20230613
+    env:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: presto-native-build
+          path: presto-native-execution/_build/debug
+      - name: Install OpenJDK8
+        uses: actions/setup-java@v4.0.0
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+      - name: Maven install
+        env:
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+          MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+        run: |
+          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
+      - name: Run presto-native e2e tests
+        run: |
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
+          export TESTFILES=`find ./presto-native-execution/src/test -type f -name 'TestPrestoNative*.java'`
+
+          # Convert file paths to comma separated class names
+          export TESTCLASSES=
+          for test_file in $TESTFILES
+          do
+            tmp=${test_file##*/}
+            test_class=${tmp%%\.*}
+            export TESTCLASSES="${TESTCLASSES},$test_class"
+          done
+          export TESTCLASSES=${TESTCLASSES#,}
+          echo "TESTCLASSES = $TESTCLASSES"
+
+          # TODO: neeed to enable remote function tests with
+          # "-Ppresto-native-execution-remote-functions" once
+          # > https://github.com/facebookincubator/velox/discussions/6163
+          # is fixed.
+          
+          mvn test \
+            ${MAVEN_TEST} \
+            -pl 'presto-native-execution' \
+            -Dtest="${TESTCLASSES}" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -T1C
+
+  linux-spark-e2e-tests:
+    needs: linux-build-and-unit-test
+    runs-on: 16-core
+    container:
+      image: prestocpp/prestocpp-avx-centos:root-20230613
+    env:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: presto-native-build
+          path: presto-native-execution/_build/debug
+      - name: Install OpenJDK8
+        uses: actions/setup-java@v4.0.0
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+      - name: Cache local Maven repository
+        id: cache-maven
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-2-
+      - name: Populate maven cache
+        if: steps.cache-maven.outputs.cache-hit != 'true'
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
+      - name: Maven install
+        env:
+          MAVEN_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+          MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+        run: |
+          for i in $(seq 1 3); do ./mvnw clean install $MAVEN_FAST_INSTALL -pl 'presto-native-execution' -am && s=0 && break || s=$? && sleep 10; done; (exit $s)
+      - name: Run spark e2e tests
+        run: |
+          export PRESTO_SERVER_PATH="${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
+          export TESTFILES=`find ./presto-native-execution/src/test -type f -name 'TestPrestoSpark*.java'`
+
+          # Convert file paths to comma separated class names
+          export TESTCLASSES=
+          for test_file in $TESTFILES
+          do
+            tmp=${test_file##*/}
+            test_class=${tmp%%\.*}
+            export TESTCLASSES="${TESTCLASSES},$test_class"
+          done
+          export TESTCLASSES=${TESTCLASSES#,}
+          echo "TESTCLASSES = $TESTCLASSES"
+
+          mvn test \
+            ${MAVEN_TEST} \
+            -pl 'presto-native-execution' \
+            -Dtest="${TESTCLASSES}" \
+            -DPRESTO_SERVER=${PRESTO_SERVER_PATH} \
+            -DDATA_DIR=${RUNNER_TEMP} \
+            -Duser.timezone=America/Bahia_Banderas \
+            -T1C
