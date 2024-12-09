@@ -524,7 +524,8 @@ public class RowExpressionRewriteRuleSet
                         node.getTarget(),
                         node.getRowCountVariable(),
                         rewrittenStatisticsAggregation,
-                        node.getStatisticsAggregationDescriptor()));
+                        node.getStatisticsAggregationDescriptor(),
+                        node.getCteMaterializationInfo()));
             }
             return Result.empty();
         }
@@ -588,8 +589,7 @@ public class RowExpressionRewriteRuleSet
                         node.getNotNullColumnVariables(),
                         node.getTablePartitioningScheme(),
                         rewrittenStatisticsAggregation,
-                        node.getTaskCountIfScaledWriter(),
-                        node.getIsTemporaryTableWriter()));
+                        node.getTaskCountIfScaledWriter()));
             }
             return Result.empty();
         }
