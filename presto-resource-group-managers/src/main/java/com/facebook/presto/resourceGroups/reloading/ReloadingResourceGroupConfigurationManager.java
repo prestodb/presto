@@ -15,6 +15,7 @@ package com.facebook.presto.resourceGroups.reloading;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.resourceGroups.AbstractResourceConfigurationManager;
 import com.facebook.presto.resourceGroups.ManagerSpec;
 import com.facebook.presto.resourceGroups.ResourceGroupIdTemplate;
@@ -83,6 +84,7 @@ public class ReloadingResourceGroupConfigurationManager
     private final boolean exactMatchSelectorEnabled;
 
     private final CounterStat refreshFailures = new CounterStat();
+    private final TimeStat matchLatency = new TimeStat(MILLISECONDS);
 
     @Inject
     public ReloadingResourceGroupConfigurationManager(ClusterMemoryPoolManager memoryPoolManager, ReloadingResourceGroupConfig config, ManagerSpecProvider managerSpecProvider)
@@ -143,17 +145,20 @@ public class ReloadingResourceGroupConfigurationManager
     @Override
     public Optional<SelectionContext<VariableMap>> match(SelectionCriteria criteria)
     {
+        long startTime = System.nanoTime();
         checkMaxRefreshInterval();
 
         if (selectors.get().isEmpty()) {
             throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
         }
 
-        return selectors.get().stream()
+        Optional<SelectionContext<VariableMap>> result = selectors.get().stream()
                 .map(s -> s.match(criteria))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+        matchLatency.add(Duration.nanosSince(startTime));
+        return result;
     }
 
     @VisibleForTesting
@@ -300,5 +305,12 @@ public class ReloadingResourceGroupConfigurationManager
     public CounterStat getRefreshFailures()
     {
         return refreshFailures;
+    }
+
+    @Managed
+    @Nested
+    public TimeStat getMatchLatency()
+    {
+        return matchLatency;
     }
 }
