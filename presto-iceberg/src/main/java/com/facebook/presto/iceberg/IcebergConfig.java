@@ -58,6 +58,7 @@ public class IcebergConfig
     private double statisticSnapshotRecordDifferenceWeight;
     private boolean pushdownFilterEnabled;
     private boolean deleteAsJoinRewriteEnabled = true;
+    private boolean sortedWritingEnabled = true;
     private int rowsForMetadataOptimizationThreshold = 1000;
     private int metadataPreviousVersionsMax = METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
@@ -410,6 +411,19 @@ public class IcebergConfig
     public IcebergConfig setMaxStatisticsFileCacheSize(DataSize maxStatisticsFileCacheSize)
     {
         this.maxStatisticsFileCacheSize = maxStatisticsFileCacheSize;
+        return this;
+    }
+
+    public boolean isSortedWritingEnabled()
+    {
+        return sortedWritingEnabled;
+    }
+
+    @Config("iceberg.sorted-writing-enabled")
+    @ConfigDescription("Enable sorted writing to tables with a specified sort order")
+    public IcebergConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
+    {
+        this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
     }
 }
