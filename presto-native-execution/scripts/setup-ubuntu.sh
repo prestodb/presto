@@ -28,8 +28,14 @@ function install_proxygen {
   cmake_install -DBUILD_TESTS=OFF
 }
 
+function install_vim_common {
+  ${SUDO} apt update
+  ${SUDO} apt install -y vim-common
+}
+
 function install_presto_deps {
   run_and_time install_proxygen
+  run_and_time install_vim_common
 }
 
 if [[ $# -ne 0 ]]; then
