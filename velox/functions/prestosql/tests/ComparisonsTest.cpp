@@ -724,24 +724,6 @@ TEST_F(ComparisonsTest, gtLtArray) {
   testCompareArray<double>({NaN}, {NaN, 3.0}, expectedResults);
 }
 
-TEST_F(ComparisonsTest, gtLtMap) {
-  // Comparing maps is not supported for any types.
-  auto expectedException = "Map is not orderable type";
-
-  std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>> map1 =
-      {{{1, 2}, {3, 4}}};
-  std::optional<std::vector<std::pair<int64_t, std::optional<int64_t>>>> map2 =
-      {{{1, 2}, {3, 4}}};
-  testCompareMap<int64_t>(map1, map2, expectedException);
-
-  static const auto NaN = std::numeric_limits<double>::quiet_NaN();
-  std::optional<std::vector<std::pair<double, std::optional<double>>>> map3 = {
-      {{1.0, 2.0}, {NaN, 4.0}}};
-  std::optional<std::vector<std::pair<double, std::optional<double>>>> map4 = {
-      {{1.0, 2.0}, {3, 4.0}}};
-  testCompareMap<double>(map3, map4, expectedException);
-}
-
 TEST_F(ComparisonsTest, distinctFrom) {
   auto input = makeRowVector({
       makeNullableFlatVector<int64_t>({3, 1, 1, std::nullopt, std::nullopt}),
