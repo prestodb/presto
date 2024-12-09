@@ -43,6 +43,7 @@ class PlanNodeSerdeTest : public testing::Test,
     connector::hive::LocationHandle::registerSerDe();
     connector::hive::HiveColumnHandle::registerSerDe();
     connector::hive::HiveInsertTableHandle::registerSerDe();
+    connector::hive::registerHivePartitionFunctionSerDe();
     core::PlanNode::registerSerDe();
     core::ITypedExpr::registerSerDe();
     registerPartitionFunctionSerDe();

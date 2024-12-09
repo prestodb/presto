@@ -57,10 +57,6 @@ ScaleWriterPartitioningLocalPartition::ScaleWriterPartitioningLocalPartition(
       : planNode->partitionFunctionSpec().create(
             numTablePartitions_,
             /*localExchange=*/true);
-  if (partitionFunction_ != nullptr) {
-    VELOX_CHECK_NOT_NULL(
-        dynamic_cast<HashPartitionFunction*>(partitionFunction_.get()));
-  }
 }
 
 void ScaleWriterPartitioningLocalPartition::initialize() {

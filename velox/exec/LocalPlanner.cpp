@@ -76,15 +76,13 @@ std::unique_ptr<Operator> createScaleWriterLocalPartition(
     const std::shared_ptr<const core::LocalPartitionNode>& localPartitionNode,
     int32_t operatorId,
     DriverCtx* ctx) {
-  if (dynamic_cast<const HashPartitionFunctionSpec*>(
+  if (dynamic_cast<const RoundRobinPartitionFunctionSpec*>(
           &localPartitionNode->partitionFunctionSpec())) {
-    return std::make_unique<ScaleWriterPartitioningLocalPartition>(
+    return std::make_unique<ScaleWriterLocalPartition>(
         operatorId, ctx, localPartitionNode);
   }
 
-  VELOX_CHECK_NOT_NULL(dynamic_cast<const RoundRobinPartitionFunctionSpec*>(
-      &localPartitionNode->partitionFunctionSpec()));
-  return std::make_unique<ScaleWriterLocalPartition>(
+  return std::make_unique<ScaleWriterPartitioningLocalPartition>(
       operatorId, ctx, localPartitionNode);
 }
 

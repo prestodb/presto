@@ -1293,12 +1293,20 @@ PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
 
 PlanBuilder& PlanBuilder::scaleWriterlocalPartition(
     const std::vector<std::string>& keys) {
-  planNode_ = createLocalPartitionNode(
+  std::vector<column_index_t> keyIndices;
+  keyIndices.reserve(keys.size());
+  for (const auto& key : keys) {
+    keyIndices.push_back(planNode_->outputType()->getChildIdx(key));
+  }
+  auto hivePartitionFunctionFactory =
+      std::make_shared<HivePartitionFunctionSpec>(
+          1009, keyIndices, std::vector<VectorPtr>{});
+  planNode_ = std::make_shared<core::LocalPartitionNode>(
       nextPlanNodeId(),
-      exprs(keys, planNode_->outputType()),
-      /*scaleWriter=*/true,
-      {planNode_},
-      pool_);
+      core::LocalPartitionNode::Type::kRepartition,
+      true,
+      hivePartitionFunctionFactory,
+      std::vector{planNode_});
   return *this;
 }
 
