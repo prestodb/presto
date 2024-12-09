@@ -1589,6 +1589,44 @@ public class TestExpressionInterpreter
         assertEquals(optimize("X'1234'"), Slices.wrappedBuffer((byte) 0x12, (byte) 0x34));
     }
 
+    @Test
+    public void testCaseMixedLongDecimalAndIntegral() {
+        assertRowExpressionEquals(OPTIMIZED, "case 1 " +
+                        "when 0.11111111 then 2 " +
+                        "when 3 then 4 " +
+                        "end",
+                "NULL");
+
+        assertRowExpressionEquals(OPTIMIZED, "case 1 " +
+                        "when 0.111111111 then 2 " +
+                        "when 3 then 4 " +
+                        "end",
+                "NULL");
+
+        assertRowExpressionEquals(OPTIMIZED, "case 0.11111111 " +
+                        "when 0.11111111 then 2 " +
+                        "when 3 then 4 " +
+                        "end",
+                "2");
+
+        assertRowExpressionEquals(OPTIMIZED, "case 0.111111111 " +
+                        "when 0.111111111 then 2 " +
+                        "when 3 then 4 " +
+                        "end",
+                "NULL");
+
+        assertRowExpressionEquals(OPTIMIZED, "case 1 " +
+                        "when 1 then 2 " +
+                        "when 3 then 4 " +
+                        "end",
+                "2");
+        assertRowExpressionEquals(OPTIMIZED, "case 3 " +
+                        "when 1 then 2 " +
+                        "when 3 then 4 " +
+                        "end",
+                "4");
+    }
+
     private static void assertLike(byte[] value, String pattern, boolean expected)
     {
         Expression predicate = new LikePredicate(
