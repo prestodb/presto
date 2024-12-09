@@ -64,11 +64,11 @@ import java.util.function.Supplier;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 public final class SessionPropertyManager
@@ -231,7 +231,7 @@ public final class SessionPropertyManager
         ImmutableList.Builder<SessionPropertyValue> sessionPropertyValues = ImmutableList.builder();
         Map<String, String> systemProperties = session.getSystemProperties();
         for (PropertyMetadata<?> property : new TreeMap<>(systemSessionProperties).values()) {
-            String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+            String defaultValue = requireNonNullElse(property.getDefaultValue(), "").toString();
             String value = systemProperties.getOrDefault(property.getName(), defaultValue);
             sessionPropertyValues.add(new SessionPropertyValue(
                     value,
@@ -250,7 +250,7 @@ public final class SessionPropertyManager
             Map<String, String> connectorProperties = session.getConnectorProperties(connectorId);
 
             for (PropertyMetadata<?> property : new TreeMap<>(connectorSessionProperties.get(connectorId)).values()) {
-                String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+                String defaultValue = requireNonNullElse(property.getDefaultValue(), "").toString();
                 String value = connectorProperties.getOrDefault(property.getName(), defaultValue);
 
                 sessionPropertyValues.add(new SessionPropertyValue(
@@ -266,7 +266,7 @@ public final class SessionPropertyManager
         }
 
         for (PropertyMetadata<?> property : new TreeMap<>(memoizedWorkerSessionProperties.get()).values()) {
-            String defaultValue = firstNonNull(property.getDefaultValue(), "").toString();
+            String defaultValue = requireNonNullElse(property.getDefaultValue(), "").toString();
             String value = systemProperties.getOrDefault(property.getName(), defaultValue);
             sessionPropertyValues.add(new SessionPropertyValue(
                     value,

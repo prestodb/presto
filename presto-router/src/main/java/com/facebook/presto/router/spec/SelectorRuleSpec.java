@@ -71,7 +71,7 @@ public class SelectorRuleSpec
     public Optional<String> match(RequestInfo requestInfo)
     {
         if (userRegex.isPresent()) {
-            Matcher userMatcher = userRegex.get().matcher(requestInfo.getUser());
+            Matcher userMatcher = userRegex.orElseThrow().matcher(requestInfo.getUser());
             if (!userMatcher.matches()) {
                 return Optional.empty();
             }
@@ -79,12 +79,12 @@ public class SelectorRuleSpec
 
         if (sourceRegex.isPresent()) {
             String source = requestInfo.getSource().orElse("");
-            if (!sourceRegex.get().matcher(source).matches()) {
+            if (!sourceRegex.orElseThrow().matcher(source).matches()) {
                 return Optional.empty();
             }
         }
 
-        if (clientTags.isPresent() && requestInfo.getClientTags().containsAll(clientTags.get())) {
+        if (clientTags.isPresent() && requestInfo.getClientTags().containsAll(clientTags.orElseThrow())) {
             return Optional.empty();
         }
 

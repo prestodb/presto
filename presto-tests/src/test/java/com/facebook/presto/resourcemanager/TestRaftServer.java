@@ -78,8 +78,8 @@ public class TestRaftServer
         this.resourceManager1 = runner.getResourceManager(0);
         this.resourceManager2 = runner.getResourceManager(1);
         runner.getCoordinators().stream().forEach(coordinator -> {
-            coordinator.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-            coordinator.getResourceGroupManager().get()
+            coordinator.getResourceGroupManager().orElseThrow().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+            coordinator.getResourceGroupManager().orElseThrow()
                     .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath(RESOURCE_GROUPS_CONFIG_FILE)));
         });
     }

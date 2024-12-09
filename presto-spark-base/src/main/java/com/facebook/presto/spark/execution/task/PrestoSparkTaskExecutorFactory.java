@@ -162,7 +162,6 @@ import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.propagateIfPossible;
-import static com.google.common.collect.Iterables.getFirst;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Math.min;
@@ -858,7 +857,7 @@ public class PrestoSparkTaskExecutorFactory
                 return null;
             }
 
-            Throwable failure = getFirst(failures, null);
+            Throwable failure = failures.stream().findFirst().orElse(null);
             // Delete the storage file, if task is not successful
             if (outputSupplier instanceof DiskPageOutputSupplier && output != null) {
                 PrestoSparkStorageHandle sparkStorageHandle = (PrestoSparkStorageHandle) output._2;

@@ -310,8 +310,8 @@ public class BenchmarkParquetPageSource
                     conjunction = Optional.of(specialForm(
                             AND,
                             BOOLEAN,
-                            conjunction.get(),
-                            rowExpression.get()));
+                            conjunction.orElseThrow(),
+                            rowExpression.orElseThrow()));
                 }
             }
             return conjunction;

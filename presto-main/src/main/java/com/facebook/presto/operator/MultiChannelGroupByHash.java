@@ -26,7 +26,6 @@ import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -34,6 +33,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.operator.SyntheticAddress.decodePosition;
@@ -45,6 +45,7 @@ import static com.facebook.presto.util.Failures.checkArgument;
 import static com.facebook.presto.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
@@ -107,10 +108,12 @@ public class MultiChannelGroupByHash
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
         this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
-        this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : this.hashTypes;
+        this.types = inputHashChannel.isPresent() ?
+                Stream.concat(hashTypes.stream(), ImmutableList.of(BIGINT).stream()).collect(toImmutableList()) :
+                this.hashTypes;
         this.channels = hashChannels.clone();
 
-        this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : new InterpretedHashGenerator(this.hashTypes, hashChannels);
+        this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.orElseThrow()) : new InterpretedHashGenerator(this.hashTypes, hashChannels);
         this.processDictionary = processDictionary;
 
         // For each hashed channel, create an appendable list to hold the blocks (builders).  As we
@@ -501,7 +504,7 @@ public class MultiChannelGroupByHash
 
         // extract hash dictionary
         if (inputHashChannel.isPresent()) {
-            blocks[inputHashChannel.get()] = ((DictionaryBlock) page.getBlock(inputHashChannel.get())).getDictionary();
+            blocks[inputHashChannel.orElseThrow()] = ((DictionaryBlock) page.getBlock(inputHashChannel.orElseThrow())).getDictionary();
         }
 
         return new Page(dictionary.getPositionCount(), blocks);
@@ -514,7 +517,7 @@ public class MultiChannelGroupByHash
         }
 
         if (inputHashChannel.isPresent()) {
-            Block inputHashBlock = page.getBlock(inputHashChannel.get());
+            Block inputHashBlock = page.getBlock(inputHashChannel.orElseThrow());
             DictionaryBlock inputDataBlock = (DictionaryBlock) page.getBlock(channels[0]);
 
             if (!(inputHashBlock instanceof DictionaryBlock)) {

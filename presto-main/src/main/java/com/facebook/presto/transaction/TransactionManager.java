@@ -80,7 +80,7 @@ public interface TransactionManager
         }
 
         // reactivate existing transaction
-        TransactionId transactionId = session.getTransactionId().get();
+        TransactionId transactionId = session.getTransactionId().orElseThrow();
         if (transactionControl) {
             trySetActive(transactionId);
         }

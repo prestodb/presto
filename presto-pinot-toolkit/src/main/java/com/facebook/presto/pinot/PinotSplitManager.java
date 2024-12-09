@@ -97,7 +97,7 @@ public class PinotSplitManager
     {
         String pinotQuery = basePinotQuery.getQuery().replace(TABLE_NAME_SUFFIX_TEMPLATE, suffix);
         if (timePredicate.isPresent()) {
-            String tp = timePredicate.get();
+            String tp = timePredicate.orElseThrow();
             pinotQuery = pinotQuery.replace(TIME_BOUNDARY_FILTER_TEMPLATE, basePinotQuery.isHaveFilter() ? " AND " + tp : " WHERE " + tp);
         }
         else {

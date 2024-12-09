@@ -157,8 +157,8 @@ public class TestColumnEncryptionInformation
         ColumnWithStructSubfield column = ColumnWithStructSubfield.valueOf("a.b.c.d");
         assertEquals(column.getColumnName(), "a");
         assertTrue(column.getSubfieldPath().isPresent());
-        assertEquals(column.getSubfieldPath().get(), "b.c.d");
+        assertEquals(column.getSubfieldPath().orElseThrow(), "b.c.d");
         assertTrue(column.getChildField().isPresent());
-        assertEquals(column.getChildField().get(), ColumnWithStructSubfield.valueOf("b.c.d"));
+        assertEquals(column.getChildField().orElseThrow(), ColumnWithStructSubfield.valueOf("b.c.d"));
     }
 }

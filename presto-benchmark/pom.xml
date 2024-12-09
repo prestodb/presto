@@ -44,6 +44,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-memory</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

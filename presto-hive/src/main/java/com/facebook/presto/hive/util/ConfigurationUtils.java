@@ -108,8 +108,8 @@ public final class ConfigurationUtils
         OrcConf.COMPRESS.setString(config, compression.getOrcCompressionKind().name());
         // For RCFile and Text
         if (compression.getCodec().isPresent()) {
-            config.set("mapred.output.compression.codec", compression.getCodec().get().getName());
-            config.set(FileOutputFormat.COMPRESS_CODEC, compression.getCodec().get().getName());
+            config.set("mapred.output.compression.codec", compression.getCodec().orElseThrow().getName());
+            config.set(FileOutputFormat.COMPRESS_CODEC, compression.getCodec().orElseThrow().getName());
         }
         else {
             config.unset("mapred.output.compression.codec");

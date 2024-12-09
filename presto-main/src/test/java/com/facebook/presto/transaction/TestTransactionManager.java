@@ -84,7 +84,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).orElseThrow().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
@@ -114,7 +114,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).orElseThrow().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));
@@ -144,7 +144,7 @@ public class TestTransactionManager
             assertTrue(transactionInfo.getConnectorIds().isEmpty());
             assertFalse(transactionInfo.getWrittenConnectorId().isPresent());
 
-            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).get().getMetadata();
+            ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, CATALOG_NAME).orElseThrow().getMetadata();
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(CONNECTOR_ID));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
             assertEquals(transactionInfo.getConnectorIds(), ImmutableList.of(CONNECTOR_ID, INFORMATION_SCHEMA_ID, SYSTEM_TABLES_ID));

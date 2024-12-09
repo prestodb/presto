@@ -259,7 +259,7 @@ public class TpchMetadata
     {
         return nullableValues.stream()
                 .filter(convertToPredicate(constraint.getSummary(), toColumnHandle(column)))
-                .filter(value -> !constraint.predicate().isPresent() || constraint.predicate().get().test(ImmutableMap.of(toColumnHandle(column), value)))
+                .filter(value -> !constraint.predicate().isPresent() || constraint.predicate().orElseThrow().test(ImmutableMap.of(toColumnHandle(column), value)))
                 .collect(toSet());
     }
 
@@ -335,7 +335,7 @@ public class TpchMetadata
         Optional<TableStatisticsData> optionalTableStatisticsData = statisticsEstimator.estimateStats(tpchTable, columnValuesRestrictions, tpchTableHandle.getScaleFactor());
 
         return optionalTableStatisticsData
-                .map(tableStatisticsData -> toTableStatistics(optionalTableStatisticsData.get(), tpchTableHandle, columnHandles))
+                .map(tableStatisticsData -> toTableStatistics(optionalTableStatisticsData.orElseThrow(), tpchTableHandle, columnHandles))
                 .orElse(TableStatistics.empty());
     }
 
@@ -355,7 +355,7 @@ public class TpchMetadata
             return asMap(columns, key -> emptyList());
         }
         else {
-            Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().get();
+            Map<ColumnHandle, Domain> domains = constraintSummary.getDomains().orElseThrow();
             Optional<Domain> orderStatusDomain = Optional.ofNullable(domains.get(toColumnHandle(ORDER_STATUS)));
             Optional<Map<TpchColumn<?>, List<Object>>> allowedColumnValues = orderStatusDomain.map(domain -> {
                 List<Object> allowedValues = ORDER_STATUS_VALUES.stream()
@@ -414,7 +414,7 @@ public class TpchMetadata
         if (!min.isPresent() || !max.isPresent()) {
             return Optional.empty();
         }
-        return Optional.of(new DoubleRange(toDouble(min.get(), columnType), toDouble(max.get(), columnType)));
+        return Optional.of(new DoubleRange(toDouble(min.orElseThrow(), columnType), toDouble(max.orElseThrow(), columnType)));
     }
 
     private static double toDouble(Object value, Type columnType)
@@ -498,8 +498,8 @@ public class TpchMetadata
         if (!schemaName.isPresent()) {
             return listSchemaNames(session);
         }
-        if (schemaNameToScaleFactor(schemaName.get()) > 0) {
-            return ImmutableList.of(schemaName.get());
+        if (schemaNameToScaleFactor(schemaName.orElseThrow()) > 0) {
+            return ImmutableList.of(schemaName.orElseThrow());
         }
         return ImmutableList.of();
     }
@@ -540,7 +540,7 @@ public class TpchMetadata
             case DOUBLE:
                 return DOUBLE;
             case VARCHAR:
-                return createVarcharType((int) (long) tpchType.getPrecision().get());
+                return createVarcharType((int) (long) tpchType.getPrecision().orElseThrow());
         }
         throw new IllegalArgumentException("Unsupported type " + tpchType);
     }

@@ -80,7 +80,7 @@ public class Suite
             for (String schema : schemas) {
                 Optional<Map<String, String>> tags = schemaNameTemplate.parse(schema);
                 if (tags.isPresent()) {
-                    benchmarkSchemas.add(new BenchmarkSchema(schema, tags.get()));
+                    benchmarkSchemas.add(new BenchmarkSchema(schema, tags.orElseThrow()));
                 }
             }
         }

@@ -107,11 +107,11 @@ public class TestAWSS3SecurityMapping
         applyMapping(provider, selector, configuration);
 
         if (mappingResult.getAccessKey().isPresent()) {
-            assertEquals(configuration.get(S3_ACCESS_KEY), mappingResult.getAccessKey().get());
-            assertEquals(configuration.get(S3_SECRET_KEY), mappingResult.getSecretKey().get());
+            assertEquals(configuration.get(S3_ACCESS_KEY), mappingResult.getAccessKey().orElseThrow());
+            assertEquals(configuration.get(S3_SECRET_KEY), mappingResult.getSecretKey().orElseThrow());
         }
         else {
-            assertEquals(configuration.get(S3_IAM_ROLE), mappingResult.getRole().get());
+            assertEquals(configuration.get(S3_IAM_ROLE), mappingResult.getRole().orElseThrow());
         }
     }
 

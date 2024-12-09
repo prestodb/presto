@@ -23,7 +23,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
@@ -56,6 +55,7 @@ import static com.facebook.presto.localfile.LocalFileColumnHandle.SERVER_ADDRESS
 import static com.facebook.presto.localfile.LocalFileErrorCode.LOCAL_FILE_READ_ERROR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Objects.requireNonNull;
@@ -103,7 +103,7 @@ public class LocalFileRecordCursor
             return true;
         }
 
-        Set<Domain> serverAddressDomain = domains.get().entrySet().stream()
+        Set<Domain> serverAddressDomain = domains.orElseThrow().entrySet().stream()
                 .filter(entry -> entry.getKey().getOrdinalPosition() == table.getServerAddressColumn().getAsInt())
                 .map(Map.Entry::getValue)
                 .collect(toSet());
@@ -273,14 +273,14 @@ public class LocalFileRecordCursor
             Optional<Map<LocalFileColumnHandle, Domain>> domains = predicate.getDomains();
             Domain domain = null;
             if (domains.isPresent() && timestampOrdinalPosition.isPresent()) {
-                Map<LocalFileColumnHandle, Domain> domainMap = domains.get();
+                Map<LocalFileColumnHandle, Domain> domainMap = domains.orElseThrow();
                 Set<Domain> timestampDomain = domainMap.entrySet().stream()
                         .filter(entry -> entry.getKey().getOrdinalPosition() == timestampOrdinalPosition.getAsInt())
                         .map(Map.Entry::getValue)
                         .collect(toSet());
 
                 if (!timestampDomain.isEmpty()) {
-                    domain = Iterables.getOnlyElement(timestampDomain);
+                    domain = timestampDomain.stream().collect(onlyElement());
                 }
             }
             return Optional.ofNullable(domain);
@@ -340,7 +340,7 @@ public class LocalFileRecordCursor
             }
 
             long millis = Instant.from(ISO_FORMATTER.parse(fields.get(timestampOrdinalPosition.getAsInt()))).toEpochMilli();
-            return domain.get().includesNullableValue(millis);
+            return domain.orElseThrow().includesNullableValue(millis);
         }
 
         public void close()

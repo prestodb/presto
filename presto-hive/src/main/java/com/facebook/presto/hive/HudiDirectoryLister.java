@@ -115,7 +115,7 @@ public class HudiDirectoryLister
         {
             String partition = FSUtils.getRelativePartitionPath(new Path(tablePath), directory);
             if (fileStatuses.isPresent()) {
-                fileSystemView.addFilesToView(fileStatuses.get());
+                fileSystemView.addFilesToView(fileStatuses.orElseThrow());
                 this.hoodieBaseFileIterator = fileSystemView.fetchLatestBaseFiles(partition).iterator();
             }
             else {

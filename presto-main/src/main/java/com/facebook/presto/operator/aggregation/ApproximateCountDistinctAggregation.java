@@ -55,7 +55,7 @@ public final class ApproximateCountDistinctAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = {"T"}) MethodHandle methodHandle,
+            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") long value,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)
@@ -76,7 +76,7 @@ public final class ApproximateCountDistinctAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = {"T"}) MethodHandle methodHandle,
+            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") double value,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)
@@ -97,7 +97,7 @@ public final class ApproximateCountDistinctAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = {"T"}) MethodHandle methodHandle,
+            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") Slice value,
             @SqlType(StandardTypes.DOUBLE) double maxStandardError)

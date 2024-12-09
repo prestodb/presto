@@ -46,7 +46,7 @@ public final class MapDistinctFromOperator
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
             @OperatorDependency(operator = EQUAL, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
-            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = "K") MethodHandle keyHashcodeFunction,
             @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
                     MethodHandle valueDistinctFromFunction,
             @TypeParameter("map(K, V)") Type mapType,
@@ -81,7 +81,7 @@ public final class MapDistinctFromOperator
     @SqlType(StandardTypes.BOOLEAN)
     public static boolean isDistinctFrom(
             @OperatorDependency(operator = EQUAL, argumentTypes = {"K", "K"}) MethodHandle keyEqualsFunction,
-            @OperatorDependency(operator = HASH_CODE, argumentTypes = {"K"}) MethodHandle keyHashcodeFunction,
+            @OperatorDependency(operator = HASH_CODE, argumentTypes = "K") MethodHandle keyHashcodeFunction,
             @OperatorDependency(operator = IS_DISTINCT_FROM, argumentTypes = {"V", "V"}, convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
                     MethodHandle valueDistinctFromFunction,
             @TypeParameter("map(K, V)") Type mapType,

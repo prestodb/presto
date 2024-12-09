@@ -82,7 +82,6 @@ import static com.facebook.presto.server.protocol.QueryResourceUtil.getScheme;
 import static com.facebook.presto.server.security.RoleType.USER;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.RETRY_QUERY_NOT_FOUND;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
@@ -93,6 +92,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -607,7 +607,7 @@ public class QueuedStatementResource
                 Optional<ListenableFuture<Response>> executingQueryResponse = executingQueryResponseProvider.waitForExecutingResponse(
                         queryId,
                         slug,
-                        dispatchInfo.get(),
+                        dispatchInfo.orElseThrow(),
                         uriInfo,
                         xPrestoPrefixUrl,
                         getScheme(xForwardedProto, uriInfo),
@@ -618,12 +618,12 @@ public class QueuedStatementResource
                         binaryResults);
 
                 if (executingQueryResponse.isPresent()) {
-                    return executingQueryResponse.get();
+                    return executingQueryResponse.orElseThrow();
                 }
             }
 
             return immediateFuture(withCompressionConfiguration(Response.ok(
-                    createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.get(), binaryResults)), compressionEnabled)
+                    createQueryResults(token + 1, uriInfo, xForwardedProto, xPrestoPrefixUrl, dispatchInfo.orElseThrow(), binaryResults)), compressionEnabled)
                     .build());
         }
 
@@ -677,7 +677,7 @@ public class QueuedStatementResource
             }
 
             return new QueryError(
-                    firstNonNull(executionFailureInfo.getMessage(), "Internal error"),
+                    requireNonNullElse(executionFailureInfo.getMessage(), "Internal error"),
                     null,
                     errorCode.getCode(),
                     errorCode.getName(),

@@ -107,7 +107,7 @@ public class BridgingHiveMetastore
     {
         return delegate.getTable(metastoreContext, hiveTableHandle).map(table -> {
             if (isAvroTableWithSchemaSet(table) || isCsvTable(table)) {
-                return fromMetastoreApiTable(table, delegate.getFields(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName()).get(), metastoreContext.getColumnConverter());
+                return fromMetastoreApiTable(table, delegate.getFields(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName()).orElseThrow(), metastoreContext.getColumnConverter());
             }
             return fromMetastoreApiTable(table, metastoreContext.getColumnConverter());
         });
@@ -119,7 +119,7 @@ public class BridgingHiveMetastore
         ImmutableList.Builder<TableConstraint<String>> constraints = ImmutableList.builder();
         Optional<PrimaryKeyConstraint<String>> primaryKey = delegate.getPrimaryKey(metastoreContext, databaseName, tableName);
         if (primaryKey.isPresent()) {
-            constraints.add(primaryKey.get());
+            constraints.add(primaryKey.orElseThrow());
         }
         constraints.addAll(delegate.getUniqueConstraints(metastoreContext, databaseName, tableName));
         constraints.addAll(delegate.getNotNullConstraints(metastoreContext, databaseName, tableName));
@@ -222,7 +222,7 @@ public class BridgingHiveMetastore
         if (!source.isPresent()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = source.orElseThrow();
         table.setDbName(newDatabaseName);
         table.setTableName(newTableName);
         return alterTable(metastoreContext, databaseName, tableName, table);
@@ -235,7 +235,7 @@ public class BridgingHiveMetastore
         if (!source.isPresent()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = source.orElseThrow();
         Column column = new Column(columnName, columnType, Optional.ofNullable(columnComment), Optional.empty());
         table.getSd().getCols().add(metastoreContext.getColumnConverter().fromColumn(column));
         return alterTable(metastoreContext, databaseName, tableName, table);
@@ -248,7 +248,7 @@ public class BridgingHiveMetastore
         if (!source.isPresent()) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
-        org.apache.hadoop.hive.metastore.api.Table table = source.get();
+        org.apache.hadoop.hive.metastore.api.Table table = source.orElseThrow();
         for (FieldSchema fieldSchema : table.getPartitionKeys()) {
             if (fieldSchema.getName().equals(oldColumnName)) {
                 throw new PrestoException(NOT_SUPPORTED, "Renaming partition columns is not supported");

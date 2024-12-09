@@ -106,7 +106,7 @@ public class ImplementFilteredAggregations
             Optional<VariableReferenceExpression> mask = entry.getValue().getMask();
 
             if (entry.getValue().getFilter().isPresent()) {
-                RowExpression filter = entry.getValue().getFilter().get();
+                RowExpression filter = entry.getValue().getFilter().orElseThrow();
                 VariableReferenceExpression variable = context.getVariableAllocator().newVariable(filter);
                 verify(!mask.isPresent(), "Expected aggregation without mask symbols, see Rule pattern");
                 newAssignments.put(variable, filter);

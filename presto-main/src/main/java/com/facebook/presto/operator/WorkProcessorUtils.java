@@ -130,7 +130,7 @@ public final class WorkProcessorUtils
                         return ProcessState.blocked(processor.getBlockedFuture());
                     }
                     else {
-                        return ProcessState.yield();
+                        return ProcessState.yieldProcessor();
                     }
 
                     if (processorIterator.hasNext()) {
@@ -216,7 +216,7 @@ public final class WorkProcessorUtils
                 return TransformationState.finished();
             }
 
-            WorkProcessor<T> nestedProcessor = nestedProcessorOptional.get();
+            WorkProcessor<T> nestedProcessor = nestedProcessorOptional.orElseThrow();
             if (nestedProcessor.process()) {
                 if (nestedProcessor.isFinished()) {
                     return TransformationState.needsMoreData();
@@ -255,7 +255,7 @@ public final class WorkProcessorUtils
                             return ProcessState.blocked(processor.getBlockedFuture());
                         }
                         else {
-                            return ProcessState.yield();
+                            return ProcessState.yieldProcessor();
                         }
                     }
 
@@ -272,11 +272,11 @@ public final class WorkProcessorUtils
                         case NEEDS_MORE_DATA:
                             break;
                         case BLOCKED:
-                            return ProcessState.blocked(state.getBlocked().get());
+                            return ProcessState.blocked(state.getBlocked().orElseThrow());
                         case YIELD:
-                            return ProcessState.yield();
+                            return ProcessState.yieldProcessor();
                         case RESULT:
-                            return ProcessState.ofResult(state.getResult().get());
+                            return ProcessState.ofResult(state.getResult().orElseThrow());
                         case FINISHED:
                             return ProcessState.finished();
                     }
@@ -324,14 +324,14 @@ public final class WorkProcessorUtils
         @Override
         public boolean isBlocked()
         {
-            return state != null && state.getType() == ProcessState.Type.BLOCKED && !state.getBlocked().get().isDone();
+            return state != null && state.getType() == ProcessState.Type.BLOCKED && !state.getBlocked().orElseThrow().isDone();
         }
 
         @Override
         public ListenableFuture<?> getBlockedFuture()
         {
             checkState(state != null && state.getType() == ProcessState.Type.BLOCKED, "Must be blocked to get blocked future");
-            return state.getBlocked().get();
+            return state.getBlocked().orElseThrow();
         }
 
         @Override
@@ -344,7 +344,7 @@ public final class WorkProcessorUtils
         public T getResult()
         {
             checkState(state != null && state.getType() == ProcessState.Type.RESULT, "process() must return true and must not be finished");
-            return state.getResult().get();
+            return state.getResult().orElseThrow();
         }
     }
 

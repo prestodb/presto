@@ -93,7 +93,7 @@ public class TestPinotQueryGenerator
             SessionHolder sessionHolder,
             Map<String, String> outputVariables)
     {
-        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(givenPinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).get();
+        PinotQueryGenerator.PinotQueryGeneratorResult pinotQueryGeneratorResult = new PinotQueryGenerator(givenPinotConfig, functionAndTypeManager, functionAndTypeManager, standardFunctionResolution).generate(planNode, sessionHolder.getConnectorSession()).orElseThrow();
         String pinotQuery = pinotQueryGeneratorResult.getGeneratedPinotQuery().getQuery();
         Set<String> expectedPinotQuerySet = new HashSet<>();
         for (String expectedPinotQuery : expectedPinotQueries) {

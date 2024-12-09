@@ -108,13 +108,13 @@ public class TestQuerySessionSupplier
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
-        assertEquals(session.getSource().get(), "testSource");
-        assertEquals(session.getCatalog().get(), "testCatalog");
-        assertEquals(session.getSchema().get(), "testSchema");
+        assertEquals(session.getSource().orElseThrow(), "testSource");
+        assertEquals(session.getCatalog().orElseThrow(), "testCatalog");
+        assertEquals(session.getSchema().orElseThrow(), "testSchema");
         assertEquals(session.getLocale(), Locale.TAIWAN);
         assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
-        assertEquals(session.getRemoteUserAddress().get(), "testRemote");
-        assertEquals(session.getClientInfo().get(), "client-info");
+        assertEquals(session.getRemoteUserAddress().orElseThrow(), "testRemote");
+        assertEquals(session.getClientInfo().orElseThrow(), "client-info");
         assertEquals(session.getClientTags(), ImmutableSet.of("tag1", "tag2", "tag3"));
         assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
@@ -126,7 +126,7 @@ public class TestQuerySessionSupplier
                 .put("query2", "select * from bar")
                 .build());
         assertEquals(session.getSessionFunctions(), ImmutableMap.of(SQL_FUNCTION_ID_ADD, SQL_FUNCTION_ADD));
-        assertEquals(session.getIdentity().getSelectedUser().get(), AUTHORIZED_IDENTITY.getUserName());
+        assertEquals(session.getIdentity().getSelectedUser().orElseThrow(), AUTHORIZED_IDENTITY.getUserName());
         assertEquals(session.getIdentity().getReasonForSelect(), AUTHORIZED_IDENTITY.getReasonForSelect());
     }
 

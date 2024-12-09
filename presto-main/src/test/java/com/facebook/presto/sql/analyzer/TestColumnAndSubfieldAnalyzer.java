@@ -219,7 +219,7 @@ public class TestColumnAndSubfieldAnalyzer
                     Analysis analysis = analyzer.analyze(statement);
                     assertEquals(
                             analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl()
-                                    .values().stream().findFirst().get().entrySet().stream()
+                                    .values().stream().findFirst().orElseThrow().entrySet().stream()
                                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().stream().map(Subfield::toString).collect(toImmutableSet()))),
                             expected);
                 });

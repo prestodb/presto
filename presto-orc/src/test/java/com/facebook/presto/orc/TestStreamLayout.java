@@ -682,7 +682,7 @@ public class TestStreamLayout
         // get sequence to key mapping for flat map value node
         int node = 3; // map value node
         ColumnEncoding columnEncoding = stripeFooter.getColumnEncodings().get(node);
-        SortedMap<Integer, DwrfSequenceEncoding> nodeSequences = columnEncoding.getAdditionalSequenceEncodings().get();
+        SortedMap<Integer, DwrfSequenceEncoding> nodeSequences = columnEncoding.getAdditionalSequenceEncodings().orElseThrow();
         ImmutableMap.Builder<Long, Integer> keyToSequenceBuilder = ImmutableMap.builder();
         for (Map.Entry<Integer, DwrfSequenceEncoding> entry : nodeSequences.entrySet()) {
             long key = entry.getValue().getKey().getIntKey();

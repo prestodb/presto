@@ -71,7 +71,7 @@ public class CreateTypeTask
         TypeSignature signature;
 
         if (statement.getDistinctType().isPresent()) {
-            signature = new TypeSignature(statement.getDistinctType().get());
+            signature = new TypeSignature(statement.getDistinctType().orElseThrow());
         }
         else {
             List<TypeSignatureParameter> typeParameters =

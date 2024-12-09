@@ -159,10 +159,8 @@ import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.hive.util.CustomSplitConversionUtils.recreateSplitWithCustomInfo;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.transform;
 import static java.lang.Byte.parseByte;
@@ -177,6 +175,7 @@ import static java.lang.String.join;
 import static java.math.BigDecimal.ROUND_UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
@@ -254,8 +253,8 @@ public final class HiveUtil
     public static RecordReader<?, ?> createRecordReader(Configuration configuration, Path path, long start, long length, Properties schema, List<HiveColumnHandle> columns, Map<String, String> customSplitInfo)
     {
         // determine which hive columns we will read
-        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(filter(columns, column -> column.getColumnType() == REGULAR));
-        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(transform(readColumns, HiveColumnHandle::getHiveColumnIndex));
+        List<HiveColumnHandle> readColumns = ImmutableList.copyOf(columns.stream().filter(column -> column.getColumnType() == REGULAR).iterator());
+        List<Integer> readHiveColumnIndexes = ImmutableList.copyOf(readColumns.stream().map(HiveColumnHandle::getHiveColumnIndex).iterator());
 
         // Tell hive the columns we would like to read, this lets hive optimize reading column oriented files
         setReadColumns(configuration, readHiveColumnIndexes);
@@ -317,7 +316,7 @@ public final class HiveUtil
                     start,
                     length,
                     getInputFormatName(schema),
-                    firstNonNull(e.getMessage(), e.getClass().getName())),
+                    requireNonNullElse(e.getMessage(), e.getClass().getName())),
                     e);
         }
     }

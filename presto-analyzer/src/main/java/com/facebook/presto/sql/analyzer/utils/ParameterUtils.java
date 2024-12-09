@@ -36,7 +36,7 @@ public class ParameterUtils
     {
         List<Parameter> parametersList = getParameters(statement).stream()
                 .sorted(Comparator.comparing(
-                        parameter -> parameter.getLocation().get(),
+                        parameter -> parameter.getLocation().orElseThrow(),
                         Comparator.comparing(NodeLocation::getLineNumber)
                                 .thenComparing(NodeLocation::getColumnNumber)))
                 .collect(toImmutableList());

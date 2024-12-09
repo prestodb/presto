@@ -122,7 +122,7 @@ public class DynamicClassLoader
 
             if (overrideClassLoader.isPresent()) {
                 try {
-                    return resolveClass(overrideClassLoader.get().loadClass(name), resolve);
+                    return resolveClass(overrideClassLoader.orElseThrow().loadClass(name), resolve);
                 }
                 catch (ClassNotFoundException e) {
                     // not in override loader

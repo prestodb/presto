@@ -265,7 +265,7 @@ public class TestAlluxioCachingFileSystem
         });
     }
 
-    @Test(timeOut = 30_000, expectedExceptions = {IOException.class})
+    @Test(timeOut = 30_000, expectedExceptions = IOException.class)
     public void testSyncRestoreFailure()
             throws Exception
     {

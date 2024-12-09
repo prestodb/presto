@@ -65,12 +65,12 @@ public class SessionMatchSpec
 
     public Map<String, String> match(SessionConfigurationContext context)
     {
-        if (userRegex.isPresent() && !userRegex.get().matcher(context.getUser()).matches()) {
+        if (userRegex.isPresent() && !userRegex.orElseThrow().matcher(context.getUser()).matches()) {
             return ImmutableMap.of();
         }
         if (sourceRegex.isPresent()) {
             String source = context.getSource().orElse("");
-            if (!sourceRegex.get().matcher(source).matches()) {
+            if (!sourceRegex.orElseThrow().matcher(source).matches()) {
                 return ImmutableMap.of();
             }
         }
@@ -80,21 +80,21 @@ public class SessionMatchSpec
 
         if (queryType.isPresent()) {
             String contextQueryType = context.getQueryType().orElse("");
-            if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
+            if (!queryType.orElseThrow().equalsIgnoreCase(contextQueryType)) {
                 return ImmutableMap.of();
             }
         }
 
         if (clientInfoRegex.isPresent()) {
             String clientInfo = context.getClientInfo().orElse("");
-            if (!clientInfoRegex.get().matcher(clientInfo).matches()) {
+            if (!clientInfoRegex.orElseThrow().matcher(clientInfo).matches()) {
                 return ImmutableMap.of();
             }
         }
 
         if (resourceGroupRegex.isPresent()) {
             String resourceGroupId = context.getResourceGroupId().map(ResourceGroupId::toString).orElse("");
-            if (!resourceGroupRegex.get().matcher(resourceGroupId).matches()) {
+            if (!resourceGroupRegex.orElseThrow().matcher(resourceGroupId).matches()) {
                 return ImmutableMap.of();
             }
         }

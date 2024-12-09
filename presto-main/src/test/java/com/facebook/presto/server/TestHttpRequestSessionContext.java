@@ -33,7 +33,6 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.WebApplicationException;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.EnumSet;
 import java.util.Optional;
@@ -61,6 +60,7 @@ import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 
 public class TestHttpRequestSessionContext
@@ -233,12 +233,7 @@ public class TestHttpRequestSessionContext
 
     protected static String urlEncode(String value)
     {
-        try {
-            return URLEncoder.encode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
+        return URLEncoder.encode(value, UTF_8);
     }
 
     public static SqlFunctionId createSqlFunctionIdAdd()

@@ -544,8 +544,8 @@ public class PageFunctionCompiler
         Parameter page = arg("page", Page.class);
         Parameter position = arg("position", int.class);
 
-        int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).get();
-        int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).get();
+        int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).orElseThrow();
+        int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).orElseThrow();
         for (int i = startLevel; i <= maxLevel; i++) {
             if (commonSubExpressionsByLevel.containsKey(i)) {
                 for (Map.Entry<RowExpression, VariableReferenceExpression> entry : commonSubExpressionsByLevel.get(i).entrySet()) {

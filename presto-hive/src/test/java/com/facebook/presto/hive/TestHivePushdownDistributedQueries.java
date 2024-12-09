@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static org.testng.Assert.assertEquals;
 
@@ -69,6 +69,6 @@ public class TestHivePushdownDistributedQueries
     {
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN ", query, LOGICAL));
     }
 }

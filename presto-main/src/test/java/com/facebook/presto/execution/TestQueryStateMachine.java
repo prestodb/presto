@@ -476,7 +476,7 @@ public class TestQueryStateMachine
         assertEquals(stateMachine.getQueryState(), FAILED);
         commitFuture.set(null);
         assertEquals(stateMachine.getQueryState(), FAILED);
-        assertEquals(stateMachine.getFailureInfo().get().getMessage(), "Query was canceled");
+        assertEquals(stateMachine.getFailureInfo().orElseThrow().getMessage(), "Query was canceled");
     }
 
     @Test
@@ -501,7 +501,7 @@ public class TestQueryStateMachine
         commitFuture.setException(new RuntimeException("transaction failed"));
         tryGetFutureValue(stateMachine.getStateChange(FAILED), 2, SECONDS);
         assertEquals(stateMachine.getQueryState(), FAILED);
-        assertEquals(stateMachine.getFailureInfo().get().getMessage(), "transaction failed");
+        assertEquals(stateMachine.getFailureInfo().orElseThrow().getMessage(), "transaction failed");
     }
 
     private static void assertFinalState(QueryStateMachine stateMachine, QueryState expectedState)

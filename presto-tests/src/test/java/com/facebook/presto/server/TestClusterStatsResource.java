@@ -59,8 +59,8 @@ public class TestClusterStatsResource
         client = new JettyHttpClient();
         DistributedQueryRunner runner = createQueryRunner(ImmutableMap.of("query.client.timeout", "20s"));
         server = runner.getCoordinator();
-        server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        server.getResourceGroupManager().get()
+        server.getResourceGroupManager().orElseThrow().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        server.getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 

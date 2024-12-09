@@ -90,7 +90,7 @@ public class TpcdsTableStatisticsFactory
         if (!min.isPresent() || !max.isPresent()) {
             return Optional.empty();
         }
-        return Optional.of(new DoubleRange(toDouble(min.get(), columnType), toDouble(max.get(), columnType)));
+        return Optional.of(new DoubleRange(toDouble(min.orElseThrow(), columnType), toDouble(max.orElseThrow(), columnType)));
     }
 
     private static double toDouble(Object value, Type type)

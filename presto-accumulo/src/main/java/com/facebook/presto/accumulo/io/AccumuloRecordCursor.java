@@ -121,12 +121,12 @@ public class AccumuloRecordCursor
                 // Make sure to skip the row ID!
                 if (!columnHandle.getName().equals(rowIdName)) {
                     // Set the mapping of presto column name to the family/qualifier
-                    this.serializer.setMapping(columnHandle.getName(), columnHandle.getFamily().get(), columnHandle.getQualifier().get());
+                    this.serializer.setMapping(columnHandle.getName(), columnHandle.getFamily().orElseThrow(), columnHandle.getQualifier().orElseThrow());
 
                     // Set our scanner to fetch this family/qualifier column
                     // This will help us prune which data we receive from Accumulo
-                    family.set(columnHandle.getFamily().get());
-                    qualifier.set(columnHandle.getQualifier().get());
+                    family.set(columnHandle.getFamily().orElseThrow());
+                    qualifier.set(columnHandle.getQualifier().orElseThrow());
                     this.scanner.fetchColumn(family, qualifier);
                 }
             }

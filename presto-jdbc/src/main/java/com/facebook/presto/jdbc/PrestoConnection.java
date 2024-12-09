@@ -755,7 +755,7 @@ public class PrestoConnection
         String source = "presto-jdbc";
         String applicationName = clientInfo.get("ApplicationName");
         if (applicationNamePrefix.isPresent()) {
-            source = applicationNamePrefix.get();
+            source = applicationNamePrefix.orElseThrow();
             if (applicationName != null) {
                 source += applicationName;
             }
@@ -845,7 +845,7 @@ public class PrestoConnection
         for (QueryInterceptor interceptor : this.queryInterceptorInstances) {
             Optional<PrestoResultSet> newResultSet = interceptor.postProcess(sql, interceptedStatement, interceptedResultSet);
             if (newResultSet.isPresent()) {
-                interceptedResultSet = newResultSet.get();
+                interceptedResultSet = newResultSet.orElseThrow();
             }
         }
         return interceptedResultSet;

@@ -62,13 +62,13 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.server.security.RoleType.ADMIN;
 import static com.facebook.presto.server.security.RoleType.USER;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NO_CONTENT;
 import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
@@ -137,7 +137,7 @@ public class QueryResource
             return;
         }
 
-        int limit = firstNonNull(limitFilter, Integer.MAX_VALUE);
+        int limit = requireNonNullElse(limitFilter, Integer.MAX_VALUE);
         if (limit <= 0) {
             throw new WebApplicationException(Response
                     .status(BAD_REQUEST)
@@ -310,7 +310,7 @@ public class QueryResource
                     .host(resourceManagerNode.getHostAndPort().toInetAddress().getHostName())
                     .port(resourceManagerNode.getInternalUri().getPort())
                     .build();
-            proxyHelper.get().performRequest(servletRequest, asyncResponse, uri);
+            proxyHelper.orElseThrow().performRequest(servletRequest, asyncResponse, uri);
         }
         catch (Exception e) {
             asyncResponse.resume(e);

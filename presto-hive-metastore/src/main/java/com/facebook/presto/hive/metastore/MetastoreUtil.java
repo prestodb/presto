@@ -273,11 +273,11 @@ public class MetastoreUtil
         schema.setProperty(META_TABLE_LOCATION, storage.getLocation());
 
         if (storage.getBucketProperty().isPresent()) {
-            List<String> bucketedBy = storage.getBucketProperty().get().getBucketedBy();
+            List<String> bucketedBy = storage.getBucketProperty().orElseThrow().getBucketedBy();
             if (!bucketedBy.isEmpty()) {
                 schema.setProperty(BUCKET_FIELD_NAME, Joiner.on(",").join(bucketedBy));
             }
-            schema.setProperty(BUCKET_COUNT, Integer.toString(storage.getBucketProperty().get().getBucketCount()));
+            schema.setProperty(BUCKET_COUNT, Integer.toString(storage.getBucketProperty().orElseThrow().getBucketCount()));
         }
         else {
             schema.setProperty(BUCKET_COUNT, "0");
@@ -377,7 +377,7 @@ public class MetastoreUtil
         ImmutableList.Builder<Column> columns = ImmutableList.builder();
 
         if (tableToPartitionColumns.isPresent()) {
-            Map<Integer, Integer> partitionToTableColumns = tableToPartitionColumns.get()
+            Map<Integer, Integer> partitionToTableColumns = tableToPartitionColumns.orElseThrow()
                     .entrySet()
                     .stream()
                     .collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
@@ -432,7 +432,7 @@ public class MetastoreUtil
         if (!partition.isPresent()) {
             return table.getStorage().getLocation();
         }
-        return partition.get().getStorage().getLocation();
+        return partition.orElseThrow().getStorage().getLocation();
     }
 
     private static String toThriftDdl(String structName, List<Column> columns)
@@ -473,7 +473,7 @@ public class MetastoreUtil
     {
         if (protectMode.offline) {
             if (partitionName.isPresent()) {
-                throw new PartitionOfflineException(tableName, partitionName.get(), false, null);
+                throw new PartitionOfflineException(tableName, partitionName.orElseThrow(), false, null);
             }
             throw new TableOfflineException(tableName, false, null);
         }
@@ -481,7 +481,7 @@ public class MetastoreUtil
         String prestoOffline = parameters.get(PRESTO_OFFLINE);
         if (!isNullOrEmpty(prestoOffline)) {
             if (partitionName.isPresent()) {
-                throw new PartitionOfflineException(tableName, partitionName.get(), true, prestoOffline);
+                throw new PartitionOfflineException(tableName, partitionName.orElseThrow(), true, prestoOffline);
             }
             throw new TableOfflineException(tableName, true, prestoOffline);
         }
@@ -610,11 +610,11 @@ public class MetastoreUtil
         values.add(unescapePathName(partitionName.substring(valueStart, partitionName.length())));
         keys.add(unescapePathName(partitionName.substring(keyStart, keyEnd)));
 
-        if (!partitionColumnNames.isPresent() || partitionColumnNames.get().size() == 1) {
+        if (!partitionColumnNames.isPresent() || partitionColumnNames.orElseThrow().size() == 1) {
             return values.build();
         }
         ImmutableList.Builder<String> orderedValues = ImmutableList.builder();
-        partitionColumnNames.get()
+        partitionColumnNames.orElseThrow()
                 .forEach(columnName -> orderedValues.add(values.build().get(keys.build().indexOf(columnName))));
         return orderedValues.build();
     }

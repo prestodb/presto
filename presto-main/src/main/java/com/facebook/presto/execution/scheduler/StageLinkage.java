@@ -49,7 +49,7 @@ public class StageLinkage
                         return new ScaledOutputBufferManager(childStage::setOutputBuffers);
                     }
                     else {
-                        int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().get()) + 1;
+                        int partitionCount = Ints.max(childStage.getFragment().getPartitioningScheme().getBucketToPartition().orElseThrow()) + 1;
                         return new PartitionedOutputBufferManager(partitioningHandle, partitionCount, childStage::setOutputBuffers);
                     }
                 })

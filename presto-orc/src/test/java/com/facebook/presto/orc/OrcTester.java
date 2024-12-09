@@ -55,9 +55,9 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -477,7 +477,7 @@ public class OrcTester
         Type mapType = mapType(type, type);
 
         // maps can not have a null key, so select a value to use for the map key when the value is null
-        Object readNullKeyValue = Iterables.getLast(readValues);
+        Object readNullKeyValue = Streams.findLast(readValues.stream()).orElseThrow();
 
         // values in simple map
         testRoundTripType(
@@ -1240,7 +1240,7 @@ public class OrcTester
                 int index = -1;
                 List<RowType.Field> fields = ((RowType) nestedType).getFields();
                 for (int i = 0; i < fields.size(); i++) {
-                    if (fieldName.equalsIgnoreCase(fields.get(i).getName().get())) {
+                    if (fieldName.equalsIgnoreCase(fields.get(i).getName().orElseThrow())) {
                         index = i;
                         nestedType = fields.get(i).getType();
                         break;
@@ -2251,7 +2251,7 @@ public class OrcTester
         if (type.getTypeSignature().getBase().equals(StandardTypes.ROW)) {
             return getStandardStructObjectInspector(
                     type.getTypeSignature().getParameters().stream()
-                            .map(parameter -> parameter.getNamedTypeSignature().getName().get())
+                            .map(parameter -> parameter.getNamedTypeSignature().getName().orElseThrow())
                             .collect(toList()),
                     type.getTypeParameters().stream()
                             .map(OrcTester::getJavaObjectInspector)

@@ -141,7 +141,7 @@ public class DruidPlanOptimizer
             this.idAllocator = idAllocator;
             this.tableScanNodes = tableScanNodes;
             // Just making sure that the table exists
-            tableScanNodes.forEach((key, value) -> getDruidTableHandle(value).get().getTableName());
+            tableScanNodes.forEach((key, value) -> getDruidTableHandle(value).orElseThrow().getTableName());
         }
 
         private Optional<PlanNode> tryCreatingNewScanNode(PlanNode plan)
@@ -150,7 +150,7 @@ public class DruidPlanOptimizer
             if (!dql.isPresent()) {
                 return Optional.empty();
             }
-            DruidQueryGeneratorContext context = dql.get().getContext();
+            DruidQueryGeneratorContext context = dql.orElseThrow().getContext();
             final PlanNodeId tableScanNodeId = context.getTableScanNodeId().orElseThrow(() -> new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Expected to find a druid table scan node id"));
             if (!tableScanNodes.containsKey(tableScanNodeId)) {
                 throw new PrestoException(DRUID_QUERY_GENERATOR_FAILURE, "Expected to find a druid table scan node");
@@ -161,7 +161,7 @@ public class DruidPlanOptimizer
             Map<VariableReferenceExpression, DruidColumnHandle> assignments = context.getAssignments();
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
-                    new DruidTableHandle(druidTableHandle.getSchemaName(), druidTableHandle.getTableName(), Optional.of(dql.get().getGeneratedDql())),
+                    new DruidTableHandle(druidTableHandle.getSchemaName(), druidTableHandle.getTableName(), Optional.of(dql.orElseThrow().getGeneratedDql())),
                     oldTableHandle.getTransaction(),
                     oldTableHandle.getLayout());
             return Optional.of(
@@ -211,7 +211,7 @@ public class DruidPlanOptimizer
 
                 filtersSplitUp.put(pushableFilter, null);
                 if (nonPushableFilter.isPresent()) {
-                    FilterNode nonPushableFilterNode = nonPushableFilter.get();
+                    FilterNode nonPushableFilterNode = nonPushableFilter.orElseThrow();
                     filtersSplitUp.put(nonPushableFilterNode, null);
                     nodeToRecurseInto = nonPushableFilterNode;
                 }

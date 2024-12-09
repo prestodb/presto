@@ -221,7 +221,7 @@ public class ParquetPageSourceFactory
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
                 if (firstIndex.isPresent()) {
-                    long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
+                    long firstDataPage = block.getColumns().get(firstIndex.orElseThrow()).getFirstDataPageOffset();
                     if (firstDataPage >= fileSplit.getStart() && firstDataPage < fileSplit.getStart() + fileSplit.getLength()) {
                         footerBlocks.add(block);
                     }
@@ -292,7 +292,7 @@ public class ParquetPageSourceFactory
                         List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
                         Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
                         if (columnIO.isPresent()) {
-                            fieldsBuilder.add(constructField(type, columnIO.get()));
+                            fieldsBuilder.add(constructField(type, columnIO.orElseThrow()));
                         }
                         else {
                             fieldsBuilder.add(Optional.empty());
@@ -328,7 +328,7 @@ public class ParquetPageSourceFactory
         }
 
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
-        for (Entry<HiveColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
+        for (Entry<HiveColumnHandle, Domain> entry : effectivePredicate.getDomains().orElseThrow().entrySet()) {
             HiveColumnHandle columnHandle = entry.getKey();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
             if (!columnHandle.getHiveType().getCategory().equals(PRIMITIVE)) {
@@ -396,7 +396,7 @@ public class ParquetPageSourceFactory
                     RowType rowType = (RowType) type;
                     Map<String, Type> prestoFieldMap = rowType.getFields().stream().collect(
                             Collectors.toMap(
-                                    field -> field.getName().get().toLowerCase(Locale.ENGLISH),
+                                    field -> field.getName().orElseThrow().toLowerCase(Locale.ENGLISH),
                                     field -> field.getType()));
                     for (int i = 0; i < groupType.getFields().size(); i++) {
                         org.apache.parquet.schema.Type parquetFieldType = groupType.getFields().get(i);

@@ -152,8 +152,8 @@ public class DwrfMetadataReader
 
         if (encryption.isPresent()) {
             Map<Integer, Slice> keys = dwrfKeyProvider.getIntermediateKeys(types);
-            EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(encryption.get().getKeyProvider());
-            fileStats = decryptAndCombineFileStatistics(hiveWriterVersion, encryption.get(), encryptionLibrary, fileStats, fileStripes, keys, orcDataSource, decompressor);
+            EncryptionLibrary encryptionLibrary = dwrfEncryptionProvider.getEncryptionLibrary(encryption.orElseThrow().getKeyProvider());
+            fileStats = decryptAndCombineFileStatistics(hiveWriterVersion, encryption.orElseThrow(), encryptionLibrary, fileStats, fileStripes, keys, orcDataSource, decompressor);
         }
         runtimeStats.addMetricValue("DwrfReadFooterTimeNanos", RuntimeUnit.NANO, THREAD_MX_BEAN.getCurrentThreadCpuTime() - cpuStart);
 
@@ -214,7 +214,7 @@ public class DwrfMetadataReader
                     // The key in the footer takes priority over the key in the first stripe.
                     byte[] encryptedDataKeyWithMeta = null;
                     if (encryptionGroup.getKeyMetadata().isPresent()) {
-                        encryptedDataKeyWithMeta = encryptionGroup.getKeyMetadata().get().byteArray();
+                        encryptedDataKeyWithMeta = encryptionGroup.getKeyMetadata().orElseThrow().byteArray();
                     }
                     else if (stripeKeys != null) {
                         encryptedDataKeyWithMeta = stripeKeys.get(groupIdx);

@@ -20,10 +20,10 @@ import com.facebook.presto.common.ErrorCode;
 
 import java.util.Arrays;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @ThriftStruct("UdfServiceException")
 public final class ThriftUdfServiceException
@@ -75,13 +75,13 @@ public final class ThriftUdfServiceException
     private static UdfExecutionFailureInfo toFailureInfo(Throwable throwable)
     {
         Class<?> clazz = throwable.getClass();
-        String type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
+        String type = requireNonNullElse(clazz.getCanonicalName(), clazz.getName());
 
         UdfExecutionFailureInfo cause = throwable.getCause() == null ? null : toFailureInfo(throwable.getCause());
 
         return new UdfExecutionFailureInfo(
                 type,
-                firstNonNull(throwable.getMessage(), ""),
+                requireNonNullElse(throwable.getMessage(), ""),
                 cause,
                 Arrays.stream(throwable.getSuppressed())
                         .map(ThriftUdfServiceException::toFailureInfo)

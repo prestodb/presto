@@ -56,7 +56,7 @@ public class HiveBucketProperty
         this.types = requireNonNull(types, "type is null");
         if (bucketFunctionType.equals(PRESTO_NATIVE)) {
             checkArgument(types.isPresent(), "Types must be present for bucket function type " + bucketFunctionType);
-            checkArgument(types.get().size() == bucketedBy.size(), "The sizes of bucketedBy and types should match");
+            checkArgument(types.orElseThrow().size() == bucketedBy.size(), "The sizes of bucketedBy and types should match");
         }
         else {
             checkArgument(!types.isPresent(), "Types not needed for bucket function type " + bucketFunctionType);

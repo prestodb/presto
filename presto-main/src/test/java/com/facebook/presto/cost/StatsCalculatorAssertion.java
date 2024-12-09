@@ -88,7 +88,7 @@ public class StatsCalculatorAssertion
     {
         Optional<PlanNodeStatsEstimate> statsEstimate = calculatedStats(rule, planNode, this::getSourceStats, noLookup(), session, types);
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
-        statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
+        statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.orElseThrow()));
         return this;
     }
 

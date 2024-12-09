@@ -51,7 +51,7 @@ public final class ApplyChangelogStateSerializer
             out.appendNull();
         }
         else {
-            state.getRecord().get().serialize(out);
+            state.getRecord().orElseThrow().serialize(out);
         }
     }
 

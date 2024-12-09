@@ -48,7 +48,7 @@ import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStra
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.Apply.correlation;
 import static com.facebook.presto.sql.planner.plan.Patterns.applyNode;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 /**
  * This optimizer looks for InPredicate expressions in ApplyNodes and replaces the nodes with Distinct + Inner Joins.
@@ -102,18 +102,18 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
             return Result.empty();
         }
 
-        RowExpression expression = getOnlyElement(subqueryAssignments.getExpressions());
+        RowExpression expression = subqueryAssignments.getExpressions().stream().collect(onlyElement());
         if (!(expression instanceof InSubqueryExpression)) {
             return Result.empty();
         }
         InSubqueryExpression inPredicate = (InSubqueryExpression) expression;
 
-        VariableReferenceExpression inPredicateOutputVariable = getOnlyElement(subqueryAssignments.getVariables());
+        VariableReferenceExpression inPredicateOutputVariable = subqueryAssignments.getVariables().stream().collect(onlyElement());
 
         PlanNode leftInput = applyNode.getInput();
         // Add unique id column if the set of columns do not form a unique key already
         if (!((GroupReference) leftInput).getLogicalProperties().isPresent() ||
-                !((GroupReference) leftInput).getLogicalProperties().get().isDistinct(ImmutableSet.copyOf(leftInput.getOutputVariables()))) {
+                !((GroupReference) leftInput).getLogicalProperties().orElseThrow().isDistinct(ImmutableSet.copyOf(leftInput.getOutputVariables()))) {
             VariableReferenceExpression uniqueKeyVariable = context.getVariableAllocator().newVariable("unique", BIGINT);
             leftInput = new AssignUniqueId(
                     applyNode.getSourceLocation(),

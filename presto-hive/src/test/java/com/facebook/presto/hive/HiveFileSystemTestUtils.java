@@ -50,7 +50,7 @@ import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public class HiveFileSystemTestUtils
 {
@@ -75,12 +75,12 @@ public class HiveFileSystemTestUtils
             ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
             List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutResults.stream().collect(onlyElement()).getTableLayout().getHandle();
             TableHandle tableHandle = new TableHandle(new ConnectorId(tableName.getSchemaName()), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
 
             metadata.beginQuery(session);
 
-            splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle.getLayout().get(), SPLIT_SCHEDULING_CONTEXT);
+            splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle.getLayout().orElseThrow(), SPLIT_SCHEDULING_CONTEXT);
 
             List<Type> allTypes = getTypes(columnHandles);
             List<Type> dataTypes = getTypes(columnHandles.stream()
@@ -94,7 +94,7 @@ public class HiveFileSystemTestUtils
                         transaction.getTransactionHandle(),
                         session,
                         split,
-                        tableHandle.getLayout().get(),
+                        tableHandle.getLayout().orElseThrow(),
                         columnHandles,
                         NON_CACHEABLE,
                         new RuntimeStats())) {
@@ -135,11 +135,11 @@ public class HiveFileSystemTestUtils
 
             ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
             List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutResults.stream().collect(onlyElement()).getTableLayout().getHandle();
             TableHandle tableHandle = new TableHandle(new ConnectorId(tableName.getSchemaName()), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
 
             metadata.beginQuery(session);
-            splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle.getLayout().get(), SPLIT_SCHEDULING_CONTEXT);
+            splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle.getLayout().orElseThrow(), SPLIT_SCHEDULING_CONTEXT);
 
             List<Type> allTypes = getTypes(projectedColumns);
             List<Type> dataTypes = getTypes(projectedColumns.stream()
@@ -153,7 +153,7 @@ public class HiveFileSystemTestUtils
                         transaction.getTransactionHandle(),
                         session,
                         split,
-                        tableHandle.getLayout().get(),
+                        tableHandle.getLayout().orElseThrow(),
                         projectedColumns,
                         NON_CACHEABLE,
                         new RuntimeStats())) {
@@ -191,11 +191,11 @@ public class HiveFileSystemTestUtils
 
             ConnectorTableHandle table = getTableHandle(metadata, tableName, session);
             List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
+            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutResults.stream().collect(onlyElement()).getTableLayout().getHandle();
             TableHandle tableHandle = new TableHandle(new ConnectorId(tableName.getSchemaName()), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
 
             metadata.beginQuery(session);
-            splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle.getLayout().get(), SPLIT_SCHEDULING_CONTEXT);
+            splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle.getLayout().orElseThrow(), SPLIT_SCHEDULING_CONTEXT);
 
             return getAllSplits(splitSource).size();
         }

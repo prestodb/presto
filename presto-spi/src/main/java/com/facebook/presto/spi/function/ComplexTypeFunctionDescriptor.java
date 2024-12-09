@@ -92,7 +92,7 @@ public class ComplexTypeFunctionDescriptor
     {
         this(isAccessingInputValues, lambdaDescriptors, argumentIndicesContainingMapOrArray, outputToInputTransformationFunction);
         if (argumentIndicesContainingMapOrArray.isPresent()) {
-            checkArgument(argumentIndicesContainingMapOrArray.get().stream().allMatch(index -> index >= 0 &&
+            checkArgument(argumentIndicesContainingMapOrArray.orElseThrow().stream().allMatch(index -> index >= 0 &&
                     index < argumentTypes.size() &&
                     MAP_AND_ARRAY.contains(argumentTypes.get(index).getBase().toLowerCase(Locale.ENGLISH))));
         }
@@ -120,7 +120,7 @@ public class ComplexTypeFunctionDescriptor
         this.isAccessingInputValues = isAccessingInputValues;
         this.lambdaDescriptors = unmodifiableList(requireNonNull(lambdaDescriptors, "lambdaDescriptors is null"));
         this.argumentIndicesContainingMapOrArray = argumentIndicesContainingMapOrArray.isPresent() ?
-                Optional.of(unmodifiableSet(argumentIndicesContainingMapOrArray.get())) :
+                Optional.of(unmodifiableSet(argumentIndicesContainingMapOrArray.orElseThrow())) :
                 Optional.empty();
         this.outputToInputTransformationFunction = requireNonNull(outputToInputTransformationFunction, "outputToInputTransformationFunction is null");
     }

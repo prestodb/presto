@@ -65,7 +65,7 @@ public class TestSystemSession
 
         assertNotNull(resultSession);
         assertEquals(resultSession.getIdentity().getUser(), "user");
-        assertEquals(resultSession.getIdentity().getPrincipal().get().getName(), principal);
+        assertEquals(resultSession.getIdentity().getPrincipal().orElseThrow().getName(), principal);
         assertEquals(resultSession.getIdentity().getExtraCredentials(), extraCredentials);
     }
 }

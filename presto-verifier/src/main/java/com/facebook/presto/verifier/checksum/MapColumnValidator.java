@@ -132,7 +132,7 @@ public class MapColumnValidator
                     floatingPointValidator.validate(getAsDoubleArrayColumn(keysColumn), controlChecksum.getKeysFloatingPointChecksum(), testChecksum.getKeysFloatingPointChecksum());
             isKeyMatched = isKeyMatched || result.isMatched();
             if (result.getMessage().isPresent()) {
-                errorMessage = Optional.of("Map key " + result.getMessage().get());
+                errorMessage = Optional.of("Map key " + result.getMessage().orElseThrow());
             }
         }
         boolean isValueMatched = Objects.equals(controlChecksum.getValuesChecksum(), testChecksum.getValuesChecksum());
@@ -142,8 +142,8 @@ public class MapColumnValidator
             isValueMatched = isValueMatched || result.isMatched();
             if (result.getMessage().isPresent()) {
                 errorMessage = errorMessage.isPresent() ?
-                        Optional.of(errorMessage.get() + ", map value " + result.getMessage().get()) :
-                        Optional.of("Map value " + result.getMessage().get());
+                        Optional.of(errorMessage.orElseThrow() + ", map value " + result.getMessage().orElseThrow()) :
+                        Optional.of("Map value " + result.getMessage().orElseThrow());
             }
         }
 

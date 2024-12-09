@@ -54,7 +54,7 @@ public class TestMaterializedViewRewriteQueryShapeValidator
         QuerySpecification querySpecification = (QuerySpecification) ((Query) SQL_PARSER.createStatement(baseQuerySql)).getQueryBody();
         Optional<String> errorMessage = MaterializedViewRewriteQueryShapeValidator.validate(querySpecification);
         assertTrue(errorMessage.isPresent());
-        assertEquals(errorMessage.get(), expectedErrorMessage);
+        assertEquals(errorMessage.orElseThrow(), expectedErrorMessage);
     }
 
     private static void assertSucceeds(String baseQuerySql)

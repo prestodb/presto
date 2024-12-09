@@ -150,7 +150,7 @@ public class SyncPartitionMetadataProcedure
                 Map<String, Optional<Partition>> partitionsOptionalMap = metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, batchPartitionNames);
                 for (Map.Entry<String, Optional<Partition>> entry : partitionsOptionalMap.entrySet()) {
                     if (entry.getValue().isPresent()) {
-                        partitionsInMetastore.add(tableLocation.toUri().relativize(new Path(entry.getValue().get().getStorage().getLocation()).toUri()).getPath());
+                        partitionsInMetastore.add(tableLocation.toUri().relativize(new Path(entry.getValue().orElseThrow().getStorage().getLocation()).toUri()).getPath());
                     }
                 }
             }

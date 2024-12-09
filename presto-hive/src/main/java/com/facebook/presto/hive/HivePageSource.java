@@ -94,7 +94,7 @@ public class HivePageSource
             types[columnIndex] = type;
 
             if (columnMapping.getCoercionFrom().isPresent()) {
-                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType());
+                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().orElseThrow(), columnMapping.getHiveColumnHandle().getHiveType());
             }
             else if (isRowIdColumnHandle(columnMapping.getHiveColumnHandle())) {
                 // If there's no row ID partition component, then path + row numbers will be supplied for $row_id
@@ -143,7 +143,7 @@ public class HivePageSource
             }
 
             if (bucketAdapter.isPresent()) {
-                dataPage = bucketAdapter.get().filterPageToEligibleRowsOrDiscard(dataPage);
+                dataPage = bucketAdapter.orElseThrow().filterPageToEligibleRowsOrDiscard(dataPage);
                 if (dataPage == null) {
                     return null;
                 }

@@ -46,6 +46,7 @@ import com.google.common.collect.Maps;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -59,7 +60,6 @@ import static com.facebook.presto.sql.planner.optimizations.SetOperationNodeUtil
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.relational.Expressions.comparisonExpression;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.concat;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -160,7 +160,7 @@ public class ImplementIntersectAndExceptAsUnion
             // add a union over all the rewritten sources. The outputs of the union have the same name as the
             // original intersect node
             List<VariableReferenceExpression> outputs = node.getOutputVariables();
-            UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
+            UnionNode union = union(withMarkers, Stream.concat(outputs.stream(), markers.stream()).collect(toImmutableList()));
 
             // add count aggregations and filter rows where any of the counts is >= 1
             List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);
@@ -186,7 +186,7 @@ public class ImplementIntersectAndExceptAsUnion
             // add a union over all the rewritten sources. The outputs of the union have the same name as the
             // original except node
             List<VariableReferenceExpression> outputs = node.getOutputVariables();
-            UnionNode union = union(withMarkers, ImmutableList.copyOf(concat(outputs, markers)));
+            UnionNode union = union(withMarkers, Stream.concat(outputs.stream(), markers.stream()).collect(toImmutableList()));
 
             // add count aggregations and filter rows where count for the first source is >= 1 and all others are 0
             List<VariableReferenceExpression> aggregationOutputs = allocateVariables(markers.size(), "count", BIGINT);

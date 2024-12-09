@@ -43,6 +43,11 @@
             <artifactId>commons-codec</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.gaul</groupId>
+            <artifactId>modernizer-maven-annotations</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>

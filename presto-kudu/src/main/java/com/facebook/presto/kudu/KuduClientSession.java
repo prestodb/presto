@@ -111,7 +111,7 @@ public class KuduClientSession
     {
         reTryKerberos(kerberosAuthEnabled);
         if (optSchemaName.isPresent()) {
-            return listTablesSingleSchema(optSchemaName.get());
+            return listTablesSingleSchema(optSchemaName.orElseThrow());
         }
 
         List<SchemaTableName> all = new ArrayList<>();
@@ -162,11 +162,11 @@ public class KuduClientSession
 
         Optional<Set<ColumnHandle>> desiredColumns = layoutHandle.getDesiredColumns();
         if (desiredColumns.isPresent()) {
-            if (desiredColumns.get().contains(KuduColumnHandle.ROW_ID_HANDLE)) {
+            if (desiredColumns.orElseThrow().contains(KuduColumnHandle.ROW_ID_HANDLE)) {
                 List<Integer> columnIndexes = IntStream
                         .range(0, primaryKeyColumnCount)
                         .boxed().collect(Collectors.toList());
-                for (ColumnHandle columnHandle : desiredColumns.get()) {
+                for (ColumnHandle columnHandle : desiredColumns.orElseThrow()) {
                     if (columnHandle instanceof KuduColumnHandle) {
                         KuduColumnHandle k = (KuduColumnHandle) columnHandle;
                         int index = k.getOrdinalPosition();
@@ -178,7 +178,7 @@ public class KuduClientSession
                 builder.setProjectedColumnIndexes(columnIndexes);
             }
             else {
-                List<Integer> columnIndexes = desiredColumns.get().stream()
+                List<Integer> columnIndexes = desiredColumns.orElseThrow().stream()
                         .map(handle -> ((KuduColumnHandle) handle).getOrdinalPosition())
                         .collect(toImmutableList());
                 builder.setProjectedColumnIndexes(columnIndexes);
@@ -477,7 +477,7 @@ public class KuduClientSession
         }
         else if (!constraintSummary.isAll()) {
             Schema schema = table.getSchema();
-            for (TupleDomain.ColumnDomain<ColumnHandle> columnDomain : constraintSummary.getColumnDomains().get()) {
+            for (TupleDomain.ColumnDomain<ColumnHandle> columnDomain : constraintSummary.getColumnDomains().orElseThrow()) {
                 int position = ((KuduColumnHandle) columnDomain.getColumn()).getOrdinalPosition();
                 ColumnSchema columnSchema = schema.getColumnByIndex(position);
                 Domain domain = columnDomain.getDomain();

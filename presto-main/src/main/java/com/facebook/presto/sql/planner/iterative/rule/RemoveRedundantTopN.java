@@ -34,7 +34,7 @@ public class RemoveRedundantTopN
     {
         return (node.getStep() == TopNNode.Step.SINGLE &&
                 ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
-                ((GroupReference) node.getSource()).getLogicalProperties().get().isAtMostSingleRow());
+                ((GroupReference) node.getSource()).getLogicalProperties().orElseThrow().isAtMostSingleRow());
     }
 
     @Override

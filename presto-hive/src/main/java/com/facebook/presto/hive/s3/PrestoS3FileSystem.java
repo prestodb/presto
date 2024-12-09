@@ -137,7 +137,6 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_P
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -153,6 +152,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createTempFile;
+import static java.util.Objects.checkFromToIndex;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.fs.FSExceptionMessages.CANNOT_SEEK_PAST_EOF;
@@ -775,7 +775,7 @@ public class PrestoS3FileSystem
         if (encryptionMaterialsProvider.isPresent()) {
             clientBuilder = AmazonS3EncryptionClient.encryptionBuilder()
                     .withCredentials(credentialsProvider)
-                    .withEncryptionMaterials(encryptionMaterialsProvider.get())
+                    .withEncryptionMaterials(encryptionMaterialsProvider.orElseThrow())
                     .withClientConfiguration(clientConfig)
                     .withMetricsCollector(metricCollector);
         }
@@ -847,7 +847,7 @@ public class PrestoS3FileSystem
     {
         Optional<AWSCredentials> credentials = getAwsCredentials(uri, conf);
         if (credentials.isPresent()) {
-            return new AWSStaticCredentialsProvider(credentials.get());
+            return new AWSStaticCredentialsProvider(credentials.orElseThrow());
         }
 
         if (useInstanceCredentials) {
@@ -973,7 +973,7 @@ public class PrestoS3FileSystem
             if (position < 0) {
                 throw new EOFException(NEGATIVE_SEEK);
             }
-            checkPositionIndexes(offset, offset + length, buffer.length);
+            checkFromToIndex(offset, offset + length, buffer.length);
             if (length == 0) {
                 return 0;
             }

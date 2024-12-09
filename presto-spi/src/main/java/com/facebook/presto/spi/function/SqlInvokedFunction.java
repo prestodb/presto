@@ -242,7 +242,7 @@ public class SqlInvokedFunction
         if (!functionHandle.isPresent()) {
             throw new IllegalStateException("missing functionHandle");
         }
-        return functionHandle.get();
+        return functionHandle.orElseThrow();
     }
 
     public String getRequiredVersion()
@@ -303,7 +303,7 @@ public class SqlInvokedFunction
                 signature.getReturnType(),
                 hasVersion() ? ":" + getVersion() : "",
                 signature.getKind(),
-                signature.getKind() == AGGREGATE ? ", " + getAggregationMetadata().get() : "",
+                signature.getKind() == AGGREGATE ? ", " + getAggregationMetadata().orElseThrow() : "",
                 body,
                 routineCharacteristics);
     }

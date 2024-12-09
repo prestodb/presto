@@ -269,7 +269,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
 
             assertTrue(outputHandle.getEncryptionInformation().isPresent());
             assertEquals(
-                    outputHandle.getEncryptionInformation().get(),
+                    outputHandle.getEncryptionInformation().orElseThrow(),
                     fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(
                             columnEncryptionInformation.getColumnToKeyReference().entrySet().stream()
                                     .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().getBytes())),
@@ -300,10 +300,10 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     TEST_DB_NAME,
                     tableName,
                     getPartitionNamesWithEmptyVersion(ImmutableList.of("ds=2020-06-26", "ds=2020-06-27")));
-            assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
-            assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
+            assertEquals(partitions.get("ds=2020-06-26").orElseThrow().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
+            assertEquals(partitions.get("ds=2020-06-27").orElseThrow().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
             // Checking NEW_PARTITION_USER_SUPPLIED_PARAMETER
-            assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get("user_supplied"), "{}");
+            assertEquals(partitions.get("ds=2020-06-27").orElseThrow().getParameters().get("user_supplied"), "{}");
         }
         finally {
             dropTable(tableName);
@@ -450,7 +450,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
 
             assertTrue(insertTableHandle.getEncryptionInformation().isPresent());
             assertEquals(
-                    insertTableHandle.getEncryptionInformation().get(),
+                    insertTableHandle.getEncryptionInformation().orElseThrow(),
                     fromEncryptionMetadata(
                             DwrfEncryptionMetadata.forPerField(
                                     ImmutableMap.of("t_struct.str", "key1".getBytes()),
@@ -474,9 +474,9 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     TEST_DB_NAME,
                     tableName,
                     getPartitionNamesWithEmptyVersion(ImmutableList.of("ds=2020-06-26", "ds=2020-06-27")));
-            assertEquals(partitions.get("ds=2020-06-26").get().getStorage().getLocation(), "path1");
-            assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
-            assertEquals(partitions.get("ds=2020-06-27").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
+            assertEquals(partitions.get("ds=2020-06-26").orElseThrow().getStorage().getLocation(), "path1");
+            assertEquals(partitions.get("ds=2020-06-26").orElseThrow().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
+            assertEquals(partitions.get("ds=2020-06-27").orElseThrow().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
 
             HiveMetadata overrideHiveMetadata = metadataFactory.get();
             insertTableHandle = overrideHiveMetadata.beginInsert(SESSION, new HiveTableHandle(TEST_DB_NAME, tableName));
@@ -495,8 +495,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                     TEST_DB_NAME,
                     tableName,
                     getPartitionNamesWithEmptyVersion(ImmutableList.of("ds=2020-06-26")));
-            assertEquals(partitions.get("ds=2020-06-26").get().getStorage().getLocation(), "path3");
-            assertEquals(partitions.get("ds=2020-06-26").get().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
+            assertEquals(partitions.get("ds=2020-06-26").orElseThrow().getStorage().getLocation(), "path3");
+            assertEquals(partitions.get("ds=2020-06-26").orElseThrow().getParameters().get(TEST_EXTRA_METADATA), "test_algo");
         }
         finally {
             dropTable(tableName);

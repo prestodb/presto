@@ -64,7 +64,7 @@ public class TestQueryPlanDeterminism
         // add the tpch catalog
         // local queries run directly against the generator
         localQueryRunner.createCatalog(
-                defaultSession.getCatalog().get(),
+                defaultSession.getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
 

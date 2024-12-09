@@ -375,7 +375,7 @@ public class TestIcebergHiveStatistics
         TableScanNode node = plan.getPlanIdNodeMap().values().stream()
                 .filter(planNode -> planNode instanceof TableScanNode)
                 .map(TableScanNode.class::cast)
-                .findFirst().get();
+                .findFirst().orElseThrow();
         return transaction(getQueryRunner().getTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, (Function<Session, TableStatistics>) txnSession -> getQueryRunner().getMetadata()
@@ -427,13 +427,13 @@ public class TestIcebergHiveStatistics
         return meta.getTableHandleForStatisticsCollection(
                 session,
                 new QualifiedObjectName("iceberg", "tpch", tableName.toLowerCase(Locale.US)),
-                Collections.emptyMap()).get();
+                Collections.emptyMap()).orElseThrow();
     }
 
     private TableHandle getTableHandle(String tableName, Session session)
     {
         MetadataResolver resolver = getQueryRunner().getMetadata().getMetadataResolver(session);
-        return resolver.getTableHandle(new QualifiedObjectName("iceberg", "tpch", tableName.toLowerCase(Locale.US))).get();
+        return resolver.getTableHandle(new QualifiedObjectName("iceberg", "tpch", tableName.toLowerCase(Locale.US))).orElseThrow();
     }
 
     private Map<String, ColumnHandle> getColumnHandles(String tableName, Session session)

@@ -126,7 +126,7 @@ public class PinotFilterExpressionConverter
         Optional<String> left = handleTimeValueCast(context, arguments.get(1), arguments.get(0));
         Optional<String> right = handleTimeValueCast(context, arguments.get(0), arguments.get(1));
         if (left.isPresent() && right.isPresent()) {
-            return Optional.of(derived(format("(%s %s %s)", left.get(), operator, right.get())));
+            return Optional.of(derived(format("(%s %s %s)", left.orElseThrow(), operator, right.orElseThrow())));
         }
         return Optional.empty();
     }
@@ -399,7 +399,7 @@ public class PinotFilterExpressionConverter
         FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(call.getFunctionHandle());
         Optional<OperatorType> operatorType = functionMetadata.getOperatorType();
         if (standardFunctionResolution.isComparisonFunction(functionHandle) && operatorType.isPresent()) {
-            return handleLogicalBinary(operatorType.get().getOperator(), call, context);
+            return handleLogicalBinary(operatorType.orElseThrow().getOperator(), call, context);
         }
         if ("contains".equals(functionMetadata.getName().getObjectName())) {
             return handleContains(call, context);

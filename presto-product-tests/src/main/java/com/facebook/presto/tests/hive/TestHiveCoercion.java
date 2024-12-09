@@ -430,7 +430,7 @@ public class TestHiveCoercion
     private static TableInstance mutableTableInstanceOf(TableDefinition tableDefinition)
     {
         if (tableDefinition.getDatabase().isPresent()) {
-            return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().get());
+            return mutableTableInstanceOf(tableDefinition, tableDefinition.getDatabase().orElseThrow());
         }
         else {
             return mutableTableInstanceOf(tableHandleInSchema(tableDefinition));
@@ -451,7 +451,7 @@ public class TestHiveCoercion
     {
         TableHandle tableHandle = tableHandle(tableDefinition.getName());
         if (tableDefinition.getSchema().isPresent()) {
-            tableHandle = tableHandle.inSchema(tableDefinition.getSchema().get());
+            tableHandle = tableHandle.inSchema(tableDefinition.getSchema().orElseThrow());
         }
         return tableHandle;
     }

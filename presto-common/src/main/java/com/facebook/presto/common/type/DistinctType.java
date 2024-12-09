@@ -69,7 +69,7 @@ public class DistinctType
         this.isOrderable = isOrderable;
         boolean rootTypeReached = otherAncestors.isEmpty();
         this.parentTypeName = rootTypeReached ? topMostAncestor : Optional.of(otherAncestors.poll());
-        this.lazilyLoadedParentType = rootTypeReached ? Optional.empty() : Optional.of(new DistinctType(this.parentTypeName.get(), baseType, isOrderable, topMostAncestor, otherAncestors, distinctTypeLoader));
+        this.lazilyLoadedParentType = rootTypeReached ? Optional.empty() : Optional.of(new DistinctType(this.parentTypeName.orElseThrow(), baseType, isOrderable, topMostAncestor, otherAncestors, distinctTypeLoader));
         this.distinctTypeLoader = parentTypeName.isPresent() ? Optional.of(requireNonNull(distinctTypeLoader, "distinctTypeLoader is null")) : Optional.empty();
     }
 
@@ -97,7 +97,7 @@ public class DistinctType
     public static boolean hasAncestorRelationship(DistinctType firstType, DistinctType secondType)
     {
         Optional<DistinctType> lowestCommonSuperType = getLowestCommonSuperType(firstType, secondType);
-        return lowestCommonSuperType.isPresent() && (lowestCommonSuperType.get().equals(firstType) || lowestCommonSuperType.get().equals(secondType));
+        return lowestCommonSuperType.isPresent() && (lowestCommonSuperType.orElseThrow().equals(firstType) || lowestCommonSuperType.orElseThrow().equals(secondType));
     }
 
     // Computes the lowest common ancestor of 2 distinct types in the type tree.
@@ -114,43 +114,43 @@ public class DistinctType
 
         // We first check already loaded ancestors of both types, to check if lowest common super type exists in them.
         // This way, we can avoid loading of parents which are not needed.
-        seenTypes.put(firstAncestor.get().getName(), firstAncestor.get());
-        while (firstAncestor.get().lazilyLoadedParentType.isPresent()) {
-            firstAncestor = firstAncestor.get().lazilyLoadedParentType;
-            seenTypes.put(firstAncestor.get().getName(), firstAncestor.get());
+        seenTypes.put(firstAncestor.orElseThrow().getName(), firstAncestor.orElseThrow());
+        while (firstAncestor.orElseThrow().lazilyLoadedParentType.isPresent()) {
+            firstAncestor = firstAncestor.orElseThrow().lazilyLoadedParentType;
+            seenTypes.put(firstAncestor.orElseThrow().getName(), firstAncestor.orElseThrow());
         }
 
-        if (seenTypes.containsKey(secondAncestor.get().getName())) {
+        if (seenTypes.containsKey(secondAncestor.orElseThrow().getName())) {
             return secondAncestor;
         }
-        seenTypes.put(secondAncestor.get().getName(), secondAncestor.get());
+        seenTypes.put(secondAncestor.orElseThrow().getName(), secondAncestor.orElseThrow());
 
-        while (secondAncestor.get().lazilyLoadedParentType.isPresent()) {
-            secondAncestor = secondAncestor.get().lazilyLoadedParentType;
-            if (seenTypes.containsKey(secondAncestor.get().getName())) {
+        while (secondAncestor.orElseThrow().lazilyLoadedParentType.isPresent()) {
+            secondAncestor = secondAncestor.orElseThrow().lazilyLoadedParentType;
+            if (seenTypes.containsKey(secondAncestor.orElseThrow().getName())) {
                 return secondAncestor;
             }
-            seenTypes.put(secondAncestor.get().getName(), secondAncestor.get());
+            seenTypes.put(secondAncestor.orElseThrow().getName(), secondAncestor.orElseThrow());
         }
 
         // If we don't get any common ancestor among already loaded ancestors, we can load more ancestors.
-        while (firstAncestor.get().getParentTypeName().isPresent() || secondAncestor.get().getParentTypeName().isPresent()) {
-            if (firstAncestor.get().getParentTypeName().isPresent()) {
-                if (seenTypes.containsKey(firstAncestor.get().getParentTypeName().get())) {
-                    return Optional.of(seenTypes.get(firstAncestor.get().getParentTypeName().get()));
+        while (firstAncestor.orElseThrow().getParentTypeName().isPresent() || secondAncestor.orElseThrow().getParentTypeName().isPresent()) {
+            if (firstAncestor.orElseThrow().getParentTypeName().isPresent()) {
+                if (seenTypes.containsKey(firstAncestor.orElseThrow().getParentTypeName().orElseThrow())) {
+                    return Optional.of(seenTypes.get(firstAncestor.orElseThrow().getParentTypeName().orElseThrow()));
                 }
-                firstAncestor = firstAncestor.get().getParentTypeLoadIfNeeded();
+                firstAncestor = firstAncestor.orElseThrow().getParentTypeLoadIfNeeded();
                 checkState(firstAncestor.isPresent(), "firstAncestor is empty");
-                seenTypes.put(firstAncestor.get().getName(), firstAncestor.get());
+                seenTypes.put(firstAncestor.orElseThrow().getName(), firstAncestor.orElseThrow());
             }
 
-            if (secondAncestor.get().getParentTypeName().isPresent()) {
-                if (seenTypes.containsKey(secondAncestor.get().getParentTypeName().get())) {
-                    return Optional.of(seenTypes.get(secondAncestor.get().getParentTypeName().get()));
+            if (secondAncestor.orElseThrow().getParentTypeName().isPresent()) {
+                if (seenTypes.containsKey(secondAncestor.orElseThrow().getParentTypeName().orElseThrow())) {
+                    return Optional.of(seenTypes.get(secondAncestor.orElseThrow().getParentTypeName().orElseThrow()));
                 }
-                secondAncestor = secondAncestor.get().getParentTypeLoadIfNeeded();
+                secondAncestor = secondAncestor.orElseThrow().getParentTypeLoadIfNeeded();
                 checkState(secondAncestor.isPresent(), "secondAncestor is empty");
-                seenTypes.put(secondAncestor.get().getName(), secondAncestor.get());
+                seenTypes.put(secondAncestor.orElseThrow().getName(), secondAncestor.orElseThrow());
             }
         }
         return Optional.empty();
@@ -192,9 +192,9 @@ public class DistinctType
                 break;
             }
             else {
-                type = type.lazilyLoadedParentType.get();
+                type = type.lazilyLoadedParentType.orElseThrow();
                 checkState(parentTypeName.isPresent(), "parentTypeName is empty");
-                ancestors.add(parentTypeName.get());
+                ancestors.add(parentTypeName.orElseThrow());
             }
         }
         return new TypeSignature(new DistinctTypeInfo(name, baseType.getTypeSignature(), lastAncestor, ancestors, isOrderable));
@@ -376,7 +376,7 @@ public class DistinctType
         if (!distinctTypeLoader.isPresent()) {
             return;
         }
-        lazilyLoadedParentType = Optional.of(distinctTypeLoader.get().apply(parentTypeName.get()));
+        lazilyLoadedParentType = Optional.of(distinctTypeLoader.orElseThrow().apply(parentTypeName.orElseThrow()));
         distinctTypeLoader = Optional.empty();
     }
 

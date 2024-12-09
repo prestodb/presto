@@ -16,8 +16,10 @@ package com.facebook.presto.plugin.bigquery;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import org.testng.annotations.Test;
 
+import java.util.stream.StreamSupport;
+
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 @Test
 public class TestBigQueryPlugin
@@ -27,7 +29,8 @@ public class TestBigQueryPlugin
     {
         BigQueryPlugin plugin = new BigQueryPlugin();
 
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = StreamSupport.stream(plugin.getConnectorFactories().spliterator(), false)
+                .collect(onlyElement());
         assertInstanceOf(factory, BigQueryConnectorFactory.class);
     }
 }

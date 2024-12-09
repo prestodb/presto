@@ -46,11 +46,11 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HudiRecordCursors.createRecordCursor;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_ALL_COLUMNS;
 import static org.apache.hadoop.hive.serde2.ColumnProjectionUtils.READ_COLUMN_IDS_CONF_STR;
@@ -127,7 +127,7 @@ class HudiRecordCursors
             String msg = format("Error opening Hive split %s using %s: %s",
                     split,
                     inputFormatName,
-                    firstNonNull(e.getMessage(), e.getClass().getName()));
+                    requireNonNullElse(e.getMessage(), e.getClass().getName()));
             throw new PrestoException(HUDI_CANNOT_OPEN_SPLIT, msg, e);
         }
     }
@@ -171,7 +171,7 @@ class HudiRecordCursors
     {
         // use first log file as base file for MOR table if it hasn't base file
         if (hudiSplit.getBaseFile().isPresent()) {
-            return hudiSplit.getBaseFile().get();
+            return hudiSplit.getBaseFile().orElseThrow();
         }
         else {
             return hudiSplit.getLogFiles().get(0);

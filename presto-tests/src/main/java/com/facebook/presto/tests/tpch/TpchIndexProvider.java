@@ -58,7 +58,7 @@ public class TpchIndexProvider
     {
         TpchIndexHandle tpchIndexHandle = (TpchIndexHandle) indexHandle;
 
-        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues()).get();
+        Map<ColumnHandle, NullableValue> fixedValues = TupleDomain.extractFixedValues(tpchIndexHandle.getFixedValues()).orElseThrow();
         checkArgument(lookupSchema.stream().noneMatch(handle -> fixedValues.keySet().contains(handle)),
                 "Lookup columnHandles are not expected to overlap with the fixed value predicates");
 
@@ -81,7 +81,7 @@ public class TpchIndexProvider
 
         Optional<TpchIndexedData.IndexedTable> indexedTable = indexedData.getIndexedTable(tpchIndexHandle.getTableName(), tpchIndexHandle.getScaleFactor(), tpchIndexHandle.getIndexColumnNames());
         checkState(indexedTable.isPresent());
-        TpchIndexedData.IndexedTable table = indexedTable.get();
+        TpchIndexedData.IndexedTable table = indexedTable.orElseThrow();
 
         // Compute how to map from the final lookup schema to the table index key order
         List<Integer> keyRemap = computeRemap(handleToNames(finalLookupSchema), table.getKeyColumns());

@@ -36,7 +36,7 @@ import java.util.Set;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
@@ -93,7 +93,7 @@ public class TestCompletedEventWarnings
         queryRunner.execute(sessionBuilder.build(), sql);
         generatedEvents.waitForEvents(10);
 
-        Set<WarningCode> warnings = getOnlyElement(generatedEvents.getQueryCompletedEvents())
+        Set<WarningCode> warnings = generatedEvents.getQueryCompletedEvents().stream().collect(onlyElement())
                 .getWarnings()
                 .stream()
                 .map(PrestoWarning::getWarningCode)

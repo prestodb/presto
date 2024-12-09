@@ -17,7 +17,7 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class AtopPlugin
         implements Plugin
@@ -30,6 +30,6 @@ public class AtopPlugin
 
     private static ClassLoader getClassLoader()
     {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), AtopPlugin.class.getClassLoader());
+        return requireNonNullElse(Thread.currentThread().getContextClassLoader(), AtopPlugin.class.getClassLoader());
     }
 }

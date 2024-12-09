@@ -90,7 +90,7 @@ public class NodesSystemTable
             VARCHAR.writeString(elasticsearchNodeId, node.getId());
 
             if (node.getAddress().isPresent()) {
-                VARCHAR.writeString(elasticsearchAddress, node.getAddress().get());
+                VARCHAR.writeString(elasticsearchAddress, node.getAddress().orElseThrow());
             }
             else {
                 elasticsearchAddress.appendNull();

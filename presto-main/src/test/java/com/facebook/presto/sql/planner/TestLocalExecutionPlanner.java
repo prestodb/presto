@@ -94,7 +94,7 @@ public class TestLocalExecutionPlanner
     public void setUp()
     {
         runner = new LocalQueryRunner(TEST_SESSION);
-        runner.createCatalog(runner.getDefaultSession().getCatalog().get(),
+        runner.createCatalog(runner.getDefaultSession().getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
     }
@@ -148,7 +148,7 @@ public class TestLocalExecutionPlanner
         Optional<FragmentResultCacheContext> contextWithIntermediateAggregation = planWithIntermediateAggregation.getDriverFactories().get(0).getFragmentResultCacheContext();
         assertTrue(contextWithIntermediateAggregation.isPresent());
 
-        assertEquals(contextWithIntermediateAggregation.get().getHashedCanonicalPlanFragment(), contextWithoutIntermediateAggregation.get().getHashedCanonicalPlanFragment());
+        assertEquals(contextWithIntermediateAggregation.orElseThrow().getHashedCanonicalPlanFragment(), contextWithoutIntermediateAggregation.orElseThrow().getHashedCanonicalPlanFragment());
     }
 
     @Test

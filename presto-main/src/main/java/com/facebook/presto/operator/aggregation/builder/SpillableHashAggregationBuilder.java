@@ -178,7 +178,7 @@ public class SpillableHashAggregationBuilder
     {
         if (spiller.isPresent()) {
             checkState(spillInProgress.isDone());
-            spiller.get().commit();
+            spiller.orElseThrow().commit();
         }
         updateMemory();
     }
@@ -257,7 +257,7 @@ public class SpillableHashAggregationBuilder
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
-        spillInProgress = spiller.get().spill(hashAggregationBuilder.buildHashSortedResult().iterator());
+        spillInProgress = spiller.orElseThrow().spill(hashAggregationBuilder.buildHashSortedResult().iterator());
         // ... and immediately create new hashAggregationBuilder so effectively memory ownership
         // over hashAggregationBuilder is transferred from this thread to a spilling thread
         rebuildHashAggregationBuilder();
@@ -271,11 +271,11 @@ public class SpillableHashAggregationBuilder
         hashAggregationBuilder.setOutputPartial();
         mergeHashSort = Optional.of(new MergeHashSort(operatorContext.aggregateSystemMemoryContext()));
 
-        WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
+        WorkProcessor<Page> mergedSpilledPages = mergeHashSort.orElseThrow().merge(
                 groupByTypes,
                 hashAggregationBuilder.buildIntermediateTypes(),
                 ImmutableList.<WorkProcessor<Page>>builder()
-                        .addAll(spiller.get().getSpills().stream()
+                        .addAll(spiller.orElseThrow().getSpills().stream()
                                 .map(WorkProcessor::fromIterator)
                                 .collect(toImmutableList()))
                         .add(hashAggregationBuilder.buildHashSortedResult())
@@ -291,10 +291,10 @@ public class SpillableHashAggregationBuilder
 
         mergeHashSort = Optional.of(new MergeHashSort(operatorContext.aggregateSystemMemoryContext()));
 
-        WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
+        WorkProcessor<Page> mergedSpilledPages = mergeHashSort.orElseThrow().merge(
                 groupByTypes,
                 hashAggregationBuilder.buildIntermediateTypes(),
-                spiller.get().getSpills().stream()
+                spiller.orElseThrow().getSpills().stream()
                         .map(WorkProcessor::fromIterator)
                         .collect(toImmutableList()),
                 operatorContext.getDriverContext().getYieldSignal());
@@ -317,7 +317,7 @@ public class SpillableHashAggregationBuilder
                 hashAggregationBuilder.getKeyChannels(),
                 joinCompiler));
 
-        return merger.get().buildResult();
+        return merger.orElseThrow().buildResult();
     }
 
     private void rebuildHashAggregationBuilder()

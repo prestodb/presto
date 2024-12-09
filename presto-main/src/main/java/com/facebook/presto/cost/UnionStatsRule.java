@@ -57,7 +57,7 @@ public class UnionStatsRule
 
             if (estimate.isPresent()) {
                 PlanNodeStatsEstimateMath calculator = new PlanNodeStatsEstimateMath(shouldOptimizerUseHistograms(session));
-                estimate = Optional.of(calculator.addStatsAndCollapseDistinctValues(estimate.get(), sourceStatsWithMappedSymbols));
+                estimate = Optional.of(calculator.addStatsAndCollapseDistinctValues(estimate.orElseThrow(), sourceStatsWithMappedSymbols));
             }
             else {
                 estimate = Optional.of(sourceStatsWithMappedSymbols);

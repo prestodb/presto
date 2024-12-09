@@ -33,7 +33,6 @@ import com.facebook.presto.orc.stream.InputStreamSource;
 import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -63,6 +62,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
@@ -124,7 +124,7 @@ public class StructSelectiveStreamReader
         else {
             Optional<TupleDomainFilter> topLevelFilter = getTopLevelFilter(filters);
             if (topLevelFilter.isPresent()) {
-                nullsAllowed = topLevelFilter.get() == IS_NULL;
+                nullsAllowed = topLevelFilter.orElseThrow() == IS_NULL;
                 nonNullsAllowed = !nullsAllowed;
             }
             else {
@@ -171,7 +171,7 @@ public class StructSelectiveStreamReader
 
                 if (nestedStream == null) {
                     verify(fieldOutputType.isPresent(), "Missing output type for subfield " + fieldName);
-                    nestedReaders.put(fieldName, new MissingFieldStreamReader(fieldOutputType.get()));
+                    nestedReaders.put(fieldName, new MissingFieldStreamReader(fieldOutputType.orElseThrow()));
                 }
                 else {
                     if (requiredField || fieldsWithFilters.contains(fieldName)) {
@@ -678,7 +678,7 @@ public class StructSelectiveStreamReader
         }
 
         checkArgument(topLevelFilters.size() == 1, "ROW column may have at most one top-level range filter");
-        TupleDomainFilter filter = Iterables.getOnlyElement(topLevelFilters.values());
+        TupleDomainFilter filter = topLevelFilters.values().stream().collect(onlyElement());
         checkArgument(filter == IS_NULL || filter == IS_NOT_NULL, "Top-level range filter on ROW column must be IS NULL or IS NOT NULL");
         return Optional.of(filter);
     }

@@ -27,10 +27,9 @@ import java.util.TreeSet;
 
 import static com.google.common.base.CharMatcher.anyOf;
 import static com.google.common.base.Functions.forMap;
-import static com.google.common.collect.Iterables.getFirst;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.StreamSupport.stream;
 
 public class BenchmarkResultsPrinter
         implements BenchmarkResultsStore
@@ -88,12 +87,12 @@ public class BenchmarkResultsPrinter
         tags.putAll(benchmarkSchema.getTags());
 
         // only print first line of error message
-        Optional<String> errorMessage = result.getErrorMessage().map(error -> getFirst(Splitter.on(anyOf("\r\n")).trimResults().split(error), ""));
+        Optional<String> errorMessage = result.getErrorMessage().map(error -> stream(Splitter.on(anyOf("\r\n")).trimResults().split(error).spliterator(), false).findFirst().orElse(""));
 
         printRow(ImmutableList.builder()
                 .add(result.getSuite().getName())
                 .add(result.getBenchmarkQuery().getName())
-                .addAll(transform(tagNames, forMap(tags, "")))
+                .addAll(tagNames.stream().map(forMap(tags, "")).toList())
                 .add(NANOSECONDS.toMillis((long) result.getWallTimeNanos().getMedian()))
                 .add(NANOSECONDS.toMillis((long) result.getWallTimeNanos().getMean()))
                 .add(NANOSECONDS.toMillis((long) result.getWallTimeNanos().getStandardDeviation()))

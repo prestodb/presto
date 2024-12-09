@@ -95,7 +95,7 @@ public class SignatureBinder
         if (!boundVariables.isPresent()) {
             return Optional.empty();
         }
-        return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
+        return Optional.of(applyBoundVariables(declaredSignature, boundVariables.orElseThrow(), actualArgumentTypes.size()));
     }
 
     public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
@@ -104,7 +104,7 @@ public class SignatureBinder
         if (!boundVariables.isPresent()) {
             return Optional.empty();
         }
-        return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
+        return Optional.of(applyBoundVariables(declaredSignature, boundVariables.orElseThrow(), actualArgumentTypes.size()));
     }
 
     public Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes)
@@ -238,7 +238,7 @@ public class SignatureBinder
             if (parameter.isLongLiteral() || parameter.isVariable()) {
                 continue;
             }
-            checkNoLiteralVariableUsageAcrossTypes(parameter.getTypeSignatureOrNamedTypeSignature().get(), existingUsages);
+            checkNoLiteralVariableUsageAcrossTypes(parameter.getTypeSignatureOrNamedTypeSignature().orElseThrow(), existingUsages);
         }
     }
 
@@ -349,7 +349,7 @@ public class SignatureBinder
             if (!typeSignature.isPresent()) {
                 throw new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported");
             }
-            formalTypeParameterTypeSignatures.add(typeSignature.get());
+            formalTypeParameterTypeSignatures.add(typeSignature.orElseThrow());
         }
 
         return appendConstraintSolvers(
@@ -636,14 +636,14 @@ public class SignatureBinder
             if (!commonSuperType.isPresent()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (!typeVariableConstraint.canBind(commonSuperType.get())) {
+            if (!typeVariableConstraint.canBind(commonSuperType.orElseThrow())) {
                 // This check must not be skipped even if commonSuperType is equal to originalType
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            if (commonSuperType.get().equals(originalType) || (originalType instanceof TypeWithName && commonSuperType.get().equals(((TypeWithName) originalType).getType()))) {
+            if (commonSuperType.orElseThrow().equals(originalType) || (originalType instanceof TypeWithName && commonSuperType.orElseThrow().equals(((TypeWithName) originalType).getType()))) {
                 return SolverReturnStatus.UNCHANGED_SATISFIED;
             }
-            bindings.setTypeVariable(typeParameter, commonSuperType.get());
+            bindings.setTypeVariable(typeParameter, commonSuperType.orElseThrow());
             return SolverReturnStatus.CHANGED;
         }
     }
@@ -677,7 +677,7 @@ public class SignatureBinder
                         if (!type.isPresent()) {
                             return SolverReturnStatus.UNSOLVABLE;
                         }
-                        TypeSignature typeSignature = type.get().getTypeSignature();
+                        TypeSignature typeSignature = type.orElseThrow().getTypeSignature();
                         originalTypeTypeParametersBuilder.add(TypeSignatureParameter.of(typeSignature.getParameters().get(i).getLongLiteral()));
                     }
                 }
@@ -691,7 +691,7 @@ public class SignatureBinder
             if (!commonSuperType.isPresent()) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
-            TypeSignature commonSuperTypeSignature = commonSuperType.get().getTypeSignature();
+            TypeSignature commonSuperTypeSignature = commonSuperType.orElseThrow().getTypeSignature();
             if (!commonSuperTypeSignature.getBase().equals(formalTypeSignature.getBase())) {
                 return SolverReturnStatus.UNSOLVABLE;
             }
@@ -744,16 +744,16 @@ public class SignatureBinder
             TypeSignature actualLambdaTypeSignature;
             if (!typeSignatureProvider.hasDependency()) {
                 actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature();
-                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get()))) {
+                if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase()) || !getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.orElseThrow()))) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
             }
             else {
-                actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature(lambdaArgumentTypes.get());
+                actualLambdaTypeSignature = typeSignatureProvider.getTypeSignature(lambdaArgumentTypes.orElseThrow());
                 if (!FunctionType.NAME.equals(actualLambdaTypeSignature.getBase())) {
                     return SolverReturnStatus.UNSOLVABLE;
                 }
-                verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.get())));
+                verify(getLambdaArgumentTypeSignatures(actualLambdaTypeSignature).equals(toTypeSignatures(lambdaArgumentTypes.orElseThrow())));
             }
 
             Type actualLambdaType = functionAndTypeManager.getType(actualLambdaTypeSignature);

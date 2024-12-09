@@ -138,7 +138,7 @@ public class DistinctLimitOperator
         int[] distinctChannelInts = Ints.toArray(requireNonNull(distinctChannels, "distinctChannels is null"));
         if (hashChannel.isPresent()) {
             outputChannels = Arrays.copyOf(distinctChannelInts, distinctChannelInts.length + 1);
-            outputChannels[distinctChannelInts.length] = hashChannel.get();
+            outputChannels[distinctChannelInts.length] = hashChannel.orElseThrow();
         }
         else {
             outputChannels = distinctChannelInts.clone(); // defensive copy since this is passed into createGroupByHash

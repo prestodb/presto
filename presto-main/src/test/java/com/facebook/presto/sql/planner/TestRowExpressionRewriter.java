@@ -125,7 +125,7 @@ public class TestRowExpressionRewriter
             public RowExpression rewriteCall(CallExpression node, Void context, RowExpressionTreeRewriter<Void> treeRewriter)
             {
                 FunctionMetadata metadata = functionAndTypeManager.getFunctionMetadata(node.getFunctionHandle());
-                if (metadata.getOperatorType().isPresent() && metadata.getOperatorType().get().isComparisonOperator()) {
+                if (metadata.getOperatorType().isPresent() && metadata.getOperatorType().orElseThrow().isComparisonOperator()) {
                     return call("not", functionResolution.notFunction(), BOOLEAN, node);
                 }
                 return null;

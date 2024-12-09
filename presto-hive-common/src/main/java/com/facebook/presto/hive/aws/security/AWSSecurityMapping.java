@@ -46,7 +46,7 @@ public class AWSSecurityMapping
         requireNonNull(accessKey, "accessKey is null");
         requireNonNull(secretKey, "secretKey is null");
         checkArgument(accessKey.isPresent() == secretKey.isPresent(), "accessKey and secretKey must be provided together");
-        this.credentials = accessKey.map(access -> new BasicAWSCredentials(access, secretKey.get()));
+        this.credentials = accessKey.map(access -> new BasicAWSCredentials(access, secretKey.orElseThrow()));
     }
 
     public boolean matches(String user)

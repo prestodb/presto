@@ -180,13 +180,13 @@ public class TaskThresholdMemoryRevokingScheduler
                 if (!taskContext.isPresent()) {
                     continue;
                 }
-                long currentTaskRevocableMemory = taskContext.get().getTaskMemoryContext().getRevocableMemory();
+                long currentTaskRevocableMemory = taskContext.orElseThrow().getTaskMemoryContext().getRevocableMemory();
                 if (currentTaskRevocableMemory < maxRevocableMemoryPerTask) {
                     continue;
                 }
 
                 AtomicLong remainingBytesToRevokeAtomic = new AtomicLong(currentTaskRevocableMemory - maxRevocableMemoryPerTask);
-                taskContext.get().accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
+                taskContext.orElseThrow().accept(new VoidTraversingQueryContextVisitor<AtomicLong>()
                 {
                     @Override
                     public Void visitOperatorContext(OperatorContext operatorContext, AtomicLong remainingBytesToRevoke)

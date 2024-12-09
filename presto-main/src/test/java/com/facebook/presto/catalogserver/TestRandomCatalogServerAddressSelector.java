@@ -40,7 +40,7 @@ public class TestRandomCatalogServerAddressSelector
         HostAndPort hostAndPort = HostAndPort.fromParts("abc", 123);
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.of(hostAndPort.toString()));
         assertTrue(address.isPresent());
-        assertEquals(address.get().getHostAndPort(), hostAndPort);
+        assertEquals(address.orElseThrow().getHostAndPort(), hostAndPort);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class)
@@ -94,6 +94,6 @@ public class TestRandomCatalogServerAddressSelector
 
         Optional<SimpleAddressSelector.SimpleAddress> address = selector.selectAddress(Optional.empty());
         assertTrue(address.isPresent());
-        assertEquals(address.get().getHostAndPort(), HostAndPort.fromParts("localhost", 2));
+        assertEquals(address.orElseThrow().getHostAndPort(), HostAndPort.fromParts("localhost", 2));
     }
 }

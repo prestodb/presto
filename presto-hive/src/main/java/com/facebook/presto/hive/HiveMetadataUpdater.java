@@ -84,7 +84,7 @@ public class HiveMetadataUpdater
                 hiveMetadataRequestQueue.removeIf(metadataUpdateRequest -> metadataUpdateRequest.getRequestId().equals(requestId));
 
                 // Set the fileName future
-                requestFutureMap.get(requestId).set(fileName.get());
+                requestFutureMap.get(requestId).set(fileName.orElseThrow());
             }
         }
     }

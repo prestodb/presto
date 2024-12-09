@@ -169,7 +169,7 @@ public class H2TestUtil
             Plugin h2ResourceGroupManagerPlugin = new H2ResourceGroupManagerPlugin();
             queryRunner.installPlugin(h2ResourceGroupManagerPlugin);
             for (int coordinator = 0; coordinator < coordinatorCount; coordinator++) {
-                queryRunner.getCoordinator(coordinator).getResourceGroupManager().get()
+                queryRunner.getCoordinator(coordinator).getResourceGroupManager().orElseThrow()
                         .forceSetConfigurationManager(CONFIGURATION_MANAGER_TYPE, ImmutableMap.of("resource-groups.config-db-url", dbConfigUrl, "node.environment", environment));
             }
             queryRunner.installPlugin(new TpchPlugin());
@@ -293,7 +293,7 @@ public class H2TestUtil
     public static List<ResourceGroupSelector> getSelectors(DistributedQueryRunner queryRunner, int coordinator)
     {
         try {
-            return ((ReloadingResourceGroupConfigurationManager) queryRunner.getCoordinator(coordinator).getResourceGroupManager().get().getConfigurationManager()).getSelectors();
+            return ((ReloadingResourceGroupConfigurationManager) queryRunner.getCoordinator(coordinator).getResourceGroupManager().orElseThrow().getConfigurationManager()).getSelectors();
         }
         catch (PrestoException e) {
             if (e.getErrorCode() == CONFIGURATION_INVALID.toErrorCode()) {

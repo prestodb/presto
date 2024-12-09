@@ -106,7 +106,7 @@ public class HiveManifestUtils
             }
             manifestBuilder.declarePosition();
             VARCHAR.writeSlice(fileNameBuilder, utf8Slice(fileWriteInfo.getWriteFileName()));
-            BIGINT.writeLong(fileSizeBuilder, fileWriteInfo.getFileSize().get());
+            BIGINT.writeLong(fileSizeBuilder, fileWriteInfo.getFileSize().orElseThrow());
         }
         return Optional.of(manifestBuilder.build());
     }

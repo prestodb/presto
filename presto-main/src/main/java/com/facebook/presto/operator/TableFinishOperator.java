@@ -582,8 +582,8 @@ public class TableFinishOperator
                 if (statisticsPages.isPresent()) {
                     Optional<Page> statisticsPage = extractStatisticsRows(page);
                     if (statisticsPage.isPresent()) {
-                        statisticsPages.get().add(statisticsPage.get());
-                        long retainedSizeForStatisticsPage = statisticsPage.get().getRetainedSizeInBytes();
+                        statisticsPages.orElseThrow().add(statisticsPage.orElseThrow());
+                        long retainedSizeForStatisticsPage = statisticsPage.orElseThrow().getRetainedSizeInBytes();
                         retainedMemoryBytesForStatisticsPages += retainedSizeForStatisticsPage;
                         memoryBytesDelta += retainedSizeForStatisticsPage;
                     }
@@ -604,7 +604,7 @@ public class TableFinishOperator
             public List<Page> getStatisticsPages()
             {
                 checkState(statisticsPages.isPresent(), "statisticsPages is present for recoverable grouped execution only");
-                return statisticsPages.get().build();
+                return statisticsPages.orElseThrow().build();
             }
 
             public TaskId getTaskId()

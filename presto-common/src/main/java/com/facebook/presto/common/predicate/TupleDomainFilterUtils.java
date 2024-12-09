@@ -179,7 +179,7 @@ public class TupleDomainFilterUtils
 
             if (previousHigh.getBound() != Marker.Bound.BELOW ||
                     current.getLow().getBound() != Marker.Bound.ABOVE ||
-                    type.compareTo(previousHigh.getValueBlock().get(), 0, current.getLow().getValueBlock().get(), 0) != 0) {
+                    type.compareTo(previousHigh.getValueBlock().orElseThrow(), 0, current.getLow().getValueBlock().orElseThrow(), 0) != 0) {
                 return false;
             }
 

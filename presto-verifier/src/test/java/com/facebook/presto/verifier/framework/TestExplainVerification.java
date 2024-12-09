@@ -41,12 +41,12 @@ public class TestExplainVerification
         Optional<VerifierQueryEvent> event = runExplain("SHOW FUNCTIONS", "SHOW FUNCTIONS");
         assertTrue(event.isPresent());
 
-        assertEvent(event.get(), SUCCEEDED);
-        assertEquals(event.get().getMatchType(), "MATCH");
-        assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSHOW FUNCTIONS");
-        assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSHOW FUNCTIONS");
-        assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
-        assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
+        assertEvent(event.orElseThrow(), SUCCEEDED);
+        assertEquals(event.orElseThrow().getMatchType(), "MATCH");
+        assertEquals(event.orElseThrow().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSHOW FUNCTIONS");
+        assertEquals(event.orElseThrow().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSHOW FUNCTIONS");
+        assertNotNull(event.orElseThrow().getControlQueryInfo().getJsonPlan());
+        assertNotNull(event.orElseThrow().getTestQueryInfo().getJsonPlan());
     }
 
     @Test
@@ -59,12 +59,12 @@ public class TestExplainVerification
         assertTrue(event.isPresent());
 
         // Explain verification do not fail in case of plan changes.
-        assertEvent(event.get(), SUCCEEDED);
-        assertEquals(event.get().getMatchType(), "STRUCTURE_MISMATCH");
-        assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  structure_mismatch");
-        assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  (structure_mismatch\nCROSS JOIN structure_mismatch)");
-        assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
-        assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
+        assertEvent(event.orElseThrow(), SUCCEEDED);
+        assertEquals(event.orElseThrow().getMatchType(), "STRUCTURE_MISMATCH");
+        assertEquals(event.orElseThrow().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  structure_mismatch");
+        assertEquals(event.orElseThrow().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  (structure_mismatch\nCROSS JOIN structure_mismatch)");
+        assertNotNull(event.orElseThrow().getControlQueryInfo().getJsonPlan());
+        assertNotNull(event.orElseThrow().getTestQueryInfo().getJsonPlan());
     }
 
     @Test
@@ -74,12 +74,12 @@ public class TestExplainVerification
         assertTrue(event.isPresent());
 
         // Explain verification do not fail in case of plan changes.
-        assertEvent(event.get(), SUCCEEDED);
-        assertEquals(event.get().getMatchType(), "DETAILS_MISMATCH");
-        assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 1");
-        assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 2");
-        assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
-        assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
+        assertEvent(event.orElseThrow(), SUCCEEDED);
+        assertEquals(event.orElseThrow().getMatchType(), "DETAILS_MISMATCH");
+        assertEquals(event.orElseThrow().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 1");
+        assertEquals(event.orElseThrow().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 2");
+        assertNotNull(event.orElseThrow().getControlQueryInfo().getJsonPlan());
+        assertNotNull(event.orElseThrow().getTestQueryInfo().getJsonPlan());
     }
 
     @Test
@@ -88,12 +88,12 @@ public class TestExplainVerification
         Optional<VerifierQueryEvent> event = runExplain("SELECT 1", "SELECT x");
         assertTrue(event.isPresent());
 
-        assertEvent(event.get(), FAILED);
-        assertNull(event.get().getMatchType());
-        assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 1");
-        assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT x");
-        assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
-        assertNull(event.get().getTestQueryInfo().getJsonPlan());
+        assertEvent(event.orElseThrow(), FAILED);
+        assertNull(event.orElseThrow().getMatchType());
+        assertEquals(event.orElseThrow().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT 1");
+        assertEquals(event.orElseThrow().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT x");
+        assertNotNull(event.orElseThrow().getControlQueryInfo().getJsonPlan());
+        assertNull(event.orElseThrow().getTestQueryInfo().getJsonPlan());
     }
 
     private void assertEvent(
@@ -111,10 +111,10 @@ public class TestExplainVerification
     {
         Optional<VerifierQueryEvent> event = runExplain("SELECT 1", "SELECT 2", saveSnapshotSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.orElseThrow(), SUCCEEDED);
 
         event = runExplain("SELECT 1", "SELECT 2", queryBankModeSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.orElseThrow(), SUCCEEDED);
     }
 }

@@ -150,8 +150,8 @@ public class BenchmarkTransformValue
                             call(
                                     GREATER_THAN.name(),
                                     greaterThan, BOOLEAN, ImmutableList.of(
-                                    new VariableReferenceExpression(Optional.empty(), "y", elementType),
-                                    constant(compareValue, elementType)))))));
+                                            new VariableReferenceExpression(Optional.empty(), "y", elementType),
+                                            constant(compareValue, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();

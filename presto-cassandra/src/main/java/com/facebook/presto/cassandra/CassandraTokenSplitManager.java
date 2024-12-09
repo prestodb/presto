@@ -91,7 +91,7 @@ public class CassandraTokenSplitManager
                 continue;
             }
 
-            double tokenRangeRingFraction = tokenRing.get().getRingFraction(tokenRange.getStart().toString(), tokenRange.getEnd().toString());
+            double tokenRangeRingFraction = tokenRing.orElseThrow().getRingFraction(tokenRange.getStart().toString(), tokenRange.getEnd().toString());
             long partitionsCountEstimate = round(totalPartitionsCount * tokenRangeRingFraction);
             checkState(partitionsCountEstimate >= 0, "unexpected partitions count estimate: %d", partitionsCountEstimate);
             int subSplitCount = max(toIntExact(partitionsCountEstimate / splitSize), 1);
@@ -121,10 +121,10 @@ public class CassandraTokenSplitManager
     public long getTotalPartitionsCount(String keyspace, String table, Optional<Long> sessionSplitsPerNode)
     {
         if (sessionSplitsPerNode.isPresent()) {
-            return sessionSplitsPerNode.get();
+            return sessionSplitsPerNode.orElseThrow();
         }
         else if (configSplitsPerNode.isPresent()) {
-            return configSplitsPerNode.get();
+            return configSplitsPerNode.orElseThrow();
         }
         List<SizeEstimate> estimates = session.getSizeEstimates(keyspace, table);
         return estimates.stream()

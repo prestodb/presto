@@ -115,7 +115,7 @@ public class UtilizedColumnsAnalyzer
         HashMultimap<QualifiedObjectName, String> utilizedTableColumns = HashMultimap.create();
         for (Field field : utilizedFieldsBuilder.build()) {
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-                utilizedTableColumns.put(field.getOriginTable().get(), field.getOriginColumnName().get());
+                utilizedTableColumns.put(field.getOriginTable().orElseThrow(), field.getOriginColumnName().orElseThrow());
             }
         }
 
@@ -177,7 +177,7 @@ public class UtilizedColumnsAnalyzer
             handleRelation(join, context);
 
             if (join.getCriteria().isPresent()) {
-                JoinCriteria joinCriteria = join.getCriteria().get();
+                JoinCriteria joinCriteria = join.getCriteria().orElseThrow();
                 if (joinCriteria instanceof JoinOn) {
                     process(((JoinOn) joinCriteria).getExpression(), context);
                 }
@@ -219,11 +219,11 @@ public class UtilizedColumnsAnalyzer
         {
             process(query.getQueryBody(), context);
             if (query.getOrderBy().isPresent()) {
-                process(query.getOrderBy().get(), context);
+                process(query.getOrderBy().orElseThrow(), context);
             }
             // With clause must be processed last
             if (query.getWith().isPresent()) {
-                process(query.getWith().get(), Context.newPrunableContext(context));
+                process(query.getWith().orElseThrow(), Context.newPrunableContext(context));
             }
 
             return null;
@@ -251,21 +251,21 @@ public class UtilizedColumnsAnalyzer
 
             Context unprunableContext = Context.newUnprunableContext(context);
             if (querySpec.getWhere().isPresent()) {
-                process(querySpec.getWhere().get(), unprunableContext);
+                process(querySpec.getWhere().orElseThrow(), unprunableContext);
             }
             if (querySpec.getGroupBy().isPresent()) {
-                process(querySpec.getGroupBy().get(), unprunableContext);
+                process(querySpec.getGroupBy().orElseThrow(), unprunableContext);
             }
             if (querySpec.getHaving().isPresent()) {
-                process(querySpec.getHaving().get(), unprunableContext);
+                process(querySpec.getHaving().orElseThrow(), unprunableContext);
             }
             if (querySpec.getOrderBy().isPresent()) {
-                process(querySpec.getOrderBy().get(), context);
+                process(querySpec.getOrderBy().orElseThrow(), context);
             }
 
             // FROM clause must be processed last, after all the field references from other clauses have been gathered
             if (querySpec.getFrom().isPresent()) {
-                process(querySpec.getFrom().get(), Context.newPrunableContext(context));
+                process(querySpec.getFrom().orElseThrow(), Context.newPrunableContext(context));
             }
 
             return null;

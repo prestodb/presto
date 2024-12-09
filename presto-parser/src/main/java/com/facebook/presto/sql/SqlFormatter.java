@@ -140,7 +140,7 @@ import static com.facebook.presto.sql.ExpressionFormatter.formatOrderBy;
 import static com.facebook.presto.sql.ExpressionFormatter.formatStringLiteral;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -259,7 +259,7 @@ public final class SqlFormatter
         protected Void visitQuery(Query node, Integer indent)
         {
             if (node.getWith().isPresent()) {
-                With with = node.getWith().get();
+                With with = node.getWith().orElseThrow();
                 append(indent, "WITH");
                 if (with.isRecursive()) {
                     builder.append(" RECURSIVE");
@@ -282,15 +282,15 @@ public final class SqlFormatter
             processRelation(node.getQueryBody(), indent);
 
             if (node.getOrderBy().isPresent()) {
-                process(node.getOrderBy().get(), indent);
+                process(node.getOrderBy().orElseThrow(), indent);
             }
 
             if (node.getOffset().isPresent()) {
-                process(node.getOffset().get(), indent);
+                process(node.getOffset().orElseThrow(), indent);
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get())
+                append(indent, "LIMIT " + node.getLimit().orElseThrow())
                         .append('\n');
             }
 
@@ -306,35 +306,35 @@ public final class SqlFormatter
                 append(indent, "FROM");
                 builder.append('\n');
                 append(indent, "  ");
-                process(node.getFrom().get(), indent);
+                process(node.getFrom().orElseThrow(), indent);
             }
 
             builder.append('\n');
 
             if (node.getWhere().isPresent()) {
-                append(indent, "WHERE " + formatExpression(node.getWhere().get(), parameters))
+                append(indent, "WHERE " + formatExpression(node.getWhere().orElseThrow(), parameters))
                         .append('\n');
             }
 
             if (node.getGroupBy().isPresent()) {
-                append(indent, "GROUP BY " + (node.getGroupBy().get().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().get().getGroupingElements())).append('\n');
+                append(indent, "GROUP BY " + (node.getGroupBy().orElseThrow().isDistinct() ? " DISTINCT " : "") + formatGroupBy(node.getGroupBy().orElseThrow().getGroupingElements())).append('\n');
             }
 
             if (node.getHaving().isPresent()) {
-                append(indent, "HAVING " + formatExpression(node.getHaving().get(), parameters))
+                append(indent, "HAVING " + formatExpression(node.getHaving().orElseThrow(), parameters))
                         .append('\n');
             }
 
             if (node.getOrderBy().isPresent()) {
-                process(node.getOrderBy().get(), indent);
+                process(node.getOrderBy().orElseThrow(), indent);
             }
 
             if (node.getOffset().isPresent()) {
-                process(node.getOffset().get(), indent);
+                process(node.getOffset().orElseThrow(), indent);
             }
 
             if (node.getLimit().isPresent()) {
-                append(indent, "LIMIT " + node.getLimit().get())
+                append(indent, "LIMIT " + node.getLimit().orElseThrow())
                         .append('\n');
             }
             return null;
@@ -377,7 +377,7 @@ public final class SqlFormatter
             }
             else {
                 builder.append(' ');
-                process(getOnlyElement(node.getSelectItems()), indent);
+                process(node.getSelectItems().stream().collect(onlyElement()), indent);
             }
 
             builder.append('\n');
@@ -391,7 +391,7 @@ public final class SqlFormatter
             builder.append(formatExpression(node.getExpression(), parameters));
             if (node.getAlias().isPresent()) {
                 builder.append(' ')
-                        .append(formatExpression(node.getAlias().get(), parameters));
+                        .append(formatExpression(node.getAlias().orElseThrow(), parameters));
             }
 
             return null;
@@ -411,7 +411,7 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
             if (node.getTableVersionExpression().isPresent()) {
                 builder.append(' ');
-                process(node.getTableVersionExpression().get(), indent);
+                process(node.getTableVersionExpression().orElseThrow(), indent);
             }
 
             return null;
@@ -602,7 +602,7 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
 
             if (node.getComment().isPresent()) {
-                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().orElseThrow()));
             }
 
             builder.append(formatPropertiesMultiLine(node.getProperties()));
@@ -628,7 +628,7 @@ public final class SqlFormatter
                     .append(node.getReturnType());
             if (node.getComment().isPresent()) {
                 builder.append("\nCOMMENT ")
-                        .append(formatStringLiteral(node.getComment().get()));
+                        .append(formatStringLiteral(node.getComment().orElseThrow()));
             }
             builder.append("\n")
                     .append(formatRoutineCharacteristics(node.getCharacteristics()))
@@ -683,7 +683,7 @@ public final class SqlFormatter
             append(indent, "EXTERNAL");
             if (node.getIdentifier().isPresent()) {
                 builder.append(" NAME ");
-                builder.append(node.getIdentifier().get().toString());
+                builder.append(node.getIdentifier().orElseThrow().toString());
             }
 
             return null;
@@ -782,7 +782,7 @@ public final class SqlFormatter
 
             if (node.getCatalog().isPresent()) {
                 builder.append(" FROM ")
-                        .append(node.getCatalog().get());
+                        .append(node.getCatalog().orElseThrow());
             }
 
             node.getLikePattern().ifPresent((value) ->
@@ -905,7 +905,7 @@ public final class SqlFormatter
         {
             builder.append("USE ");
             if (node.getCatalog().isPresent()) {
-                builder.append(formatExpression(node.getCatalog().get(), Optional.empty()))
+                builder.append(formatExpression(node.getCatalog().orElseThrow(), Optional.empty()))
                         .append(".");
             }
             builder.append(formatExpression(node.getSchema(), Optional.empty()));
@@ -937,7 +937,7 @@ public final class SqlFormatter
 
             if (node.getWhere().isPresent()) {
                 builder.append(" WHERE ")
-                        .append(formatExpression(node.getWhere().get(), parameters));
+                        .append(formatExpression(node.getWhere().orElseThrow(), parameters));
             }
 
             return null;
@@ -1000,12 +1000,12 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
 
             if (node.getColumnAliases().isPresent()) {
-                String columnList = node.getColumnAliases().get().stream().map(element -> formatExpression(element, parameters)).collect(joining(", "));
+                String columnList = node.getColumnAliases().orElseThrow().stream().map(element -> formatExpression(element, parameters)).collect(joining(", "));
                 builder.append(format("( %s )", columnList));
             }
 
             if (node.getComment().isPresent()) {
-                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().orElseThrow()));
             }
 
             builder.append(formatPropertiesMultiLine(node.getProperties()));
@@ -1044,7 +1044,7 @@ public final class SqlFormatter
                                     .append(formatName(likeClause.getTableName()));
                             if (likeClause.getPropertiesOption().isPresent()) {
                                 builder.append(" ")
-                                        .append(likeClause.getPropertiesOption().get().name())
+                                        .append(likeClause.getPropertiesOption().orElseThrow().name())
                                         .append(" PROPERTIES");
                             }
                             return builder.toString();
@@ -1060,7 +1060,7 @@ public final class SqlFormatter
             builder.append("\n").append(")");
 
             if (node.getComment().isPresent()) {
-                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().get()));
+                builder.append("\nCOMMENT " + formatStringLiteral(node.getComment().orElseThrow()));
             }
 
             builder.append(formatPropertiesMultiLine(node.getProperties()));
@@ -1128,7 +1128,7 @@ public final class SqlFormatter
         {
             StringBuilder formatted = new StringBuilder();
             if (characteristics.getNullCallClause().isPresent()) {
-                formatted.append(formatRoutineCharacteristicName(characteristics.getNullCallClause().get()));
+                formatted.append(formatRoutineCharacteristicName(characteristics.getNullCallClause().orElseThrow()));
             }
             return formatted.toString();
         }
@@ -1175,7 +1175,7 @@ public final class SqlFormatter
                 case CURRENT_USER:
                     return type.name();
                 case PRINCIPAL:
-                    return formatPrincipal(grantor.getPrincipal().get());
+                    return formatPrincipal(grantor.getPrincipal().orElseThrow());
                 default:
                     throw new IllegalArgumentException("Unsupported principal type: " + type);
             }
@@ -1291,7 +1291,7 @@ public final class SqlFormatter
 
             if (node.getColumns().isPresent()) {
                 builder.append(" (")
-                        .append(Joiner.on(", ").join(node.getColumns().get()))
+                        .append(Joiner.on(", ").join(node.getColumns().orElseThrow()))
                         .append(")");
             }
 
@@ -1323,7 +1323,7 @@ public final class SqlFormatter
             if (node.getWhere().isPresent()) {
                 builder.append("\n")
                         .append(indentString(indent))
-                        .append("WHERE ").append(formatExpression(node.getWhere().get(), parameters));
+                        .append("WHERE ").append(formatExpression(node.getWhere().orElseThrow(), parameters));
             }
             return null;
         }
@@ -1352,7 +1352,7 @@ public final class SqlFormatter
         protected Void visitCallArgument(CallArgument node, Integer indent)
         {
             if (node.getName().isPresent()) {
-                builder.append(node.getName().get())
+                builder.append(node.getName().orElseThrow())
                         .append(" => ");
             }
             builder.append(formatExpression(node.getValue(), parameters));
@@ -1445,7 +1445,7 @@ public final class SqlFormatter
         {
             builder.append("CREATE ROLE ").append(node.getName());
             if (node.getGrantor().isPresent()) {
-                builder.append(" WITH ADMIN ").append(formatGrantor(node.getGrantor().get()));
+                builder.append(" WITH ADMIN ").append(formatGrantor(node.getGrantor().orElseThrow()));
             }
             return null;
         }
@@ -1472,7 +1472,7 @@ public final class SqlFormatter
                 builder.append(" WITH ADMIN OPTION");
             }
             if (node.getGrantor().isPresent()) {
-                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().orElseThrow()));
             }
             return null;
         }
@@ -1492,7 +1492,7 @@ public final class SqlFormatter
                     .map(Formatter::formatPrincipal)
                     .collect(joining(", ")));
             if (node.getGrantor().isPresent()) {
-                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().get()));
+                builder.append(" GRANTED BY ").append(formatGrantor(node.getGrantor().orElseThrow()));
             }
             return null;
         }
@@ -1508,7 +1508,7 @@ public final class SqlFormatter
                     builder.append(type.toString());
                     break;
                 case ROLE:
-                    builder.append(node.getRole().get());
+                    builder.append(node.getRole().orElseThrow());
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported type: " + type);
@@ -1522,7 +1522,7 @@ public final class SqlFormatter
             builder.append("GRANT ");
 
             if (node.getPrivileges().isPresent()) {
-                builder.append(node.getPrivileges().get().stream()
+                builder.append(node.getPrivileges().orElseThrow().stream()
                         .collect(joining(", ")));
             }
             else {
@@ -1553,7 +1553,7 @@ public final class SqlFormatter
             }
 
             if (node.getPrivileges().isPresent()) {
-                builder.append(node.getPrivileges().get().stream()
+                builder.append(node.getPrivileges().orElseThrow().stream()
                         .collect(joining(", ")));
             }
             else {
@@ -1582,7 +1582,7 @@ public final class SqlFormatter
                 if (node.getTable()) {
                     builder.append("TABLE ");
                 }
-                builder.append(node.getTableName().get());
+                builder.append(node.getTableName().orElseThrow());
             }
 
             return null;
@@ -1599,7 +1599,7 @@ public final class SqlFormatter
 
             if (node.getCatalog().isPresent()) {
                 builder.append(" FROM ")
-                        .append(node.getCatalog().get());
+                        .append(node.getCatalog().orElseThrow());
             }
 
             return null;
@@ -1612,7 +1612,7 @@ public final class SqlFormatter
 
             if (node.getCatalog().isPresent()) {
                 builder.append(" FROM ")
-                        .append(node.getCatalog().get());
+                        .append(node.getCatalog().orElseThrow());
             }
 
             return null;
@@ -1675,7 +1675,7 @@ public final class SqlFormatter
             StringBuilder sb = new StringBuilder();
             if (node.getConstraintName().isPresent()) {
                 sb.append("CONSTRAINT ");
-                sb.append(node.getConstraintName().get());
+                sb.append(node.getConstraintName().orElseThrow());
                 sb.append(" ");
             }
             sb.append(node.getConstraintType() == UNIQUE ? "UNIQUE " : "PRIMARY KEY ");

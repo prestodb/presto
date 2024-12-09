@@ -96,7 +96,7 @@ public class CachingCostProvider
 
         Optional<PlanCostEstimate> knownCost = memo.getCost(group);
         if (knownCost.isPresent()) {
-            return knownCost.get();
+            return knownCost.orElseThrow();
         }
 
         PlanCostEstimate cost = calculateCost(memo.getNode(group));

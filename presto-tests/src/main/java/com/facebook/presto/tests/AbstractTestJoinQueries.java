@@ -21,7 +21,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.HANDLE_COMPLEX_EQUI_JOINS;
@@ -39,7 +38,7 @@ import static com.facebook.presto.tests.QueryAssertions.assertContains;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
 import static com.facebook.presto.tests.QueryTemplate.parameter;
 import static com.facebook.presto.tests.QueryTemplate.queryTemplate;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
@@ -275,17 +274,17 @@ public abstract class AbstractTestJoinQueries
     @Test
     public void testJoinWithNonDeterministicLessThan()
     {
-        MaterializedRow actualRow = getOnlyElement(computeActual(
+        MaterializedRow actualRow = computeActual(
                 "SELECT count(*) FROM " +
                         "customer c1 JOIN customer c2 ON c1.nationkey=c2.nationkey " +
-                        "WHERE c1.custkey - RANDOM(CAST(c1.custkey AS BIGINT)) < c2.custkey").getMaterializedRows());
+                        "WHERE c1.custkey - RANDOM(CAST(c1.custkey AS BIGINT)) < c2.custkey").getMaterializedRows().stream().collect(onlyElement());
         assertEquals(actualRow.getFieldCount(), 1);
         long actualCount = (Long) actualRow.getField(0); // this should be around ~69000
 
-        MaterializedRow expectedAtLeastRow = getOnlyElement(computeActual(
+        MaterializedRow expectedAtLeastRow = computeActual(
                 "SELECT count(*) FROM " +
                         "customer c1 JOIN customer c2 ON c1.nationkey=c2.nationkey " +
-                        "WHERE c1.custkey < c2.custkey").getMaterializedRows());
+                        "WHERE c1.custkey < c2.custkey").getMaterializedRows().stream().collect(onlyElement());
         assertEquals(expectedAtLeastRow.getFieldCount(), 1);
         long expectedAtLeastCount = (Long) expectedAtLeastRow.getField(0); // this is exactly 45022
 
@@ -2321,7 +2320,7 @@ public abstract class AbstractTestJoinQueries
                 "  ON table1.col1a = table2.col2a\n" +
                 "  WHERE rand() * 1000 > table1.col1b\n" +
                 ")");
-        MaterializedRow row = getOnlyElement(materializedResult.getMaterializedRows());
+        MaterializedRow row = materializedResult.getMaterializedRows().stream().collect(onlyElement());
         assertEquals(row.getFieldCount(), 1);
         long count = (Long) row.getField(0);
         // Technically non-deterministic unit test but has essentially a next to impossible chance of a false positive
@@ -2634,7 +2633,7 @@ public abstract class AbstractTestJoinQueries
     private long getTableRowCount(String tableName)
     {
         String countQuery = "SELECT COUNT(*) FROM " + tableName;
-        MaterializedRow countRow = Iterables.getOnlyElement(getQueryRunner().execute(countQuery));
+        MaterializedRow countRow = getQueryRunner().execute(countQuery).getMaterializedRows().stream().collect(onlyElement());
         int rowFieldCount = countRow.getFieldCount();
         assertEquals(rowFieldCount, 1);
         return (long) countRow.getField(0);

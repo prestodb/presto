@@ -24,7 +24,6 @@ import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.orc.OrcTester.Format;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.HiveBloomFilter;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -54,7 +53,6 @@ import static com.facebook.presto.orc.OrcTester.Format.DWRF;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -236,7 +234,7 @@ public final class TestingOrcPredicate
         protected boolean chunkMatchesStats(List<T> chunk, ColumnStatistics columnStatistics)
         {
             // verify non null count
-            if (columnStatistics.getNumberOfValues() != Iterables.size(filter(chunk, notNull()))) {
+            if (columnStatistics.getNumberOfValues() != chunk.stream().filter(notNull()).count()) {
                 return false;
             }
 
@@ -267,7 +265,7 @@ public final class TestingOrcPredicate
 
             // statistics can be missing for any reason
             if (columnStatistics.getBooleanStatistics() != null) {
-                if (columnStatistics.getBooleanStatistics().getTrueValueCount() != Iterables.size(filter(chunk, equalTo(Boolean.TRUE)))) {
+                if (columnStatistics.getBooleanStatistics().getTrueValueCount() != chunk.stream().filter(equalTo(Boolean.TRUE)).count()) {
                     return false;
                 }
             }

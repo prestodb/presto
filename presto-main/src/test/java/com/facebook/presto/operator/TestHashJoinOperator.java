@@ -43,7 +43,6 @@ import com.facebook.presto.testing.TestingTaskContext;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -69,6 +68,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -666,7 +666,7 @@ public class TestHashJoinOperator
     private static MaterializedResult getProperColumns(Operator joinOperator, List<Type> types, RowPagesBuilder probePages, List<Page> actualPages)
     {
         if (probePages.getHashChannel().isPresent()) {
-            List<Integer> hashChannels = ImmutableList.of(probePages.getHashChannel().get());
+            List<Integer> hashChannels = ImmutableList.of(probePages.getHashChannel().orElseThrow());
             actualPages = dropChannel(actualPages, hashChannels);
             types = without(types, hashChannels);
         }
@@ -1470,10 +1470,10 @@ public class TestHashJoinOperator
     {
         ImmutableList.Builder<Integer> hashChannels = ImmutableList.builder();
         if (probe.getHashChannel().isPresent()) {
-            hashChannels.add(probe.getHashChannel().get());
+            hashChannels.add(probe.getHashChannel().orElseThrow());
         }
         if (build.getHashChannel().isPresent()) {
-            hashChannels.add(probe.getTypes().size() + build.getHashChannel().get());
+            hashChannels.add(probe.getTypes().size() + build.getHashChannel().orElseThrow());
         }
         return hashChannels.build();
     }
@@ -1692,7 +1692,7 @@ public class TestHashJoinOperator
 
     private static <T> List<T> concat(List<T> initialElements, List<T> moreElements)
     {
-        return ImmutableList.copyOf(Iterables.concat(initialElements, moreElements));
+        return Stream.concat(initialElements.stream(), moreElements.stream()).collect(toImmutableList());
     }
 
     private static class BuildSideSetup

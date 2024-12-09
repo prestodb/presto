@@ -41,7 +41,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -107,7 +107,8 @@ public final class FunctionSignatureMatcher
         }
 
         if (applicableFunctions.size() == 1) {
-            return Optional.of(getOnlyElement(applicableFunctions).getBoundSignature());
+            return Optional.of(applicableFunctions.stream().collect(onlyElement()))
+                    .map(ApplicableFunction::getBoundSignature);
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();
@@ -129,7 +130,7 @@ public final class FunctionSignatureMatcher
             Optional<Signature> boundSignature = new SignatureBinder(functionAndTypeManager, declaredSignature, allowCoercion)
                     .bind(actualParameters);
             if (boundSignature.isPresent()) {
-                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.get(), function.isCalledOnNullInput()));
+                applicableFunctions.add(new ApplicableFunction(declaredSignature, boundSignature.orElseThrow(), function.isCalledOnNullInput()));
             }
         }
         return applicableFunctions.build();
@@ -150,7 +151,7 @@ public final class FunctionSignatureMatcher
             return mostSpecificFunctions;
         }
 
-        List<Type> parameterTypes = optionalParameterTypes.get();
+        List<Type> parameterTypes = optionalParameterTypes.orElseThrow();
         if (!someParameterIsUnknown(parameterTypes)) {
             // give up and return all remaining matches
             return mostSpecificFunctions;

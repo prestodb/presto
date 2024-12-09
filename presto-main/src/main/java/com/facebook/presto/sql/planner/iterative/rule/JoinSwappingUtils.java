@@ -82,13 +82,13 @@ public class JoinSwappingUtils
                 // we use the index of the old hashVariable in the ExchangeNode output layout to retrieve the hashVariable from the new left node, and feed
                 // it as the leftHashVariable of the swapped join node.
                 if (swapped.getLeftHashVariable().isPresent()) {
-                    int hashVariableIndex = resolvedSwappedLeft.getOutputVariables().indexOf(swapped.getLeftHashVariable().get());
+                    int hashVariableIndex = resolvedSwappedLeft.getOutputVariables().indexOf(swapped.getLeftHashVariable().orElseThrow());
                     leftHashVariable = Optional.of(resolvedSwappedLeft.getSources().get(0).getOutputVariables().get(hashVariableIndex));
                     // When join output layout contains new left side's hashVariable (e.g., a nested join in a single stage, the inner join's output layout possibly
                     // carry the join hashVariable from its new probe), after removing the local exchange at the new probe, the output variables of the join node will
                     // also change, which has to be broadcast upwards (rewriting plan nodes) until the point where this hashVariable is no longer the output.
                     // This is against typical iterativeOptimizer behavior and given this case is rare, just abort the swapping for this scenario.
-                    if (swapped.getOutputVariables().contains(swapped.getLeftHashVariable().get())) {
+                    if (swapped.getOutputVariables().contains(swapped.getLeftHashVariable().orElseThrow())) {
                         return Optional.empty();
                     }
                 }

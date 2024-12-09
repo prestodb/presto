@@ -23,14 +23,18 @@ import com.facebook.presto.orc.metadata.CompressionKind;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -46,8 +50,6 @@ import static com.facebook.presto.orc.OrcTester.arrayType;
 import static com.facebook.presto.orc.OrcTester.createOrcWriter;
 import static com.facebook.presto.orc.OrcTester.mapType;
 import static com.facebook.presto.orc.OrcTester.rowType;
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
 import static com.google.common.collect.Lists.newArrayList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
@@ -181,9 +183,9 @@ public class TestFlatMapWriter
         Type mapType = mapType(INTEGER, DOUBLE);
         OrcTester tester = OrcTester.quickDwrfFlatMapTester();
 
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle((Map) null), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle((Map) null, EMPTY_MAP), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(EMPTY_MAP, (Map) null), ROWS)));
+        tester.testRoundTrip(mapType, Stream.generate(() -> (Map) null).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> new Object[] {null, EMPTY_MAP}).flatMap(Arrays::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> new Object[] {EMPTY_MAP, null}).flatMap(Arrays::stream).limit(ROWS).toList());
     }
 
     private static <K, V> void runTest(Type mapType, K key1, K key2, K key3, V value1, V value2, V value3, V value4, V value5)
@@ -200,26 +202,28 @@ public class TestFlatMapWriter
         Map<K, V> map5 = ImmutableMap.of(key1, value5, key2, value4, key3, value2);
 
         // empty and null value maps
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(EMPTY_MAP), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(nullValue), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(nullValue, EMPTY_MAP), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(EMPTY_MAP, nullValue), ROWS)));
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(EMPTY_MAP)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(nullValue)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(nullValue, EMPTY_MAP)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(EMPTY_MAP, nullValue)).flatMap(Collection::stream).limit(ROWS).toList());
 
         // same keys
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map1, map2), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map1, map2, EMPTY_MAP), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map5, EMPTY_MAP), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map1, map2, nullValue), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map1, map2, nullValue, EMPTY_MAP), ROWS)));
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map1, map2)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map1, map2, EMPTY_MAP)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map5, EMPTY_MAP)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map1, map2, nullValue)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map1, map2, nullValue, EMPTY_MAP)).flatMap(Collection::stream).limit(ROWS).toList());
 
         // zig-zag keys
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map1, map3, map4, map5), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map1, map3, map4, map5, EMPTY_MAP), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map1, map3, map4, map5, nullValue), ROWS)));
-        tester.testRoundTrip(mapType, newArrayList(limit(cycle(map1, map3, map4, map5, nullValue, EMPTY_MAP), ROWS)));
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map1, map3, map4, map5)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map1, map3, map4, map5, EMPTY_MAP)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map1, map3, map4, map5, nullValue)).flatMap(Collection::stream).limit(ROWS).toList());
+        tester.testRoundTrip(mapType, Stream.generate(() -> ImmutableList.of(map1, map3, map4, map5, nullValue, EMPTY_MAP)).flatMap(Collection::stream).limit(ROWS).toList());
 
         // randomize keys
-        tester.testRoundTrip(mapType, newArrayList(limit(random(map1, map2, map3, map4, map5, nullValue, EMPTY_MAP), ROWS)));
+        tester.testRoundTrip(mapType, Stream.generate(() ->
+                        TestFlatMapWriter.<Map<?, ?>>random(map1, map2, map3, map4, map5, nullValue, EMPTY_MAP))
+                .flatMap(Streams::stream).limit(ROWS).toList());
     }
 
     @Test

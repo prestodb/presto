@@ -51,8 +51,8 @@ public class TestResourceGroupPerQueryLimitEnforcement
     {
         queryRunner = TpchQueryRunnerBuilder.builder().build();
         TestingPrestoServer server = queryRunner.getCoordinator();
-        server.getResourceGroupManager().get().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
-        server.getResourceGroupManager().get()
+        server.getResourceGroupManager().orElseThrow().addConfigurationManagerFactory(new FileResourceGroupConfigurationManagerFactory());
+        server.getResourceGroupManager().orElseThrow()
                 .forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_simple.json")));
     }
 

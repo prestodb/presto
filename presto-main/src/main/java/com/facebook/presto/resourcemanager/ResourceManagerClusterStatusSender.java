@@ -101,7 +101,7 @@ public class ResourceManagerClusterStatusSender
     {
         nodeHeartbeatSender.start();
         if (resourceRuntimeHeartbeatSender.isPresent()) {
-            resourceRuntimeHeartbeatSender.get().start();
+            resourceRuntimeHeartbeatSender.orElseThrow().start();
         }
     }
 
@@ -113,7 +113,7 @@ public class ResourceManagerClusterStatusSender
             nodeHeartbeatSender.stop();
         }
         if (resourceRuntimeHeartbeatSender.isPresent()) {
-            resourceRuntimeHeartbeatSender.get().stop();
+            resourceRuntimeHeartbeatSender.orElseThrow().stop();
         }
     }
 

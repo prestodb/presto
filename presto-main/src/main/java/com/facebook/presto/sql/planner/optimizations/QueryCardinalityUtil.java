@@ -28,7 +28,7 @@ import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.google.common.collect.Range;
 
 import static com.facebook.presto.sql.planner.iterative.Lookup.noLookup;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -117,7 +117,7 @@ public final class QueryCardinalityUtil
         public Range<Long> visitExchange(ExchangeNode node, Void context)
         {
             if (node.getSources().size() == 1) {
-                return getOnlyElement(node.getSources()).accept(this, null);
+                return node.getSources().stream().collect(onlyElement()).accept(this, null);
             }
             return Range.atLeast(0L);
         }

@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
@@ -40,7 +41,7 @@ import static com.facebook.presto.operator.NestedLoopJoinOperator.createNestedLo
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorEquals;
 import static com.facebook.presto.operator.ValuesOperator.ValuesOperatorFactory;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -82,7 +83,9 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probePages.getTypes().stream(), buildPages.getTypes().stream())
+                        .collect(toImmutableList()))
                 .row("0", 1000L, 2000L, "20", 30L, 40L)
                 .row("0", 1000L, 2000L, "21", 31L, 41L)
                 .row("0", 1000L, 2000L, "22", 32L, 42L)
@@ -105,7 +108,9 @@ public class TestNestedLoopJoinOperator
                 .build();
 
         // expected
-        expected = resultBuilder(taskContext.getSession(), concat(probePages.getTypes(), buildPages.getTypes()))
+        expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probePages.getTypes().stream(), buildPages.getTypes().stream())
+                        .collect(toImmutableList()))
                 .row("0", 1000L, 2000L, "20", 30L, 40L)
                 .row("1", 1001L, 2001L, "20", 30L, 40L)
                 .row("2", 1002L, 2002L, "20", 30L, 40L)
@@ -142,7 +147,9 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probeTypes.stream(), buildPages.getTypes().stream())
+                        .collect(toImmutableList()))
                 .row("A", "a")
                 .row(null, "a")
                 .row(null, "a")
@@ -182,7 +189,9 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probeTypes.stream(), buildPages.getTypes().stream())
+                        .collect(toImmutableList()))
                 .row("A", "a")
                 .row("A", null)
                 .row("A", null)
@@ -224,7 +233,9 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probeTypes.stream(), buildPages.getTypes().stream())
+                        .collect(toImmutableList()))
                 .row("A", "a")
                 .row("A", null)
                 .row("A", "b")
@@ -276,7 +287,9 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probeTypes.stream(), buildPages.getTypes().stream())
+                        .collect(toImmutableList()))
                 .row("A", "a")
                 .row("B", "a")
                 .row("A", null)
@@ -318,7 +331,9 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probeTypes.stream(), buildPages.getTypes().stream())
+                        .collect(toImmutableList()))
                 .row("a", "A")
                 .row("a", "B")
                 .row(null, "A")
@@ -362,7 +377,9 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probeTypes.stream(), buildPages.getTypes().stream())
+                        .collect(toImmutableList()))
                 .row("a", "A")
                 .row("a", "B")
                 .row("a", "C")
@@ -405,7 +422,8 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(),
+                Stream.concat(probeTypes.stream(), buildPages.getTypes().stream()).collect(toImmutableList()))
                 .build();
 
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected);
@@ -432,7 +450,7 @@ public class TestNestedLoopJoinOperator
         NestedLoopJoinOperatorFactory joinOperatorFactory = newJoinOperatorFactoryWithCompletedBuild(taskContext, buildPages);
 
         // expected
-        MaterializedResult expected = resultBuilder(taskContext.getSession(), concat(probeTypes, buildPages.getTypes()))
+        MaterializedResult expected = resultBuilder(taskContext.getSession(), Stream.concat(probeTypes.stream(), buildPages.getTypes().stream()).collect(toImmutableList()))
                 .build();
 
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected);

@@ -98,7 +98,7 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.powerSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
@@ -176,7 +176,7 @@ public class ReorderJoins
 
         statsSource = context.getStatsProvider().getStats(joinNode).getSourceInfo().getSourceInfoName();
 
-        PlanNode transformedPlan = result.getPlanNode().get();
+        PlanNode transformedPlan = result.getPlanNode().orElseThrow();
         if (!multiJoinNode.getAssignments().isEmpty()) {
             transformedPlan = new ProjectNode(
                     transformedPlan.getSourceLocation(),
@@ -415,7 +415,7 @@ public class ReorderJoins
         private JoinEnumerationResult getJoinSource(LinkedHashSet<PlanNode> nodes, List<VariableReferenceExpression> outputVariables)
         {
             if (nodes.size() == 1) {
-                PlanNode planNode = getOnlyElement(nodes);
+                PlanNode planNode = nodes.stream().collect(onlyElement());
                 ImmutableList.Builder<RowExpression> predicates = ImmutableList.builder();
                 predicates.addAll(allFilterInference.generateEqualitiesPartitionedBy(outputVariables::contains).getScopeEqualities());
                 EqualityInference.Builder builder = new EqualityInference.Builder(metadata);
@@ -544,7 +544,7 @@ public class ReorderJoins
             if (isBelowMaxBroadcastSize(joinNode, context) && isBelowMaxBroadcastSize(joinNode.flipChildren(), context) && !mustPartition(joinNode) && confidenceBasedBroadcastEnabled(context.getSession())) {
                 Optional<JoinNode> result = confidenceBasedBroadcast(joinNode, context);
                 if (result.isPresent()) {
-                    return createJoinEnumerationResult(result.get());
+                    return createJoinEnumerationResult(result.orElseThrow());
                 }
             }
 
@@ -631,7 +631,7 @@ public class ReorderJoins
 
         public RowExpression getFilter()
         {
-            return node.getFilters().stream().findAny().get();
+            return node.getFilters().stream().findAny().orElseThrow();
         }
 
         public LinkedHashSet<PlanNode> getSources()

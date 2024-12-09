@@ -32,8 +32,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.PeekingIterator;
+import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -60,7 +60,6 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Collections.nCopies;
@@ -254,15 +253,15 @@ public class WindowOperator
                 .limit(preSortedChannelPrefix)
                 .collect(toImmutableList());
 
-        List<Integer> unGroupedOrderChannels = ImmutableList.copyOf(concat(unGroupedPartitionChannels, sortChannels));
-        List<SortOrder> unGroupedOrdering = ImmutableList.copyOf(concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST), sortOrder));
+        List<Integer> unGroupedOrderChannels = Stream.concat(unGroupedPartitionChannels.stream(), sortChannels.stream()).collect(toImmutableList());
+        List<SortOrder> unGroupedOrdering = Streams.concat(nCopies(unGroupedPartitionChannels.size(), ASC_NULLS_LAST).stream(), sortOrder.stream()).collect(toImmutableList());
 
         List<Integer> orderChannels;
         List<SortOrder> ordering;
         if (preSortedChannelPrefix > 0) {
             // This already implies that set(preGroupedChannels) == set(partitionChannels) (enforced with checkArgument)
-            orderChannels = ImmutableList.copyOf(Iterables.skip(sortChannels, preSortedChannelPrefix));
-            ordering = ImmutableList.copyOf(Iterables.skip(sortOrder, preSortedChannelPrefix));
+            orderChannels = sortChannels.stream().skip(preSortedChannelPrefix).collect(toImmutableList());
+            ordering = sortOrder.stream().skip(preSortedChannelPrefix).collect(toImmutableList());
         }
         else {
             // Otherwise, we need to sort by the unGroupedPartitionChannels and all original sort channels
@@ -305,7 +304,7 @@ public class WindowOperator
                     orderingCompiler.compilePageWithPositionComparator(sourceTypes, unGroupedOrderChannels, unGroupedOrdering)));
 
             this.outputPages = WorkProcessor.create(new PagesSource())
-                    .flatTransform(spillablePagesToPagesIndexes.get())
+                    .flatTransform(spillablePagesToPagesIndexes.orElseThrow())
                     .flatMap(this::pagesIndexToWindowPartitions)
                     .transform(new WindowPartitionsToOutputPages());
         }
@@ -375,13 +374,13 @@ public class WindowOperator
     @Override
     public ListenableFuture<?> startMemoryRevoke()
     {
-        return spillablePagesToPagesIndexes.get().spill();
+        return spillablePagesToPagesIndexes.orElseThrow().spill();
     }
 
     @Override
     public void finishMemoryRevoke()
     {
-        spillablePagesToPagesIndexes.get().finishRevokeMemory();
+        spillablePagesToPagesIndexes.orElseThrow().finishRevokeMemory();
     }
 
     private static class PagesIndexWithHashStrategies
@@ -503,7 +502,7 @@ public class WindowOperator
                 return ProcessState.ofResult(result);
             }
 
-            return ProcessState.yield();
+            return ProcessState.yieldProcessor();
         }
     }
 
@@ -545,13 +544,13 @@ public class WindowOperator
             }
 
             if (!finishing) {
-                Page pendingInput = pendingInputOptional.get();
+                Page pendingInput = pendingInputOptional.orElseThrow();
                 pendingInputPosition = updatePagesIndex(pagesIndexWithHashStrategies, pendingInput, pendingInputPosition, Optional.empty());
                 updateMemoryUsage();
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
-            if (finishing || pendingInputPosition < pendingInputOptional.get().getPositionCount()) {
+            if (finishing || pendingInputPosition < pendingInputOptional.orElseThrow().getPositionCount()) {
                 sortPagesIndexIfNecessary(pagesIndexWithHashStrategies, orderChannels, ordering);
                 resetPagesIndex = true;
                 return TransformationState.ofResult(pagesIndexWithHashStrategies, false);
@@ -628,7 +627,7 @@ public class WindowOperator
                 return TransformationState.ofResult(page, false);
             }
 
-            WindowPartition partition = partitionOptional.get();
+            WindowPartition partition = partitionOptional.orElseThrow();
             while (!pageBuilder.isFull() && partition.hasNext()) {
                 partition.processNextRow(pageBuilder);
             }
@@ -716,12 +715,12 @@ public class WindowOperator
             }
 
             if (!finishing) {
-                Page pendingInput = pendingInputOptional.get();
+                Page pendingInput = pendingInputOptional.orElseThrow();
                 pendingInputPosition = updatePagesIndex(inMemoryPagesIndexWithHashStrategies, pendingInput, pendingInputPosition, currentSpillGroupRowPage);
             }
 
             // If we have unused input or are finishing, then we have buffered a full group
-            if (finishing || pendingInputPosition < pendingInputOptional.get().getPositionCount()) {
+            if (finishing || pendingInputPosition < pendingInputOptional.orElseThrow().getPositionCount()) {
                 return fullGroupBuffered();
             }
 
@@ -760,13 +759,13 @@ public class WindowOperator
         {
             if (spillInProgress.isPresent()) {
                 // Spill can be triggered first in SpillablePagesToPagesIndexes#process(..) and then by Driver (via WindowOperator#startMemoryRevoke)
-                return spillInProgress.get();
+                return spillInProgress.orElseThrow();
             }
 
             if (localRevocableMemoryContext.getBytes() == 0) {
                 // This must be stale revoke request
                 spillInProgress = Optional.of(immediateFuture(null));
-                return spillInProgress.get();
+                return spillInProgress.orElseThrow();
             }
 
             if (!spiller.isPresent()) {
@@ -782,9 +781,9 @@ public class WindowOperator
             Page anyPage = sortedPages.peek();
             verify(anyPage.getPositionCount() != 0, "PagesIndex.getSortedPages returned an empty page");
             currentSpillGroupRowPage = Optional.of(anyPage.getSingleValuePage(/* any */0));
-            spillInProgress = Optional.of(spiller.get().spill(sortedPages));
+            spillInProgress = Optional.of(spiller.orElseThrow().spill(sortedPages));
 
-            return spillInProgress.get();
+            return spillInProgress.orElseThrow();
         }
 
         void finishRevokeMemory()
@@ -794,7 +793,7 @@ public class WindowOperator
                 return;
             }
 
-            checkSpillSucceeded(spillInProgress.get());
+            checkSpillSucceeded(spillInProgress.orElseThrow());
             spillInProgress = Optional.empty();
 
             // No memory to reclaim
@@ -813,7 +812,7 @@ public class WindowOperator
             }
 
             List<WorkProcessor<Page>> sortedStreams = ImmutableList.<WorkProcessor<Page>>builder()
-                    .addAll(spiller.get().getSpills().stream()
+                    .addAll(spiller.orElseThrow().getSpills().stream()
                             .map(WorkProcessor::fromIterator)
                             .collect(toImmutableList()))
                     .add(WorkProcessor.fromIterator(inMemoryPagesIndexWithHashStrategies.pagesIndex.getSortedPages()))
@@ -854,7 +853,7 @@ public class WindowOperator
         PagesIndex pagesIndex = pagesIndexWithHashStrategies.pagesIndex;
         PagesHashStrategy preGroupedPartitionHashStrategy = pagesIndexWithHashStrategies.preGroupedPartitionHashStrategy;
         if (currentSpillGroupRowPage.isPresent()) {
-            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, currentSpillGroupRowPage.get().extractChannels(pagesIndexWithHashStrategies.preGroupedPartitionChannels), startPosition, preGroupedPage)) {
+            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, currentSpillGroupRowPage.orElseThrow().extractChannels(pagesIndexWithHashStrategies.preGroupedPartitionChannels), startPosition, preGroupedPage)) {
                 return startPosition;
             }
         }

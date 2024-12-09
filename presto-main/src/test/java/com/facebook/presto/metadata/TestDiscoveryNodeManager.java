@@ -26,7 +26,6 @@ import com.facebook.presto.server.InternalCommunicationConfig;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -40,6 +39,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
 import static com.facebook.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
@@ -403,7 +403,7 @@ public class TestDiscoveryNodeManager
         private synchronized void announceNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes)
         {
             ImmutableList.Builder<ServiceDescriptor> descriptors = ImmutableList.builder();
-            for (InternalNode node : Iterables.concat(activeNodes, inactiveNodes)) {
+            for (InternalNode node : Stream.concat(activeNodes.stream(), inactiveNodes.stream()).toList()) {
                 descriptors.add(serviceDescriptor("presto")
                         .setNodeId(node.getNodeIdentifier())
                         .addProperty("http", node.getInternalUri().toString())

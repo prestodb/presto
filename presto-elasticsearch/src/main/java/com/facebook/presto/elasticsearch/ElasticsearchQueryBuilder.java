@@ -45,7 +45,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.toIntExact;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
@@ -57,7 +57,7 @@ public final class ElasticsearchQueryBuilder
     {
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
         if (constraint.getDomains().isPresent()) {
-            for (Map.Entry<ElasticsearchColumnHandle, Domain> entry : constraint.getDomains().get().entrySet()) {
+            for (Map.Entry<ElasticsearchColumnHandle, Domain> entry : constraint.getDomains().orElseThrow().entrySet()) {
                 ElasticsearchColumnHandle column = entry.getKey();
                 Domain domain = entry.getValue();
 
@@ -126,7 +126,7 @@ public final class ElasticsearchQueryBuilder
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, valuesToInclude.stream().collect(onlyElement()))));
             }
             queryBuilder.should(rangeQueryBuilder);
         }

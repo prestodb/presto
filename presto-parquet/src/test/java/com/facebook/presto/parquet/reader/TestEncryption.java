@@ -466,7 +466,7 @@ public class TestEncryption
             boolean structHasParameters = false;
             for (int i = 0; i < fields.size(); i++) {
                 RowType.Field rowField = fields.get(i);
-                String name = rowField.getName().get().toLowerCase(Locale.ENGLISH);
+                String name = rowField.getName().orElseThrow().toLowerCase(Locale.ENGLISH);
                 Optional<Field> field = constructField(rowField.getType(), lookupColumnByName(groupColumnIO, name));
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);

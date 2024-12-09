@@ -56,7 +56,7 @@ public final class BufferTestUtils
     {
         Optional<BufferResult> bufferResult = tryGetFutureValue(future, (int) maxWait.toMillis(), MILLISECONDS);
         checkArgument(bufferResult.isPresent(), "bufferResult is empty");
-        return bufferResult.get();
+        return bufferResult.orElseThrow();
     }
 
     static void assertBufferResultEquals(List<? extends Type> types, BufferResult actual, BufferResult expected)

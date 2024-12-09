@@ -59,7 +59,7 @@ public class SheetsSplitManager
         }
 
         List<ConnectorSplit> splits = new ArrayList<>();
-        splits.add(new SheetsSplit(tableHandle.getSchemaName(), tableHandle.getTableName(), table.get().getValues()));
+        splits.add(new SheetsSplit(tableHandle.getSchemaName(), tableHandle.getTableName(), table.orElseThrow().getValues()));
         Collections.shuffle(splits);
         return new FixedSplitSource(splits);
     }

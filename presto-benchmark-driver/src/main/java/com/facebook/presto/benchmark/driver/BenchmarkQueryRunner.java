@@ -85,7 +85,7 @@ public class BenchmarkQueryRunner
         requireNonNull(socksProxy, "socksProxy is null");
         HttpClientConfig httpClientConfig = new HttpClientConfig();
         if (socksProxy.isPresent()) {
-            httpClientConfig.setSocksProxy(socksProxy.get());
+            httpClientConfig.setSocksProxy(socksProxy.orElseThrow());
         }
 
         this.httpClient = new JettyHttpClient(httpClientConfig.setConnectTimeout(new Duration(10, TimeUnit.SECONDS)));

@@ -42,6 +42,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -49,7 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 
 import static com.facebook.presto.common.predicate.TupleDomain.extractFixedValues;
 import static com.facebook.presto.common.type.StandardTypes.HYPER_LOG_LOG;
@@ -108,8 +109,8 @@ public final class MaterializedViewUtils
 
     public static Identity getOwnerIdentity(Optional<String> owner, Session session)
     {
-        if (owner.isPresent() && !owner.get().equals(session.getIdentity().getUser())) {
-            return new Identity(owner.get(), Optional.empty(), session.getIdentity().getExtraCredentials());
+        if (owner.isPresent() && !owner.orElseThrow().equals(session.getIdentity().getUser())) {
+            return new Identity(owner.orElseThrow(), Optional.empty(), session.getIdentity().getExtraCredentials());
         }
         return session.getIdentity();
     }
@@ -171,9 +172,9 @@ public final class MaterializedViewUtils
         for (T node : graph.keySet()) {
             // Do depth first search for each node to find its connected component
             Set<T> visited = new HashSet<>();
-            Stack<T> stack = new Stack<>();
+            Deque<T> stack = new ArrayDeque<>();
             stack.push(node);
-            while (!stack.empty()) {
+            while (!stack.isEmpty()) {
                 T current = stack.pop();
                 if (visited.contains(current)) {
                     continue;
@@ -266,8 +267,8 @@ public final class MaterializedViewUtils
             }
 
             // Rewrite avg as sum(sum_result) / sum(count_result)
-            FunctionCall sum = new FunctionCall(SUM, ImmutableList.of(sumDerived.get()));
-            FunctionCall count = new FunctionCall(SUM, ImmutableList.of(countDerived.get()));
+            FunctionCall sum = new FunctionCall(SUM, ImmutableList.of(sumDerived.orElseThrow()));
+            FunctionCall count = new FunctionCall(SUM, ImmutableList.of(countDerived.orElseThrow()));
             return new ArithmeticBinaryExpression(DIVIDE, sum, count);
         }
 

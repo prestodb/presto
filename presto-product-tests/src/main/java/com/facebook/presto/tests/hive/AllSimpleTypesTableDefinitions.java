@@ -79,7 +79,7 @@ public final class AllSimpleTypesTableDefinitions
                         "   c_boolean            BOOLEAN," +
                         "   c_binary             BINARY" +
                         ") " +
-                        (rowFormat.isPresent() ? "ROW FORMAT " + rowFormat.get() + " " : " ") +
+                        (rowFormat.isPresent() ? "ROW FORMAT " + rowFormat.orElseThrow() + " " : " ") +
                         "STORED AS " + fileFormat);
     }
 

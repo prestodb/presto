@@ -117,8 +117,6 @@ import static com.facebook.presto.sql.relational.Expressions.field;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.google.common.base.Predicates.not;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -463,34 +461,34 @@ public class TestOrcBatchPageSourceMemoryTracking
                     new StorageOrcFileTailSource(),
                     StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
             return HivePageSourceProvider.createHivePageSource(
-                    ImmutableSet.of(),
-                    ImmutableSet.of(orcPageSourceFactory),
-                    new Configuration(),
-                    session,
-                    hiveFileSplit,
-                    OptionalInt.empty(),
-                    storage,
-                    TupleDomain.all(),
-                    columns,
-                    ImmutableMap.of(),
-                    partitionKeys,
-                    DateTimeZone.UTC,
-                    FUNCTION_AND_TYPE_MANAGER,
-                    new SchemaTableName("schema", "table"),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    ImmutableMap.of(),
-                    0,
-                    TableToPartitionMapping.empty(),
-                    Optional.empty(),
-                    false,
-                    DEFAULT_HIVE_FILE_CONTEXT,
-                    null,
-                    false,
-                    ROW_EXPRESSION_SERVICE,
-                    Optional.empty(),
-                    Optional.empty())
-                    .get();
+                            ImmutableSet.of(),
+                            ImmutableSet.of(orcPageSourceFactory),
+                            new Configuration(),
+                            session,
+                            hiveFileSplit,
+                            OptionalInt.empty(),
+                            storage,
+                            TupleDomain.all(),
+                            columns,
+                            ImmutableMap.of(),
+                            partitionKeys,
+                            DateTimeZone.UTC,
+                            FUNCTION_AND_TYPE_MANAGER,
+                            new SchemaTableName("schema", "table"),
+                            ImmutableList.of(),
+                            ImmutableList.of(),
+                            ImmutableMap.of(),
+                            0,
+                            TableToPartitionMapping.empty(),
+                            Optional.empty(),
+                            false,
+                            DEFAULT_HIVE_FILE_CONTEXT,
+                            null,
+                            false,
+                            ROW_EXPRESSION_SERVICE,
+                            Optional.empty(),
+                            Optional.empty())
+                    .orElseThrow();
         }
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)
@@ -560,11 +558,13 @@ public class TestOrcBatchPageSourceMemoryTracking
             throws Exception
     {
         // filter out partition keys, which are not written to the file
-        testColumns = ImmutableList.copyOf(filter(testColumns, not(TestColumn::isPartitionKey)));
+        testColumns = testColumns.stream().filter(not(TestColumn::isPartitionKey)).toList();
 
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
+        tableProperties.setProperty("columns", Joiner.on(',')
+                .join(testColumns.stream().map(TestColumn::getName).iterator()));
+        tableProperties.setProperty("columns.types", Joiner.on(',')
+                .join(testColumns.stream().map(TestColumn::getType).iterator()));
         serializer.initialize(CONFIGURATION, tableProperties);
 
         JobConf jobConf = new JobConf();
@@ -578,8 +578,8 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         try {
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
+                    testColumns.stream().map(TestColumn::getName).toList(),
+                    testColumns.stream().map(TestColumn::getObjectInspector).toList());
 
             Object row = objectInspector.create();
 

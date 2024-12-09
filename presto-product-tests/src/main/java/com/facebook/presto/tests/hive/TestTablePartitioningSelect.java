@@ -71,7 +71,7 @@ public class TestTablePartitioningSelect
         sb.append(") ");
         sb.append("PARTITIONED BY (part_col INT) ");
         if (rowFormat.isPresent()) {
-            sb.append("ROW FORMAT ").append(rowFormat.get());
+            sb.append("ROW FORMAT ").append(rowFormat.orElseThrow());
         }
         sb.append(" STORED AS " + fileFormat);
         return sb.toString();

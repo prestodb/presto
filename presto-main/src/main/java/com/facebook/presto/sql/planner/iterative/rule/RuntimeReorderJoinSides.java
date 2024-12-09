@@ -100,14 +100,14 @@ public class RuntimeReorderJoinSides
         Optional<JoinNode> rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, context.getLookup(), context.getSession(), context.getIdAllocator());
         if (rewrittenNode.isPresent()) {
             log.debug(format("Probe size: %.2f is smaller than Build size: %.2f => invoke runtime join swapping on JoinNode ID: %s.", leftOutputSizeInBytes, rightOutputSizeInBytes, joinNode.getId()));
-            return Result.ofPlanNode(rewrittenNode.get());
+            return Result.ofPlanNode(rewrittenNode.orElseThrow());
         }
         return Result.empty();
     }
 
     private boolean isSwappedJoinValid(JoinNode join)
     {
-        return !(join.getDistributionType().get() == REPLICATED && join.getType() == LEFT) &&
-                !(join.getDistributionType().get() == PARTITIONED && join.getCriteria().isEmpty() && join.getType() == RIGHT);
+        return !(join.getDistributionType().orElseThrow() == REPLICATED && join.getType() == LEFT) &&
+                !(join.getDistributionType().orElseThrow() == PARTITIONED && join.getCriteria().isEmpty() && join.getType() == RIGHT);
     }
 }

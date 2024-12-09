@@ -74,7 +74,7 @@ public class ColumnReference
 
         checkState(columnHandle.isPresent(), format("Table %s doesn't have column %s. Typo in test?", tableName, columnName));
 
-        return getAssignedVariable(assignments, columnHandle.get());
+        return getAssignedVariable(assignments, columnHandle.orElseThrow());
     }
 
     private Optional<VariableReferenceExpression> getAssignedVariable(Map<VariableReferenceExpression, ColumnHandle> assignments, ColumnHandle columnHandle)

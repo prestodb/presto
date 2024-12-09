@@ -95,7 +95,7 @@ public class TestInternalAuthenticationFilter
         internalAuthenticationFilter.filter(containerRequestContext);
 
         assertTrue(internalAuthenticationFilter.getPrincipal().isPresent());
-        assertEquals(internalAuthenticationFilter.getPrincipal().get().toString(), principalString);
+        assertEquals(internalAuthenticationFilter.getPrincipal().orElseThrow().toString(), principalString);
         assertEquals(containerRequestContext.getResponse().getStatus(), SC_OK);
     }
 
@@ -130,6 +130,7 @@ public class TestInternalAuthenticationFilter
         private final String methodName;
 
         private final Class<?>[] parameterTypes;
+
         ResourceInfoBuilder(Class<?> clazz, String methodName, Class<?>... parameterTypes)
         {
             this.clazz = clazz;
@@ -152,7 +153,8 @@ public class TestInternalAuthenticationFilter
                     try {
                         method = clazz.getMethod(methodName, parameterTypes);
                     }
-                    catch (NoSuchMethodException e) { }
+                    catch (NoSuchMethodException e) {
+                    }
                     return method;
                 }
 

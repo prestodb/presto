@@ -80,7 +80,7 @@ public class BuiltInQueryAnalysis
         }
 
         if (analysis.getInsert().isPresent()) {
-            TableHandle target = analysis.getInsert().get().getTarget();
+            TableHandle target = analysis.getInsert().orElseThrow().getTarget();
             connectors.add(target.getConnectorId());
         }
 

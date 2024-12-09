@@ -170,7 +170,7 @@ public class ParametricAggregation
         if (!foundImplementation.isPresent()) {
             throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getSignature()));
         }
-        return foundImplementation.get();
+        return foundImplementation.orElseThrow();
     }
 
     private static AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, FunctionAndTypeManager functionAndTypeManager, Class<?> stateClass, DynamicClassLoader classLoader)
@@ -179,7 +179,7 @@ public class ParametricAggregation
         Optional<MethodHandle> stateSerializerFactory = implementation.getStateSerializerFactory();
         if (stateSerializerFactory.isPresent()) {
             try {
-                MethodHandle factoryHandle = bindDependencies(stateSerializerFactory.get(), implementation.getStateSerializerFactoryDependencies(), variables, functionAndTypeManager);
+                MethodHandle factoryHandle = bindDependencies(stateSerializerFactory.orElseThrow(), implementation.getStateSerializerFactoryDependencies(), variables, functionAndTypeManager);
                 stateSerializer = (AccumulatorStateSerializer<?>) factoryHandle.invoke();
             }
             catch (Throwable t) {

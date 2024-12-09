@@ -94,7 +94,7 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
             Optional<ExecutionFailureInfo> failureInfo = Optional.of(toFailure(executionException));
             queryStateTimer.endQuery();
 
-            throw toPrestoSparkFailure(session, failureInfo.get());
+            throw toPrestoSparkFailure(session, failureInfo.orElseThrow());
         }
         return Collections.emptyList();
     }
@@ -114,7 +114,7 @@ public class PrestoSparkDataDefinitionExecution<T extends Statement>
         Optional<TransactionInfo> transaction = session.getTransactionId()
                 .flatMap(transactionManager::getOptionalTransactionInfo);
         checkState(transaction.isPresent(), "transaction is not present");
-        checkState(transaction.get().isAutoCommitContext(), "transaction doesn't have auto commit context enabled");
-        return transaction.get();
+        checkState(transaction.orElseThrow().isAutoCommitContext(), "transaction doesn't have auto commit context enabled");
+        return transaction.orElseThrow();
     }
 }

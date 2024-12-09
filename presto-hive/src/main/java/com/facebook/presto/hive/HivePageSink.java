@@ -174,20 +174,20 @@ public class HivePageSink
         this.dataColumnInputIndex = Ints.toArray(dataColumnsInputIndex.build());
 
         if (bucketProperty.isPresent()) {
-            int bucketCount = bucketProperty.get().getBucketCount();
-            bucketColumns = bucketProperty.get().getBucketedBy().stream()
+            int bucketCount = bucketProperty.orElseThrow().getBucketCount();
+            bucketColumns = bucketProperty.orElseThrow().getBucketedBy().stream()
                     .mapToInt(dataColumnNameToIdMap::get)
                     .toArray();
-            BucketFunctionType bucketFunctionType = bucketProperty.get().getBucketFunctionType();
+            BucketFunctionType bucketFunctionType = bucketProperty.orElseThrow().getBucketFunctionType();
             switch (bucketFunctionType) {
                 case HIVE_COMPATIBLE:
-                    List<HiveType> bucketColumnHiveTypes = bucketProperty.get().getBucketedBy().stream()
+                    List<HiveType> bucketColumnHiveTypes = bucketProperty.orElseThrow().getBucketedBy().stream()
                             .map(dataColumnNameToHiveTypeMap::get)
                             .collect(toImmutableList());
                     bucketFunction = createHiveCompatibleBucketFunction(bucketCount, bucketColumnHiveTypes, isLegacyTimestampBucketing(session));
                     break;
                 case PRESTO_NATIVE:
-                    bucketFunction = createPrestoNativeBucketFunction(bucketCount, bucketProperty.get().getTypes().get(), isLegacyTimestampBucketing(session));
+                    bucketFunction = createPrestoNativeBucketFunction(bucketCount, bucketProperty.orElseThrow().getTypes().orElseThrow(), isLegacyTimestampBucketing(session));
                     break;
                 default:
                     throw new IllegalArgumentException("Unsupported bucket function type " + bucketFunctionType);
@@ -335,7 +335,7 @@ public class HivePageSink
             }
         }
         if (rollbackException.isPresent()) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
+            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.orElseThrow());
         }
     }
 

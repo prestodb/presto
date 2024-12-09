@@ -49,7 +49,6 @@ import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.tr
 import static com.facebook.presto.sql.planner.optimizations.PartitioningUtils.translateToCoalesce;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.transform;
 import static java.util.Objects.requireNonNull;
 
 public class ActualProperties
@@ -80,7 +79,7 @@ public class ActualProperties
                 .build();
 
         List<LocalProperty<VariableReferenceExpression>> updatedLocalProperties = LocalProperties.normalizeAndPrune(ImmutableList.<LocalProperty<VariableReferenceExpression>>builder()
-                .addAll(transform(updatedLocalConstants, ConstantProperty::new))
+                .addAll(updatedLocalConstants.stream().map(ConstantProperty::new).iterator())
                 .addAll(localProperties)
                 .build());
 
@@ -192,7 +191,7 @@ public class ActualProperties
         for (Map.Entry<VariableReferenceExpression, ConstantExpression> entry : constants.entrySet()) {
             Optional<VariableReferenceExpression> translatedKey = translator.apply(entry.getKey());
             if (translatedKey.isPresent()) {
-                translatedConstants.put(translatedKey.get(), entry.getValue());
+                translatedConstants.put(translatedKey.orElseThrow(), entry.getValue());
             }
         }
         return builder()
@@ -390,8 +389,8 @@ public class ActualProperties
         {
             checkArgument(!nodePartitioning.isPresent()
                             || !streamPartitioning.isPresent()
-                            || nodePartitioning.get().getVariableReferences().containsAll(streamPartitioning.get().getVariableReferences())
-                            || streamPartitioning.get().getVariableReferences().containsAll(nodePartitioning.get().getVariableReferences()),
+                            || nodePartitioning.orElseThrow().getVariableReferences().containsAll(streamPartitioning.orElseThrow().getVariableReferences())
+                            || streamPartitioning.orElseThrow().getVariableReferences().containsAll(nodePartitioning.orElseThrow().getVariableReferences()),
                     "Global stream partitioning columns should match node partitioning columns");
             this.nodePartitioning = requireNonNull(nodePartitioning, "nodePartitioning is null");
             this.streamPartitioning = requireNonNull(streamPartitioning, "streamPartitioning is null");
@@ -470,7 +469,7 @@ public class ActualProperties
                 return false;
             }
 
-            return nodePartitioning.get().getHandle().isSingleNode();
+            return nodePartitioning.orElseThrow().getHandle().isSingleNode();
         }
 
         private boolean isCoordinatorOnly()
@@ -479,22 +478,22 @@ public class ActualProperties
                 return false;
             }
 
-            return nodePartitioning.get().getHandle().isCoordinatorOnly();
+            return nodePartitioning.orElseThrow().getHandle().isCoordinatorOnly();
         }
 
         private boolean isNodePartitionedOn(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> constants, boolean nullsAndAnyReplicated)
         {
-            return nodePartitioning.isPresent() && isPartitionedOn(nodePartitioning.get(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && isPartitionedOn(nodePartitioning.orElseThrow(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isNodePartitionedOnExactly(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> constants, boolean nullsAndAnyReplicated)
         {
-            return nodePartitioning.isPresent() && isPartitionedOnExactly(nodePartitioning.get(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && isPartitionedOnExactly(nodePartitioning.orElseThrow(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isCompatibleTablePartitioningWith(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
         {
-            return nodePartitioning.isPresent() && areCompatiblePartitionings(nodePartitioning.get(), partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && areCompatiblePartitionings(nodePartitioning.orElseThrow(), partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isCompatibleTablePartitioningWith(
@@ -508,8 +507,8 @@ public class ActualProperties
             return nodePartitioning.isPresent() &&
                     other.nodePartitioning.isPresent() &&
                     areCompatiblePartitionings(
-                            nodePartitioning.get(),
-                            other.nodePartitioning.get(),
+                            nodePartitioning.orElseThrow(),
+                            other.nodePartitioning.orElseThrow(),
                             symbolMappings,
                             leftConstantMapping,
                             rightConstantMapping,
@@ -520,7 +519,7 @@ public class ActualProperties
 
         private boolean isRefinedPartitioningOver(Partitioning partitioning, boolean nullsAndAnyReplicated, Metadata metadata, Session session)
         {
-            return nodePartitioning.isPresent() && PartitioningUtils.isRefinedPartitioningOver(nodePartitioning.get(), partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return nodePartitioning.isPresent() && PartitioningUtils.isRefinedPartitioningOver(nodePartitioning.orElseThrow(), partitioning, metadata, session) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isRefinedPartitioningOver(
@@ -534,8 +533,8 @@ public class ActualProperties
             return nodePartitioning.isPresent() &&
                     other.nodePartitioning.isPresent() &&
                     PartitioningUtils.isRefinedPartitioningOver(
-                            nodePartitioning.get(),
-                            other.nodePartitioning.get(),
+                            nodePartitioning.orElseThrow(),
+                            other.nodePartitioning.orElseThrow(),
                             symbolMappings,
                             leftConstantMapping,
                             rightConstantMapping,
@@ -551,12 +550,12 @@ public class ActualProperties
 
         private boolean isStreamPartitionedOn(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> constants, boolean nullsAndAnyReplicated)
         {
-            return streamPartitioning.isPresent() && isPartitionedOn(streamPartitioning.get(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return streamPartitioning.isPresent() && isPartitionedOn(streamPartitioning.orElseThrow(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         private boolean isStreamPartitionedOnExactly(Collection<VariableReferenceExpression> columns, Set<VariableReferenceExpression> constants, boolean nullsAndAnyReplicated)
         {
-            return streamPartitioning.isPresent() && isPartitionedOnExactly(streamPartitioning.get(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
+            return streamPartitioning.isPresent() && isPartitionedOnExactly(streamPartitioning.orElseThrow(), columns, constants) && this.nullsAndAnyReplicated == nullsAndAnyReplicated;
         }
 
         /**
@@ -564,7 +563,7 @@ public class ActualProperties
          */
         private boolean isEffectivelySingleStream(Set<VariableReferenceExpression> constants)
         {
-            return streamPartitioning.isPresent() && isEffectivelySinglePartition(streamPartitioning.get(), constants) && !nullsAndAnyReplicated;
+            return streamPartitioning.isPresent() && isEffectivelySinglePartition(streamPartitioning.orElseThrow(), constants) && !nullsAndAnyReplicated;
         }
 
         /**
@@ -572,7 +571,7 @@ public class ActualProperties
          */
         private boolean isStreamRepartitionEffective(Collection<VariableReferenceExpression> keys, Set<VariableReferenceExpression> constants)
         {
-            return (!streamPartitioning.isPresent() || isRepartitionEffective(streamPartitioning.get(), keys, constants)) && !nullsAndAnyReplicated;
+            return (!streamPartitioning.isPresent() || isRepartitionEffective(streamPartitioning.orElseThrow(), keys, constants)) && !nullsAndAnyReplicated;
         }
 
         private Global translateVariableToRowExpression(

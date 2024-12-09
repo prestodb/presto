@@ -101,7 +101,7 @@ public class ManifestPartitionLoader
             throws IOException
     {
         Path path = new Path(getPartitionLocation(table, partition.getPartition()));
-        Map<String, String> parameters = partition.getPartition().get().getParameters();
+        Map<String, String> parameters = partition.getPartition().orElseThrow().getParameters();
 
         // TODO: Add support for more manifest versions
         // Verify the manifest version

@@ -257,7 +257,7 @@ public class TestHiveHistoryBasedStatsTracking
                     "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", defaultSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
-                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinDistributionType.PARTITIONED))
+                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().orElseThrow().equals(JoinDistributionType.PARTITIONED))
                     .findFirst()
                     .isPresent());
 
@@ -272,7 +272,7 @@ public class TestHiveHistoryBasedStatsTracking
                     "(SELECT * FROM test_orders where ds = '2020-09-02' and substr(CAST(custkey AS VARCHAR), 1, 3) = '370') t2 ON t1.orderkey = t2.orderkey", defaultSession());
 
             assertTrue(PlanNodeSearcher.searchFrom(plan.getRoot())
-                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().get().equals(JoinDistributionType.REPLICATED))
+                    .where(node -> node instanceof JoinNode && ((JoinNode) node).getDistributionType().orElseThrow().equals(JoinDistributionType.REPLICATED))
                     .findFirst()
                     .isPresent());
         }

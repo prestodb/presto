@@ -169,7 +169,7 @@ public class PageReader
         if (!blockDecryptor.isPresent()) {
             return slice;
         }
-        byte[] plainText = blockDecryptor.get().decrypt(slice.getBytes(), additionalAuthenticationData);
+        byte[] plainText = blockDecryptor.orElseThrow().decrypt(slice.getBytes(), additionalAuthenticationData);
         return wrappedBuffer(plainText);
     }
 }

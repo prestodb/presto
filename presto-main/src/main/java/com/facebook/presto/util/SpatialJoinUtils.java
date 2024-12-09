@@ -108,8 +108,8 @@ public class SpatialJoinUtils
     private static boolean isSupportedSpatialComparison(CallExpression expression, FunctionAndTypeManager functionAndTypeManager)
     {
         FunctionMetadata metadata = functionAndTypeManager.getFunctionMetadata(expression.getFunctionHandle());
-        checkArgument(metadata.getOperatorType().isPresent() && metadata.getOperatorType().get().isComparisonOperator());
-        switch (metadata.getOperatorType().get()) {
+        checkArgument(metadata.getOperatorType().isPresent() && metadata.getOperatorType().orElseThrow().isComparisonOperator());
+        switch (metadata.getOperatorType().orElseThrow()) {
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
                 return isSTDistance(expression.getArguments().get(0), functionAndTypeManager);
@@ -130,7 +130,7 @@ public class SpatialJoinUtils
     {
         FunctionMetadata callExpressionMetadata = functionAndTypeManager.getFunctionMetadata(callExpression.getFunctionHandle());
         checkArgument(callExpressionMetadata.getOperatorType().isPresent());
-        OperatorType operatorType = flip(callExpressionMetadata.getOperatorType().get());
+        OperatorType operatorType = flip(callExpressionMetadata.getOperatorType().orElseThrow());
         List<TypeSignatureProvider> typeProviderList = fromTypes(callExpression.getArguments().stream().map(RowExpression::getType).collect(toImmutableList()));
         checkArgument(typeProviderList.size() == 2, "Expected there to be only two arguments in type provider");
         return functionAndTypeManager.resolveOperator(

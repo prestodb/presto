@@ -43,7 +43,7 @@ public class SimpleColumnChecksum
     {
         checkArgument(asDoubleChecksum.isPresent(), "Expect as-double checksum to be present, but it is not");
 
-        return asDoubleChecksum.get();
+        return asDoubleChecksum.orElseThrow();
     }
 
     @Override
@@ -70,7 +70,7 @@ public class SimpleColumnChecksum
     public String toString()
     {
         if (asDoubleChecksum.isPresent()) {
-            return asDoubleChecksum.get().toString();
+            return asDoubleChecksum.orElseThrow().toString();
         }
         else {
             return format("checksum: %s", checksum);

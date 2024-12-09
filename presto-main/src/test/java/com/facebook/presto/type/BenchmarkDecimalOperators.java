@@ -71,7 +71,7 @@ import static com.facebook.presto.operator.scalar.FunctionAssertions.createExpre
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
 import static java.util.Collections.emptyMap;
@@ -584,14 +584,14 @@ public class BenchmarkDecimalOperators
                 buildPagesBuilder.row(values);
             }
 
-            inputPage = getOnlyElement(buildPagesBuilder.build());
+            inputPage = buildPagesBuilder.build().stream().collect(onlyElement());
         }
 
         protected void generateInputPage(int... initialValues)
         {
             RowPagesBuilder buildPagesBuilder = rowPagesBuilder(types);
             buildPagesBuilder.addSequencePage(PAGE_SIZE, initialValues);
-            inputPage = getOnlyElement(buildPagesBuilder.build());
+            inputPage = buildPagesBuilder.build().stream().collect(onlyElement());
         }
 
         protected void generateProcessor(String expression)

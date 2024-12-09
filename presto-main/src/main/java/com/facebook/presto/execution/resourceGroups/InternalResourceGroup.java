@@ -175,8 +175,8 @@ public class InternalResourceGroup
         this.nodeManager = requireNonNull(nodeManager, "node manager is null");
         requireNonNull(name, "name is null");
         if (parent.isPresent()) {
-            id = new ResourceGroupId(parent.get().id, name);
-            root = parent.get().root;
+            id = new ResourceGroupId(parent.orElseThrow().id, name);
+            root = parent.orElseThrow().root;
         }
         else {
             id = new ResourceGroupId(name);
@@ -331,7 +331,7 @@ public class InternalResourceGroup
             int aggregatedRunningQueries = runningQueries.size() + descendantRunningQueries;
             Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = getAdditionalRuntimeInfo();
             if (resourceGroupRuntimeInfo.isPresent()) {
-                aggregatedRunningQueries += resourceGroupRuntimeInfo.get().getRunningQueries() + resourceGroupRuntimeInfo.get().getDescendantRunningQueries();
+                aggregatedRunningQueries += resourceGroupRuntimeInfo.orElseThrow().getRunningQueries() + resourceGroupRuntimeInfo.orElseThrow().getDescendantRunningQueries();
             }
             return aggregatedRunningQueries;
         }
@@ -554,8 +554,8 @@ public class InternalResourceGroup
         checkArgument(weight > 0, "weight must be positive");
         synchronized (root) {
             this.schedulingWeight = weight;
-            if (parent.isPresent() && parent.get().schedulingPolicy == WEIGHTED && parent.get().eligibleSubGroups.contains(this)) {
-                parent.get().addOrUpdateSubGroup(this);
+            if (parent.isPresent() && parent.orElseThrow().schedulingPolicy == WEIGHTED && parent.orElseThrow().eligibleSubGroups.contains(this)) {
+                parent.orElseThrow().addOrUpdateSubGroup(this);
             }
         }
     }
@@ -576,7 +576,7 @@ public class InternalResourceGroup
                 return;
             }
 
-            if (parent.isPresent() && parent.get().schedulingPolicy == QUERY_PRIORITY) {
+            if (parent.isPresent() && parent.orElseThrow().schedulingPolicy == QUERY_PRIORITY) {
                 checkArgument(policy == QUERY_PRIORITY, "Parent of %s uses query priority scheduling, so %s must also", id, id);
             }
 
@@ -724,7 +724,7 @@ public class InternalResourceGroup
                 if (!group.parent.isPresent()) {
                     break;
                 }
-                group = group.parent.get();
+                group = group.parent.orElseThrow();
             }
             if (!canQueue && !canRun) {
                 isQueryQueueFull = true;
@@ -763,8 +763,8 @@ public class InternalResourceGroup
             }
             InternalResourceGroup group = this;
             while (group.parent.isPresent()) {
-                group.parent.get().descendantQueuedQueries++;
-                group = group.parent.get();
+                group.parent.orElseThrow().descendantQueuedQueries++;
+                group = group.parent.orElseThrow();
             }
             updateEligibility();
         }
@@ -779,15 +779,15 @@ public class InternalResourceGroup
                 return;
             }
             if (isEligibleToStartNext()) {
-                parent.get().addOrUpdateSubGroup(this);
+                parent.orElseThrow().addOrUpdateSubGroup(this);
             }
             else {
                 if (queuedQueries.isEmpty() && eligibleSubGroups.isEmpty()) {
-                    parent.get().eligibleSubGroups.remove(this);
+                    parent.orElseThrow().eligibleSubGroups.remove(this);
                     lastStartMillis = 0;
                 }
             }
-            parent.get().updateEligibility();
+            parent.orElseThrow().updateEligibility();
         }
     }
 
@@ -798,9 +798,9 @@ public class InternalResourceGroup
             runningQueries.add(query);
             InternalResourceGroup group = this;
             while (group.parent.isPresent()) {
-                group.parent.get().descendantRunningQueries++;
-                group.parent.get().dirtySubGroups.add(group);
-                group = group.parent.get();
+                group.parent.orElseThrow().descendantRunningQueries++;
+                group.parent.orElseThrow().dirtySubGroups.add(group);
+                group = group.parent.orElseThrow();
             }
             updateEligibility();
             executor.execute(query::startWaitingForResources);
@@ -808,8 +808,8 @@ public class InternalResourceGroup
             long lastRunningQueryStartTimeMillis = currentTimeMillis();
             lastRunningQueryStartTime.set(lastRunningQueryStartTimeMillis);
             while (group.parent.isPresent()) {
-                group.parent.get().lastRunningQueryStartTime.set(lastRunningQueryStartTimeMillis);
-                group = group.parent.get();
+                group.parent.orElseThrow().lastRunningQueryStartTime.set(lastRunningQueryStartTimeMillis);
+                group = group.parent.orElseThrow();
             }
         }
     }
@@ -822,7 +822,7 @@ public class InternalResourceGroup
                 return;
             }
             // Only count the CPU time if the query succeeded, or the failure was the fault of the user
-            if (!query.getErrorCode().isPresent() || query.getErrorCode().get().getType() == USER_ERROR) {
+            if (!query.getErrorCode().isPresent() || query.getErrorCode().orElseThrow().getType() == USER_ERROR) {
                 InternalResourceGroup group = this;
                 while (group != null) {
                     group.cpuUsageMillis = saturatedAdd(group.cpuUsageMillis, query.getTotalCpuTime().toMillis());
@@ -833,16 +833,16 @@ public class InternalResourceGroup
                 runningQueries.remove(query);
                 InternalResourceGroup group = this;
                 while (group.parent.isPresent()) {
-                    group.parent.get().descendantRunningQueries--;
-                    group = group.parent.get();
+                    group.parent.orElseThrow().descendantRunningQueries--;
+                    group = group.parent.orElseThrow();
                 }
             }
             else {
                 queuedQueries.remove(query);
                 InternalResourceGroup group = this;
                 while (group.parent.isPresent()) {
-                    group.parent.get().descendantQueuedQueries--;
-                    group = group.parent.get();
+                    group.parent.orElseThrow().descendantQueuedQueries--;
+                    group = group.parent.orElseThrow();
                 }
             }
             updateEligibility();
@@ -1010,7 +1010,7 @@ public class InternalResourceGroup
         synchronized (root) {
             Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = getAdditionalRuntimeInfo();
             if (resourceGroupRuntimeInfo.isPresent()) {
-                return descendantQueuedQueries + queuedQueries.size() + resourceGroupRuntimeInfo.get().getQueuedQueries() + resourceGroupRuntimeInfo.get().getDescendantQueuedQueries() < maxQueuedQueries;
+                return descendantQueuedQueries + queuedQueries.size() + resourceGroupRuntimeInfo.orElseThrow().getQueuedQueries() + resourceGroupRuntimeInfo.orElseThrow().getDescendantQueuedQueries() < maxQueuedQueries;
             }
             return descendantQueuedQueries + queuedQueries.size() < maxQueuedQueries;
         }
@@ -1038,7 +1038,7 @@ public class InternalResourceGroup
 
             Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = getAdditionalRuntimeInfo();
             if (resourceGroupRuntimeInfo.isPresent()) {
-                totalRunningQueries += resourceGroupRuntimeInfo.get().getRunningQueries() + resourceGroupRuntimeInfo.get().getDescendantRunningQueries();
+                totalRunningQueries += resourceGroupRuntimeInfo.orElseThrow().getRunningQueries() + resourceGroupRuntimeInfo.orElseThrow().getDescendantRunningQueries();
             }
             int activeWorkerCount = nodeManager.getAllNodes().getActiveWorkerCount();
 

@@ -185,7 +185,7 @@ public class IcebergEqualityDeleteAsJoin
                     .orElse(TupleDomain.all());
 
             // Collect info about each unique delete schema to join by
-            ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, predicate, tableName.getSnapshotId().get());
+            ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, predicate, tableName.getSnapshotId().orElseThrow());
 
             if (deleteSchemas.isEmpty()) {
                 // no equality deletes

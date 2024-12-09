@@ -91,7 +91,7 @@ public class LocalDynamicFilter
         // Convert the predicate to use probe variables (instead dynamic filter IDs).
         // Note that in case of a probe-side union, a single dynamic filter may match multiple probe variables.
         ImmutableMap.Builder<VariableReferenceExpression, Domain> builder = ImmutableMap.builder();
-        for (Map.Entry<String, Domain> entry : result.getDomains().get().entrySet()) {
+        for (Map.Entry<String, Domain> entry : result.getDomains().orElseThrow().entrySet()) {
             Domain domain = entry.getValue();
             // Store all matching variables for each build channel index.
             for (DynamicFilterPlaceholder placeholder : probeVariables.get(entry.getKey())) {

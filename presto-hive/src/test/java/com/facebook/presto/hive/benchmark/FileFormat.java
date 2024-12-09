@@ -448,7 +448,7 @@ public enum FileFormat
                         DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId()),
                         FUNCTION_AND_TYPE_MANAGER,
                         false)
-                .get();
+                .orElseThrow();
         return new RecordPageSource(columnTypes, recordCursor);
     }
 
@@ -509,7 +509,7 @@ public enum FileFormat
                                 false),
                         Optional.empty(),
                         Optional.empty())
-                .get();
+                .orElseThrow();
     }
 
     private static class RecordFormatWriter
@@ -697,7 +697,7 @@ public enum FileFormat
                     columnNames,
                     types,
                     ParquetWriterOptions.builder().build(),
-                    compressionCodec.getParquetCompressionCodec().get().getHadoopCompressionCodecClassName());
+                    compressionCodec.getParquetCompressionCodec().orElseThrow().getHadoopCompressionCodecClassName());
         }
 
         @Override

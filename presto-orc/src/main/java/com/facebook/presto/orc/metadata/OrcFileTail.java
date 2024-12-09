@@ -95,7 +95,7 @@ public class OrcFileTail
     {
         int dwrfStripeCacheSize = 0;
         if (dwrfStripeCacheData.isPresent()) {
-            dwrfStripeCacheSize = dwrfStripeCacheData.get().getDwrfStripeCacheSize();
+            dwrfStripeCacheSize = dwrfStripeCacheData.orElseThrow().getDwrfStripeCacheSize();
         }
         return dwrfStripeCacheSize;
     }

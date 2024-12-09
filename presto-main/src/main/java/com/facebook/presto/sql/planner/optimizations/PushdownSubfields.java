@@ -308,7 +308,7 @@ public class PushdownSubfields
 
                 Optional<Subfield> subfield = toSubfield(expression, functionResolution, expressionOptimizer, session.toConnectorSession(), metadata.getFunctionAndTypeManager());
                 if (subfield.isPresent()) {
-                    context.get().addAssignment(variable, subfield.get());
+                    context.get().addAssignment(variable, subfield.orElseThrow());
                     continue;
                 }
 
@@ -525,14 +525,14 @@ public class PushdownSubfields
                     .map(WindowNode.Function::getFrame)
                     .map(WindowNode.Frame::getStartValue)
                     .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .map(Optional::orElseThrow)
                     .forEach(context.get().variables::add);
 
             node.getWindowFunctions().values().stream()
                     .map(WindowNode.Function::getFrame)
                     .map(WindowNode.Frame::getEndValue)
                     .filter(Optional::isPresent)
-                    .map(Optional::get)
+                    .map(Optional::orElseThrow)
                     .forEach(context.get().variables::add);
 
             return context.defaultRewrite(node, context.get());
@@ -598,7 +598,7 @@ public class PushdownSubfields
                         if (index instanceof Number) {
                             Optional<String> fieldName = baseType.getFields().get(((Number) index).intValue()).getName();
                             if (fieldName.isPresent()) {
-                                elements.add(nestedField(fieldName.get()));
+                                elements.add(nestedField(fieldName.orElseThrow()));
                                 expression = base;
                                 continue;
                             }
@@ -680,10 +680,10 @@ public class PushdownSubfields
                     Optional<Subfield> subfield = toSubfield(call, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager);
                     if (subfield.isPresent()) {
                         if (context.isPruningLambdaSubfieldsPossible()) {
-                            addRequiredLambdaSubfields(context, subfield.get());
+                            addRequiredLambdaSubfields(context, subfield.orElseThrow());
                         }
                         else {
-                            context.subfields.add(subfield.get());
+                            context.subfields.add(subfield.orElseThrow());
                         }
                     }
                     else {
@@ -706,7 +706,7 @@ public class PushdownSubfields
                 // input of the current function.
                 if (functionDescriptor.getOutputToInputTransformationFunction().isPresent()) {
                     Set<Subfield> transformedLambdaSubfields =
-                            functionDescriptor.getOutputToInputTransformationFunction().get().apply(context.getLambdaSubfields());
+                            functionDescriptor.getOutputToInputTransformationFunction().orElseThrow().apply(context.getLambdaSubfields());
                     context.setLambdaSubfields(ImmutableSet.copyOf(transformedLambdaSubfields));
                 }
 
@@ -730,7 +730,7 @@ public class PushdownSubfields
                         call.getArguments().forEach(argument -> argument.accept(this, context));
                         return null;
                     }
-                    lambdaSubfieldsFromCurrentFunction = merge(lambdaSubfieldsFromCurrentFunction, lambdaSubfields.get());
+                    lambdaSubfieldsFromCurrentFunction = merge(lambdaSubfieldsFromCurrentFunction, lambdaSubfields.orElseThrow());
                 }
 
                 Map<Integer, Set<Subfield>> lambdaSubfields = merge(lambdaSubfieldsFromOuterFunctions, lambdaSubfieldsFromCurrentFunction);
@@ -840,10 +840,10 @@ public class PushdownSubfields
 
                 if (subfield.isPresent()) {
                     if (context.isPruningLambdaSubfieldsPossible()) {
-                        addRequiredLambdaSubfields(context, subfield.get());
+                        addRequiredLambdaSubfields(context, subfield.orElseThrow());
                     }
                     else {
-                        context.subfields.add(subfield.get());
+                        context.subfields.add(subfield.orElseThrow());
                     }
                 }
                 else {
@@ -876,7 +876,7 @@ public class PushdownSubfields
             public Void visitVariableReference(VariableReferenceExpression reference, Context context)
             {
                 if (context.isPruningLambdaSubfieldsPossible()) {
-                    addRequiredLambdaSubfields(context, toSubfield(reference, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager).get());
+                    addRequiredLambdaSubfields(context, toSubfield(reference, functionResolution, expressionOptimizer, connectorSession, functionAndTypeManager).orElseThrow());
                     return null;
                 }
                 context.variables.add(reference);

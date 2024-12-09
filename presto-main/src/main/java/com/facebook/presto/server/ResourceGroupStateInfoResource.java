@@ -33,7 +33,6 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.container.AsyncResponse;
 import javax.ws.rs.container.Suspended;
 import javax.ws.rs.core.Context;
@@ -41,7 +40,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Arrays;
@@ -60,9 +58,9 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
 
@@ -207,12 +205,7 @@ public class ResourceGroupStateInfoResource
 
     private static String urlDecode(String value)
     {
-        try {
-            return URLDecoder.decode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new WebApplicationException(BAD_REQUEST);
-        }
+        return URLDecoder.decode(value, UTF_8);
     }
 
     //TODO move this to a common place and reuse in all resource
@@ -232,7 +225,7 @@ public class ResourceGroupStateInfoResource
                     .host(resourceManagerNode.getHostAndPort().toInetAddress().getHostName())
                     .port(resourceManagerNode.getInternalUri().getPort())
                     .build();
-            proxyHelper.get().performRequest(servletRequest, asyncResponse, uri);
+            proxyHelper.orElseThrow().performRequest(servletRequest, asyncResponse, uri);
         }
         catch (Exception e) {
             asyncResponse.resume(e);

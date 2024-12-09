@@ -705,7 +705,7 @@ public final class SqlToRowExpressionTranslator
             int index = -1;
             for (int i = 0; i < fields.size(); i++) {
                 Field field = fields.get(i);
-                if (field.getName().isPresent() && field.getName().get().equalsIgnoreCase(fieldName)) {
+                if (field.getName().isPresent() && field.getName().orElseThrow().equalsIgnoreCase(fieldName)) {
                     checkArgument(index < 0, "Ambiguous field %s in type %s", field, rowType.getDisplayName());
                     index = i;
                 }
@@ -731,7 +731,7 @@ public final class SqlToRowExpressionTranslator
                     .add(process(node.getTrueValue(), context));
 
             if (node.getFalseValue().isPresent()) {
-                arguments.add(process(node.getFalseValue().get(), context));
+                arguments.add(process(node.getFalseValue().orElseThrow(), context));
             }
             else {
                 arguments.add(constantNull(getSourceLocation(node), getType(node)));
@@ -857,20 +857,20 @@ public final class SqlToRowExpressionTranslator
                     }
 
                     // cast(first as <common type>)
-                    if (!first.getType().equals(commonType.get())) {
+                    if (!first.getType().equals(commonType.orElseThrow())) {
                         first = call(
                                 getSourceLocation(node),
                                 CAST.name(),
-                                functionAndTypeResolver.lookupCast(CAST.name(), first.getType(), commonType.get()),
-                                commonType.get(), first);
+                                functionAndTypeResolver.lookupCast(CAST.name(), first.getType(), commonType.orElseThrow()),
+                                commonType.orElseThrow(), first);
                     }
                     // cast(second as <common type>)
-                    if (!second.getType().equals(commonType.get())) {
+                    if (!second.getType().equals(commonType.orElseThrow())) {
                         second = call(
                                 getSourceLocation(node),
                                 CAST.name(),
-                                functionAndTypeResolver.lookupCast(CAST.name(), second.getType(), commonType.get()),
-                                commonType.get(), second);
+                                functionAndTypeResolver.lookupCast(CAST.name(), second.getType(), commonType.orElseThrow()),
+                                commonType.orElseThrow(), second);
                     }
                 }
                 FunctionHandle equalsFunctionHandle = functionAndTypeResolver.resolveOperator(EQUAL, fromTypes(first.getType(), second.getType()));
@@ -907,7 +907,7 @@ public final class SqlToRowExpressionTranslator
             RowExpression pattern = process(node.getPattern(), context);
 
             if (node.getEscape().isPresent()) {
-                RowExpression escape = process(node.getEscape().get(), context);
+                RowExpression escape = process(node.getEscape().orElseThrow(), context);
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 

@@ -246,22 +246,22 @@ public class TestIterativePlanFragmenter
         // nothing new is ready for execution, you are returned the same plan you sent in
         // and no fragments.
         PlanAndFragments previousPlanAndFragments = nextPlanAndFragments;
-        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get());
+        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().orElseThrow());
         assertTrue(nextPlanAndFragments.getReadyFragments().isEmpty());
         assertTrue(nextPlanAndFragments.getRemainingPlan().isPresent());
-        assertEquals(previousPlanAndFragments.getRemainingPlan().get(), nextPlanAndFragments.getRemainingPlan().get());
+        assertEquals(previousPlanAndFragments.getRemainingPlan().orElseThrow(), nextPlanAndFragments.getRemainingPlan().orElseThrow());
 
         // finish one fragment
         // still nothing is ready for execution as the join stage has two dependencies
         previousPlanAndFragments = nextPlanAndFragments;
         testingFragmentTracker.addFinishedFragment(new PlanFragmentId(1));
 
-        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get());
+        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().orElseThrow());
         assertEquals(previousPlanAndFragments, nextPlanAndFragments);
 
         testingFragmentTracker.addFinishedFragment(new PlanFragmentId(2));
         previousPlanAndFragments = nextPlanAndFragments;
-        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get());
+        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().orElseThrow());
 
         // when the root fragment is ready to execute, there should be no remaining plan left
         assertFalse(nextPlanAndFragments.getRemainingPlan().isPresent());

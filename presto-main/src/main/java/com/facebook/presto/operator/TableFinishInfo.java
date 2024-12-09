@@ -47,13 +47,13 @@ public class TableFinishInfo
         String serializedConnectorOutputMetadata = null;
         boolean jsonLengthLimitExceeded = false;
         if (metadata.isPresent()) {
-            Optional<String> serializedMetadata = INFO_CODEC.toJsonWithLengthLimit(metadata.get().getInfo(), JSON_LENGTH_LIMIT);
+            Optional<String> serializedMetadata = INFO_CODEC.toJsonWithLengthLimit(metadata.orElseThrow().getInfo(), JSON_LENGTH_LIMIT);
             if (!serializedMetadata.isPresent()) {
                 serializedConnectorOutputMetadata = null;
                 jsonLengthLimitExceeded = true;
             }
             else {
-                serializedConnectorOutputMetadata = serializedMetadata.get();
+                serializedConnectorOutputMetadata = serializedMetadata.orElseThrow();
                 jsonLengthLimitExceeded = false;
             }
         }

@@ -82,7 +82,7 @@ public class TestFileResourceGroupConfigurationManager
     {
         Optional<ResourceGroupId> group = tryMatch(selectors, context);
         assertTrue(group.isPresent(), "match expected");
-        assertEquals(group.get().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, group.get()));
+        assertEquals(group.orElseThrow().toString(), expectedResourceGroup, format("Expected: '%s' resource group, found: %s", expectedResourceGroup, group.orElseThrow()));
     }
 
     private static Optional<ResourceGroupId> tryMatch(List<ResourceGroupSelector> selectors, SelectionCriteria context)

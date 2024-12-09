@@ -84,7 +84,7 @@ public class TestJsonWebTokenAuthenticator
         Principal principal = new JsonWebTokenAuthenticator(jsonWebTokenConfig).authenticate(request);
 
         assertEquals(principal.getName(), TEST_PRINCIPAL);
-        assertEquals(authorizedIdentity(request).get(), authorizedIdentity);
+        assertEquals(authorizedIdentity(request).orElseThrow(), authorizedIdentity);
     }
 
     private static String createJsonWebToken(Path keyFile, String principal, AuthorizedIdentity authorizedIdentity)

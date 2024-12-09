@@ -121,7 +121,7 @@ public class HivePartitioningHandle
                 "buckets=%s, bucketFunctionType=%s, types=%s",
                 bucketCount,
                 bucketFunctionType,
-                bucketFunctionType.equals(HIVE_COMPATIBLE) ? hiveTypes.get() : types.get());
+                bucketFunctionType.equals(HIVE_COMPATIBLE) ? hiveTypes.orElseThrow() : types.orElseThrow());
     }
 
     @Override

@@ -36,7 +36,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_LONG;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
 import static com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -260,7 +260,7 @@ public class HiveColumnHandle
     public static Subfield getPushedDownSubfield(HiveColumnHandle column)
     {
         checkArgument(isPushedDownSubfield(column), format("not a valid pushed down subfield: type=%s, subfields=%s", column.getColumnType(), column.getRequiredSubfields()));
-        return getOnlyElement(column.getRequiredSubfields());
+        return column.getRequiredSubfields().stream().collect(onlyElement());
     }
 
     public static boolean isPushedDownSubfield(HiveColumnHandle column)

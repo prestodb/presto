@@ -117,7 +117,7 @@ public final class BytecodeUtils
             loadDefaultOrAppendNullComment = format("loadJavaDefault(%s)", methodReturnType.getName());
         }
         else {
-            isNull.append(outputBlockVariable.get()
+            isNull.append(outputBlockVariable.orElseThrow()
                     .invoke("appendNull", BlockBuilder.class)
                     .pop());
             loadDefaultOrAppendNullComment = "appendNullToOutputBlock";
@@ -258,15 +258,15 @@ public final class BytecodeUtils
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
             stackTypes.add(type);
             if (bestChoice.getInstanceFactory().isPresent() && !boundInstance) {
-                checkState(type.equals(bestChoice.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
-                block.append(instance.get());
+                checkState(type.equals(bestChoice.getInstanceFactory().orElseThrow().type().returnType()), "Mismatched type for instance parameter");
+                block.append(instance.orElseThrow());
                 boundInstance = true;
             }
             else if (type == SqlFunctionProperties.class) {
                 block.append(scope.getVariable("properties"));
             }
             else if (type == BlockBuilder.class) {
-                block.append(outputBlockVariableAndType.get().getOutputBlockVariable());
+                block.append(outputBlockVariableAndType.orElseThrow().getOutputBlockVariable());
             }
             else {
                 ArgumentProperty argumentProperty = bestChoice.getArgumentProperty(realParameterIndex);
@@ -283,7 +283,7 @@ public final class BytecodeUtils
                                         break;
                                     case PROVIDED_BLOCKBUILDER:
                                         checkArgument(unboxedReturnType == void.class);
-                                        block.append(ifWasNullClearPopAppendAndGoto(scope, end, unboxedReturnType, outputBlockVariableAndType.get().getOutputBlockVariable(), Lists.reverse(stackTypes)));
+                                        block.append(ifWasNullClearPopAppendAndGoto(scope, end, unboxedReturnType, outputBlockVariableAndType.orElseThrow().getOutputBlockVariable(), Lists.reverse(stackTypes)));
                                         break;
                                     default:
                                         throw new UnsupportedOperationException(format("Unsupported return place convention: %s", bestChoice.getReturnPlaceConvention()));
@@ -340,7 +340,7 @@ public final class BytecodeUtils
         if (outputBlockVariableAndType.isPresent()) {
             switch (bestChoice.getReturnPlaceConvention()) {
                 case STACK:
-                    block.append(generateWrite(binder, scope, scope.getVariable("wasNull"), outputBlockVariableAndType.get().getType(), outputBlockVariableAndType.get().getOutputBlockVariable()));
+                    block.append(generateWrite(binder, scope, scope.getVariable("wasNull"), outputBlockVariableAndType.orElseThrow().getType(), outputBlockVariableAndType.orElseThrow().getOutputBlockVariable()));
                     break;
                 case PROVIDED_BLOCKBUILDER:
                     // no-op

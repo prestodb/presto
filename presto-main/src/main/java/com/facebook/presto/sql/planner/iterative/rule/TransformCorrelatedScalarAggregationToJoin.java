@@ -92,13 +92,13 @@ public class TransformCorrelatedScalarAggregationToJoin
         }
 
         Optional<AggregationNode> aggregation = findAggregation(subquery, context.getLookup());
-        if (!(aggregation.isPresent() && aggregation.get().getGroupingKeys().isEmpty())) {
+        if (!(aggregation.isPresent() && aggregation.orElseThrow().getGroupingKeys().isEmpty())) {
             return Result.empty();
         }
 
         ScalarAggregationToJoinRewriter rewriter = new ScalarAggregationToJoinRewriter(functionAndTypeManager, context.getVariableAllocator(), context.getIdAllocator(), context.getLookup());
 
-        PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.get());
+        PlanNode rewrittenNode = rewriter.rewriteScalarAggregation(lateralJoinNode, aggregation.orElseThrow());
 
         if (rewrittenNode instanceof LateralJoinNode) {
             return Result.empty();

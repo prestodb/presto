@@ -498,7 +498,7 @@ public class PlannerUtils
 
     public static boolean isBroadcastJoin(JoinNode joinNode)
     {
-        return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().get() == REPLICATED;
+        return joinNode.getDistributionType().isPresent() && joinNode.getDistributionType().orElseThrow() == REPLICATED;
     }
 
     public static boolean containsSystemTableScan(PlanNode plan)

@@ -128,7 +128,7 @@ public class TestRedundantLimitRemoval
         RuleTester newTester = new RuleTester(emptyList(), ImmutableMap.of("exploit_constraints", Boolean.toString(false)));
 
         newTester.assertThat(ImmutableSet.of(new RemoveRedundantLimit()), logicalPropertiesProvider)
-            .on("select totalprice from orders o inner join customer c on o.custkey = c.custkey where o.orderkey=10 limit 2")
-            .validates(plan -> assertNodePresentInPlan(plan, LimitNode.class));
+                .on("select totalprice from orders o inner join customer c on o.custkey = c.custkey where o.orderkey=10 limit 2")
+                .validates(plan -> assertNodePresentInPlan(plan, LimitNode.class));
     }
 }

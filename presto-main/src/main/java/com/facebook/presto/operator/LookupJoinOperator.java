@@ -176,7 +176,7 @@ public class LookupJoinOperator
         }
         if (unspilledLookupSource.isPresent()) {
             // Unspilling can happen only after lookupSourceProviderFuture was done.
-            return unspilledLookupSource.get();
+            return unspilledLookupSource.orElseThrow();
         }
 
         if (finishing) {
@@ -265,7 +265,7 @@ public class LookupJoinOperator
                     operatorContext.aggregateSystemMemoryContext()));
         }
 
-        PartitioningSpillResult result = spiller.get().partitionAndSpill(page, spillMask);
+        PartitioningSpillResult result = spiller.orElseThrow().partitionAndSpill(page, spillMask);
         spillInProgress = result.getSpillingFuture();
         return result.getRetained();
     }
@@ -275,7 +275,7 @@ public class LookupJoinOperator
         if (!partitionGenerator.isPresent()) {
             partitionGenerator = Optional.of(new LocalPartitionGenerator(hashGenerator, lookupSourceFactory.partitions()));
         }
-        return partitionGenerator.get();
+        return partitionGenerator.orElseThrow();
     }
 
     @Override
@@ -361,11 +361,11 @@ public class LookupJoinOperator
         }
 
         if (unspilledLookupSource.isPresent()) {
-            if (!unspilledLookupSource.get().isDone()) {
+            if (!unspilledLookupSource.orElseThrow().isDone()) {
                 // Not unspilled yet
                 return;
             }
-            LookupSource lookupSource = getDone(unspilledLookupSource.get()).get();
+            LookupSource lookupSource = getDone(unspilledLookupSource.orElseThrow()).get();
             unspilledLookupSource = Optional.empty();
 
             // Close previous lookupSourceProvider (either supplied initially or for the previous partition)
@@ -374,7 +374,7 @@ public class LookupJoinOperator
             // If the partition was spilled during processing, its position count will be considered twice.
             statisticsCounter.updateLookupSourcePositions(lookupSource.getJoinPositionCount());
 
-            int partition = currentPartition.get().number();
+            int partition = currentPartition.orElseThrow().number();
             unspilledInputPages = spiller.map(spiller -> spiller.getSpilledPages(partition))
                     .orElse(emptyIterator());
 
@@ -393,7 +393,7 @@ public class LookupJoinOperator
         if (lookupPartitions.hasNext()) {
             currentPartition.ifPresent(Partition::release);
             currentPartition = Optional.of(lookupPartitions.next());
-            unspilledLookupSource = Optional.of(currentPartition.get().load());
+            unspilledLookupSource = Optional.of(currentPartition.orElseThrow().load());
 
             return;
         }
@@ -428,7 +428,7 @@ public class LookupJoinOperator
         if (!spillInfoSnapshotIfSpillChanged.isPresent()) {
             return;
         }
-        SpillInfoSnapshot spillInfoSnapshot = spillInfoSnapshotIfSpillChanged.get();
+        SpillInfoSnapshot spillInfoSnapshot = spillInfoSnapshotIfSpillChanged.orElseThrow();
         long joinPositionWithinPartition;
         if (joinPosition >= 0) {
             joinPositionWithinPartition = lookupSourceProvider.withLease(lookupSourceLease -> lookupSourceLease.getLookupSource().joinPositionWithinPartition(joinPosition));

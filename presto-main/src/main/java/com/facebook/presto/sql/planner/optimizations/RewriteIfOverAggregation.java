@@ -214,7 +214,7 @@ public class RewriteIfOverAggregation
                 checkState(ifExpression instanceof SpecialFormExpression && ((SpecialFormExpression) ifExpression).getForm().equals(IF));
                 RowExpression condition = ((SpecialFormExpression) ifExpression).getArguments().get(0);
                 Aggregation aggregation = node.getAggregations().get(aggregationOutput);
-                RowExpression maskExpression = aggregation.getMask().isPresent() ? and(aggregation.getMask().get(), condition) : condition;
+                RowExpression maskExpression = aggregation.getMask().isPresent() ? and(aggregation.getMask().orElseThrow(), condition) : condition;
                 VariableReferenceExpression maskVariable = planVariableAllocator.newVariable(maskExpression);
                 Aggregation newAggregation = new Aggregation(
                         aggregation.getCall(),

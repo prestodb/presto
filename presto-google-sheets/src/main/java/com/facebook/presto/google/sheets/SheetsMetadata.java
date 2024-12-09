@@ -39,7 +39,7 @@ import java.util.Set;
 
 import static com.facebook.presto.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsMetadata
@@ -104,7 +104,7 @@ public class SheetsMetadata
         if (!connectorTableMetadata.isPresent()) {
             throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Metadata not found for table " + ((SheetsTableHandle) table).getTableName());
         }
-        return connectorTableMetadata.get();
+        return connectorTableMetadata.orElseThrow();
     }
 
     private Optional<ConnectorTableMetadata> getTableMetadata(SchemaTableName tableName)
@@ -114,7 +114,7 @@ public class SheetsMetadata
         }
         Optional<SheetsTable> table = sheetsClient.getTable(tableName.getTableName());
         if (table.isPresent()) {
-            return Optional.of(new ConnectorTableMetadata(tableName, table.get().getColumnsMetadata()));
+            return Optional.of(new ConnectorTableMetadata(tableName, table.orElseThrow().getColumnsMetadata()));
         }
         return Optional.empty();
     }
@@ -130,7 +130,7 @@ public class SheetsMetadata
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
-        for (ColumnMetadata column : table.get().getColumnsMetadata()) {
+        for (ColumnMetadata column : table.orElseThrow().getColumnsMetadata()) {
             columnHandles.put(column.getName(), new SheetsColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
@@ -152,7 +152,7 @@ public class SheetsMetadata
             Optional<ConnectorTableMetadata> tableMetadata = getTableMetadata(tableName);
             // table can disappear during listing operation
             if (tableMetadata.isPresent()) {
-                columns.put(tableName, tableMetadata.get().getColumns());
+                columns.put(tableName, tableMetadata.orElseThrow().getColumns());
             }
         }
         return columns.build();
@@ -161,7 +161,7 @@ public class SheetsMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        String schema = schemaName.orElse(getOnlyElement(SCHEMAS));
+        String schema = schemaName.orElse(SCHEMAS.stream().collect(onlyElement()));
 
         if (listSchemaNames().contains(schema)) {
             return sheetsClient.getTableNames().stream()

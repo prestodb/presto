@@ -14,7 +14,6 @@
 package com.facebook.presto.tests.utils;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Iterables;
 import io.airlift.units.Duration;
 import io.prestodb.tempto.query.QueryResult;
 
@@ -52,9 +51,9 @@ public class QueryAssertions
                 fail(format("expected row missing: %s%nAll %s rows:%n    %s%nExpected subset %s rows:%n    %s%n",
                         row,
                         all.getRowsCount(),
-                        Joiner.on("\n    ").join(Iterables.limit(all.rows(), 100)),
+                        Joiner.on("\n    ").join(all.rows().stream().limit(100).toList()),
                         expectedSubset.getRowsCount(),
-                        Joiner.on("\n    ").join(Iterables.limit(expectedSubset.rows(), 100))));
+                        Joiner.on("\n    ").join(expectedSubset.rows().stream().limit(100).toList())));
             }
         }
     }

@@ -90,7 +90,7 @@ public class SortingFileWriterFactory
         }
 
         Path prefix = sortedWriteToTempPathEnabled
-                ? new Path(tempPath.get(), format(".tmp-sort-%s/.tmp-sort-%s", fileNumber % sortedWriteTempFileSubdirectoryCount, path.getName()))
+                ? new Path(tempPath.orElseThrow(), format(".tmp-sort-%s/.tmp-sort-%s", fileNumber % sortedWriteTempFileSubdirectoryCount, path.getName()))
                 : new Path(path.getParent(), ".tmp-sort." + path.getName());
         return new SortingFileWriter(
                 fileSystem,

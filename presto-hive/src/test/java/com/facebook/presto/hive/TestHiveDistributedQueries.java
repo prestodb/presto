@@ -31,7 +31,7 @@ import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_ST
 import static com.facebook.presto.SystemSessionProperties.CTE_PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.sql.tree.ExplainType.Type.LOGICAL;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -62,8 +62,8 @@ public class TestHiveDistributedQueries
     {
         Optional<EventListener> eventListener = getQueryRunner().getEventListener();
         assertTrue(eventListener.isPresent());
-        assertTrue(eventListener.get() instanceof TestingHiveEventListener, eventListener.get().getClass().getName());
-        Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener.get()).getRunningQueries();
+        assertTrue(eventListener.orElseThrow() instanceof TestingHiveEventListener, eventListener.orElseThrow().getClass().getName());
+        Set<QueryId> runningQueryIds = ((TestingHiveEventListener) eventListener.orElseThrow()).getRunningQueries();
 
         if (!runningQueryIds.isEmpty()) {
             // Await query events to propagate and finish
@@ -96,7 +96,7 @@ public class TestHiveDistributedQueries
     {
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan("EXPLAIN ", query, LOGICAL));
+        assertEquals(result.getOnlyColumnAsSet().stream().collect(onlyElement()), getExplainPlan("EXPLAIN ", query, LOGICAL));
     }
 
     @Test
@@ -110,7 +110,7 @@ public class TestHiveDistributedQueries
 
         String query = "with tbl as (select * from lineitem), tbl2 as (select * from tbl) select * from tbl, tbl2";
         MaterializedResult materializedResult = computeActual(materializedSession, "explain " + query);
-        String explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
+        String explain = (String) materializedResult.getOnlyColumnAsSet().stream().collect(onlyElement());
 
         checkCTEInfo(explain, "tbl", 2, false, true);
         checkCTEInfo(explain, "tbl2", 1, false, true);

@@ -125,7 +125,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Ticker.systemTicker;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.tpch.TpchTable.getTables;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
@@ -363,7 +363,7 @@ public class PrestoSparkQueryRunner
         // Install Hive Plugin
         Path baseDir;
         if (dataDirectory.isPresent()) {
-            baseDir = dataDirectory.get();
+            baseDir = dataDirectory.orElseThrow();
         }
         else {
             try {
@@ -563,7 +563,7 @@ public class PrestoSparkQueryRunner
                         ImmutableMap.of(),
                         ImmutableSet.of(),
                         p.getUpdateType(),
-                        getOnlyElement(getOnlyElement(rows).getFields()) == null ? OptionalLong.empty() : OptionalLong.of((Long) getOnlyElement(getOnlyElement(rows).getFields())),
+                        rows.stream().collect(onlyElement()).getFields().stream().collect(onlyElement()) == null ? OptionalLong.empty() : OptionalLong.of((Long) rows.stream().collect(onlyElement()).getFields().stream().collect(onlyElement())),
                         ImmutableList.of());
             }
         }

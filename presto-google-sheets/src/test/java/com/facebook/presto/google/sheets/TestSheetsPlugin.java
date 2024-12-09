@@ -21,8 +21,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import org.testng.annotations.Test;
 
+import java.util.stream.StreamSupport;
+
 import static com.facebook.presto.google.sheets.TestGoogleSheets.GOOGLE_SHEETS;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static org.testng.Assert.assertNotNull;
 
 public class TestSheetsPlugin
@@ -39,7 +41,7 @@ public class TestSheetsPlugin
             throws Exception
     {
         Plugin plugin = new SheetsPlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        ConnectorFactory factory = StreamSupport.stream(plugin.getConnectorFactories().spliterator(), false).collect(onlyElement());
         ImmutableMap.Builder<String, String> propertiesMap = new ImmutableMap.Builder<String, String>().put("credentials-path", getTestCredentialsPath()).put("metadata-sheet-id", TEST_METADATA_SHEET_ID);
         Connector connector = factory.create(GOOGLE_SHEETS, propertiesMap.build(), new TestingConnectorContext());
         assertNotNull(connector);

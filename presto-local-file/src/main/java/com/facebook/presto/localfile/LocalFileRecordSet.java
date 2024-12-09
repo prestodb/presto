@@ -20,10 +20,10 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import java.util.List;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileRecordSet
@@ -46,7 +46,7 @@ public class LocalFileRecordSet
             types.add(column.getColumnType());
         }
         this.columnTypes = types.build();
-        this.address = Iterables.getOnlyElement(split.getAddresses());
+        this.address = split.getAddresses().stream().collect(onlyElement());
         this.effectivePredicate = split.getEffectivePredicate();
         this.tableName = split.getTableName();
 

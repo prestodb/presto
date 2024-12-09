@@ -86,19 +86,19 @@ public class ScalarAggregationToJoinRewriter
 
         VariableReferenceExpression nonNull = variableAllocator.newVariable("non_null", BooleanType.BOOLEAN);
         Assignments scalarAggregationSourceAssignments = Assignments.builder()
-                .putAll(identityAssignments(source.get().getNode().getOutputVariables()))
+                .putAll(identityAssignments(source.orElseThrow().getNode().getOutputVariables()))
                 .put(nonNull, TRUE_CONSTANT)
                 .build();
         ProjectNode scalarAggregationSourceWithNonNullableVariable = new ProjectNode(
                 idAllocator.getNextId(),
-                source.get().getNode(),
+                source.orElseThrow().getNode(),
                 scalarAggregationSourceAssignments);
 
         return rewriteScalarAggregation(
                 lateralJoinNode,
                 aggregation,
                 scalarAggregationSourceWithNonNullableVariable,
-                source.get().getCorrelatedPredicates(),
+                source.orElseThrow().getCorrelatedPredicates(),
                 nonNull);
     }
 
@@ -146,23 +146,23 @@ public class ScalarAggregationToJoinRewriter
                 .recurseOnlyWhen(EnforceSingleRowNode.class::isInstance)
                 .findFirst();
 
-        List<VariableReferenceExpression> aggregationOutputVariables = getTruncatedAggregationVariables(lateralJoinNode, aggregationNode.get());
+        List<VariableReferenceExpression> aggregationOutputVariables = getTruncatedAggregationVariables(lateralJoinNode, aggregationNode.orElseThrow());
 
         if (subqueryProjection.isPresent()) {
             Assignments assignments = Assignments.builder()
                     .putAll(identityAssignments(aggregationOutputVariables))
-                    .putAll(subqueryProjection.get().getAssignments())
+                    .putAll(subqueryProjection.orElseThrow().getAssignments())
                     .build();
 
             return new ProjectNode(
                     idAllocator.getNextId(),
-                    aggregationNode.get(),
+                    aggregationNode.orElseThrow(),
                     assignments);
         }
         else {
             return new ProjectNode(
                     idAllocator.getNextId(),
-                    aggregationNode.get(),
+                    aggregationNode.orElseThrow(),
                     identityAssignments(aggregationOutputVariables));
         }
     }

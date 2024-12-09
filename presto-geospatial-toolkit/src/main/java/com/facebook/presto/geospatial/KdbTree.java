@@ -200,8 +200,8 @@ public class KdbTree
                 leaves.put(node.leafId.getAsInt(), node.extent);
             }
             else {
-                deque.push(node.getLeft().get());
-                deque.push(node.getRight().get());
+                deque.push(node.getLeft().orElseThrow());
+                deque.push(node.getRight().orElseThrow());
             }
         }
         return leaves.build();
@@ -313,7 +313,7 @@ public class KdbTree
             return newLeaf(extent, leafIdAllocator.next());
         }
 
-        return newInternal(extent, splitResult.get().getLeft(), splitResult.get().getRight());
+        return newInternal(extent, splitResult.orElseThrow().getLeft(), splitResult.orElseThrow().getRight());
     }
 
     /*

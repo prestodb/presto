@@ -38,7 +38,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.Decimals.MAX_SHORT_PRECISION;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.stream.Collectors.joining;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.uuidType;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
@@ -297,7 +297,7 @@ public final class ParquetTypeUtils
             return Optional.empty();
         }
         else if (typeChain.size() == 1) {
-            return Optional.of(getOnlyElement(typeChain));
+            return Optional.of(typeChain.stream().collect(onlyElement()));
         }
         else {
             org.apache.parquet.schema.Type messageType = typeChain.get(typeChain.size() - 1);

@@ -200,7 +200,7 @@ public class PushAggregationThroughOuterJoin
             return Result.empty();
         }
 
-        return Result.ofPlanNode(resultNode.get());
+        return Result.ofPlanNode(resultNode.orElseThrow());
     }
 
     private static PlanNode getInnerTable(JoinNode join)
@@ -252,7 +252,7 @@ public class PushAggregationThroughOuterJoin
             return Optional.empty();
         }
 
-        MappedAggregationInfo aggregationOverNullInfo = aggregationOverNullInfoResultNode.get();
+        MappedAggregationInfo aggregationOverNullInfo = aggregationOverNullInfoResultNode.orElseThrow();
 
         AggregationNode aggregationOverNull = aggregationOverNullInfo.getAggregation();
         Map<VariableReferenceExpression, VariableReferenceExpression> sourceAggregationToOverNullMapping = aggregationOverNullInfo.getVariableMapping();
@@ -273,7 +273,7 @@ public class PushAggregationThroughOuterJoin
                 }
 
                 if (defaultLiteral.isPresent()) {
-                    literalMap.put(aggregation.getKey(), defaultLiteral.get());
+                    literalMap.put(aggregation.getKey(), defaultLiteral.orElseThrow());
                 }
             }
         }

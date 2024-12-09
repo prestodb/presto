@@ -67,7 +67,7 @@ public class FixedLifespanScheduler
         Map<InternalNode, IntList> nodeToDriverGroupMap = new HashMap<>();
         Int2ObjectMap<InternalNode> driverGroupToNodeMap = new Int2ObjectOpenHashMap<>();
         for (int bucket = 0; bucket < bucketNodeMap.getBucketCount(); bucket++) {
-            InternalNode node = bucketNodeMap.getAssignedNode(bucket).get();
+            InternalNode node = bucketNodeMap.getAssignedNode(bucket).orElseThrow();
             nodeToDriverGroupMap.computeIfAbsent(node, key -> new IntArrayList()).add(bucket);
             driverGroupToNodeMap.put(bucket, node);
         }
