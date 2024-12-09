@@ -22,6 +22,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
@@ -84,7 +85,7 @@ public class LongDirectBatchStreamReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof TimeType);
         this.type = type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -158,6 +159,11 @@ public class LongDirectBatchStreamReader
             dataStream.next(values, nextBatchSize);
             return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
         }
+        if (type instanceof TimeType) {
+            long[] values = new long[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
         if (type instanceof IntegerType || type instanceof DateType) {
             int[] values = new int[nextBatchSize];
             dataStream.next(values, nextBatchSize);
@@ -175,6 +181,9 @@ public class LongDirectBatchStreamReader
             throws IOException
     {
         if (type instanceof BigintType) {
+            return longReadNullBlock(isNull, nonNullCount);
+        }
+        if (type instanceof TimeType) {
             return longReadNullBlock(isNull, nonNullCount);
         }
         if (type instanceof IntegerType || type instanceof DateType) {
