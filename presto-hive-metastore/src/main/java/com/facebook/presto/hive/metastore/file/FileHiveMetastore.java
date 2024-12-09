@@ -68,7 +68,6 @@ import org.apache.hadoop.fs.Path;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
@@ -286,9 +285,19 @@ public class FileHiveMetastore
         }
 
         if (!table.getTableType().equals(VIRTUAL_VIEW)) {
-            File location = new File(new Path(table.getStorage().getLocation()).toUri());
-            checkArgument(location.isDirectory(), "Table location is not a directory: %s", location);
-            checkArgument(location.exists(), "Table directory does not exist: %s", location);
+            try {
+                Path tableLocation = new Path(table.getStorage().getLocation());
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
+                if (!fileSystem.isDirectory(tableLocation)) {
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "Table location is not a directory: " + tableLocation);
+                }
+                if (!fileSystem.exists(tableLocation)) {
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "Table directory does not exist: " + tableLocation);
+                }
+            }
+            catch (IOException e) {
+                throw new PrestoException(HIVE_METASTORE_ERROR, "Could not validate table location", e);
+            }
         }
 
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(table), false);
