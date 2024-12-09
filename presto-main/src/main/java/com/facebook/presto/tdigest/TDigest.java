@@ -99,6 +99,11 @@ public class TDigest
 
     private double min = Double.POSITIVE_INFINITY;
     private double max = Double.NEGATIVE_INFINITY;
+
+    /**
+     * The weighted sum of sample values, i.e. sum_i(x_i * w_i) over all samples represented
+     * by this TDigest.
+     */
     private double sum;
 
     private final Random gen = ThreadLocalRandom.current();
@@ -212,11 +217,22 @@ public class TDigest
         }
     }
 
+    /**
+     * Add a single sample with unit weight.
+     *
+     * @param x The value of the sample to be added.
+     */
     public void add(double x)
     {
         add(x, 1);
     }
 
+    /**
+     * Add a single sample with a given weight.
+     *
+     * @param x The value of the sample to be added.
+     * @param w The weight of the sample to be added.
+     */
     public void add(double x, double w)
     {
         checkArgument(!isNaN(x), "Cannot add NaN to t-digest");
