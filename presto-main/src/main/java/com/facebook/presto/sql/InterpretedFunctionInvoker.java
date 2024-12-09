@@ -15,8 +15,13 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.PageBuilder;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice;
@@ -25,11 +30,13 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.JavaScalarFunctionImplementation;
 import com.google.common.base.Defaults;
+import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentType.VALUE_TYPE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
@@ -58,6 +65,22 @@ public class InterpretedFunctionInvoker
     public Object invoke(FunctionHandle functionHandle, SqlFunctionProperties properties, List<Object> arguments)
     {
         return invoke(functionAndTypeManager.getJavaScalarFunctionImplementation(functionHandle), properties, arguments);
+    }
+
+    public Object invoke(FunctionHandle functionHandle, List<Object> arguments, List<Type> types, List<Integer> channels, Type returnType)
+    {
+        PageBuilder pageBuilder = new PageBuilder(types);
+        pageBuilder.declarePosition();
+        for (int i = 0; i < types.size(); i++) {
+            writeOutput(types.get(i), pageBuilder.getBlockBuilder(i), arguments.get(i));
+        }
+        Page inputPage = pageBuilder.build();
+        try {
+            return convertObject(returnType, functionAndTypeManager.executeFunction("", functionHandle, inputPage, channels).get().getResult());
+        }
+        catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -145,5 +168,46 @@ public class InterpretedFunctionInvoker
         }
         throwIfUnchecked(throwable);
         throw new RuntimeException(throwable);
+    }
+
+    public void writeOutput(Type type, BlockBuilder output, Object argument)
+    {
+        switch (type.getJavaType().getSimpleName()) {
+            case "long":
+                type.writeLong(output, (Long) argument);
+                break;
+            case "double":
+                type.writeDouble(output, (Double) argument);
+                break;
+            case "boolean":
+                type.writeBoolean(output, (Boolean) argument);
+                break;
+            case "Slice":
+                type.writeSlice(output, (Slice) argument);
+                break;
+            case "Block":
+                type.writeObject(output, argument);
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected type: " + type.getJavaType().getSimpleName());
+        }
+    }
+
+    public Object convertObject(Type returnType, Block result)
+    {
+        switch (returnType.getJavaType().getSimpleName()) {
+            case "long":
+                return returnType.getLong(result, 0);
+            case "double":
+                return returnType.getDouble(result, 0);
+            case "boolean":
+                return returnType.getBoolean(result, 0);
+            case "Slice":
+                return returnType.getSlice(result, 0);
+            case "Block":
+                return returnType.getObject(result, 0);
+            default:
+                throw new IllegalArgumentException("Unexpected return type: " + returnType.getJavaType().getSimpleName());
+        }
     }
 }
