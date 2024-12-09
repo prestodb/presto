@@ -55,7 +55,6 @@ import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
-import java.lang.management.ManagementFactory;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -138,9 +137,6 @@ public class TaskResource
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        long startWallTimeUpdateTask = System.nanoTime();
-        long startCpuTimeUpdateTask = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
-
         Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
         RuntimeStats runtimeStats = Optional.of(session.getRuntimeStats()).orElse(new RuntimeStats());
 
@@ -154,9 +150,7 @@ public class TaskResource
         if (shouldSummarize(uriInfo)) {
             taskInfo = taskInfo.summarize();
         }
-        TaskResourceUtils.recordTaskUpdateReceivedTimeNanos(session.getRuntimeStats(), ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTimeUpdateTask, System.nanoTime() - startWallTimeUpdateTask);
-        //send task's runtime stats back
-        taskInfo.getStats().getRuntimeStats().mergeWith(session.getRuntimeStats());
+
         return Response.ok().entity(taskInfo).build();
     }
 

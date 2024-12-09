@@ -34,7 +34,6 @@ import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
-import com.facebook.presto.server.TaskResourceUtils;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
@@ -50,7 +49,6 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
-import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -443,8 +441,6 @@ public class SqlTask
             // a VALUES query).
             outputBuffer.setOutputBuffers(outputBuffers);
 
-            long startWallTimeTaskExecutionCreation = System.nanoTime();
-            long startCpuTimeTaskExecutionCreation = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
             // assure the task execution is only created once
             SqlTaskExecution taskExecution;
             synchronized (this) {
@@ -470,7 +466,6 @@ public class SqlTask
                     needsPlan.set(false);
                 }
             }
-            TaskResourceUtils.recordTaskExecutionCreationTimeNanos(session.getRuntimeStats(), ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTimeTaskExecutionCreation, System.nanoTime() - startWallTimeTaskExecutionCreation);
 
             if (taskExecution != null) {
                 taskExecution.addSources(sources);
