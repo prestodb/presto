@@ -281,7 +281,7 @@ public final class StringFunctions
         }
         while (foundInstances < instance);
 
-        return countCodePoints(string, 0, index) + 1;
+        return index + 1;
     }
 
     @Description("suffix starting at given index")
