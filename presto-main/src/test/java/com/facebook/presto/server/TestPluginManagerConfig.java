@@ -52,7 +52,6 @@ public class TestPluginManagerConfig
                 .setDisabledConnectors("scuba,prism")
                 .setMavenLocalRepository("local-repo")
                 .setMavenRemoteRepository(ImmutableList.of("remote-a", "remote-b"));
-
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }
