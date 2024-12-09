@@ -152,6 +152,12 @@ class SubqueryPlanner
         return builder;
     }
 
+    public boolean hasSubqueries(Expression expression, Node node)
+    {
+        return !collectInPredicateSubqueries(expression, node).isEmpty() || !collectScalarSubqueries(expression, node).isEmpty() || !collectExistsSubqueries(expression, node).isEmpty()
+                || !collectQuantifiedComparisonSubqueries(expression, node).isEmpty();
+    }
+
     public Set<InPredicate> collectInPredicateSubqueries(Expression expression, Node node)
     {
         return analysis.getInPredicateSubqueries(node)
