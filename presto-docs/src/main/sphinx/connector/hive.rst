@@ -207,23 +207,26 @@ Metastore Configuration Properties
 
 The required Hive metastore can be configured with a number of properties.
 
-======================================= ============================================================ ============
-Property Name                                      Description                                       Default
-======================================= ============================================================ ============
-``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
+======================================================= ============================================================= ============
+Property Name                                                         Description                                       Default
+======================================================= ============================================================= ============
+``hive.metastore-timeout``                               Timeout for Hive metastore requests.                           ``10s``
 
-``hive.metastore-cache-ttl``            Duration how long cached metastore data should be considered ``0s``
-                                        valid.
+``hive.metastore-cache-ttl``                             Duration how long cached metastore data should be considered   ``0s``
+                                                         valid.
 
-``hive.metastore-cache-maximum-size``   Hive metastore cache maximum size.                            10000
+``hive.metastore-cache-maximum-size``                    Hive metastore cache maximum size.                              10000
 
-``hive.metastore-refresh-interval``     Asynchronously refresh cached metastore data after access    ``0s``
-                                        if it is older than this but is not yet expired, allowing
-                                        subsequent accesses to see fresh data.
+``hive.metastore-refresh-interval``                      Asynchronously refresh cached metastore data after access      ``0s``
+                                                         if it is older than this but is not yet expired, allowing
+                                                         subsequent accesses to see fresh data.
 
-``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
+``hive.metastore-refresh-max-threads``                   Maximum threads used to refresh cached metastore data.          100
 
-======================================= ============================================================ ============
+``hive.invalidate-metastore-cache-procedure-enabled``    When enabled, users will be able to invalidate metastore        false
+                                                         cache on demand.
+
+======================================================= ============================================================= ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
@@ -951,6 +954,25 @@ The following procedures are available:
 * ``system.invalidate_directory_list_cache(directory_path)``
 
   Invalidate directory list cache for specified directory_path.
+
+* ``system.invalidate_metastore_cache()``
+
+  Invalidate all metastore caches.
+
+* ``system.invalidate_metastore_cache(schema_name)``
+
+  Invalidate all metastore cache entries linked to a specific schema.
+
+* ``system.invalidate_metastore_cache(schema_name, table_name)``
+
+  Invalidate all metastore cache entries linked to a specific table.
+
+* ``system.invalidate_metastore_cache(schema_name, table_name, partition_columns, partition_values)``
+
+  Invalidate all metastore cache entries linked to a specific partition.
+
+Note: To enable ``system.invalidate_metastore_cache`` procedure, please refer to the properties that
+apply to Hive Metastore and are listed in the `Metastore Configuration Properties`_ table.
 
 Extra Hidden Columns
 --------------------
