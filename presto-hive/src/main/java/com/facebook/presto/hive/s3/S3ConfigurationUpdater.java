@@ -48,6 +48,7 @@ public interface S3ConfigurationUpdater
     String S3_ACL_TYPE = "presto.s3.upload-acl-type";
     String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
     String S3_STORAGE_CLASS = "presto.s3.storage-class";
+    String S3_USE_STREAMING_UPLOADS = "presto.s3.use-streaming-uploads";
 
     void updateConfiguration(Configuration config);
 }
