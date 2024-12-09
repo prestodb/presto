@@ -10,7 +10,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <lettuce.version>6.2.4.RELEASE</lettuce.version>
+        <lettuce.version>6.5.1.RELEASE</lettuce.version>
     </properties>
 
     <artifactId>redis-hbo-provider</artifactId>
