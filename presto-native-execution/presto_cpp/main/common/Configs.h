@@ -263,6 +263,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kSpillerFileCreateConfig{
       "spiller.file-create-config"};
 
+  /// Config used to create spill directories. This config is provided to
+  /// underlying file system and the config is free form. The form should be
+  /// defined by the underlying file system.
+  static constexpr std::string_view kSpillerDirectoryCreateConfig{
+      "spiller.directory-create-config"};
+
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
@@ -733,6 +739,8 @@ class SystemConfig : public ConfigBase {
   double spillerNumCpuThreadsHwMultiplier() const;
 
   std::string spillerFileCreateConfig() const;
+
+  std::string spillerDirectoryCreateConfig() const;
 
   folly::Optional<std::string> spillerSpillPath() const;
 

@@ -49,7 +49,7 @@ public final class BatchStreamReaders
             case STRING:
             case VARCHAR:
             case CHAR:
-                return new SliceBatchStreamReader(type, streamDescriptor, systemMemoryContext);
+                return new SliceBatchStreamReader(type, streamDescriptor, systemMemoryContext, options.getMaxSliceSize());
             case TIMESTAMP:
             case TIMESTAMP_MICROSECONDS:
                 boolean enableMicroPrecision = type == TIMESTAMP_MICROSECONDS;
