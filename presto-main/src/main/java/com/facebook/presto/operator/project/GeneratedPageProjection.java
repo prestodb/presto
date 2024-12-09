@@ -48,6 +48,11 @@ public class GeneratedPageProjection
         this.blockBuilders = projections.stream().map(RowExpression::getType).map(type -> type.createBlockBuilder(null, 1)).collect(toImmutableList());
     }
 
+    public List<RowExpression> getProjections()
+    {
+        return this.projections;
+    }
+
     @Override
     public boolean isDeterministic()
     {

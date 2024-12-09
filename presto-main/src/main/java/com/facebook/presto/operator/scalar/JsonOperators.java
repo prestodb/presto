@@ -90,7 +90,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), VARCHAR), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), VARCHAR), e);
         }
     }
 
@@ -106,7 +106,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), BIGINT), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), BIGINT), e);
         }
     }
 
@@ -123,12 +123,12 @@ public final class JsonOperators
         }
         catch (PrestoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (ArithmeticException | IOException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), INTEGER), e);
         }
     }
 
@@ -145,12 +145,12 @@ public final class JsonOperators
         }
         catch (PrestoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (IllegalArgumentException | IOException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), SMALLINT), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), SMALLINT), e);
         }
     }
 
@@ -167,12 +167,12 @@ public final class JsonOperators
         }
         catch (PrestoException e) {
             if (e.getErrorCode().equals(NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), INTEGER), e.getCause());
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), INTEGER), e.getCause());
             }
             throw e;
         }
         catch (IllegalArgumentException | IOException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), TINYINT), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), TINYINT), e);
         }
     }
 
@@ -188,7 +188,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), DOUBLE), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), DOUBLE), e);
         }
     }
 
@@ -204,7 +204,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), REAL), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), REAL), e);
         }
     }
 
@@ -220,7 +220,7 @@ public final class JsonOperators
             return result;
         }
         catch (IOException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", json.toStringUtf8(), BOOLEAN), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON '%s' to %s.", json.toStringUtf8(), BOOLEAN), e);
         }
     }
 
@@ -237,7 +237,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value.toStringUtf8(), JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to %s.", value.toStringUtf8(), JSON));
         }
     }
 
@@ -279,7 +279,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to %s.", value, JSON));
         }
     }
 
@@ -295,7 +295,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to %s.", value, JSON));
         }
     }
 
@@ -311,7 +311,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to %s.", value, JSON));
         }
     }
 
@@ -327,7 +327,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BOOLEAN '%s' to %s.", value, JSON));
         }
     }
 
@@ -343,7 +343,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast TIMESTAMP '%s' to %s.", value, JSON));
         }
     }
 
@@ -359,7 +359,7 @@ public final class JsonOperators
             return output.slice();
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DATE '%s' to %s.", value, JSON));
         }
     }
 
