@@ -18,7 +18,7 @@ import { clsx } from 'clsx';
 import type { StageNodeInfo } from './LivePlan';
 import { StageStatistics, PlanNode } from './LivePlan';
 import ReactDOMServer from "react-dom/server";
-import * as dagreD3 from "dagre-d3";
+import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 import { formatRows, getStageStateColor, initializeGraph } from "../utils";
 
@@ -113,13 +113,13 @@ export default function PlanView({show, data}) {
             widgets.current.svg = d3.select("#plan-canvas");
         }
         updateD3Graph();
-        $('[data-toggle="tooltip"]').tooltip()
+        $('[data-bs-toggle="tooltip"]').tooltip()
     }, [data, show]);
 
     return (
         <div className={clsx(!show && 'hide')}>
             <div className="row">
-            <div className="col-xs-12">
+            <div className="col-12">
                 <div id="plan-viewer" className="graph-container">
                     {data && <div className="pull-right">
                         {data.finalQueryInfo ? "Scroll to zoom." : "Zoom disabled while query is running."} Click stage to view additional statistics

@@ -14,8 +14,9 @@
 
 import React from "react";
 import ReactDOM from "react-dom";
+import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
-import * as dagreD3 from "dagre-d3";
+import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 
 import {
@@ -47,7 +48,7 @@ class OperatorSummary extends React.Component {
         const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
         return (
-            <div>
+            <div className="header-data">
                 <div className="highlight-row">
                     <div className="header-row">
                         {operator.operatorType}
@@ -134,10 +135,10 @@ class OperatorStatistic extends React.Component {
     render() {
         return (
             <div className="row operator-statistic">
-                <div className="col-xs-2 italic-uppercase operator-statistic-title">
+                <div className="col-2 italic-uppercase operator-statistic-title">
                     {this.props.name}
                 </div>
-                <div className="col-xs-10">
+                <div className="col-10">
                     <span className="bar-chart" id={this.props.id}/>
                 </div>
             </div>
@@ -225,9 +226,9 @@ class OperatorDetail extends React.Component {
 
         return (
             <div className="row">
-                <div className="col-xs-12">
+                <div className="col-12">
                     <div className="modal-header">
-                        <button type="button" className="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <button type="button" className="close" data-bs-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                         <h3>
                             <small>Pipeline {operator.pipelineId}</small>
                             <br/>
@@ -235,7 +236,7 @@ class OperatorDetail extends React.Component {
                         </h3>
                     </div>
                     <div className="row">
-                        <div className="col-xs-6">
+                        <div className="col-6">
                             <table className="table">
                                 <tbody>
                                 <tr>
@@ -273,7 +274,7 @@ class OperatorDetail extends React.Component {
                                 </tbody>
                             </table>
                         </div>
-                        <div className="col-xs-6">
+                        <div className="col-6">
                             <table className="table">
                                 <tbody>
                                 <tr>
@@ -313,12 +314,12 @@ class OperatorDetail extends React.Component {
                         </div>
                     </div>
                     <div className="row font-white">
-                        <div className="col-xs-2 italic-uppercase">
+                        <div className="col-2 italic-uppercase">
                             <strong>
                                 Statistic
                             </strong>
                         </div>
-                        <div className="col-xs-10 italic-uppercase">
+                        <div className="col-10 italic-uppercase">
                             <strong>
                                 Tasks
                             </strong>
@@ -355,10 +356,12 @@ class StageOperatorGraph extends React.Component {
     }
 
     handleOperatorClick(operatorCssId) {
-        $('#operator-detail-modal').modal();
+        if(operatorCssId.target.hasOwnProperty("__data__") && operatorCssId.target.__data__ !== undefined){
+        $('#operator-detail-modal').modal("show")
 
-        const pipelineId = parseInt(operatorCssId.split('-')[1]);
-        const operatorId = parseInt(operatorCssId.split('-')[2]);
+        const pipelineId = (operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt((operatorCssId?.target?.__data__ || '').split('-')[1] || '0') : 0;
+        const operatorId =(operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt((operatorCssId?.target?.__data__ || '').split('-')[2] || '0') : 0;
+       
         const stage = this.props.stage;
 
         let operatorStageSummary = null;
@@ -368,8 +371,12 @@ class StageOperatorGraph extends React.Component {
                 operatorStageSummary = operatorSummaries[i];
             }
         }
-        ReactDOM.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>,
-            document.getElementById('operator-detail'));
+        const container = document.getElementById('operator-detail');
+        const root = createRoot(container);
+        root.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>);
+    }else {
+        return;
+    }
     }
 
     computeOperatorGraphs() {
@@ -456,7 +463,7 @@ class StageOperatorGraph extends React.Component {
         if (!stage.hasOwnProperty('plan')) {
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>Stage does not have a plan</h4></div>
+                    <div className="col-12"><h4>Stage does not have a plan</h4></div>
                 </div>
             );
         }
@@ -465,7 +472,7 @@ class StageOperatorGraph extends React.Component {
         if (!latestAttemptExecutionInfo.hasOwnProperty('stats') || !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") || latestAttemptExecutionInfo.stats.operatorSummaries.length === 0) {
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <h4>Operator data not available for {stage.stageId}</h4>
                     </div>
                 </div>
@@ -500,12 +507,18 @@ export class StageDetail extends React.Component {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     }
+     static getQueryURL(id) {
+        if (!id || typeof id !== 'string' || id.length === 0) {
+            return "/v1/query/undefined";
+        }
+        const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
+        return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
+     }
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryString = getFirstParameter(window.location.search).split('.');
-        const queryId = queryString[0];
-
+        const rawQueryId = queryString.length > 0 ? queryString[0] : "";
         let selectedStageId = this.state.selectedStageId;
         if (selectedStageId === null) {
             selectedStageId = 0;
@@ -514,7 +527,8 @@ export class StageDetail extends React.Component {
             }
         }
 
-        $.get('/v1/query/' + queryId, query => {
+       
+        $.get(StageDetail.getQueryURL(rawQueryId), query => {
             this.setState({
                 initialized: true,
                 ended: query.finalQueryInfo,
@@ -523,12 +537,7 @@ export class StageDetail extends React.Component {
                 query: query,
             });
             this.resetTimer();
-        }).error(() => {
-            this.setState({
-                initialized: true,
-            });
-            this.resetTimer();
-        });
+        })
     }
 
     componentDidMount() {
@@ -569,7 +578,7 @@ export class StageDetail extends React.Component {
             }
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{label}</h4></div>
+                    <div className="col-12"><h4>{label}</h4></div>
                 </div>
             );
         }
@@ -577,7 +586,7 @@ export class StageDetail extends React.Component {
         if (!this.state.query.outputStage) {
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>Query does not have an output stage</h4></div>
+                    <div className="col-12 res-heading"><h4>Query does not have an output stage</h4></div>
                 </div>
             );
         }
@@ -590,7 +599,7 @@ export class StageDetail extends React.Component {
         if (stage === null) {
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>Stage not found</h4></div>
+                    <div className="col-12"><h4>Stage not found</h4></div>
                 </div>
             );
         }
@@ -599,7 +608,7 @@ export class StageDetail extends React.Component {
         if (!isQueryEnded(query.state)) {
             stageOperatorGraph = (
                 <div className="row error-message">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <h4>Operator graph will appear automatically when query completes.</h4>
                         <div className="loader">Loading...</div>
                     </div>
@@ -614,15 +623,15 @@ export class StageDetail extends React.Component {
             <div>
                 <QueryHeader query={query}/>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <div className="row">
-                            <div className="col-xs-2">
+                            <div className="col-2">
                                 <h3>Stage {stage.plan.id}</h3>
                             </div>
-                            <div className="col-xs-8"/>
-                            <div className="col-xs-2 stage-dropdown">
+                            <div className="col-8"/>
+                            <div className="col-2 stage-dropdown">
                                 <div className="input-group-btn">
-                                    <button type="button" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <button type="button" className="btn btn-default dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                         Select Stage <span className="caret"/>
                                     </button>
                                     <ul className="dropdown-menu">
@@ -635,7 +644,7 @@ export class StageDetail extends React.Component {
                 </div>
                 <hr className="h3-hr"/>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         {stageOperatorGraph}
                     </div>
                 </div>

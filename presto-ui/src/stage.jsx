@@ -1,14 +1,14 @@
 import React from "react";
-import ReactDOM from "react-dom";
 import {StageDetail} from "./components/StageDetail";
 import {PageTitle} from "./components/PageTitle";
+import { createRoot } from 'react-dom/client';
+const container = document.getElementById('title');
+const root = createRoot(container);
 
-ReactDOM.render(
-    <PageTitle titles={["Query Details"]} />,
-    document.getElementById('title')
+root.render(
+    <PageTitle titles={["Query Details"]} />
 );
-
-ReactDOM.render(
-    <StageDetail />,
-    document.getElementById('stage-performance-header')
+const stageroot = createRoot(document.getElementById('stage-performance-header'));
+stageroot.render(
+    <StageDetail />
 );
