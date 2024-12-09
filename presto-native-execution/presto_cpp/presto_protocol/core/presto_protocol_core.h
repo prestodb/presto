@@ -706,6 +706,7 @@ struct SqlInvokedFunction {
   String description = {};
   RoutineCharacteristics routineCharacteristics = {};
   String body = {};
+  bool variableArity = {};
   Signature signature = {};
   SqlFunctionId functionId = {};
 };
@@ -2027,6 +2028,7 @@ struct SortNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   OrderingScheme orderingScheme = {};
   bool isPartial = {};
+  List<VariableReferenceExpression> partitionBy = {};
 
   SortNode() noexcept;
 };
