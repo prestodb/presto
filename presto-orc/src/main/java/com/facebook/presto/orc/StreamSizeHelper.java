@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class StreamSizeHelper
@@ -120,7 +121,7 @@ public class StreamSizeHelper
             for (int flatMapNode : flatMapNodeSizes.keySet()) {
                 int flatMapValueNode = orcTypes.get(flatMapNode).getFieldTypeIndex(1);
                 ColumnEncoding columnEncoding = columnEncodings.get(flatMapValueNode);
-                checkArgument(columnEncoding != null, "columnEncoding for flat map node %s is null", flatMapNode);
+                checkNotNull(columnEncoding, "columnEncoding for flat map node %s is null", flatMapNode);
                 checkArgument(columnEncoding.getAdditionalSequenceEncodings().isPresent(), "columnEncoding for flat map node %s does not have keys", flatMapNode);
 
                 SortedMap<Integer, DwrfSequenceEncoding> sequenceToKey = columnEncoding.getAdditionalSequenceEncodings().get();
