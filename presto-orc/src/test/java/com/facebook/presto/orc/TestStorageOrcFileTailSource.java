@@ -82,7 +82,7 @@ public class TestStorageOrcFileTailSource
 
         // write the post script
         DwrfProto.PostScript.Builder postScript = DwrfProto.PostScript.newBuilder()
-                .setFooterLength(0)
+                .setFooterLength(1)
                 .setCompression(NONE);
         writeTail(postScript, out);
         out.close();
@@ -181,7 +181,8 @@ public class TestStorageOrcFileTailSource
         FileOutputStream out = new FileOutputStream(file.getFile());
 
         // write the footer and post script
-        DwrfProto.Footer.Builder footer = DwrfProto.Footer.newBuilder();
+        DwrfProto.Footer.Builder footer = DwrfProto.Footer.newBuilder()
+                .setNumberOfRows(0);
         DwrfProto.PostScript.Builder postScript = DwrfProto.PostScript.newBuilder()
                 .setCompression(NONE);
         writeTail(footer, postScript, out);
