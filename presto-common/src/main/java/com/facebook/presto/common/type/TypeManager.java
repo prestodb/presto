@@ -28,4 +28,13 @@ public interface TypeManager
     Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters);
 
     boolean canCoerce(Type actualType, Type expectedType);
+
+    default Type instantiateParametricType(ExactTypeSignature exactSignature)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    List<Type> getTypes();
+
+    List<ParametricType> getParametricTypes();
 }
