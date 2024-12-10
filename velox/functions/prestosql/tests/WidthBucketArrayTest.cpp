@@ -106,6 +106,9 @@ TEST_F(WidthBucketArrayTest, failure) {
   testFailure(3.14, {{0.0, std::nullopt, 4.0}}, "Bin values cannot be NULL");
   testFailure(
       3.14, {{0.0, 2.0, 4.0, std::nullopt}}, "Bin values cannot be NULL");
+
+  testFailure(1, {{std::nullopt}, {1.0, 2.0}}, "Bin values cannot be NULL");
+  testFailure(1, {{1.0, 2.0}, {std::nullopt}}, "Bin values cannot be NULL");
 }
 
 TEST_F(WidthBucketArrayTest, successForConstantArray) {

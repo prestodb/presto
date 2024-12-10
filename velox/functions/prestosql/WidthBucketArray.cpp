@@ -36,8 +36,9 @@ int64_t widthBucket(
   while (lower < upper) {
     const int index = (lower + upper) / 2;
     VELOX_USER_CHECK(
-        !elementsHolder.isNullAt(lower) && !elementsHolder.isNullAt(index) &&
-            !elementsHolder.isNullAt(upper - 1),
+        !elementsHolder.isNullAt(offset + lower) &&
+            !elementsHolder.isNullAt(offset + index) &&
+            !elementsHolder.isNullAt(offset + upper - 1),
         "Bin values cannot be NULL");
 
     const auto bin = elementsHolder.valueAt<T>(offset + index);
