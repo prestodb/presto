@@ -1058,6 +1058,12 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 2");
         assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('10:12:34' AS TIME)");
         assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('9:00:00' AS TIME)");
+        assertQuery(format("SELECT x FROM %s ORDER BY x LIMIT 1", tableName), "SELECT CAST('9:00:00' AS TIME)");
+        assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 54321)", tableName), 1);
+        assertQuery(
+                format("SELECT x, COUNT(*) FROM %s GROUP BY x ORDER BY x", tableName),
+                "SELECT CAST('9:00:00' AS TIME), 1 UNION ALL SELECT CAST('10:12:34' AS TIME), 2"
+        );
         dropTable(getSession(), tableName);
     }
 
