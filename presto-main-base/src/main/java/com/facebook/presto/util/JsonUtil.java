@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.SingleRowBlockWriter;
@@ -41,6 +42,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
@@ -86,6 +88,7 @@ import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -106,6 +109,7 @@ public final class JsonUtil
     // `OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());` preserves input order.
     // Be aware. Using it arbitrarily can produce invalid json (ordered by key is required in Presto).
     private static final ObjectMapper OBJECT_MAPPED_UNORDERED = new ObjectMapper(JSON_FACTORY);
+    private static final ObjectMapper OBJECT_MAPPED_SORTED = new JsonObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private static final int MAX_JSON_LENGTH_IN_ERROR_MESSAGE = 10_000;
 
@@ -956,8 +960,18 @@ public final class JsonUtil
                     return new VarcharBlockBuilderAppender(type);
                 case StandardTypes.JSON:
                     return (parser, blockBuilder, sqlFunctionProperties) -> {
-                        String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
-                        JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
+                        Slice slice = Slices.utf8Slice(OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree()));
+                        try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, slice)) {
+                            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(slice.length());
+                            OBJECT_MAPPED_SORTED.writeValue((OutputStream) dynamicSliceOutput, OBJECT_MAPPED_SORTED.readValue(jsonParser, Object.class));
+                            // nextToken() returns null if the input is parsed correctly,
+                            // but will throw an exception if there are trailing characters.
+                            jsonParser.nextToken();
+                            JSON.writeSlice(blockBuilder, dynamicSliceOutput.slice());
+                        }
+                        catch (Exception e) {
+                            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert '%s' to JSON", slice.toStringUtf8()));
+                        }
                     };
                 case StandardTypes.ARRAY:
                     return new ArrayBlockBuilderAppender(createBlockBuilderAppender(((ArrayType) type).getElementType()));
