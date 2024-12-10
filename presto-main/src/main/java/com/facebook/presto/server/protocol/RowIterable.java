@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 class RowIterable
@@ -39,6 +40,8 @@ class RowIterable
         this.session = session;
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.page = requireNonNull(page, "page is null");
+
+        validateBlockSizesInPage(page);
     }
 
     @Override
@@ -60,6 +63,8 @@ class RowIterable
             this.session = session;
             this.types = types;
             this.page = page;
+
+            validateBlockSizesInPage(page);
         }
 
         @Override
@@ -74,9 +79,29 @@ class RowIterable
             for (int channel = 0; channel < page.getChannelCount(); channel++) {
                 Type type = types.get(channel);
                 Block block = page.getBlock(channel);
+                // Caused by: java.lang.IllegalArgumentException: Invalid position 1 in block with 1 positions
+                // why does block onlly have one position when we're asking for at least 12?
+                // It's not an off by one error. It's that there's only one row ID in the block.
+                // That's why it works with LIMIT 1 and not LIMIT 2
+                // maybe an issue with compressed dictionary blocks or something like that?
+                // only some tables/rows use dictionary blocks
+                // and exception changes from LIMIT 2 to 3
                 values.add(type.getObjectValue(session.getSqlFunctionProperties(), block, position));
             }
             return Collections.unmodifiableList(values);
+        }
+    }
+
+    private static void validateBlockSizesInPage(Page page)
+    {
+        // debugging
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
+            if (block.getPositionCount() != page.getPositionCount()) {
+                throw new IllegalArgumentException(
+                    format("Wrongly sized block: channel: %d block poition count: %d page position count: %d %s",
+                    channel, block.getPositionCount(), page.getPositionCount(), block.getClass().getCanonicalName()));
+            }
         }
     }
 }
