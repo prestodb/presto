@@ -49,37 +49,37 @@ public class LarkSheetsTableHandle
         this.rowCount = rowCount;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "spreadsheetToken")
     public String getSpreadsheetToken()
     {
         return spreadsheetToken;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "sheetId")
     public String getSheetId()
     {
         return sheetId;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "sheetTitle")
     public String getSheetTitle()
     {
         return sheetTitle;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "sheetIndex")
     public int getSheetIndex()
     {
         return sheetIndex;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "columnCount")
     public int getColumnCount()
     {
         return columnCount;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "rowCount")
     public int getRowCount()
     {
         return rowCount;
