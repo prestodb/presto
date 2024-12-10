@@ -82,6 +82,7 @@
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.26.2</dep.commons.compress.version>
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
+        <dep.netty.version>4.1.115.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
 
         <!--
@@ -209,10 +210,12 @@
         <dependencies>
             <dependency>
                 <groupId>io.netty</groupId>
-                <artifactId>netty-handler</artifactId>
-                <version>4.1.107.Final</version>
+                <artifactId>netty-bom</artifactId>
+                <version>${dep.netty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
-            
+
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-testing-docker</artifactId>
@@ -2339,6 +2342,8 @@
                         <ignoredClassPatterns combine.children="append">
                             <!-- Duplicate class is being brought in by commons-io & log4j-api -->
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
+                            <!-- Duplicate class is being brought in by several netty dependencies-->
+                            <ignoredClassPattern>META-INF.versions.11.module-info</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>
