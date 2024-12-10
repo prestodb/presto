@@ -161,7 +161,7 @@ public class SheetsMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        String schema = schemaName.orElse(getOnlyElement(SCHEMAS));
+        String schema = schemaName.orElseGet(() -> getOnlyElement(SCHEMAS));
 
         if (listSchemaNames().contains(schema)) {
             return sheetsClient.getTableNames().stream()

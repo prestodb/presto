@@ -171,7 +171,8 @@ public final class ComparisonStatsCalculator
         Estimate filterEstimate;
         if (useHistograms) {
             Estimate distinctEstimate = isNaN(variableStatistics.getDistinctValuesCount()) ? Estimate.unknown() : Estimate.of(variableRange.getDistinctValuesCount());
-            filterEstimate = HistogramCalculator.calculateFilterFactor(intersectRange, variableStatistics.getHistogram().orElse(new UniformDistributionHistogram(variableStatistics.getLowValue(), variableStatistics.getHighValue())), distinctEstimate, true);
+            filterEstimate = HistogramCalculator.calculateFilterFactor(intersectRange, variableStatistics.getHistogram()
+                    .orElseGet(() -> new UniformDistributionHistogram(variableStatistics.getLowValue(), variableStatistics.getHighValue())), distinctEstimate, true);
             if (log.isDebugEnabled()) {
                 double expressionFilter = variableRange.overlapPercentWith(intersectRange);
                 if (!Double.isNaN(expressionFilter) &&
