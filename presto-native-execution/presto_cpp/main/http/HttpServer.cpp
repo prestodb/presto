@@ -276,8 +276,8 @@ void HttpServer::start(
   options.handlerFactories = handlerFactories.build();
 
   // Increase the default flow control to 1MB/10MB
-  options.initialReceiveWindow = uint32_t(1 << 20);
-  options.receiveStreamWindowSize = uint32_t(1 << 20);
+  options.initialReceiveWindow = static_cast<uint32_t>(1 << 20);
+  options.receiveStreamWindowSize = static_cast<uint32_t>(1 << 20);
   options.receiveSessionWindowSize = 10 * (1 << 20);
   options.h2cEnabled = true;
 

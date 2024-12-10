@@ -58,7 +58,8 @@ std::string bodyAsString(
   std::ostringstream oss;
   auto iobufs = response.consumeBody();
   for (auto& body : iobufs) {
-    oss << std::string((const char*)body->data(), body->length());
+    oss << std::string(
+        reinterpret_cast<const char*>(body->data()), body->length());
     if (pool != nullptr) {
       pool->free(body->writableData(), body->capacity());
     }
