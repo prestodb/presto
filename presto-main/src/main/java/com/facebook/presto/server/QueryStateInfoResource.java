@@ -45,6 +45,11 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
@@ -105,17 +110,35 @@ public class QueryStateInfoResource
             List<BasicQueryInfo> queryInfos = dispatchManager.getQueries();
             Optional<Pattern> userPattern = isNullOrEmpty(user) ? Optional.empty() : Optional.of(Pattern.compile(user));
 
+            ExecutorService executor = Executors.newSingleThreadExecutor();
             List<QueryStateInfo> queryStateInfos = queryInfos.stream()
                     .filter(queryInfo -> includeAllQueries || !queryInfo.getState().isDone())
-                    .filter(queryInfo -> userPattern.map(pattern -> pattern.matcher(queryInfo.getSession().getUser()).matches()).orElse(true))
+                    .filter(queryInfo -> matchesWithTimeout(userPattern, queryInfo.getSession().getUser(), 10000, executor))
                     .map(queryInfo -> getQueryStateInfo(
                             queryInfo,
                             includeAllQueryProgressStats,
                             excludeResourceGroupPathInfo,
                             queryTextSizeLimit == null ? OptionalInt.empty() : OptionalInt.of(queryTextSizeLimit)))
                     .collect(toImmutableList());
+            executor.shutdown();
 
             asyncResponse.resume(Response.ok(queryStateInfos).build());
+        }
+    }
+
+    private static boolean matchesWithTimeout(Optional<Pattern> pattern, String input, long timeoutMillis, ExecutorService executor)
+    {
+        if (!pattern.isPresent()) {
+            return true;
+        }
+        Pattern rawPattern = pattern.get();
+        Callable<Boolean> callable = () -> rawPattern.matcher(input).matches();
+        Future<Boolean> result = executor.submit(callable);
+        try {
+            return result.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        }
+        catch (Exception e) {
+            return false;
         }
     }
 
