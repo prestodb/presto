@@ -37,7 +37,6 @@ import org.testng.annotations.Test;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -55,6 +54,7 @@ import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tab
 import static com.facebook.presto.spi.SystemTable.Distribution.ALL_NODES;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -347,7 +347,7 @@ public class TestJdbcConnection
     {
         Map<String, String> customHeadersMap = ImmutableMap.of("testHeaderKey", "testHeaderValue");
         String customHeaders = "testHeaderKey:testHeaderValue";
-        String encodedCustomHeaders = URLEncoder.encode(customHeaders, StandardCharsets.UTF_8.toString());
+        String encodedCustomHeaders = URLEncoder.encode(customHeaders, UTF_8);
         Connection connection = createConnection("customHeaders=" + encodedCustomHeaders);
         assertTrue(connection instanceof PrestoConnection);
         PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
@@ -358,9 +358,9 @@ public class TestJdbcConnection
     public void testCustomHeadersWithSpecialCharacters(String testHeaderValue)
             throws SQLException, UnsupportedEncodingException
     {
-        Map<String, String> customHeadersMap = ImmutableMap.of("testHeaderKey", URLEncoder.encode(testHeaderValue, StandardCharsets.UTF_8.toString()));
-        String customHeaders = "testHeaderKey:" + URLEncoder.encode(testHeaderValue, StandardCharsets.UTF_8.toString()) + "";
-        String encodedCustomHeaders = URLEncoder.encode(customHeaders, StandardCharsets.UTF_8.toString());
+        Map<String, String> customHeadersMap = ImmutableMap.of("testHeaderKey", URLEncoder.encode(testHeaderValue, UTF_8));
+        String customHeaders = "testHeaderKey:" + URLEncoder.encode(testHeaderValue, UTF_8);
+        String encodedCustomHeaders = URLEncoder.encode(customHeaders, UTF_8);
         Connection connection = createConnection("customHeaders=" + encodedCustomHeaders);
         assertTrue(connection instanceof PrestoConnection);
         PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);

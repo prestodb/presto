@@ -152,9 +152,9 @@ public final class MetadataReader
 
         if (encryptedFooterMode) {
             FileCryptoMetaData fileCryptoMetaData = readFileCryptoMetaData(input);
-            fileDecryptor.get().setFileCryptoMetaData(fileCryptoMetaData.getEncryption_algorithm(), true, fileCryptoMetaData.getKey_metadata());
-            footerDecryptor = fileDecryptor.get().fetchFooterDecryptor();
-            additionalAuthenticationData = AesCipher.createFooterAAD(fileDecryptor.get().getFileAAD());
+            fileDecryptor.orElseThrow().setFileCryptoMetaData(fileCryptoMetaData.getEncryption_algorithm(), true, fileCryptoMetaData.getKey_metadata());
+            footerDecryptor = fileDecryptor.orElseThrow().fetchFooterDecryptor();
+            additionalAuthenticationData = AesCipher.createFooterAAD(fileDecryptor.orElseThrow().getFileAAD());
         }
 
         FileMetaData fileMetaData = readFileMetaData(input, footerDecryptor, additionalAuthenticationData);
@@ -170,18 +170,18 @@ public final class MetadataReader
         // Reader attached fileDecryptor. The file could be encrypted with plaintext footer or the whole file is plaintext.
         if (!encryptedFooter && fileDecryptor.isPresent()) {
             if (!fileMetaData.isSetEncryption_algorithm()) { // Plaintext file
-                fileDecryptor.get().setPlaintextFile();
+                fileDecryptor.orElseThrow().setPlaintextFile();
                 // Detect that the file is not encrypted by mistake
-                if (!fileDecryptor.get().plaintextFilesAllowed()) {
+                if (!fileDecryptor.orElseThrow().plaintextFilesAllowed()) {
                     throw new ParquetCryptoRuntimeException("Applying decryptor on plaintext file");
                 }
             }
             else {  // Encrypted file with plaintext footer
                 // if no fileDecryptor, can still read plaintext columns
-                fileDecryptor.get().setFileCryptoMetaData(fileMetaData.getEncryption_algorithm(), false,
+                fileDecryptor.orElseThrow().setFileCryptoMetaData(fileMetaData.getEncryption_algorithm(), false,
                         fileMetaData.getFooter_signing_key_metadata());
-                if (fileDecryptor.get().checkFooterIntegrity()) {
-                    verifyFooterIntegrity(input, fileDecryptor.get(), metadataLength);
+                if (fileDecryptor.orElseThrow().checkFooterIntegrity()) {
+                    verifyFooterIntegrity(input, fileDecryptor.orElseThrow(), metadataLength);
                 }
             }
         }
@@ -213,9 +213,9 @@ public final class MetadataReader
 
                     if (null == cryptoMetaData) { // Plaintext column
                         columnPath = getPath(metaData);
-                        if (fileDecryptor.isPresent() && !fileDecryptor.get().plaintextFile()) {
+                        if (fileDecryptor.isPresent() && !fileDecryptor.orElseThrow().plaintextFile()) {
                             // mark this column as plaintext in encrypted file decryptor
-                            fileDecryptor.get().setColumnCryptoMetadata(columnPath, false, false, (byte[]) null, columnOrdinal);
+                            fileDecryptor.orElseThrow().setColumnCryptoMetadata(columnPath, false, false, (byte[]) null, columnOrdinal);
                         }
                     }
                     else {  // Encrypted column
@@ -230,7 +230,7 @@ public final class MetadataReader
                                 throw new ParquetCryptoRuntimeException("Column encrypted with footer key: No keys available");
                             }
                             columnPath = getPath(metaData);
-                            fileDecryptor.get().setColumnCryptoMetadata(columnPath, true, true, (byte[]) null, columnOrdinal);
+                            fileDecryptor.orElseThrow().setColumnCryptoMetadata(columnPath, true, true, (byte[]) null, columnOrdinal);
                         }
                         else { // Column encrypted with column key
                             try {
@@ -240,7 +240,7 @@ public final class MetadataReader
                                 List<String> pathList = columnKeyStruct.getPath_in_schema();
                                 byte[] columnKeyMetadata = columnKeyStruct.getKey_metadata();
                                 columnPath = ColumnPath.get(pathList.toArray(new String[pathList.size()]));
-                                metaData = decryptMetadata(rowGroup, columnKeyMetadata, columnChunk, fileDecryptor.get(), columnOrdinal, columnPath);
+                                metaData = decryptMetadata(rowGroup, columnKeyMetadata, columnChunk, fileDecryptor.orElseThrow(), columnOrdinal, columnPath);
                             }
                             catch (KeyAccessDeniedException e) {
                                 if (readMaskedValue) {

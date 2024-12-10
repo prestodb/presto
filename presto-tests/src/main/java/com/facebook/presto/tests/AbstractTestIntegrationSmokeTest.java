@@ -127,8 +127,8 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testSelectInformationSchemaTables()
     {
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
         String schemaPattern = schema.replaceAll("^.", "_");
 
         assertQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = '" + schema + "' AND table_name = 'orders'", "VALUES 'orders'");
@@ -144,8 +144,8 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test
     public void testSelectInformationSchemaColumns()
     {
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
         String schemaPattern = schema.replaceAll(".$", "_");
 
         @Language("SQL") String ordersTableWithColumns = "VALUES " +

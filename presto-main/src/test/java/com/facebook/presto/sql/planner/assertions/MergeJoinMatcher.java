@@ -73,8 +73,8 @@ public class MergeJoinMatcher
             if (!joinNode.getFilter().isPresent()) {
                 return NO_MATCH;
             }
-            RowExpression expression = joinNode.getFilter().get();
-            if (!new RowExpressionVerifier(symbolAliases, metadata, session).process(filter.get(), expression)) {
+            RowExpression expression = joinNode.getFilter().orElseThrow();
+            if (!new RowExpressionVerifier(symbolAliases, metadata, session).process(filter.orElseThrow(), expression)) {
                 return NO_MATCH;
             }
         }

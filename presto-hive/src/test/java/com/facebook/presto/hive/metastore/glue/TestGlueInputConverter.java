@@ -47,8 +47,8 @@ public class TestGlueInputConverter
         DatabaseInput dbInput = GlueInputConverter.convertDatabase(testDb);
 
         assertEquals(dbInput.getName(), testDb.getDatabaseName());
-        assertEquals(dbInput.getDescription(), testDb.getComment().get());
-        assertEquals(dbInput.getLocationUri(), testDb.getLocation().get());
+        assertEquals(dbInput.getDescription(), testDb.getComment().orElseThrow());
+        assertEquals(dbInput.getLocationUri(), testDb.getLocation().orElseThrow());
         assertEquals(dbInput.getParameters(), testDb.getParameters());
     }
 
@@ -64,8 +64,8 @@ public class TestGlueInputConverter
         assertColumnList(tblInput.getStorageDescriptor().getColumns(), testTbl.getDataColumns());
         assertColumnList(tblInput.getPartitionKeys(), testTbl.getPartitionColumns());
         assertStorage(tblInput.getStorageDescriptor(), testTbl.getStorage());
-        assertEquals(tblInput.getViewExpandedText(), testTbl.getViewExpandedText().get());
-        assertEquals(tblInput.getViewOriginalText(), testTbl.getViewOriginalText().get());
+        assertEquals(tblInput.getViewExpandedText(), testTbl.getViewExpandedText().orElseThrow());
+        assertEquals(tblInput.getViewOriginalText(), testTbl.getViewOriginalText().orElseThrow());
     }
 
     @Test
@@ -94,7 +94,7 @@ public class TestGlueInputConverter
     {
         assertEquals(actual.getName(), expected.getName());
         assertEquals(actual.getType(), expected.getType().getHiveTypeName().toString());
-        assertEquals(actual.getComment(), expected.getComment().get());
+        assertEquals(actual.getComment(), expected.getComment().orElseThrow());
     }
 
     private static void assertStorage(StorageDescriptor actual, Storage expected)
@@ -105,7 +105,7 @@ public class TestGlueInputConverter
         assertEquals(actual.getOutputFormat(), expected.getStorageFormat().getOutputFormat());
 
         if (expected.getBucketProperty().isPresent()) {
-            HiveBucketProperty bucketProperty = expected.getBucketProperty().get();
+            HiveBucketProperty bucketProperty = expected.getBucketProperty().orElseThrow();
             assertEquals(actual.getBucketColumns(), bucketProperty.getBucketedBy());
             assertEquals(actual.getNumberOfBuckets().intValue(), bucketProperty.getBucketCount());
         }

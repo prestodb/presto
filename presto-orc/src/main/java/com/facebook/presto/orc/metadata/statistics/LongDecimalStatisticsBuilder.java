@@ -97,7 +97,7 @@ public class LongDecimalStatisticsBuilder
     {
         Optional<DecimalStatistics> decimalStatistics = buildDecimalStatistics(LONG_DECIMAL_VALUE_BYTES);
         if (decimalStatistics.isPresent()) {
-            return new DecimalColumnStatistics(nonNullValueCount, null, rawSize, storageSize, decimalStatistics.get());
+            return new DecimalColumnStatistics(nonNullValueCount, null, rawSize, storageSize, decimalStatistics.orElseThrow());
         }
         return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }

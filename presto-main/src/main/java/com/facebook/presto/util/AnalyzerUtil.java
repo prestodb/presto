@@ -111,7 +111,7 @@ public class AnalyzerUtil
                             Optional<TransactionId> transactionId = accessControlInfo.getTransactionId();
                             checkState(transactionId.isPresent(), "transactionId is not present");
                             accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                    transactionId.get(),
+                                    transactionId.orElseThrow(),
                                     accessControlInfo.getIdentity(),
                                     accessControlInfo.getAccessControlContext(),
                                     tableName,
@@ -132,13 +132,13 @@ public class AnalyzerUtil
 
             switch (accessControlRole) {
                 case TABLE_CREATE:
-                    accessControl.checkCanCreateTable(transactionId.get(), identity, accessControlContext, tableName);
+                    accessControl.checkCanCreateTable(transactionId.orElseThrow(), identity, accessControlContext, tableName);
                     break;
                 case TABLE_INSERT:
-                    accessControl.checkCanInsertIntoTable(transactionId.get(), identity, accessControlContext, tableName);
+                    accessControl.checkCanInsertIntoTable(transactionId.orElseThrow(), identity, accessControlContext, tableName);
                     break;
                 case TABLE_DELETE:
-                    accessControl.checkCanDeleteFromTable(transactionId.get(), identity, accessControlContext, tableName);
+                    accessControl.checkCanDeleteFromTable(transactionId.orElseThrow(), identity, accessControlContext, tableName);
                     break;
                 default:
                     throw new UnsupportedOperationException("Unsupported access control role found: " + accessControlRole);

@@ -226,7 +226,7 @@ public class MergePartialAggregationsWithFilter
                     .collect(toImmutableMap(x -> x.getValue(), x -> x.getKey()));
 
             context.get().getPartialResultToMask().putAll(aggregationsToMergeOutput.entrySet().stream()
-                    .collect(toImmutableMap(x -> x.getValue(), x -> x.getKey().getMask().get())));
+                    .collect(toImmutableMap(x -> x.getValue(), x -> x.getKey().getMask().orElseThrow())));
             context.get().getPartialOutputMapping().putAll(aggregationsToMergeOutput.entrySet().stream()
                     .collect(toImmutableMap(x -> x.getValue(), x -> aggregationsWithoutMaskToOutput.get(removeFilterAndMask(x.getKey())))));
 

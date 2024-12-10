@@ -67,7 +67,7 @@ public final class DynamicFilters
         for (RowExpression conjunct : conjuncts) {
             Optional<DynamicFilterPlaceholder> placeholder = getPlaceholder(conjunct);
             if (placeholder.isPresent()) {
-                dynamicConjuncts.add(placeholder.get());
+                dynamicConjuncts.add(placeholder.orElseThrow());
             }
             else {
                 staticConjuncts.add(conjunct);

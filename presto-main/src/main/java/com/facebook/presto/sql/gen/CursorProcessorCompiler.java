@@ -219,9 +219,9 @@ public class CursorProcessorCompiler
         cseFields.values().forEach(field -> whileFunctionBlock.append(scope.getThis().setField(field.getEvaluatedField(), constantBoolean(false))));
 
         whileFunctionBlock.comment("do the projection")
-            .append(createProjectIfStatement(classDefinition, method, properties, cursor, pageBuilder, projections))
-            .comment("completedPositions++;")
-            .incrementVariable(completedPositionsVariable, (byte) 1);
+                .append(createProjectIfStatement(classDefinition, method, properties, cursor, pageBuilder, projections))
+                .comment("completedPositions++;")
+                .incrementVariable(completedPositionsVariable, (byte) 1);
 
         WhileLoop whileLoop = new WhileLoop()
                 .condition(constantTrue())
@@ -298,16 +298,16 @@ public class CursorProcessorCompiler
 
         LabelNode end = new LabelNode("end");
         body.comment("boolean wasNull = false;")
-            .putVariable(wasNullVariable, false)
-            .comment("evaluate filter: " + filter)
-            .append(compiler.compile(filter, scope, Optional.empty()))
-            .comment("if (wasNull) return false;")
-            .getVariable(wasNullVariable)
-            .ifFalseGoto(end)
-            .pop(boolean.class)
-            .push(false)
-            .visitLabel(end)
-            .retBoolean();
+                .putVariable(wasNullVariable, false)
+                .comment("evaluate filter: " + filter)
+                .append(compiler.compile(filter, scope, Optional.empty()))
+                .comment("if (wasNull) return false;")
+                .getVariable(wasNullVariable)
+                .ifFalseGoto(end)
+                .pop(boolean.class)
+                .push(false)
+                .visitLabel(end)
+                .retBoolean();
     }
 
     private void generateProjectMethod(
@@ -344,8 +344,8 @@ public class CursorProcessorCompiler
         Parameter cursor = arg("cursor", RecordCursor.class);
 
         ImmutableList.Builder<MethodDefinition> methods = ImmutableList.builder();
-        int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).get();
-        int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).get();
+        int startLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::min).orElseThrow();
+        int maxLevel = commonSubExpressionsByLevel.keySet().stream().reduce(Math::max).orElseThrow();
         for (int i = startLevel; i <= maxLevel; i++) {
             if (commonSubExpressionsByLevel.containsKey(i)) {
                 for (Map.Entry<RowExpression, VariableReferenceExpression> entry : commonSubExpressionsByLevel.get(i).entrySet()) {

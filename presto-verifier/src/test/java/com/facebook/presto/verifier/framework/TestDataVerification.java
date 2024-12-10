@@ -62,12 +62,12 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.00001");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
 
         getQueryRunner().execute("CREATE TABLE success_test (x double)");
         event = runVerification("INSERT INTO success_test SELECT 1.0", "INSERT INTO success_test SELECT 1.00001");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -75,12 +75,12 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.00001", skipControlSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
 
         getQueryRunner().execute("CREATE TABLE success_skip_control (x double)");
         event = runVerification("INSERT INTO success_skip_control SELECT 1.0", "INSERT INTO success_skip_control SELECT 1.00001", skipControlSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
     }
 
     @Test
@@ -88,12 +88,12 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.00001", concurrentControlAndTestSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
 
         getQueryRunner().execute("CREATE TABLE success_concurrent_test_and_control (x double)");
         event = runVerification("INSERT INTO success_concurrent_test_and_control SELECT 1.0", "INSERT INTO success_concurrent_test_and_control SELECT 1.00001", concurrentControlAndTestSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -102,7 +102,7 @@ public class TestDataVerification
         Optional<VerifierQueryEvent> event = runVerification("SELECT 1", "SELECT 1.00001");
         assertTrue(event.isPresent());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 FAILED,
                 Optional.empty(),
                 Optional.of("SCHEMA_MISMATCH"),
@@ -118,7 +118,7 @@ public class TestDataVerification
                 "SELECT 1 x UNION ALL SELECT 1 x");
         assertTrue(event.isPresent());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 FAILED,
                 Optional.of(DETERMINISTIC),
                 Optional.of("ROW_COUNT_MISMATCH"),
@@ -136,7 +136,7 @@ public class TestDataVerification
                 concurrentControlAndTestSettings);
         assertTrue(event.isPresent());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 FAILED,
                 Optional.of(DETERMINISTIC),
                 Optional.of("ROW_COUNT_MISMATCH"),
@@ -151,7 +151,7 @@ public class TestDataVerification
         Optional<VerifierQueryEvent> event = runVerification("SELECT 1.0", "SELECT 1.001");
         assertTrue(event.isPresent());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 FAILED,
                 Optional.of(DETERMINISTIC),
                 Optional.of("COLUMN_MISMATCH"),
@@ -169,9 +169,9 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT * FROM test", "SELECT 1");
         assertTrue(event.isPresent());
-        assertEquals(event.get().getSkippedReason(), FAILED_BEFORE_CONTROL_QUERY.name());
+        assertEquals(event.orElseThrow().getSkippedReason(), FAILED_BEFORE_CONTROL_QUERY.name());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 SKIPPED,
                 Optional.empty(),
                 Optional.of("PRESTO(SYNTAX_ERROR)"),
@@ -188,9 +188,9 @@ public class TestDataVerification
 
         Optional<VerifierQueryEvent> event = runVerification(sourceQuery, sourceQuery, settings);
         assertTrue(event.isPresent());
-        assertEquals(event.get().getSkippedReason(), FAILED_BEFORE_CONTROL_QUERY.name());
+        assertEquals(event.orElseThrow().getSkippedReason(), FAILED_BEFORE_CONTROL_QUERY.name());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 SKIPPED,
                 Optional.empty(),
                 Optional.of("PRESTO(SYNTAX_ERROR)"),
@@ -204,9 +204,9 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("INSERT INTO dest SELECT * FROM test", "SELECT 1");
         assertTrue(event.isPresent());
-        assertEquals(event.get().getSkippedReason(), CONTROL_SETUP_QUERY_FAILED.name());
+        assertEquals(event.orElseThrow().getSkippedReason(), CONTROL_SETUP_QUERY_FAILED.name());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 SKIPPED,
                 Optional.empty(),
                 Optional.of("PRESTO(SYNTAX_ERROR)"),
@@ -232,9 +232,9 @@ public class TestDataVerification
                         Optional.empty(), true, Optional.of(ImmutableList.of("test_column=1"))),
                 new QueryConfiguration(CATALOG, SCHEMA, Optional.of("user"), Optional.empty(),
                         Optional.empty(), true, Optional.empty()), reuseTableSettings);
-        assertTrue(event.get().getControlQueryInfo().getIsReuseTable());
-        assertFalse(event.get().getTestQueryInfo().getIsReuseTable());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertTrue(event.orElseThrow().getControlQueryInfo().getIsReuseTable());
+        assertFalse(event.orElseThrow().getTestQueryInfo().getIsReuseTable());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -243,9 +243,9 @@ public class TestDataVerification
         // Select
         Optional<VerifierQueryEvent> event = runVerification("SELECT rand()", "SELECT 2.0");
         assertTrue(event.isPresent());
-        assertEquals(event.get().getSkippedReason(), NON_DETERMINISTIC.name());
+        assertEquals(event.orElseThrow().getSkippedReason(), NON_DETERMINISTIC.name());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 SKIPPED,
                 Optional.of(NON_DETERMINISTIC_COLUMNS),
                 Optional.of("COLUMN_MISMATCH"),
@@ -257,7 +257,7 @@ public class TestDataVerification
                         "    control\t\\(sum: .*, NaN: 0, \\+infinity: 0, -infinity: 0, mean: .*\\)\n" +
                         "    test\t\\(sum: 2\\.0, NaN: 0, \\+infinity: 0, -infinity: 0, mean: 2.0\\)\n"));
 
-        List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        List<DeterminismAnalysisRun> runs = event.orElseThrow().getDeterminismAnalysisDetails().getRuns();
         assertEquals(runs.size(), 1);
         assertDeterminismAnalysisRun(runs.get(0), false);
 
@@ -265,9 +265,9 @@ public class TestDataVerification
         getQueryRunner().execute("CREATE TABLE non_deterministic_test (x double)");
         event = runVerification("INSERT INTO non_deterministic_test SELECT rand()", "INSERT INTO non_deterministic_test SELECT 2.0");
         assertTrue(event.isPresent());
-        assertEquals(event.get().getSkippedReason(), NON_DETERMINISTIC.name());
+        assertEquals(event.orElseThrow().getSkippedReason(), NON_DETERMINISTIC.name());
 
-        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        runs = event.orElseThrow().getDeterminismAnalysisDetails().getRuns();
         assertEquals(runs.size(), 1);
         assertDeterminismAnalysisRun(runs.get(0), true);
     }
@@ -277,12 +277,12 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
 
         event = runVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, null)]");
         assertTrue(event.isPresent());
         assertEvent(
-                event.get(),
+                event.orElseThrow(),
                 FAILED,
                 Optional.of(DETERMINISTIC),
                 Optional.of("COLUMN_MISMATCH"),
@@ -294,7 +294,7 @@ public class TestDataVerification
                         "    control\t\\(checksum: 71 b5 2f 7f 1e 9b a6 a4, cardinality_checksum: ad 20 38 f3 85 7c ba 56, cardinality_sum: 2\\)\n" +
                         "    test\t\\(checksum: b4 3c 7d 02 2b 14 77 12, cardinality_checksum: ad 20 38 f3 85 7c ba 56, cardinality_sum: 2\\)\n"));
 
-        List<DeterminismAnalysisRun> runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        List<DeterminismAnalysisRun> runs = event.orElseThrow().getDeterminismAnalysisDetails().getRuns();
         assertEquals(runs.size(), 3);
         assertDeterminismAnalysisRun(runs.get(0), false);
         assertDeterminismAnalysisRun(runs.get(1), false);
@@ -306,7 +306,7 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT date '2020-01-01', date(now()) today", "SELECT date '2020-01-01', date(now()) today");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -315,7 +315,7 @@ public class TestDataVerification
         String query = "SELECT time '12:34:56'";
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -324,7 +324,7 @@ public class TestDataVerification
         String query = "SELECT cast(timestamp '2020-04-01 12:34:56' AS timestamp with time zone)";
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -332,7 +332,7 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT null, null unknown", "SELECT null, null unknown");
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -341,7 +341,7 @@ public class TestDataVerification
         String query = "SELECT decimal '1.2'";
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -358,7 +358,7 @@ public class TestDataVerification
                 "    ROW(NULL)";
         Optional<VerifierQueryEvent> event = runVerification(query, query);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -371,11 +371,11 @@ public class TestDataVerification
         Optional<VerifierQueryEvent> event = runVerification(query, query);
 
         assertTrue(event.isPresent());
-        assertEquals(event.get().getStatus(), FAILED_RESOLVED.name());
-        assertEquals(event.get().getErrorCode(), "PRESTO(GENERATED_BYTECODE_TOO_LARGE)");
-        assertNotNull(event.get().getControlQueryInfo().getChecksumQuery());
-        assertNotNull(event.get().getControlQueryInfo().getChecksumQueryId());
-        assertNotNull(event.get().getTestQueryInfo().getChecksumQuery());
+        assertEquals(event.orElseThrow().getStatus(), FAILED_RESOLVED.name());
+        assertEquals(event.orElseThrow().getErrorCode(), "PRESTO(GENERATED_BYTECODE_TOO_LARGE)");
+        assertNotNull(event.orElseThrow().getControlQueryInfo().getChecksumQuery());
+        assertNotNull(event.orElseThrow().getControlQueryInfo().getChecksumQueryId());
+        assertNotNull(event.orElseThrow().getTestQueryInfo().getChecksumQuery());
     }
 
     @Test
@@ -386,7 +386,7 @@ public class TestDataVerification
         SourceQuery sourceQuery = new SourceQuery(SUITE, NAME, "SELECT 1.0", "SELECT 1.00001", Optional.empty(), Optional.empty(), configuration, configuration);
         Optional<VerifierQueryEvent> event = verify(sourceQuery, false);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     @Test
@@ -394,11 +394,11 @@ public class TestDataVerification
     {
         Optional<VerifierQueryEvent> event = runVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", saveSnapshotSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
 
         event = runVerification("SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", "SELECT ARRAY[ROW(1, 'a'), ROW(2, 'b')]", queryBankModeSettings);
         assertTrue(event.isPresent());
-        assertEvent(event.get(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
+        assertEvent(event.orElseThrow(), SUCCEEDED, Optional.empty(), Optional.empty(), Optional.empty(), false);
     }
 
     private void assertEvent(
@@ -430,7 +430,7 @@ public class TestDataVerification
         }
         else {
             assertTrue(expectedErrorMessageRegex.isPresent());
-            assertTrue(Pattern.compile(expectedErrorMessageRegex.get(), DOTALL).matcher(event.getErrorMessage()).matches());
+            assertTrue(Pattern.compile(expectedErrorMessageRegex.orElseThrow(), DOTALL).matcher(event.getErrorMessage()).matches());
         }
 
         if (event.getStatus().equals(SUCCEEDED.name())) {

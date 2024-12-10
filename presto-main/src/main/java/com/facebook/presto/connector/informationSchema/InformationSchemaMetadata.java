@@ -263,7 +263,7 @@ public class InformationSchemaMetadata
     {
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
-            return schemas.get().stream()
+            return schemas.orElseThrow().stream()
                     .filter(this::isLowerCase)
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
@@ -271,7 +271,7 @@ public class InformationSchemaMetadata
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
         return metadata.listSchemaNames(session, catalogName).stream()
-                .filter(schema -> !predicate.isPresent() || predicate.get().test(schemaAsFixedValues(schema)))
+                .filter(schema -> !predicate.isPresent() || predicate.orElseThrow().test(schemaAsFixedValues(schema)))
                 .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                 .collect(toImmutableSet());
     }
@@ -288,10 +288,10 @@ public class InformationSchemaMetadata
         Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
         if (tables.isPresent()) {
             return prefixes.stream()
-                    .flatMap(prefix -> tables.get().stream()
+                    .flatMap(prefix -> tables.orElseThrow().stream()
                             .filter(this::isLowerCase)
                             .map(table -> table.toLowerCase(ENGLISH))
-                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
+                            .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().orElseThrow(), table)))
                     .filter(objectName -> metadataResolver.getView(objectName).isPresent() || metadataResolver.getTableHandle(objectName).isPresent())
                     .map(QualifiedTablePrefix::toQualifiedTablePrefix)
                     .collect(toImmutableSet());
@@ -301,7 +301,7 @@ public class InformationSchemaMetadata
                 .flatMap(prefix -> Stream.concat(
                         metadata.listTables(session, prefix).stream(),
                         metadata.listViews(session, prefix).stream()))
-                .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
+                .filter(objectName -> !predicate.isPresent() || predicate.orElseThrow().test(asFixedValues(objectName)))
                 .map(QualifiedTablePrefix::toQualifiedTablePrefix)
                 .collect(toImmutableSet());
     }
@@ -312,7 +312,7 @@ public class InformationSchemaMetadata
             return Optional.of(ImmutableSet.of());
         }
 
-        Domain domain = constraint.getDomains().get().get(column);
+        Domain domain = constraint.getDomains().orElseThrow().get(column);
         if (domain == null) {
             return Optional.empty();
         }

@@ -68,7 +68,7 @@ import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateC
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -151,7 +151,7 @@ public class MetadataQueryOptimizer
             }
 
             // verify all outputs of table scan are partition keys
-            TableScanNode tableScan = result.get();
+            TableScanNode tableScan = result.orElseThrow();
 
             ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columnBuilder = ImmutableMap.builder();
 
@@ -177,11 +177,11 @@ public class MetadataQueryOptimizer
                 return context.defaultRewrite(node);
             }
 
-            DiscretePredicates discretePredicates = layout.getDiscretePredicates().get();
+            DiscretePredicates discretePredicates = layout.getDiscretePredicates().orElseThrow();
 
             // the optimization is only valid if there is no filter on non-partition columns
             if (layout.getPredicate().getColumnDomains().isPresent()) {
-                List<ColumnHandle> predicateColumns = layout.getPredicate().getColumnDomains().get().stream()
+                List<ColumnHandle> predicateColumns = layout.getPredicate().getColumnDomains().orElseThrow().stream()
                         .map(ColumnDomain::getColumn)
                         .collect(toImmutableList());
                 if (!discretePredicates.getColumns().containsAll(predicateColumns)) {
@@ -192,7 +192,7 @@ public class MetadataQueryOptimizer
             // Remaining predicate after tuple domain pushdown in getTableLayout(). This doesn't have overlap with discretePredicates.
             // So it only references non-partition columns. Disable the optimization in this case.
             Optional<RowExpression> remainingPredicate = layout.getRemainingPredicate();
-            if (remainingPredicate.isPresent() && !VariablesExtractor.extractAll(remainingPredicate.get()).isEmpty()) {
+            if (remainingPredicate.isPresent() && !VariablesExtractor.extractAll(remainingPredicate.orElseThrow()).isEmpty()) {
                 return context.defaultRewrite(node);
             }
 
@@ -230,7 +230,7 @@ public class MetadataQueryOptimizer
                 if (domain.isNone()) {
                     continue;
                 }
-                Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
+                Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).orElseThrow();
 
                 ImmutableList.Builder<RowExpression> rowBuilder = ImmutableList.builder();
                 // for each input column, add a literal expression using the entry value
@@ -292,7 +292,7 @@ public class MetadataQueryOptimizer
                     if (domain.isNone()) {
                         continue;
                     }
-                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).get();
+                    Map<ColumnHandle, NullableValue> entries = TupleDomain.extractFixedValues(domain).orElseThrow();
                     NullableValue value = entries.get(column);
                     if (value == null) {
                         // partition key does not have a single value, so bail out to be safe
@@ -315,7 +315,7 @@ public class MetadataQueryOptimizer
             Assignments.Builder assignmentsBuilder = Assignments.builder();
             for (VariableReferenceExpression outputVariable : node.getOutputVariables()) {
                 Aggregation aggregation = node.getAggregations().get(outputVariable);
-                RowExpression inputVariable = getOnlyElement(aggregation.getArguments());
+                RowExpression inputVariable = aggregation.getArguments().stream().collect(onlyElement());
                 RowExpression result = evaluateMinMax(
                         metadata.getFunctionAndTypeManager().getFunctionMetadata(node.getAggregations().get(outputVariable).getFunctionHandle()),
                         inputColumnValues.get(inputVariable));
@@ -373,7 +373,7 @@ public class MetadataQueryOptimizer
                 }
                 arguments = reducedArguments;
             }
-            return getOnlyElement(arguments);
+            return arguments.stream().collect(onlyElement());
         }
 
         private static Optional<TableScanNode> findTableScan(PlanNode source, RowExpressionDeterminismEvaluator determinismEvaluator)
@@ -388,7 +388,7 @@ public class MetadataQueryOptimizer
                 else if (source instanceof ProjectNode) {
                     // verify projections are deterministic
                     ProjectNode project = (ProjectNode) source;
-                    if (!Iterables.all(project.getAssignments().getExpressions(), determinismEvaluator::isDeterministic)) {
+                    if (project.getAssignments().getExpressions().stream().noneMatch(determinismEvaluator::isDeterministic)) {
                         return Optional.empty();
                     }
                     source = project.getSource();

@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.predicate.TupleDomain.fromFixedValues;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -44,12 +45,10 @@ import static com.facebook.presto.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static com.facebook.presto.orc.OrcTester.writeOrcColumnHive;
 import static com.facebook.presto.orc.TupleDomainOrcPredicate.ColumnReference;
 import static com.facebook.presto.orc.metadata.CompressionKind.SNAPPY;
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
-import static com.google.common.collect.Lists.newArrayList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.function.Function.identity;
 import static org.testng.Assert.assertEquals;
 
 public class TestReadBloomFilter
@@ -75,7 +74,9 @@ public class TestReadBloomFilter
     private static <T> void testType(Type type, List<T> uniqueValues, T inBloomFilter, T notInBloomFilter)
             throws Exception
     {
-        List<T> writeValues = newArrayList(limit(cycle(uniqueValues), 30_000));
+        List<T> writeValues = Stream.generate(uniqueValues::stream)
+                .flatMap(identity())
+                .limit(30_000).toList();
 
         try (TempFile tempFile = new TempFile()) {
             writeOrcColumnHive(tempFile.getFile(), ORC_12, SNAPPY, type, writeValues);

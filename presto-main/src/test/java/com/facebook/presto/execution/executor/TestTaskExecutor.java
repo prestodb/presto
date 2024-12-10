@@ -41,7 +41,7 @@ import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracki
 import static com.facebook.presto.execution.TaskManagerConfig.TaskPriorityTracking.TASK_FAIR;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_CONTRIBUTION_CAP;
 import static com.facebook.presto.execution.executor.MultilevelSplitQueue.LEVEL_THRESHOLD_SECONDS;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -71,9 +71,9 @@ public class TestTaskExecutor
 
             // add two jobs
             TestingJob driver1 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
-            ListenableFuture<?> future1 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1)));
+            ListenableFuture<?> future1 = taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1)).stream().collect(onlyElement());
             TestingJob driver2 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
-            ListenableFuture<?> future2 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver2)));
+            ListenableFuture<?> future2 = taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver2)).stream().collect(onlyElement());
             assertEquals(driver1.getCompletedPhases(), 0);
             assertEquals(driver2.getCompletedPhases(), 0);
 
@@ -96,7 +96,7 @@ public class TestTaskExecutor
 
             // add one more job
             TestingJob driver3 = new TestingJob(ticker, new Phaser(1), beginPhase, verificationComplete, 10, 0);
-            ListenableFuture<?> future3 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)));
+            ListenableFuture<?> future3 = taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver3)).stream().collect(onlyElement());
 
             // advance one phase and verify
             beginPhase.arriveAndAwaitAdvance();

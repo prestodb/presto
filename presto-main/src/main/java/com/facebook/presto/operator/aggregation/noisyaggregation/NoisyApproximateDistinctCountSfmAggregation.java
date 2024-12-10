@@ -43,7 +43,7 @@ public final class NoisyApproximateDistinctCountSfmAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = {"T"}) MethodHandle methodHandle,
+            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
             @AggregationState SfmSketchState state,
             @SqlType("T") long value,
             @SqlType(StandardTypes.DOUBLE) double epsilon,
@@ -56,7 +56,7 @@ public final class NoisyApproximateDistinctCountSfmAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = {"T"}) MethodHandle methodHandle,
+            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
             @AggregationState SfmSketchState state,
             @SqlType("T") double value,
             @SqlType(StandardTypes.DOUBLE) double epsilon,
@@ -69,7 +69,7 @@ public final class NoisyApproximateDistinctCountSfmAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = {"T"}) MethodHandle methodHandle,
+            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
             @AggregationState SfmSketchState state,
             @SqlType("T") Slice value,
             @SqlType(StandardTypes.DOUBLE) double epsilon,

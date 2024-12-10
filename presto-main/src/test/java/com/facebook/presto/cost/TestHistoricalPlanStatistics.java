@@ -136,7 +136,7 @@ public class TestHistoricalPlanStatistics
                 historicalPlanStatistics,
                 inputTableStatistics,
                 0.1);
-        return historicalPlanStatisticsEntry.isPresent() ? historicalPlanStatisticsEntry.get().getPlanStatistics() : PlanStatistics.empty();
+        return historicalPlanStatisticsEntry.isPresent() ? historicalPlanStatisticsEntry.orElseThrow().getPlanStatistics() : PlanStatistics.empty();
     }
 
     private static PlanStatistics getPredictedPlanStatisticsForGivenMatchingThreshold(
@@ -148,6 +148,6 @@ public class TestHistoricalPlanStatistics
                 historicalPlanStatistics,
                 inputTableStatistics,
                 historyMatchingThreshold);
-        return historicalPlanStatisticsEntry.isPresent() ? historicalPlanStatisticsEntry.get().getPlanStatistics() : PlanStatistics.empty();
+        return historicalPlanStatisticsEntry.isPresent() ? historicalPlanStatisticsEntry.orElseThrow().getPlanStatistics() : PlanStatistics.empty();
     }
 }

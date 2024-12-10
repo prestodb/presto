@@ -47,7 +47,7 @@ public class PinotException
     {
         String message = super.getMessage();
         if (pinotQuery.isPresent()) {
-            message += " with pinot query \"" + pinotQuery.get() + "\"";
+            message += " with pinot query \"" + pinotQuery.orElseThrow() + "\"";
         }
         return message;
     }

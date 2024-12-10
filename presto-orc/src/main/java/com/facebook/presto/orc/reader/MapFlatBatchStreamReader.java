@@ -249,7 +249,7 @@ public class MapFlatBatchStreamReader
         SortedMap<Integer, DwrfSequenceEncoding> additionalSequenceEncodings = Collections.emptySortedMap();
         // encoding or encoding.getAdditionalSequenceEncodings() may not be present when every map is empty or null
         if (encoding != null && encoding.getAdditionalSequenceEncodings().isPresent()) {
-            additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().get();
+            additionalSequenceEncodings = encoding.getAdditionalSequenceEncodings().orElseThrow();
         }
 
         // The ColumnEncoding with sequence ID 0 doesn't have any data associated with it

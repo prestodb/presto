@@ -259,7 +259,7 @@ public class ScalarStatsCalculator
 
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle());
             checkState(functionMetadata.getOperatorType().isPresent());
-            OperatorType operatorType = functionMetadata.getOperatorType().get();
+            OperatorType operatorType = functionMetadata.getOperatorType().orElseThrow();
             double leftLow = left.getLowValue();
             double leftHigh = left.getHighValue();
             double rightLow = right.getLowValue();

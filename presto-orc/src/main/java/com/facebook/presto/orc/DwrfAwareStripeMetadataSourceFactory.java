@@ -34,7 +34,7 @@ public class DwrfAwareStripeMetadataSourceFactory
     {
         StripeMetadataSource delegate = requireNonNull(delegateFactory.create(dwrfStripeCache), "created delegate is null");
         if (dwrfStripeCache.isPresent()) {
-            return new DwrfAwareStripeMetadataSource(delegate, dwrfStripeCache.get());
+            return new DwrfAwareStripeMetadataSource(delegate, dwrfStripeCache.orElseThrow());
         }
         return delegate;
     }

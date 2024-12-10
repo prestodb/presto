@@ -142,7 +142,7 @@ public class PagesSpatialIndexSupplier
 
             int partition = -1;
             if (partitionChannel.isPresent()) {
-                Block partitionBlock = channels.get(partitionChannel.get()).get(blockIndex);
+                Block partitionBlock = channels.get(partitionChannel.orElseThrow()).get(blockIndex);
                 partition = toIntExact(INTEGER.getLong(partitionBlock, blockPosition));
             }
 

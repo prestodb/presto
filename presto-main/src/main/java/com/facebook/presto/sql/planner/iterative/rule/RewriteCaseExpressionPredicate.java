@@ -224,11 +224,11 @@ public class RewriteCaseExpressionPredicate
             for (RowExpression whenClause : whenClauses) {
                 RowExpression whenOperand = ((SpecialFormExpression) whenClause).getArguments().get(0);
                 if (caseOperand.isPresent()) {
-                    whenOperand = logicalRowExpressions.equalsCallExpression(caseOperand.get(), whenOperand);
+                    whenOperand = logicalRowExpressions.equalsCallExpression(caseOperand.orElseThrow(), whenOperand);
                 }
                 RowExpression whenResult = ((SpecialFormExpression) whenClause).getArguments().get(1);
                 if (castExpression.isPresent()) {
-                    whenResult = replaceArguments(castExpression.get(), whenResult);
+                    whenResult = replaceArguments(castExpression.orElseThrow(), whenResult);
                 }
 
                 RowExpression comparisonExpression = comparisonExpressionGenerator.apply(whenResult);

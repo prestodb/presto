@@ -164,10 +164,11 @@ final class PrestoDriverUri
 
         if (timezone.isPresent()) {
             List<String> timeZoneIds = Arrays.asList(TimeZone.getAvailableIDs());
-            if (!timeZoneIds.contains(timezone.get())) {
-                throw new SQLException("Specified timeZoneId is not supported: " + timezone.get());
+            String tz = timezone.orElseThrow();
+            if (!timeZoneIds.contains(tz)) {
+                throw new SQLException("Specified timeZoneId is not supported: " + tz);
             }
-            return timezone.get();
+            return tz;
         }
         return TimeZone.getDefault().getID();
     }
@@ -280,7 +281,7 @@ final class PrestoDriverUri
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using an access token requires SSL to be enabled");
                 }
-                builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
+                builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).orElseThrow()));
             }
         }
         catch (ClientException e) {

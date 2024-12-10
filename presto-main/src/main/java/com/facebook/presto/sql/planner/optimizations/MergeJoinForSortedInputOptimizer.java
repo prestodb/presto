@@ -162,7 +162,7 @@ public class MergeJoinForSortedInputOptimizer
             if (!streamProperties.getPartitioningColumns().isPresent()) {
                 return false;
             }
-            List<VariableReferenceExpression> partitioningColumns = streamProperties.getPartitioningColumns().get();
+            List<VariableReferenceExpression> partitioningColumns = streamProperties.getPartitioningColumns().orElseThrow();
             return partitioningColumns.size() <= joinColumns.size() && joinColumns.containsAll(partitioningColumns);
         }
     }

@@ -19,7 +19,6 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 
 import java.util.Random;
@@ -83,7 +82,9 @@ public class PluginNodeManager
         if (coordinatorSidecars.isEmpty()) {
             throw new PrestoException(NO_CPP_SIDECARS, "Expected exactly one coordinator sidecar, but found none");
         }
-        return Iterables.get(coordinatorSidecars, new Random().nextInt(coordinatorSidecars.size()));
+        return coordinatorSidecars.stream()
+                .skip(new Random().nextInt(coordinatorSidecars.size()))
+                .findFirst().orElseThrow();
     }
 
     @Override

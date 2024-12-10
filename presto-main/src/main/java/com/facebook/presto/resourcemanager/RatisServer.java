@@ -62,7 +62,7 @@ public class RatisServer
                 .map(resourceManager -> {
                     RaftPeer.Builder builder = RaftPeer.newBuilder();
                     builder.setId(RaftPeerId.valueOf(resourceManager.getNodeIdentifier()))
-                        .setAddress(resourceManager.getHost() + ":" + resourceManager.getRaftPort().getAsInt());
+                            .setAddress(resourceManager.getHost() + ":" + resourceManager.getRaftPort().getAsInt());
                     return builder.build();
                 }).toArray(RaftPeer[]::new);
     }
@@ -74,7 +74,8 @@ public class RatisServer
         run();
     }
 
-    public void run() throws Exception
+    public void run()
+            throws Exception
     {
         RaftProperties properties = new RaftProperties();
         GrpcConfigKeys.Server.setPort(properties, port);

@@ -150,7 +150,7 @@ public class Memo
             // for now, we replace existing group logical properties with those computed for the new node
             // as we cannot ensure equivalence for all plans in a group until we support functional dependencies
             // once we can ensure equivalence we can simply reuse the previously computed properties for all plans in the group
-            LogicalProperties newLogicalProperties = node.computeLogicalProperties(logicalPropertiesProvider.get());
+            LogicalProperties newLogicalProperties = node.computeLogicalProperties(logicalPropertiesProvider.orElseThrow());
             getGroup(group).logicalProperties = Optional.of(newLogicalProperties);
         }
         decrementReferenceCounts(old, group);

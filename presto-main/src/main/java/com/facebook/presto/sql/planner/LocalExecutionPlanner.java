@@ -227,7 +227,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
@@ -347,7 +346,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.DiscreteDomain.integers;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Range.closedOpen;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
@@ -560,7 +559,7 @@ public class LocalExecutionPlanner
         List<Optional<ConstantExpression>> partitionConstants;
         List<Type> partitionChannelTypes;
         if (partitioningScheme.getHashColumn().isPresent()) {
-            partitionChannels = ImmutableList.of(outputLayout.indexOf(partitioningScheme.getHashColumn().get()));
+            partitionChannels = ImmutableList.of(outputLayout.indexOf(partitioningScheme.getHashColumn().orElseThrow()));
             partitionConstants = ImmutableList.of(Optional.empty());
             partitionChannelTypes = ImmutableList.of(BIGINT);
         }
@@ -596,7 +595,7 @@ public class LocalExecutionPlanner
         // partitioningColumns expected to have one column in the normal case, and zero columns when partitioning on a constant
         checkArgument(!partitioningScheme.isReplicateNullsAndAny() || partitioningColumns.size() <= 1);
         if (partitioningScheme.isReplicateNullsAndAny() && partitioningColumns.size() == 1) {
-            nullChannel = OptionalInt.of(outputLayout.indexOf(getOnlyElement(partitioningColumns)));
+            nullChannel = OptionalInt.of(outputLayout.indexOf(partitioningColumns.stream().collect(onlyElement())));
         }
 
         return Optional.of(new OutputPartitioning(partitionFunction, partitionChannels, partitionConstants, partitioningScheme.isReplicateNullsAndAny(), nullChannel));
@@ -675,12 +674,12 @@ public class LocalExecutionPlanner
                     // We duplicate all of the factories above the JoinOperator (the ones reading from the joins),
                     // and replace the JoinOperator with the OuterOperator (the one that produces unmatched rows).
                     ImmutableList.Builder<OperatorFactory> newOperators = ImmutableList.builder();
-                    newOperators.add(outerOperatorFactoryResult.get().getOuterOperatorFactory());
+                    newOperators.add(outerOperatorFactoryResult.orElseThrow().getOuterOperatorFactory());
                     operatorFactories.subList(i + 1, operatorFactories.size()).stream()
                             .map(OperatorFactory::duplicate)
                             .forEach(newOperators::add);
 
-                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.get().getBuildExecutionStrategy(), Optional.empty());
+                    context.addDriverFactory(false, factory.isOutputDriver(), newOperators.build(), OptionalInt.of(1), outerOperatorFactoryResult.orElseThrow().getBuildExecutionStrategy(), Optional.empty());
                 }
             }
         }
@@ -941,7 +940,7 @@ public class LocalExecutionPlanner
             // merging remote source must have a single driver
             context.setDriverInstanceCount(1);
 
-            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            OrderingScheme orderingScheme = node.getOrderingScheme().orElseThrow();
             ImmutableMap<VariableReferenceExpression, Integer> layout = makeLayout(node);
             List<Integer> sortChannels = getChannelsForVariables(orderingScheme.getOrderByVariables(), layout);
             List<SortOrder> sortOrder = getOrderingList(orderingScheme);
@@ -1109,7 +1108,7 @@ public class LocalExecutionPlanner
             List<SortOrder> sortOrder = ImmutableList.of();
 
             if (node.getOrderingScheme().isPresent()) {
-                OrderingScheme orderingScheme = node.getOrderingScheme().get();
+                OrderingScheme orderingScheme = node.getOrderingScheme().orElseThrow();
                 sortChannels = getChannelsForVariables(orderingScheme.getOrderByVariables(), source.getLayout());
                 sortOrder = getOrderingList(orderingScheme);
             }
@@ -1131,16 +1130,16 @@ public class LocalExecutionPlanner
 
                 Frame frame = entry.getValue().getFrame();
                 if (frame.getStartValue().isPresent()) {
-                    frameStartChannel = Optional.of(source.getLayout().get(frame.getStartValue().get()));
+                    frameStartChannel = Optional.of(source.getLayout().get(frame.getStartValue().orElseThrow()));
                 }
                 if (frame.getSortKeyCoercedForFrameStartComparison().isPresent()) {
-                    sortKeyChannelForStartComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameStartComparison().get()));
+                    sortKeyChannelForStartComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameStartComparison().orElseThrow()));
                 }
                 if (frame.getEndValue().isPresent()) {
-                    frameEndChannel = Optional.of(source.getLayout().get(frame.getEndValue().get()));
+                    frameEndChannel = Optional.of(source.getLayout().get(frame.getEndValue().orElseThrow()));
                 }
                 if (frame.getSortKeyCoercedForFrameEndComparison().isPresent()) {
-                    sortKeyChannelForEndComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameEndComparison().get()));
+                    sortKeyChannelForEndComparison = Optional.of(source.getLayout().get(frame.getSortKeyCoercedForFrameEndComparison().orElseThrow()));
                 }
                 if (node.getOrderingScheme().isPresent()) {
                     sortKeyChannel = Optional.of(sortChannels.get(0));
@@ -1450,8 +1449,8 @@ public class LocalExecutionPlanner
             if (sourceNode instanceof TableScanNode && locality.equals(LOCAL)) {
                 TableScanNode tableScanNode = (TableScanNode) sourceNode;
                 Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
-                if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == tableScanNode.getId()) {
-                    table = deleteScanInfo.get().getTableHandle();
+                if (deleteScanInfo.isPresent() && deleteScanInfo.orElseThrow().getId() == tableScanNode.getId()) {
+                    table = deleteScanInfo.orElseThrow().getTableHandle();
                 }
                 else {
                     table = tableScanNode.getTable();
@@ -1480,7 +1479,7 @@ public class LocalExecutionPlanner
             if (filterExpression.isPresent()) {
                 checkState(locality.equals(LOCAL), "Only local projection could be combined with filter");
                 // TODO: theoretically, filterExpression could be a constant value (true or false) after optimization; we could possibly optimize the execution.
-                filterExpression = Optional.of(bindChannels(filterExpression.get(), sourceLayout));
+                filterExpression = Optional.of(bindChannels(filterExpression.orElseThrow(), sourceLayout));
             }
 
             // build output mapping
@@ -1500,7 +1499,7 @@ public class LocalExecutionPlanner
 
             Optional<List<DynamicFilterPlaceholder>> dynamicFilters = extractDynamicFilterResult.map(DynamicFilterExtractResult::getDynamicConjuncts);
             Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier = Optional.empty();
-            if (dynamicFilters.isPresent() && !dynamicFilters.get().isEmpty() && sourceNode instanceof TableScanNode) {
+            if (dynamicFilters.isPresent() && !dynamicFilters.orElseThrow().isEmpty() && sourceNode instanceof TableScanNode) {
                 TableScanNode tableScanNode = (TableScanNode) sourceNode;
                 LocalDynamicFiltersCollector collector = context.getDynamicFiltersCollector();
                 dynamicFilterSupplier = Optional.of(() -> {
@@ -1611,8 +1610,8 @@ public class LocalExecutionPlanner
 
             TableHandle tableHandle;
             Optional<DeleteScanInfo> deleteScanInfo = context.getTableWriteInfo().getDeleteScanInfo();
-            if (deleteScanInfo.isPresent() && deleteScanInfo.get().getId() == node.getId()) {
-                tableHandle = deleteScanInfo.get().getTableHandle();
+            if (deleteScanInfo.isPresent() && deleteScanInfo.orElseThrow().getId() == node.getId()) {
+                tableHandle = deleteScanInfo.orElseThrow().getTableHandle();
             }
             else {
                 tableHandle = node.getTable();
@@ -1682,7 +1681,7 @@ public class LocalExecutionPlanner
                 }
             }
             if (ordinalityVariable.isPresent()) {
-                outputMappings.put(ordinalityVariable.get(), channel);
+                outputMappings.put(ordinalityVariable.orElseThrow(), channel);
                 channel++;
             }
             OperatorFactory operatorFactory = new UnnestOperatorFactory(
@@ -1716,7 +1715,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitIndexSource(IndexSourceNode node, LocalExecutionPlanContext context)
         {
             checkState(context.getIndexSourceContext().isPresent(), "Must be in an index source context");
-            IndexSourceContext indexSourceContext = context.getIndexSourceContext().get();
+            IndexSourceContext indexSourceContext = context.getIndexSourceContext().orElseThrow();
 
             SetMultimap<VariableReferenceExpression, Integer> indexLookupToProbeInput = indexSourceContext.getIndexLookupToProbeInput();
             checkState(indexLookupToProbeInput.keySet().equals(node.getLookupVariables()));
@@ -1735,7 +1734,7 @@ public class LocalExecutionPlanner
                 if (potentialProbeInputs.size() > 1) {
                     overlappingFieldSetsBuilder.add(potentialProbeInputs.stream().collect(toImmutableSet()));
                 }
-                remappedProbeKeyChannelsBuilder.add(Iterables.getFirst(potentialProbeInputs, null));
+                remappedProbeKeyChannelsBuilder.add(potentialProbeInputs.stream().findFirst().orElse(null));
             }
             List<Set<Integer>> overlappingFieldSets = overlappingFieldSetsBuilder.build();
             List<Integer> remappedProbeKeyChannels = remappedProbeKeyChannelsBuilder.build();
@@ -1960,15 +1959,15 @@ public class LocalExecutionPlanner
             for (CallExpression spatialFunction : spatialFunctions) {
                 Optional<PhysicalOperation> operation = tryCreateSpatialJoin(context, node, removeExpressionFromFilter(filterExpression, spatialFunction), spatialFunction, Optional.empty(), Optional.empty());
                 if (operation.isPresent()) {
-                    return operation.get();
+                    return operation.orElseThrow();
                 }
             }
 
             List<CallExpression> spatialComparisons = extractSupportedSpatialComparisons(filterExpression, metadata.getFunctionAndTypeManager());
             for (CallExpression spatialComparison : spatialComparisons) {
                 FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(spatialComparison.getFunctionHandle());
-                checkArgument(functionMetadata.getOperatorType().isPresent() && functionMetadata.getOperatorType().get().isComparisonOperator());
-                if (functionMetadata.getOperatorType().get() == OperatorType.LESS_THAN || functionMetadata.getOperatorType().get() == OperatorType.LESS_THAN_OR_EQUAL) {
+                checkArgument(functionMetadata.getOperatorType().isPresent() && functionMetadata.getOperatorType().orElseThrow().isComparisonOperator());
+                if (functionMetadata.getOperatorType().orElseThrow() == OperatorType.LESS_THAN || functionMetadata.getOperatorType().orElseThrow() == OperatorType.LESS_THAN_OR_EQUAL) {
                     // ST_Distance(a, b) <= r
                     RowExpression radius = spatialComparison.getArguments().get(1);
                     if (radius instanceof VariableReferenceExpression && node.getRight().getOutputVariables().contains(radius)) {
@@ -1981,7 +1980,7 @@ public class LocalExecutionPlanner
                                 Optional.of((VariableReferenceExpression) radius),
                                 functionMetadata.getOperatorType());
                         if (operation.isPresent()) {
-                            return operation.get();
+                            return operation.orElseThrow();
                         }
                     }
                 }
@@ -2099,10 +2098,10 @@ public class LocalExecutionPlanner
                 return (buildGeometry, probeGeometry, radius) -> buildGeometry.touches(probeGeometry);
             }
             if (functionName.equals(ST_DISTANCE)) {
-                if (comparisonOperator.get() == OperatorType.LESS_THAN) {
+                if (comparisonOperator.orElseThrow() == OperatorType.LESS_THAN) {
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) < radius.getAsDouble();
                 }
-                else if (comparisonOperator.get() == OperatorType.LESS_THAN_OR_EQUAL) {
+                else if (comparisonOperator.orElseThrow() == OperatorType.LESS_THAN_OR_EQUAL) {
                     return (buildGeometry, probeGeometry, radius) -> buildGeometry.distance(probeGeometry) <= radius.getAsDouble();
                 }
                 else {
@@ -2115,10 +2114,10 @@ public class LocalExecutionPlanner
         private SpatialPredicate sphericalSpatialTest(QualifiedObjectName functionName, Optional<OperatorType> comparisonOperator)
         {
             if (functionName.equals(ST_DISTANCE)) {
-                if (comparisonOperator.get() == OperatorType.LESS_THAN) {
+                if (comparisonOperator.orElseThrow() == OperatorType.LESS_THAN) {
                     return (buildGeometry, probeGeometry, radius) -> sphericalDistance(buildGeometry, probeGeometry) < radius.getAsDouble();
                 }
-                else if (comparisonOperator.get() == OperatorType.LESS_THAN_OR_EQUAL) {
+                else if (comparisonOperator.orElseThrow() == OperatorType.LESS_THAN_OR_EQUAL) {
                     return (buildGeometry, probeGeometry, radius) -> sphericalDistance(buildGeometry, probeGeometry) <= radius.getAsDouble();
                 }
                 else {
@@ -2426,7 +2425,7 @@ public class LocalExecutionPlanner
 
             // Determine if planning broadcast join
             Optional<JoinDistributionType> distributionType = node.getDistributionType();
-            boolean isBroadcastJoin = distributionType.isPresent() && distributionType.get() == REPLICATED;
+            boolean isBroadcastJoin = distributionType.isPresent() && distributionType.orElseThrow() == REPLICATED;
 
             HashBuilderOperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
@@ -3017,7 +3016,7 @@ public class LocalExecutionPlanner
             // local merge source must have a single driver
             context.setDriverInstanceCount(1);
 
-            PlanNode sourceNode = getOnlyElement(node.getSources());
+            PlanNode sourceNode = node.getSources().stream().collect(onlyElement());
             LocalExecutionPlanContext subContext = context.createSubContext();
             PhysicalOperation source = sourceNode.accept(this, subContext);
 
@@ -3053,7 +3052,7 @@ public class LocalExecutionPlanner
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
-            OrderingScheme orderingScheme = node.getOrderingScheme().get();
+            OrderingScheme orderingScheme = node.getOrderingScheme().orElseThrow();
             ImmutableMap<VariableReferenceExpression, Integer> layout = makeLayout(node);
             List<Integer> sortChannels = getChannelsForVariables(orderingScheme.getOrderByVariables(), layout);
             List<SortOrder> orderings = getOrderingList(orderingScheme);
@@ -3157,7 +3156,7 @@ public class LocalExecutionPlanner
             for (CustomPlanTranslator translator : customPlanTranslators) {
                 Optional<PhysicalOperation> physicalOperation = translator.translate(node, context, this);
                 if (physicalOperation.isPresent()) {
-                    return physicalOperation.get();
+                    return physicalOperation.orElseThrow();
                 }
             }
             throw new UnsupportedOperationException("not yet implemented");
@@ -3218,7 +3217,7 @@ public class LocalExecutionPlanner
             List<SortOrder> sortOrders = ImmutableList.of();
             List<VariableReferenceExpression> sortKeys = ImmutableList.of();
             if (aggregation.getOrderBy().isPresent()) {
-                OrderingScheme orderBy = aggregation.getOrderBy().get();
+                OrderingScheme orderBy = aggregation.getOrderBy().orElseThrow();
                 sortKeys = orderBy.getOrderByVariables();
                 sortOrders = getOrderingList(orderBy);
             }
@@ -3349,7 +3348,7 @@ public class LocalExecutionPlanner
             Optional<Integer> groupIdChannel = Optional.empty();
             for (VariableReferenceExpression variable : groupbyVariables) {
                 outputMappings.put(variable, channel);
-                if (groupIdVariable.isPresent() && groupIdVariable.get().equals(variable)) {
+                if (groupIdVariable.isPresent() && groupIdVariable.orElseThrow().equals(variable)) {
                     groupIdChannel = Optional.of(channel);
                 }
                 channel++;
@@ -3357,7 +3356,7 @@ public class LocalExecutionPlanner
 
             // hashChannel follows the group by channels
             if (hashVariable.isPresent()) {
-                outputMappings.put(hashVariable.get(), channel++);
+                outputMappings.put(hashVariable.orElseThrow(), channel++);
             }
 
             // aggregations go in following channels
@@ -3425,7 +3424,7 @@ public class LocalExecutionPlanner
             Session session)
     {
         if (maxPartialAggregationMemorySize.isPresent() && step.isOutputPartial() && isAdaptivePartialAggregationEnabled(session)) {
-            return Optional.of(new PartialAggregationController(maxPartialAggregationMemorySize.get(), getAdaptivePartialAggregationRowsReductionRatioThreshold(session)));
+            return Optional.of(new PartialAggregationController(maxPartialAggregationMemorySize.orElseThrow(), getAdaptivePartialAggregationRowsReductionRatioThreshold(session)));
         }
         return Optional.empty();
     }

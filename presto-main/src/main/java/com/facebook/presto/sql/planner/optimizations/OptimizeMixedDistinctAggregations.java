@@ -37,7 +37,6 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -62,6 +61,7 @@ import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.relational.Expressions.constantNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -144,7 +144,7 @@ public class OptimizeMixedDistinctAggregations
             // some aggregation functions have a distinct mask symbol
             // and if not all aggregation functions on same distinct mask symbol (this case handled by SingleDistinctOptimizer)
             List<VariableReferenceExpression> masks = node.getAggregations().values().stream()
-                    .map(Aggregation::getMask).filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
+                    .map(Aggregation::getMask).filter(Optional::isPresent).map(Optional::orElseThrow).collect(toImmutableList());
             Set<VariableReferenceExpression> uniqueMasks = ImmutableSet.copyOf(masks);
             if (uniqueMasks.size() != 1 || masks.size() == node.getAggregations().size()) {
                 return context.defaultRewrite(node, Optional.empty());
@@ -162,7 +162,7 @@ public class OptimizeMixedDistinctAggregations
 
             AggregateInfo aggregateInfo = new AggregateInfo(
                     node.getGroupingKeys(),
-                    Iterables.getOnlyElement(uniqueMasks),
+                    uniqueMasks.stream().collect(onlyElement()),
                     node.getAggregations());
 
             if (!checkAllEquatableTypes(aggregateInfo)) {
@@ -267,18 +267,18 @@ public class OptimizeMixedDistinctAggregations
             Optional<AggregateInfo> aggregateInfo = context.get();
 
             // presence of aggregateInfo => mask also present
-            if (!aggregateInfo.isPresent() || !aggregateInfo.get().getMask().equals(node.getMarkerVariable())) {
+            if (!aggregateInfo.isPresent() || !aggregateInfo.orElseThrow().getMask().equals(node.getMarkerVariable())) {
                 return context.defaultRewrite(node, Optional.empty());
             }
 
-            aggregateInfo.get().foundMarkDistinct();
+            aggregateInfo.orElseThrow().foundMarkDistinct();
 
             PlanNode source = context.rewrite(node.getSource(), Optional.empty());
 
             Set<VariableReferenceExpression> allVariables = new HashSet<>();
-            List<VariableReferenceExpression> groupByVariables = aggregateInfo.get().getGroupByVariables(); // a
-            List<VariableReferenceExpression> nonDistinctAggregateVariables = aggregateInfo.get().getOriginalNonDistinctAggregateArgs(); //b
-            VariableReferenceExpression distinctVariable = Iterables.getOnlyElement(aggregateInfo.get().getOriginalDistinctAggregateArgs()); // c
+            List<VariableReferenceExpression> groupByVariables = aggregateInfo.orElseThrow().getGroupByVariables(); // a
+            List<VariableReferenceExpression> nonDistinctAggregateVariables = aggregateInfo.orElseThrow().getOriginalNonDistinctAggregateArgs(); //b
+            VariableReferenceExpression distinctVariable = aggregateInfo.orElseThrow().getOriginalDistinctAggregateArgs().stream().collect(onlyElement()); // c
 
             // If same symbol present in aggregations on distinct and non-distinct values, e.g. select sum(a), count(distinct a),
             // then we need to create a duplicate stream for this symbol
@@ -312,7 +312,7 @@ public class OptimizeMixedDistinctAggregations
 
             ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> aggregationOutputVariablesMapBuilder = ImmutableMap.builder();
             AggregationNode aggregationNode = createNonDistinctAggregation(
-                    aggregateInfo.get(),
+                    aggregateInfo.orElseThrow(),
                     distinctVariable,
                     duplicatedDistinctVariable,
                     groupByKeys,
@@ -325,7 +325,7 @@ public class OptimizeMixedDistinctAggregations
             // 3. Add new project node that adds if expressions
             ProjectNode projectNode = createProjectNode(
                     aggregationNode,
-                    aggregateInfo.get(),
+                    aggregateInfo.orElseThrow(),
                     distinctVariable,
                     groupVariable,
                     groupByVariables,

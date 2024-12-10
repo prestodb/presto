@@ -161,7 +161,7 @@ public class PrestoExceptionClassifier
     {
         Optional<Throwable> clusterConnectionExceptionCause = getClusterConnectionExceptionCause(cause);
         if (clusterConnectionExceptionCause.isPresent()) {
-            return new ClusterConnectionException(clusterConnectionExceptionCause.get(), queryStage);
+            return new ClusterConnectionException(clusterConnectionExceptionCause.orElseThrow(), queryStage);
         }
 
         Optional<Throwable> requestThrottledExceptionCause = getRequestThrottleExceptionCause(cause);
@@ -170,7 +170,7 @@ public class PrestoExceptionClassifier
         }
 
         Optional<ErrorCodeSupplier> errorCode = getErrorCode(cause.getErrorCode());
-        boolean retryable = errorCode.isPresent() && isRetryable(errorCode.get(), queryStage, cause.getMessage());
+        boolean retryable = errorCode.isPresent() && isRetryable(errorCode.orElseThrow(), queryStage, cause.getMessage());
         return new PrestoQueryException(cause, retryable, queryStage, errorCode, queryActionStats);
     }
 
@@ -195,8 +195,8 @@ public class PrestoExceptionClassifier
         PrestoQueryException queryException = (PrestoQueryException) throwable;
         Optional<ErrorCodeSupplier> errorCode = queryException.getErrorCode();
         return errorCode.isPresent()
-                && (resubmittedErrors.contains(errorCode.get())
-                || conditionalResubmittedErrors.stream().anyMatch(matcher -> matcher.matches(errorCode.get(), queryException.getQueryStage(), queryException.getMessage())));
+                && (resubmittedErrors.contains(errorCode.orElseThrow())
+                || conditionalResubmittedErrors.stream().anyMatch(matcher -> matcher.matches(errorCode.orElseThrow(), queryException.getQueryStage(), queryException.getMessage())));
     }
 
     public static boolean isClusterConnectionException(Throwable t)
@@ -321,8 +321,8 @@ public class PrestoExceptionClassifier
         public boolean matches(ErrorCodeSupplier errorCode, QueryStage queryStage, String errorMessage)
         {
             return this.errorCode.equals(errorCode)
-                    && (!this.queryStage.isPresent() || this.queryStage.get().equals(queryStage))
-                    && (!this.errorMessagePattern.isPresent() || this.errorMessagePattern.get().matcher(errorMessage).find());
+                    && (!this.queryStage.isPresent() || this.queryStage.orElseThrow().equals(queryStage))
+                    && (!this.errorMessagePattern.isPresent() || this.errorMessagePattern.orElseThrow().matcher(errorMessage).find());
         }
 
         @Override

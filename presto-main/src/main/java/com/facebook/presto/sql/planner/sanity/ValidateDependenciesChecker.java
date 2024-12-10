@@ -178,18 +178,18 @@ public final class ValidateDependenciesChecker
             if (node.getOrderingScheme().isPresent()) {
                 checkDependencies(
                         inputs,
-                        node.getOrderingScheme().get().getOrderByVariables(),
+                        node.getOrderingScheme().orElseThrow().getOrderByVariables(),
                         "Invalid node. Order by symbols (%s) not in source plan output (%s)",
-                        node.getOrderingScheme().get().getOrderByVariables(), node.getSource().getOutputVariables());
+                        node.getOrderingScheme().orElseThrow().getOrderByVariables(), node.getSource().getOutputVariables());
             }
 
             ImmutableList.Builder<VariableReferenceExpression> bounds = ImmutableList.builder();
             for (WindowNode.Frame frame : node.getFrames()) {
                 if (frame.getStartValue().isPresent()) {
-                    bounds.add(frame.getStartValue().get());
+                    bounds.add(frame.getStartValue().orElseThrow());
                 }
                 if (frame.getEndValue().isPresent()) {
-                    bounds.add(frame.getEndValue().get());
+                    bounds.add(frame.getEndValue().orElseThrow());
                 }
             }
             checkDependencies(inputs, bounds.build(), "Invalid node. Frame bounds (%s) not in source plan output (%s)", bounds.build(), node.getSource().getOutputVariables());
@@ -197,10 +197,10 @@ public final class ValidateDependenciesChecker
             ImmutableList.Builder<VariableReferenceExpression> symbolsForFrameBoundsComparison = ImmutableList.builder();
             for (WindowNode.Frame frame : node.getFrames()) {
                 if (frame.getSortKeyCoercedForFrameStartComparison().isPresent()) {
-                    symbolsForFrameBoundsComparison.add(frame.getSortKeyCoercedForFrameStartComparison().get());
+                    symbolsForFrameBoundsComparison.add(frame.getSortKeyCoercedForFrameStartComparison().orElseThrow());
                 }
                 if (frame.getSortKeyCoercedForFrameEndComparison().isPresent()) {
-                    symbolsForFrameBoundsComparison.add(frame.getSortKeyCoercedForFrameEndComparison().get());
+                    symbolsForFrameBoundsComparison.add(frame.getSortKeyCoercedForFrameEndComparison().orElseThrow());
                 }
             }
             checkDependencies(inputs, symbolsForFrameBoundsComparison.build(), "Invalid node. Symbols for frame bound comparison (%s) not in source plan output (%s)", symbolsForFrameBoundsComparison.build(), node.getSource().getOutputVariables());

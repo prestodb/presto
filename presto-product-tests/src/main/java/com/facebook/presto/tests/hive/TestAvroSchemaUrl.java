@@ -64,7 +64,7 @@ public class TestAvroSchemaUrl
         };
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO})
+    @Test(dataProvider = "avroSchemaLocations", groups = AVRO)
     public void testHiveCreatedTable(String schemaLocation)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_hive");
@@ -84,7 +84,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("DROP TABLE test_avro_schema_url_hive");
     }
 
-    @Test(dataProvider = "avroSchemaLocations", groups = {AVRO})
+    @Test(dataProvider = "avroSchemaLocations", groups = AVRO)
     public void testPrestoCreatedTable(String schemaLocation)
     {
         onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");

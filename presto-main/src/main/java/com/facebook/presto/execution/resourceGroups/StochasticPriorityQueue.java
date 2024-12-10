@@ -97,7 +97,7 @@ final class StochasticPriorityQueue<E>
             long leftTickets = candidate.getLeft().map(Node::getTotalTickets).orElse(0L);
 
             if (winningTicket < leftTickets) {
-                candidate = candidate.getLeft().get();
+                candidate = candidate.getLeft().orElseThrow();
                 continue;
             }
             else {
@@ -112,7 +112,7 @@ final class StochasticPriorityQueue<E>
             }
 
             checkState(candidate.getRight().isPresent(), "Expected right node to contain the winner, but it does not exist");
-            candidate = candidate.getRight().get();
+            candidate = candidate.getRight().orElseThrow();
         }
         checkState(winningTicket < candidate.getTickets(), "Inconsistent winner");
 
@@ -222,21 +222,21 @@ final class StochasticPriorityQueue<E>
                 return left.orElse(right.orElse(this));
             }
             if (leftDescendants > rightDescendants) {
-                return left.get().findLeaf();
+                return left.orElseThrow().findLeaf();
             }
             if (rightDescendants > leftDescendants) {
-                return right.get().findLeaf();
+                return right.orElseThrow().findLeaf();
             }
             // For ties just go left
             checkState(left.isPresent(), "Left child missing");
-            return left.get().findLeaf();
+            return left.orElseThrow().findLeaf();
         }
 
         public void remove()
         {
             checkState(parent.isPresent(), "Cannot remove root node");
             checkState(isLeaf(), "Can only remove leaf nodes");
-            Node<E> parent = this.parent.get();
+            Node<E> parent = this.parent.orElseThrow();
             if (parent.getRight().map(node -> node.equals(this)).orElse(false)) {
                 parent.right = Optional.empty();
             }
@@ -258,11 +258,11 @@ final class StochasticPriorityQueue<E>
             descendants++;
             if (left.isPresent() && right.isPresent()) {
                 // Keep the tree balanced when inserting
-                if (left.get().descendants < right.get().descendants) {
-                    return left.get().addNode(value, tickets);
+                if (left.orElseThrow().descendants < right.orElseThrow().descendants) {
+                    return left.orElseThrow().addNode(value, tickets);
                 }
                 else {
-                    return right.get().addNode(value, tickets);
+                    return right.orElseThrow().addNode(value, tickets);
                 }
             }
 

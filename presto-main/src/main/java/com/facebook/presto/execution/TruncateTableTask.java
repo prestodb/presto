@@ -64,7 +64,7 @@ public class TruncateTableTask
 
         accessControl.checkCanTruncateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        metadata.truncateTable(session, tableHandle.get());
+        metadata.truncateTable(session, tableHandle.orElseThrow());
 
         return immediateFuture(null);
     }

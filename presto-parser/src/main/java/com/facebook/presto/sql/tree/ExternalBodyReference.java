@@ -59,7 +59,7 @@ public class ExternalBodyReference
     public List<? extends Node> getChildren()
     {
         if (identifier.isPresent()) {
-            return ImmutableList.of(identifier.get());
+            return ImmutableList.of(identifier.orElseThrow());
         }
         return ImmutableList.of();
     }

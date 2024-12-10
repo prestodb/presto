@@ -68,12 +68,12 @@ public class DruidPageSourceProvider
         DruidSplit druidSplit = (DruidSplit) split;
         if (druidSplit.getSplitType() == BROKER) {
             return new DruidBrokerPageSource(
-                    druidSplit.getBrokerDql().get(),
+                    druidSplit.getBrokerDql().orElseThrow(),
                     columns,
                     druidClient);
         }
 
-        DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo().get();
+        DruidSegmentInfo segmentInfo = druidSplit.getSegmentInfo().orElseThrow();
         try {
             Path segmentPath = new Path(segmentInfo.getDeepStoragePath());
             FileSystem fileSystem = segmentPath.getFileSystem(hadoopConfiguration);

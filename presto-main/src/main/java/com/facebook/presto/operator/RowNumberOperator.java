@@ -186,7 +186,7 @@ public class RowNumberOperator
             if (finishing && !hasUnfinishedInput()) {
                 return true;
             }
-            return partitionRowCount.get(0) == maxRowsPerPartition.get();
+            return partitionRowCount.get(0) == maxRowsPerPartition.orElseThrow();
         }
 
         return finishing && !hasUnfinishedInput();
@@ -197,7 +197,7 @@ public class RowNumberOperator
     {
         if (isSinglePartition() && maxRowsPerPartition.isPresent()) {
             // Check if single partition is done
-            return partitionRowCount.get(0) < maxRowsPerPartition.get() && !finishing && !hasUnfinishedInput();
+            return partitionRowCount.get(0) < maxRowsPerPartition.orElseThrow() && !finishing && !hasUnfinishedInput();
         }
         return !finishing && !hasUnfinishedInput();
     }
@@ -210,7 +210,7 @@ public class RowNumberOperator
         checkState(!hasUnfinishedInput());
         inputPage = page;
         if (groupByHash.isPresent()) {
-            unfinishedWork = groupByHash.get().getGroupIds(inputPage);
+            unfinishedWork = groupByHash.orElseThrow().getGroupIds(inputPage);
             processUnfinishedWork();
         }
         updateMemoryReservation();
@@ -309,12 +309,12 @@ public class RowNumberOperator
         verify(selectedRowPageBuilder.isPresent());
 
         int rowNumberChannel = types.size() - 1;
-        PageBuilder pageBuilder = selectedRowPageBuilder.get();
+        PageBuilder pageBuilder = selectedRowPageBuilder.orElseThrow();
         verify(pageBuilder.isEmpty());
         for (int currentPosition = 0; currentPosition < inputPage.getPositionCount(); currentPosition++) {
             long partitionId = getPartitionId(currentPosition);
             long rowCount = partitionRowCount.get(partitionId);
-            if (rowCount == maxRowsPerPartition.get()) {
+            if (rowCount == maxRowsPerPartition.orElseThrow()) {
                 continue;
             }
             pageBuilder.declarePosition();

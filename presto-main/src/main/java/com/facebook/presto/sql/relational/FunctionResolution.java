@@ -174,7 +174,7 @@ public final class FunctionResolution
     public boolean isArithmeticFunction(FunctionHandle functionHandle)
     {
         Optional<OperatorType> operatorType = functionAndTypeResolver.getFunctionMetadata(functionHandle).getOperatorType();
-        return operatorType.isPresent() && operatorType.get().isArithmeticOperator();
+        return operatorType.isPresent() && operatorType.orElseThrow().isArithmeticOperator();
     }
 
     @Override
@@ -238,13 +238,13 @@ public final class FunctionResolution
     public boolean isComparisonFunction(FunctionHandle functionHandle)
     {
         Optional<OperatorType> operatorType = functionAndTypeResolver.getFunctionMetadata(functionHandle).getOperatorType();
-        return operatorType.isPresent() && operatorType.get().isComparisonOperator();
+        return operatorType.isPresent() && operatorType.orElseThrow().isComparisonOperator();
     }
 
     public boolean isEqualsFunction(FunctionHandle functionHandle)
     {
         Optional<OperatorType> operatorType = functionAndTypeResolver.getFunctionMetadata(functionHandle).getOperatorType();
-        return operatorType.isPresent() && operatorType.get().getOperator().equals(EQUAL.getOperator());
+        return operatorType.isPresent() && operatorType.orElseThrow().getOperator().equals(EQUAL.getOperator());
     }
 
     @Override

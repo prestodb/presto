@@ -86,7 +86,6 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
@@ -102,6 +101,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -112,6 +112,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
@@ -148,6 +149,7 @@ import static com.facebook.presto.sql.relational.SqlToRowExpressionTranslator.tr
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.util.Failures.toFailure;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
@@ -247,6 +249,7 @@ public final class FunctionAssertions
         metadata = runner.getMetadata();
         compiler = runner.getExpressionCompiler();
     }
+
     public FunctionAndTypeManager getFunctionAndTypeManager()
     {
         return runner.getFunctionAndTypeManager();
@@ -358,7 +361,7 @@ public final class FunctionAssertions
         // we should only have a single result
         assertEquals(resultSet.size(), 1, "Expected only one result unique result, but got " + resultSet);
 
-        return Iterables.getOnlyElement(resultSet);
+        return resultSet.stream().collect(onlyElement());
     }
 
     public void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
@@ -649,7 +652,7 @@ public final class FunctionAssertions
             assertType(result.getTypes(), expectedType);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+            Object queryResult = result.getMaterializedRows().stream().collect(onlyElement()).getField(0);
             results.add(queryResult);
         }
 
@@ -678,7 +681,7 @@ public final class FunctionAssertions
             assertType(result.getTypes(), expectedType);
             assertEquals(result.getTypes().size(), 1);
             assertEquals(result.getMaterializedRows().size(), 1);
-            Object queryResult = Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+            Object queryResult = result.getMaterializedRows().stream().collect(onlyElement()).getField(0);
             results.add(queryResult);
         }
 
@@ -741,7 +744,7 @@ public final class FunctionAssertions
         // we should only have a single result
         assertEquals(resultSet.size(), 1, "Expected only [" + expected + "] result unique result, but got " + resultSet);
 
-        assertEquals((boolean) Iterables.getOnlyElement(resultSet), expected);
+        assertEquals((boolean) resultSet.stream().collect(onlyElement()), expected);
     }
 
     private List<Boolean> executeFilterWithAll(String filter, Session session, boolean executeWithNoInputColumns, ExpressionCompiler compiler)
@@ -791,7 +794,7 @@ public final class FunctionAssertions
             }
             else {
                 assertEquals(result.getMaterializedRows().size(), 1);
-                queryResult = (Boolean) Iterables.getOnlyElement(result.getMaterializedRows()).getField(0);
+                queryResult = (Boolean) result.getMaterializedRows().stream().collect(onlyElement()).getField(0);
             }
             results.add(queryResult);
         }
@@ -1144,14 +1147,16 @@ public final class FunctionAssertions
 
     private static RowType createTestRowType(int numberOfFields)
     {
-        Iterator<Type> types = Iterables.<Type>cycle(
-                BIGINT,
-                INTEGER,
-                VARCHAR,
-                DOUBLE,
-                BOOLEAN,
-                VARBINARY,
-                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
+        Iterator<Type> types = Stream.generate(() -> ImmutableList.<Type>of(
+                        BIGINT,
+                        INTEGER,
+                        VARCHAR,
+                        DOUBLE,
+                        BOOLEAN,
+                        VARBINARY,
+                        RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))))
+                .flatMap(Collection::stream)
+                .iterator();
 
         List<RowType.Field> fields = new ArrayList<>();
         for (int fieldIdx = 0; fieldIdx < numberOfFields; fieldIdx++) {
@@ -1163,14 +1168,17 @@ public final class FunctionAssertions
 
     private static Block createTestRowData(RowType rowType)
     {
-        Iterator<Object> values = Iterables.cycle(
-                1234L,
-                34,
-                "hello",
-                12.34d,
-                true,
-                Slices.wrappedBuffer((byte) 0xab),
-                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getBlock(0)).iterator();
+        Iterator<Object> values = Stream.generate(() ->
+                        ImmutableList.of(
+                                1234L,
+                                34,
+                                "hello",
+                                12.34d,
+                                true,
+                                Slices.wrappedBuffer((byte) 0xab),
+                                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getBlock(0)))
+                .flatMap(Collection::stream)
+                .iterator();
 
         final int numFields = rowType.getFields().size();
         Object[] rowValues = new Object[numFields];

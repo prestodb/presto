@@ -101,7 +101,7 @@ public class AccumuloPageSink
             throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found");
         }
 
-        this.rowIdOrdinal = ordinal.get();
+        this.rowIdOrdinal = ordinal.orElseThrow();
         this.serializer = table.getSerializerInstance();
 
         try {
@@ -167,7 +167,7 @@ public class AccumuloPageSink
                 setText(row.getField(columnHandle.getOrdinal()), value, serializer);
 
                 // And add the bytes to the Mutation
-                mutation.put(columnHandle.getFamily().get(), columnHandle.getQualifier().get(), new Value(value.copyBytes()));
+                mutation.put(columnHandle.getFamily().orElseThrow(), columnHandle.getQualifier().orElseThrow(), new Value(value.copyBytes()));
             }
         }
 
@@ -246,7 +246,7 @@ public class AccumuloPageSink
                 Mutation mutation = toMutation(row, rowIdOrdinal, columns, serializer);
                 writer.addMutation(mutation);
                 if (indexer.isPresent()) {
-                    indexer.get().index(mutation);
+                    indexer.orElseThrow().index(mutation);
                 }
                 ++numRows;
             }
@@ -271,7 +271,7 @@ public class AccumuloPageSink
             writer.flush();
             writer.close();
             if (indexer.isPresent()) {
-                indexer.get().close();
+                indexer.orElseThrow().close();
             }
         }
         catch (MutationsRejectedException e) {
@@ -292,7 +292,7 @@ public class AccumuloPageSink
     {
         try {
             if (indexer.isPresent()) {
-                indexer.get().flush();
+                indexer.orElseThrow().flush();
                 // MetricsWriter is non-null if Indexer is present
             }
             writer.flush();

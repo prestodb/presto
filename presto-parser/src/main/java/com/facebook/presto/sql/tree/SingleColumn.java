@@ -90,7 +90,7 @@ public class SingleColumn
     public String toString()
     {
         if (alias.isPresent()) {
-            return expression.toString() + " " + alias.get();
+            return expression.toString() + " " + alias.orElseThrow();
         }
 
         return expression.toString();

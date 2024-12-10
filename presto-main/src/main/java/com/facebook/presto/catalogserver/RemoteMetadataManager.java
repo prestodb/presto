@@ -89,7 +89,7 @@ public class RemoteMetadataManager
                 tableHandle = new TableHandle(
                         tableHandle.getConnectorId(),
                         tableHandle.getConnectorHandle(),
-                        catalogMetadata.get().getTransactionHandleFor(tableHandle.getConnectorId()),
+                        catalogMetadata.orElseThrow().getTransactionHandleFor(tableHandle.getConnectorId()),
                         tableHandle.getLayout());
             }
             return Optional.of(tableHandle);

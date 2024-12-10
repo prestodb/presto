@@ -237,7 +237,7 @@ public class InMemoryHiveMetastore
     private static List<String> listAllDataPaths(MetastoreContext metastoreContext, HiveMetastore metastore, String schemaName, String tableName)
     {
         ImmutableList.Builder<String> locations = ImmutableList.builder();
-        Table table = metastore.getTable(metastoreContext, schemaName, tableName).get();
+        Table table = metastore.getTable(metastoreContext, schemaName, tableName).orElseThrow();
         if (table.getSd().getLocation() != null) {
             // For unpartitioned table, there should be nothing directly under this directory.
             // But including this location in the set makes the directory content assert more
@@ -247,7 +247,7 @@ public class InMemoryHiveMetastore
 
         Optional<List<String>> partitionNames = metastore.getPartitionNames(metastoreContext, schemaName, tableName);
         if (partitionNames.isPresent()) {
-            metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.get()).stream()
+            metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.orElseThrow()).stream()
                     .map(partition -> partition.getSd().getLocation())
                     .filter(location -> !location.startsWith(table.getSd().getLocation()))
                     .forEach(locations::add);

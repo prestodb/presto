@@ -16,13 +16,13 @@ package com.facebook.presto.atop;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.Iterables;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.atop.LocalAtopQueryRunner.createQueryRunner;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -65,11 +65,11 @@ public class TestAtopSmoke
     private void assertThatQueryReturnsValue(@Language("SQL") String sql, Object expected)
     {
         MaterializedResult rows = queryRunner.execute(sql);
-        MaterializedRow materializedRow = Iterables.getOnlyElement(rows);
+        MaterializedRow materializedRow = rows.getMaterializedRows().stream().collect(onlyElement());
         int fieldCount = materializedRow.getFieldCount();
         assertTrue(fieldCount == 1, format("Expected only one column, but got '%d'", fieldCount));
         Object value = materializedRow.getField(0);
         assertEquals(value, expected);
-        assertTrue(Iterables.getOnlyElement(rows).getFieldCount() == 1);
+        assertTrue(rows.getMaterializedRows().stream().collect(onlyElement()).getFieldCount() == 1);
     }
 }

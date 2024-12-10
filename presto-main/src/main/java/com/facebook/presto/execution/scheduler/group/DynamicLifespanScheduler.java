@@ -97,8 +97,8 @@ public class DynamicLifespanScheduler
         Set<InternalNode> nodeSet = ImmutableSet.copyOf(nodeByTaskId);
         for (int i = 0; i < bucketCount; i++) {
             taskByDriverGroup[i] = NOT_ASSIGNED;
-            if (bucketNodeMap.getAssignedNode(i).isPresent() && nodeSet.contains(bucketNodeMap.getAssignedNode(i).get())) {
-                InternalNode preferredNode = bucketNodeMap.getAssignedNode(i).get();
+            if (bucketNodeMap.getAssignedNode(i).isPresent() && nodeSet.contains(bucketNodeMap.getAssignedNode(i).orElseThrow())) {
+                InternalNode preferredNode = bucketNodeMap.getAssignedNode(i).orElseThrow();
                 nodeToPreferredDriverGroups.computeIfAbsent(preferredNode, k -> new IntArrayFIFOQueue());
                 nodeToPreferredDriverGroups.get(preferredNode).enqueue(i);
             }

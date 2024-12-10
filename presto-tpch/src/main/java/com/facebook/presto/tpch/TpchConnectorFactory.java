@@ -27,7 +27,7 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
@@ -111,7 +111,7 @@ public class TpchConnectorFactory
     protected int getSplitsPerNode(Map<String, String> properties)
     {
         try {
-            return Integer.parseInt(firstNonNull(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
+            return Integer.parseInt(requireNonNullElse(properties.get("tpch.splits-per-node"), String.valueOf(defaultSplitsPerNode)));
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpch.splits-per-node");

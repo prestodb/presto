@@ -52,9 +52,9 @@ public class ProjectionBasedDwrfKeyProvider
     public Map<Integer, Slice> getIntermediateKeys(List<OrcType> types)
     {
         if (keys == null) {
-            if (encryptionInformation.isPresent() && encryptionInformation.get().getDwrfEncryptionMetadata().isPresent()) {
+            if (encryptionInformation.isPresent() && encryptionInformation.orElseThrow().getDwrfEncryptionMetadata().isPresent()) {
                 List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, types, path);
-                keys = encryptionInformation.get().getDwrfEncryptionMetadata().get().toKeyMap(types, physicalColumns);
+                keys = encryptionInformation.orElseThrow().getDwrfEncryptionMetadata().orElseThrow().toKeyMap(types, physicalColumns);
             }
             else {
                 keys = ImmutableMap.of();

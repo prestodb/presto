@@ -361,7 +361,7 @@ public final class TypeConverter
                 if (!namedTypeSignature.getName().isPresent()) {
                     throw new PrestoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type));
                 }
-                fieldNames.add(namedTypeSignature.getName().get());
+                fieldNames.add(namedTypeSignature.getName().orElseThrow());
             }
             return getStructTypeInfo(
                     fieldNames.build(),

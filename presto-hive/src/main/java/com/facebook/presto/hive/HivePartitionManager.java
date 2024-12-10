@@ -216,7 +216,7 @@ public class HivePartitionManager
     {
         Optional<Map<ColumnHandle, Domain>> domains = effectivePredicateColumnHandles.getDomains();
         if (domains.isPresent()) {
-            Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
+            Map<ColumnHandle, Domain> columnHandleDomainMap = domains.orElseThrow();
             ImmutableMap.Builder<Column, Domain> partitionPredicateBuilder = ImmutableMap.builder();
             MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getClientTags(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider(), session.getWarningCollector(), session.getRuntimeStats());
             for (HiveColumnHandle partitionColumn : partitionColumns) {
@@ -275,7 +275,7 @@ public class HivePartitionManager
 
         if (!queryUsesHiveBucketColumn(effectivePredicate)
                 && hiveBucketHandle.isPresent()
-                && queryAccessesTooManyBuckets(hiveBucketHandle.get(), bucketFilter, partitions, session)) {
+                && queryAccessesTooManyBuckets(hiveBucketHandle.orElseThrow(), bucketFilter, partitions, session)) {
             hiveBucketHandle = Optional.empty();
             bucketFilter = Optional.empty();
         }
@@ -309,8 +309,8 @@ public class HivePartitionManager
         }
 
         // All partition key domains will be fully evaluated, so we don't need to include those
-        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), not(Predicates.in(partitionColumns))));
-        TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().get(), Predicates.in(partitionColumns)));
+        TupleDomain<ColumnHandle> remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().orElseThrow(), not(Predicates.in(partitionColumns))));
+        TupleDomain<ColumnHandle> enforcedTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(effectivePredicate.getDomains().orElseThrow(), Predicates.in(partitionColumns)));
         return new HivePartitionResult(
                 ImmutableList.copyOf(partitionColumns),
                 table.getDataColumns(),
@@ -343,7 +343,7 @@ public class HivePartitionManager
         }
 
         int requiredTableBucketCount = getMinBucketCountToNotIgnoreTableBucketing(session);
-        if (hiveBucketHandle.get().getTableBucketCount() < requiredTableBucketCount) {
+        if (hiveBucketHandle.orElseThrow().getTableBucketCount() < requiredTableBucketCount) {
             return Optional.empty();
         }
 
@@ -355,7 +355,7 @@ public class HivePartitionManager
         if (!effectivePredicate.getDomains().isPresent()) {
             return false;
         }
-        return effectivePredicate.getDomains().get().keySet().stream().anyMatch(key -> ((HiveColumnHandle) key).getName().equals(BUCKET_COLUMN_NAME));
+        return effectivePredicate.getDomains().orElseThrow().keySet().stream().anyMatch(key -> ((HiveColumnHandle) key).getName().equals(BUCKET_COLUMN_NAME));
     }
 
     private boolean queryAccessesTooManyBuckets(HiveBucketHandle handle, Optional<HiveBucketFilter> filter, List<HivePartition> partitions, ConnectorSession session)
@@ -405,7 +405,7 @@ public class HivePartitionManager
     {
         HivePartition partition = parsePartition(tableName, partitionNameWithVersion, partitionColumns, partitionColumnTypes, timeZone);
 
-        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().get();
+        Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow();
         for (HiveColumnHandle column : partitionColumns) {
             NullableValue value = partition.getKeys().get(column);
             Domain allowedDomain = domains.get(column);
@@ -414,7 +414,7 @@ public class HivePartitionManager
             }
         }
 
-        if (constraint.predicate().isPresent() && !constraint.predicate().get().test(partition.getKeys())) {
+        if (constraint.predicate().isPresent() && !constraint.predicate().orElseThrow().test(partition.getKeys())) {
             return Optional.empty();
         }
 
@@ -428,7 +428,7 @@ public class HivePartitionManager
         if (!target.isPresent()) {
             throw new TableNotFoundException(hiveTableHandle.getSchemaTableName());
         }
-        Table table = target.get();
+        Table table = target.orElseThrow();
 
         if (!offlineDataDebugModeEnabled) {
             verifyOnline(hiveTableHandle.getSchemaTableName(), Optional.empty(), getProtectMode(table), table.getParameters());

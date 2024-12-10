@@ -90,11 +90,11 @@ public class TreePrinter
                 process(node.getQueryBody(), indentLevel);
                 if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
-                    process(node.getOrderBy().get(), indentLevel + 1);
+                    process(node.getOrderBy().orElseThrow(), indentLevel + 1);
                 }
 
                 if (node.getLimit().isPresent()) {
-                    print(indentLevel, "Limit: " + node.getLimit().get());
+                    print(indentLevel, "Limit: " + node.getLimit().orElseThrow());
                 }
 
                 return null;
@@ -111,21 +111,21 @@ public class TreePrinter
 
                 if (node.getFrom().isPresent()) {
                     print(indentLevel, "From");
-                    process(node.getFrom().get(), indentLevel + 1);
+                    process(node.getFrom().orElseThrow(), indentLevel + 1);
                 }
 
                 if (node.getWhere().isPresent()) {
                     print(indentLevel, "Where");
-                    process(node.getWhere().get(), indentLevel + 1);
+                    process(node.getWhere().orElseThrow(), indentLevel + 1);
                 }
 
                 if (node.getGroupBy().isPresent()) {
                     String distinct = "";
-                    if (node.getGroupBy().get().isDistinct()) {
+                    if (node.getGroupBy().orElseThrow().isDistinct()) {
                         distinct = "[DISTINCT]";
                     }
                     print(indentLevel, "GroupBy" + distinct);
-                    for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
+                    for (GroupingElement groupingElement : node.getGroupBy().orElseThrow().getGroupingElements()) {
                         print(indentLevel, "SimpleGroupBy");
                         if (groupingElement instanceof SimpleGroupBy) {
                             for (Expression column : groupingElement.getExpressions()) {
@@ -159,16 +159,16 @@ public class TreePrinter
 
                 if (node.getHaving().isPresent()) {
                     print(indentLevel, "Having");
-                    process(node.getHaving().get(), indentLevel + 1);
+                    process(node.getHaving().orElseThrow(), indentLevel + 1);
                 }
 
                 if (node.getOrderBy().isPresent()) {
                     print(indentLevel, "OrderBy");
-                    process(node.getOrderBy().get(), indentLevel + 1);
+                    process(node.getOrderBy().orElseThrow(), indentLevel + 1);
                 }
 
                 if (node.getLimit().isPresent()) {
-                    print(indentLevel, "Limit: " + node.getLimit().get());
+                    print(indentLevel, "Limit: " + node.getLimit().orElseThrow());
                 }
 
                 return null;
@@ -214,7 +214,7 @@ public class TreePrinter
             protected Void visitSingleColumn(SingleColumn node, Integer indent)
             {
                 if (node.getAlias().isPresent()) {
-                    print(indent, "Alias: " + node.getAlias().get());
+                    print(indent, "Alias: " + node.getAlias().orElseThrow());
                 }
 
                 super.visitSingleColumn(node, indent + 1); // visit children

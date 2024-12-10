@@ -240,7 +240,7 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
             Optional<SetMultimap<Integer, ScheduledSplit>> actualAssignment = assigner.getNextBatch();
             if (!splitSizes.isEmpty()) {
                 assertThat(actualAssignment).isPresent();
-                assertAssignedSplits(actualAssignment.get(), expectedAssignment);
+                assertAssignedSplits(actualAssignment.orElseThrow(), expectedAssignment);
             }
             else {
                 assertThat(actualAssignment).isNotPresent();
@@ -271,7 +271,7 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
                 if (!assignment.isPresent()) {
                     break;
                 }
-                actualAssignment.putAll(assignment.get());
+                actualAssignment.putAll(assignment.orElseThrow());
             }
 
             assertAssignedSplits(actualAssignment, expectedAssignment);
@@ -310,7 +310,7 @@ public class TestPrestoSparkSourceDistributionSplitAssigner
                 if (!assignment.isPresent()) {
                     break;
                 }
-                actualAssignment.putAll(assignment.get());
+                actualAssignment.putAll(assignment.orElseThrow());
             }
 
             long expectedSizeInBytes = splitSizes.stream()

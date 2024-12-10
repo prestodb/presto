@@ -99,7 +99,7 @@ import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
@@ -165,7 +165,7 @@ public class TableStatisticsMaker
         TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
                 .transform(IcebergColumnHandle.class::cast);
         if (currentPredicate.isPresent()) {
-            intersection.intersect(currentPredicate.get());
+            intersection.intersect(currentPredicate.orElseThrow());
         }
 
         if (intersection.isNone()) {
@@ -252,7 +252,7 @@ public class TableStatisticsMaker
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(intersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
-                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
+                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().orElseThrow())
                 .includeColumnStats();
 
         CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(tableScan.planFiles(), ContentScanTask::file);
@@ -266,7 +266,7 @@ public class TableStatisticsMaker
             List<PartitionField> partitionFields)
     {
         CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
-                tableHandle.getIcebergTableName().getSnapshotId().get(),
+                tableHandle.getIcebergTableName().getSnapshotId().orElseThrow(),
                 intersection,
                 tableHandle.getPartitionSpecId(),
                 tableHandle.getEqualityFieldIds());
@@ -510,10 +510,10 @@ public class TableStatisticsMaker
                             .map(Long::parseLong);
 
                     if (targetTotalRecords.isPresent() && firstTotalRecords.isPresent() && secondTotalRecords.isPresent()) {
-                        long targetTotal = targetTotalRecords.get();
+                        long targetTotal = targetTotalRecords.orElseThrow();
                         double weight = getStatisticSnapshotRecordDifferenceWeight(session);
-                        firstDiff += (long) (weight * abs(firstTotalRecords.get() - targetTotal));
-                        secondDiff += (long) (weight * abs(secondTotalRecords.get() - targetTotal));
+                        firstDiff += (long) (weight * abs(firstTotalRecords.orElseThrow() - targetTotal));
+                        secondDiff += (long) (weight * abs(secondTotalRecords.orElseThrow() - targetTotal));
                     }
 
                     return Long.compare(firstDiff, secondDiff);
@@ -566,7 +566,7 @@ public class TableStatisticsMaker
                 for (Pair<BlobMetadata, ByteBuffer> data : reader.readAll(reader.fileMetadata().blobs())) {
                     BlobMetadata metadata = data.first();
                     ByteBuffer blob = data.second();
-                    Integer field = getOnlyElement(metadata.inputFields());
+                    Integer field = metadata.inputFields().stream().collect(onlyElement());
                     if (!missingStats.contains(field)) {
                         continue;
                     }

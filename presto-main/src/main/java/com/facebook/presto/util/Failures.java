@@ -45,13 +45,13 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_TYPE_DEFINITION;
 import static com.facebook.presto.spi.StandardErrorCode.SLICE_TOO_LARGE;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newIdentityHashSet;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class Failures
 {
@@ -110,7 +110,7 @@ public final class Failures
         }
         else {
             Class<?> clazz = throwable.getClass();
-            type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
+            type = requireNonNullElse(clazz.getCanonicalName(), clazz.getName());
         }
         if (throwable instanceof PrestoTransportException) {
             remoteHost = ((PrestoTransportException) throwable).getRemoteHost();
@@ -157,7 +157,7 @@ public final class Failures
         else if (throwable instanceof SemanticException) {
             SemanticException e = (SemanticException) throwable;
             if (e.getLocation().isPresent()) {
-                NodeLocation nodeLocation = e.getLocation().get();
+                NodeLocation nodeLocation = e.getLocation().orElseThrow();
                 return new ErrorLocation(nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
             }
         }

@@ -138,7 +138,7 @@ public class StreamOrderingLayout
             if (entry.getValue().getAdditionalSequenceEncodings().isPresent() && columnToKeySet.containsKey(column) && !columnsVisited.contains(column)) {
                 // add entries only if stream ordering contains the column ID
                 Set<DwrfProto.KeyInfo> keysPerColumn = columnToKeySet.get(column);
-                for (Map.Entry<Integer, DwrfSequenceEncoding> sequenceToEncoding : entry.getValue().getAdditionalSequenceEncodings().get().entrySet()) {
+                for (Map.Entry<Integer, DwrfSequenceEncoding> sequenceToEncoding : entry.getValue().getAdditionalSequenceEncodings().orElseThrow().entrySet()) {
                     Integer sequence = sequenceToEncoding.getKey();
                     DwrfProto.KeyInfo key = sequenceToEncoding.getValue().getKey();
                     // add the stream only if it is present in the stream ordering config

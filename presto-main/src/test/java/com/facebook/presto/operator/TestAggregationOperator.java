@@ -58,7 +58,7 @@ import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -188,7 +188,7 @@ public class TestAggregationOperator
     private void testMemoryTracking(boolean useSystemMemory)
             throws Exception
     {
-        Page input = getOnlyElement(rowPagesBuilder(BIGINT).addSequencePage(100, 0).build());
+        Page input = rowPagesBuilder(BIGINT).addSequencePage(100, 0).build().stream().collect(onlyElement());
 
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,

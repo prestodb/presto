@@ -25,11 +25,11 @@ import java.net.URI;
 import java.util.List;
 
 import static com.facebook.presto.client.FixJsonDataUtils.fixData;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @Immutable
 public class QueryResults
@@ -73,7 +73,7 @@ public class QueryResults
                 binaryData,
                 stats,
                 error,
-                firstNonNull(warnings, ImmutableList.of()),
+                requireNonNullElse(warnings, ImmutableList.of()),
                 updateType,
                 updateCount);
     }
@@ -119,6 +119,7 @@ public class QueryResults
 
     /**
      * Returns the URI at the coordinator that provides information about the query
+     *
      * @return {@link java.net.URI}
      */
     @JsonProperty
@@ -129,7 +130,8 @@ public class QueryResults
     }
 
     /**
-     *  Returns URI to a leaf stage that is currently executing in order to issue a cancel signal
+     * Returns URI to a leaf stage that is currently executing in order to issue a cancel signal
+     *
      * @return {@link java.net.URI}
      */
     @Nullable
@@ -141,7 +143,8 @@ public class QueryResults
     }
 
     /**
-     *  Returns URI to get next batch of query results
+     * Returns URI to get next batch of query results
+     *
      * @return {@link java.net.URI}
      */
     @Nullable
@@ -186,6 +189,7 @@ public class QueryResults
 
     /**
      * Returns cumulative statistics on the query being executed
+     *
      * @return {@link com.facebook.presto.client.StatementStats}
      */
     @JsonProperty
@@ -198,6 +202,7 @@ public class QueryResults
     /**
      * Returns error encountered in query execution to the client
      * The client is expected to check this field before consuming results
+     *
      * @return {@link com.facebook.presto.client.QueryError}
      */
     @Nullable
@@ -210,6 +215,7 @@ public class QueryResults
 
     /**
      * Returns a list of warnings encountered in query execution to the client
+     *
      * @return {@link com.facebook.presto.spi.PrestoWarning}
      */
     @JsonProperty

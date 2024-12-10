@@ -302,7 +302,7 @@ public class RewriteAggregationIfToFilter
                 Optional<OperatorType> operatorType = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle()).getOperatorType();
                 // Unwrapping the IF expression in the aggregate might cause issues if the true branch return errors for rows not matching the filters.
                 // For example, array[1] could return out of bound error and a / b could return DIVISION_BY_ZERO error. So we doesn't unwrap the IF expression in these cases.
-                if (operatorType.isPresent() && (operatorType.get() == OperatorType.DIVIDE || operatorType.get() == OperatorType.SUBSCRIPT)) {
+                if (operatorType.isPresent() && (operatorType.orElseThrow() == OperatorType.DIVIDE || operatorType.orElseThrow() == OperatorType.SUBSCRIPT)) {
                     result.set(false);
                     return null;
                 }

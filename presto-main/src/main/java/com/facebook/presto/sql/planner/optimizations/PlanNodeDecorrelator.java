@@ -136,7 +136,7 @@ public class PlanNodeDecorrelator
             List<RowExpression> correlatedPredicates = ImmutableList.copyOf(predicates.get(true));
             List<RowExpression> uncorrelatedPredicates = ImmutableList.copyOf(predicates.get(false));
 
-            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
+            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.orElseThrow();
             FilterNode newFilterNode = new FilterNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
@@ -166,7 +166,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
+            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.orElseThrow();
             if (childDecorrelationResult.atMostSingleRow) {
                 return childDecorrelationResultOptional;
             }
@@ -268,7 +268,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
+            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.orElseThrow();
             if (childDecorrelationResult.atMostSingleRow) {
                 return childDecorrelationResultOptional;
             }
@@ -379,7 +379,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
+            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.orElseThrow();
             Set<VariableReferenceExpression> constantVariables = childDecorrelationResult.getConstantVariables();
 
             AggregationNode decorrelatedAggregation = childDecorrelationResult.getCorrelatedSymbolMapper()
@@ -428,7 +428,7 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
 
-            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.get();
+            DecorrelationResult childDecorrelationResult = childDecorrelationResultOptional.orElseThrow();
             Set<VariableReferenceExpression> nodeOutputVariables = ImmutableSet.copyOf(node.getOutputVariables());
             List<VariableReferenceExpression> variablesToAdd = childDecorrelationResult.variablesToPropagate.stream()
                     .filter(variable -> !nodeOutputVariables.contains(variable))

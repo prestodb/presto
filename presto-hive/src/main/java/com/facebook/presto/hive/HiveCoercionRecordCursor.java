@@ -75,7 +75,7 @@ public class HiveCoercionRecordCursor
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
 
             if (columnMapping.getCoercionFrom().isPresent()) {
-                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().get(), columnMapping.getHiveColumnHandle().getHiveType(), bridgingRecordCursor);
+                coercers[columnIndex] = createCoercer(typeManager, columnMapping.getCoercionFrom().orElseThrow(), columnMapping.getHiveColumnHandle().getHiveType(), bridgingRecordCursor);
             }
         }
     }

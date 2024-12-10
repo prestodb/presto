@@ -224,7 +224,7 @@ public class TypedSet
             boolean secondValueNull = block.isNull(blockPosition);
             Object secondValue = secondValueNull ? defaultValue(elementType.getJavaType()) : readNativeValue(elementType, block, blockPosition);
             try {
-                return !(boolean) elementIsDistinctFrom.get().invoke(firstValue, firstValueNull, secondValue, secondValueNull);
+                return !(boolean) elementIsDistinctFrom.orElseThrow().invoke(firstValue, firstValueNull, secondValue, secondValueNull);
             }
             catch (Throwable t) {
                 throw internalError(t);

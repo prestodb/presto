@@ -86,7 +86,7 @@ public class TestIcebergSmokeNessie
                 .filter(file -> file.toURI().toString().contains(table)).findFirst();
 
         String dataLocation = icebergDataDirectory.toFile().toURI().toString();
-        String relativeTableLocation = tempTableLocation.get().toURI().toString().replace(dataLocation, "");
+        String relativeTableLocation = tempTableLocation.orElseThrow().toURI().toString().replace(dataLocation, "");
 
         return format("%s%s", dataLocation, relativeTableLocation.substring(0, relativeTableLocation.length() - 1));
     }

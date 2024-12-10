@@ -81,7 +81,7 @@ class TestDwrfEncryptionInformationSource
         if (tableEncryptionProperties.getEncryptTable().isPresent()) {
             return fromEncryptionMetadata(
                     forTable(
-                            tableEncryptionProperties.getEncryptTable().get().getBytes(),
+                            tableEncryptionProperties.getEncryptTable().orElseThrow().getBytes(),
                             ImmutableMap.of(TEST_EXTRA_METADATA, tableEncryptionProperties.getEncryptionAlgorithm()),
                             tableEncryptionProperties.getEncryptionAlgorithm(),
                             tableEncryptionProperties.getEncryptionProvider()));
@@ -89,7 +89,7 @@ class TestDwrfEncryptionInformationSource
         else if (tableEncryptionProperties.getColumnEncryptionInformation().isPresent()) {
             return fromEncryptionMetadata(
                     forPerField(
-                            tableEncryptionProperties.getColumnEncryptionInformation().get().getColumnToKeyReference().entrySet().stream()
+                            tableEncryptionProperties.getColumnEncryptionInformation().orElseThrow().getColumnToKeyReference().entrySet().stream()
                                     .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> entry.getValue().getBytes())),
                             ImmutableMap.of(TEST_EXTRA_METADATA, tableEncryptionProperties.getEncryptionAlgorithm()),
                             tableEncryptionProperties.getEncryptionAlgorithm(),

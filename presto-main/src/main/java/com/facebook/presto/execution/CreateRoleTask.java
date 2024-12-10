@@ -55,8 +55,8 @@ public class CreateRoleTask
         if (existingRoles.contains(role)) {
             throw new SemanticException(ROLE_ALREADY_EXIST, statement, "Role '%s' already exists", role);
         }
-        if (grantor.isPresent() && grantor.get().getType() == ROLE && !existingRoles.contains(grantor.get().getName())) {
-            throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", grantor.get().getName());
+        if (grantor.isPresent() && grantor.orElseThrow().getType() == ROLE && !existingRoles.contains(grantor.orElseThrow().getName())) {
+            throw new SemanticException(MISSING_ROLE, statement, "Role '%s' does not exist", grantor.orElseThrow().getName());
         }
         metadata.createRole(session, role, grantor, catalog);
         return immediateFuture(null);

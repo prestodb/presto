@@ -176,7 +176,7 @@ public class ParquetQuickStatsBuilder
                     });
 
                     if (transformed.isPresent()) {
-                        mappedType = transformed.get();
+                        mappedType = transformed.orElseThrow();
                     }
                 }
 
@@ -300,12 +300,12 @@ public class ParquetQuickStatsBuilder
         // TODO: Consider refactoring storage and/or table format to the interface when we implement an ORC/Iceberg quick stats builder
         StorageFormat storageFormat;
         if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
-            Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
+            Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).orElseThrow();
             storageFormat = resolvedTable.getStorage().getStorageFormat();
         }
         else {
             Partition partition = metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
-                    ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId).get();
+                    ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId).orElseThrow();
             storageFormat = partition.getStorage().getStorageFormat();
         }
 

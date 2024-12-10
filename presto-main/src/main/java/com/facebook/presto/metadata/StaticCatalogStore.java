@@ -30,8 +30,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNullElse;
 
 public class StaticCatalogStore
 {
@@ -47,7 +47,7 @@ public class StaticCatalogStore
     {
         this(connectorManager,
                 config.getCatalogConfigurationDir(),
-                firstNonNull(config.getDisabledCatalogs(), ImmutableList.of()));
+                requireNonNullElse(config.getDisabledCatalogs(), ImmutableList.of()));
     }
 
     public StaticCatalogStore(ConnectorManager connectorManager, File catalogConfigurationDir, List<String> disabledCatalogs)

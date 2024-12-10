@@ -71,7 +71,7 @@ public class UseTask
     private void checkAndSetCatalog(Use statement, Metadata metadata, QueryStateMachine stateMachine, Session session)
     {
         if (statement.getCatalog().isPresent()) {
-            String catalog = statement.getCatalog().get().getValueLowerCase();
+            String catalog = statement.getCatalog().orElseThrow().getValueLowerCase();
             getConnectorIdOrThrow(session, metadata, catalog);
             stateMachine.setSetCatalog(catalog);
         }
@@ -81,7 +81,7 @@ public class UseTask
     {
         String catalog = statement.getCatalog()
                 .map(Identifier::getValueLowerCase)
-                .orElseGet(() -> session.getCatalog().map(String::toLowerCase).get());
+                .orElseGet(() -> session.getCatalog().map(String::toLowerCase).orElseThrow());
         String schema = statement.getSchema().getValueLowerCase();
         if (!metadata.getMetadataResolver(session).schemaExists(new CatalogSchemaName(catalog, schema))) {
             throw new SemanticException(MISSING_SCHEMA, format("Schema does not exist: %s.%s", catalog, schema));

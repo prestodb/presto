@@ -28,6 +28,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.util.HashSet;
 import java.util.List;
@@ -51,6 +52,7 @@ public final class MetadataUtils
 {
     private MetadataUtils() {}
 
+    @SuppressModernizer
     public static Optional<DiscretePredicates> getDiscretePredicates(List<ColumnHandle> partitionColumns, List<HivePartition> partitions)
     {
         Optional<DiscretePredicates> discretePredicates = Optional.empty();

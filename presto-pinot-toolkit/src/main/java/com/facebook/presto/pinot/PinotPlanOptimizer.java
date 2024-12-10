@@ -161,10 +161,10 @@ public class PinotPlanOptimizer
                 return Optional.empty();
             }
             PinotTableHandle pinotTableHandle = getPinotTableHandle(tableScanNode).orElseThrow(() -> new PinotException(PINOT_UNCLASSIFIED_ERROR, Optional.empty(), "Expected to find a pinot table handle"));
-            PinotQueryGeneratorContext context = pinotQuery.get().getContext();
+            PinotQueryGeneratorContext context = pinotQuery.orElseThrow().getContext();
             TableHandle oldTableHandle = tableScanNode.getTable();
             LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = context.getAssignments();
-            boolean forBroker = pinotQuery.get().getGeneratedPinotQuery().forBroker();
+            boolean forBroker = pinotQuery.orElseThrow().getGeneratedPinotQuery().forBroker();
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
                     new PinotTableHandle(
@@ -173,7 +173,7 @@ public class PinotPlanOptimizer
                             pinotTableHandle.getTableName(),
                             Optional.of(forBroker),
                             Optional.of(ImmutableList.copyOf(assignments.values())),
-                            Optional.of(pinotQuery.get().getGeneratedPinotQuery())),
+                            Optional.of(pinotQuery.orElseThrow().getGeneratedPinotQuery())),
                     oldTableHandle.getTransaction(),
                     oldTableHandle.getLayout());
             return Optional.of(
@@ -226,7 +226,7 @@ public class PinotPlanOptimizer
 
                 filtersSplitUp.put(pushableFilter, null);
                 if (nonPushableFilter.isPresent()) {
-                    FilterNode nonPushableFilterNode = nonPushableFilter.get();
+                    FilterNode nonPushableFilterNode = nonPushableFilter.orElseThrow();
                     filtersSplitUp.put(nonPushableFilterNode, null);
                     nodeToRecurseInto = nonPushableFilterNode;
                 }

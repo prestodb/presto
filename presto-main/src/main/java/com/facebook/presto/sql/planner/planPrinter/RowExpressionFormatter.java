@@ -67,7 +67,7 @@ public final class RowExpressionFormatter
         public String visitCall(CallExpression node, ConnectorSession session)
         {
             if (standardFunctionResolution.isArithmeticFunction(node.getFunctionHandle()) || standardFunctionResolution.isComparisonFunction(node.getFunctionHandle())) {
-                String operation = functionMetadataManager.getFunctionMetadata(node.getFunctionHandle()).getOperatorType().get().getOperator();
+                String operation = functionMetadataManager.getFunctionMetadata(node.getFunctionHandle()).getOperatorType().orElseThrow().getOperator();
                 return String.join(" " + operation + " ", formatRowExpressions(session, node.getArguments()).stream().map(e -> "(" + e + ")").collect(toImmutableList()));
             }
             else if (standardFunctionResolution.isCastFunction(node.getFunctionHandle())) {

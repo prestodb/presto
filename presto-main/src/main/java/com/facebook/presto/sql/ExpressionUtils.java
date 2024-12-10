@@ -353,7 +353,7 @@ public final class ExpressionUtils
 
     private static Expression removeDereferenceExpressionElementPrefix(DereferenceExpression dereferenceExpression, Optional<Identifier> removablePrefix)
     {
-        if (removablePrefix.isPresent() && removablePrefix.get().equals(dereferenceExpression.getBase())) {
+        if (removablePrefix.isPresent() && removablePrefix.orElseThrow().equals(dereferenceExpression.getBase())) {
             return dereferenceExpression.getField();
         }
         return dereferenceExpression;

@@ -208,7 +208,7 @@ public class KafkaMetadata
         long endTimestamp = 0;
         Optional<Map<ColumnHandle, Domain>> domains = constraint.getSummary().getDomains();
         if (domains.isPresent()) {
-            Map<ColumnHandle, Domain> columnHandleDomainMap = domains.get();
+            Map<ColumnHandle, Domain> columnHandleDomainMap = domains.orElseThrow();
             for (Map.Entry<ColumnHandle, Domain> entry : columnHandleDomainMap.entrySet()) {
                 if (entry.getKey() instanceof KafkaColumnHandle && ((KafkaColumnHandle) entry.getKey()).getName().equals(KafkaInternalFieldDescription.OFFSET_TIMESTAMP_FIELD.getColumnName())) {
                     Range span = entry.getValue().getValues().getRanges().getSpan();

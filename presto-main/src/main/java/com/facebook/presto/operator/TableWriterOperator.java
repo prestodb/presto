@@ -155,7 +155,7 @@ public class TableWriterOperator
             Optional<ConnectorMetadataUpdater> metadataUpdater = metadataUpdaterManager.getMetadataUpdater(connectorId);
             if (metadataUpdater.isPresent()) {
                 taskMetadataContext.setConnectorId(connectorId);
-                taskMetadataContext.addMetadataUpdater(metadataUpdater.get());
+                taskMetadataContext.addMetadataUpdater(metadataUpdater.orElseThrow());
             }
 
             PageSinkContext.Builder pageSinkContextBuilder = PageSinkContext.builder()

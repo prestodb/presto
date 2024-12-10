@@ -98,7 +98,7 @@ import static com.facebook.presto.verifier.rewrite.FunctionCallRewriter.Function
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Map.Entry;
@@ -168,7 +168,7 @@ public class QueryRewriter
 
             Optional<String> functionSubstitutions = Optional.empty();
             if (functionCallRewriter.isPresent()) {
-                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(createQuery);
+                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.orElseThrow().rewrite(createQuery);
                 createQuery = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
             }
@@ -212,7 +212,7 @@ public class QueryRewriter
 
             Optional<String> functionSubstitutions = Optional.empty();
             if (functionCallRewriter.isPresent()) {
-                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(insertQuery);
+                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.orElseThrow().rewrite(insertQuery);
                 insertQuery = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
             }
@@ -256,7 +256,7 @@ public class QueryRewriter
 
             Optional<String> functionSubstitutions = Optional.empty();
             if (functionCallRewriter.isPresent()) {
-                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.get().rewrite(queryBody);
+                FunctionCallRewriter.RewriterResult rewriterResult = functionCallRewriter.orElseThrow().rewrite(queryBody);
                 queryBody = (Query) rewriterResult.getRewrittenNode();
                 functionSubstitutions = rewriterResult.getSubstitutions();
             }
@@ -291,10 +291,10 @@ public class QueryRewriter
             // If view exists, create a temporary view that are has the same definition as the existing view.
             // Otherwise, do not pre-create temporary view.
             try {
-                String createExistingViewQuery = getOnlyElement(prestoAction.execute(
+                String createExistingViewQuery = prestoAction.execute(
                         new ShowCreate(VIEW, createView.getName()),
                         REWRITE,
-                        SHOW_CREATE_VIEW_CONVERTER).getResults());
+                        SHOW_CREATE_VIEW_CONVERTER).getResults().stream().collect(onlyElement());
                 CreateView createExistingView = (CreateView) sqlParser.createStatement(createExistingViewQuery, PARSING_OPTIONS);
                 setupQueries.add(new CreateView(
                         temporaryViewName,
@@ -347,7 +347,7 @@ public class QueryRewriter
         int originalSize = originalName.map(QualifiedName::getOriginalParts).map(List::size).orElse(0);
         int prefixSize = prefix.getOriginalParts().size();
         if (originalName.isPresent() && originalSize > prefixSize) {
-            parts.addAll(originalName.get().getOriginalParts().subList(0, originalSize - prefixSize));
+            parts.addAll(originalName.orElseThrow().getOriginalParts().subList(0, originalSize - prefixSize));
         }
         parts.addAll(prefix.getOriginalParts());
         parts.set(parts.size() - 1, prefix.getSuffix() + "_" + randomUUID().toString().replace("-", ""));
@@ -425,7 +425,7 @@ public class QueryRewriter
             SingleColumn singleColumn = (SingleColumn) selectItems.get(i);
             Optional<Type> columnTypeRewrite = getColumnTypeRewrite(columnTypes.get(i));
             if (columnTypeRewrite.isPresent()) {
-                newItems.add(new SingleColumn(new Cast(singleColumn.getExpression(), columnTypeRewrite.get().getTypeSignature().toString()), singleColumn.getAlias()));
+                newItems.add(new SingleColumn(new Cast(singleColumn.getExpression(), columnTypeRewrite.orElseThrow().getTypeSignature().toString()), singleColumn.getAlias()));
             }
             else {
                 newItems.add(singleColumn);
@@ -530,7 +530,7 @@ public class QueryRewriter
             if (!conjunct.isPresent()) {
                 return Optional.empty();
             }
-            disjunct = disjunct == null ? conjunct.get() : new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR, disjunct, conjunct.get());
+            disjunct = disjunct == null ? conjunct.orElseThrow() : new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR, disjunct, conjunct.orElseThrow());
         }
 
         return Optional.ofNullable(disjunct);

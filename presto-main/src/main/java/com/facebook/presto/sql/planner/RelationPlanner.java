@@ -91,8 +91,8 @@ import com.facebook.presto.sql.tree.Values;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Streams;
 import com.google.common.collect.UnmodifiableIterator;
 
 import javax.annotation.Nullable;
@@ -211,7 +211,7 @@ class RelationPlanner
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         for (Field field : scope.getRelationType().getAllFields()) {
-            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(node), field.getName().get(), field.getType());
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(node), field.getName().orElseThrow(), field.getType());
             outputVariablesBuilder.add(variable);
             columns.put(variable, analysis.getColumn(field));
         }
@@ -277,22 +277,22 @@ class RelationPlanner
         Optional<Unnest> unnest = getUnnest(node.getRight());
         if (unnest.isPresent()) {
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
-                throw notSupportedException(unnest.get(), "UNNEST on other than the right side of CROSS JOIN");
+                throw notSupportedException(unnest.orElseThrow(), "UNNEST on other than the right side of CROSS JOIN");
             }
-            return planCrossJoinUnnest(leftPlan, node, unnest.get(), context);
+            return planCrossJoinUnnest(leftPlan, node, unnest.orElseThrow(), context);
         }
 
         Optional<Lateral> lateral = getLateral(node.getRight());
         if (lateral.isPresent()) {
             if (node.getType() != Join.Type.CROSS && node.getType() != Join.Type.IMPLICIT) {
-                throw notSupportedException(lateral.get(), "LATERAL on other than the right side of CROSS JOIN");
+                throw notSupportedException(lateral.orElseThrow(), "LATERAL on other than the right side of CROSS JOIN");
             }
-            return planLateralJoin(node, leftPlan, lateral.get(), context);
+            return planLateralJoin(node, leftPlan, lateral.orElseThrow(), context);
         }
 
         RelationPlan rightPlan = process(node.getRight(), context);
 
-        if (node.getCriteria().isPresent() && node.getCriteria().get() instanceof JoinUsing) {
+        if (node.getCriteria().isPresent() && node.getCriteria().orElseThrow() instanceof JoinUsing) {
             return planJoinUsing(node, leftPlan, rightPlan, context);
         }
 
@@ -404,7 +404,7 @@ class RelationPlanner
             for (Expression complexExpression : complexJoinExpressions) {
                 Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
                 if (!inPredicates.isEmpty()) {
-                    InPredicate inPredicate = Iterables.getLast(inPredicates);
+                    InPredicate inPredicate = Streams.findLast(inPredicates.stream()).orElseThrow();
                     throw notSupportedException(inPredicate, "IN with subquery predicate in join condition");
                 }
             }
@@ -517,7 +517,7 @@ class RelationPlanner
             they will be removed by optimization passes.
         */
 
-        List<Identifier> joinColumns = ((JoinUsing) node.getCriteria().get()).getColumns();
+        List<Identifier> joinColumns = ((JoinUsing) node.getCriteria().orElseThrow()).getColumns();
 
         Analysis.JoinUsingAnalysis joinAnalysis = analysis.getJoinUsing(node);
 
@@ -750,7 +750,7 @@ class RelationPlanner
         }
         // Finally add ordinalityVariable
         if (unnestNode.getOrdinalityVariable().isPresent()) {
-            projections.put(unnestNode.getOrdinalityVariable().get(), unnestNode.getOrdinalityVariable().get());
+            projections.put(unnestNode.getOrdinalityVariable().orElseThrow(), unnestNode.getOrdinalityVariable().orElseThrow());
         }
         return new ProjectNode(idAllocator.getNextId(), unnestNode, projections.build());
     }

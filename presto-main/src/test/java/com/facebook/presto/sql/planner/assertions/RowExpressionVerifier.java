@@ -272,7 +272,7 @@ public final class RowExpressionVerifier
             }
         }
         if (node.getDefaultValue().isPresent()) {
-            return process(node.getDefaultValue().get(), specialForm.getArguments().get(argumentSize - 1));
+            return process(node.getDefaultValue().orElseThrow(), specialForm.getArguments().get(argumentSize - 1));
         }
         return true;
     }
@@ -331,10 +331,10 @@ public final class RowExpressionVerifier
     {
         if (actual instanceof CallExpression) {
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(((CallExpression) actual).getFunctionHandle());
-            if (!functionMetadata.getOperatorType().isPresent() || !functionMetadata.getOperatorType().get().isComparisonOperator()) {
+            if (!functionMetadata.getOperatorType().isPresent() || !functionMetadata.getOperatorType().orElseThrow().isComparisonOperator()) {
                 return false;
             }
-            OperatorType actualOperatorType = functionMetadata.getOperatorType().get();
+            OperatorType actualOperatorType = functionMetadata.getOperatorType().orElseThrow();
             OperatorType expectedOperatorType = getOperatorType(expected.getOperator());
             if (expectedOperatorType.equals(actualOperatorType)) {
                 if (actualOperatorType == EQUAL) {
@@ -384,10 +384,10 @@ public final class RowExpressionVerifier
     {
         if (actual instanceof CallExpression) {
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(((CallExpression) actual).getFunctionHandle());
-            if (!functionMetadata.getOperatorType().isPresent() || !functionMetadata.getOperatorType().get().isArithmeticOperator()) {
+            if (!functionMetadata.getOperatorType().isPresent() || !functionMetadata.getOperatorType().orElseThrow().isArithmeticOperator()) {
                 return false;
             }
-            OperatorType actualOperatorType = functionMetadata.getOperatorType().get();
+            OperatorType actualOperatorType = functionMetadata.getOperatorType().orElseThrow();
             OperatorType expectedOperatorType = getOperatorType(expected.getOperator());
             if (expectedOperatorType.equals(actualOperatorType)) {
                 return process(expected.getLeft(), ((CallExpression) actual).getArguments().get(0)) && process(expected.getRight(), ((CallExpression) actual).getArguments().get(1));
@@ -468,7 +468,7 @@ public final class RowExpressionVerifier
             checkState(index >= 0 && index < rowType.getFields().size());
             RowType.Field field = rowType.getFields().get(toIntExact(index));
             checkState(field.getName().isPresent());
-            return expected.getField().getValue().equals(field.getName().get()) && process(expected.getBase(), actualDereference.getArguments().get(0));
+            return expected.getField().getValue().equals(field.getName().orElseThrow()) && process(expected.getBase(), actualDereference.getArguments().get(0));
         }
         return false;
     }
@@ -694,7 +694,7 @@ public final class RowExpressionVerifier
             return false;
         }
         if (expected.isPresent()) {
-            return process(expected.get(), actual.get());
+            return process(expected.orElseThrow(), actual.orElseThrow());
         }
         return true;
     }

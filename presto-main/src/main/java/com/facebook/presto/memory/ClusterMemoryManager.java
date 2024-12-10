@@ -353,7 +353,7 @@ public class ClusterMemoryManager
                     allQueryInfoSupplier.get().stream()
                         .map(Optional::of)
                         .iterator(),
-                    queryInfo -> queryInfo.get().getQueryId());
+                    queryInfo -> queryInfo.orElseThrow().getQueryId());
         }
         memoryLeakDetector.checkForMemoryLeaks(allRunningQueries, pools.get(GENERAL_POOL).getQueryMemoryReservations());
     }
@@ -366,18 +366,18 @@ public class ClusterMemoryManager
         List<MemoryInfo> nodeMemoryInfos = nodes.values().stream()
                 .map(RemoteNodeMemory::getInfo)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toImmutableList());
         Optional<QueryId> chosenQueryId = lowMemoryKiller.chooseQueryToKill(queryMemoryInfoList, nodeMemoryInfos);
         if (chosenQueryId.isPresent()) {
-            log.debug("Low memory killer chose %s", chosenQueryId.get());
-            Optional<QueryExecution> chosenQuery = Streams.stream(runningQueries).filter(query -> chosenQueryId.get().equals(query.getQueryId())).collect(toOptional());
+            log.debug("Low memory killer chose %s", chosenQueryId.orElseThrow());
+            Optional<QueryExecution> chosenQuery = Streams.stream(runningQueries).filter(query -> chosenQueryId.orElseThrow().equals(query.getQueryId())).collect(toOptional());
             if (chosenQuery.isPresent()) {
                 // See comments in  isLastKilledQueryGone for why chosenQuery might be absent.
-                chosenQuery.get().fail(new PrestoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
+                chosenQuery.orElseThrow().fail(new PrestoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
                 queriesKilledDueToOutOfMemory.incrementAndGet();
-                lastKilledQuery = chosenQueryId.get();
-                logQueryKill(chosenQueryId.get(), nodeMemoryInfos);
+                lastKilledQuery = chosenQueryId.orElseThrow();
+                logQueryKill(chosenQueryId.orElseThrow(), nodeMemoryInfos);
             }
         }
     }
@@ -597,7 +597,7 @@ public class ClusterMemoryManager
         List<MemoryInfo> nodeMemoryInfos = nodes.values().stream()
                 .map(RemoteNodeMemory::getInfo)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toImmutableList());
 
         long totalClusterMemory = nodeMemoryInfos.stream()

@@ -27,8 +27,8 @@ import java.util.Map;
 
 import static com.facebook.presto.sql.relational.Expressions.call;
 import static com.facebook.presto.sql.relational.Expressions.field;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.filterKeys;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 
 public final class VariableToChannelTranslator
 {
@@ -79,7 +79,7 @@ public final class VariableToChannelTranslator
             // TODO https://github.com/prestodb/presto/issues/12892
             Map<VariableReferenceExpression, Integer> candidate = filterKeys(layout, variable -> variable.getName().equals(reference.getName()));
             if (!candidate.isEmpty()) {
-                return field(candidate.keySet().stream().findFirst().get().getSourceLocation(), getOnlyElement(candidate.values()), reference.getType());
+                return field(candidate.keySet().stream().findFirst().orElseThrow().getSourceLocation(), candidate.values().stream().collect(onlyElement()), reference.getType());
             }
             // this is possible only for lambda
             return reference;

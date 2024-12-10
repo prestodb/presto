@@ -197,7 +197,7 @@ public class StageExecutionStateMachine
         AtomicBoolean done = new AtomicBoolean();
         StateChangeListener<Optional<StageExecutionInfo>> fireOnceStateChangeListener = finalStageInfo -> {
             if (finalStageInfo.isPresent() && done.compareAndSet(false, true)) {
-                finalStatusListener.stateChanged(finalStageInfo.get());
+                finalStatusListener.stateChanged(finalStageInfo.orElseThrow());
             }
         };
         finalInfo.addStateChangeListener(fireOnceStateChangeListener);
@@ -234,9 +234,9 @@ public class StageExecutionStateMachine
     {
         Optional<StageExecutionInfo> finalStageInfo = this.finalInfo.get();
         if (finalStageInfo.isPresent()) {
-            return finalStageInfo.get()
+            return finalStageInfo.orElseThrow()
                     .getStats()
-                    .toBasicStageStats(finalStageInfo.get().getState());
+                    .toBasicStageStats(finalStageInfo.orElseThrow().getState());
         }
 
         // stage state must be captured first in order to provide a
@@ -336,7 +336,7 @@ public class StageExecutionStateMachine
     {
         Optional<StageExecutionInfo> finalStageInfo = this.finalInfo.get();
         if (finalStageInfo.isPresent()) {
-            return finalStageInfo.get();
+            return finalStageInfo.orElseThrow();
         }
 
         // stage state must be captured first in order to provide a

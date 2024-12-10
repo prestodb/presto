@@ -41,7 +41,7 @@ public class TestingEventListenerManager
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryCompleted(queryCompletedEvent);
+            configuredEventListener.get().orElseThrow().queryCompleted(queryCompletedEvent);
         }
     }
 
@@ -49,7 +49,7 @@ public class TestingEventListenerManager
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
         if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryCreated(queryCreatedEvent);
+            configuredEventListener.get().orElseThrow().queryCreated(queryCreatedEvent);
         }
     }
 
@@ -57,7 +57,7 @@ public class TestingEventListenerManager
     public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
     {
         if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().queryUpdated(queryUpdatedEvent);
+            configuredEventListener.get().orElseThrow().queryUpdated(queryUpdatedEvent);
         }
     }
 
@@ -65,7 +65,7 @@ public class TestingEventListenerManager
     public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
     {
         if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().publishQueryProgress(queryProgressEvent);
+            configuredEventListener.get().orElseThrow().publishQueryProgress(queryProgressEvent);
         }
     }
 
@@ -73,7 +73,7 @@ public class TestingEventListenerManager
     public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
     {
         if (configuredEventListener.get().isPresent()) {
-            configuredEventListener.get().get().splitCompleted(splitCompletedEvent);
+            configuredEventListener.get().orElseThrow().splitCompleted(splitCompletedEvent);
         }
     }
 

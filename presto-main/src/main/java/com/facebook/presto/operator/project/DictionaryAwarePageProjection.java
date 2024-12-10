@@ -148,7 +148,7 @@ public class DictionaryAwarePageProjection
                 if (block instanceof RunLengthEncodedBlock) {
                     // single value block is always considered effective, but the processing could have thrown
                     // in that case we fallback and process again so the correct error message sent
-                    results = dictionaryOutput.get().stream()
+                    results = dictionaryOutput.orElseThrow().stream()
                             .map(block -> new RunLengthEncodedBlock(block, selectedPositions.size()))
                             .collect(toImmutableList());
                     return true;
@@ -158,7 +158,7 @@ public class DictionaryAwarePageProjection
                     DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
                     // if dictionary was processed, produce a dictionary block; otherwise do normal processing
                     int[] outputIds = filterDictionaryIds(dictionaryBlock, selectedPositions);
-                    results = dictionaryOutput.get().stream()
+                    results = dictionaryOutput.orElseThrow().stream()
                             .map(block -> new DictionaryBlock(selectedPositions.size(), block, outputIds, false, sourceIdFunction.apply(dictionaryBlock)))
                             .collect(toImmutableList());
                     return true;
@@ -192,7 +192,7 @@ public class DictionaryAwarePageProjection
                 return null;
             }
 
-            if (lastInputDictionary == dictionary.get()) {
+            if (lastInputDictionary == dictionary.orElseThrow()) {
                 // we must have fallen back last time if lastOutputDictionary is null
                 return lastOutputDictionary.<Work<List<Block>>>map(CompletedWork::new).orElse(null);
             }
@@ -201,11 +201,11 @@ public class DictionaryAwarePageProjection
             //   there is only one entry in the dictionary
             //   this is the first block
             //   the last dictionary was used for more positions than were in the dictionary
-            boolean shouldProcessDictionary = dictionary.get().getPositionCount() == 1 || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
+            boolean shouldProcessDictionary = dictionary.orElseThrow().getPositionCount() == 1 || lastInputDictionary == null || lastDictionaryUsageCount >= lastInputDictionary.getPositionCount();
 
             // record the usage count regardless of dictionary processing choice, so we have stats for next time
             lastDictionaryUsageCount = 0;
-            lastInputDictionary = dictionary.get();
+            lastInputDictionary = dictionary.orElseThrow();
             lastOutputDictionary = Optional.empty();
 
             if (shouldProcessDictionary) {

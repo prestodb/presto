@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class PlanNodeSearcher
@@ -124,7 +124,7 @@ public class PlanNodeSearcher
 
     public <T extends PlanNode> T findOnlyElement()
     {
-        return getOnlyElement(findAll());
+        return this.<T>findAll().stream().collect(onlyElement());
     }
 
     public <T extends PlanNode> T findOnlyElement(T defaultValue)
@@ -133,7 +133,7 @@ public class PlanNodeSearcher
         if (all.isEmpty()) {
             return defaultValue;
         }
-        return getOnlyElement(all);
+        return all.stream().collect(onlyElement());
     }
 
     private <T extends PlanNode> void findAllRecursive(PlanNode node, ImmutableList.Builder<T> nodes)

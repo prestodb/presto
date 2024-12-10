@@ -62,7 +62,7 @@ public class DateStatisticsBuilder
     {
         Optional<DateStatistics> dateStatistics = buildDateStatistics();
         if (dateStatistics.isPresent()) {
-            return new DateColumnStatistics(nonNullValueCount, null, rawSize, storageSize, dateStatistics.get());
+            return new DateColumnStatistics(nonNullValueCount, null, rawSize, storageSize, dateStatistics.orElseThrow());
         }
         return new ColumnStatistics(nonNullValueCount, null, rawSize, storageSize);
     }

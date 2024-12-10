@@ -109,7 +109,7 @@ public class BenchmarkSpatialJoin
                 Metadata metadata = queryRunner.getMetadata();
                 Optional<TableHandle> tableHandle = metadata.getMetadataResolver(transactionSession).getTableHandle(QualifiedObjectName.valueOf("memory.default.points"));
                 assertTrue(tableHandle.isPresent(), "Table memory.default.points does not exist");
-                metadata.dropTable(transactionSession, tableHandle.get());
+                metadata.dropTable(transactionSession, tableHandle.orElseThrow());
                 return null;
             });
         }

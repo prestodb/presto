@@ -215,7 +215,7 @@ public class TpchRecordSet<E extends TpchEntity>
                 return false;
             }
 
-            Map<ColumnHandle, NullableValue> rowMap = predicate.getDomains().get().keySet().stream()
+            Map<ColumnHandle, NullableValue> rowMap = predicate.getDomains().orElseThrow().keySet().stream()
                     .collect(toImmutableMap(
                             column -> column,
                             column -> {

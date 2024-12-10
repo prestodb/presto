@@ -425,8 +425,8 @@ public class AbstractAnalyzerTest
             }
 
             if (location.isPresent()) {
-                NodeLocation expected = location.get();
-                NodeLocation actual = e.getLocation().get();
+                NodeLocation expected = location.orElseThrow();
+                NodeLocation actual = e.getLocation().orElseThrow();
 
                 if (expected.getLineNumber() != actual.getLineNumber() || expected.getColumnNumber() != actual.getColumnNumber()) {
                     fail(format(

@@ -47,8 +47,8 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.DynamicSliceOutput;
@@ -89,13 +89,14 @@ import static com.facebook.presto.server.protocol.QueryResourceUtil.toStatementS
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.page.PagesSerdeUtil.writeSerializedPage;
 import static com.facebook.presto.util.Failures.toFailure;
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 @ThreadSafe
 class Query
@@ -260,7 +261,7 @@ class Query
     {
         Optional<Tracer> tracer = session.getTracer();
         checkArgument(tracer.isPresent(), "tracer is not present");
-        return tracer.get();
+        return tracer.orElseThrow();
     }
 
     public synchronized Optional<String> getSetCatalog()
@@ -323,7 +324,7 @@ class Query
         // before waiting, check if this request has already been processed and cached
         Optional<QueryResults> cachedResult = getCachedResult(token);
         if (cachedResult.isPresent()) {
-            return immediateFuture(cachedResult.get());
+            return immediateFuture(cachedResult.orElseThrow());
         }
 
         // wait for a results data or query to finish, up to the wait timeout
@@ -409,7 +410,7 @@ class Query
             if (previousQueryTopLevelPlanHash.isPresent() && currentTopLevelPlanHash.isPresent() && currentTopLevelPlanHash.equals(previousQueryTopLevelPlanHash)
                     || (!previousQueryTopLevelPlanHash.isPresent() && !currentTopLevelPlanHash.isPresent())) {
                 queryManager.failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "Since the plan hashes did not change, your retry query will not execute." +
-                        "Your original error was " + previousQueryFailureError.get() + ". Original QueryId: " + originalBeforeRetryQueryId +
+                        "Your original error was " + previousQueryFailureError.orElseThrow() + ". Original QueryId: " + originalBeforeRetryQueryId +
                         ". Retry QueryId: " + queryId));
             }
 
@@ -450,7 +451,7 @@ class Query
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
         if (cachedResult.isPresent()) {
-            return cachedResult.get();
+            return cachedResult.orElseThrow();
         }
 
         verify(nextToken.isPresent(), "Can not generate next result when next token is not present");
@@ -508,7 +509,7 @@ class Query
                 }
                 if (rows > 0) {
                     // client implementations do not properly handle empty list of data
-                    data = Iterables.concat(pages.build());
+                    data = pages.build().stream().flatMap(Streams::stream).collect(toImmutableList());
                 }
             }
             if (rows > 0) {
@@ -662,7 +663,7 @@ class Query
         }
         Optional<DataSize> targetResultSize = getTargetResultSize(session);
         if (targetResultSize.isPresent()) {
-            uri = uri.queryParam("targetResultSize", targetResultSize.get());
+            uri = uri.queryParam("targetResultSize", targetResultSize.orElseThrow());
         }
         return uri.build();
     }
@@ -676,7 +677,7 @@ class Query
                 .replaceQuery("");
         Optional<DataSize> targetResultSize = getTargetResultSize(session);
         if (targetResultSize.isPresent()) {
-            uri = uri.queryParam("targetResultSize", targetResultSize.get());
+            uri = uri.queryParam("targetResultSize", targetResultSize.orElseThrow());
         }
         return uri.build();
     }
@@ -780,7 +781,7 @@ class Query
             log.warn("Failed query %s has no error code", queryInfo.getQueryId());
         }
         return new QueryError(
-                firstNonNull(failure.getMessage(), "Internal error"),
+                requireNonNullElse(failure.getMessage(), "Internal error"),
                 null,
                 errorCode.getCode(),
                 errorCode.getName(),

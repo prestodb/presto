@@ -70,7 +70,7 @@ public class ParametricScalar
     @Override
     public String getDescription()
     {
-        return details.getDescription().isPresent() ? details.getDescription().get() : "";
+        return details.getDescription().isPresent() ? details.getDescription().orElseThrow() : "";
     }
 
     @VisibleForTesting
@@ -87,7 +87,7 @@ public class ParametricScalar
             ParametricScalarImplementation implementation = implementations.getExactImplementations().get(boundSignature);
             Optional<BuiltInScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, functionAndTypeManager);
             checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, String.format("Exact implementation of %s do not match expected java types.", boundSignature.getNameSuffix()));
-            return scalarFunctionImplementation.get();
+            return scalarFunctionImplementation.orElseThrow();
         }
 
         BuiltInScalarFunctionImplementation selectedImplementation = null;
@@ -95,7 +95,7 @@ public class ParametricScalar
             Optional<BuiltInScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, functionAndTypeManager);
             if (scalarFunctionImplementation.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
-                selectedImplementation = scalarFunctionImplementation.get();
+                selectedImplementation = scalarFunctionImplementation.orElseThrow();
             }
         }
         if (selectedImplementation != null) {
@@ -105,7 +105,7 @@ public class ParametricScalar
             Optional<BuiltInScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(boundSignature, boundVariables, functionAndTypeManager);
             if (scalarFunctionImplementation.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getSignature(), boundVariables.getTypeVariables());
-                selectedImplementation = scalarFunctionImplementation.get();
+                selectedImplementation = scalarFunctionImplementation.orElseThrow();
             }
         }
         if (selectedImplementation != null) {

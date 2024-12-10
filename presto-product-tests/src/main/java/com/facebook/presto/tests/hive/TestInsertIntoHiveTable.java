@@ -73,7 +73,7 @@ public class TestInsertIntoHiveTable
                 .build();
     }
 
-    @Test(groups = {POST_HIVE_1_0_1})
+    @Test(groups = POST_HIVE_1_0_1)
     public void testInsertIntoValuesToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
@@ -115,7 +115,7 @@ public class TestInsertIntoHiveTable
                         "kot binarny".getBytes()));
     }
 
-    @Test(groups = {POST_HIVE_1_0_1})
+    @Test(groups = POST_HIVE_1_0_1)
     public void testInsertIntoSelectToHiveTableAllHiveSimpleTypes()
     {
         String tableNameInDatabase = mutableTablesState().get(TABLE_NAME).getNameInDatabase();
@@ -140,7 +140,7 @@ public class TestInsertIntoHiveTable
                         "kot binarny".getBytes()));
     }
 
-    @Test(groups = {POST_HIVE_1_0_1})
+    @Test(groups = POST_HIVE_1_0_1)
     public void testInsertIntoPartitionedWithSerdeProperty()
     {
         String tableNameInDatabase = mutableTablesState().get(PARTITIONED_TABLE_WITH_SERDE).getNameInDatabase();

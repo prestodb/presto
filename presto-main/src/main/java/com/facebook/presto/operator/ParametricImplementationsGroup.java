@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.validateSignaturesCompatibility;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -130,7 +130,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
                 List<T> genericImplementations)
         {
             if (specializedImplementations.size() + genericImplementations.size() == 0) {
-                return getOnlyElement(exactImplementations.keySet());
+                return exactImplementations.keySet().stream().collect(onlyElement());
             }
 
             Optional<Signature> signature = Optional.empty();
@@ -144,7 +144,7 @@ public class ParametricImplementationsGroup<T extends ParametricImplementation>
                 signature = Optional.of(implementation.getSignature());
             }
 
-            return signature.get();
+            return signature.orElseThrow();
         }
     }
 }

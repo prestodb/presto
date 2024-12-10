@@ -215,7 +215,7 @@ public class ClusterStatsResource
                     .host(resourceManagerNode.getHostAndPort().toInetAddress().getHostName())
                     .port(resourceManagerNode.getInternalUri().getPort())
                     .build();
-            proxyHelper.get().performRequest(servletRequest, asyncResponse, uri);
+            proxyHelper.orElseThrow().performRequest(servletRequest, asyncResponse, uri);
         }
         catch (Exception e) {
             asyncResponse.resume(e);

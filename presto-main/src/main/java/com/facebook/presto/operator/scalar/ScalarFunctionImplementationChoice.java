@@ -56,8 +56,8 @@ public class ScalarFunctionImplementationChoice
         this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
 
         if (instanceFactory.isPresent()) {
-            Class<?> instanceType = instanceFactory.get().type().returnType();
-            checkArgument(instanceFactory.get().type().parameterList().isEmpty(), "instanceFactory should have no parameter");
+            Class<?> instanceType = instanceFactory.orElseThrow().type().returnType();
+            checkArgument(instanceFactory.orElseThrow().type().parameterList().isEmpty(), "instanceFactory should have no parameter");
             checkArgument(instanceType.equals(methodHandle.type().parameterType(0)), "methodHandle is not an instance method");
         }
 
@@ -153,7 +153,7 @@ public class ScalarFunctionImplementationChoice
                 case FUNCTION_TYPE:
                     checkArgument(!nullConvention.isPresent(), "nullConvention must not present for function type");
                     checkArgument(lambdaInterface.isPresent(), "lambdaInterface must present for function type");
-                    checkArgument(lambdaInterface.get().isAnnotationPresent(FunctionalInterface.class), "lambdaInterface must be annotated with FunctionalInterface");
+                    checkArgument(lambdaInterface.orElseThrow().isAnnotationPresent(FunctionalInterface.class), "lambdaInterface must be annotated with FunctionalInterface");
                     break;
                 default:
                     throw new UnsupportedOperationException(format("Unsupported argument type: %s", argumentType));
@@ -172,13 +172,13 @@ public class ScalarFunctionImplementationChoice
         public NullConvention getNullConvention()
         {
             checkState(getArgumentType() == VALUE_TYPE, "nullConvention only applies to value type argument");
-            return nullConvention.get();
+            return nullConvention.orElseThrow();
         }
 
         public Class getLambdaInterface()
         {
             checkState(getArgumentType() == FUNCTION_TYPE, "lambdaInterface only applies to function type argument");
-            return lambdaInterface.get();
+            return lambdaInterface.orElseThrow();
         }
 
         @Override

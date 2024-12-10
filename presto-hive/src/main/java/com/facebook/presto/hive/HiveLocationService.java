@@ -131,7 +131,7 @@ public class HiveLocationService
         if (partition.isPresent()) {
             // existing partition
             WriteMode writeMode = locationHandle.getWriteMode();
-            Path targetPath = new Path(partition.get().getStorage().getLocation());
+            Path targetPath = new Path(partition.orElseThrow().getStorage().getLocation());
 
             Path writePath;
             switch (writeMode) {

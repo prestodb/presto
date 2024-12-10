@@ -148,7 +148,7 @@ public class HighMemoryTaskKiller
                     Optional<QueryId> queryId = getMaxMemoryConsumingQuery(activeQueriesToTasksMap);
 
                     if (queryId.isPresent()) {
-                        List<SqlTask> activeTasksToKill = activeQueriesToTasksMap.get(queryId.get());
+                        List<SqlTask> activeTasksToKill = activeQueriesToTasksMap.get(queryId.orElseThrow());
                         for (SqlTask sqlTask : activeTasksToKill) {
                             TaskStats taskStats = sqlTask.getTaskInfo().getStats();
                             sqlTask.failed(new PrestoException(EXCEEDED_HEAP_MEMORY_LIMIT, format("Worker heap memory limit exceeded: User Memory: %d, System Memory: %d, Revocable Memory: %d", taskStats.getUserMemoryReservationInBytes(), taskStats.getSystemMemoryReservationInBytes(), taskStats.getRevocableMemoryReservationInBytes())));

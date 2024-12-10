@@ -43,6 +43,6 @@ public class TestAddPartitionToSortRule
         }
         Optional<VariableReferenceExpression> partition = node.getSource().getOutputVariables().stream().filter(x -> x.getType().equals(BIGINT)).findFirst();
         checkState(partition.isPresent());
-        return Result.ofPlanNode(new SortNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), node.getSource(), node.getOrderingScheme(), node.isPartial(), ImmutableList.of(partition.get())));
+        return Result.ofPlanNode(new SortNode(node.getSourceLocation(), context.getIdAllocator().getNextId(), node.getSource(), node.getOrderingScheme(), node.isPartial(), ImmutableList.of(partition.orElseThrow())));
     }
 }

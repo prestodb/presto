@@ -88,7 +88,7 @@ public class BigQuerySplitManager
 
     private boolean isEmptyProjectionIsRequired(Optional<List<ColumnHandle>> projectedColumns)
     {
-        return projectedColumns.isPresent() && projectedColumns.get().isEmpty();
+        return projectedColumns.isPresent() && projectedColumns.orElseThrow().isEmpty();
     }
 
     private ImmutableList<BigQuerySplit> readFromBigQuery(TableId tableId, Optional<List<ColumnHandle>> projectedColumns, int actualParallelism, Optional<String> filter)
@@ -112,7 +112,7 @@ public class BigQuerySplitManager
             long numberOfRows;
             if (filter.isPresent()) {
                 // count the rows based on the filter
-                String sql = bigQueryClient.createFormatSql(tableId, "COUNT(*)", new String[] {filter.get()});
+                String sql = bigQueryClient.createFormatSql(tableId, "COUNT(*)", new String[] {filter.orElseThrow()});
                 TableResult result = bigQueryClient.query(sql);
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }

@@ -37,10 +37,10 @@ public class MinMaxSet<E>
     public void add(E element)
     {
         final Comparable<? super E> castedElement = (Comparable<? super E>) element;
-        if (!min.isPresent() || castedElement.compareTo(min.get()) <= 0) {
+        if (!min.isPresent() || castedElement.compareTo(min.orElseThrow()) <= 0) {
             min = Optional.of(element);
         }
-        if (!max.isPresent() || castedElement.compareTo(max.get()) >= 0) {
+        if (!max.isPresent() || castedElement.compareTo(max.orElseThrow()) >= 0) {
             max = Optional.of(element);
         }
     }

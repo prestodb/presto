@@ -47,7 +47,7 @@ public interface PrestoAddress
     {
         checkState(getHttpPort().isPresent(), "httpPort is not present");
         return getHosts().stream()
-                .map(host -> URI.create(format("http://%s:%s", host, getHttpPort().get())).resolve(path))
+                .map(host -> URI.create(format("http://%s:%s", host, getHttpPort().orElseThrow())).resolve(path))
                 .collect(toImmutableList());
     }
 }

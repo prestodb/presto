@@ -39,7 +39,7 @@ public class FixedAddressSelector
         checkArgument(addressSelectionContext.isPresent());
 
         // TODO: We should make context generic type in Drift library to avoid parsing and create address every time
-        HostAndPort address = HostAndPort.fromString(addressSelectionContext.get());
+        HostAndPort address = HostAndPort.fromString(addressSelectionContext.orElseThrow());
         return Optional.of(new SimpleAddress(address));
     }
 }

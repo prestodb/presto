@@ -27,7 +27,9 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -43,8 +45,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.rcfile.RcFileTester.Format.BINARY;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.google.common.collect.Iterables.cycle;
-import static com.google.common.collect.Iterables.limit;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -83,7 +83,10 @@ public abstract class AbstractTestRcFileReader
     public void testBooleanSequence()
             throws Exception
     {
-        tester.testRoundTrip(BOOLEAN, limit(cycle(ImmutableList.of(true, false, false)), 3_000));
+        tester.testRoundTrip(BOOLEAN, Stream.generate(() -> ImmutableList.of(true, false, false))
+                .flatMap(Collection::stream)
+                .limit(3_000)
+                .toList());
     }
 
     @Test

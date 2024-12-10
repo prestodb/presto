@@ -320,7 +320,7 @@ public class QuickStatsProvider
     private PartitionStatistics buildQuickStats(String partitionKey, String partitionId, ConnectorSession session, SchemaTableName table,
             MetastoreContext metastoreContext)
     {
-        Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).get();
+        Table resolvedTable = metastore.getTable(metastoreContext, table.getSchemaName(), table.getTableName()).orElseThrow();
         Optional<Partition> partition;
         Path path;
         if (UNPARTITIONED_ID.getPartitionName().equals(partitionId)) {
@@ -331,7 +331,7 @@ public class QuickStatsProvider
             partition = metastore.getPartitionsByNames(metastoreContext, table.getSchemaName(), table.getTableName(),
                     ImmutableList.of(new PartitionNameWithVersion(partitionId, Optional.empty()))).get(partitionId);
             checkState(partition.isPresent(), "getPartitionsByNames returned no partitions for partition with name [%s]", partitionId);
-            path = new Path(partition.get().getStorage().getLocation());
+            path = new Path(partition.orElseThrow().getStorage().getLocation());
         }
 
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName(), partitionId, false);

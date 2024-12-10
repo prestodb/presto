@@ -80,8 +80,6 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.filter;
-import static com.google.common.collect.Iterables.transform;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
 import static java.util.Locale.ENGLISH;
@@ -223,11 +221,11 @@ public class NativeCassandraSession
 
             // column ordering
             List<ExtraColumnMetadata> extras = extraColumnMetadataCodec.fromJson(columnOrderingString);
-            List<String> explicitColumnOrder = new ArrayList<>(ImmutableList.copyOf(transform(extras, ExtraColumnMetadata::getName)));
-            hiddenColumns = ImmutableSet.copyOf(transform(filter(extras, ExtraColumnMetadata::isHidden), ExtraColumnMetadata::getName));
+            List<String> explicitColumnOrder = new ArrayList<>(ImmutableList.copyOf(extras.stream().map(ExtraColumnMetadata::getName).toList()));
+            hiddenColumns = ImmutableSet.copyOf(extras.stream().filter(ExtraColumnMetadata::isHidden).toList().stream().map(ExtraColumnMetadata::getName).toList());
 
             // add columns not in the comment to the ordering
-            Iterables.addAll(explicitColumnOrder, filter(columnNames, not(in(explicitColumnOrder))));
+            Iterables.addAll(explicitColumnOrder, columnNames.stream().filter(not(in(explicitColumnOrder))).toList());
 
             // sort the actual columns names using the explicit column order (this allows for missing columns)
             columnNames = Ordering.explicit(explicitColumnOrder).sortedCopy(columnNames);

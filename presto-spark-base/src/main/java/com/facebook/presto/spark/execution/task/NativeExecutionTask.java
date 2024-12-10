@@ -118,7 +118,7 @@ public class NativeExecutionTask
     public boolean isTaskDone()
     {
         Optional<TaskInfo> taskInfo = getTaskInfo();
-        return taskInfo.isPresent() && taskInfo.get().getTaskStatus().getState().isDone();
+        return taskInfo.isPresent() && taskInfo.orElseThrow().getTaskStatus().getState().isDone();
     }
 
     public Object getTaskFinishedOrHasResult()
@@ -137,12 +137,12 @@ public class NativeExecutionTask
         if (!taskResultFetcher.isPresent()) {
             return Optional.empty();
         }
-        return taskResultFetcher.get().pollPage();
+        return taskResultFetcher.orElseThrow().pollPage();
     }
 
     public boolean hasResult()
     {
-        return taskResultFetcher.isPresent() && taskResultFetcher.get().hasPage();
+        return taskResultFetcher.isPresent() && taskResultFetcher.orElseThrow().hasPage();
     }
 
     /**

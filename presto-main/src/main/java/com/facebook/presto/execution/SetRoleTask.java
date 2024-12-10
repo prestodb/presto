@@ -51,7 +51,7 @@ public class SetRoleTask
                     session.getRequiredTransactionId(),
                     session.getIdentity(),
                     session.getAccessControlContext(),
-                    statement.getRole().map(Identifier::getValueLowerCase).get(),
+                    statement.getRole().map(Identifier::getValueLowerCase).orElseThrow(),
                     catalog);
         }
         SelectedRole.Type type;

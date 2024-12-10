@@ -135,7 +135,7 @@ public class DynamicFiltersChecker
         return Expressions.uniqueSubExpressions(expression).stream()
                 .map(DynamicFilters::getPlaceholder)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toImmutableList());
     }
 }

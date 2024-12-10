@@ -97,7 +97,7 @@ public class DruidSplit
     @JsonProperty
     public HostAddress getAddress()
     {
-        return address.isPresent() ? address.get() : null;
+        return address.isPresent() ? address.orElseThrow() : null;
     }
 
     @Override

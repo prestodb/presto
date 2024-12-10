@@ -96,7 +96,7 @@ public class AllColumns
     public String toString()
     {
         if (prefix.isPresent()) {
-            return prefix.get() + ".*";
+            return prefix.orElseThrow() + ".*";
         }
 
         return "*";

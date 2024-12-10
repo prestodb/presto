@@ -112,7 +112,7 @@ public class PartitioningHandle
     public String toString()
     {
         if (connectorId.isPresent()) {
-            return connectorId.get() + ":" + connectorHandle;
+            return connectorId.orElseThrow() + ":" + connectorHandle;
         }
         return connectorHandle.toString();
     }

@@ -80,7 +80,7 @@ public class TupleDomainOrcPredicate<C>
             // effective predicate is none, so skip this section
             return false;
         }
-        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
+        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.orElseThrow();
 
         for (ColumnReference<C> columnReference : columnReferences) {
             Domain predicateDomain = effectivePredicateDomains.get(columnReference.getColumn());
@@ -135,7 +135,7 @@ public class TupleDomainOrcPredicate<C>
         }
 
         // if none of the discrete predicate values are found in the bloom filter, there is no overlap and the section should be skipped
-        if (discreteValues.get().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()))) {
+        if (discreteValues.orElseThrow().stream().noneMatch(value -> checkInBloomFilter(bloomFilter, value, stripeDomain.getType()))) {
             return false;
         }
         return true;

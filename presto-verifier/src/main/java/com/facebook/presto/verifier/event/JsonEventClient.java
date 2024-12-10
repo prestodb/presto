@@ -42,7 +42,7 @@ public class JsonEventClient
             throws FileNotFoundException
     {
         requireNonNull(config.getJsonEventLogFile(), "jsonEventLogFile is null");
-        this.out = config.getJsonEventLogFile().isPresent() ? new PrintStream(config.getJsonEventLogFile().get()) : System.out;
+        this.out = config.getJsonEventLogFile().isPresent() ? new PrintStream(config.getJsonEventLogFile().orElseThrow()) : System.out;
     }
 
     @Override

@@ -101,7 +101,7 @@ public final class CachingStatsProvider
 
         Optional<PlanNodeStatsEstimate> stats = memo.getStats(group);
         if (stats.isPresent()) {
-            return stats.get();
+            return stats.orElseThrow();
         }
 
         PlanNodeStatsEstimate groupStats = statsCalculator.calculateStats(memo.getNode(group), this, lookup, session, types);

@@ -27,6 +27,7 @@ import java.nio.file.Paths;
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static java.nio.charset.Charset.defaultCharset;
 
 public class TableStatisticsDataRepository
 {
@@ -58,7 +59,7 @@ public class TableStatisticsDataRepository
             objectMapper
                     .writerWithDefaultPrettyPrinter()
                     .writeValue(file, tableStatisticsData);
-            try (FileWriter fileWriter = new FileWriter(file, true)) {
+            try (FileWriter fileWriter = new FileWriter(file, defaultCharset(), true)) {
                 fileWriter.append('\n');
             }
         }

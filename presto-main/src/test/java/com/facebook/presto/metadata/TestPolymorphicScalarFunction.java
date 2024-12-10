@@ -225,7 +225,7 @@ public class TestPolymorphicScalarFunction
         BuiltInScalarFunctionImplementation functionImplementation = function.specialize(BOUND_VARIABLES, 1, FUNCTION_AND_TYPE_MANAGER);
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class},
+    @Test(expectedExceptions = IllegalStateException.class,
             expectedExceptionsMessageRegExp = "method foo was not found in class com.facebook.presto.metadata.TestPolymorphicScalarFunction\\$TestMethods")
     public void testFailIfNotAllMethodsPresent()
     {
@@ -239,7 +239,7 @@ public class TestPolymorphicScalarFunction
                 .build();
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class},
+    @Test(expectedExceptions = IllegalStateException.class,
             expectedExceptionsMessageRegExp = "methods must be selected first")
     public void testFailNoMethodsAreSelectedWhenExtraParametersFunctionIsSet()
     {
@@ -253,7 +253,7 @@ public class TestPolymorphicScalarFunction
                 .build();
     }
 
-    @Test(expectedExceptions = {IllegalStateException.class},
+    @Test(expectedExceptions = IllegalStateException.class,
             expectedExceptionsMessageRegExp = "two matching methods \\(varcharToBigintReturnFirstExtraParameter and varcharToBigintReturnExtraParameter\\) for parameter types \\[varchar\\(10\\)\\]")
     public void testFailIfTwoMethodsWithSameArguments()
     {

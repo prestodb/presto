@@ -309,7 +309,7 @@ public final class DeltaExpressionUtils
                     logger.debug("Domain is not present in file: " + filePath);
                     return false;
                 }
-                Domain columnPredicate = domains.get().get(columnName);
+                Domain columnPredicate = domains.orElseThrow().get(columnName);
 
                 if (columnPredicate == null) {
                     continue; // there is no predicate on this column

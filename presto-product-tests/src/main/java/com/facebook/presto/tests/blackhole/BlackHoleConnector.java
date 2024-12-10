@@ -26,7 +26,7 @@ import static java.lang.String.format;
 
 public class BlackHoleConnector
 {
-    @Test(groups = {BLACKHOLE_CONNECTOR})
+    @Test(groups = BLACKHOLE_CONNECTOR)
     public void blackHoleConnector()
     {
         String nullTable = "\"blackhole\".default.nation_" + UUID.randomUUID().toString().replace("-", "");

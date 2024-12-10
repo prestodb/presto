@@ -134,7 +134,7 @@ public class DisjointRangeDomainHistogram
         if (!optionalSpan.isPresent()) {
             return Estimate.of(0.0);
         }
-        Range<Double> span = optionalSpan.get();
+        Range<Double> span = optionalSpan.orElseThrow();
         if (value <= span.lowerEndpoint()) {
             return Estimate.of(0.0);
         }
@@ -193,7 +193,7 @@ public class DisjointRangeDomainHistogram
         if (!optionalSpan.isPresent()) {
             return Estimate.unknown();
         }
-        Range<Double> span = optionalSpan.get();
+        Range<Double> span = optionalSpan.orElseThrow();
         if (percentile == 0.0 && isFinite(span.lowerEndpoint())) {
             return source.inverseCumulativeProbability(0.0).map(sourceMin -> max(span.lowerEndpoint(), sourceMin));
         }

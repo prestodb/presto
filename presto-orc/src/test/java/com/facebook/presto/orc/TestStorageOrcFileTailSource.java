@@ -168,7 +168,7 @@ public class TestStorageOrcFileTailSource
 
         // make sure the stripe cache is loaded correctly
         assertTrue(orcFileTail.getDwrfStripeCacheData().isPresent());
-        DwrfStripeCacheData dwrfStripeCacheData = orcFileTail.getDwrfStripeCacheData().get();
+        DwrfStripeCacheData dwrfStripeCacheData = orcFileTail.getDwrfStripeCacheData().orElseThrow();
         assertEquals(dwrfStripeCacheData.getDwrfStripeCacheMode(), INDEX_AND_FOOTER);
         assertEquals(dwrfStripeCacheData.getDwrfStripeCacheSize(), stripeCache.length);
         assertEquals(dwrfStripeCacheData.getDwrfStripeCacheSlice().getBytes(), stripeCache);

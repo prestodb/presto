@@ -84,7 +84,7 @@ public class SplitToMapFunction
                                 format("Duplicate keys (%s) are not allowed. Specifying a lambda to resolve conflicts can avoid this error", key.toStringUtf8()));
                     }
 
-                    value = function.get().apply(key, map.get(key), value);
+                    value = function.orElseThrow().apply(key, map.get(key), value);
                 }
 
                 map.put(key, value);

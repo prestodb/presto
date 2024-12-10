@@ -138,7 +138,7 @@ public class EliminateCrossJoins
                         .filter(graphNode -> !visited.contains(graphNode))
                         .findFirst();
                 if (firstNotVisitedNode.isPresent()) {
-                    nodesToVisit.add(firstNotVisitedNode.get());
+                    nodesToVisit.add(firstNotVisitedNode.orElseThrow());
                 }
             }
         }
@@ -208,7 +208,7 @@ public class EliminateCrossJoins
             result = new ProjectNode(
                     idAllocator.getNextId(),
                     result,
-                    Assignments.copyOf(graph.getAssignments().get()));
+                    Assignments.copyOf(graph.getAssignments().orElseThrow()));
         }
 
         // If needed, introduce a projection to constrain the outputs to what was originally expected

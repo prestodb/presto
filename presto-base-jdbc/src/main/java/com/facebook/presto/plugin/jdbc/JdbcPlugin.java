@@ -18,10 +18,10 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public class JdbcPlugin
         implements Plugin
@@ -44,6 +44,6 @@ public class JdbcPlugin
 
     private static ClassLoader getClassLoader()
     {
-        return firstNonNull(Thread.currentThread().getContextClassLoader(), JdbcPlugin.class.getClassLoader());
+        return requireNonNullElse(Thread.currentThread().getContextClassLoader(), JdbcPlugin.class.getClassLoader());
     }
 }

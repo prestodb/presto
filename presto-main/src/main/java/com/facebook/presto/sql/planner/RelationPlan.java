@@ -90,8 +90,8 @@ class RelationPlan
         int allFieldCount = 0;
         Optional<Scope> current = Optional.of(root);
         while (current.isPresent()) {
-            allFieldCount += current.get().getRelationType().getAllFieldCount();
-            current = current.get().getLocalParent();
+            allFieldCount += current.orElseThrow().getRelationType().getAllFieldCount();
+            current = current.orElseThrow().getLocalParent();
         }
         return allFieldCount;
     }

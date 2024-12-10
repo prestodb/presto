@@ -87,7 +87,7 @@ public class HiveEncryptionInformationProvider
         }
 
         for (EncryptionInformationSource source : sources) {
-            Optional<EncryptionInformation> result = source.getWriteEncryptionInformation(session, tableEncryptionProperties.get(), dbName, tableName);
+            Optional<EncryptionInformation> result = source.getWriteEncryptionInformation(session, tableEncryptionProperties.orElseThrow(), dbName, tableName);
             if (result != null && result.isPresent()) {
                 return result;
             }

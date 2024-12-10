@@ -73,8 +73,8 @@ public class CommonSubExpressionRewriter
         VariableAllocator variableAllocator = new VariableAllocator();
         ImmutableMap.Builder<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressions = ImmutableMap.builder();
         Map<RowExpression, VariableReferenceExpression> rewriteWith = new HashMap<>();
-        int startCSELevel = cseByLevel.keySet().stream().reduce(Math::min).get();
-        int maxCSELevel = cseByLevel.keySet().stream().reduce(Math::max).get();
+        int startCSELevel = cseByLevel.keySet().stream().reduce(Math::min).orElseThrow();
+        int maxCSELevel = cseByLevel.keySet().stream().reduce(Math::max).orElseThrow();
         for (int i = startCSELevel; i <= maxCSELevel; i++) {
             if (cseByLevel.containsKey(i)) {
                 ExpressionRewriter rewriter = new ExpressionRewriter(rewriteWith);
@@ -179,8 +179,8 @@ public class CommonSubExpressionRewriter
     private static Map<Integer, Map<RowExpression, Integer>> removeRedundantCSE(Map<Integer, Set<RowExpression>> cseByLevel, Map<RowExpression, Integer> expressionCount)
     {
         Map<Integer, Map<RowExpression, Integer>> results = new HashMap<>();
-        int startCSELevel = cseByLevel.keySet().stream().reduce(Math::max).get();
-        int stopCSELevel = cseByLevel.keySet().stream().reduce(Math::min).get();
+        int startCSELevel = cseByLevel.keySet().stream().reduce(Math::max).orElseThrow();
+        int stopCSELevel = cseByLevel.keySet().stream().reduce(Math::min).orElseThrow();
         for (int i = startCSELevel; i > stopCSELevel; i--) {
             if (!cseByLevel.containsKey(i)) {
                 continue;
@@ -362,7 +362,7 @@ public class CommonSubExpressionRewriter
                 // Do not track leaf expression
                 return 0;
             }
-            return addAtLevel(call.getArguments().stream().map(argument -> argument.accept(this, collect)).reduce(Math::max).get() + 1, call);
+            return addAtLevel(call.getArguments().stream().map(argument -> argument.accept(this, collect)).reduce(Math::max).orElseThrow() + 1, call);
         }
 
         @Override
@@ -392,7 +392,7 @@ public class CommonSubExpressionRewriter
         @Override
         public Integer visitSpecialForm(SpecialFormExpression specialForm, Void collect)
         {
-            int level = specialForm.getArguments().stream().map(argument -> argument.accept(this, null)).reduce(Math::max).get() + 1;
+            int level = specialForm.getArguments().stream().map(argument -> argument.accept(this, null)).reduce(Math::max).orElseThrow() + 1;
             if (specialForm.getForm() != WHEN && specialForm.getForm() != BIND) {
                 // BIND returns a function type rather than a value type
                 // WHEN is part of CASE expression. We do not have a separate code generator to generate code for WHEN expression separately so do not consider them as CSE

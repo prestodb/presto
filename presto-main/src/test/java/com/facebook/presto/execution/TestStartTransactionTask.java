@@ -128,7 +128,7 @@ public class TestStartTransactionTask
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().get());
+        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().orElseThrow());
         assertFalse(transactionInfo.isAutoCommitContext());
     }
 
@@ -154,7 +154,7 @@ public class TestStartTransactionTask
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().get());
+        TransactionInfo transactionInfo = transactionManager.getTransactionInfo(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().orElseThrow());
         assertEquals(transactionInfo.getIsolationLevel(), IsolationLevel.SERIALIZABLE);
         assertTrue(transactionInfo.isReadOnly());
         assertFalse(transactionInfo.isAutoCommitContext());

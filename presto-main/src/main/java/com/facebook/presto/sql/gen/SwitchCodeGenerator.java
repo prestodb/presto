@@ -124,7 +124,7 @@ public class SwitchCodeGenerator
                         ImmutableList.of(
                                 generatorContext.generate(operand,
                                 Optional.empty()),
-                                getTempVariableNode.get()));
+                                getTempVariableNode.orElseThrow()));
             }
 
             block.append(operandBytecode);

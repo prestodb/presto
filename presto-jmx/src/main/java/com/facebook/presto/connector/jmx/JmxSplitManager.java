@@ -71,7 +71,7 @@ public class JmxSplitManager
         List<ConnectorSplit> splits = nodeManager.getAllNodes().stream()
                 .filter(node -> {
                     NullableValue value = NullableValue.of(createUnboundedVarcharType(), utf8Slice(node.getNodeIdentifier()));
-                    return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.get(), value)));
+                    return predicate.overlaps(fromFixedValues(ImmutableMap.of(nodeColumnHandle.orElseThrow(), value)));
                 })
                 .map(node -> new JmxSplit(tableHandle, ImmutableList.of(node.getHostAndPort())))
                 .collect(toList());

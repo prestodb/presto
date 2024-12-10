@@ -174,18 +174,18 @@ public class TestDynamicLifespanScheduler
         LifespanScheduler lifespanScheduler = getAffinityLifespanScheduler(bucketNodeMap);
         TestDynamicLifespanScheduler.TestingSourceScheduler sourceScheduler = new TestDynamicLifespanScheduler.TestingSourceScheduler();
         lifespanScheduler.scheduleInitial(sourceScheduler);
-        assertEquals(bucketNodeMap.getAssignedNode(0).get(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(0).orElseThrow(), node1);
         // bucket 1 is already scheduled, thus its assignedNode is changed
-        assertEquals(bucketNodeMap.getAssignedNode(1).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(2).get(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(1).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(2).orElseThrow(), node1);
         // bucket 3 is not scheduled yet, thus its assignedNode remains
-        assertEquals(bucketNodeMap.getAssignedNode(3).get(), node3);
-        assertEquals(bucketNodeMap.getAssignedNode(4).get(), node1);
-        assertEquals(bucketNodeMap.getAssignedNode(5).get(), node3);
-        assertEquals(bucketNodeMap.getAssignedNode(6).get(), node1);
-        assertEquals(bucketNodeMap.getAssignedNode(7).get(), node3);
-        assertEquals(bucketNodeMap.getAssignedNode(8).get(), node1);
-        assertEquals(bucketNodeMap.getAssignedNode(9).get(), node3);
+        assertEquals(bucketNodeMap.getAssignedNode(3).orElseThrow(), node3);
+        assertEquals(bucketNodeMap.getAssignedNode(4).orElseThrow(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(5).orElseThrow(), node3);
+        assertEquals(bucketNodeMap.getAssignedNode(6).orElseThrow(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(7).orElseThrow(), node3);
+        assertEquals(bucketNodeMap.getAssignedNode(8).orElseThrow(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(9).orElseThrow(), node3);
 
         lifespanScheduler.onLifespanExecutionFinished(sourceScheduler.getLastStartedLifespans());
         assertEquals(sourceScheduler.getLastStartedLifespans().size(), 2);
@@ -197,18 +197,18 @@ public class TestDynamicLifespanScheduler
             assertEquals(sourceScheduler.getLastStartedLifespans().size(), 2);
             sourceScheduler.getLastStartedLifespans().clear();
         }
-        assertEquals(bucketNodeMap.getAssignedNode(0).get(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(0).orElseThrow(), node1);
         // bucket 1 is already scheduled, thus its assignedNode is changed
-        assertEquals(bucketNodeMap.getAssignedNode(1).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(2).get(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(1).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(2).orElseThrow(), node1);
         // bucket 3 is not scheduled yet, thus its assignedNode remains
-        assertEquals(bucketNodeMap.getAssignedNode(3).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(4).get(), node1);
-        assertEquals(bucketNodeMap.getAssignedNode(5).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(6).get(), node1);
-        assertEquals(bucketNodeMap.getAssignedNode(7).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(8).get(), node1);
-        assertEquals(bucketNodeMap.getAssignedNode(9).get(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(3).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(4).orElseThrow(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(5).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(6).orElseThrow(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(7).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(8).orElseThrow(), node1);
+        assertEquals(bucketNodeMap.getAssignedNode(9).orElseThrow(), node2);
     }
 
     @Test
@@ -237,18 +237,18 @@ public class TestDynamicLifespanScheduler
             sourceScheduler.getLastStartedLifespans().clear();
         }
 
-        assertEquals(bucketNodeMap.getAssignedNode(0).get(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(0).orElseThrow(), node2);
         // bucket 1 is already scheduled, thus its assignedNode is changed
-        assertEquals(bucketNodeMap.getAssignedNode(1).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(2).get(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(1).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(2).orElseThrow(), node2);
         // bucket 3 is not scheduled yet, thus its assignedNode remains
-        assertEquals(bucketNodeMap.getAssignedNode(3).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(4).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(5).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(6).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(7).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(8).get(), node2);
-        assertEquals(bucketNodeMap.getAssignedNode(9).get(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(3).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(4).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(5).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(6).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(7).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(8).orElseThrow(), node2);
+        assertEquals(bucketNodeMap.getAssignedNode(9).orElseThrow(), node2);
     }
 
     private static LifespanScheduler getAffinityLifespanScheduler(BucketNodeMap bucketNodeMap)

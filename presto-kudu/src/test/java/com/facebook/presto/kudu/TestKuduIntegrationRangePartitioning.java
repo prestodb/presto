@@ -124,7 +124,7 @@ public class TestKuduIntegrationRangePartitioning
                         ")";
         queryRunner.execute(createTable);
 
-        String schema = queryRunner.getDefaultSession().getSchema().get();
+        String schema = queryRunner.getDefaultSession().getSchema().orElseThrow();
 
         String addPartition3 = "CALL kudu.system.add_range_partition('" + schema + "','" + tableName + "','" + ranges.range3 + "')";
         queryRunner.execute(addPartition3);

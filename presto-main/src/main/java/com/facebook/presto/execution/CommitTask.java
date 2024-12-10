@@ -43,7 +43,7 @@ public class CommitTask
         if (!session.getTransactionId().isPresent()) {
             throw new PrestoException(NOT_IN_TRANSACTION, "No transaction in progress");
         }
-        TransactionId transactionId = session.getTransactionId().get();
+        TransactionId transactionId = session.getTransactionId().orElseThrow();
 
         stateMachine.clearTransactionId();
         return transactionManager.asyncCommit(transactionId);

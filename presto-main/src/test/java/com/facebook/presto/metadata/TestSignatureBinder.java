@@ -1185,7 +1185,7 @@ public class TestSignatureBinder
         {
             Optional<BoundVariables> actual = bindVariables();
             assertTrue(actual.isPresent());
-            assertEquals(actual.get(), expected);
+            assertEquals(actual.orElseThrow(), expected);
             return this;
         }
 

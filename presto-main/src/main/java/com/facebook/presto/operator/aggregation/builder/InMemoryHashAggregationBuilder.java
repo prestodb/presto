@@ -148,7 +148,7 @@ public class InMemoryHashAggregationBuilder
 
         this.reserveType = reserveType;
         if (memoryConsumer.isPresent()) {
-            this.memoryConsumer = memoryConsumer.get();
+            this.memoryConsumer = memoryConsumer.orElseThrow();
         }
         else {
             this.memoryConsumer = this::updateMemory;
@@ -187,7 +187,7 @@ public class InMemoryHashAggregationBuilder
             AccumulatorFactory accumulatorFactory = accumulatorFactories.get(i);
             Optional<Integer> overwriteIntermediateChannel = Optional.empty();
             if (overwriteIntermediateChannelOffset.isPresent()) {
-                overwriteIntermediateChannel = Optional.of(overwriteIntermediateChannelOffset.get() + i);
+                overwriteIntermediateChannel = Optional.of(overwriteIntermediateChannelOffset.orElseThrow() + i);
             }
             builder.add(new Aggregator(accumulatorFactory, step, overwriteIntermediateChannel, updateMemory));
         }
@@ -419,7 +419,7 @@ public class InMemoryHashAggregationBuilder
                 this.aggregation = accumulatorFactory.createGroupedAccumulator(updateMemory);
             }
             else if (overwriteIntermediateChannel.isPresent()) {
-                this.intermediateChannel = overwriteIntermediateChannel.get();
+                this.intermediateChannel = overwriteIntermediateChannel.orElseThrow();
                 this.aggregation = accumulatorFactory.createGroupedIntermediateAccumulator(updateMemory);
             }
             else {

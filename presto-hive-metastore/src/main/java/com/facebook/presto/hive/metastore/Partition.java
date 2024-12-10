@@ -157,7 +157,7 @@ public class Partition
     public Optional<byte[]> getRowIdPartitionComponent()
     {
         if (rowIdPartitionComponent.isPresent()) {
-            byte[] copy = Arrays.copyOf(rowIdPartitionComponent.get(), rowIdPartitionComponent.get().length);
+            byte[] copy = Arrays.copyOf(rowIdPartitionComponent.orElseThrow(), rowIdPartitionComponent.orElseThrow().length);
             return Optional.of(copy);
         }
         return Optional.empty();

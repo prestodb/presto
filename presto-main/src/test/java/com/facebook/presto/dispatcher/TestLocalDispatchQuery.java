@@ -113,8 +113,8 @@ public class TestLocalDispatchQuery
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertTrue(eventListener.getQueryCompletedEvent().isPresent());
-        assertTrue(eventListener.getQueryCompletedEvent().get().getFailureInfo().isPresent());
-        assertEquals(eventListener.getQueryCompletedEvent().get().getFailureInfo().get().getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
+        assertTrue(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().isPresent());
+        assertEquals(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().orElseThrow().getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
     }
 
     @Test
@@ -144,8 +144,8 @@ public class TestLocalDispatchQuery
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), QUERY_QUEUE_FULL.toErrorCode());
         assertTrue(eventListener.getQueryCompletedEvent().isPresent());
-        assertTrue(eventListener.getQueryCompletedEvent().get().getFailureInfo().isPresent());
-        assertEquals(eventListener.getQueryCompletedEvent().get().getFailureInfo().get().getErrorCode(), QUERY_QUEUE_FULL.toErrorCode());
+        assertTrue(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().isPresent());
+        assertEquals(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().orElseThrow().getErrorCode(), QUERY_QUEUE_FULL.toErrorCode());
     }
 
     @Test
@@ -178,8 +178,8 @@ public class TestLocalDispatchQuery
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), ABANDONED_TASK.toErrorCode());
         assertTrue(eventListener.getQueryCompletedEvent().isPresent());
-        assertTrue(eventListener.getQueryCompletedEvent().get().getFailureInfo().isPresent());
-        assertEquals(eventListener.getQueryCompletedEvent().get().getFailureInfo().get().getErrorCode(), ABANDONED_TASK.toErrorCode());
+        assertTrue(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().isPresent());
+        assertEquals(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().orElseThrow().getErrorCode(), ABANDONED_TASK.toErrorCode());
     }
 
     @Test
@@ -214,8 +214,8 @@ public class TestLocalDispatchQuery
             assertEquals(query.getBasicQueryInfo().getState(), FAILED);
             assertEquals(query.getBasicQueryInfo().getErrorCode(), ABANDONED_QUERY.toErrorCode());
             assertTrue(eventListener.getQueryCompletedEvent().isPresent());
-            assertTrue(eventListener.getQueryCompletedEvent().get().getFailureInfo().isPresent());
-            assertEquals(eventListener.getQueryCompletedEvent().get().getFailureInfo().get().getErrorCode(), ABANDONED_QUERY.toErrorCode());
+            assertTrue(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().isPresent());
+            assertEquals(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().orElseThrow().getErrorCode(), ABANDONED_QUERY.toErrorCode());
         }
     }
 
@@ -348,8 +348,8 @@ public class TestLocalDispatchQuery
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), PERMISSION_DENIED.toErrorCode());
         assertTrue(eventListener.getQueryCompletedEvent().isPresent());
-        assertTrue(eventListener.getQueryCompletedEvent().get().getFailureInfo().isPresent());
-        assertEquals(eventListener.getQueryCompletedEvent().get().getFailureInfo().get().getErrorCode(), PERMISSION_DENIED.toErrorCode());
+        assertTrue(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().isPresent());
+        assertEquals(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().orElseThrow().getErrorCode(), PERMISSION_DENIED.toErrorCode());
     }
 
     @Test
@@ -380,8 +380,8 @@ public class TestLocalDispatchQuery
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), GENERIC_INSUFFICIENT_RESOURCES.toErrorCode());
         assertTrue(eventListener.getQueryCompletedEvent().isPresent());
-        assertTrue(eventListener.getQueryCompletedEvent().get().getFailureInfo().isPresent());
-        assertEquals(eventListener.getQueryCompletedEvent().get().getFailureInfo().get().getErrorCode(), GENERIC_INSUFFICIENT_RESOURCES.toErrorCode());
+        assertTrue(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().isPresent());
+        assertEquals(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().orElseThrow().getErrorCode(), GENERIC_INSUFFICIENT_RESOURCES.toErrorCode());
     }
 
     @Test
@@ -409,8 +409,8 @@ public class TestLocalDispatchQuery
         assertEquals(query.getBasicQueryInfo().getState(), FAILED);
         assertEquals(query.getBasicQueryInfo().getErrorCode(), USER_CANCELED.toErrorCode());
         assertTrue(eventListener.getQueryCompletedEvent().isPresent());
-        assertTrue(eventListener.getQueryCompletedEvent().get().getFailureInfo().isPresent());
-        assertEquals(eventListener.getQueryCompletedEvent().get().getFailureInfo().get().getErrorCode(), USER_CANCELED.toErrorCode());
+        assertTrue(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().isPresent());
+        assertEquals(eventListener.getQueryCompletedEvent().orElseThrow().getFailureInfo().orElseThrow().getErrorCode(), USER_CANCELED.toErrorCode());
     }
 
     @Test

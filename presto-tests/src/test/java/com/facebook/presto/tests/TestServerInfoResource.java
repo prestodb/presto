@@ -65,7 +65,7 @@ public class TestServerInfoResource
                     .stream()
                     .filter(TestingPrestoServer::isCoordinator)
                     .findFirst()
-                    .get();
+                    .orElseThrow();
 
             ServerInfoResource serverInfoResource = coordinator.getServerInfoResource();
             NodeState nodeState = serverInfoResource.getServerState();
@@ -82,7 +82,7 @@ public class TestServerInfoResource
                     .stream()
                     .filter(TestingPrestoServer::isCoordinator)
                     .findFirst()
-                    .get();
+                    .orElseThrow();
 
             ServerInfoResource serverInfoResource = coordinator.getServerInfoResource();
             Response response = serverInfoResource.updateState(NodeState.INACTIVE);
@@ -105,7 +105,7 @@ public class TestServerInfoResource
                     .stream()
                     .filter(TestingPrestoServer::isCoordinator)
                     .findFirst()
-                    .get();
+                    .orElseThrow();
 
             ServerInfoResource serverInfoResource = coordinator.getServerInfoResource();
             Response response = serverInfoResource.updateState(NodeState.SHUTTING_DOWN);
@@ -124,7 +124,7 @@ public class TestServerInfoResource
                     .stream()
                     .filter(TestingPrestoServer::isCoordinator)
                     .findFirst()
-                    .get();
+                    .orElseThrow();
 
             ServerInfoResource serverInfoResource = coordinator.getServerInfoResource();
             serverInfoResource.updateState(NodeState.SHUTTING_DOWN);
@@ -143,7 +143,7 @@ public class TestServerInfoResource
                     .stream()
                     .filter(TestingPrestoServer::isCoordinator)
                     .findFirst()
-                    .get();
+                    .orElseThrow();
 
             ServerInfoResource serverInfoResource = coordinator.getServerInfoResource();
             serverInfoResource.updateState(NodeState.SHUTTING_DOWN);

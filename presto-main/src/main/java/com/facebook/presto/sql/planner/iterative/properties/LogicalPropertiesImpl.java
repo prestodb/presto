@@ -134,7 +134,7 @@ public class LogicalPropertiesImpl
         MaxCardProperty newMaxCardProperty;
         KeyProperty newKeyProperty;
         if (normalizedKeyProperty.isPresent()) {
-            newKeyProperty = new KeyProperty(normalizedKeyProperty.get().getKeys());
+            newKeyProperty = new KeyProperty(normalizedKeyProperty.orElseThrow().getKeys());
             newMaxCardProperty = maxCardProperty;
             return new LogicalPropertiesImpl(equivalenceClassProperty, newMaxCardProperty, newKeyProperty);
         }
@@ -429,7 +429,7 @@ public class LogicalPropertiesImpl
 
             //update equivalence classes with any residual filter predicate
             if (filterPredicate.isPresent()) {
-                equivalenceClassProperty = equivalenceClassProperty.addPredicate(filterPredicate.get(), functionResolution);
+                equivalenceClassProperty = equivalenceClassProperty.addPredicate(filterPredicate.orElseThrow(), functionResolution);
             }
         }
 

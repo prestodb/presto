@@ -23,7 +23,7 @@ import java.util.ServiceLoader;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftPlugin
@@ -60,6 +60,6 @@ public class ThriftPlugin
         ClassLoader classLoader = ThriftPlugin.class.getClassLoader();
         ServiceLoader<ThriftPluginInfo> loader = ServiceLoader.load(ThriftPluginInfo.class, classLoader);
         List<ThriftPluginInfo> list = ImmutableList.copyOf(loader);
-        return list.isEmpty() ? new ThriftPluginInfo() : getOnlyElement(list);
+        return list.isEmpty() ? new ThriftPluginInfo() : list.stream().collect(onlyElement());
     }
 }

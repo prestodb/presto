@@ -53,7 +53,7 @@ import static com.facebook.presto.operator.OperatorAssertion.assertOperatorIsBlo
 import static com.facebook.presto.operator.OperatorAssertion.assertOperatorIsUnblocked;
 import static com.facebook.presto.operator.PageAssertions.assertPageEquals;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -146,7 +146,7 @@ public class TestMergeOperator
                 .row(4)
                 .build()
                 .get(0);
-        assertPageEquals(ImmutableList.of(BIGINT), getOnlyElement(pullAvailablePages(operator)), expected);
+        assertPageEquals(ImmutableList.of(BIGINT), pullAvailablePages(operator).stream().collect(onlyElement()), expected);
         operator.close();
     }
 
@@ -195,7 +195,7 @@ public class TestMergeOperator
                 .build()
                 .get(0);
 
-        assertPageEquals(outputTypes, getOnlyElement(pullAvailablePages(operator)), expected);
+        assertPageEquals(outputTypes, pullAvailablePages(operator).stream().collect(onlyElement()), expected);
         operator.close();
     }
 
@@ -327,7 +327,7 @@ public class TestMergeOperator
                 .build()
                 .get(0);
 
-        assertPageEquals(types, getOnlyElement(pullAvailablePages(operator)), expected);
+        assertPageEquals(types, pullAvailablePages(operator).stream().collect(onlyElement()), expected);
         operator.close();
     }
 

@@ -75,13 +75,13 @@ public class CassandraPartitionManager
             else {
                 @SuppressWarnings({"rawtypes", "unchecked"})
                 List<ColumnHandle> partitionColumns = (List) partitionKeys;
-                remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().get(), not(in(partitionColumns))));
+                remainingTupleDomain = TupleDomain.withColumnDomains(Maps.filterKeys(tupleDomain.getDomains().orElseThrow(), not(in(partitionColumns))));
             }
         }
 
         // push down indexed column fixed value predicates only for unpartitioned partition which uses token range query
         if ((partitions.size() == 1) && partitions.get(0).isUnpartitioned()) {
-            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().get();
+            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
             List<ColumnHandle> indexedColumns = new ArrayList<>();
             // compose partitionId by using indexed column
             StringBuilder sb = new StringBuilder();
@@ -99,7 +99,7 @@ public class CassandraPartitionManager
             }
             if (sb.length() > 0) {
                 CassandraPartition partition = partitions.get(0);
-                TupleDomain<ColumnHandle> filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains().get(), not(in(indexedColumns))));
+                TupleDomain<ColumnHandle> filterIndexedColumn = TupleDomain.withColumnDomains(Maps.filterKeys(remainingTupleDomain.getDomains().orElseThrow(), not(in(indexedColumns))));
                 partitions = new ArrayList<>();
                 partitions.add(new CassandraPartition(partition.getKey(), sb.toString(), filterIndexedColumn, true));
                 return new CassandraPartitionResult(partitions, filterIndexedColumn);
@@ -129,7 +129,7 @@ public class CassandraPartitionManager
     {
         ImmutableList.Builder<Set<Object>> partitionColumnValues = ImmutableList.builder();
         for (CassandraColumnHandle columnHandle : table.getPartitionKeyColumns()) {
-            Domain domain = tupleDomain.getDomains().get().get(columnHandle);
+            Domain domain = tupleDomain.getDomains().orElseThrow().get(columnHandle);
 
             // if there is no constraint on a partition key, return an empty set
             if (domain == null) {

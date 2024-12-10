@@ -48,8 +48,8 @@ class EstimateAssertion
             assertEquals(actual, expected, comparedValue);
         }
         if (actual.isPresent()) {
-            Object actualValue = actual.get();
-            Object expectedValue = expected.get();
+            Object actualValue = actual.orElseThrow();
+            Object expectedValue = expected.orElseThrow();
             assertClose(actualValue, expectedValue, comparedValue);
         }
     }

@@ -60,14 +60,14 @@ public class TestAvroSchemaEvolution
         query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
     }
 
-    @Test(groups = {AVRO})
+    @Test(groups = AVRO)
     public void testSelectTable()
     {
         assertThat(query(format("SELECT string_col FROM %s", TABLE_NAME)))
                 .containsExactly(row("string0"));
     }
 
-    @Test(groups = {AVRO})
+    @Test(groups = AVRO)
     public void testInsertAfterSchemaEvolution()
     {
         assertThat(query(SELECT_STAR))
@@ -81,7 +81,7 @@ public class TestAvroSchemaEvolution
                         row("string1", 1, 101));
     }
 
-    @Test(groups = {AVRO})
+    @Test(groups = AVRO)
     public void testSchemaEvolutionWithIncompatibleType()
     {
         assertThat(query(COLUMNS_IN_TABLE))
@@ -96,7 +96,7 @@ public class TestAvroSchemaEvolution
                 .failsWithMessage("Found int, expecting string");
     }
 
-    @Test(groups = {AVRO})
+    @Test(groups = AVRO)
     public void testSchemaEvolution()
     {
         assertThat(query(COLUMNS_IN_TABLE))
@@ -138,7 +138,7 @@ public class TestAvroSchemaEvolution
                 .containsExactly(row("string0", null));
     }
 
-    @Test(groups = {AVRO})
+    @Test(groups = AVRO)
     public void testSchemaWhenUrlIsUnset()
     {
         assertThat(query(COLUMNS_IN_TABLE))
@@ -154,7 +154,7 @@ public class TestAvroSchemaEvolution
                         row("dummy_col", "varchar", "", ""));
     }
 
-    @Test(groups = {AVRO})
+    @Test(groups = AVRO)
     public void testCreateTableLike()
     {
         String createTableLikeName = "test_avro_like";

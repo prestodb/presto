@@ -34,7 +34,7 @@ import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 final class TestingDatabase
@@ -106,7 +106,7 @@ final class TestingDatabase
         JdbcTableHandle jdbcTableHandle = jdbcClient.getTableHandle(session, identity, new SchemaTableName(schemaName, tableName));
         JdbcTableLayoutHandle jdbcLayoutHandle = new JdbcTableLayoutHandle(session.getSqlFunctionProperties(), jdbcTableHandle, TupleDomain.all(), Optional.empty());
         ConnectorSplitSource splits = jdbcClient.getSplits(session, identity, jdbcLayoutHandle);
-        return (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
+        return (JdbcSplit) getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits().stream().collect(onlyElement());
     }
 
     public Map<String, JdbcColumnHandle> getColumnHandles(String schemaName, String tableName)

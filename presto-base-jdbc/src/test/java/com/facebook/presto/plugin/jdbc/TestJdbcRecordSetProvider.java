@@ -40,7 +40,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -183,7 +183,7 @@ public class TestJdbcRecordSetProvider
     {
         JdbcTableLayoutHandle layoutHandle = new JdbcTableLayoutHandle(SESSION.getSqlFunctionProperties(), jdbcTableHandle, domain, Optional.empty());
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, IDENTITY, layoutHandle);
-        JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
+        JdbcSplit split = (JdbcSplit) getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits().stream().collect(onlyElement());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
         JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);

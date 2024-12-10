@@ -18,7 +18,7 @@ import com.facebook.presto.spi.ColumnHandle;
 
 import java.util.List;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraPartitionResult
@@ -44,6 +44,6 @@ public class CassandraPartitionResult
 
     public boolean isUnpartitioned()
     {
-        return partitions.size() == 1 && getOnlyElement(partitions).isUnpartitioned();
+        return partitions.size() == 1 && partitions.stream().collect(onlyElement()).isUnpartitioned();
     }
 }

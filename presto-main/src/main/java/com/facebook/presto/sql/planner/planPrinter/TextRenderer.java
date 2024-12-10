@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isNaN;
@@ -75,7 +75,7 @@ public class TextRenderer
                 .append("- ")
                 .append(node.getName())
                 .append(node.getPlanNodeIds().isEmpty() ? "" : format("[PlanNodeId %s]", Joiner.on(",").join(node.getPlanNodeIds())))
-                .append(node.getSourceLocation().isPresent() ? "(" + node.getSourceLocation().get().toString() + ")" : "")
+                .append(node.getSourceLocation().isPresent() ? "(" + node.getSourceLocation().orElseThrow().toString() + ")" : "")
                 .append(node.getIdentifier())
                 .append(" => [")
                 .append(node.getOutputs().stream()
@@ -104,7 +104,7 @@ public class TextRenderer
         List<NodeRepresentation> children = node.getChildren().stream()
                 .map(plan::getNode)
                 .filter(Optional::isPresent)
-                .map(Optional::get)
+                .map(Optional::orElseThrow)
                 .collect(toList());
 
         for (NodeRepresentation child : children) {
@@ -121,10 +121,10 @@ public class TextRenderer
             return "";
         }
 
-        PlanNodeStats nodeStats = node.getStats().get();
+        PlanNodeStats nodeStats = node.getStats().orElseThrow();
 
-        double scheduledTimeFraction = 100.0d * nodeStats.getPlanNodeScheduledTime().toMillis() / plan.getTotalScheduledTime().get().toMillis();
-        double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / plan.getTotalCpuTime().get().toMillis();
+        double scheduledTimeFraction = 100.0d * nodeStats.getPlanNodeScheduledTime().toMillis() / plan.getTotalScheduledTime().orElseThrow().toMillis();
+        double cpuTimeFraction = 100.0d * nodeStats.getPlanNodeCpuTime().toMillis() / plan.getTotalCpuTime().orElseThrow().toMillis();
 
         output.append(format("CPU: %s (%s%%), Scheduled: %s (%s%%)",
                 nodeStats.getPlanNodeCpuTime().convertToMostSuccinctTimeUnit(),
@@ -209,7 +209,7 @@ public class TextRenderer
     {
         if (operators.size() == 1) {
             // don't display operator (plan node) name again
-            return ImmutableMap.of(getOnlyElement(operators), "");
+            return ImmutableMap.of(operators.stream().collect(onlyElement()), "");
         }
 
         if (operators.contains("LookupJoinOperator") && operators.contains("HashBuilderOperator")) {
@@ -306,11 +306,11 @@ public class TextRenderer
     private String optimizerInfoToText(List<PlanOptimizerInformation> planOptimizerInfo)
     {
         List<String> applicableOptimizerNames = planOptimizerInfo.stream()
-                .filter(x -> !x.getOptimizerTriggered() && x.getOptimizerApplicable().isPresent() && x.getOptimizerApplicable().get())
+                .filter(x -> !x.getOptimizerTriggered() && x.getOptimizerApplicable().isPresent() && x.getOptimizerApplicable().orElseThrow())
                 .map(x -> x.getOptimizerName()).distinct().sorted().collect(toList());
 
         List<String> triggeredOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getOptimizerTriggered()).map(x -> x.getOptimizerName()).distinct().sorted().collect(toList());
-        List<String> costBasedOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getIsCostBased().isPresent() && x.getIsCostBased().get()).map(x -> x.getOptimizerName() + "(" + x.getStatsSource().get() + ")").distinct().sorted().collect(toList());
+        List<String> costBasedOptimizerNames = planOptimizerInfo.stream().filter(x -> x.getIsCostBased().isPresent() && x.getIsCostBased().orElseThrow()).map(x -> x.getOptimizerName() + "(" + x.getStatsSource().orElseThrow() + ")").distinct().sorted().collect(toList());
 
         String triggered = "Triggered optimizers: [" +
                 String.join(", ", triggeredOptimizerNames) + "]\n";

@@ -78,7 +78,7 @@ import static com.facebook.presto.orc.stream.CheckpointInputStreamSource.createC
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -172,8 +172,8 @@ public class StripeReader
         //  included columns may be encrypted
         if (decryptors.isPresent()) {
             List<Slice> encryptedEncryptionGroups = stripeFooter.getStripeEncryptionGroups();
-            for (Integer groupId : decryptors.get().getEncryptorGroupIds()) {
-                StripeEncryptionGroup stripeEncryptionGroup = getStripeEncryptionGroup(decryptors.get().getEncryptorByGroupId(groupId), encryptedEncryptionGroups.get(groupId), dwrfEncryptionGroupColumns.get(groupId), systemMemoryUsage);
+            for (Integer groupId : decryptors.orElseThrow().getEncryptorGroupIds()) {
+                StripeEncryptionGroup stripeEncryptionGroup = getStripeEncryptionGroup(decryptors.orElseThrow().getEncryptorByGroupId(groupId), encryptedEncryptionGroups.get(groupId), dwrfEncryptionGroupColumns.get(groupId), systemMemoryUsage);
                 allStreams.add(stripeEncryptionGroup.getStreams());
                 columnEncodings.putAll(stripeEncryptionGroup.getColumnEncodings());
                 boolean encryptedHasRowGroupDictionary = addIncludedStreams(stripeEncryptionGroup.getColumnEncodings(), stripeEncryptionGroup.getStreams(), includedStreams);
@@ -195,7 +195,7 @@ public class StripeReader
             Map<StreamId, List<RowGroupIndex>> columnIndexes = readColumnIndexes(includedStreams, streamsData, stripeId);
             fileIntrospector.ifPresent(introspector -> introspector.onRowGroupIndexes(stripe, columnIndexes));
             if (writeValidation.isPresent()) {
-                writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), stripe.getOffset(), columnIndexes);
+                writeValidation.orElseThrow().validateRowGroupStatistics(orcDataSource.getId(), stripe.getOffset(), columnIndexes);
             }
 
             // select the row groups matching the tuple domain
@@ -322,7 +322,7 @@ public class StripeReader
 
                     Optional<SortedMap<Integer, DwrfSequenceEncoding>> additionalSequenceEncodings = columnEncoding.getAdditionalSequenceEncodings();
                     if (additionalSequenceEncodings.isPresent()
-                            && additionalSequenceEncodings.get().values().stream()
+                            && additionalSequenceEncodings.orElseThrow().values().stream()
                             .map(DwrfSequenceEncoding::getValueEncoding)
                             .anyMatch(encoding -> encoding.getColumnEncodingKind() == DICTIONARY)) {
                         hasRowGroupDictionary = true;
@@ -370,7 +370,7 @@ public class StripeReader
         if (!decryptors.isPresent()) {
             return Optional.empty();
         }
-        return decryptors.get().getEncryptorByNodeId(id.getColumn());
+        return decryptors.orElseThrow().getEncryptorByNodeId(id.getColumn());
     }
 
     private Map<StreamId, ValueInputStream<?>> createValueStreams(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, Map<Integer, ColumnEncoding> columnEncodings)
@@ -576,7 +576,7 @@ public class StripeReader
             List<ColumnStatistics> columnStatistics = groupedColumnStatistics.get(rootStructType.getFieldTypeIndex(ordinal));
             if (columnStatistics != null) {
                 if (columnStatistics.size() == 1) {
-                    statistics.put(ordinal, getOnlyElement(columnStatistics));
+                    statistics.put(ordinal, columnStatistics.stream().collect(onlyElement()));
                 }
                 else {
                     // Merge statistics from different streams
@@ -602,7 +602,7 @@ public class StripeReader
             for (Stream stream : groupStreams) {
                 int streamLength = toIntExact(stream.getLength());
                 if (stream.getOffset().isPresent()) {
-                    stripeOffset = stream.getOffset().get();
+                    stripeOffset = stream.getOffset().orElseThrow();
                 }
                 // ignore zero byte streams
                 if (streamLength > 0) {

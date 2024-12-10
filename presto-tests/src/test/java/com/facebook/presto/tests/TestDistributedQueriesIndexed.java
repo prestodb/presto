@@ -29,7 +29,7 @@ import java.util.Optional;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static java.util.Collections.emptySet;
 import static org.testng.Assert.assertEquals;
 
@@ -80,7 +80,7 @@ public class TestDistributedQueriesIndexed
                 emptySet());
 
         assertEquals(
-                jsonCodec(IOPlanPrinter.IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
+                jsonCodec(IOPlanPrinter.IOPlan.class).fromJson((String) result.getOnlyColumnAsSet().stream().collect(onlyElement())),
                 new IOPlanPrinter.IOPlan(ImmutableSet.of(lineitem, orders), Optional.empty()));
     }
 }

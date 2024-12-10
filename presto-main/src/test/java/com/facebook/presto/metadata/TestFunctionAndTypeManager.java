@@ -92,7 +92,7 @@ public class TestFunctionAndTypeManager
         FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
         boolean foundOperator = false;
         for (SqlFunction function : functionAndTypeManager.listOperators()) {
-            OperatorType operatorType = tryGetOperatorType(function.getSignature().getName()).get();
+            OperatorType operatorType = tryGetOperatorType(function.getSignature().getName()).orElseThrow();
             if (operatorType == CAST || operatorType == SATURATED_FLOOR_CAST) {
                 continue;
             }

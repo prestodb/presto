@@ -46,7 +46,7 @@ public enum QueryType
     public static QueryType of(Statement statement)
     {
         for (QueryType queryType : values()) {
-            if (queryType.statementClass.isPresent() && queryType.statementClass.get().isAssignableFrom(statement.getClass())) {
+            if (queryType.statementClass.isPresent() && queryType.statementClass.orElseThrow().isAssignableFrom(statement.getClass())) {
                 return queryType;
             }
         }

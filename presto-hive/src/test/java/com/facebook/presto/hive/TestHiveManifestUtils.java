@@ -80,8 +80,8 @@ public class TestHiveManifestUtils
         PartitionUpdate partitionUpdate = new PartitionUpdate("testPartition", NEW, "/testDir", "/testDir", ImmutableList.of(new FileWriteInfo("testFileName", "testFileName", Optional.of(FILE_SIZE))), 100, 1024, 1024, false);
         Optional<Page> manifestPage = createPartitionManifest(partitionUpdate);
         assertTrue(manifestPage.isPresent());
-        assertEquals(manifestPage.get().getChannelCount(), 2);
-        assertEquals(manifestPage.get().getPositionCount(), 1);
+        assertEquals(manifestPage.orElseThrow().getChannelCount(), 2);
+        assertEquals(manifestPage.orElseThrow().getPositionCount(), 1);
     }
 
     @Test

@@ -297,7 +297,7 @@ public class IcebergPageSourceProvider
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
                 if (firstIndex.isPresent()) {
-                    long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
+                    long firstDataPage = block.getColumns().get(firstIndex.orElseThrow()).getFirstDataPageOffset();
                     Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
                     if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
                             predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()))) {
@@ -345,7 +345,7 @@ public class IcebergPageSourceProvider
                     List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
                     Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
                     if (columnIO.isPresent()) {
-                        internalFields.add(constructField(prestoType, columnIO.get()));
+                        internalFields.add(constructField(prestoType, columnIO.orElseThrow()));
                     }
                     else {
                         internalFields.add(Optional.empty());
@@ -357,7 +357,7 @@ public class IcebergPageSourceProvider
                         internalFields.add(Optional.empty());
                     }
                     else {
-                        internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.get().getName())));
+                        internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.orElseThrow().getName())));
                     }
                 }
                 isRowPositionList.add(column.isRowPositionColumn());
@@ -428,7 +428,7 @@ public class IcebergPageSourceProvider
         }
 
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
-        effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
+        effectivePredicate.getDomains().orElseThrow().forEach((columnHandle, domain) -> {
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip looking up predicates for complex types as Parquet only stores stats for primitives
             if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
@@ -728,7 +728,7 @@ public class IcebergPageSourceProvider
 
         List<ColumnHandle> columns = desiredColumns;
         if (split.getChangelogSplitInfo().isPresent()) {
-            columns = (List<ColumnHandle>) (List<?>) split.getChangelogSplitInfo().get().getIcebergColumns();
+            columns = (List<ColumnHandle>) (List<?>) split.getChangelogSplitInfo().orElseThrow().getIcebergColumns();
         }
 
         List<IcebergColumnHandle> icebergColumns = columns.stream()
@@ -746,7 +746,7 @@ public class IcebergPageSourceProvider
 
         Optional<String> tableSchemaJson = table.getTableSchemaJson();
         verify(tableSchemaJson.isPresent(), "tableSchemaJson is null");
-        Schema tableSchema = SchemaParser.fromJson(tableSchemaJson.get());
+        Schema tableSchema = SchemaParser.fromJson(tableSchemaJson.orElseThrow());
 
         boolean equalityDeletesRequired = table.getIcebergTableName().getTableType() == IcebergTableType.DATA;
         Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, split.getDeletes(), equalityDeletesRequired);
@@ -774,7 +774,7 @@ public class IcebergPageSourceProvider
         verify(outputPath.isPresent(), "outputPath is null");
         verify(storageProperties.isPresent(), "storageProperties are null");
 
-        LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), outputPath.get(), storageProperties.get());
+        LocationProvider locationProvider = getLocationProvider(table.getSchemaTableName(), outputPath.orElseThrow(), storageProperties.orElseThrow());
         Supplier<IcebergDeletePageSink> deleteSinkSupplier = () -> new IcebergDeletePageSink(
                 tableSchema,
                 split.getPartitionSpecAsJson(),
@@ -818,7 +818,7 @@ public class IcebergPageSourceProvider
 
         ConnectorPageSource dataSource = new IcebergUpdateablePageSource(icebergColumns, metadataValues, partitionKeys, dataPageSource, deleteSinkSupplier, deletePredicate);
         if (split.getChangelogSplitInfo().isPresent()) {
-            dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().get(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
+            dataSource = new ChangelogPageSource(dataSource, split.getChangelogSplitInfo().orElseThrow(), (List<IcebergColumnHandle>) (List<?>) desiredColumns, icebergColumns);
         }
         return dataSource;
     }
@@ -859,7 +859,7 @@ public class IcebergPageSourceProvider
         List<IcebergColumnHandle> deleteColumns = ImmutableList.of(deleteFilePath, deleteFilePos);
         TupleDomain<IcebergColumnHandle> deleteDomain = TupleDomain.fromFixedValues(ImmutableMap.of(deleteFilePath, NullableValue.of(VARCHAR, targetPath)));
         if (startRowPosition.isPresent()) {
-            Range positionRange = Range.range(deleteFilePos.getType(), startRowPosition.get(), true, endRowPosition.get(), true);
+            Range positionRange = Range.range(deleteFilePos.getType(), startRowPosition.orElseThrow(), true, endRowPosition.orElseThrow(), true);
             TupleDomain<IcebergColumnHandle> positionDomain = TupleDomain.withColumnDomains(ImmutableMap.of(deleteFilePos, Domain.create(ValueSet.ofRanges(positionRange), false)));
             deleteDomain = deleteDomain.intersect(positionDomain);
         }
@@ -875,8 +875,8 @@ public class IcebergPageSourceProvider
                     Optional<Long> positionUpperBound = Optional.ofNullable(upperBoundBytes)
                             .map(bytes -> Conversions.fromByteBuffer(DELETE_FILE_POS.type(), ByteBuffer.wrap(bytes)));
 
-                    if ((positionLowerBound.isPresent() && positionLowerBound.get() > endRowPosition.get()) ||
-                            (positionUpperBound.isPresent() && positionUpperBound.get() < startRowPosition.get())) {
+                    if ((positionLowerBound.isPresent() && positionLowerBound.orElseThrow() > endRowPosition.orElseThrow()) ||
+                            (positionUpperBound.isPresent() && positionUpperBound.orElseThrow() < startRowPosition.orElseThrow())) {
                         continue;
                     }
                 }

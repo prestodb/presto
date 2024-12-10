@@ -32,7 +32,7 @@ public class AvroRowEncoderFactory
     public RowEncoder create(ConnectorSession session, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles)
     {
         checkArgument(dataSchema.isPresent(), "dataSchema for Avro format is not present");
-        Schema parsedSchema = new Schema.Parser().parse(requireNonNull(dataSchema.get(), "dataSchema is null"));
+        Schema parsedSchema = new Schema.Parser().parse(requireNonNull(dataSchema.orElseThrow(), "dataSchema is null"));
         return new AvroRowEncoder(session, columnHandles, parsedSchema);
     }
 }
