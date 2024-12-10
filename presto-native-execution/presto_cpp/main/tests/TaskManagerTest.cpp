@@ -156,7 +156,9 @@ class Cursor {
     std::vector<ByteRange> byteRanges;
     for (auto& range : *buffer) {
       byteRanges.emplace_back(ByteRange{
-          const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
+          const_cast<uint8_t*>(range.data()),
+          static_cast<int32_t>(range.size()),
+          0});
     }
 
     const auto input =

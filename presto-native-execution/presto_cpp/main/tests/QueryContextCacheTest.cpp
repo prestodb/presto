@@ -55,7 +55,7 @@ TEST_F(QueryContextCacheTest, basic) {
   for (int i = 0; i < 16; ++i) {
     auto queryId = fmt::format("query-{}", i);
     auto queryCtx = core::QueryCtx::create(
-        (folly::Executor*)nullptr, core::QueryConfig({}));
+        static_cast<folly::Executor*>(nullptr), core::QueryConfig({}));
     queryCtxs[queryId] = queryCtx;
     queryContextCache.insert(queryId, queryCtx);
   }
