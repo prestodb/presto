@@ -149,7 +149,8 @@ public class TestHiveAggregationFunctions
         functionAndTypeManager.loadFunctionNamespaceManager(
                 "hive-functions",
                 "hive",
-                Collections.emptyMap());
+                Collections.emptyMap(),
+                server.getPluginNodeManager());
         server.refreshNodes();
         return server;
     }
