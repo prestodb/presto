@@ -1,20 +1,22 @@
 import React from "react";
-import ReactDOM from "react-dom";
 import {WorkerStatus} from "./components/WorkerStatus";
 import {WorkerThreadList} from "./components/WorkerThreadList";
 import {PageTitle} from "./components/PageTitle";
+import { createRoot } from 'react-dom/client';
 
-ReactDOM.render(
+const title = createRoot(document.getElementById('title'));
+
+title.render(
     <PageTitle titles={["Worker Status"]} />,
     document.getElementById('title')
 );
 
-ReactDOM.render(
-    <WorkerStatus />,
-    document.getElementById('worker-status')
+const worker = createRoot(document.getElementById('worker-status'));
+worker.render(
+    <WorkerStatus />
 );
 
-ReactDOM.render(
-    <WorkerThreadList />,
-    document.getElementById('worker-threads')
+const threads = createRoot(document.getElementById('worker-threads'));
+threads.render(
+    <WorkerThreadList />
 );

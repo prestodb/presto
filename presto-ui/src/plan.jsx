@@ -1,15 +1,17 @@
 import React from "react";
-import ReactDOM from "react-dom";
 import {LivePlan} from "./components/LivePlan";
 import {PageTitle} from "./components/PageTitle";
 import {getFirstParameter} from "./utils";
+import { createRoot } from 'react-dom/client';
+const container = document.getElementById('title');
+const root = createRoot(container);
 
-ReactDOM.render(
+root.render(
     <PageTitle titles={["Query Details"]} />,
     document.getElementById('title')
 );
-
-ReactDOM.render(
-    <LivePlan queryId={getFirstParameter(window.location.search)} isEmbedded={false}/>,
-    document.getElementById('live-plan-container')
+const live = document.getElementById('live-plan-container');
+const live_root = createRoot(live);
+live_root.render(
+    <LivePlan queryId={getFirstParameter(window.location.search)} isEmbedded={false}/>
 );
