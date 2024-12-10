@@ -283,6 +283,7 @@ public class FeaturesConfig
     private boolean useHistograms;
 
     private boolean isInlineProjectionsOnValuesEnabled;
+    private boolean singleNodeMode = true;
 
     private boolean eagerPlanValidationEnabled;
     private int eagerPlanValidationThreadPoolSize = 20;
@@ -2807,6 +2808,17 @@ public class FeaturesConfig
     public FeaturesConfig setInlineProjectionsOnValues(boolean isInlineProjectionsOnValuesEnabled)
     {
         this.isInlineProjectionsOnValuesEnabled = isInlineProjectionsOnValuesEnabled;
+        return this;
+    }
+
+    public boolean isSingleNodeMode()
+    {
+        return singleNodeMode;
+    }
+    @Config("single-node-mode")
+    public FeaturesConfig setSingleNodeMode(boolean singleNodeMode)
+    {
+        this.singleNodeMode = singleNodeMode;
         return this;
     }
 
