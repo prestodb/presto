@@ -168,6 +168,28 @@ public final class SortedRangeSet
         return lowIndexedRanges.values().iterator().next().getSingleValue();
     }
 
+    /**
+     * Build a new {@link SortedRangeSet} that contains ranges which lie within the argument range
+     *
+     * @param span the range which the new set should span
+     * @return a new range set
+     */
+    public SortedRangeSet subRangeSet(Range span)
+    {
+        Builder builder = new Builder(type);
+
+        for (Range range : getOrderedRanges()) {
+            if (span.contains(range)) {
+                builder.add(range);
+            }
+            else if (span.overlaps(range)) {
+                builder.add(range.intersect(span));
+            }
+        }
+
+        return builder.build();
+    }
+
     @Override
     public boolean containsValue(Object value)
     {
