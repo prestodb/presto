@@ -112,9 +112,6 @@ void RemoteFunctionServiceHandler::invokeFunction(
   const auto& functionHandle = request->get_remoteFunctionHandle();
   const auto& inputs = request->get_inputs();
 
-  LOG(INFO) << "Got a request for '" << functionHandle.get_name()
-            << "': " << inputs.get_rowCount() << " input rows.";
-
   // Deserialize types and data.
   auto inputType = deserializeArgTypes(functionHandle.get_argumentTypes());
   auto outputType = deserializeType(functionHandle.get_returnType());
