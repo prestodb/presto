@@ -146,7 +146,11 @@ DecodedVector* decodeArrayElements(
   // Decode and acquire array elements vector.
   auto elementsVector = baseArrayVector->elements();
   *elementRows = toElementRows(
-      elementsVector->size(), rows, baseArrayVector, decodedVector->indices());
+      elementsVector->size(),
+      rows,
+      baseArrayVector,
+      arrayDecoder->nulls(&rows),
+      arrayDecoder->indices());
   elementsDecoder.get()->decode(*elementsVector, *elementRows);
   auto decodedElementsVector = elementsDecoder.get();
   return decodedElementsVector;
@@ -217,10 +221,6 @@ class ArraysIntersectSingleParam : public exec::VectorFunction {
       auto size = outerArray->sizeAt(idx);
       bool setInitialized = false;
       for (auto i = offset; i < (offset + size); ++i) {
-        auto innerIdx = decodedInnerArray->index(i);
-        auto innerOffset = innerArray->offsetAt(innerIdx);
-        auto innerSize = innerArray->sizeAt(innerIdx);
-
         // 1. prepare for next iteration
         indicesCursor = rawNewOffsets[row];
         SetWithNull<T> intermediateSet;
@@ -233,6 +233,10 @@ class ArraysIntersectSingleParam : public exec::VectorFunction {
           rawNewLengths[row] = indicesCursor - rawNewOffsets[row];
           break;
         }
+
+        auto innerIdx = decodedInnerArray->index(i);
+        auto innerOffset = innerArray->offsetAt(innerIdx);
+        auto innerSize = innerArray->sizeAt(innerIdx);
 
         // 3. Regular array
         for (auto j = innerOffset; j < (innerOffset + innerSize); ++j) {

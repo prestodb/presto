@@ -23,22 +23,20 @@
 namespace facebook::velox::functions {
 
 /// This function returns a SelectivityVector for ARRAY/MAP vectors that selects
-/// all rows corresponding to the specified rows. If the base vector was
-/// dictionary encoded, an optional rowMapping parameter can be used to pass
-/// the dictionary indices. In this case, it is important to ensure that the
-/// topLevelRows parameter has already filtered out any null rows added by the
-/// dictionary encoding.
+/// all rows corresponding to the specified rows. This flavor is intended for
+/// use with the base vectors of decoded vectors. Use `nulls` and `rowMapping`
+/// to pass in the null and index mappings from the DecodedVector.
 template <typename T>
 SelectivityVector toElementRows(
     vector_size_t size,
-    const SelectivityVector& topLevelNonNullRows,
+    const SelectivityVector& topLevelRows,
     const T* arrayBaseVector,
-    const vector_size_t* rowMapping = nullptr) {
+    const uint64_t* nulls,
+    const vector_size_t* rowMapping) {
   VELOX_CHECK(
       arrayBaseVector->encoding() == VectorEncoding::Simple::MAP ||
       arrayBaseVector->encoding() == VectorEncoding::Simple::ARRAY);
 
-  auto rawNulls = arrayBaseVector->rawNulls();
   auto rawSizes = arrayBaseVector->rawSizes();
   auto rawOffsets = arrayBaseVector->rawOffsets();
   VELOX_DEBUG_ONLY const auto sizeRange =
@@ -47,9 +45,9 @@ SelectivityVector toElementRows(
       arrayBaseVector->offsets()->template asRange<vector_size_t>().end();
 
   SelectivityVector elementRows(size, false);
-  topLevelNonNullRows.applyToSelected([&](vector_size_t row) {
+  topLevelRows.applyToSelected([&](vector_size_t row) {
     auto index = rowMapping ? rowMapping[row] : row;
-    if (rawNulls && bits::isBitNull(rawNulls, index)) {
+    if (nulls && bits::isBitNull(nulls, row)) {
       return;
     }
 
@@ -62,6 +60,21 @@ SelectivityVector toElementRows(
   });
   elementRows.updateBounds();
   return elementRows;
+}
+
+/// This function returns a SelectivityVector for ARRAY/MAP vectors that selects
+/// all rows corresponding to the specified rows.
+template <typename T>
+SelectivityVector toElementRows(
+    vector_size_t size,
+    const SelectivityVector& topLevelRows,
+    const T* arrayBaseVector) {
+  return toElementRows(
+      size,
+      topLevelRows,
+      arrayBaseVector,
+      arrayBaseVector->rawNulls(),
+      nullptr);
 }
 
 /// Returns a buffer of vector_size_t that represents the mapping from

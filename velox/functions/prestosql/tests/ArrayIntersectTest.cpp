@@ -718,3 +718,20 @@ TEST_F(ArrayIntersectTest, timestampWithTimezone) {
       {pack(1, 0), pack(8, 6)},
       {pack(8, 10), pack(1, 11)});
 }
+
+TEST_F(ArrayIntersectTest, nullInDictionary) {
+  // Test that if the array elements are dictionary encoded, nulls in the
+  // dictionary are propagated correctly.
+  auto elements =
+      makeArrayVector<int64_t>({{1, 2, 3}, {1, 5, 6}, {7, 8, 9}, {7}});
+  auto indices = makeIndices({0, 1, 50, 2, 3});
+  auto nulls = makeNulls({false, false, true, false, false});
+  auto encodedElements =
+      BaseVector::wrapInDictionary(nulls, indices, 5, elements);
+
+  auto arrays = makeArrayVector({0, 2, 3}, encodedElements);
+
+  auto expected =
+      makeNullableArrayVector<int64_t>({{{1}}, std::nullopt, {{7}}});
+  testExpr(expected, "array_intersect(c0)", {arrays});
+}
