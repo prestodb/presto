@@ -65,10 +65,10 @@ void toThrift(const std::vector<P>& p, std::vector<T>& t) {
 }
 
 void toThrift(const protocol::TaskState& proto, thrift::TaskState& thrift) {
-  thrift = (thrift::TaskState)((int)proto);
+  thrift = (thrift::TaskState)(static_cast<int>(proto));
 }
 void toThrift(const protocol::ErrorType& proto, thrift::ErrorType& thrift) {
-  thrift = (thrift::ErrorType)((int)proto);
+  thrift = (thrift::ErrorType)(static_cast<int>(proto));
 }
 void toThrift(const protocol::Lifespan& proto, thrift::Lifespan& thrift) {
   toThrift(proto.isgroup, *thrift.grouped_ref());
