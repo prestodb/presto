@@ -27,9 +27,8 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.AggregationFunctionMetadata;
@@ -71,6 +70,7 @@ import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -80,6 +80,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.testing.Closeables.closeQuietly;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -174,15 +175,31 @@ public class TestExpressionInterpreter
             .build());
 
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
-    private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
+    private static final TestingPrestoServer server;
+
+    static {
+        try {
+            server = new TestingPrestoServer();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(server.getMetadata());
     private static final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     @BeforeClass
     public void setup()
     {
-        METADATA.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
-        setupJsonFunctionNamespaceManager(METADATA.getFunctionAndTypeManager());
+        server.getMetadata().getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
+        setupJsonFunctionNamespaceManager(server.getMetadata().getFunctionAndTypeManager());
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDownServer()
+    {
+        closeQuietly(server);
     }
 
     @Test
@@ -415,14 +432,14 @@ public class TestExpressionInterpreter
     @Test
     public void testCppFunctionCall()
     {
-        METADATA.getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
+        server.getMetadata().getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
         assertOptimizedEquals("json.test_schema.square(-5)", "json.test_schema.square(-5)");
     }
 
     @Test
     public void testCppAggregateFunctionCall()
     {
-        METADATA.getFunctionAndTypeManager().createFunction(AVG_UDAF_CPP, false);
+        server.getMetadata().getFunctionAndTypeManager().createFunction(AVG_UDAF_CPP, false);
         assertOptimizedEquals("json.test_schema.avg(1.0)", "json.test_schema.avg(1.0)");
     }
 
@@ -433,7 +450,8 @@ public class TestExpressionInterpreter
         functionAndTypeManager.loadFunctionNamespaceManager(
                 JsonFileBasedFunctionNamespaceManagerFactory.NAME,
                 "json",
-                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"));
+                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"),
+                server.getPluginNodeManager());
     }
 
     @Test
@@ -1653,7 +1671,7 @@ public class TestExpressionInterpreter
 
     private static Expression expression(String expression)
     {
-        return FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+        return FunctionAssertions.createExpression(expression, server.getMetadata(), SYMBOL_TYPES);
     }
 
     private static RowExpression toRowExpression(Expression expression)
@@ -1663,8 +1681,8 @@ public class TestExpressionInterpreter
 
     private static Object optimize(Expression expression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
-        ExpressionInterpreter interpreter = expressionOptimizer(expression, METADATA, TEST_SESSION, expressionTypes);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, server.getMetadata(), SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
+        ExpressionInterpreter interpreter = expressionOptimizer(expression, server.getMetadata(), TEST_SESSION, expressionTypes);
         return interpreter.optimize(variable -> {
             Symbol symbol = new Symbol(variable.getName());
             Object value = symbolConstant(symbol);
@@ -1677,7 +1695,7 @@ public class TestExpressionInterpreter
 
     private static Object optimize(RowExpression expression, Level level)
     {
-        return new RowExpressionInterpreter(expression, METADATA.getFunctionAndTypeManager(), TEST_SESSION.toConnectorSession(), level).optimize(variable -> {
+        return new RowExpressionInterpreter(expression, server.getMetadata().getFunctionAndTypeManager(), TEST_SESSION.toConnectorSession(), level).optimize(variable -> {
             Symbol symbol = new Symbol(variable.getName());
             Object value = symbolConstant(symbol);
             if (value == null) {
@@ -1809,10 +1827,10 @@ public class TestExpressionInterpreter
     private static boolean isRemovableCast(Object value)
     {
         if (value instanceof CallExpression &&
-                new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
+                new FunctionResolution(server.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver()).isCastFunction(((CallExpression) value).getFunctionHandle())) {
             Type targetType = ((CallExpression) value).getType();
             Type sourceType = ((CallExpression) value).getArguments().get(0).getType();
-            return METADATA.getFunctionAndTypeManager().canCoerce(sourceType, targetType);
+            return server.getMetadata().getFunctionAndTypeManager().canCoerce(sourceType, targetType);
         }
         return false;
     }
@@ -1834,7 +1852,7 @@ public class TestExpressionInterpreter
     {
         assertRoundTrip(expression);
 
-        Expression parsedExpression = FunctionAssertions.createExpression(expression, METADATA, SYMBOL_TYPES);
+        Expression parsedExpression = FunctionAssertions.createExpression(expression, server.getMetadata(), SYMBOL_TYPES);
 
         return evaluate(parsedExpression, deterministic);
     }
@@ -1848,9 +1866,9 @@ public class TestExpressionInterpreter
 
     private static Object evaluate(Expression expression, boolean deterministic)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, METADATA, SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
-        Object expressionResult = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes).evaluate();
-        Object rowExpressionResult = rowExpressionInterpreter(TRANSLATOR.translateAndOptimize(expression), METADATA.getFunctionAndTypeManager(), TEST_SESSION.toConnectorSession()).evaluate();
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(TEST_SESSION, server.getMetadata(), SQL_PARSER, SYMBOL_TYPES, expression, emptyMap(), WarningCollector.NOOP);
+        Object expressionResult = expressionInterpreter(expression, server.getMetadata(), TEST_SESSION, expressionTypes).evaluate();
+        Object rowExpressionResult = rowExpressionInterpreter(TRANSLATOR.translateAndOptimize(expression), server.getMetadata().getFunctionAndTypeManager(), TEST_SESSION.toConnectorSession()).evaluate();
 
         if (deterministic) {
             assertExpressionAndRowExpressionEquals(expressionResult, rowExpressionResult);

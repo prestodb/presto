@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -28,20 +29,25 @@ import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.io.Files.getNameWithoutExtension;
+import static java.lang.String.format;
 
 public class StaticFunctionNamespaceStore
 {
     private static final Logger log = Logger.get(StaticFunctionNamespaceStore.class);
     private static final String FUNCTION_NAMESPACE_MANAGER_NAME = "function-namespace-manager.name";
+    private static final String DEFAULT_NAMESPACE = "default.namespace";
 
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final NodeManager nodeManager;
     private final File configDir;
     private final AtomicBoolean functionNamespaceLoading = new AtomicBoolean();
+    private boolean isDefaultNamespace;
 
     @Inject
-    public StaticFunctionNamespaceStore(FunctionAndTypeManager functionAndTypeManager, StaticFunctionNamespaceStoreConfig config)
+    public StaticFunctionNamespaceStore(FunctionAndTypeManager functionAndTypeManager, NodeManager nodeManager, StaticFunctionNamespaceStoreConfig config)
     {
         this.functionAndTypeManager = functionAndTypeManager;
+        this.nodeManager = nodeManager;
         this.configDir = config.getFunctionNamespaceConfigurationDir();
     }
 
@@ -78,7 +84,14 @@ public class StaticFunctionNamespaceStore
         String functionNamespaceManagerName = properties.remove(FUNCTION_NAMESPACE_MANAGER_NAME);
         checkState(!isNullOrEmpty(functionNamespaceManagerName), "%s property must be present", FUNCTION_NAMESPACE_MANAGER_NAME);
 
-        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        if (Boolean.parseBoolean(properties.get(DEFAULT_NAMESPACE))) {
+            if (isDefaultNamespace) {
+                throw new IllegalStateException(
+                        format("Only one function namespace manager can have the %s property set.", DEFAULT_NAMESPACE));
+            }
+            isDefaultNamespace = true;
+        }
+        functionAndTypeManager.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager);
         log.info("-- Added function namespace manager [%s] --", catalogName);
     }
 
