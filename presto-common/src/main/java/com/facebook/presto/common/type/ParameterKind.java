@@ -20,6 +20,38 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Optional;
 
+/**
+ * The {@code ParameterKind} enum represents various kinds of parameters used in Presto's type system.
+ * The available parameter kinds are:
+ *
+ * <ul>
+ * <li><b>TYPE</b>:
+ * Used when the parameter itself is of type {@code TYPE_SIGNATURE}, representing a type definition.</li>
+ *
+ * <li><b>NAMED_TYPE</b>:
+ * Represents parameters that are explicitly named and can be referenced using their name.
+ *  This is primarily used when the base type is a row type.</li>
+ *
+ * <li><b>LONG</b>:
+ *  Used for types that take a long literal as a parameter. Examples include
+ *  types like {@code decimal} and {@code varchar}.</li>
+ *
+ * <li><b>VARIABLE</b>:
+ * Used when variables are passed as parameters. This allows dynamic and flexible parameter handling.</li>
+ *
+ * <li><b>LONG_ENUM</b>:
+ * Represents a mapping of string values to long values. It is efficient for cases where
+ * symbolic names correspond to numeric values.</li>
+ *
+ * <li><b>VARCHAR_ENUM</b>:
+ * Represents a mapping of string values to string values. This is useful for symbolic names
+ * that do not require numeric representation.</li>
+ *
+ * <li><b>DISTINCT_TYPE</b>:
+ * Represents distinct user-defined types, enabling the creation of custom types in Presto's type system.</li>
+ * </ul>
+ */
+
 @ThriftEnum
 public enum ParameterKind
 {
