@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.ReplaceSortOrder;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
@@ -56,6 +57,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
@@ -77,6 +79,7 @@ import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toPr
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -324,6 +327,16 @@ public class IcebergNativeMetadata
         }
 
         Table icebergTable = transaction.table();
+        ReplaceSortOrder replaceSortOrder = transaction.replaceSortOrder();
+        List<SortField> sortFields = replaceSortOrder.apply().fields().stream().map(SortField::fromIceberg)
+                .collect(toImmutableList());
+        try {
+            replaceSortOrder.commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to set the sorted_by property", e);
+        }
+
         return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty()),
@@ -333,7 +346,8 @@ public class IcebergNativeMetadata
                 icebergTable.location(),
                 fileFormat,
                 getCompressionCodec(session),
-                icebergTable.properties());
+                icebergTable.properties(),
+                sortFields);
     }
 
     @Override

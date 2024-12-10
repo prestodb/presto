@@ -69,7 +69,8 @@ public class TestIcebergConfig
                 .setMetadataPreviousVersionsMax(METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT)
                 .setMetadataDeleteAfterCommit(METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT)
                 .setMetricsMaxInferredColumn(METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT)
-                .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE)));
+                .setMaxStatisticsFileCacheSize(succinctDataSize(256, MEGABYTE))
+                .setSortedWritingEnabled(true));
     }
 
     @Test
@@ -101,6 +102,7 @@ public class TestIcebergConfig
                 .put("iceberg.metadata-delete-after-commit", "true")
                 .put("iceberg.metrics-max-inferred-column", "16")
                 .put("iceberg.max-statistics-file-cache-size", "512MB")
+                .put("iceberg.sorted-writing-enabled", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
@@ -128,7 +130,8 @@ public class TestIcebergConfig
                 .setMetadataPreviousVersionsMax(1)
                 .setMetadataDeleteAfterCommit(true)
                 .setMetricsMaxInferredColumn(16)
-                .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE));
+                .setMaxStatisticsFileCacheSize(succinctDataSize(512, MEGABYTE))
+                .setSortedWritingEnabled(false);
 
         assertFullMapping(properties, expected);
     }
