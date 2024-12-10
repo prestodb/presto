@@ -21,19 +21,14 @@
 namespace facebook::velox::functions {
 
 template <typename TExec>
-struct MapRemoveNullValues {
+struct MapKeyExists {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
 
   void call(
-      out_type<Map<Generic<T1>, Generic<T2>>>& out,
-      const arg_type<Map<Generic<T1>, Generic<T2>>>& inputMap) {
-    for (const auto& entry : inputMap) {
-      if (entry.second.has_value()) {
-        auto [keyWriter, valueWriter] = out.add_item();
-        keyWriter.copy_from(entry.first);
-        valueWriter.copy_from(entry.second.value());
-      }
-    }
+      bool& out,
+      const arg_type<Map<Generic<T1>, Generic<T2>>>& inputMap,
+      const arg_type<Generic<T1>>& key) {
+    out = (inputMap.find(key) != inputMap.end());
   }
 };
 
