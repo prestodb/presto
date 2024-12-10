@@ -26,11 +26,15 @@ namespace facebook::velox::dwio::common {
 
 class ExecutorBarrier : public folly::Executor {
  public:
-  explicit ExecutorBarrier(folly::Executor& executor)
-      : executor_{executor}, count_{0} {}
+  explicit ExecutorBarrier(folly::Executor::KeepAlive<> executor)
+      : executor_{std::move(executor)}, count_{0} {}
 
+  // Constructor version that holds ownership over the executor (holds a
+  // shared_ptr copy).
   explicit ExecutorBarrier(std::shared_ptr<folly::Executor> executor)
-      : owned_{std::move(executor)}, executor_{*owned_}, count_{0} {}
+      : owned_{std::move(executor)},
+        executor_{folly::getKeepAliveToken(*owned_)},
+        count_{0} {}
 
   ~ExecutorBarrier() override {
     // If this object gets destroyed while there are still tasks pending, those
@@ -50,7 +54,7 @@ class ExecutorBarrier : public folly::Executor {
   void addWithPriority(folly::Func, int8_t priority) override;
 
   uint8_t getNumPriorities() const override {
-    return executor_.getNumPriorities();
+    return executor_->getNumPriorities();
   }
 
   void waitAll() {
@@ -68,7 +72,7 @@ class ExecutorBarrier : public folly::Executor {
   auto wrapMethod(folly::Func f);
 
   std::shared_ptr<folly::Executor> owned_;
-  folly::Executor& executor_;
+  folly::Executor::KeepAlive<> executor_;
   size_t count_;
   std::mutex mutex_;
   std::condition_variable cv_;

@@ -121,7 +121,7 @@ class ColumnReaderTestBase {
       common::ScanSpec* scanSpec = nullptr) {
     const std::shared_ptr<const RowType>& rowType =
         std::dynamic_pointer_cast<const RowType>(requestedType);
-    if (parallelDecoding()) {
+    if (parallelDecoding() && !executor_) {
       executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(2);
     }
     ColumnSelector cs(rowType, nodes, true);
@@ -221,12 +221,12 @@ class ColumnReaderTestBase {
   virtual bool returnFlatVector() const = 0;
   virtual bool parallelDecoding() const = 0;
 
+  std::unique_ptr<folly::Executor> executor_;
   MockStripeStreams streams_;
   memory::AllocationPool pool_;
   StreamLabels labels_;
   std::unique_ptr<ColumnReader> columnReader_;
   std::unique_ptr<SelectiveColumnReader> selectiveColumnReader_;
-  std::unique_ptr<folly::Executor> executor_;
 
  private:
   std::unique_ptr<common::ScanSpec> scanSpec_;

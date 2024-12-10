@@ -19,7 +19,6 @@
 #include "velox/dwio/common/ExecutorBarrier.h"
 
 namespace facebook::velox::dwio::common {
-
 namespace {
 
 std::vector<std::pair<size_t, size_t>>
@@ -60,7 +59,7 @@ splitRange(size_t from, size_t to, size_t factor) {
 } // namespace
 
 ParallelFor::ParallelFor(
-    folly::Executor* executor,
+    folly::Executor::KeepAlive<> executor,
     size_t from,
     size_t to,
     size_t parallelismFactor)
@@ -89,7 +88,7 @@ void ParallelFor::execute(std::function<void(size_t)> func) {
     VELOX_CHECK(
         executor_,
         "Executor wasn't provided so we shouldn't have more than 1 range");
-    ExecutorBarrier barrier(*executor_);
+    ExecutorBarrier barrier(executor_);
     const size_t last = ranges_.size() - 1;
     // First N-1 ranges in executor threads
     for (size_t r = 0; r < last; ++r) {
