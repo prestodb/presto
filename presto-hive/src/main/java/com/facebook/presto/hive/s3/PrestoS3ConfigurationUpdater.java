@@ -52,6 +52,7 @@ public class PrestoS3ConfigurationUpdater
     private final String userAgentPrefix;
     private final PrestoS3AclType aclType;
     private boolean skipGlacierObjects;
+    private boolean useStreamingUploads;
 
     @Inject
     public PrestoS3ConfigurationUpdater(HiveS3Config config)
@@ -84,6 +85,7 @@ public class PrestoS3ConfigurationUpdater
         this.userAgentPrefix = config.getS3UserAgentPrefix();
         this.aclType = config.getS3AclType();
         this.skipGlacierObjects = config.isSkipGlacierObjects();
+        this.useStreamingUploads = config.isUseStreamingUploads();
     }
 
     @Override
@@ -138,5 +140,6 @@ public class PrestoS3ConfigurationUpdater
         config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
         config.set(S3_ACL_TYPE, aclType.name());
         config.setBoolean(S3_SKIP_GLACIER_OBJECTS, skipGlacierObjects);
+        config.setBoolean(S3_USE_STREAMING_UPLOADS, useStreamingUploads);
     }
 }

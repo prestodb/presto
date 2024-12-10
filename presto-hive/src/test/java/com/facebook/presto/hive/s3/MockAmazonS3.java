@@ -13,12 +13,22 @@
  */
 package com.facebook.presto.hive.s3;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.services.s3.AbstractAmazonS3;
+import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadResult;
 import com.amazonaws.services.s3.model.GetObjectMetadataRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
+import com.amazonaws.services.s3.model.ListMultipartUploadsRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.MultipartUpload;
+import com.amazonaws.services.s3.model.MultipartUploadListing;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -26,8 +36,22 @@ import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.StorageClass;
+import com.amazonaws.services.s3.model.UploadPartRequest;
+import com.amazonaws.services.s3.model.UploadPartResult;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.net.HttpURLConnection.HTTP_OK;
 
@@ -43,6 +67,15 @@ public class MockAmazonS3
     private CannedAccessControlList acl;
     private boolean hasGlacierObjects;
     private boolean hasHadoopFolderMarkerObjects;
+    int initiateMultipartRequests;
+    int uploadPartRequests;
+    int completePartUploadRequests;
+    int abortPartUploadRequests;
+    int putObjectRequests;
+    boolean throwOnUpload;
+
+    Map<String, ByteBuffer> uploads = new HashMap<>();
+    Map<String, ByteArrayOutputStream> inProgressUploads = new HashMap<>();
 
     public void setGetObjectHttpErrorCode(int getObjectHttpErrorCode)
     {
@@ -74,6 +107,19 @@ public class MockAmazonS3
         return getObjectMetadataRequest;
     }
 
+    public void setThrowOnNextUpload()
+    {
+        throwOnUpload = true;
+    }
+
+    private void throwIfNecessary()
+    {
+        if (throwOnUpload) {
+            throwOnUpload = false;
+            throw new RuntimeException("Mocked error");
+        }
+    }
+
     @Override
     public ObjectMetadata getObjectMetadata(GetObjectMetadataRequest getObjectMetadataRequest)
     {
@@ -94,13 +140,33 @@ public class MockAmazonS3
             exception.setStatusCode(getObjectHttpCode);
             throw exception;
         }
-        return null;
+
+        return Optional.ofNullable(uploads.get(getObjectRequest.getBucketName() + getObjectRequest.getKey()))
+                .map(file -> {
+                    S3Object object = new S3Object();
+                    object.setObjectContent(new ByteArrayInputStream(file.array()));
+                    object.setBucketName(getObjectRequest.getBucketName());
+                    object.setKey(getObjectRequest.getKey());
+                    return object;
+                }).orElseGet(() -> {
+                    AmazonS3Exception exception = new AmazonS3Exception("Failing getObject call with not found");
+                    exception.setStatusCode(404);
+                    throw exception;
+                });
     }
 
     @Override
     public PutObjectResult putObject(PutObjectRequest putObjectRequest)
     {
+        throwIfNecessary();
         this.acl = putObjectRequest.getCannedAcl();
+        putObjectRequests++;
+        try {
+            uploads.put(putObjectRequest.getBucketName() + putObjectRequest.getKey(), ByteBuffer.wrap(Files.readAllBytes(putObjectRequest.getFile().toPath())));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return new PutObjectResult();
     }
 
@@ -149,5 +215,82 @@ public class MockAmazonS3
     @Override
     public void shutdown()
     {
+    }
+
+    @Override
+    public InitiateMultipartUploadResult initiateMultipartUpload(InitiateMultipartUploadRequest request)
+            throws SdkClientException, AmazonServiceException
+    {
+        throwIfNecessary();
+        InitiateMultipartUploadResult result = new InitiateMultipartUploadResult();
+        this.initiateMultipartRequests++;
+        String uploadId = "uploadId-" + initiateMultipartRequests;
+        result.setUploadId(uploadId);
+        inProgressUploads.computeIfAbsent(uploadId, (key) -> new ByteArrayOutputStream());
+        this.acl = request.getCannedACL();
+        return result;
+    }
+
+    @Override
+    public UploadPartResult uploadPart(UploadPartRequest request)
+            throws SdkClientException, AmazonServiceException
+    {
+        throwIfNecessary();
+        if (!inProgressUploads.containsKey(request.getUploadId())) {
+            throw new SdkClientException("bad upload ID");
+        }
+        inProgressUploads.computeIfPresent(request.getUploadId(), (key, value) -> {
+            try {
+                value.write(Files.readAllBytes(request.getFile().toPath()));
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return value;
+        });
+        uploadPartRequests++;
+        return new UploadPartResult();
+    }
+
+    @Override
+    public CompleteMultipartUploadResult completeMultipartUpload(CompleteMultipartUploadRequest request)
+            throws SdkClientException, AmazonServiceException
+    {
+        throwIfNecessary();
+        completePartUploadRequests++;
+        ByteBuffer file = ByteBuffer.wrap(inProgressUploads.get(request.getUploadId()).toByteArray());
+        inProgressUploads.remove(request.getUploadId());
+        uploads.put(request.getBucketName() + request.getKey(), file);
+        CompleteMultipartUploadResult result = new CompleteMultipartUploadResult();
+        try {
+            result.setETag(Base64.getEncoder().encodeToString(MessageDigest.getInstance("MD5").digest(file.array())));
+        }
+        catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        return result;
+    }
+
+    @Override
+    public void abortMultipartUpload(AbortMultipartUploadRequest request)
+            throws SdkClientException, AmazonServiceException
+    {
+        throwIfNecessary();
+        abortPartUploadRequests++;
+        uploads.remove(request.getBucketName() + request.getKey());
+        inProgressUploads.remove(request.getUploadId());
+    }
+
+    @Override
+    public MultipartUploadListing listMultipartUploads(ListMultipartUploadsRequest request)
+            throws SdkClientException, AmazonServiceException
+    {
+        MultipartUploadListing listing = new MultipartUploadListing();
+        listing.setMultipartUploads(inProgressUploads.keySet().stream().map(id -> {
+            MultipartUpload upload = new MultipartUpload();
+            upload.setUploadId(id);
+            return upload;
+        }).collect(Collectors.toList()));
+        return listing;
     }
 }

@@ -25,9 +25,6 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
-import com.amazonaws.event.ProgressEvent;
-import com.amazonaws.event.ProgressEventType;
-import com.amazonaws.event.ProgressListener;
 import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
@@ -36,22 +33,12 @@ import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.EncryptionMaterialsProvider;
-import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.KMSEncryptionMaterialsProvider;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.amazonaws.services.s3.model.SSEAwsKeyManagementParams;
-import com.amazonaws.services.s3.model.StorageClass;
-import com.amazonaws.services.s3.transfer.Transfer;
-import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
-import com.amazonaws.services.s3.transfer.Upload;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.google.common.annotations.VisibleForTesting;
@@ -68,7 +55,6 @@ import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.BufferedFSInputStream;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -76,16 +62,11 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
-import java.io.EOFException;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FilterOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InterruptedIOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -97,7 +78,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
@@ -136,8 +116,8 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STORAGE_CLAS
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_STREAMING_UPLOADS;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -145,19 +125,14 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.toArray;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.nio.file.Files.createDirectories;
-import static java.nio.file.Files.createTempFile;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.hadoop.fs.FSExceptionMessages.CANNOT_SEEK_PAST_EOF;
-import static org.apache.hadoop.fs.FSExceptionMessages.NEGATIVE_SEEK;
-import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
 
 public class PrestoS3FileSystem
         extends ExtendedFileSystem
@@ -167,13 +142,12 @@ public class PrestoS3FileSystem
     private static RequestMetricCollector metricCollector = new PrestoS3FileSystemMetricCollector(STATS);
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
-    private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
+
     private static final String PATH_SEPARATOR = "/";
-    private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
-    private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
-    private static final MediaType X_DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
-    private static final MediaType OCTET_STREAM_MEDIA_TYPE = MediaType.create("application", "octet-stream");
-    private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
+    protected static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
+    protected static final MediaType X_DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
+    protected static final MediaType OCTET_STREAM_MEDIA_TYPE = MediaType.create("application", "octet-stream");
+    protected static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
 
     private URI uri;
     private Path workingDirectory;
@@ -196,6 +170,7 @@ public class PrestoS3FileSystem
     private PrestoS3AclType s3AclType;
     private boolean skipGlacierObjects;
     private PrestoS3StorageClass s3StorageClass;
+    private boolean useStreamingUploads;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -237,6 +212,7 @@ public class PrestoS3FileSystem
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
+        this.useStreamingUploads = conf.getBoolean(S3_USE_STREAMING_UPLOADS, defaults.isUseStreamingUploads());
 
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -417,7 +393,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, getBucketName(uri), path, maxAttempts, maxBackoffTime, maxRetryTime),
+                        new PrestoS3InputStream(s3, getBucketName(uri), path, maxAttempts, maxBackoffTime, maxRetryTime, STATS),
                         bufferSize));
     }
 
@@ -435,22 +411,40 @@ public class PrestoS3FileSystem
         if (!stagingDirectory.isDirectory()) {
             throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
         }
-        File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
-
         String key = keyFromPath(qualifiedPath(path));
-        return new FSDataOutputStream(
-                new PrestoS3OutputStream(s3,
-                        getBucketName(uri),
-                        key,
-                        tempFile,
-                        sseEnabled,
-                        sseType,
-                        sseKmsKeyId,
-                        multiPartUploadMinFileSize,
-                        multiPartUploadMinPartSize,
-                        s3AclType,
-                        s3StorageClass),
-                statistics);
+
+        OutputStream stream;
+        if (useStreamingUploads) {
+            File tempDir = Files.createTempDirectory(stagingDirectory.toPath(), "presto-s3-tmp").toFile();
+            stream = new PrestoS3StreamingOutputStream(s3,
+                    getBucketName(uri),
+                    key,
+                    tempDir,
+                    sseEnabled,
+                    sseType,
+                    sseKmsKeyId,
+                    multiPartUploadMinFileSize,
+                    multiPartUploadMinPartSize,
+                    s3AclType,
+                    s3StorageClass,
+                    STATS);
+        }
+        else {
+            File tempFile = Files.createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
+            stream = new PrestoS3OutputStream(s3,
+                    getBucketName(uri),
+                    key,
+                    tempFile,
+                    sseEnabled,
+                    sseType,
+                    sseKmsKeyId,
+                    multiPartUploadMinFileSize,
+                    multiPartUploadMinPartSize,
+                    s3AclType,
+                    s3StorageClass,
+                    STATS);
+        }
+        return new FSDataOutputStream(stream, statistics);
     }
 
     @Override
@@ -550,7 +544,8 @@ public class PrestoS3FileSystem
         return true;
     }
 
-    private enum ListingMode {
+    private enum ListingMode
+    {
         SHALLOW_ALL, // Shallow listing of files AND directories
         SHALLOW_FILES_ONLY,
         RECURSIVE_FILES_ONLY;
@@ -927,451 +922,6 @@ public class PrestoS3FileSystem
         public boolean isKeyNeedsPathSeparator()
         {
             return keyNeedsPathSeparator;
-        }
-    }
-
-    private static class PrestoS3InputStream
-            extends FSInputStream
-    {
-        private final AmazonS3 s3;
-        private final String host;
-        private final Path path;
-        private final int maxAttempts;
-        private final Duration maxBackoffTime;
-        private final Duration maxRetryTime;
-
-        private final AtomicBoolean closed = new AtomicBoolean();
-
-        private InputStream in;
-        private long streamPosition;
-        private long nextReadPosition;
-
-        public PrestoS3InputStream(AmazonS3 s3, String host, Path path, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
-        {
-            this.s3 = requireNonNull(s3, "s3 is null");
-            this.host = requireNonNull(host, "host is null");
-            this.path = requireNonNull(path, "path is null");
-
-            checkArgument(maxAttempts >= 0, "maxAttempts cannot be negative");
-            this.maxAttempts = maxAttempts;
-            this.maxBackoffTime = requireNonNull(maxBackoffTime, "maxBackoffTime is null");
-            this.maxRetryTime = requireNonNull(maxRetryTime, "maxRetryTime is null");
-        }
-
-        @Override
-        public void close()
-        {
-            closed.set(true);
-            closeStream();
-        }
-
-        @Override
-        public int read(long position, byte[] buffer, int offset, int length)
-                throws IOException
-        {
-            checkClosed();
-            if (position < 0) {
-                throw new EOFException(NEGATIVE_SEEK);
-            }
-            checkPositionIndexes(offset, offset + length, buffer.length);
-            if (length == 0) {
-                return 0;
-            }
-
-            try {
-                return retry()
-                        .maxAttempts(maxAttempts)
-                        .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, EOFException.class, FileNotFoundException.class, AbortedException.class)
-                        .onRetry(STATS::newGetObjectRetry)
-                        .run("getS3Object", () -> {
-                            InputStream stream;
-                            try {
-                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path))
-                                        .withRange(position, (position + length) - 1);
-                                stream = s3.getObject(request).getObjectContent();
-                            }
-                            catch (RuntimeException e) {
-                                STATS.newGetObjectError();
-                                if (e instanceof AmazonS3Exception) {
-                                    switch (((AmazonS3Exception) e).getStatusCode()) {
-                                        case HTTP_RANGE_NOT_SATISFIABLE:
-                                            throw new EOFException(CANNOT_SEEK_PAST_EOF);
-                                        case HTTP_NOT_FOUND:
-                                            throw new FileNotFoundException("File does not exist: " + path);
-                                        case HTTP_FORBIDDEN:
-                                        case HTTP_BAD_REQUEST:
-                                            throw new UnrecoverableS3OperationException(path, e);
-                                    }
-                                }
-                                throw e;
-                            }
-
-                            STATS.connectionOpened();
-                            try {
-                                int read = 0;
-                                while (read < length) {
-                                    int n = stream.read(buffer, offset + read, length - read);
-                                    if (n <= 0) {
-                                        if (read > 0) {
-                                            return read;
-                                        }
-                                        return -1;
-                                    }
-                                    read += n;
-                                }
-                                return read;
-                            }
-                            catch (Throwable t) {
-                                STATS.newReadError(t);
-                                abortStream(stream);
-                                throw t;
-                            }
-                            finally {
-                                STATS.connectionReleased();
-                                stream.close();
-                            }
-                        });
-            }
-            catch (Exception e) {
-                throw propagate(e);
-            }
-        }
-
-        @Override
-        public void seek(long pos)
-                throws IOException
-        {
-            checkClosed();
-            if (pos < 0) {
-                throw new EOFException(NEGATIVE_SEEK);
-            }
-
-            // this allows a seek beyond the end of the stream but the next read will fail
-            nextReadPosition = pos;
-        }
-
-        @Override
-        public long getPos()
-        {
-            return nextReadPosition;
-        }
-
-        @Override
-        public int read()
-        {
-            // This stream is wrapped with BufferedInputStream, so this method should never be called
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int read(byte[] buffer, int offset, int length)
-                throws IOException
-        {
-            checkClosed();
-            try {
-                int bytesRead = retry()
-                        .maxAttempts(maxAttempts)
-                        .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class, FileNotFoundException.class)
-                        .onRetry(STATS::newReadRetry)
-                        .run("readStream", () -> {
-                            seekStream();
-                            try {
-                                return in.read(buffer, offset, length);
-                            }
-                            catch (Exception e) {
-                                STATS.newReadError(e);
-                                closeStream();
-                                throw e;
-                            }
-                        });
-
-                if (bytesRead != -1) {
-                    streamPosition += bytesRead;
-                    nextReadPosition += bytesRead;
-                }
-                return bytesRead;
-            }
-            catch (Exception e) {
-                throw propagate(e);
-            }
-        }
-
-        @Override
-        public boolean seekToNewSource(long targetPos)
-        {
-            return false;
-        }
-
-        private void seekStream()
-                throws IOException
-        {
-            if ((in != null) && (nextReadPosition == streamPosition)) {
-                // already at specified position
-                return;
-            }
-
-            if ((in != null) && (nextReadPosition > streamPosition)) {
-                // seeking forwards
-                long skip = nextReadPosition - streamPosition;
-                if (skip <= max(in.available(), MAX_SKIP_SIZE.toBytes())) {
-                    // already buffered or seek is small enough
-                    try {
-                        if (in.skip(skip) == skip) {
-                            streamPosition = nextReadPosition;
-                            return;
-                        }
-                    }
-                    catch (IOException ignored) {
-                        // will retry by re-opening the stream
-                    }
-                }
-            }
-
-            // close the stream and open at desired position
-            streamPosition = nextReadPosition;
-            closeStream();
-            openStream();
-        }
-
-        private void openStream()
-                throws IOException
-        {
-            if (in == null) {
-                in = openStream(path, nextReadPosition);
-                streamPosition = nextReadPosition;
-                STATS.connectionOpened();
-            }
-        }
-
-        private InputStream openStream(Path path, long start)
-                throws IOException
-        {
-            try {
-                return retry()
-                        .maxAttempts(maxAttempts)
-                        .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, FileNotFoundException.class, AbortedException.class)
-                        .onRetry(STATS::newGetObjectRetry)
-                        .run("getS3Object", () -> {
-                            try {
-                                GetObjectRequest request = new GetObjectRequest(host, keyFromPath(path)).withRange(start);
-                                return s3.getObject(request).getObjectContent();
-                            }
-                            catch (RuntimeException e) {
-                                STATS.newGetObjectError();
-                                if (e instanceof AmazonS3Exception) {
-                                    switch (((AmazonS3Exception) e).getStatusCode()) {
-                                        case HTTP_RANGE_NOT_SATISFIABLE:
-                                            // ignore request for start past end of object
-                                            return new ByteArrayInputStream(new byte[0]);
-                                        case HTTP_NOT_FOUND:
-                                            throw new FileNotFoundException("File does not exist: " + path);
-                                        case HTTP_FORBIDDEN:
-                                        case HTTP_BAD_REQUEST:
-                                            throw new UnrecoverableS3OperationException(path, e);
-                                    }
-                                }
-                                throw e;
-                            }
-                        });
-            }
-            catch (Exception e) {
-                throw propagate(e);
-            }
-        }
-
-        private void closeStream()
-        {
-            if (in != null) {
-                abortStream(in);
-                in = null;
-                STATS.connectionReleased();
-            }
-        }
-
-        private void checkClosed()
-                throws IOException
-        {
-            if (closed.get()) {
-                throw new IOException(STREAM_IS_CLOSED);
-            }
-        }
-
-        private static void abortStream(InputStream in)
-        {
-            try {
-                if (in instanceof S3ObjectInputStream) {
-                    ((S3ObjectInputStream) in).abort();
-                }
-                else {
-                    in.close();
-                }
-            }
-            catch (IOException | AbortedException ignored) {
-                // thrown if the current thread is in the interrupted state
-            }
-        }
-
-        private static RuntimeException propagate(Exception e)
-                throws IOException
-        {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-                throw new InterruptedIOException();
-            }
-            throwIfInstanceOf(e, IOException.class);
-            throwIfUnchecked(e);
-            throw new IOException(e);
-        }
-    }
-
-    private static class PrestoS3OutputStream
-            extends FilterOutputStream
-    {
-        private final TransferManager transferManager;
-        private final String host;
-        private final String key;
-        private final File tempFile;
-        private final boolean sseEnabled;
-        private final PrestoS3SseType sseType;
-        private final String sseKmsKeyId;
-        private final CannedAccessControlList aclType;
-        private final StorageClass s3StorageClass;
-
-        private boolean closed;
-
-        public PrestoS3OutputStream(
-                AmazonS3 s3,
-                String host,
-                String key,
-                File tempFile,
-                boolean sseEnabled,
-                PrestoS3SseType sseType,
-                String sseKmsKeyId,
-                long multiPartUploadMinFileSize,
-                long multiPartUploadMinPartSize,
-                PrestoS3AclType aclType,
-                PrestoS3StorageClass s3StorageClass)
-                throws IOException
-        {
-            super(new BufferedOutputStream(Files.newOutputStream(requireNonNull(tempFile, "tempFile is null").toPath())));
-
-            transferManager = TransferManagerBuilder.standard()
-                    .withS3Client(requireNonNull(s3, "s3 is null"))
-                    .withMinimumUploadPartSize(multiPartUploadMinPartSize)
-                    .withMultipartUploadThreshold(multiPartUploadMinFileSize).build();
-
-            requireNonNull(aclType, "aclType is null");
-            requireNonNull(s3StorageClass, "s3StorageClass is null");
-            this.aclType = aclType.getCannedACL();
-            this.host = requireNonNull(host, "host is null");
-            this.key = requireNonNull(key, "key is null");
-            this.tempFile = tempFile;
-            this.sseEnabled = sseEnabled;
-            this.sseType = requireNonNull(sseType, "sseType is null");
-            this.sseKmsKeyId = sseKmsKeyId;
-            this.s3StorageClass = s3StorageClass.getS3StorageClass();
-
-            log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
-        }
-
-        @Override
-        public void close()
-                throws IOException
-        {
-            if (closed) {
-                return;
-            }
-            closed = true;
-
-            try {
-                super.close();
-                uploadObject();
-            }
-            finally {
-                if (!tempFile.delete()) {
-                    log.warn("Could not delete temporary file: %s", tempFile);
-                }
-                // close transfer manager but keep underlying S3 client open
-                transferManager.shutdownNow(false);
-            }
-        }
-
-        private void uploadObject()
-                throws IOException
-        {
-            try {
-                log.debug("Starting upload for host: %s, key: %s, file: %s, size: %s", host, key, tempFile, tempFile.length());
-                STATS.uploadStarted();
-
-                PutObjectRequest request = new PutObjectRequest(host, key, tempFile);
-                if (sseEnabled) {
-                    switch (sseType) {
-                        case KMS:
-                            if (sseKmsKeyId != null) {
-                                request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams(sseKmsKeyId));
-                            }
-                            else {
-                                request.withSSEAwsKeyManagementParams(new SSEAwsKeyManagementParams());
-                            }
-                            break;
-                        case S3:
-                            ObjectMetadata metadata = new ObjectMetadata();
-                            metadata.setSSEAlgorithm(ObjectMetadata.AES_256_SERVER_SIDE_ENCRYPTION);
-                            request.setMetadata(metadata);
-                            break;
-                    }
-                }
-                request.withStorageClass(s3StorageClass);
-
-                request.withCannedAcl(aclType);
-
-                Upload upload = transferManager.upload(request);
-
-                if (log.isDebugEnabled()) {
-                    upload.addProgressListener(createProgressListener(upload));
-                }
-
-                upload.waitForCompletion();
-                STATS.uploadSuccessful();
-                log.debug("Completed upload for host: %s, key: %s", host, key);
-            }
-            catch (AmazonClientException e) {
-                STATS.uploadFailed();
-                throw new IOException(e);
-            }
-            catch (InterruptedException e) {
-                STATS.uploadFailed();
-                Thread.currentThread().interrupt();
-                throw new InterruptedIOException();
-            }
-        }
-
-        private ProgressListener createProgressListener(Transfer transfer)
-        {
-            return new ProgressListener()
-            {
-                private ProgressEventType previousType;
-                private double previousTransferred;
-
-                @Override
-                public synchronized void progressChanged(ProgressEvent progressEvent)
-                {
-                    ProgressEventType eventType = progressEvent.getEventType();
-                    if (previousType != eventType) {
-                        log.debug("Upload progress event (%s/%s): %s", host, key, eventType);
-                        previousType = eventType;
-                    }
-
-                    double transferred = transfer.getProgress().getPercentTransferred();
-                    if (transferred >= (previousTransferred + 10.0)) {
-                        log.debug("Upload percentage (%s/%s): %.0f%%", host, key, transferred);
-                        previousTransferred = transferred;
-                    }
-                }
-            };
         }
     }
 
