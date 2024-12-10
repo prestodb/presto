@@ -1,0 +1,20 @@
+openapi: 3.0.0
+info:
+  title: Presto function signatures API
+  description: API for retrieving function signatures in Presto.
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
+paths:
+  /v1/functions:
+    get:
+      summary: Returns the list of function signatures.
+      description: This endpoint retrieves the supported function signatures from a Prestissimo cluster.
+      responses:
+        '200':
+          description: List of function signatures.
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/JsonBasedUdfFunctionMetadata'

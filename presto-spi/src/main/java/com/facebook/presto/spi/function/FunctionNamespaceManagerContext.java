@@ -14,20 +14,38 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.spi.NodeManager;
 
 import static java.util.Objects.requireNonNull;
 
 public class FunctionNamespaceManagerContext
 {
     private final TypeManager typeManager;
+    private final NodeManager nodeManager;
+    private final FunctionMetadataManager functionMetadataManager;
 
-    public FunctionNamespaceManagerContext(TypeManager typeManager)
+    public FunctionNamespaceManagerContext(
+            TypeManager typeManager,
+            NodeManager nodeManager,
+            FunctionMetadataManager functionMetadataManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
     }
 
     public TypeManager getTypeManager()
     {
         return typeManager;
+    }
+
+    public NodeManager getNodeManager()
+    {
+        return nodeManager;
+    }
+
+    public FunctionMetadataManager getFunctionMetadataManager()
+    {
+        return functionMetadataManager;
     }
 }
