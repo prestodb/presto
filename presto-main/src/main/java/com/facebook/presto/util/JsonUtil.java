@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UnknownType;
+import com.facebook.presto.operator.scalar.JsonFunctions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
@@ -957,7 +958,7 @@ public final class JsonUtil
                 case StandardTypes.JSON:
                     return (parser, blockBuilder, sqlFunctionProperties) -> {
                         String json = OBJECT_MAPPED_UNORDERED.writeValueAsString(parser.readValueAsTree());
-                        JSON.writeSlice(blockBuilder, Slices.utf8Slice(json));
+                        JSON.writeSlice(blockBuilder, JsonFunctions.jsonParse(Slices.utf8Slice(json)));
                     };
                 case StandardTypes.ARRAY:
                     return new ArrayBlockBuilderAppender(createBlockBuilderAppender(((ArrayType) type).getElementType()));
