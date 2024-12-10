@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -26,7 +27,6 @@ import org.apache.http.HttpHost;
 import org.apache.http.entity.ContentType;
 import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
@@ -45,12 +45,14 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.elasticsearch.action.support.WriteRequest.RefreshPolicy.IMMEDIATE;
+import static org.elasticsearch.client.RequestOptions.DEFAULT;
 
 @Test(singleThreaded = true)
 public class TestElasticsearchIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:8.16.1";
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
 
@@ -752,9 +754,7 @@ public class TestElasticsearchIntegrationSmokeTest
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
-        client.index(new IndexRequest(index, "doc")
-                .source(document)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE));
+        client.index(new IndexRequest().index(index).source(document).setRefreshPolicy(IMMEDIATE), DEFAULT);
     }
 
     @Test
@@ -788,29 +788,26 @@ public class TestElasticsearchIntegrationSmokeTest
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+        ElasticSearchClientUtils.performRequest("PUT", format("/%s/_alias/%s", index, alias), client);
     }
 
     private void removeAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("DELETE", format("/%s/_alias/%s", index, alias));
+        ElasticSearchClientUtils.performRequest("DELETE", format("/%s/_alias/%s", index, alias), client);
     }
 
     private void createIndex(String indexName, @Language("JSON") String mapping)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON));
+        ElasticSearchClientUtils.performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mapping, ContentType.APPLICATION_JSON), client);
     }
 
     @Test
     public void testEmptyIndexNoMappings()
             throws IOException
     {
-        client.getLowLevelClient().performRequest("PUT", "/emptyindex");
+        ElasticSearchClientUtils.performRequest("PUT", "/emptyindex", client);
         assertQueryFails("SELECT * FROM emptyindex", "line 1:8: SELECT \\* not allowed from relation that has no columns");
     }
 }
