@@ -27,6 +27,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryManager;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -213,34 +214,39 @@ public class MetadataManager
 
     public static MetadataManager createTestMetadataManager(FeaturesConfig featuresConfig)
     {
-        return createTestMetadataManager(new CatalogManager(), featuresConfig, new FunctionsConfig());
+        return createTestMetadataManager(new CatalogManager(), featuresConfig, new FunctionsConfig(), new ServerConfig());
     }
 
     public static MetadataManager createTestMetadataManager(FunctionsConfig functionsConfig)
     {
-        return createTestMetadataManager(new CatalogManager(), new FeaturesConfig(), functionsConfig);
+        return createTestMetadataManager(new CatalogManager(), new FeaturesConfig(), functionsConfig, new ServerConfig());
+    }
+
+    public static MetadataManager createTestMetadataManager(ServerConfig serverConfig)
+    {
+        return createTestMetadataManager(new CatalogManager(), new FeaturesConfig(), new FunctionsConfig(), serverConfig);
     }
 
     public static MetadataManager createTestMetadataManager(CatalogManager catalogManager)
     {
-        return createTestMetadataManager(catalogManager, new FeaturesConfig(), new FunctionsConfig());
+        return createTestMetadataManager(catalogManager, new FeaturesConfig(), new FunctionsConfig(), new ServerConfig());
     }
 
-    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
+    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, ServerConfig serverConfig)
     {
-        return createTestMetadataManager(createTestTransactionManager(catalogManager), featuresConfig, functionsConfig);
+        return createTestMetadataManager(createTestTransactionManager(catalogManager), featuresConfig, functionsConfig, serverConfig);
     }
 
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager)
     {
-        return createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig());
+        return createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig(), new ServerConfig());
     }
 
-    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig)
+    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig, FunctionsConfig functionsConfig, ServerConfig serverConfig)
     {
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
         return new MetadataManager(
-                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
+                new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, serverConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
                 createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
