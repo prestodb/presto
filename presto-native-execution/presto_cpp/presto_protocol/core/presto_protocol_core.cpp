@@ -5837,6 +5837,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "schema");
   to_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "JsonBasedUdfFunctionMetadata",
+      "bool",
+      "variableArity");
+  to_json_key(
+      j,
       "routineCharacteristics",
       p.routineCharacteristics,
       "JsonBasedUdfFunctionMetadata",
@@ -5849,6 +5856,13 @@ void to_json(json& j, const JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  to_json_key(
+      j,
+      "typeVariableConstraints",
+      p.typeVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<TypeVariableConstraint>",
+      "typeVariableConstraints");
 }
 
 void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
@@ -5889,6 +5903,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "schema");
   from_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "JsonBasedUdfFunctionMetadata",
+      "bool",
+      "variableArity");
+  from_json_key(
+      j,
       "routineCharacteristics",
       p.routineCharacteristics,
       "JsonBasedUdfFunctionMetadata",
@@ -5901,6 +5922,13 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "JsonBasedUdfFunctionMetadata",
       "AggregationFunctionMetadata",
       "aggregateMetadata");
+  from_json_key(
+      j,
+      "typeVariableConstraints",
+      p.typeVariableConstraints,
+      "JsonBasedUdfFunctionMetadata",
+      "List<TypeVariableConstraint>",
+      "typeVariableConstraints");
 }
 } // namespace facebook::presto::protocol
 /*
