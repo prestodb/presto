@@ -137,7 +137,9 @@ class ArrayDistinctFunction : public exec::VectorFunction {
         toElementRows(elementsVector->size(), rows, arrayVector);
     exec::LocalDecodedVector elements(context, *elementsVector, elementsRows);
 
-    vector_size_t elementsCount = elementsRows.end();
+    vector_size_t elementsCount = 0;
+    rows.applyToSelected(
+        [&](vector_size_t row) { elementsCount += arrayVector->sizeAt(row); });
     vector_size_t rowCount = rows.end();
 
     // Allocate new vectors for indices, length and offsets.

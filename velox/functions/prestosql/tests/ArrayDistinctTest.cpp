@@ -436,3 +436,43 @@ TEST_F(ArrayDistinctTest, timestampWithTimezone) {
        std::nullopt},
       {pack(1, 0), pack(2, 1), pack(3, 2), std::nullopt, pack(4, 3)});
 }
+
+TEST_F(ArrayDistinctTest, overlappingRanges) {
+  auto size = 4;
+  auto elements = makeFlatVector<int64_t>({0, 1, 2, 1, 2, 1, 2, 3});
+
+  // Allocate some overlapping arrays.
+  BufferPtr offsetsBuffer = allocateOffsets(size, pool());
+  BufferPtr sizesBuffer = allocateSizes(size, pool());
+  auto rawOffsets = offsetsBuffer->asMutable<vector_size_t>();
+  auto rawSizes = sizesBuffer->asMutable<vector_size_t>();
+
+  // [0, 1, 2, 1, 2]
+  rawOffsets[0] = 0;
+  rawSizes[0] = 5;
+
+  // [1, 2, 1, 2]
+  rawOffsets[1] = 1;
+  rawSizes[1] = 4;
+
+  // [2, 1, 2]
+  rawOffsets[2] = 4;
+  rawSizes[2] = 3;
+
+  // [1, 2, 3]
+  rawOffsets[3] = 5;
+  rawSizes[3] = 3;
+
+  auto array = std::make_shared<ArrayVector>(
+      pool(),
+      ARRAY(BIGINT()),
+      nullptr,
+      size,
+      offsetsBuffer,
+      sizesBuffer,
+      elements);
+
+  assertEqualVectors(
+      makeArrayVector<int64_t>({{0, 1, 2}, {1, 2}, {2, 1}, {1, 2, 3}}),
+      evaluate("array_distinct(c0)", makeRowVector({array})));
+}
