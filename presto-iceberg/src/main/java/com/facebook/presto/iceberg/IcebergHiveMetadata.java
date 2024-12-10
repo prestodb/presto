@@ -151,6 +151,7 @@ public class IcebergHiveMetadata
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
 
     private final FilterStatsCalculatorService filterStatsCalculatorService;
+    private final String catalogName;
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -160,12 +161,14 @@ public class IcebergHiveMetadata
             RowExpressionService rowExpressionService,
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
-            FilterStatsCalculatorService filterStatsCalculatorService)
+            FilterStatsCalculatorService filterStatsCalculatorService,
+            String catalogName)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.catalogName = catalogName;
     }
 
     public ExtendedHiveMetastore getMetastore()
@@ -234,6 +237,7 @@ public class IcebergHiveMetadata
                 .setLocation(location)
                 .setOwnerType(USER)
                 .setOwnerName(session.getUser())
+                .setCatalogName(Optional.ofNullable(catalogName))
                 .build();
 
         MetastoreContext metastoreContext = getMetastoreContext(session);

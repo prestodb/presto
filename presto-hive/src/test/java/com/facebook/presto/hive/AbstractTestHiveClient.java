@@ -359,6 +359,7 @@ public abstract class AbstractTestHiveClient
     protected static final String INVALID_COLUMN = "totally_invalid_column_name";
 
     protected static final String TEST_SERVER_VERSION = "test_version";
+    private static final String TEST_CATALOG_NAME = "hive";
 
     protected static final Executor EXECUTOR = Executors.newFixedThreadPool(5);
     protected static final PageSinkContext TEST_HIVE_PAGE_SINK_CONTEXT = PageSinkContext.builder().setCommitRequired(false).setConnectorMetadataUpdater(new HiveMetadataUpdater(EXECUTOR)).build();
@@ -1044,7 +1045,7 @@ public abstract class AbstractTestHiveClient
                 new HiveFileRenamer(),
                 DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false));
+                new HiveTableWritabilityChecker(false), TEST_CATALOG_NAME);
 
         transactionManager = new HiveTransactionManager();
         encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of());
