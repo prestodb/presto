@@ -1038,15 +1038,15 @@ public abstract class IcebergDistributedSmokeTestBase
     public Object[][] testPartitionedByTimeProvider()
     {
         return new Object[][] {
-                {getSession(), false, FileFormat.PARQUET},
-                {getSession(), false, FileFormat.ORC},
-                {getSession(), true, FileFormat.PARQUET},
-                {getSession(), true, FileFormat.ORC}
+                {false, FileFormat.PARQUET},
+                {false, FileFormat.ORC},
+                {true, FileFormat.PARQUET},
+                {true, FileFormat.ORC}
         };
     }
 
     @Test(dataProvider = "testPartitionedByTimeProvider")
-    private void testSelectOrPartitionedByTime(Session session, boolean partitioned, FileFormat format)
+    private void testSelectOrPartitionedByTime(boolean partitioned, FileFormat format)
     {
         String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
         String partitioning = partitioned ? ", partitioning = ARRAY['x']" : "";
@@ -1058,7 +1058,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 2");
         assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('10:12:34' AS TIME)");
         assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('9:00:00' AS TIME)");
-        dropTable(session, tableName);
+        dropTable(getSession(), tableName);
     }
 
     @Test
