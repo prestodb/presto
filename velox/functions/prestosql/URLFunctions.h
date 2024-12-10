@@ -23,6 +23,8 @@
 namespace facebook::velox::functions {
 
 namespace detail {
+
+/// Encoded replacement character strings.
 constexpr std::array<std::string_view, 6> kEncodedReplacementCharacterStrings =
     {"%EF%BF%BD",
      "%EF%BF%BD%EF%BF%BD",
@@ -30,13 +32,6 @@ constexpr std::array<std::string_view, 6> kEncodedReplacementCharacterStrings =
      "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD",
      "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD",
      "%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD%EF%BF%BD"};
-constexpr std::array<std::string_view, 6> kDecodedReplacementCharacterStrings{
-    "\xef\xbf\xbd",
-    "\xef\xbf\xbd\xef\xbf\xbd",
-    "\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd",
-    "\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd",
-    "\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd",
-    "\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd"};
 
 FOLLY_ALWAYS_INLINE unsigned char toHex(unsigned char c) {
   return c < 10 ? (c + '0') : (c + 'A' - 10);
@@ -178,7 +173,7 @@ FOLLY_ALWAYS_INLINE void urlUnescape(
       } else if (charLength < 0) {
         // This isn't the start of a valid UTF-8 character, write out the
         // replacement character.
-        const auto& replacementString = kDecodedReplacementCharacterStrings[0];
+        const auto& replacementString = kReplacementCharacterStrings[0];
         std::memcpy(
             outputBuffer, replacementString.data(), replacementString.length());
         outputBuffer += replacementString.length();
@@ -216,8 +211,8 @@ FOLLY_ALWAYS_INLINE void urlUnescape(
           size_t charLength = outputBuffer - charStart;
           size_t replaceCharactersToWriteOut =
               isMultipleInvalidSequences(charStart, 0) ? charLength : 1;
-          const auto& replacementString = kDecodedReplacementCharacterStrings
-              [replaceCharactersToWriteOut - 1];
+          const auto& replacementString =
+              kReplacementCharacterStrings[replaceCharactersToWriteOut - 1];
 
           outputBuffer = charStart;
           std::memcpy(

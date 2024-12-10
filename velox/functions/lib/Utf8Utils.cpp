@@ -173,4 +173,75 @@ tryGetUtf8CharLength(const char* input, int64_t size, int32_t& codePoint) {
   return -1;
 }
 
+bool hasInvalidUTF8(const char* input, int32_t len) {
+  for (size_t inputIndex = 0; inputIndex < len;) {
+    if (IS_ASCII(input[inputIndex])) {
+      // Ascii
+      inputIndex++;
+    } else {
+      // Unicode
+      int32_t codePoint;
+      auto charLength =
+          tryGetUtf8CharLength(input + inputIndex, len - inputIndex, codePoint);
+      if (charLength < 0) {
+        return true;
+      }
+      inputIndex += charLength;
+    }
+  }
+
+  return false;
+}
+
+size_t replaceInvalidUTF8Characters(
+    char* outputBuffer,
+    const char* input,
+    int32_t len) {
+  size_t inputIndex = 0;
+  size_t outputIndex = 0;
+
+  while (inputIndex < len) {
+    if (IS_ASCII(input[inputIndex])) {
+      outputBuffer[outputIndex++] = input[inputIndex++];
+    } else {
+      // Unicode
+      int32_t codePoint;
+      const auto charLength =
+          tryGetUtf8CharLength(input + inputIndex, len - inputIndex, codePoint);
+      if (charLength > 0) {
+        std::memcpy(outputBuffer + outputIndex, input + inputIndex, charLength);
+        outputIndex += charLength;
+        inputIndex += charLength;
+      } else {
+        size_t replaceCharactersToWriteOut = inputIndex < len - 1 &&
+                isMultipleInvalidSequences(input, inputIndex)
+            ? -charLength
+            : 1;
+        const auto& replacementCharacterString =
+            kReplacementCharacterStrings[replaceCharactersToWriteOut - 1];
+        std::memcpy(
+            outputBuffer + outputIndex,
+            replacementCharacterString.data(),
+            replacementCharacterString.size());
+        outputIndex += replacementCharacterString.size();
+        inputIndex += -charLength;
+      }
+    }
+  }
+
+  return outputIndex;
+}
+
+template <>
+void replaceInvalidUTF8Characters(
+    std::string& out,
+    const char* input,
+    int32_t len) {
+  auto maxLen = len * kReplacementCharacterStrings[0].size();
+  out.resize(maxLen);
+  auto outputBuffer = out.data();
+  auto outputIndex = replaceInvalidUTF8Characters(outputBuffer, input, len);
+  out.resize(outputIndex);
+}
+
 } // namespace facebook::velox::functions

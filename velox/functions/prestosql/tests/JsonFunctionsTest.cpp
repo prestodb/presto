@@ -235,6 +235,9 @@ TEST_F(JsonFunctionsTest, jsonParse) {
       R"("Items for D \ud835\udc52\ud835\udcc1 ")",
       R"("Items for D \uD835\uDC52\uD835\uDCC1 ")");
 
+  // Test bad unicode characters
+  testJsonParse("\"Hello \xc0\xaf World\"", "\"Hello �� World\"");
+
   VELOX_ASSERT_THROW(
       jsonParse(R"({"k1":})"), "The JSON document has an improper structure");
   VELOX_ASSERT_THROW(

@@ -16,6 +16,7 @@
 #pragma once
 
 #include <boost/regex.hpp>
+#include "velox/functions/lib/Utf8Utils.h"
 #include "velox/type/StringView.h"
 
 namespace facebook::velox::functions {
@@ -50,29 +51,6 @@ bool parseUri(const StringView& uriStr, URI& uri);
 /// is updated to the first character after the IP address. Otherwise returns
 /// false and pos is unchanged.
 bool tryConsumeIPV6Address(const char* str, const size_t len, int32_t& pos);
-
-template <typename T>
-FOLLY_ALWAYS_INLINE bool isMultipleInvalidSequences(
-    const T& inputBuffer,
-    size_t inputIndex) {
-  return
-      // 0xe0 followed by a value less than 0xe0 or 0xf0 followed by a
-      // value less than 0x90 is considered an overlong encoding.
-      (inputBuffer[inputIndex] == '\xe0' &&
-       (inputBuffer[inputIndex + 1] & 0xe0) == 0x80) ||
-      (inputBuffer[inputIndex] == '\xf0' &&
-       (inputBuffer[inputIndex + 1] & 0xf0) == 0x80) ||
-      // 0xf4 followed by a byte >= 0x90 looks valid to
-      // tryGetUtf8CharLength, but is actually outside the range of valid
-      // code points.
-      (inputBuffer[inputIndex] == '\xf4' &&
-       (inputBuffer[inputIndex + 1] & 0xf0) != 0x80) ||
-      // The bytes 0xf5-0xff, 0xc0, and 0xc1 look like the start of
-      // multi-byte code points to tryGetUtf8CharLength, but are not part of
-      // any valid code point.
-      (unsigned char)inputBuffer[inputIndex] > 0xf4 ||
-      inputBuffer[inputIndex] == '\xc0' || inputBuffer[inputIndex] == '\xc1';
-}
 
 /// Find an extract the value for the parameter with key `param` from the query
 /// portion of a URI `query`. `query` should already be decoded if necessary.

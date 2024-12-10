@@ -104,5 +104,48 @@ TEST(Utf8Test, tryCharLength) {
   ASSERT_EQ(-1, tryCharLength({0xBF}));
 }
 
+TEST(UTF8Test, validUtf8) {
+  auto tryHasInvalidUTF8 = [](const std::vector<unsigned char>& bytes) {
+    return hasInvalidUTF8(
+        reinterpret_cast<const char*>(bytes.data()), bytes.size());
+  };
+
+  ASSERT_FALSE(tryHasInvalidUTF8({0x5c, 0x19, 0x7A}));
+  ASSERT_TRUE(tryHasInvalidUTF8({0x5c, 0x19, 0x7A, 0xBF}));
+  ASSERT_TRUE(tryHasInvalidUTF8({0x64, 0x65, 0x1A, 0b11100000, 0x81, 0xBF}));
+}
+
+TEST(UTF8Test, replaceInvalidUTF8Characters) {
+  auto testReplaceInvalidUTF8Chars = [](const std::string& input,
+                                        const std::string& expected) {
+    std::string output;
+    replaceInvalidUTF8Characters(output, input.data(), input.size());
+    ASSERT_EQ(expected, output);
+  };
+
+  // Good case
+  testReplaceInvalidUTF8Chars("Hello World", "Hello World");
+  // Bad encoding
+  testReplaceInvalidUTF8Chars("hello \xBF world", "hello � world");
+  // Bad encoding with 3 byte char
+  testReplaceInvalidUTF8Chars("hello \xe0\x94\x83 world", "hello ��� world");
+  // Bad encoding with 4 byte char
+  testReplaceInvalidUTF8Chars(
+      "hello \xf0\x80\x80\x80\x80 world", "hello ����� world");
+
+  // Overlong 4 byte utf8 character.
+  testReplaceInvalidUTF8Chars(
+      "hello \xef\xbf\xbd\xef\xbf\xbd world", "hello �� world");
+
+  // Test invalid byte 0xC0
+  testReplaceInvalidUTF8Chars(
+      "hello \xef\xbf\xbd\xef\xbf\xbd world", "hello �� world");
+
+  // Test long 4 byte utf8 with continuation byte
+  testReplaceInvalidUTF8Chars(
+      "hello \xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd\xef\xbf\xbd world",
+      "hello ���� world");
+}
+
 } // namespace
 } // namespace facebook::velox::functions
