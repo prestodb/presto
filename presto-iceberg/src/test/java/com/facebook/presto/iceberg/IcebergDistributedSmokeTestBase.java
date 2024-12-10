@@ -1034,15 +1034,18 @@ public abstract class IcebergDistributedSmokeTestBase
         dropTable(session, "test_nested_table2");
     }
 
-    @Test
-    public void testPartitionedByTime()
+    @DataProvider(name = "testPartitionedByTimeProvider")
+    public Object[][] testPartitionedByTimeProvider()
     {
-        testSelectOrPartitionedByTime(getSession(), false, FileFormat.PARQUET);
-        testSelectOrPartitionedByTime(getSession(), false, FileFormat.ORC);
-        testSelectOrPartitionedByTime(getSession(), true, FileFormat.PARQUET);
-        testSelectOrPartitionedByTime(getSession(), true, FileFormat.ORC);
+        return new Object[][] {
+                {getSession(), false, FileFormat.PARQUET},
+                {getSession(), false, FileFormat.ORC},
+                {getSession(), true, FileFormat.PARQUET},
+                {getSession(), true, FileFormat.ORC}
+        };
     }
 
+    @Test(dataProvider = "testPartitionedByTimeProvider")
     private void testSelectOrPartitionedByTime(Session session, boolean partitioned, FileFormat format)
     {
         String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
