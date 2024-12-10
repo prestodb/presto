@@ -469,6 +469,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
+      updateRequest.extraCredentials,
       std::move(queryCtx),
       startProcessCpuTime);
 }
@@ -488,6 +489,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
+      updateRequest.extraCredentials,
       std::move(queryCtx),
       startProcessCpuTime);
 }
@@ -497,6 +499,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const velox::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
+    const std::map<std::string, std::string>& extraCredentials,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   std::shared_ptr<exec::Task> execTask;
@@ -597,7 +600,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     // Keep track of the max sequence for this batch of splits.
     long maxSplitSequenceId{-1};
     for (const auto& protocolSplit : source.splits) {
-      auto split = toVeloxSplit(protocolSplit);
+      auto split = toVeloxSplit(protocolSplit, extraCredentials);
       if (split.hasConnectorSplit()) {
         maxSplitSequenceId =
             std::max(maxSplitSequenceId, protocolSplit.sequenceId);
