@@ -626,8 +626,7 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getNotNullColumnVariables(),
                                     originalTableWriterNode.getTablePartitioningScheme(),
                                     statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                    originalTableWriterNode.getIsTemporaryTableWriter()),
+                                    originalTableWriterNode.getTaskCountIfScaledWriter()),
                             fixedParallelism(),
                             fixedParallelism());
                 }
@@ -651,8 +650,7 @@ public class AddLocalExchanges
                                     originalTableWriterNode.getNotNullColumnVariables(),
                                     originalTableWriterNode.getTablePartitioningScheme(),
                                     statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                    originalTableWriterNode.getIsTemporaryTableWriter()),
+                                    originalTableWriterNode.getTaskCountIfScaledWriter()),
                             exchange.getProperties());
                 }
             }
@@ -680,8 +678,7 @@ public class AddLocalExchanges
                                 originalTableWriterNode.getNotNullColumnVariables(),
                                 originalTableWriterNode.getTablePartitioningScheme(),
                                 statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                originalTableWriterNode.getIsTemporaryTableWriter()),
+                                originalTableWriterNode.getTaskCountIfScaledWriter()),
                         exchange.getProperties());
             }
 

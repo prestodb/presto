@@ -239,7 +239,7 @@ public class LogicalPlanner
                 .putAll(tableScanOutputs.stream().collect(toImmutableMap(identity(), identity())))
                 .putAll(tableStatisticAggregation.getAdditionalVariables())
                 .build();
-        TableScanNode scanNode = new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all());
+        TableScanNode scanNode = new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all(), Optional.empty());
         PlanNode project = PlannerUtils.addProjections(scanNode, idAllocator, assignments);
         PlanNode planNode = new StatisticsWriterNode(
                 getSourceLocation(analyzeStatement),
@@ -434,14 +434,14 @@ public class LogicalPlanner
                             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
                             // the data consumed by the TableWriteOperator
                             Optional.of(aggregations.getPartialAggregation()),
-                            Optional.empty(),
-                            Optional.of(Boolean.FALSE)),
+                            Optional.empty()),
                     Optional.of(target),
                     variableAllocator.newVariable("rows", BIGINT),
                     // final aggregation is run within the TableFinishOperator to summarize collected statistics
                     // by the partial aggregation from all of the writer nodes
                     Optional.of(aggregations.getFinalAggregation()),
-                    Optional.of(result.getDescriptor()));
+                    Optional.of(result.getDescriptor()),
+                    Optional.empty());
 
             return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
         }
@@ -462,10 +462,10 @@ public class LogicalPlanner
                         notNullColumnVariables,
                         tablePartitioningScheme,
                         Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(Boolean.FALSE)),
+                        Optional.empty()),
                 Optional.of(target),
                 variableAllocator.newVariable("rows", BIGINT),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
         return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
@@ -485,6 +485,7 @@ public class LogicalPlanner
                 deleteNode,
                 Optional.of(deleteHandle),
                 variableAllocator.newVariable("rows", BIGINT),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
@@ -526,6 +527,7 @@ public class LogicalPlanner
                 updateNode,
                 Optional.of(updateTarget),
                 variableAllocator.newVariable("rows", BIGINT),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 

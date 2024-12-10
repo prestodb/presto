@@ -247,6 +247,7 @@ public class TestFeaturesConfig
                 .setIncludeValuesNodeInConnectorOptimizer(true)
                 .setEagerPlanValidationEnabled(false)
                 .setEagerPlanValidationThreadPoolSize(20)
+                .setEnhancedCTESchedulingEnabled(true)
                 .setPrestoSparkExecutionEnvironment(false));
     }
 
@@ -444,6 +445,7 @@ public class TestFeaturesConfig
                 .put("eager-plan-validation-enabled", "true")
                 .put("eager-plan-validation-thread-pool-size", "2")
                 .put("presto-spark-execution-environment", "true")
+                .put("enhanced-cte-scheduling-enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -637,6 +639,7 @@ public class TestFeaturesConfig
                 .setIncludeValuesNodeInConnectorOptimizer(false)
                 .setEagerPlanValidationEnabled(true)
                 .setEagerPlanValidationThreadPoolSize(2)
+                .setEnhancedCTESchedulingEnabled(false)
                 .setPrestoSparkExecutionEnvironment(true);
         assertFullMapping(properties, expected);
     }
