@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spi.type.TypeManagerFactory;
 
 import static java.util.Collections.emptyList;
 
@@ -37,6 +38,11 @@ public interface CoordinatorPlugin
     }
 
     default Iterable<PlanCheckerProviderFactory> getPlanCheckerProviderFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<TypeManagerFactory> getTypeManagerFactories()
     {
         return emptyList();
     }

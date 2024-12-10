@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sidecar;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
+import com.facebook.presto.sidecar.typemanager.NativeTypeManagerFactory;
 import com.facebook.presto.testing.QueryRunner;
 
 public class NativeSidecarPluginQueryRunnerUtils
@@ -23,5 +24,6 @@ public class NativeSidecarPluginQueryRunnerUtils
     {
         queryRunner.installCoordinatorPlugin(new NativeSidecarPlugin());
         queryRunner.loadSessionPropertyProvider(NativeSystemSessionPropertyProviderFactory.NAME);
+        queryRunner.loadTypeManager(NativeTypeManagerFactory.NAME);
     }
 }

@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -54,8 +55,15 @@ public class TestingTypeManager
         throw new UnsupportedOperationException();
     }
 
-    private List<Type> getTypes()
+    @Override
+    public List<Type> getTypes()
     {
         return ImmutableList.of(BOOLEAN, INTEGER, BIGINT, DOUBLE, VARCHAR, VARBINARY, TIMESTAMP, DATE, ID, HYPER_LOG_LOG);
+    }
+
+    @Override
+    public Map<String, ParametricType> getParametricTypes()
+    {
+        throw new UnsupportedOperationException();
     }
 }
