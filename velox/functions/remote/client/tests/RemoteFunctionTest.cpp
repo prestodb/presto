@@ -31,12 +31,40 @@
 #include "velox/functions/remote/client/Remote.h"
 #include "velox/functions/remote/if/gen-cpp2/RemoteFunctionService.h"
 #include "velox/functions/remote/server/RemoteFunctionService.h"
+#include "velox/serializers/PrestoSerializer.h"
 
 using ::apache::thrift::ThriftServer;
 using ::facebook::velox::test::assertEqualVectors;
 
 namespace facebook::velox::functions {
 namespace {
+
+struct Foo {
+  explicit Foo(int64_t id) : id_(id) {}
+
+  int64_t id() const {
+    return id_;
+  }
+
+  int64_t id_;
+
+  static std::string serialize(const std::shared_ptr<Foo>& foo) {
+    return std::to_string(foo->id_);
+  }
+
+  static std::shared_ptr<Foo> deserialize(const std::string& serialized) {
+    return std::make_shared<Foo>(std::stoi(serialized));
+  }
+};
+
+template <typename T>
+struct OpaqueTypeFunction {
+  template <typename TInput, typename TOutput>
+  FOLLY_ALWAYS_INLINE void call(TOutput& result, const TInput& a) {
+    LOG(INFO) << "OpaqueTypeFunction.value: " << a->id();
+    result = a->id();
+  }
+};
 
 // Parametrize in the serialization format so we can test both presto page and
 // unsafe row.
@@ -47,6 +75,10 @@ class RemoteFunctionTest
   void SetUp() override {
     initializeServer();
     registerRemoteFunctions();
+  }
+
+  void TearDown() override {
+    OpaqueType::clearSerializationRegistry();
   }
 
   // Registers a few remote functions to be used in this test.
@@ -88,6 +120,12 @@ class RemoteFunctionTest
                                  .build()};
     registerRemoteFunction("remote_substr", substrSignatures, metadata);
 
+    auto opaqueSignatures = {exec::FunctionSignatureBuilder()
+                                 .returnType("bigint")
+                                 .argumentType("opaque")
+                                 .build()};
+    registerRemoteFunction("remote_opaque", opaqueSignatures, metadata);
+
     // Registers the actual function under a different prefix. This is only
     // needed for tests since the thrift service runs in the same process.
     registerFunction<PlusFunction, int64_t, int64_t, int64_t>(
@@ -98,6 +136,12 @@ class RemoteFunctionTest
         {remotePrefix_ + ".remote_divide"});
     registerFunction<SubstrFunction, Varchar, Varchar, int32_t>(
         {remotePrefix_ + ".remote_substr"});
+    registerFunction<OpaqueTypeFunction, int64_t, std::shared_ptr<Foo>>(
+        {remotePrefix_ + ".remote_opaque"});
+
+    registerOpaqueType<Foo>("Foo");
+    OpaqueType::registerSerialization<Foo>(
+        "Foo", Foo::serialize, Foo::deserialize);
   }
 
   void initializeServer() {
@@ -216,6 +260,27 @@ TEST_P(RemoteFunctionTest, tryErrorCode) {
   exprSet.eval(defaultRows, context, results);
 
   ASSERT_EQ(results[0]->size(), 2);
+}
+
+TEST_P(RemoteFunctionTest, opaque) {
+  // TODO: Support opaque type serialization in SPARK_UNSAFE_ROW
+  if (GetParam() == remote::PageFormat::SPARK_UNSAFE_ROW) {
+    GTEST_SKIP()
+        << "opaque type serialization not supported in SPARK_UNSAFE_ROW";
+  }
+  auto inputVector = makeFlatVector<std::shared_ptr<void>>(
+      2,
+      [](vector_size_t row) { return std::make_shared<Foo>(row + 10); },
+      /*isNullAt=*/nullptr,
+      velox::OPAQUE<Foo>());
+  auto data = makeRowVector({inputVector});
+  LOG(INFO) << "type of data = " << data->type()->toString();
+
+  auto results = evaluate<SimpleVector<int64_t>>(
+      "remote_opaque(c0)", makeRowVector({inputVector}));
+
+  auto expected = makeFlatVector<int64_t>({10, 11});
+  assertEqualVectors(expected, results);
 }
 
 TEST_P(RemoteFunctionTest, connectionError) {
