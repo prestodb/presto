@@ -1267,7 +1267,7 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
   return std::make_unique<connector::hive::HiveInsertTableHandle>(
       inputColumns,
       toLocationHandle(hiveInsertTableHandle->locationHandle),
-      toFileFormat(hiveInsertTableHandle->tableStorageFormat, "TableWrite"),
+      toFileFormat(hiveInsertTableHandle->actualStorageFormat, "TableWrite"),
       toHiveBucketProperty(
           inputColumns, hiveInsertTableHandle->bucketProperty, typeParser),
       std::optional(
