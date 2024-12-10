@@ -27,6 +27,7 @@ import java.util.List;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CUSTOM;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.JWT;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
@@ -39,6 +40,7 @@ public class ServerSecurityModule
     protected void setup(Binder binder)
     {
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
+        binder.bind(PrestoAuthenticatorManager.class).in(Scopes.SINGLETON);
 
         List<AuthenticationType> authTypes = buildConfigObject(SecurityConfig.class).getAuthenticationTypes();
         Multibinder<Authenticator> authBinder = newSetBinder(binder, Authenticator.class);
@@ -57,6 +59,9 @@ public class ServerSecurityModule
             else if (authType == JWT) {
                 configBinder(binder).bindConfig(JsonWebTokenConfig.class);
                 authBinder.addBinding().to(JsonWebTokenAuthenticator.class).in(Scopes.SINGLETON);
+            }
+            else if (authType == CUSTOM) {
+                authBinder.addBinding().to(PrestoAuthenticator.class).in(Scopes.SINGLETON);
             }
             else {
                 throw new AssertionError("Unhandled auth type: " + authType);
