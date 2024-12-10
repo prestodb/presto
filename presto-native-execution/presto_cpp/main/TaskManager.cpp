@@ -523,7 +523,9 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
           planFragment,
           prestoTask->id.id(),
           std::move(queryCtx),
-          exec::Task::ExecutionMode::kParallel);
+          exec::Task::ExecutionMode::kParallel,
+          static_cast<exec::Consumer>(nullptr),
+          prestoTask->id.stageId());
       // TODO: move spill directory creation inside velox task execution
       // whenever spilling is triggered. It will reduce the unnecessary file
       // operations on remote storage.
