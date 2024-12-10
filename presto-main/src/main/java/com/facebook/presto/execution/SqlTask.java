@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -34,6 +35,7 @@ import com.facebook.presto.operator.PipelineStatus;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskExchangeClientManager;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.server.TaskResourceUtils;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
@@ -49,6 +51,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
+import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -66,6 +69,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTask
@@ -179,7 +183,7 @@ public class SqlTask
                         return;
                     }
 
-                    if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                    if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder, null), taskHolder.getIoStats()))) {
                         break;
                     }
                 }
@@ -239,10 +243,26 @@ public class SqlTask
         return taskStateMachine.getCreatedTime();
     }
 
+    public TaskInfo getTaskInfo(Session session)
+    {
+        long startWallTimeGetTaskInfo = System.nanoTime();
+        long startCpuTimeGetTaskInfo = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
+
+        TaskInfo taskinfo;
+        try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
+            taskinfo = createTaskInfo(taskHolderReference.get(), session);
+        }
+
+        session.getRuntimeStats().addMetricValue("getTaskInfoOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTimeGetTaskInfo));
+        session.getRuntimeStats().addMetricValue("getTaskInfoOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - startWallTimeGetTaskInfo));
+
+        return taskinfo;
+    }
+
     public TaskInfo getTaskInfo()
     {
         try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
-            return createTaskInfo(taskHolderReference.get());
+            return createTaskInfo(taskHolderReference.get(), null);
         }
     }
 
@@ -381,14 +401,17 @@ public class SqlTask
         return ImmutableSet.of();
     }
 
-    private TaskInfo createTaskInfo(TaskHolder taskHolder)
+    private TaskInfo createTaskInfo(TaskHolder taskHolder, Session session)
     {
+        long startWallTimeCreateTaskInfo = System.nanoTime();
+        long startCpuTimeCreateTaskInfo = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
+
         TaskStats taskStats = getTaskStats(taskHolder);
         Set<PlanNodeId> noMoreSplits = getNoMoreSplits(taskHolder);
         MetadataUpdates metadataRequests = getMetadataUpdateRequests(taskHolder);
 
         TaskStatus taskStatus = createTaskStatus(taskHolder);
-        return new TaskInfo(
+        TaskInfo taskInfo = new TaskInfo(
                 taskStateMachine.getTaskId(),
                 taskStatus,
                 lastHeartbeat.get(),
@@ -398,6 +421,11 @@ public class SqlTask
                 needsPlan.get(),
                 metadataRequests,
                 nodeId);
+        if (session != null) {
+            session.getRuntimeStats().addMetricValue("createTaskInfoOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTimeCreateTaskInfo));
+            session.getRuntimeStats().addMetricValue("createTaskInfoOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - startWallTimeCreateTaskInfo));
+        }
+        return taskInfo;
     }
 
     public ListenableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
@@ -439,8 +467,11 @@ public class SqlTask
             // The LazyOutput buffer does not support write methods, so the actual
             // output buffer must be established before drivers are created (e.g.
             // a VALUES query).
+
             outputBuffer.setOutputBuffers(outputBuffers);
 
+            long startWallTimeTaskExecutionCreation = System.nanoTime();
+            long startCpuTimeTaskExecutionCreation = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
             // assure the task execution is only created once
             SqlTaskExecution taskExecution;
             synchronized (this) {
@@ -466,10 +497,16 @@ public class SqlTask
                     needsPlan.set(false);
                 }
             }
+            TaskResourceUtils.recordTaskExecutionCreationTimeNanos(session.getRuntimeStats(), ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTimeTaskExecutionCreation, System.nanoTime() - startWallTimeTaskExecutionCreation);
+
+            long startWallTimeAddSources = System.nanoTime();
+            long startCpuTimeAddSources = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
 
             if (taskExecution != null) {
                 taskExecution.addSources(sources);
             }
+            session.getRuntimeStats().addMetricValue("addSourcesOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - startCpuTimeAddSources));
+            session.getRuntimeStats().addMetricValue("addSourcesOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - startWallTimeAddSources));
         }
         catch (Error e) {
             failed(e);
@@ -479,7 +516,7 @@ public class SqlTask
             failed(e);
         }
 
-        return getTaskInfo();
+        return getTaskInfo(session);
     }
 
     public TaskMetadataContext getTaskMetadataContext()
