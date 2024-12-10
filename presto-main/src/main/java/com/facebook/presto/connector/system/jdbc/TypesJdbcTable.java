@@ -87,7 +87,7 @@ public class TypesJdbcTable
         for (Type type : functionAndTypeManager.getTypes()) {
             addTypeRow(table, type);
         }
-        addParametricTypeRows(table, functionAndTypeManager.getParametricTypes());
+        addParametricTypeRows(table, functionAndTypeManager.getParametricTypes().values());
         return table.build().cursor();
     }
 
