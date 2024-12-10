@@ -16,7 +16,6 @@ package com.facebook.presto.cache.alluxio;
 import alluxio.client.file.cache.CacheManager;
 import alluxio.metrics.MetricKey;
 import alluxio.metrics.MetricsSystem;
-import alluxio.shaded.client.org.apache.commons.lang3.NotImplementedException;
 import alluxio.util.io.FileUtils;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.hive.CacheQuota;
@@ -665,7 +664,7 @@ public class TestAlluxioCachingFileSystem
         @Override
         public short getDefaultReplication()
         {
-            throw new NotImplementedException("getDefaultReplication not implemented");
+            throw new UnsupportedOperationException("getDefaultReplication not implemented");
         }
 
         @Override
@@ -677,7 +676,7 @@ public class TestAlluxioCachingFileSystem
         @Override
         public long getDefaultBlockSize()
         {
-            throw new NotImplementedException("getDefaultBlockSize not implemented");
+            throw new UnsupportedOperationException("getDefaultBlockSize not implemented");
         }
 
         @Override
