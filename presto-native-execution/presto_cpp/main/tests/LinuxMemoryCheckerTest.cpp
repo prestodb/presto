@@ -21,7 +21,7 @@
 namespace fs = boost::filesystem;
 
 namespace {
-std::string getStatsFilePath(const std::string& fileName) {
+std::string getFilePath(const std::string& fileName) {
   return fs::current_path().string() + "/examples/" + fileName;
 }
 } // namespace
@@ -33,10 +33,20 @@ class LinuxMemoryCheckerTest : public testing::Test {
 
   LinuxMemoryCheckerTest() : memChecker(PeriodicMemoryChecker::Config{}) {}
 
+  void checkMemoryMax(
+      const std::string& memMaxFileName,
+      int64_t expectedMemoryMax) {
+    auto memInfoFilePath = getFilePath("meminfo");
+    memChecker.setMemInfo(memInfoFilePath);
+    auto memMaxFilePath = getFilePath(memMaxFileName);
+    memChecker.setMemMaxFile(memMaxFilePath);
+    ASSERT_EQ(memChecker.getActualTotalMemory(), expectedMemoryMax);
+  }
+
   void checkMemoryUsage(
       const std::string& statFileName,
       int64_t expectedMemoryUsage) {
-    auto statFilePath = getStatsFilePath(statFileName);
+    auto statFilePath = getFilePath(statFileName);
     memChecker.setStatFile(statFilePath);
     ASSERT_EQ(memChecker.getUsedMemory(), expectedMemoryUsage);
   }
@@ -66,6 +76,46 @@ TEST_F(LinuxMemoryCheckerTest, basic) {
   ASSERT_NO_THROW(memChecker.start());
   VELOX_ASSERT_THROW(memChecker.start(), "start() called more than once");
   ASSERT_NO_THROW(memChecker.stop());
+}
+
+TEST_F(LinuxMemoryCheckerTest, memory131gbMax) {
+  // Testing for cgroup v1 and v2.
+  // memory131gb.max is 131,000,000,000 bytes.
+  // meminfo is 132,397,334,528 bytes.
+  // The expected actual memory should be 131,000,000,000 bytes here.
+  checkMemoryMax("memory131gb.max", 131000000000);
+}
+
+TEST_F(LinuxMemoryCheckerTest, memory133gbMax) {
+  // Testing for cgroup v1 and v2.
+  // memory133gb.max is 133,000,000,000 bytes.
+  // meminfo is 132,397,334,528 bytes.
+  // The expected actual memory should be 132,397,334,528 bytes here.
+  checkMemoryMax("memory133gb.max", 132397334528);
+}
+
+TEST_F(LinuxMemoryCheckerTest, cgroupV1MemoryMaxNotSet) {
+  // Testing for cgroup v1.
+  // When memory.limit_in_bytes is not set to a value, it could default to
+  // a huge value like 9223372036854771712 bytes.
+  // The default value is set to PAGE_COUNTER_MAX, which is LONG_MAX/PAGE_SIZE
+  // on 64-bit platform. The default value can vary based upon the platform's
+  // PAGE_SIZE.
+
+  // cgroupV1memoryNotSet.limit_in_bytes is 9,223,372,036,854,771,712 bytes.
+  // meminfo is 132,397,334,528 bytes.
+  // The expected actual memory should be 132,397,334,528 bytes here.
+  checkMemoryMax("cgroupV1memoryNotSet.limit_in_bytes", 132397334528);
+}
+
+TEST_F(LinuxMemoryCheckerTest, cgroupV2MemoryMaxNotSet) {
+  // Testing for cgroup v2.
+  // When memory.max is not set to a value, it defaults to contain string "max".
+
+  // cgroupV2memoryNotSet.max is "max".
+  // meminfo is 132,397,334,528 bytes.
+  // The expected actual memory should be 132,397,334,528 bytes here.
+  checkMemoryMax("cgroupV2memoryNotSet.max", 132397334528);
 }
 
 TEST_F(LinuxMemoryCheckerTest, memoryStatFileV1) {
