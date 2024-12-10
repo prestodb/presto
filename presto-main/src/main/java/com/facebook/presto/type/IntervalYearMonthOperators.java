@@ -17,6 +17,7 @@ import com.facebook.presto.client.IntervalYearMonth;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.AbstractIntType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
@@ -42,6 +43,7 @@ import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Math.toIntExact;
@@ -56,49 +58,81 @@ public final class IntervalYearMonthOperators
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long add(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return left + right;
+        try {
+            return Math.addExact((int) left, (int) right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Overflow adding interval year-month values: " + left + " + " + right);
+        }
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long subtract(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return left - right;
+        try {
+            return Math.subtractExact((int) left, (int) right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Overflow subtracting interval year-month values: " + left + " - " + right);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long multiplyByBigint(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.BIGINT) long right)
+    public static long multiplyByInteger(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.INTEGER) long right)
     {
-        return left * right;
+        try {
+            return Math.multiplyExact((int) left, (int) right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Overflow multiplying interval year-month value by integer: " + left + " * " + right);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
-        return (long) (left * right);
+        long result = (long) (left * right);
+        if (result < Integer.MIN_VALUE || result > Integer.MAX_VALUE) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Overflow multiplying interval year-month value by double: " + left + " * " + right);
+        }
+        return result;
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
-    public static long bigintMultiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long integerMultiply(@SqlType(StandardTypes.INTEGER) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return left * right;
+        try {
+            return Math.multiplyExact((int) left, (int) right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Overflow multiplying integer by interval year-month value: " + left + " * " + right);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return (long) (left * right);
+        long result = (long) (left * right);
+        if (result < Integer.MIN_VALUE || result > Integer.MAX_VALUE) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Overflow multiplying double by interval year-month value: " + left + " * " + right);
+        }
+        return result;
     }
 
     @ScalarOperator(DIVIDE)
     @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH)
     public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
-        return (long) (left / right);
+        long result = (long) (left / right);
+        if (result < Integer.MIN_VALUE || result > Integer.MAX_VALUE) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Overflow dividing interval year-month value by double: " + left + " / " + right);
+        }
+        return result;
     }
 
     @ScalarOperator(NEGATION)
