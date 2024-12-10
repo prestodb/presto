@@ -65,25 +65,25 @@ public class BigQuerySplit
         return new BigQuerySplit("", "", ImmutableList.of(), numberOfRows);
     }
 
-    @JsonProperty
+    @JsonProperty(value = "streamName")
     public String getStreamName()
     {
         return streamName;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "avroSchema")
     public String getAvroSchema()
     {
         return avroSchema;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "columns")
     public List<ColumnHandle> getColumns()
     {
         return columns;
     }
 
-    @JsonProperty
+    @JsonProperty(value = "emptyRowsToGenerate")
     public long getEmptyRowsToGenerate()
     {
         return emptyRowsToGenerate;

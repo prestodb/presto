@@ -39,13 +39,13 @@ public class JmxColumnHandle
         this.columnType = requireNonNull(columnType, "columnType is null");
     }
 
-    @JsonProperty
+    @JsonProperty (value = "columnName")
     public String getColumnName()
     {
         return columnName;
     }
 
-    @JsonProperty
+    @JsonProperty (value = "columnType")
     public Type getColumnType()
     {
         return columnType;

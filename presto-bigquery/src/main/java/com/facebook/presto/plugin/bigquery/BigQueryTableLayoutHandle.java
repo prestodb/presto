@@ -41,13 +41,13 @@ public class BigQueryTableLayoutHandle
         this(table, TupleDomain.none());
     }
 
-    @JsonProperty
+    @JsonProperty (value = "table")
     public BigQueryTableHandle getTable()
     {
         return table;
     }
 
-    @JsonProperty
+    @JsonProperty (value = "tupleDomain")
     public TupleDomain<ColumnHandle> getTupleDomain()
     {
         return tupleDomain;

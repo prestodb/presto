@@ -33,7 +33,7 @@ public class LarkSheetsTableLayoutHandle
         this.table = requireNonNull(table, "table is null");
     }
 
-    @JsonProperty
+    @JsonProperty(value = "table")
     public LarkSheetsTableHandle getTable()
     {
         return table;
