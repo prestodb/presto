@@ -906,7 +906,7 @@ public final class JsonUtil
 
         if (result.precision() > precision) {
             // TODO: Should we use NUMERIC_VALUE_OUT_OF_RANGE instead?
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast json to DECIMAL(%s,%s).", precision, scale));
         }
         return result;
     }
