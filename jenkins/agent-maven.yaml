@@ -10,7 +10,7 @@ spec:
     serviceAccountName: oss-agent
     containers:
     - name: maven
-      image: maven:3.8.6-openjdk-8-slim
+      image: maven:3.8.6-openjdk-11-slim
       env:
       - name: MAVEN_OPTS
         value: "-Xmx8000m -Xms8000m"
