@@ -307,7 +307,7 @@ Minimum number of rows to use prefix-sort.
 The default value has been derived using micro-benchmarking.
 
 ``native_op_trace_directory_create_config``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``varchar``
 * **Default value:** ``""``
@@ -315,3 +315,65 @@ The default value has been derived using micro-benchmarking.
 Native Execution only. Config used to create operator trace directory. This config is provided
 to underlying file system and the config is free form. The form should be defined by the
 underlying file system.
+
+``native_query_trace_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable query tracing. After enabled, trace data will be generated with query execution, and
+can be used by TraceReplayer. It needs to be used together with native_query_trace_node_ids,
+native_query_trace_max_bytes, native_query_trace_fragment_id, and native_query_trace_shard_id
+to match the task to be traced.
+
+
+``native_query_trace_dir``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+The location to store the trace files.
+
+``native_query_trace_node_ids``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+A comma-separated list of plan node ids whose input data will be traced.
+Empty string if only want to trace the query metadata.
+
+``native_query_trace_max_bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+The max trace bytes limit. Tracing is disabled if zero.
+
+``native_query_trace_fragment_id``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``.*``
+
+The fragment id to be traced. If not specified, all fragments will be matched.
+
+``native_query_trace_shard_id``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``.*``
+
+The shard id to be traced. If not specified, all shards will be matched.
+
+``native_query_trace_task_reg_exp``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``varchar``
+* **Default value:** ``""``
+
+The regular expression to match a task for tracing. It will be deprecated if there is
+no issue with native_query_trace_fragment_id and native_query_trace_shard_id.
