@@ -23,6 +23,10 @@
             <artifactId>presto-pinot-driver</artifactId>
             <exclusions>
                 <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-core</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>commons-io</groupId>
                     <artifactId>commons-io</artifactId>
                 </exclusion>
