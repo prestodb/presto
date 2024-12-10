@@ -110,6 +110,7 @@ import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
@@ -1503,6 +1504,13 @@ public class TestSqlParser
         assertStatement("TRUNCATE TABLE a", new TruncateTable(QualifiedName.of("a")));
         assertStatement("TRUNCATE TABLE a.b", new TruncateTable(QualifiedName.of("a", "b")));
         assertStatement("TRUNCATE TABLE a.b.c", new TruncateTable(QualifiedName.of("a", "b", "c")));
+    }
+
+    @Test
+    public void testRenameView()
+    {
+        assertStatement("ALTER VIEW a RENAME TO b", new RenameView(QualifiedName.of("a"), QualifiedName.of("b"), false));
+        assertStatement("ALTER VIEW IF EXISTS a RENAME TO b", new RenameView(QualifiedName.of("a"), QualifiedName.of("b"), true));
     }
 
     @Test
