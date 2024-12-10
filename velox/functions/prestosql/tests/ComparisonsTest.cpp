@@ -20,6 +20,7 @@
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/tests/utils/CustomTypesForTesting.h"
 #include "velox/type/tz/TimeZoneMap.h"
@@ -1163,6 +1164,288 @@ TEST_F(ComparisonsTest, TimestampWithTimezone) {
            true,
            false,
            false}));
+}
+
+TEST_F(ComparisonsTest, IPPrefixType) {
+  auto ipprefix = [](const std::string& ipprefixString) {
+    auto tryIpPrefix = ipaddress::tryParseIpPrefixString(ipprefixString);
+    return variant::row(
+        {tryIpPrefix.value().first, tryIpPrefix.value().second});
+  };
+
+  // Comparison Operator Tests
+  {
+    auto left = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.5/32")},
+         {ipprefix("1.2.0.0/25")},
+         {ipprefix("::1/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/80")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")}});
+    auto right = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.0.0/24")},
+         {ipprefix("::1/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")}});
+    auto expected = makeFlatVector<bool>(
+        {false, false, true, true, true, false, false, true, true});
+    auto result = evaluate("c0 > c1", makeRowVector({left, right}));
+    test::assertEqualVectors(result, expected);
+  }
+
+  {
+    auto left = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.5/32")},
+         {ipprefix("1.2.0.0/25")},
+         {ipprefix("::1/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/80")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")}});
+    auto right = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.0.0/24")},
+         {ipprefix("::1/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")}});
+    auto expected = makeFlatVector<bool>(
+        {false, true, false, false, false, false, true, false, false});
+    auto result = evaluate("c0 < c1", makeRowVector({left, right}));
+    test::assertEqualVectors(result, expected);
+  }
+
+  {
+    auto left = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.5/32")},
+         {ipprefix("1.2.0.0/25")},
+         {ipprefix("::1/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/80")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")}});
+    auto right = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.0.0/24")},
+         {ipprefix("::1/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")}});
+    auto expected = makeFlatVector<bool>(
+        {true, false, true, true, true, true, false, true, true});
+    auto result = evaluate("c0 >= c1", makeRowVector({left, right}));
+    test::assertEqualVectors(result, expected);
+  }
+
+  {
+    auto left = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.5/32")},
+         {ipprefix("1.2.0.0/25")},
+         {ipprefix("::1/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/80")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")}});
+    auto right = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.0.0/24")},
+         {ipprefix("::1/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")}});
+    auto expected = makeFlatVector<bool>(
+        {true, true, false, false, false, true, true, false, false});
+    auto result = evaluate("c0 <= c1", makeRowVector({left, right}));
+    test::assertEqualVectors(result, expected);
+  }
+
+  {
+    auto left = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.0.0/25")},
+         {ipprefix("::1/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/80")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/24")}});
+    auto right = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.0.0/24")},
+         {ipprefix("::1/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")},
+         {ipprefix("1.2.3.5/24")}});
+    auto expected = makeFlatVector<bool>(
+        {true, false, false, false, true, false, false, false, true});
+    auto result = evaluate("c0 = c1", makeRowVector({left, right}));
+    test::assertEqualVectors(result, expected);
+  }
+
+  {
+    auto left = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.5/32")},
+         {ipprefix("1.2.0.0/25")},
+         {ipprefix("::1/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/80")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")}});
+    auto right = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.0.0/24")},
+         {ipprefix("::1/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")}});
+    auto expected = makeFlatVector<bool>(
+        {false, true, true, true, true, false, true, true, true});
+    auto result = evaluate("c0 <> c1", makeRowVector({left, right}));
+    test::assertEqualVectors(result, expected);
+  }
+
+  // Distinct from test
+  {
+    auto left = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.5/32")},
+         {ipprefix("1.2.0.0/25")},
+         {ipprefix("::1/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/80")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")}});
+    auto right = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("1.2.0.0/24")},
+         {ipprefix("::1/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")}});
+    auto expected = makeFlatVector<bool>(
+        {false, true, true, true, true, false, true, true, true});
+    auto result =
+        evaluate("c0 is distinct from c1", makeRowVector({left, right}));
+    test::assertEqualVectors(result, expected);
+  }
+
+  // Inbetween test
+  {
+    auto inbetween = makeArrayOfRowVector(
+        IPPREFIX(),
+        {{ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.4/32")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("1.2.3.5/32")},
+         {ipprefix("1.2.0.0/25")},
+         {ipprefix("::1/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/80")},
+         {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+         {ipprefix("::1/128")},
+         {ipprefix("::2222/128")}
+
+        });
+    auto left = makeArrayOfRowVector(
+        IPPREFIX(),
+        {
+            {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+            {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+            {ipprefix("1.2.3.4/32")},
+            {ipprefix("1.2.3.4/32")},
+            {ipprefix("1.2.0.0/24")},
+            {ipprefix("::1/128")},
+            {ipprefix("1.2.3.4/32")},
+            {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+            {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")},
+            {ipprefix("::1/128")},
+            {ipprefix("::1/128")},
+        });
+    auto right = makeArrayOfRowVector(
+        IPPREFIX(),
+        {
+            {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+            {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8329/128")},
+            {ipprefix("1.2.3.4/32")},
+            {ipprefix("1.2.3.4/32")},
+            {ipprefix("1.2.0.0/24")},
+            {ipprefix("::1/128")},
+            {ipprefix("1.2.3.4/32")},
+            {ipprefix("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/64")},
+            {ipprefix("2001:0db8:0000:0000:0000:ff00:0042:8321/128")},
+            {ipprefix("::1234/128")},
+            {ipprefix("::1234/128")},
+
+        });
+    auto expected = makeFlatVector<bool>(
+        {true,
+         false,
+         false,
+         false,
+         false,
+         true,
+         false,
+         false,
+         false,
+         true,
+         false});
+
+    auto result = evaluate(
+        "c0 between c1 and c2",
+        makeRowVector(
+            {inbetween->elements(), left->elements(), right->elements()}));
+    test::assertEqualVectors(result, expected);
+  }
 }
 
 TEST_F(ComparisonsTest, IpAddressType) {

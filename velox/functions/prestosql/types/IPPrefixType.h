@@ -98,7 +98,7 @@ class IPPrefixType : public RowType {
   IPPrefixType()
       : RowType(
             {ipaddress::kIpRowIndex, ipaddress::kIpPrefixRowIndex},
-            {HUGEINT(), TINYINT()}) {}
+            {IPADDRESS(), TINYINT()}) {}
 
  public:
   static const std::shared_ptr<const IPPrefixType>& get() {

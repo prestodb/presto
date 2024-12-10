@@ -17,6 +17,7 @@
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Comparisons.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Type.h"
 
@@ -40,6 +41,7 @@ void registerComparisonFunctions(const std::string& prefix) {
   // independent of DateTimeFunctions
   registerTimestampWithTimeZoneType();
   registerIPAddressType();
+  registerIPPrefixType();
 
   registerNonSimdizableScalar<EqFunction, bool>({prefix + "eq"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_eq, prefix + "eq");
@@ -122,6 +124,8 @@ void registerComparisonFunctions(const std::string& prefix) {
       TimestampWithTimezone,
       TimestampWithTimezone>({prefix + "between"});
   registerFunction<BetweenFunction, bool, IPAddress, IPAddress, IPAddress>(
+      {prefix + "between"});
+  registerFunction<BetweenFunction, bool, IPPrefix, IPPrefix, IPPrefix>(
       {prefix + "between"});
 }
 
