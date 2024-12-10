@@ -99,14 +99,49 @@ public class TestPrestoNativeWriter
                 .setCatalogSessionProperty("hive", "compression_codec", "NONE")
                 .setCatalogSessionProperty("hive", "hive_storage_format", "PARQUET")
                 .setCatalogSessionProperty("hive", "respect_table_format", "false").build();
-        String tmpTableName = generateRandomTableName();
 
         for (String tableFormat : TABLE_FORMATS) {
+            // TODO add support for presto to query each partition's format then verify written format is correct
+            // Partitioned
+            //  - Insert
+            String tmpTableName = generateRandomTableName();
             try {
                 getQueryRunner().execute(session, String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT, nationkey BIGINT) WITH (format = '%s', partitioned_by = ARRAY['regionkey','nationkey'])", tmpTableName, tableFormat));
                 // With different storage_format for partition than table format
                 getQueryRunner().execute(session, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
-                // TODO add support for presto to query each partition's format then verify written format is correct
+                assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT name, regionkey, nationkey FROM nation");
+            }
+            finally {
+                dropTableIfExists(tmpTableName);
+            }
+
+            //  - Create
+            tmpTableName = generateRandomTableName();
+            try {
+                getQueryRunner().execute(session, String.format("CREATE TABLE %s WITH (format = '" + tableFormat + "', partitioned_by = ARRAY['comment']) AS SELECT * FROM nation", tmpTableName));
+                assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
+            }
+            finally {
+                dropTableIfExists(tmpTableName);
+            }
+
+            // Unpartitioned
+            //  - Insert
+            tmpTableName = generateRandomTableName();
+            try {
+                getQueryRunner().execute(session, String.format("CREATE TABLE %s (name VARCHAR, regionkey BIGINT, nationkey BIGINT) WITH (format = '%s')", tmpTableName, tableFormat));
+                getQueryRunner().execute(session, String.format("INSERT INTO %s SELECT name, regionkey, nationkey FROM nation", tmpTableName));
+                assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT name, regionkey, nationkey FROM nation");
+            }
+            finally {
+                dropTableIfExists(tmpTableName);
+            }
+
+            //  - Create
+            tmpTableName = generateRandomTableName();
+            try {
+                getQueryRunner().execute(session, String.format("CREATE TABLE %s WITH (format = '" + tableFormat + "') AS SELECT * FROM nation", tmpTableName));
+                assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
             }
             finally {
                 dropTableIfExists(tmpTableName);
