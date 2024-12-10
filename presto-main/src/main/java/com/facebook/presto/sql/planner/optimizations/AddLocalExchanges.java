@@ -72,6 +72,7 @@ import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionScaleWritersThreadsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -101,6 +102,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchan
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.systemPartitionedExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -588,120 +590,111 @@ public class AddLocalExchanges
         //
 
         @Override
-        public PlanWithProperties visitTableWriter(TableWriterNode originalTableWriterNode, StreamPreferredProperties parentPreferences)
+        public PlanWithProperties visitTableWriter(TableWriterNode tableWrite, StreamPreferredProperties parentPreferences)
         {
-            if (originalTableWriterNode.getTablePartitioningScheme().isPresent() && getTaskPartitionedWriterCount(session) == 1) {
-                return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
+            if (tableWrite.isSingleWriterPerPartitionRequired()) {
+                if (getTaskPartitionedWriterCount(session) == 1) {
+                    return planAndEnforceChildren(tableWrite, singleStream(), defaultParallelism(session));
+                }
+                PlanWithProperties source = accept(tableWrite.getSource(), defaultParallelism(session));
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                source.getNode(),
+                                tableWrite.getTablePartitioningScheme().get()),
+                        source.getProperties());
+                return planTableWriteWithTableWriteMerge(tableWrite, exchange);
             }
 
-            if (!originalTableWriterNode.getTablePartitioningScheme().isPresent() && getTaskWriterCount(session) == 1) {
-                return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
+            if (getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(tableWrite, singleStream(), defaultParallelism(session));
             }
 
-            Optional<StatisticAggregations.Parts> statisticAggregations = originalTableWriterNode
+            if (nativeExecution && isNativeExecutionScaleWritersThreadsEnabled(session)) {
+                PlanWithProperties source = accept(tableWrite.getSource(), defaultParallelism(session));
+                PartitioningScheme partitioningScheme;
+                if (tableWrite.getTablePartitioningScheme().isPresent()) {
+                    partitioningScheme = tableWrite.getTablePartitioningScheme().get();
+                    verify(partitioningScheme.isScaleWriters());
+                }
+                else {
+                    partitioningScheme = new PartitioningScheme(
+                            Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()),
+                            source.getNode().getOutputVariables(),
+                            true);
+                }
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                source.getNode(),
+                                partitioningScheme),
+                        source.getProperties());
+                return planTableWriteWithTableWriteMerge(tableWrite, exchange);
+            }
+
+            int taskWriterCount = getTaskWriterCount(session);
+            int taskConcurrency = getTaskConcurrency(session);
+            if (taskWriterCount == taskConcurrency) {
+                return planTableWriteWithTableWriteMerge(
+                        tableWrite,
+                        planAndEnforce(tableWrite.getSource(), fixedParallelism(), fixedParallelism()));
+            }
+            else {
+                PlanWithProperties source = accept(tableWrite.getSource(), defaultParallelism(session));
+                PlanWithProperties exchange = deriveProperties(
+                        roundRobinExchange(idAllocator.getNextId(), LOCAL, source.getNode()),
+                        source.getProperties());
+                return planTableWriteWithTableWriteMerge(tableWrite, exchange);
+            }
+        }
+
+        private PlanWithProperties planTableWriteWithTableWriteMerge(TableWriterNode tableWrite, PlanWithProperties source)
+        {
+            Optional<StatisticAggregations.Parts> statisticAggregations = tableWrite
                     .getStatisticsAggregation()
                     .map(aggregations -> splitIntoPartialAndIntermediate(
                             aggregations,
                             variableAllocator,
                             metadata.getFunctionAndTypeManager()));
 
-            PlanWithProperties tableWriter;
+            PlanWithProperties tableWriteWithProperties = deriveProperties(
+                    new TableWriterNode(
+                            tableWrite.getSourceLocation(),
+                            tableWrite.getId(),
+                            tableWrite.getStatsEquivalentPlanNode(),
+                            source.getNode(),
+                            tableWrite.getTarget(),
+                            variableAllocator.newVariable("partialrowcount", BIGINT),
+                            variableAllocator.newVariable("partialfragments", VARBINARY),
+                            variableAllocator.newVariable("partialcontext", VARBINARY),
+                            tableWrite.getColumns(),
+                            tableWrite.getColumnNames(),
+                            tableWrite.getNotNullColumnVariables(),
+                            tableWrite.getTablePartitioningScheme(),
+                            statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
+                            tableWrite.getTaskCountIfScaledWriter(),
+                            tableWrite.getIsTemporaryTableWriter()),
+                    source.getProperties());
 
-            if (!originalTableWriterNode.getTablePartitioningScheme().isPresent()) {
-                int taskWriterCount = getTaskWriterCount(session);
-                int taskConcurrency = getTaskConcurrency(session);
-                if (taskWriterCount == taskConcurrency) {
-                    tableWriter = planAndEnforceChildren(
-                            new TableWriterNode(
-                                    originalTableWriterNode.getSourceLocation(),
-                                    originalTableWriterNode.getId(),
-                                    originalTableWriterNode.getStatsEquivalentPlanNode(),
-                                    originalTableWriterNode.getSource(),
-                                    originalTableWriterNode.getTarget(),
-                                    variableAllocator.newVariable("partialrowcount", BIGINT),
-                                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                                    variableAllocator.newVariable("partialcontext", VARBINARY),
-                                    originalTableWriterNode.getColumns(),
-                                    originalTableWriterNode.getColumnNames(),
-                                    originalTableWriterNode.getNotNullColumnVariables(),
-                                    originalTableWriterNode.getTablePartitioningScheme(),
-                                    statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                    originalTableWriterNode.getIsTemporaryTableWriter()),
-                            fixedParallelism(),
-                            fixedParallelism());
-                }
-                else {
-                    PlanWithProperties source = accept(originalTableWriterNode.getSource(), defaultParallelism(session));
-                    PlanWithProperties exchange = deriveProperties(
-                            roundRobinExchange(idAllocator.getNextId(), LOCAL, source.getNode()),
-                            source.getProperties());
-                    tableWriter = deriveProperties(
-                            new TableWriterNode(
-                                    originalTableWriterNode.getSourceLocation(),
-                                    originalTableWriterNode.getId(),
-                                    originalTableWriterNode.getStatsEquivalentPlanNode(),
-                                    exchange.getNode(),
-                                    originalTableWriterNode.getTarget(),
-                                    variableAllocator.newVariable("partialrowcount", BIGINT),
-                                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                                    variableAllocator.newVariable("partialcontext", VARBINARY),
-                                    originalTableWriterNode.getColumns(),
-                                    originalTableWriterNode.getColumnNames(),
-                                    originalTableWriterNode.getNotNullColumnVariables(),
-                                    originalTableWriterNode.getTablePartitioningScheme(),
-                                    statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                    originalTableWriterNode.getIsTemporaryTableWriter()),
-                            exchange.getProperties());
-                }
-            }
-            else {
-                PlanWithProperties source = accept(originalTableWriterNode.getSource(), defaultParallelism(session));
-                PlanWithProperties exchange = deriveProperties(
-                        partitionedExchange(
-                                idAllocator.getNextId(),
-                                LOCAL,
-                                source.getNode(),
-                                originalTableWriterNode.getTablePartitioningScheme().get()),
-                        source.getProperties());
-                tableWriter = deriveProperties(
-                        new TableWriterNode(
-                                originalTableWriterNode.getSourceLocation(),
-                                originalTableWriterNode.getId(),
-                                originalTableWriterNode.getStatsEquivalentPlanNode(),
-                                exchange.getNode(),
-                                originalTableWriterNode.getTarget(),
-                                variableAllocator.newVariable("partialrowcount", BIGINT),
-                                variableAllocator.newVariable("partialfragments", VARBINARY),
-                                variableAllocator.newVariable("partialcontext", VARBINARY),
-                                originalTableWriterNode.getColumns(),
-                                originalTableWriterNode.getColumnNames(),
-                                originalTableWriterNode.getNotNullColumnVariables(),
-                                originalTableWriterNode.getTablePartitioningScheme(),
-                                statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                originalTableWriterNode.getIsTemporaryTableWriter()),
-                        exchange.getProperties());
-            }
-
-            PlanWithProperties gatheringExchange = deriveProperties(
+            PlanWithProperties gatherExchangeWithProperties = deriveProperties(
                     gatheringExchange(
                             idAllocator.getNextId(),
                             LOCAL,
-                            tableWriter.getNode()),
-                    tableWriter.getProperties());
+                            tableWriteWithProperties.getNode()),
+                    tableWriteWithProperties.getProperties());
 
             return deriveProperties(
                     new TableWriterMergeNode(
-                            originalTableWriterNode.getSourceLocation(),
+                            tableWrite.getSourceLocation(),
                             idAllocator.getNextId(),
-                            gatheringExchange.getNode(),
-                            originalTableWriterNode.getRowCountVariable(),
-                            originalTableWriterNode.getFragmentVariable(),
-                            originalTableWriterNode.getTableCommitContextVariable(),
+                            gatherExchangeWithProperties.getNode(),
+                            tableWrite.getRowCountVariable(),
+                            tableWrite.getFragmentVariable(),
+                            tableWrite.getTableCommitContextVariable(),
                             statisticAggregations.map(StatisticAggregations.Parts::getIntermediateAggregation)),
-                    gatheringExchange.getProperties());
+                    gatherExchangeWithProperties.getProperties());
         }
 
         @Override
