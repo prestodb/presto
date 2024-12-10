@@ -807,9 +807,21 @@ public class ServerMainModule
         // Worker session property providers
         MapBinder<String, WorkerSessionPropertyProvider> mapBinder =
                 newMapBinder(binder, String.class, WorkerSessionPropertyProvider.class);
-        mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
-        if (!serverConfig.isCoordinatorSidecarEnabled()) {
-            mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+        if (featuresConfig.isExcludeInvalidWorkerSessionProperties()) {
+            if (featuresConfig.isNativeExecutionEnabled()) {
+                if (!serverConfig.isCoordinatorSidecarEnabled()) {
+                    mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+                }
+            }
+            else {
+                mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            }
+        }
+        else {
+            if (!serverConfig.isCoordinatorSidecarEnabled()) {
+                mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            }
+            mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
         }
 
         // Node manager binding

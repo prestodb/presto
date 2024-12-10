@@ -70,6 +70,17 @@ When enabled, the logical plan will begin to be built and validated before
 queueing and allocation of cluster resources so that any errors or
 incompatibilities in the query plan will fail quickly and inform the user.
 
+``exclude-invalid-worker-session-properties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When ``exclude-invalid-worker-session-properties`` is ``true``, worker session properties that are
+incompatible with the cluster type are excluded. For example, when ``native-execution-enabled``
+is ``true``, java-worker only session properties are excluded and the native-worker only
+session properties are included.
+
 .. _tuning-memory:
 
 Memory Management Properties

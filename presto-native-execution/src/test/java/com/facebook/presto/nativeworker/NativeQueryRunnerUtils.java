@@ -59,6 +59,7 @@ public class NativeQueryRunnerUtils
     {
         return ImmutableMap.<String, String>builder()
                 .put("coordinator-sidecar-enabled", "true")
+                .put("exclude-invalid-worker-session-properties", "true")
                 .build();
     }
 
