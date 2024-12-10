@@ -241,15 +241,24 @@ uint64_t MemoryReclaimer::reclaim(
     std::shared_ptr<memory::MemoryPool> pool;
     int64_t reclaimableBytes;
   };
+
+  // NOTE: We hold candidate reference for non-reclaimable pools as well. This
+  // is to make sure child shared pointer is stored to keep child alive,
+  // avoiding destruction of child pool within below parents' 'poolMutex_' lock.
+  // Otherwise a double acquisition of 'poolMutex_' can happen in destructor,
+  // which creates deadlock.
+  std::vector<Candidate> nonReclaimableCandidates;
   std::vector<Candidate> candidates;
   {
     std::shared_lock guard{pool->poolMutex_};
     candidates.reserve(pool->children_.size());
+    nonReclaimableCandidates.reserve(pool->children_.size());
     for (auto& entry : pool->children_) {
       auto child = entry.second.lock();
       if (child != nullptr) {
         const auto reclaimableBytesOpt = child->reclaimableBytes();
         if (!reclaimableBytesOpt.has_value()) {
+          nonReclaimableCandidates.push_back(Candidate{std::move(child), 0});
           continue;
         }
         candidates.push_back(Candidate{
