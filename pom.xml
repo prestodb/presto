@@ -49,7 +49,7 @@
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.560</dep.aws-sdk.version>
-        <dep.okhttp.version>3.9.0</dep.okhttp.version>
+        <dep.okhttp.version>4.12.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.38</dep.drift.version>
@@ -2329,6 +2329,7 @@
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                    <exclude>org.jetbrains.kotlin:kotlin-stdlib-jdk8</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
@@ -2340,6 +2341,7 @@
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
                         <ignoredClassPatterns combine.children="append">
+                            <ignoredClassPattern>module-info</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by commons-io & log4j-api -->
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by several netty dependencies-->
