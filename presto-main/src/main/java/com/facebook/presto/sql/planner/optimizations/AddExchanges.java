@@ -727,12 +727,17 @@ public class AddExchanges
             PlanWithProperties source = accept(node.getSource(), preferredProperties);
 
             Optional<PartitioningScheme> shufflePartitioningScheme = node.getTablePartitioningScheme();
-            if (!shufflePartitioningScheme.isPresent()) {
+            if (!node.isSingleWriterPerPartitionRequired()) {
+                // prefer scale writers if single writer per partition is not required
+                // TODO: take into account partitioning scheme in scale writer tasks implementation
                 if (scaleWriters) {
                     shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
                 }
                 else if (redistributeWrites) {
                     shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
+                }
+                else {
+                    return rebaseAndDeriveProperties(node, source);
                 }
             }
 
@@ -1108,6 +1113,7 @@ public class AddExchanges
                                         filteringSource.getNode().getOutputVariables(),
                                         Optional.empty(),
                                         true,
+                                        false,
                                         COLUMNAR,
                                         Optional.empty())),
                                 filteringSource.getProperties());
@@ -1150,6 +1156,7 @@ public class AddExchanges
                                     filteringSource.getNode().getOutputVariables(),
                                     Optional.empty(),
                                     true,
+                                    false,
                                     COLUMNAR,
                                     Optional.empty())),
                             filteringSource.getProperties());
@@ -1326,6 +1333,7 @@ public class AddExchanges
                                                 source.getNode().getOutputVariables(),
                                                 Optional.empty(),
                                                 nullsAndAnyReplicated,
+                                                false,
                                                 COLUMNAR,
                                                 Optional.empty())),
                                 source.getProperties());

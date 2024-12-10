@@ -269,6 +269,11 @@ public final class TableWriterNode
                 taskCountIfScaledWriter, isTemporaryTableWriter);
     }
 
+    public boolean isSingleWriterPerPartitionRequired()
+    {
+        return tablePartitioningScheme.isPresent() && !tablePartitioningScheme.get().isScaleWriters();
+    }
+
     // only used during planning -- will not be serialized
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
