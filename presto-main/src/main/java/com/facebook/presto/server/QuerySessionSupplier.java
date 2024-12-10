@@ -74,11 +74,11 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    public Session createSession(QueryId queryId, boolean ignoreTransactionState, SessionContext context, WarningCollectorFactory warningCollectorFactory)
     {
         Session session = createSessionBuilder(queryId, context, warningCollectorFactory).build();
         if (context.getTransactionId().isPresent()) {
-            session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
+            session = session.beginTransactionId(context.getTransactionId().get(), ignoreTransactionState, transactionManager, accessControl);
         }
         return session;
     }
