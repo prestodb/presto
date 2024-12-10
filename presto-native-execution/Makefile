@@ -72,9 +72,9 @@ all: release			#: Build the release version
 clean:					#: Delete all build artifacts
 	rm -rf $(BUILD_BASE_DIR)
 
-velox-submodule:		#: Check out code for velox submodule
-	git submodule sync --recursive
-	git submodule update --init --recursive
+# velox-submodule:		#: Check out code for velox submodule
+# 	git submodule sync --recursive
+# 	git submodule update --init --recursive
 
 submodules: velox-submodule
 
