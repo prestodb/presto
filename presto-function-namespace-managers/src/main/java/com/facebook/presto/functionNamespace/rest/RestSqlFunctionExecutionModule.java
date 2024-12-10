@@ -11,11 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.functionNamespace.json;
+package com.facebook.presto.functionNamespace.rest;
 
-import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutionModule;
+import com.facebook.presto.spi.function.SqlFunctionExecutor;
+import com.google.inject.Binder;
+import com.google.inject.Scopes;
 
-public interface FunctionDefinitionProvider
+public class RestSqlFunctionExecutionModule
+        extends SqlFunctionExecutionModule
 {
-    UdfFunctionSignatureMap getUdfDefinition(String filePath);
+    @Override
+    protected void setup(Binder binder)
+    {
+        binder.bind(SqlFunctionExecutor.class).to(RestSqlFunctionExecutor.class).in(Scopes.SINGLETON);
+    }
 }
