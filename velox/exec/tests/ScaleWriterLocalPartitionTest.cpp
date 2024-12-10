@@ -867,12 +867,22 @@ TEST_F(ScaleWriterLocalPartitionTest, partitionBasic) {
             .copyResults(pool_.get(), task);
     auto planStats = toPlanStats(task->taskStats());
     if (testData.expectedRebalance) {
+      ASSERT_EQ(
+          planStats.at(exchnangeNodeId)
+              .customStats.count(
+                  ScaleWriterPartitioningLocalPartition::kScaledPartitions),
+          1);
       ASSERT_GT(
           planStats.at(exchnangeNodeId)
               .customStats
               .at(ScaleWriterPartitioningLocalPartition::kScaledPartitions)
               .sum,
           0);
+      ASSERT_EQ(
+          planStats.at(exchnangeNodeId)
+              .customStats.count(
+                  ScaleWriterPartitioningLocalPartition::kRebalanceTriggers),
+          1);
       ASSERT_GT(
           planStats.at(exchnangeNodeId)
               .customStats

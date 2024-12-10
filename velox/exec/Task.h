@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/base/SkewedPartitionBalancer.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/Driver.h"
@@ -529,7 +530,7 @@ class Task : public std::enable_shared_from_this<Task> {
 
   void createLocalExchangeQueuesLocked(
       uint32_t splitGroupId,
-      const core::PlanNodeId& planNodeId,
+      const core::PlanNodePtr& planNode,
       int numPartitions);
 
   void noMoreLocalExchangeProducers(uint32_t splitGroupId);
@@ -546,6 +547,13 @@ class Task : public std::enable_shared_from_this<Task> {
 
   const std::shared_ptr<LocalExchangeMemoryManager>&
   getLocalExchangeMemoryManager(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
+
+  /// Returns the shared skewed partition balancer for scale writer local
+  /// partitioning with the given split group id and plan node id.
+  const std::shared_ptr<common::SkewedPartitionRebalancer>&
+  getScaleWriterPartitionBalancer(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 

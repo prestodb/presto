@@ -19,11 +19,19 @@
 #include <gtest/gtest.h>
 
 #include "folly/Random.h"
+#include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
+
+using namespace facebook::velox::common::testutil;
 
 namespace facebook::velox::common::test {
 class SkewedPartitionRebalancerTestHelper {
  public:
+  static void SetUpTestCase() {
+    TestValue::enable();
+  }
+
   explicit SkewedPartitionRebalancerTestHelper(
       SkewedPartitionRebalancer* balancer)
       : balancer_(balancer) {
@@ -33,9 +41,8 @@ class SkewedPartitionRebalancerTestHelper {
   void verifyPartitionAssignment(
       uint32_t partition,
       const std::set<uint32_t>& expectedAssignedTasks) const {
-    const std::set<uint32_t> assignedTasks(
-        balancer_->partitionAssignments_[partition].begin(),
-        balancer_->partitionAssignments_[partition].end());
+    const auto taskIds = balancer_->partitionAssignments_[partition].taskIds();
+    const std::set<uint32_t> assignedTasks(taskIds.begin(), taskIds.end());
     ASSERT_EQ(assignedTasks, expectedAssignedTasks)
         << "\nExpected: " << folly::join(",", expectedAssignedTasks)
         << "\nActual: " << folly::join(",", assignedTasks);
@@ -46,12 +53,12 @@ class SkewedPartitionRebalancerTestHelper {
     ASSERT_EQ(balancer_->partitionRowCount_[partition], expectedRowCount);
   }
 
-  uint32_t taskCount() const {
-    return balancer_->taskCount_;
+  uint32_t numTasks() const {
+    return balancer_->numTasks_;
   }
 
-  uint32_t partitionCount() const {
-    return balancer_->partitionCount_;
+  uint32_t numPartitions() const {
+    return balancer_->numPartitions_;
   }
 
   uint64_t processedBytes() const {
@@ -59,7 +66,8 @@ class SkewedPartitionRebalancerTestHelper {
   }
 
   bool shouldRebalance() const {
-    return balancer_->shouldRebalance();
+    const int64_t processedBytes = balancer_->processedBytes_;
+    return balancer_->shouldRebalance(processedBytes);
   }
 
  private:
@@ -69,13 +77,13 @@ class SkewedPartitionRebalancerTestHelper {
 class SkewedPartitionRebalancerTest : public testing::Test {
  protected:
   std::unique_ptr<SkewedPartitionRebalancer> createBalancer(
-      uint32_t partitionCount = 128,
-      uint32_t taskCount = 8,
+      uint32_t numPartitions = 128,
+      uint32_t numTasks = 8,
       uint64_t minPartitionDataProcessedBytesRebalanceThreshold = 128,
       uint64_t minProcessedBytesRebalanceThreshold = 256) {
     return std::make_unique<SkewedPartitionRebalancer>(
-        partitionCount,
-        taskCount,
+        numPartitions,
+        numTasks,
         minPartitionDataProcessedBytesRebalanceThreshold,
         minProcessedBytesRebalanceThreshold);
   }
@@ -84,10 +92,12 @@ class SkewedPartitionRebalancerTest : public testing::Test {
 TEST_F(SkewedPartitionRebalancerTest, basic) {
   auto balancer = createBalancer(32, 4, 128, 256);
   SkewedPartitionRebalancerTestHelper helper(balancer.get());
-  for (int i = 0; i < helper.partitionCount(); ++i) {
-    helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+  for (int i = 0; i < helper.numPartitions(); ++i) {
+    helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
   }
   ASSERT_EQ(balancer->stats(), SkewedPartitionRebalancer::Stats{});
+  ASSERT_EQ(balancer->numPartitions(), 32);
+  ASSERT_EQ(balancer->numTasks(), 4);
   ASSERT_EQ(
       balancer->stats().toString(),
       "numBalanceTriggers 0, numScaledPartitions 0");
@@ -103,8 +113,8 @@ TEST_F(SkewedPartitionRebalancerTest, basic) {
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 1);
   ASSERT_EQ(balancer->stats().numScaledPartitions, 0);
 
-  for (int i = 0; i < helper.partitionCount(); ++i) {
-    helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+  for (int i = 0; i < helper.numPartitions(); ++i) {
+    helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
   }
 
   ASSERT_EQ(helper.processedBytes(), 256);
@@ -115,11 +125,11 @@ TEST_F(SkewedPartitionRebalancerTest, basic) {
   balancer->rebalance();
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 2);
   ASSERT_EQ(balancer->stats().numScaledPartitions, 1);
-  for (int i = 0; i < helper.partitionCount(); ++i) {
+  for (int i = 0; i < helper.numPartitions(); ++i) {
     if (i == 0) {
       helper.verifyPartitionAssignment(0, {0, 1});
     } else {
-      helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+      helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
     }
   }
 
@@ -133,11 +143,11 @@ TEST_F(SkewedPartitionRebalancerTest, basic) {
   balancer->rebalance();
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 3);
   ASSERT_EQ(balancer->stats().numScaledPartitions, 2);
-  for (int i = 0; i < helper.partitionCount(); ++i) {
+  for (int i = 0; i < helper.numPartitions(); ++i) {
     if (i == 0) {
       helper.verifyPartitionAssignment(0, {0, 1, 2});
     } else {
-      helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+      helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
     }
   }
 
@@ -147,14 +157,14 @@ TEST_F(SkewedPartitionRebalancerTest, basic) {
   balancer->rebalance();
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 4);
   ASSERT_EQ(balancer->stats().numScaledPartitions, 4);
-  for (int i = 0; i < helper.partitionCount(); ++i) {
+  for (int i = 0; i < helper.numPartitions(); ++i) {
     SCOPED_TRACE(fmt::format("partition {}", i));
     if (i == 0) {
       helper.verifyPartitionAssignment(0, {0, 1, 2, 3});
     } else if (i == 1) {
       helper.verifyPartitionAssignment(1, {0, 1});
     } else {
-      helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+      helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
     }
   }
   ASSERT_EQ(
@@ -177,7 +187,7 @@ TEST_F(SkewedPartitionRebalancerTest, rebalanceCondition) {
   VELOX_ASSERT_THROW(balancer->rebalance(), "");
   balancer->addPartitionRowCount(0, 1);
   balancer->addPartitionRowCount(31, 1);
-  for (int i = 0; i < helper.partitionCount(); ++i) {
+  for (int i = 0; i < helper.numPartitions(); ++i) {
     if (i == 0 || i == 31) {
       helper.verifyPartitionRowCount(i, 1);
     } else {
@@ -186,14 +196,14 @@ TEST_F(SkewedPartitionRebalancerTest, rebalanceCondition) {
   }
   ASSERT_TRUE(helper.shouldRebalance());
   balancer->rebalance();
-  for (int i = 0; i < helper.partitionCount(); ++i) {
+  for (int i = 0; i < helper.numPartitions(); ++i) {
     SCOPED_TRACE(fmt::format("partition {}", i));
     if (i == 0) {
       helper.verifyPartitionAssignment(0, {0, 1});
     } else if (i == 31) {
       helper.verifyPartitionAssignment(31, {2, 3});
     } else {
-      helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+      helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
     }
   }
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 2);
@@ -210,10 +220,9 @@ TEST_F(SkewedPartitionRebalancerTest, assignedTaskSelection) {
   auto balancer = createBalancer(32, 4, 128, 256);
   SkewedPartitionRebalancerTestHelper helper(balancer.get());
   for (int round = 0; round < 10; ++round) {
-    for (int partition = 0; partition < helper.partitionCount(); ++partition) {
+    for (int partition = 0; partition < helper.numPartitions(); ++partition) {
       ASSERT_EQ(
-          balancer->getTaskId(partition, round),
-          partition % helper.taskCount());
+          balancer->getTaskId(partition, round), partition % helper.numTasks());
     }
   }
   balancer->addProcessedBytes(512);
@@ -224,7 +233,7 @@ TEST_F(SkewedPartitionRebalancerTest, assignedTaskSelection) {
   balancer->rebalance();
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 1);
   ASSERT_EQ(balancer->stats().numScaledPartitions, 3);
-  for (int i = 0; i < helper.partitionCount(); ++i) {
+  for (int i = 0; i < helper.numPartitions(); ++i) {
     SCOPED_TRACE(fmt::format("partition {}", i));
     if (i == 0) {
       helper.verifyPartitionAssignment(i, {0, 2});
@@ -233,11 +242,11 @@ TEST_F(SkewedPartitionRebalancerTest, assignedTaskSelection) {
     } else if (i == 31) {
       helper.verifyPartitionAssignment(i, {1, 3});
     } else {
-      helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+      helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
     }
   }
   for (int round = 0; round < 10; ++round) {
-    for (int partition = 0; partition < helper.partitionCount(); ++partition) {
+    for (int partition = 0; partition < helper.numPartitions(); ++partition) {
       SCOPED_TRACE(fmt::format("partition {}, round {}", partition, round));
       if (partition == 0) {
         ASSERT_EQ(balancer->getTaskId(partition, round), round % 2 ? 2 : 0);
@@ -246,7 +255,7 @@ TEST_F(SkewedPartitionRebalancerTest, assignedTaskSelection) {
       } else {
         ASSERT_EQ(
             balancer->getTaskId(partition, round),
-            partition % helper.taskCount());
+            partition % helper.numTasks());
       }
     }
   }
@@ -257,7 +266,7 @@ TEST_F(SkewedPartitionRebalancerTest, partitionScaleProcessBytesThreshold) {
   SkewedPartitionRebalancerTestHelper helper(balancer.get());
   balancer->addProcessedBytes(256);
   balancer->addPartitionRowCount(0, 64);
-  for (int partition = 1; partition < helper.partitionCount(); ++partition) {
+  for (int partition = 1; partition < helper.numPartitions(); ++partition) {
     balancer->addPartitionRowCount(partition, 3);
   }
   balancer->rebalance();
@@ -271,12 +280,12 @@ TEST_F(SkewedPartitionRebalancerTest, partitionScaleProcessBytesThreshold) {
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 2);
   ASSERT_EQ(balancer->stats().numScaledPartitions, 1);
 
-  for (int i = 0; i < helper.partitionCount(); ++i) {
+  for (int i = 0; i < helper.numPartitions(); ++i) {
     SCOPED_TRACE(fmt::format("partition {}", i));
     if (i == 0) {
       helper.verifyPartitionAssignment(i, {0, 1});
     } else {
-      helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+      helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
     }
   }
 }
@@ -284,7 +293,7 @@ TEST_F(SkewedPartitionRebalancerTest, partitionScaleProcessBytesThreshold) {
 TEST_F(SkewedPartitionRebalancerTest, skewTasksCondition) {
   auto balancer = createBalancer(32, 4, 128, 256);
   SkewedPartitionRebalancerTestHelper helper(balancer.get());
-  for (int partition = 0; partition < helper.taskCount(); ++partition) {
+  for (int partition = 0; partition < helper.numTasks(); ++partition) {
     balancer->addProcessedBytes(400);
     balancer->addPartitionRowCount(partition, 4);
   }
@@ -295,7 +304,7 @@ TEST_F(SkewedPartitionRebalancerTest, skewTasksCondition) {
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 1);
   ASSERT_EQ(balancer->stats().numScaledPartitions, 0);
 
-  for (int partition = 0; partition < helper.taskCount(); ++partition) {
+  for (int partition = 0; partition < helper.numTasks(); ++partition) {
     balancer->addProcessedBytes(3000);
     balancer->addPartitionRowCount(partition, 3);
   }
@@ -306,14 +315,43 @@ TEST_F(SkewedPartitionRebalancerTest, skewTasksCondition) {
   ASSERT_EQ(balancer->stats().numBalanceTriggers, 2);
   ASSERT_EQ(balancer->stats().numScaledPartitions, 1);
 
-  for (int i = 0; i < helper.partitionCount(); ++i) {
+  for (int i = 0; i < helper.numPartitions(); ++i) {
     SCOPED_TRACE(fmt::format("partition {}", i));
     if (i == 0) {
       helper.verifyPartitionAssignment(i, {0, 1});
     } else {
-      helper.verifyPartitionAssignment(i, {i % helper.taskCount()});
+      helper.verifyPartitionAssignment(i, {i % helper.numTasks()});
     }
   }
+}
+
+DEBUG_ONLY_TEST_F(SkewedPartitionRebalancerTest, serializedRebalanceExecution) {
+  auto balancer = createBalancer(32, 4, 128, 256);
+  SkewedPartitionRebalancerTestHelper helper(balancer.get());
+  folly::EventCount rebalanceWait;
+  std::atomic_bool rebalanceWaitFlag{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::common::SkewedPartitionRebalancer::rebalancePartitions",
+      std::function<void(SkewedPartitionRebalancer*)>(
+          [&](SkewedPartitionRebalancer*) {
+            rebalanceWait.await([&] { return !rebalanceWaitFlag.load(); });
+          }));
+
+  for (int partition = 0; partition < helper.numTasks(); ++partition) {
+    balancer->addProcessedBytes(1000);
+    balancer->addPartitionRowCount(partition, partition == 0 ? 20 : 1);
+  }
+
+  std::thread rebalanceThread([&]() { balancer->rebalance(); });
+
+  balancer->rebalance();
+
+  rebalanceWaitFlag = false;
+  rebalanceWait.notifyAll();
+
+  rebalanceThread.join();
+  ASSERT_EQ(balancer->stats().numBalanceTriggers, 1);
+  ASSERT_GT(balancer->stats().numScaledPartitions, 0);
 }
 
 TEST_F(SkewedPartitionRebalancerTest, error) {
@@ -325,7 +363,7 @@ TEST_F(SkewedPartitionRebalancerTest, error) {
   VELOX_ASSERT_THROW(createBalancer(0, 4, 0, 0), "");
 }
 
-TEST_F(SkewedPartitionRebalancerTest, fuzz) {
+TEST_F(SkewedPartitionRebalancerTest, singleThreadFuzz) {
   std::mt19937 rng{100};
   for (int taskCount = 1; taskCount <= 10; ++taskCount) {
     const uint64_t rebalanceThreshold = folly::Random::rand32(128, rng);
@@ -347,10 +385,53 @@ TEST_F(SkewedPartitionRebalancerTest, fuzz) {
       }
       balancer->rebalance();
       for (int round = 0; round < 10; ++round) {
-        for (int partition = 0; partition < helper.partitionCount();
+        for (int partition = 0; partition < helper.numPartitions();
              ++partition) {
           ASSERT_LT(balancer->getTaskId(partition, round), taskCount);
         }
+      }
+    }
+  }
+}
+
+TEST_F(SkewedPartitionRebalancerTest, concurrentFuzz) {
+  for (int numProducers = 1; numProducers <= 10; ++numProducers) {
+    std::mt19937 rng{100};
+    const uint64_t rebalanceThreshold = folly::Random::rand32(128, rng);
+    const uint64_t perPartitionRebalanceThreshold =
+        folly::Random::rand32(rebalanceThreshold / 2, rng);
+    for (int taskCount = 1; taskCount <= 10; ++taskCount) {
+      auto balancer = createBalancer(
+          32, taskCount, perPartitionRebalanceThreshold, rebalanceThreshold);
+      SkewedPartitionRebalancerTestHelper helper(balancer.get());
+      std::vector<std::thread> threads;
+      for (int producer = 0; producer < numProducers; ++producer) {
+        threads.emplace_back([&]() {
+          std::mt19937 localRng{200};
+          for (int iteration = 0; iteration < 1'000; ++iteration) {
+            SCOPED_TRACE(fmt::format(
+                "taskCount {}, iteration {}", taskCount, iteration));
+            const uint64_t processedBytes =
+                1 + folly::Random::rand32(512, localRng);
+            balancer->addProcessedBytes(processedBytes);
+            const auto numPartitons = folly::Random::rand32(32, localRng);
+            for (auto i = 0; i < numPartitons; ++i) {
+              const auto partition = folly::Random::rand32(32, localRng);
+              const auto numRows = 1 + folly::Random::rand32(32, localRng);
+              balancer->addPartitionRowCount(partition, numRows);
+            }
+            balancer->rebalance();
+            for (int round = 0; round < 10; ++round) {
+              for (int partition = 0; partition < helper.numPartitions();
+                   ++partition) {
+                ASSERT_LT(balancer->getTaskId(partition, round), taskCount);
+              }
+            }
+          }
+        });
+      }
+      for (auto& thread : threads) {
+        thread.join();
       }
     }
   }

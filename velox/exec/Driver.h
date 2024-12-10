@@ -688,16 +688,17 @@ struct DriverFactory {
     return std::nullopt;
   }
 
-  /// Returns LocalPartition plan node ID if the pipeline gets data from a
-  /// local exchange.
-  std::optional<core::PlanNodeId> needsLocalExchange() const {
+  /// Returns true if the pipeline gets data from a local exchange. The function
+  /// sets plan node in 'planNode'.
+  bool needsLocalExchange(core::PlanNodePtr& planNode) const {
     VELOX_CHECK(!planNodes.empty());
     if (auto exchangeNode =
             std::dynamic_pointer_cast<const core::LocalPartitionNode>(
                 planNodes.front())) {
-      return exchangeNode->id();
+      planNode = exchangeNode;
+      return true;
     }
-    return std::nullopt;
+    return false;
   }
 
   /// Returns plan node IDs for which Hash Join Bridges must be created based

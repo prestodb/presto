@@ -66,7 +66,7 @@ class ScaleWriterPartitioningLocalPartition : public LocalPartition {
   memory::MemoryPool* const queryPool_;
 
   // The skewed partition balancer for writer scaling.
-  const std::unique_ptr<SkewedPartitionRebalancer> tablePartitionRebalancer_;
+  const std::shared_ptr<SkewedPartitionRebalancer> tablePartitionRebalancer_;
 
   std::shared_ptr<LocalExchangeMemoryManager> memoryManager_;
 

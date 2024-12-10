@@ -26,11 +26,9 @@ class SkewedPartitionRebalancerTestHelper;
 /// This class is used to auto-scale partition processing by assigning more
 /// tasks to busy partition measured by processed data size. This is used by
 /// local partition to scale table writers for now.
-///
-/// NOTE: this object is not thread-safe.
 class SkewedPartitionRebalancer {
  public:
-  /// 'partitionCount' is the number of partitions to process. 'taskCount' is
+  /// 'numPartitions' is the number of partitions to process. 'numTasks' is
   /// number of tasks for execution.
   /// 'minProcessedBytesRebalanceThresholdPerPartition' is the processed bytes
   /// threshold to trigger task scaling for a single partition.
@@ -41,10 +39,14 @@ class SkewedPartitionRebalancer {
   /// measured in the total number of processed data size from all its serving
   /// partitions.
   SkewedPartitionRebalancer(
-      uint32_t partitionCount,
-      uint32_t taskCount,
+      uint32_t numPartitions,
+      uint32_t numTasks,
       uint64_t minProcessedBytesRebalanceThresholdPerPartition,
       uint64_t minProcessedBytesRebalanceThreshold);
+
+  ~SkewedPartitionRebalancer() {
+    VELOX_CHECK(!rebalancing_);
+  }
 
   /// Invoked to rebalance the partition assignments if applicable.
   void rebalance();
@@ -52,21 +54,29 @@ class SkewedPartitionRebalancer {
   /// Gets the assigned task id for a given 'partition'. 'index' is used to
   /// choose one of multiple assigned tasks in a round-robin order.
   uint32_t getTaskId(uint32_t partition, uint64_t index) const {
-    const auto& taskList = partitionAssignments_[partition];
-    return taskList[index % taskList.size()];
+    auto& taskList = partitionAssignments_[partition];
+    return taskList.nextTaskId(index);
   }
 
   /// Adds the processed partition row count. This is used to estimate the
   /// processed bytes of a partition.
   void addPartitionRowCount(uint32_t partition, uint32_t numRows) {
-    VELOX_CHECK_LT(partition, partitionCount_);
+    VELOX_CHECK_LT(partition, numPartitions_);
     partitionRowCount_[partition] += numRows;
   }
 
   /// Adds the total processed bytes from all the partitions.
-  void addProcessedBytes(long bytes) {
+  void addProcessedBytes(int64_t bytes) {
     VELOX_CHECK_GT(bytes, 0);
     processedBytes_ += bytes;
+  }
+
+  uint32_t numPartitions() const {
+    return numPartitions_;
+  }
+
+  uint32_t numTasks() const {
+    return numTasks_;
   }
 
   /// The rebalancer internal stats.
@@ -85,13 +95,15 @@ class SkewedPartitionRebalancer {
   };
 
   Stats stats() const {
-    return stats_;
+    return Stats{
+        .numBalanceTriggers = numBalanceTriggers_.load(),
+        .numScaledPartitions = numScaledPartitions_.load()};
   }
 
  private:
-  bool shouldRebalance() const;
+  bool shouldRebalance(int64_t processedBytes) const;
 
-  void rebalancePartitions();
+  void rebalancePartitions(int64_t processedBytes);
 
   // Calculates the partition processed data size based on the number of
   // processed rows and the averaged row size.
@@ -132,19 +144,22 @@ class SkewedPartitionRebalancer {
 
   static constexpr double kTaskSkewnessThreshod_{0.7};
 
-  const uint32_t partitionCount_;
-  const uint32_t taskCount_;
+  const uint32_t numPartitions_;
+  const uint32_t numTasks_;
   const uint64_t minProcessedBytesRebalanceThresholdPerPartition_;
   const uint64_t minProcessedBytesRebalanceThreshold_;
 
   // The accumulated number of rows processed by each partition.
-  std::vector<uint64_t> partitionRowCount_;
+  std::vector<std::atomic_uint64_t> partitionRowCount_;
+
+  // Indicates if the rebalancer is running or not.
+  std::atomic_bool rebalancing_{false};
 
   // The accumulated number of bytes processed by all the partitions.
-  uint64_t processedBytes_{0};
+  std::atomic_int64_t processedBytes_{0};
   // 'processedBytes_' at the last rebalance. It is used to calculate the
   // processed bytes changes since the last rebalance.
-  uint64_t processedBytesAtLastRebalance_{0};
+  std::atomic_int64_t processedBytesAtLastRebalance_{0};
   // The accumulated number of bytes processed by each partition.
   std::vector<uint64_t> partitionBytes_;
   // 'partitionBytes_' at the last rebalance. It is used to calculate the
@@ -157,10 +172,29 @@ class SkewedPartitionRebalancer {
   // The estimated task processed bytes since the last rebalance.
   std::vector<uint64_t> estimatedTaskBytesSinceLastRebalance_;
 
-  // The assigned task id list for each partition.
-  std::vector<std::vector<uint32_t>> partitionAssignments_;
+  // The assigned task ids for a partition
+  class PartitionAssignment {
+   public:
+    PartitionAssignment() = default;
 
-  Stats stats_;
+    void addTaskId(uint32_t taskId);
+
+    uint32_t nextTaskId(uint64_t index) const;
+
+    const std::vector<uint32_t>& taskIds() const;
+
+    uint32_t size() const;
+
+   private:
+    mutable folly::SharedMutex lock_;
+    std::vector<uint32_t> taskIds_;
+  };
+  std::vector<PartitionAssignment> partitionAssignments_;
+
+  // The number of times that triggers rebalance.
+  std::atomic_uint64_t numBalanceTriggers_{0};
+  // The number of times that a scaled partition processing.
+  std::atomic_uint32_t numScaledPartitions_{0};
 
   friend class test::SkewedPartitionRebalancerTestHelper;
 };

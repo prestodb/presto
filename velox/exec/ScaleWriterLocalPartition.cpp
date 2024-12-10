@@ -32,14 +32,15 @@ ScaleWriterPartitioningLocalPartition::ScaleWriterPartitioningLocalPartition(
           ctx->queryConfig().scaleWriterMaxPartitionsPerWriter()),
       numTablePartitions_(maxTablePartitionsPerWriter_ * numPartitions_),
       queryPool_(pool()->root()),
-      tablePartitionRebalancer_(std::make_unique<SkewedPartitionRebalancer>(
-          numTablePartitions_,
-          numPartitions_,
-          ctx->queryConfig()
-              .scaleWriterMinPartitionProcessedBytesRebalanceThreshold(),
-          ctx->queryConfig()
-              .scaleWriterMinProcessedBytesRebalanceThreshold())) {
+      tablePartitionRebalancer_(ctx->task->getScaleWriterPartitionBalancer(
+          ctx->splitGroupId,
+          planNodeId())) {
   VELOX_CHECK_GT(maxTablePartitionsPerWriter_, 0);
+  VELOX_CHECK_NOT_NULL(tablePartitionRebalancer_);
+
+  VELOX_CHECK_EQ(
+      numTablePartitions_, tablePartitionRebalancer_->numPartitions());
+  VELOX_CHECK_EQ(numPartitions_, tablePartitionRebalancer_->numTasks());
 
   writerAssignmentCounts_.resize(numPartitions_, 0);
   tablePartitionRowCounts_.resize(numTablePartitions_, 0);
@@ -217,6 +218,13 @@ uint32_t ScaleWriterPartitioningLocalPartition::getNextWriterId(
 
 void ScaleWriterPartitioningLocalPartition::close() {
   LocalPartition::close();
+
+  // The last driver operator reports the shared table partition rebalancer
+  // stats. We expect one reference hold by this operator and one referenced by
+  // the task.
+  if (tablePartitionRebalancer_.use_count() != 2) {
+    return;
+  }
 
   const auto scaleStats = tablePartitionRebalancer_->stats();
   auto lockedStats = stats_.wlock();

@@ -1066,12 +1066,12 @@ void Task::createSplitGroupStateLocked(uint32_t splitGroupId) {
       continue;
     }
 
-    auto exchangeId = factory->needsLocalExchange();
-    if (exchangeId.has_value()) {
+    core::PlanNodePtr partitionNode;
+    if (factory->needsLocalExchange(partitionNode)) {
+      VELOX_CHECK_NOT_NULL(partitionNode);
       createLocalExchangeQueuesLocked(
-          splitGroupId, exchangeId.value(), factory->numDrivers);
+          splitGroupId, partitionNode, factory->numDrivers);
     }
-
     addHashJoinBridgesLocked(splitGroupId, factory->needsHashJoinBridges());
     addNestedLoopJoinBridgesLocked(
         splitGroupId, factory->needsNestedLoopJoinBridges());
@@ -1144,7 +1144,7 @@ std::vector<std::shared_ptr<Driver>> Task::createDriversLocked(
   for (auto& bridgeEntry : splitGroupState.bridges) {
     bridgeEntry.second->start();
   }
-  for (auto& bridgeEntry : splitGroupState.custom_bridges) {
+  for (auto& bridgeEntry : splitGroupState.customBridges) {
     bridgeEntry.second->start();
   }
 
@@ -1817,7 +1817,7 @@ void Task::addCustomJoinBridgesLocked(
   auto& splitGroupState = splitGroupStates_[splitGroupId];
   for (const auto& planNode : planNodes) {
     if (auto joinBridge = Operator::joinBridgeFromPlanNode(planNode)) {
-      auto const inserted = splitGroupState.custom_bridges
+      auto const inserted = splitGroupState.customBridges
                                 .emplace(planNode->id(), std::move(joinBridge))
                                 .second;
       VELOX_CHECK(
@@ -1913,7 +1913,7 @@ std::shared_ptr<JoinBridge> Task::getCustomJoinBridgeInternal(
     const core::PlanNodeId& planNodeId) {
   std::lock_guard<std::timed_mutex> l(mutex_);
   return getJoinBridgeInternalLocked<JoinBridge>(
-      splitGroupId, planNodeId, &SplitGroupState::custom_bridges);
+      splitGroupId, planNodeId, &SplitGroupState::customBridges);
 }
 
 //  static
@@ -2032,7 +2032,7 @@ ContinueFuture Task::terminate(TaskState terminalState) {
       for (auto& pair : splitGroupState.second.bridges) {
         oldBridges.emplace_back(std::move(pair.second));
       }
-      for (auto& pair : splitGroupState.second.custom_bridges) {
+      for (auto& pair : splitGroupState.second.customBridges) {
         oldBridges.emplace_back(std::move(pair.second));
       }
       splitGroupStates.push_back(std::move(splitGroupState.second));
@@ -2509,9 +2509,10 @@ std::shared_ptr<MergeJoinSource> Task::getMergeJoinSource(
 
 void Task::createLocalExchangeQueuesLocked(
     uint32_t splitGroupId,
-    const core::PlanNodeId& planNodeId,
+    const core::PlanNodePtr& planNode,
     int numPartitions) {
   auto& splitGroupState = splitGroupStates_[splitGroupId];
+  const auto& planNodeId = planNode->id();
   VELOX_CHECK(
       splitGroupState.localExchanges.find(planNodeId) ==
           splitGroupState.localExchanges.end(),
@@ -2528,6 +2529,21 @@ void Task::createLocalExchangeQueuesLocked(
   for (auto i = 0; i < numPartitions; ++i) {
     exchange.queues.emplace_back(
         std::make_shared<LocalExchangeQueue>(exchange.memoryManager, i));
+  }
+
+  const auto partitionNode =
+      std::dynamic_pointer_cast<const core::LocalPartitionNode>(planNode);
+  VELOX_CHECK_NOT_NULL(partitionNode);
+  if (partitionNode->scaleWriter()) {
+    exchange.scaleWriterPartitionBalancer =
+        std::make_shared<common::SkewedPartitionRebalancer>(
+            queryCtx_->queryConfig().scaleWriterMaxPartitionsPerWriter() *
+                numPartitions,
+            numPartitions,
+            queryCtx_->queryConfig()
+                .scaleWriterMinPartitionProcessedBytesRebalanceThreshold(),
+            queryCtx_->queryConfig()
+                .scaleWriterMinProcessedBytesRebalanceThreshold());
   }
 
   splitGroupState.localExchanges.insert({planNodeId, std::move(exchange)});
@@ -2572,10 +2588,27 @@ Task::getLocalExchangeQueues(
   return it->second.queues;
 }
 
+const std::shared_ptr<common::SkewedPartitionRebalancer>&
+Task::getScaleWriterPartitionBalancer(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
+  auto& splitGroupState = splitGroupStates_[splitGroupId];
+
+  auto it = splitGroupState.localExchanges.find(planNodeId);
+  VELOX_CHECK(
+      it != splitGroupState.localExchanges.end(),
+      "Incorrect local exchange ID {} for group {}, task {}",
+      planNodeId,
+      splitGroupId,
+      taskId());
+  return it->second.scaleWriterPartitionBalancer;
+}
+
 const std::shared_ptr<LocalExchangeMemoryManager>&
 Task::getLocalExchangeMemoryManager(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
+  std::lock_guard<std::timed_mutex> l(mutex_);
   auto& splitGroupState = splitGroupStates_[splitGroupId];
 
   auto it = splitGroupState.localExchanges.find(planNodeId);
