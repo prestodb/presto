@@ -2603,6 +2603,9 @@
                             <ignoredClassPattern>META-INF.versions.11.module-info</ignoredClassPattern>
                             <ignoredClassPattern>com.facebook.drift.*</ignoredClassPattern>
                             <ignoredClassPattern>io.netty.*</ignoredClassPattern>
+                            <ignoredClassPattern>com.github.rvesse.airline.*</ignoredClassPattern>
+                            <ignoredClassPattern>javax.inject.*</ignoredClassPattern>
+                            <ignoredClassPattern>org.apache.commons.*</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>
