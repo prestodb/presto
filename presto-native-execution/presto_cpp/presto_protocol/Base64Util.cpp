@@ -22,7 +22,7 @@ namespace {
 std::unique_ptr<ByteInputStream> toByteStream(const std::string& input) {
   ByteRange byteRange{
       reinterpret_cast<uint8_t*>(const_cast<char*>(input.data())),
-      (int32_t)input.length(),
+      static_cast<int32_t>(input.length()),
       0};
   return std::make_unique<BufferInputStream>(std::vector<ByteRange>{byteRange});
 }
