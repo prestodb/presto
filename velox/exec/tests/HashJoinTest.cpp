@@ -6861,6 +6861,7 @@ TEST_F(HashJoinTest, leftJoinPreserveProbeOrder) {
 }
 
 DEBUG_ONLY_TEST_F(HashJoinTest, minSpillableMemoryReservation) {
+  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
   VectorFuzzer fuzzer({.vectorSize = 1000}, pool());
   const int32_t numBuildVectors = 10;
   std::vector<RowVectorPtr> buildVectors;
@@ -7410,6 +7411,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, exceptionDuringFinishJoinBuild) {
 
 DEBUG_ONLY_TEST_F(HashJoinTest, arbitrationTriggeredDuringParallelJoinBuild) {
   std::unique_ptr<memory::MemoryManager> memoryManager = createMemoryManager();
+  const auto& arbitrator = memoryManager->arbitrator();
   const uint64_t numDrivers = 2;
 
   // Large build side key product to bump hash mode to kHash instead of kArray

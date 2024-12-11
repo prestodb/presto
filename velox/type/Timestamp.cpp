@@ -217,7 +217,6 @@ StringView Timestamp::tmToStringView(
     }
     const auto [endPosition, errorCode] =
         std::to_chars(position + offset, position + offset + numDigits, value);
-    std::ignore = endPosition;
     VELOX_DCHECK_EQ(
         errorCode,
         std::errc(),

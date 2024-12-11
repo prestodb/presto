@@ -1039,10 +1039,10 @@ void Program::callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
   }
 }
 
-#define IN_HEAD(abstract, physical, _op)                              \
-  [[maybe_unused]] auto* abstractInst = &instruction->as<abstract>(); \
-  space->opCode = _op;                                                \
-  [[maybe_unused]] auto physicalInst = new (&space->_) physical();
+#define IN_HEAD(abstract, physical, _op)             \
+  auto* abstractInst = &instruction->as<abstract>(); \
+  space->opCode = _op;                               \
+  auto physicalInst = new (&space->_) physical();
 
 #define IN_OPERAND(member) \
   physicalInst->member = operandIndex(abstractInst->member)

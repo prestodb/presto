@@ -119,6 +119,7 @@ class TimestampColumnReader : public IntegerColumnReader {
       int64_t offset,
       const RowSet& rows,
       const uint64_t* /*incomingNulls*/) override {
+    auto& data = formatData_->as<ParquetData>();
     // Use int128_t as a workaround. Timestamp in Velox is of 16-byte length.
     prepareRead<int128_t>(offset, rows, nullptr);
     readCommon<TimestampColumnReader, true>(rows);

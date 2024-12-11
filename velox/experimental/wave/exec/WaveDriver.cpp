@@ -189,6 +189,7 @@ WaveDriver::WaveDriver(
       states_(std::move(states)),
       instructionStatus_(instructionStatus) {
   VELOX_CHECK(!waveOperators.empty());
+  auto returnBatchSize = 10000 * outputType_->size() * 10;
   deviceArena_ = std::make_unique<GpuArena>(
       100000000, getDeviceAllocator(getDevice()), 400000000);
   pipelines_.emplace_back();
@@ -221,8 +222,8 @@ RowVectorPtr WaveDriver::getOutput() {
     return nullptr;
   }
   barrier_->enter();
+  auto guard = [&]() { barrier_->leave(); };
   startTimeMs_ = getCurrentTimeMs();
-  [[maybe_unused]] auto guard = folly::makeGuard([&]() { barrier_->leave(); });
   int32_t last = pipelines_.size() - 1;
   try {
     for (int32_t i = last; i >= 0; --i) {

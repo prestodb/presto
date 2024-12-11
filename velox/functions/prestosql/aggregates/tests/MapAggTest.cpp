@@ -33,6 +33,8 @@ class MapAggTest : public AggregationTestBase {
 };
 
 TEST_F(MapAggTest, groupBy) {
+  vector_size_t num = 10;
+
   auto data = makeRowVector({
       makeFlatVector<int32_t>({0, 0, 0, 1, 1, 1, 2, 2, 2, 3}),
       makeFlatVector<int32_t>({0, 1, 2, 3, 4, 5, 6, 7, 8, 9}),
@@ -72,6 +74,8 @@ TEST_F(MapAggTest, groupBy) {
 
 // Verify that null keys are skipped.
 TEST_F(MapAggTest, groupByNullKeys) {
+  vector_size_t num = 10;
+
   auto data = makeRowVector({
       makeFlatVector<int32_t>({0, 0, 0, 1, 1, 1, 2, 2, 2, 3}),
       makeNullableFlatVector<int32_t>(

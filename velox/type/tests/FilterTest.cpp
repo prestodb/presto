@@ -1748,6 +1748,7 @@ TEST(FilterTest, mergeWithBytesMultiRange) {
 
 TEST(FilterTest, hugeIntRange) {
   auto filter = equalHugeint(HugeInt::build(1, 1), false);
+  auto testInt128 = [&](int128_t x) { return filter->testInt128(x); };
   auto max = DecimalUtil::kLongDecimalMax;
   auto min = DecimalUtil::kLongDecimalMin;
 

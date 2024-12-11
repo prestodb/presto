@@ -98,6 +98,7 @@ class DateTimeBenchmark : public functions::test::FunctionBenchmarkBase {
 
   void run(const std::string& functionName) {
     folly::BenchmarkSuspender suspender;
+    constexpr vector_size_t size = 10'000;
 
     VectorFuzzer::Options opts;
     opts.vectorSize = 10'000;

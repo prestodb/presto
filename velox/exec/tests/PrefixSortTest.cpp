@@ -151,6 +151,7 @@ const RowVectorPtr PrefixSortTest::generateExpectedResult(
 }
 
 TEST_F(PrefixSortTest, singleKey) {
+  const int numRows = 5;
   const int columnsSize = 7;
 
   // Vectors without nulls.
@@ -182,6 +183,7 @@ TEST_F(PrefixSortTest, singleKey) {
 }
 
 TEST_F(PrefixSortTest, singleKeyWithNulls) {
+  const int numRows = 5;
   const int columnsSize = 7;
 
   Timestamp ts = {5, 5};

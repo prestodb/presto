@@ -352,6 +352,7 @@ void ReadStream::launch(
   // kBlockSize top level rows of output and to have Operand structs for the
   // produced column.
   readStream->makeControl();
+  auto numRows = readStream->rows_.size();
   auto waveStream = readStream->waveStream;
   WaveStats& stats = waveStream->stats();
   bool firstLaunch = true;

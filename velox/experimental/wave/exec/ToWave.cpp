@@ -382,6 +382,7 @@ void CompileState::addFilterProject(
   auto filterProject = reinterpret_cast<exec::FilterProject*>(op);
   outputType = driverFactory_.planNodes[nodeIndex]->outputType();
   auto data = filterProject->exprsAndProjection();
+  auto& identityProjections = filterProject->identityProjections();
   int32_t firstProjection = 0;
   if (data.hasFilter) {
     addFilter(*data.exprs->exprs()[0], outputType);
@@ -537,6 +538,7 @@ void CompileState::makeAggregateAccumulate(const core::AggregationNode* node) {
       nthContinuable_++, aggInstruction));
 
   makeProject(numPrograms, node->outputType());
+  auto project = reinterpret_cast<Project*>(operators_.back().get());
   for (auto i = 0; i < node->groupingKeys().size(); ++i) {
     std::string name = aggInstruction->keys[i]->label;
     operators_.back()->defined(

@@ -504,6 +504,7 @@ TEST_F(WindowTest, nagativeFrameArg) {
 
   auto sizeAt = [](vector_size_t row) { return row % 5; };
   auto keyAt = [](vector_size_t row) { return row % 11; };
+  auto valueAt = [](vector_size_t row) { return row % 13; };
   auto keys = makeArrayVector<float>(size, sizeAt, keyAt);
   auto data = makeRowVector(
       {"c0", "c1", "p0", "p1", "k0", "row_number"},

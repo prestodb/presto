@@ -212,11 +212,11 @@ TEST_F(GenericWriterTest, castToDifferentTypesNotSupported) {
   writer.init(*result);
 
   writer.setOffset(0);
-  writer.current().castTo<Array<Any>>();
+  auto& current1 = writer.current().castTo<Array<Any>>();
   writer.commit(false);
 
   writer.setOffset(1);
-  writer.current().castTo<Array<Any>>();
+  auto& current2 = writer.current().castTo<Array<Any>>();
   writer.commit(false);
 
   writer.setOffset(2);

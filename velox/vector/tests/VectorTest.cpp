@@ -164,6 +164,7 @@ class VectorTest : public testing::Test, public velox::test::VectorTestBase {
     BufferPtr nulls;
     if (withNulls) {
       nulls = allocateNulls(numRows, pool());
+      int32_t childCounter = 0;
       auto rawNulls = nulls->asMutable<uint64_t>();
       for (int32_t i = 0; i < numRows; ++i) {
         bits::setNull(rawNulls, i, i % 8 == 0);

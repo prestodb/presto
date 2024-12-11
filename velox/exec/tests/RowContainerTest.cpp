@@ -2476,7 +2476,7 @@ TEST_F(RowContainerTest, invalidatedColumnStats) {
     EXPECT_EQ(data->columnStats(4)->numCells(), 0);
 
     for (int i = 0; i < kNumRows; ++i) {
-      data->newRow();
+      auto row = data->newRow();
     }
     EXPECT_EQ(kNumRows, data->numRows());
     RowContainerIterator iter;
