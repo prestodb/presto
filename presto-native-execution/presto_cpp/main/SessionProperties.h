@@ -203,7 +203,6 @@ class SessionProperties {
   static constexpr const char* kScaleWriterMinProcessedBytesRebalanceThreshold =
       "scaled_writer_min_processed_bytes_rebalance_threshold";
 
-
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
 

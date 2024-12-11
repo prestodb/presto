@@ -29,7 +29,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       SessionProperties::kSpillCompressionCodec,
       SessionProperties::kScaleWriterRebalanceMaxMemoryUsageRatio,
       SessionProperties::kScaleWriterMaxPartitionsPerWriter,
-      SessionProperties::kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
+      SessionProperties::
+          kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
       SessionProperties::kScaleWriterMinProcessedBytesRebalanceThreshold};
   const std::vector<std::string> veloxConfigNames = {
       core::QueryConfig::kAdjustTimestampToTimezone,
@@ -37,7 +38,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       core::QueryConfig::kSpillCompressionKind,
       core::QueryConfig::kScaleWriterRebalanceMaxMemoryUsageRatio,
       core::QueryConfig::kScaleWriterMaxPartitionsPerWriter,
-      core::QueryConfig::kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
+      core::QueryConfig::
+          kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
       core::QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold};
   auto sessionProperties = SessionProperties().getSessionProperties();
   const auto len = names.size();
