@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableColumnNames;
@@ -174,6 +175,10 @@ public abstract class BasePlanFragmenter
             context.get().setSingleNodeDistribution();
         }
 
+        if (isSingleNodeExecutionEnabled(session)) {
+            context.get().setSingleNodeDistribution();
+        }
+
         return context.defaultRewrite(node, context.get());
     }
 
@@ -268,6 +273,10 @@ public abstract class BasePlanFragmenter
     @Override
     public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
+        if (isSingleNodeExecutionEnabled(session)) {
+            context.get().setSingleNodeDistribution();
+        }
+
         switch (exchange.getScope()) {
             case LOCAL:
                 return context.defaultRewrite(exchange, context.get());

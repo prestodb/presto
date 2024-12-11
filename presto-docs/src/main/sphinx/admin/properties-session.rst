@@ -81,6 +81,18 @@ Number of local parallel table writer threads per worker for partitioned writes.
 set, the number set by ``task_writer_count`` will be used. It is required to be a power
 of two for a Java query engine.
 
+``single_node_execution_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property ensures that queries scheduled in this cluster use only a single
+node for execution, which may improve performance for small queries which can
+be executed within a single node.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`single-node-execution-enabled\`\``.
+
 Spilling Properties
 -------------------
 
