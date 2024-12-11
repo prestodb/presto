@@ -201,10 +201,10 @@ class ExpressionFuzzerVerifier {
       const RowVectorPtr& rowVector,
       VectorFuzzer& vectorFuzzer);
 
-  // Fuzzes the input vector of type with an additional row number column.
-  RowVectorPtr fuzzInputWithRowNumber(
-      VectorFuzzer& fuzzer,
-      const RowTypePtr& type);
+  // Appends an additional row number column called 'row_number' at the end of
+  // the 'inputRow'. This column is then used to line up rows when comparing
+  // results against a reference database.
+  RowVectorPtr appendRowNumberColumn(RowVectorPtr& inputRow);
 
   const Options options_;
 

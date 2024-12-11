@@ -321,17 +321,15 @@ void ExpressionFuzzerVerifier::retryWithTry(
   }
 }
 
-RowVectorPtr ExpressionFuzzerVerifier::fuzzInputWithRowNumber(
-    VectorFuzzer& fuzzer,
-    const RowTypePtr& type) {
-  auto rowVector = fuzzer.fuzzInputRow(type);
-  auto names = type->names();
+RowVectorPtr ExpressionFuzzerVerifier::appendRowNumberColumn(
+    RowVectorPtr& inputRow) {
+  auto names = asRowType(inputRow->type())->names();
   names.push_back("row_number");
 
-  auto& children = rowVector->children();
+  auto& children = inputRow->children();
   velox::test::VectorMaker vectorMaker{pool_.get()};
   children.push_back(vectorMaker.flatVector<int64_t>(
-      rowVector->size(), [&](auto row) { return row; }));
+      inputRow->size(), [&](auto row) { return row; }));
 
   return vectorMaker.rowVector(names, children);
 }
@@ -375,10 +373,10 @@ void ExpressionFuzzerVerifier::go() {
 
     std::vector<core::TypedExprPtr> plans = std::move(expressions);
 
-    auto rowVector = fuzzInputWithRowNumber(*vectorFuzzer_, inputType);
-
+    auto rowVector = vectorFuzzer_->fuzzInputRow(inputType);
     InputRowMetadata inputRowMetadata =
         generateInputRowMetadata(rowVector, *vectorFuzzer_);
+    rowVector = appendRowNumberColumn(rowVector);
 
     auto resultVectors = generateResultVectors(plans);
     ResultOrError result;
