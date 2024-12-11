@@ -22,6 +22,7 @@ import com.google.inject.Inject;
 import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
@@ -68,6 +69,10 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_PREFIXSORT_NORMALIZED_KEY_MAX_BYTES = "native_prefixsort_normalized_key_max_bytes";
     public static final String NATIVE_PREFIXSORT_MIN_ROWS = "native_prefixsort_min_rows";
     public static final String NATIVE_OP_TRACE_DIR_CREATE_CONFIG = "native_op_trace_directory_create_config";
+    public static final String NATIVE_SCALED_WRITER_REBALANCE_MAX_MEMORY_USAGE_RATIO = "native_scaled_writer_rebalance_max_memory_usage_ratio";
+    public static final String NATIVE_SCALED_WRITER_MAX_PARTITIONS_PER_WRITER = "native_scaled_writer_max_partitions_per_writer";
+    public static final String NATIVE_SCALED_WRITER_MIN_PARTITION_PROCESSED_BYTES_REBALANCE_THRESHOLD = "native_scaled_writer_min_partition_processed_bytes_rebalance_threshold";
+    public static final String NATIVE_SCALED_WRITER_MIN_PROCESSED_BYTES_REBALANCE_THRESHOLD = "native_scaled_writer_min_processed_bytes_rebalance_threshold";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -276,6 +281,34 @@ public class NativeWorkerSessionPropertyProvider
                         "Minimum number of rows to use prefix-sort. " +
                                 "The default value (130) has been derived using micro-benchmarking.",
                         130,
+                        !nativeExecution),
+                doubleProperty(
+                        NATIVE_SCALED_WRITER_REBALANCE_MAX_MEMORY_USAGE_RATIO,
+                        "The max ratio of a query used memory to its max capacity, " +
+                        "and the scale writer exchange stops scaling writer processing if the query's current " +
+                        "memory usage exceeds this ratio. The value is in the range of (0, 1].",
+                        0.7,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_SCALED_WRITER_MAX_PARTITIONS_PER_WRITER,
+                        "The max number of logical table partitions that can be assigned to a " +
+                        "single table writer thread. The logical table partition is used by local " +
+                        "exchange writer for writer scaling, and multiple physical table " +
+                        "partitions can be mapped to the same logical table partition based on the " +
+                        "hash value of calculated partitioned ids",
+                        128,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_SCALED_WRITER_MIN_PARTITION_PROCESSED_BYTES_REBALANCE_THRESHOLD,
+                        "Minimum amount of data processed by all the logical table partitions " +
+                        "to trigger skewed partition rebalancing by scale writer exchange.",
+                        128L << 20,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_SCALED_WRITER_MIN_PROCESSED_BYTES_REBALANCE_THRESHOLD,
+                        "Minimum amount of data processed by all the logical table partitions " +
+                        "to trigger skewed partition rebalancing by scale writer exchange.",
+                        256L << 20,
                         !nativeExecution));
     }
 
