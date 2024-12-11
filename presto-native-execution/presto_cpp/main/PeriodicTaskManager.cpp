@@ -33,9 +33,11 @@
 
 namespace {
 #define REPORT_IF_NOT_ZERO(name, counter)   \
-  if ((counter) != 0) {                     \
+  do {                                      \
+    if ((counter) != 0) {                   \
     RECORD_METRIC_VALUE((name), (counter)); \
-  }
+    }                                       \
+  } while (0)
 } // namespace
 
 namespace facebook::presto {
