@@ -88,13 +88,11 @@ std::optional<int32_t> RowVector::compare(
     vector_size_t otherIndex,
     CompareFlags flags) const {
   auto otherRow = other->wrappedVector()->as<RowVector>();
-  if (otherRow->encoding() != VectorEncoding::Simple::ROW) {
-    VELOX_CHECK(
-        false,
-        "Compare of ROW and non-ROW {} and {}",
-        BaseVector::toString(),
-        otherRow->BaseVector::toString());
-  }
+  VELOX_CHECK(
+      otherRow->encoding() == VectorEncoding::Simple::ROW,
+      "Compare of ROW and non-ROW {} and {}",
+      BaseVector::toString(),
+      otherRow->BaseVector::toString());
 
   bool isNull = isNullAt(index);
   bool otherNull = other->isNullAt(otherIndex);
@@ -118,13 +116,14 @@ std::optional<int32_t> RowVector::compare(
     if (!child || !otherChild) {
       return child ? 1 : -1; // Absent child counts as less.
     }
-    if (child->typeKind() != otherChild->typeKind()) {
-      VELOX_CHECK(
-          false,
-          "Compare of different child types: {} and {}",
-          BaseVector::toString(),
-          other->BaseVector::toString());
-    }
+
+    VELOX_CHECK_EQ(
+        child->typeKind(),
+        otherChild->typeKind(),
+        "Compare of different child types: {} and {}",
+        BaseVector::toString(),
+        other->BaseVector::toString());
+
     auto wrappedOtherIndex = other->wrappedIndex(otherIndex);
     auto result = child->compare(
         otherChild->loadedVector(), index, wrappedOtherIndex, flags);
@@ -582,7 +581,7 @@ void ArrayVectorBase::copyRangesImpl(
     applyToEachRange(
         ranges, [&](auto targetIndex, auto sourceIndex, auto count) {
           if (count > 0) {
-            VELOX_DCHECK(BaseVector::length_ >= targetIndex + count);
+            VELOX_DCHECK_GE(BaseVector::length_, targetIndex + count);
             totalCount += count;
           }
         });
@@ -665,9 +664,7 @@ void RowVector::resize(vector_size_t newSize, bool setNotNull) {
   // Resize all the children.
   for (auto& child : children_) {
     if (child != nullptr) {
-      if (child->isLazy()) {
-        VELOX_FAIL("Resize on a lazy vector is not allowed");
-      }
+      VELOX_CHECK(!child->isLazy(), "Resize on a lazy vector is not allowed");
 
       // If we are just reducing the size of the vector, its safe
       // to skip uniqueness check since effectively we are just changing
@@ -1028,13 +1025,13 @@ std::optional<int32_t> ArrayVector::compare(
 
   auto otherArray = otherValue->asUnchecked<ArrayVector>();
   auto otherElements = otherArray->elements_.get();
-  if (elements_->typeKind() != otherElements->typeKind()) {
-    VELOX_CHECK(
-        false,
-        "Compare of arrays of different element type: {} and {}",
-        BaseVector::toString(),
-        otherArray->BaseVector::toString());
-  }
+
+  VELOX_CHECK_EQ(
+      elements_->typeKind(),
+      otherElements->typeKind(),
+      "Compare of arrays of different element type: {} and {}",
+      BaseVector::toString(),
+      otherArray->BaseVector::toString());
 
   if (flags.equalsOnly &&
       rawSizes_[index] != otherArray->rawSizes_[wrappedOtherIndex]) {
@@ -1250,8 +1247,7 @@ std::optional<int32_t> MapVector::compare(
 
   if (keys_->typeKind() != otherMap->keys_->typeKind() ||
       values_->typeKind() != otherMap->values_->typeKind()) {
-    VELOX_CHECK(
-        false,
+    VELOX_FAIL(
         "Compare of maps of different key/value types: {} and {}",
         BaseVector::toString(),
         otherMap->BaseVector::toString());
@@ -1328,7 +1324,7 @@ void MapVector::canonicalize(
   // threads. The keys and values do not have to be uniquely owned
   // since they are not mutated but rather transposed, which is
   // non-destructive.
-  VELOX_CHECK(map.use_count() == 1);
+  VELOX_CHECK_EQ(map.use_count(), 1);
   BufferPtr indices;
   vector_size_t* indicesRange;
   for (auto i = 0; i < map->BaseVector::length_; ++i) {
@@ -1697,7 +1693,7 @@ MapVectorPtr MapVector::updateImpl(
 
 MapVectorPtr MapVector::update(const std::vector<MapVectorPtr>& others) const {
   VELOX_CHECK(!others.empty());
-  VELOX_CHECK(others.size() < std::numeric_limits<int8_t>::max());
+  VELOX_CHECK_LT(others.size(), std::numeric_limits<int8_t>::max());
   for (auto& other : others) {
     VELOX_CHECK_EQ(size(), other->size());
   }
