@@ -52,18 +52,18 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-client</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-transport-spi</artifactId>
         </dependency>
 
@@ -185,7 +185,7 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
@@ -195,4 +195,23 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <ignoredUsedUndeclaredDependencies>
+                            <ignoredUsedUndeclaredDependency>com.github.imsayari404.drift:drift-transport-spi:jar:1.40-SNAPSHOT</ignoredUsedUndeclaredDependency>
+                        </ignoredUsedUndeclaredDependencies>
+                        <ignoredUnusedDeclaredDependencies>
+                            <ignoredUnusedDeclaredDependency>com.facebook.drift:drift-transport-spi:jar:1.40-SNAPSHOT</ignoredUnusedDeclaredDependency>
+                        </ignoredUnusedDeclaredDependencies>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

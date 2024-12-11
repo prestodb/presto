@@ -364,6 +364,12 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive</artifactId>
                 <version>${project.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -623,6 +629,12 @@
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers</artifactId>
                 <version>${dep.testcontainers.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -684,6 +696,16 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-main</artifactId>
                 <version>${project.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -697,6 +719,12 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-metastore</artifactId>
                 <version>${project.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -801,6 +829,12 @@
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-spark-base</artifactId>
                 <version>${project.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1062,6 +1096,12 @@
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>event</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1080,12 +1120,48 @@
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>jaxrs</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-protocol</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-transport-netty</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>jaxrs-testing</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-protocol</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-transport-netty</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1116,12 +1192,36 @@
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-protocol</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-transport-netty</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>stats</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1131,51 +1231,155 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.imsayari404.drift</groupId>
                 <artifactId>drift-api</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.imsayari404.drift</groupId>
                 <artifactId>drift-client</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-client</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.imsayari404.drift</groupId>
                 <artifactId>drift-codec</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.imsayari404.drift</groupId>
                 <artifactId>drift-protocol</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-protocol</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.imsayari404.drift</groupId>
                 <artifactId>drift-server</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-server</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.imsayari404.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-protocol</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-transport-netty</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.imsayari404.drift</groupId>
                 <artifactId>drift-transport-spi</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-protocol</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-transport-spi</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.drift</groupId>
+                <groupId>com.github.imsayari404.drift</groupId>
                 <artifactId>drift-codec-utils</artifactId>
                 <version>${dep.drift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec-utils</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-protocol</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.drift</groupId>
+                        <artifactId>drift-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2342,7 +2546,7 @@
                 </plugin>
 
                 <plugin>
-                    <groupId>com.facebook.drift</groupId>
+                    <groupId>com.github.imsayari404.drift</groupId>
                     <artifactId>drift-maven-plugin</artifactId>
                     <version>${dep.drift.version}</version>
                 </plugin>
@@ -2397,6 +2601,8 @@
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by several netty dependencies-->
                             <ignoredClassPattern>META-INF.versions.11.module-info</ignoredClassPattern>
+                            <ignoredClassPattern>com.facebook.drift.*</ignoredClassPattern>
+                            <ignoredClassPattern>io.netty.*</ignoredClassPattern>
                         </ignoredClassPatterns>
                     </configuration>
                 </plugin>
