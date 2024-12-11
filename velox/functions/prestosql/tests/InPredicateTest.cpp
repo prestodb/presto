@@ -1139,5 +1139,38 @@ TEST_F(InPredicateTest, TimestampWithTimeZone) {
   testConstantValues<int64_t>(TIMESTAMP_WITH_TIME_ZONE(), valueAt);
 }
 
+TEST_F(InPredicateTest, BadTimestampsWithTry) {
+  // Test that errors thrown while evaluating the filter are propagated
+  // correctly to the TRY.
+  // We do this using the maximum possible timestamp value, when evaulating the
+  // filter it will converted to milliseconds which will cause an overflow that
+  // is detected and handled as a user error. This should not throw an exception
+  // but rather be caught by the TRY and return null.
+  Timestamp maxTimestamp(
+      std::numeric_limits<int64_t>::max() / 1000, 999'999'999);
+  auto flatVectorWithoutNulls = makeFlatVector<Timestamp>({maxTimestamp});
+  auto flatVectorWithNulls =
+      makeNullableFlatVector<Timestamp>({{maxTimestamp}});
+  auto constant = makeConstant<Timestamp>(maxTimestamp, 1);
+
+  auto inValues = makeTimestampVector({0, 1, 2});
+
+  auto expected = BaseVector::createNullConstant(BOOLEAN(), 1, pool());
+
+  auto expression = std::make_shared<core::CallTypedExpr>(
+      BOOLEAN(),
+      std::vector<core::TypedExprPtr>{makeInExpression(inValues)},
+      "try");
+
+  auto result = evaluate(expression, makeRowVector({flatVectorWithoutNulls}));
+  assertEqualVectors(expected, result);
+
+  result = evaluate(expression, makeRowVector({flatVectorWithNulls}));
+  assertEqualVectors(expected, result);
+
+  result = evaluate(expression, makeRowVector({constant}));
+  assertEqualVectors(expected, result);
+}
+
 } // namespace
 } // namespace facebook::velox::functions
