@@ -401,6 +401,46 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kPrefixSortMinRows,
       std::to_string(c.prefixSortMinRows()));
+
+  addSessionProperty(
+    kScaleWriterRebalanceMaxMemoryUsageRatio,
+    "The max ratio of a query used memory to its max capacity, "
+    "and the scale writer exchange stops scaling writer processing if the query's current "
+    "memory usage exceeds this ratio. The value is in the range of (0, 1].",
+    DOUBLE(),
+    false,
+    QueryConfig::kScaleWriterRebalanceMaxMemoryUsageRatio,
+    std::to_string(c.scaleWriterRebalanceMaxMemoryUsageRatio()));
+
+  addSessionProperty(
+    kScaleWriterMaxPartitionsPerWriter,
+    "The max number of logical table partitions that can be assigned to a "
+    "single table writer thread. The logical table partition is used by local "
+    "exchange writer for writer scaling, and multiple physical table "
+    "partitions can be mapped to the same logical table partition based on the "
+    "hash value of calculated partitioned ids.",
+    INTEGER(),
+    false,
+    QueryConfig::kScaleWriterMaxPartitionsPerWriter,
+    std::to_string(c.scaleWriterMaxPartitionsPerWriter()));
+
+  addSessionProperty(
+    kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
+    "Minimum amount of data processed by a logical table partition "
+    "to trigger writer scaling if it is detected as overloaded by scale writer exchange.",
+    BIGINT(),
+    false,
+    QueryConfig::kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
+    std::to_string(c.scaleWriterMinPartitionProcessedBytesRebalanceThreshold()));
+
+  addSessionProperty(
+    kScaleWriterMinProcessedBytesRebalanceThreshold,
+    "Minimum amount of data processed by all the logical table partitions "
+    "to trigger skewed partition rebalancing by scale writer exchange.",
+    BIGINT(),
+    false,
+    QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold,
+    std::to_string(c.scaleWriterMinProcessedBytesRebalanceThreshold()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
