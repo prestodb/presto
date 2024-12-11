@@ -25,6 +25,7 @@ import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.group.DynamicBucketNodeMap;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
@@ -79,6 +80,7 @@ import static com.facebook.presto.spi.NodePoolType.LEAF;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -326,7 +328,22 @@ public class SectionExecutionFactory
             return scheduler;
         }
         else {
-            if (!splitSources.isEmpty()) {
+            if (!splitSources.isEmpty() && (plan.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION))) {
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, null, nodePredicate);
+                List<InternalNode> nodes = nodeSelector.selectRandomNodes(1);
+                return new FixedSourcePartitionedScheduler(
+                        stageExecution,
+                        splitSources,
+                        plan.getFragment().getStageExecutionDescriptor(),
+                        plan.getFragment().getTableScanSchedulingOrder(),
+                        nodes,
+                        new DynamicBucketNodeMap((split) -> 0, 1, nodes),
+                        splitBatchSize,
+                        getConcurrentLifespansPerNode(session),
+                        nodeSelector,
+                        ImmutableList.of(NOT_PARTITIONED));
+            }
+            else if (!splitSources.isEmpty()) {
                 // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getTableScanSchedulingOrder();
                 ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
