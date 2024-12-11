@@ -1470,10 +1470,14 @@ bool Expr::applyFunctionWithPeeling(
   LocalDecodedVector localDecoded(context);
   LocalSelectivityVector newRowsHolder(context);
   if (!context.peelingEnabled()) {
-    if (inputValues_.size() == 1) {
+    if (distinctFields_.size() < 2) {
       // If we have a single input, velox needs to ensure that the
-      // vectorFunction would receive a flat input.
-      BaseVector::flattenVector(inputValues_[0]);
+      // vectorFunction would receive a flat or constant input.
+      for (int i = 0; i < inputValues_.size(); ++i) {
+        if (inputValues_[i]->encoding() == VectorEncoding::Simple::DICTIONARY) {
+          BaseVector::flattenVector(inputValues_[i]);
+        }
+      }
       applyFunction(applyRows, context, result);
       return true;
     }
