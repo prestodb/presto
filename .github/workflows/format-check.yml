@@ -1,0 +1,24 @@
+name: format-check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'presto-native-execution/**'
+
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    container:
+      image: public.ecr.aws/oss-presto/velox-dev:check
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+      - name: Check formatting
+        run: |
+          git fetch origin master
+          cd presto-native-execution
+          make format-check
