@@ -140,7 +140,6 @@ DecodedVector* decodeArrayElements(
     exec::LocalDecodedVector& elementsDecoder,
     const SelectivityVector& rows,
     SelectivityVector* elementRows) {
-  auto decodedVector = arrayDecoder.get();
   auto baseArrayVector = arrayDecoder->base()->as<ArrayVector>();
 
   // Decode and acquire array elements vector.
