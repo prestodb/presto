@@ -30,6 +30,8 @@ public final class SortNode
     private final PlanNode source;
     private final OrderingScheme orderingScheme;
     private final boolean isPartial;
+    // Sort node will sort within each partition, empty partitionBy means global sort
+    private final List<VariableReferenceExpression> partitionBy;
 
     @JsonCreator
     public SortNode(
@@ -37,9 +39,10 @@ public final class SortNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("orderingScheme") OrderingScheme orderingScheme,
-            @JsonProperty("isPartial") boolean isPartial)
+            @JsonProperty("isPartial") boolean isPartial,
+            @JsonProperty("partitionBy") List<VariableReferenceExpression> partitionBy)
     {
-        this(sourceLocation, id, Optional.empty(), source, orderingScheme, isPartial);
+        this(sourceLocation, id, Optional.empty(), source, orderingScheme, isPartial, partitionBy);
     }
 
     public SortNode(
@@ -48,7 +51,8 @@ public final class SortNode
             Optional<PlanNode> statsEquivalentPlanNode,
             PlanNode source,
             OrderingScheme orderingScheme,
-            boolean isPartial)
+            boolean isPartial,
+            List<VariableReferenceExpression> partitionBy)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
 
@@ -58,6 +62,7 @@ public final class SortNode
         this.source = source;
         this.orderingScheme = orderingScheme;
         this.isPartial = isPartial;
+        this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
     }
 
     @Override
@@ -97,6 +102,12 @@ public final class SortNode
         return isPartial;
     }
 
+    @JsonProperty("partitionBy")
+    public List<VariableReferenceExpression> getPartitionBy()
+    {
+        return partitionBy;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -107,13 +118,13 @@ public final class SortNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
-        return new SortNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), orderingScheme, isPartial);
+        return new SortNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), orderingScheme, isPartial, partitionBy);
     }
 
     @Override
     public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
     {
-        return new SortNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, orderingScheme, isPartial);
+        return new SortNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, orderingScheme, isPartial, partitionBy);
     }
 
     private static void checkArgument(boolean condition, String message)

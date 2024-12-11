@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.operator.window;
 
-import com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType;
-import com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType;
+import com.facebook.presto.spi.plan.WindowNode.Frame.BoundType;
+import com.facebook.presto.spi.plan.WindowNode.Frame.WindowType;
 import com.facebook.presto.sql.tree.SortItem.Ordering;
 
 import java.util.Objects;

@@ -12,19 +12,19 @@ General Changes
 * Temporarily revert empty join short-circuit optimization due to issue with hanging queries.
 * Improve performance of ``DECIMAL`` type and operators.
 * Optimize window frame computation for empty frames.
-* :func:`json_extract` and :func:`json_extract_scalar` now support escaping double
+* :func:`!json_extract` and :func:`!json_extract_scalar` now support escaping double
   quotes or backslashes using a backslash with a JSON path subscript. This changes
   the semantics of any invocation using a backslash, as backslashes were previously
   treated as normal characters.
-* Improve performance of :func:`filter` and :func:`map_filter` lambda functions.
+* Improve performance of :func:`!filter` and :func:`!map_filter` lambda functions.
 * Add :doc:`/connector/memory`.
-* Add :func:`arrays_overlap` and :func:`array_except` functions.
-* Allow concatenating more than two arrays with ``concat()`` or maps with :func:`map_concat`.
+* Add :func:`!arrays_overlap` and :func:`!array_except` functions.
+* Allow concatenating more than two arrays with ``concat()`` or maps with :func:`!map_concat`.
 * Add a time limit for the iterative optimizer. It can be adjusted via the ``iterative_optimizer_timeout``
   session property or ``experimental.iterative-optimizer-timeout`` configuration option.
 * ``ROW`` types are now orderable if all of the field types are orderable.
   This allows using them in comparison expressions, ``ORDER BY`` and
-  functions that require orderable types (e.g., :func:`max`).
+  functions that require orderable types (e.g., :func:`!max`).
 
 JDBC Driver Changes
 -------------------

@@ -204,7 +204,6 @@ public class BenchmarkLongBitPacker
         return data.buffer;
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {

@@ -14,15 +14,17 @@
 
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinNode;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.tpcds.TpcdsTableHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Strings;
@@ -37,6 +39,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
@@ -76,9 +79,40 @@ public abstract class AbstractCostBasedPlanTest
         assertEquals(generateQueryPlan(read(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
     }
 
+    @Test(dataProvider = "getQueriesDataProvider")
+    public void histogramsPlansMatch(String queryResourcePath)
+    {
+        String sql = read(queryResourcePath);
+        Session histogramSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
+                .build();
+        Session noHistogramSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
+                .build();
+        String regularPlan = generateQueryPlan(sql, noHistogramSession);
+        String histogramPlan = generateQueryPlan(sql, histogramSession);
+        if (!regularPlan.equals(histogramPlan)) {
+            assertEquals(histogramPlan, read(getHistogramPlanResourcePath(getQueryPlanResourcePath(queryResourcePath))));
+        }
+    }
+
     private String getQueryPlanResourcePath(String queryResourcePath)
     {
         return queryResourcePath.replaceAll("\\.sql$", ".plan.txt");
+    }
+
+    private String getHistogramPlanResourcePath(String regularPlanResourcePath)
+    {
+        Path root = Paths.get(regularPlanResourcePath);
+        return root.getParent().resolve("histogram/" + root.getFileName()).toString();
+    }
+
+    private Path getResourceWritePath(String queryResourcePath)
+    {
+        return Paths.get(
+                getSourcePath().toString(),
+                "src/test/resources",
+                getQueryPlanResourcePath(queryResourcePath));
     }
 
     public void generate()
@@ -90,12 +124,24 @@ public abstract class AbstractCostBasedPlanTest
                     .parallel()
                     .forEach(queryResourcePath -> {
                         try {
-                            Path queryPlanWritePath = Paths.get(
-                                    getSourcePath().toString(),
-                                    "src/test/resources",
-                                    getQueryPlanResourcePath(queryResourcePath));
+                            Path queryPlanWritePath = getResourceWritePath(queryResourcePath);
                             createParentDirs(queryPlanWritePath.toFile());
-                            write(generateQueryPlan(read(queryResourcePath)).getBytes(UTF_8), queryPlanWritePath.toFile());
+                            Session histogramSession = Session.builder(getQueryRunner().getDefaultSession())
+                                    .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
+                                    .build();
+                            Session noHistogramSession = Session.builder(getQueryRunner().getDefaultSession())
+                                    .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "false")
+                                    .build();
+                            String sql = read(queryResourcePath);
+                            String regularPlan = generateQueryPlan(sql, noHistogramSession);
+                            String histogramPlan = generateQueryPlan(sql, histogramSession);
+                            write(regularPlan.getBytes(UTF_8), queryPlanWritePath.toFile());
+                            // write out the histogram plan if it differs
+                            if (!regularPlan.equals(histogramPlan)) {
+                                Path histogramPlanWritePath = getResourceWritePath(getHistogramPlanResourcePath(queryResourcePath));
+                                createParentDirs(histogramPlanWritePath.toFile());
+                                write(histogramPlan.getBytes(UTF_8), histogramPlanWritePath.toFile());
+                            }
                             System.out.println("Generated expected plan for query: " + queryResourcePath);
                         }
                         catch (IOException e) {
@@ -120,10 +166,15 @@ public abstract class AbstractCostBasedPlanTest
 
     private String generateQueryPlan(String query)
     {
+        return generateQueryPlan(query, getQueryRunner().getDefaultSession());
+    }
+
+    private String generateQueryPlan(String query, Session session)
+    {
         String sql = query.replaceAll("\\s+;\\s+$", "")
                 .replace("${database}.${schema}.", "")
                 .replace("\"${database}\".\"${schema}\".\"${prefix}", "\"");
-        Plan plan = plan(sql, OPTIMIZED_AND_VALIDATED, false);
+        Plan plan = plan(session, sql, OPTIMIZED_AND_VALIDATED, false);
 
         JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter();
         plan.getRoot().accept(joinOrderPrinter, 0);

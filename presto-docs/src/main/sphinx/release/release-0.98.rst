@@ -31,5 +31,5 @@ General Changes
 ---------------
 
 * Fix bug in ``UNNEST`` when output is unreferenced or partially referenced.
-* Make :func:`max` and :func:`min` functions work on all orderable types.
-* Optimize memory allocation in :func:`max_by` and other places that ``Block`` is used.
+* Make :func:`!max` and :func:`!min` functions work on all orderable types.
+* Optimize memory allocation in :func:`!max_by` and other places that ``Block`` is used.

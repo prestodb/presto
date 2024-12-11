@@ -13,7 +13,7 @@
 
 ## Contributor checklist
 
-- [ ] Please make sure your submission complies with our [development](https://github.com/prestodb/presto/wiki/Presto-Development-Guidelines#development), [formatting](https://github.com/prestodb/presto/wiki/Presto-Development-Guidelines#formatting), [commit message](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines#commit-formatting-and-pull-requests), and [attribution guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines#attribution).
+- [ ] Please make sure your submission complies with our [contributing guide](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md), in particular [code style](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md#code-style) and [commit standards](https://github.com/prestodb/presto/blob/master/CONTRIBUTING.md#commit-standards).
 - [ ] PR description addresses the issue accurately and concisely.  If the change is non-trivial, a GitHub Issue is referenced.
 - [ ] Documented new properties (with its default value), SQL syntax, functions, or other functionality.
 - [ ] If release notes are required, they follow the [release notes guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines).

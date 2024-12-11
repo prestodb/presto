@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -107,7 +106,7 @@ public class CreateFunctionTask
     {
         QualifiedObjectName functionName = statement.isTemporary() ?
                 QualifiedObjectName.valueOf(SESSION_NAMESPACE, statement.getFunctionName().getSuffix()) :
-                qualifyObjectName(statement.getFunctionName());
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().qualifyObjectName(statement.getFunctionName());
         List<Parameter> parameters = statement.getParameters().stream()
                 .map(parameter -> new Parameter(parameter.getName().toString(), parseTypeSignature(parameter.getType())))
                 .collect(toImmutableList());

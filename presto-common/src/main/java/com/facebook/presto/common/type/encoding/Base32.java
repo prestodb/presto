@@ -275,7 +275,7 @@ public class Base32
      */
     public Base32(final int lineLength, final byte[] lineSeparator, final boolean useHex, final byte pad)
     {
-        super(BYTES_PER_UNENCODED_BLOCK, BYTES_PER_ENCODED_BLOCK, lineLength,
+        super(BYTES_PER_ENCODED_BLOCK, lineLength,
                 lineSeparator == null ? 0 : lineSeparator.length, pad);
         if (useHex) {
             this.encodeTable = HEX_ENCODE_TABLE;

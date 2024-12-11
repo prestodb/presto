@@ -69,6 +69,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxBucketsForGroupedExecution;
 import static com.facebook.presto.hive.HiveSessionProperties.getMinBucketCountToNotIgnoreTableBucketing;
+import static com.facebook.presto.hive.HiveSessionProperties.isLegacyTimestampBucketing;
 import static com.facebook.presto.hive.HiveSessionProperties.isOfflineDataDebugModeEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isParallelParsingOfPartitionValuesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldIgnoreTableBucketing;
@@ -270,7 +271,7 @@ public class HivePartitionManager
         }
 
         Optional<HiveBucketHandle> hiveBucketHandle = getBucketHandle(table, session, effectivePredicate);
-        Optional<HiveBucketFilter> bucketFilter = hiveBucketHandle.flatMap(value -> getHiveBucketFilter(table, effectivePredicate));
+        Optional<HiveBucketFilter> bucketFilter = hiveBucketHandle.flatMap(value -> getHiveBucketFilter(table, effectivePredicate, isLegacyTimestampBucketing(session)));
 
         if (!queryUsesHiveBucketColumn(effectivePredicate)
                 && hiveBucketHandle.isPresent()
@@ -329,10 +330,10 @@ public class HivePartitionManager
     {
         // never ignore table bucketing for temporary tables as those are created such explicitly by the engine request
         if (table.getTableType().equals(TEMPORARY_TABLE)) {
-            return getHiveBucketHandle(table);
+            return getHiveBucketHandle(session, table);
         }
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table);
         if (!hiveBucketHandle.isPresent() || shouldIgnoreTableBucketing(session)) {
             return Optional.empty();
         }
@@ -382,7 +383,7 @@ public class HivePartitionManager
                 .map(partition -> partition.orElseThrow(() -> new VerifyException("partition must exist")))
                 .collect(toImmutableList());
 
-        Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(table);
+        Optional<HiveBucketHandle> bucketHandle = shouldIgnoreTableBucketing(session) ? Optional.empty() : getHiveBucketHandle(session, table);
         return new HivePartitionResult(
                 ImmutableList.copyOf(partitionColumns),
                 table.getDataColumns(),

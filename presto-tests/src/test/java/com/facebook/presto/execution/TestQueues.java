@@ -27,12 +27,15 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.sql.Serialization;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Key;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.AfterMethod;
@@ -42,13 +45,16 @@ import org.testng.annotations.Test;
 import javax.ws.rs.core.Response.Status;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.preparePut;
 import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static com.facebook.presto.SystemSessionProperties.EAGER_PLAN_VALIDATION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
@@ -57,7 +63,9 @@ import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.cancelQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.createQuery;
 import static com.facebook.presto.execution.TestQueryRunnerUtil.waitForQueryState;
-import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getSimpleQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.createQueryRunner;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDao;
+import static com.facebook.presto.execution.resourceGroups.db.H2TestUtil.getDbConfigUrl;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
 import static com.facebook.presto.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
@@ -86,7 +94,9 @@ public class TestQueues
     public void setup()
             throws Exception
     {
-        queryRunner = getSimpleQueryRunner();
+        Map<String, String> coordinatorProperties = ImmutableMap.of("plan-checker.config-dir", "src/test/resources/plan-checker-providers");
+        String dbConfigUrl = getDbConfigUrl();
+        queryRunner = createQueryRunner(dbConfigUrl, getDao(dbConfigUrl), coordinatorProperties, 1);
         queryRunner.installPlugin(new BlackHolePlugin());
         queryRunner.createCatalog("blackhole", "blackhole");
         queryRunner.execute(
@@ -372,6 +382,51 @@ public class TestQueues
         queryInfo = getBasicQueryInfo("/v1/query/" + thirdDashboardQuery.getId());
         assertNotNull(queryInfo);
         assertEquals(queryInfo.getErrorCode(), ADMINISTRATIVELY_PREEMPTED.toErrorCode());
+    }
+
+    @Test(timeOut = 240_000)
+    public void testEagerPlanValidation()
+            throws Exception
+    {
+        AtomicBoolean triggerValidationFailure = new AtomicBoolean();
+
+        queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+        queryRunner.installCoordinatorPlugin(new TestingPlanCheckerProviderPlugin(triggerValidationFailure));
+        PlanCheckerProviderManager planCheckerProviderManager = queryRunner.getCoordinator().getInstance(Key.get(PlanCheckerProviderManager.class));
+        planCheckerProviderManager.loadPlanCheckerProviders(new TestingNodeManager());
+        queryRunner.getCoordinator().getResourceGroupManager().get().forceSetConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_config_eager_plan_validation.json")));
+
+        Session.SessionBuilder builder = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .setSource("eager")
+                .setSystemProperty(EAGER_PLAN_VALIDATION_ENABLED, "true");
+
+        Session firstSession = builder.setQueryId(QueryId.valueOf("20240930_203743_00001_11111")).build();
+        QueryId firstQuery = createQuery(queryRunner, firstSession, LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, firstQuery, RUNNING);
+
+        Session secondSession = builder.setQueryId(QueryId.valueOf("20240930_203743_00002_22222")).build();
+        QueryId secondQuery = createQuery(queryRunner, secondSession, LONG_LASTING_QUERY);
+        waitForQueryState(queryRunner, secondQuery, QUEUED);
+
+        // Force failure during plan validation after queuing has begun
+        triggerValidationFailure.set(true);
+
+        Session thirdSession = builder.setQueryId(QueryId.valueOf("20240930_203743_00003_33333")).build();
+        QueryId thirdQuery = createQuery(queryRunner, thirdSession, LONG_LASTING_QUERY);
+
+        waitForQueryState(queryRunner, thirdQuery, FAILED);
+
+        DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
+        BasicQueryInfo queryInfo = dispatchManager.getQueryInfo(thirdQuery);
+        assertEquals(queryInfo.getErrorCode(), TriggerFailurePlanChecker.FAILURE_ERROR_CODE.toErrorCode());
+        assertNotNull(queryInfo.getFailureInfo());
+        assertNotNull(queryInfo.getFailureInfo().getMessage());
+        assertEquals(queryInfo.getFailureInfo().getMessage(), TriggerFailurePlanChecker.FAILURE_MESSAGE);
+
+        cancelQuery(queryRunner, secondQuery);
+        cancelQuery(queryRunner, firstQuery);
     }
 
     private void assertResourceGroup(DistributedQueryRunner queryRunner, Session session, String query, ResourceGroupId expectedResourceGroup)

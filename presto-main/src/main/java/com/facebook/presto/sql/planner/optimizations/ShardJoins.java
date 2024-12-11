@@ -21,13 +21,13 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.google.common.collect.ImmutableList;
@@ -55,7 +55,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Shard joins to eliminate skew:
- *
+ * <p>
  * Transform
  * <pre>
  * - Join
@@ -73,7 +73,6 @@ import static java.util.Objects.requireNonNull;
  *             Project(seq:=sequence(0, NumShards - 1))
  *                - T
  * </pre>
- *
  */
 
 public class ShardJoins
@@ -186,7 +185,7 @@ public class ShardJoins
         {
             return joinNode.getType() != FULL && joinNode.getType() != RIGHT && !isBroadcastJoin(joinNode) &&
                     (getShardedJoinStrategy(session).equals(ALWAYS) ||
-                        getShardedJoinStrategy(session).equals(COST_BASED) && shouldShardJoin(joinNode));
+                            getShardedJoinStrategy(session).equals(COST_BASED) && shouldShardJoin(joinNode));
         }
 
         private boolean shouldShardJoin(JoinNode joinNode)

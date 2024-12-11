@@ -43,7 +43,7 @@ public class DockerCompose
             throws InterruptedException
     {
         checkState(Processes.execute("docker", "--version") == 0, "docker is not installed");
-        checkState(Processes.execute("docker-compose", "--version") == 0, "docker-compose is not installed");
+        checkState(Processes.execute("docker", "compose", "--version") == 0, "docker compose is not installed");
     }
 
     public void pull()
@@ -68,7 +68,7 @@ public class DockerCompose
             throws InterruptedException
     {
         int exitCode = execute("down");
-        checkState(exitCode == 0, "down existed with code: %s", exitCode);
+        checkState(exitCode == 0, "down exited with code: %s", exitCode);
     }
 
     public String getContainerAddress(String service)
@@ -139,7 +139,7 @@ public class DockerCompose
             throws InterruptedException
     {
         return Processes.executeForOutput(ImmutableList.<String>builder()
-                .add("docker-compose", "-f", composeYaml.getAbsolutePath())
+                .add("docker", "compose", "-f", composeYaml.getAbsolutePath())
                 .addAll(args)
                 .build());
     }
@@ -147,7 +147,7 @@ public class DockerCompose
     private Process start(List<String> args)
     {
         return startProcess(ImmutableList.<String>builder()
-                .add("docker-compose", "-f", composeYaml.getAbsolutePath())
+                .add("docker", "compose", "-f", composeYaml.getAbsolutePath())
                 .addAll(args)
                 .build());
     }

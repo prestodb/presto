@@ -71,7 +71,7 @@ public class SetTablePropertyProcedure
                 "set_table_property",
                 ImmutableList.of(
                         new Procedure.Argument("schema", VARCHAR),
-                        new Procedure.Argument("table", VARCHAR),
+                        new Procedure.Argument("table_name", VARCHAR),
                         new Procedure.Argument("key", VARCHAR),
                         new Procedure.Argument("value", VARCHAR)),
                 SET_TABLE_PROPERTY.bindTo(this));

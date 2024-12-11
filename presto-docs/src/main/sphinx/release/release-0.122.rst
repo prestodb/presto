@@ -16,7 +16,7 @@ General Changes
 * Fix ``NoSuchElementException`` when cross join is used inside ``IN`` query.
 * Fix ``GROUP BY`` to support maps of structural types.
 * The web interface now displays a lock icon next to authenticated users.
-* The :func:`min_by` and :func:`max_by` aggregations now have an additional form
+* The :func:`!min_by` and :func:`!max_by` aggregations now have an additional form
   that return multiple values.
 * Fix incorrect results when using ``IN`` lists of more than 1000 elements of
   ``timestamp with time zone``, ``time with time zone`` or structural types.

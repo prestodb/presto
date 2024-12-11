@@ -23,11 +23,12 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
-import com.facebook.presto.hive.TestingSemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.TestingExtendedHiveMetastore;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorSession;
@@ -36,6 +37,7 @@ import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
@@ -80,7 +82,7 @@ public class TestParquetQuickStatsBuilder
     public static final String TEST_TABLE = "quick_stats";
     private ParquetQuickStatsBuilder parquetQuickStatsBuilder;
     private MetastoreContext metastoreContext;
-    private SemiTransactionalHiveMetastore metastore;
+    private ExtendedHiveMetastore metastore;
     private HdfsEnvironment hdfsEnvironment;
     private HiveClientConfig hiveClientConfig;
     private MetastoreClientConfig metastoreClientConfig;
@@ -203,10 +205,6 @@ public class TestParquetQuickStatsBuilder
                 Optional.empty(),
                 Optional.empty());
 
-        TestingSemiTransactionalHiveMetastore mock = TestingSemiTransactionalHiveMetastore.create();
-        mock.addTable(TEST_SCHEMA, TEST_TABLE, table, ImmutableList.of());
-        metastore = mock;
-
         metastoreContext = new MetastoreContext(SESSION.getUser(),
                 SESSION.getQueryId(),
                 Optional.empty(),
@@ -217,6 +215,10 @@ public class TestParquetQuickStatsBuilder
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 SESSION.getWarningCollector(),
                 SESSION.getRuntimeStats());
+        ExtendedHiveMetastore mock = new TestingExtendedHiveMetastore();
+        mock.createTable(metastoreContext, table, new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()), ImmutableList.of());
+        metastore = mock;
+
         hiveClientConfig = new HiveClientConfig();
         metastoreClientConfig = new MetastoreClientConfig();
         // Use HiveUtils#createTestHdfsEnvironment to ensure that PrestoS3FileSystem is used for s3a paths

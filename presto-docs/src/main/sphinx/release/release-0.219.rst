@@ -15,12 +15,12 @@ General Changes
 * Fix an issue that may cause procedure calls to fail if no queries were run after the server started up.
 * Fix an issue where the properties supported by the ``ANALYZE`` statement for a given connector would remain in the ``system.metadata.analyze_properties`` table
   even after the connector was removed.
-* Add :func:`ST_Length` for ``SphericalGeography`` type..
+* Add :func:`!ST_Length` for ``SphericalGeography`` type..
 * Add ``view_owner`` column to the ``information_schema.views`` system table.
 * Add a ``JSON`` version of the query plan to ``QueryCompletedEvent``.
 * Add support for creating warnings during parsing.
 * Add a warning for using the ``current_role`` reserved word as an identifier.
-* Add support for using the empty string as a delimiter for the :func:`split` function.
+* Add support for using the empty string as a delimiter for the :func:`!split` function.
   When an empty string is used as the delimiter, the string will be split into individual characters.
 
 Raptor Changes
@@ -43,7 +43,7 @@ Verifier Changes
 * Fix query timeout enforcement by replacing local timer with the ``query_max_execution_time`` session property.
 * Improve result comparison for floating point columns by using relative errors.
   Replace configuration property ``expected-double-precision`` with ``relative-error-margin``.
-* Improve result comparison for orderable array columns by applying :func:`array_sort` before :func:`checksum`.
+* Improve result comparison for orderable array columns by applying :func:`!array_sort` before :func:`!checksum`.
 * Improve result comparison for ``SELECT`` queries by rewriting ``SELECT`` queries as ``CREATE TABLE AS`` and using checksum queries to verify the results.
   This eliminates the row count limit for ``SELECT`` queries.
 * Reuse initial control query results for the determinism check. This reduces the maximum number of control query runs and eliminates the test query reruns.

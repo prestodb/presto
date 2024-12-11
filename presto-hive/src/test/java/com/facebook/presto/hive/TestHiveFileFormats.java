@@ -28,6 +28,7 @@ import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.orc.StorageStripeMetadataSource;
 import com.facebook.presto.orc.StripeMetadataSourceFactory;
 import com.facebook.presto.orc.cache.StorageOrcFileTailSource;
+import com.facebook.presto.parquet.FileParquetDataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -56,6 +57,11 @@ import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
 import org.apache.hadoop.mapred.FileSplit;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Type;
+import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -63,6 +69,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -106,6 +113,7 @@ import static com.facebook.presto.tests.StructuralTestUtil.rowBlockOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.filter;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.io.File.createTempFile;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardListObjectInspector;
@@ -120,6 +128,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -496,6 +505,52 @@ public class TestHiveFileFormats
                 .withReadColumns(readColumns)
                 .withSession(parquetPageSourceSessionUseName)
                 .isReadableByPageSource(new ParquetPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, HDFS_ENVIRONMENT, STATS, METADATA_READER));
+    }
+
+    @Test
+    public void testParquetLogicalTypes() throws IOException
+    {
+        HiveFileWriterFactory parquetFileWriterFactory = new ParquetFileWriterFactory(HDFS_ENVIRONMENT, FUNCTION_AND_TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE);
+
+        List<PropertyMetadata<?>> allSessionProperties = getAllSessionProperties(
+                new HiveClientConfig(),
+                new ParquetFileWriterConfig().setParquetOptimizedWriterEnabled(true),
+                createOrcHiveCommonClientConfig(true, 100.0));
+
+        TestingConnectorSession session = new TestingConnectorSession(allSessionProperties);
+        File file = createTempFile("logicaltest", ".parquet");
+        long timestamp = new DateTime(2011, 5, 6, 7, 8, 9, 123).getMillis();
+
+        try {
+            createTestFile(
+                    file.getAbsolutePath(),
+                    PARQUET,
+                    HiveCompressionCodec.NONE,
+                    ImmutableList.of(new TestColumn("t_timestamp", javaTimestampObjectInspector, new Timestamp(timestamp), timestamp)),
+                    session,
+                    3,
+                    parquetFileWriterFactory);
+
+            FileParquetDataSource dataSource = new FileParquetDataSource(file);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(
+                    dataSource,
+                    file.length(),
+                    Optional.empty(),
+                    false).getParquetMetadata();
+
+            MessageType writtenSchema = parquetMetadata.getFileMetaData().getSchema();
+            Type timestampType = writtenSchema.getType("t_timestamp");
+            if (timestampType.getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
+                LogicalTypeAnnotation.TimestampLogicalTypeAnnotation annotation = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) timestampType.getLogicalTypeAnnotation();
+                assertFalse(annotation.isAdjustedToUTC());
+            }
+            else {
+                fail("the logical type annotation saved was not of type TimestampLogicalTypeAnnotation");
+            }
+        }
+        finally {
+            file.delete();
+        }
     }
 
     private static List<TestColumn> getTestColumnsSupportedByParquet()

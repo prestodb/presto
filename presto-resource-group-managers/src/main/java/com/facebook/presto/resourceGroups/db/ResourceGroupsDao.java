@@ -81,7 +81,7 @@ public interface ResourceGroupsDao
             "  client_tags VARCHAR(512),\n" +
             "  selector_resource_estimate VARCHAR(1024),\n" +
             "  client_info_regex VARCHAR(1024),\n" +
-            "  schema VARCHAR(1024),\n" +
+            "  `schema` VARCHAR(1024),\n" +
             "  principal_regex VARCHAR(1024),\n" +
             "  id BIGINT NOT NULL AUTO_INCREMENT,\n" +
             "  PRIMARY KEY (id),\n" +

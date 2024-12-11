@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
+import com.facebook.presto.sql.tree.ExplainFormat;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -50,7 +51,7 @@ public class TestVerifyOnlyOneOutputNode
                                         Optional.empty()),
                                 Assignments.of()
                         ), ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
+        new VerifyOnlyOneOutputNode().validate(root, null, null, WarningCollector.NOOP);
     }
 
     @Test(expectedExceptions = IllegalStateException.class)
@@ -67,8 +68,9 @@ public class TestVerifyOnlyOneOutputNode
                                                 Assignments.of()
                                         ), ImmutableList.of(), ImmutableList.of()
                                 ), new VariableReferenceExpression(Optional.empty(), "a", BIGINT),
-                                false),
+                                false,
+                                ExplainFormat.Type.TEXT),
                         ImmutableList.of(), ImmutableList.of());
-        new VerifyOnlyOneOutputNode().validate(root, null, null, null, null, WarningCollector.NOOP);
+        new VerifyOnlyOneOutputNode().validate(root, null, null, WarningCollector.NOOP);
     }
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveBasicStatistics;
 import com.facebook.presto.hive.metastore.HiveColumnStatistics;
@@ -24,7 +26,9 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
@@ -32,22 +36,34 @@ import org.testng.annotations.Test;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.BooleanType.createBlockForSingleNonNullValue;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.SUPPORTED_MERGE_FLAGS;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.combineSelectedAndPredicateColumns;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.encodeMergeFlags;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.mergeHiveStatistics;
+import static com.facebook.presto.spi.relation.ConstantExpression.createConstantExpression;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
@@ -251,6 +267,61 @@ public class TestStatisticsUtil
                         .build()))
                 .build()
                 .getTotalSize(), Estimate.unknown());
+    }
+
+    @Test
+    public void testGenerateStatisticColumnSets()
+    {
+        IcebergColumnHandle i = generateIcebergColumnHandle("i", false);
+        IcebergColumnHandle j = generateIcebergColumnHandle("j", false);
+        IcebergColumnHandle k = generateIcebergColumnHandle("k", false);
+        IcebergColumnHandle l = generateIcebergColumnHandle("l", false);
+        Set<IcebergColumnHandle> regularColumns = ImmutableSet.of(i, j, k, l);
+        IcebergColumnHandle x = generateIcebergColumnHandle("x", true);
+        IcebergColumnHandle y = generateIcebergColumnHandle("y", true);
+        IcebergTableLayoutHandle.Builder builder = new IcebergTableLayoutHandle.Builder()
+                .setPartitionColumns(ImmutableList.of(x, y))
+                .setRemainingPredicate(createConstantExpression(createBlockForSingleNonNullValue(true), BOOLEAN))
+                .setPartitionColumnPredicate(TupleDomain.all())
+                .setPartitions(Optional.empty())
+                .setDataColumns(ImmutableList.of())
+                .setPredicateColumns(ImmutableMap.of())
+                .setRequestedColumns(Optional.empty())
+                .setTable(new IcebergTableHandle("test", IcebergTableName.from("test"), false, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                .setDomainPredicate(TupleDomain.all());
+        // verify all selected columns are included
+        List<IcebergColumnHandle> includedColumns = combineSelectedAndPredicateColumns(
+                regularColumns.stream().collect(toImmutableList()),
+                Optional.of(builder.build()));
+        assertEquals(new HashSet<>(includedColumns), new HashSet<>(regularColumns));
+
+        // verify all selected and predicate columns are included (i, j) are selected, (k, l) are predicate
+        builder.setPredicateColumns(ImmutableList.of(i, j).stream().collect(toImmutableMap(IcebergColumnHandle::getName, Function.identity())));
+        includedColumns = combineSelectedAndPredicateColumns(ImmutableList.of(k, l), Optional.of(builder.build()));
+        assertEquals(new HashSet<>(includedColumns), new HashSet<>(regularColumns));
+
+        // verify all selected, predicate, and partition predicate columns are included when pushdown filter is enabled
+        builder.setPredicateColumns(ImmutableList.of(i, j).stream().collect(toImmutableMap(IcebergColumnHandle::getName, Function.identity())))
+                .setPushdownFilterEnabled(true)
+                .setPartitionColumnPredicate(TupleDomain.withColumnDomains(ImmutableMap.of(x, Domain.notNull(INTEGER))));
+
+        includedColumns = combineSelectedAndPredicateColumns(ImmutableList.of(k, l), Optional.of(builder.build()));
+        assertEquals(new HashSet<>(includedColumns), ImmutableSet.of(i, j, k, l, x));
+
+        // verify partition predicate columns are not included when filter pushdown is disabled
+        builder.setPushdownFilterEnabled(false)
+                .setPartitionColumnPredicate(TupleDomain.withColumnDomains(ImmutableMap.of(x, Domain.notNull(INTEGER), y, Domain.notNull(INTEGER))));
+        includedColumns = combineSelectedAndPredicateColumns(ImmutableList.of(k, l), Optional.of(builder.build()));
+        assertEquals(new HashSet<>(includedColumns), ImmutableSet.of(i, j, k, l));
+    }
+
+    private static IcebergColumnHandle generateIcebergColumnHandle(String name, boolean partitioned)
+    {
+        return new IcebergColumnHandle(new ColumnIdentity(ThreadLocalRandom.current().nextInt(), name, TypeCategory.PRIMITIVE, ImmutableList.of()),
+                INTEGER,
+                Optional.empty(),
+                partitioned ? PARTITION_KEY : REGULAR,
+                ImmutableList.of());
     }
 
     private static TableStatistics generateSingleColumnIcebergStats()

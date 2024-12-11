@@ -87,7 +87,7 @@ class PeriodicMemoryChecker {
 
   /// Callback function that is invoked by 'PeriodicMemoryChecker' periodically.
   /// Light operations such as stats reporting can be done in this call back.
-  virtual void periodicCb() const = 0;
+  virtual void periodicCb() = 0;
 
   /// Callback function that performs a heap dump. Returns true if dump is
   /// successful.
@@ -96,6 +96,10 @@ class PeriodicMemoryChecker {
   /// Callback function that removes a dumped file with given 'filePath'.
   /// Returns true if dump is successful.
   virtual void removeDumpFile(const std::string& filePath) const = 0;
+
+  /// Invoked by the periodic checker when 'Config::systemMemPushbackEnabled'
+  /// is true and system memory usage is above 'Config::systemMemLimitBytes'.
+  virtual void pushbackMemory();
 
   const Config config_;
 
@@ -118,10 +122,6 @@ class PeriodicMemoryChecker {
       return mallocUsedBytes < other.mallocUsedBytes;
     }
   };
-
-  // Invoked by the periodic checker when 'Config::systemMemPushbackEnabled'
-  // is true and system memory usage is above 'Config::systemMemLimitBytes'.
-  void pushbackMemory();
 
   // Invoked by the periodic checker when 'Config::mallocMemHeapDumpEnabled' is
   // true.

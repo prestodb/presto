@@ -19,18 +19,18 @@ import com.facebook.presto.metadata.TableLayout;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.MergeJoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 
@@ -82,7 +82,7 @@ class GroupedExecutionTagger
         GroupedExecutionTagger.GroupedExecutionProperties right = node.getRight().accept(this, null);
 
         if (!node.getDistributionType().isPresent() || !groupedExecutionEnabled) {
-            // This is possible when the optimizers is invoked with `forceSingleNode` set to true.
+            // This is possible when the optimizers is invoked with `noExchange` set to true.
             return GroupedExecutionTagger.GroupedExecutionProperties.notCapable();
         }
 

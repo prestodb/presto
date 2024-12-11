@@ -13,9 +13,9 @@ clause to specify the window as follows::
         [frame]
     )
 
-A ``frame`` is one of::
+A ``frame`` is one of:
 
-    {RANGE|ROWS|GROUPS} frame_start
+    {RANGE|ROWS|GROUPS} frame_start 
     {RANGE|ROWS|GROUPS} BETWEEN frame_start AND frame_end
 
 ``frame_start`` and ``frame_end`` can be any of::
@@ -132,7 +132,7 @@ Ranking Functions
 .. function:: dense_rank() -> bigint
 
     Returns the rank of a value in a group of values. This is similar to
-    :func:`rank`, except that tie values do not produce gaps in the sequence.
+    :func:`!rank`, except that tie values do not produce gaps in the sequence.
 
 .. function:: ntile(n) -> bigint
 
@@ -148,7 +148,7 @@ Ranking Functions
 .. function:: percent_rank() -> double
 
     Returns the percentage ranking of a value in group of values. The result
-    is ``(r - 1) / (n - 1)`` where ``r`` is the :func:`rank` of the row and
+    is ``(r - 1) / (n - 1)`` where ``r`` is the :func:`!rank` of the row and
     ``n`` is the total number of rows in the window partition.
 
 .. function:: rank() -> bigint

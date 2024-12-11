@@ -16,10 +16,9 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.WindowNodeUtil;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 
@@ -60,7 +59,7 @@ public class PruneWindowColumns
         windowNode.getHashVariable().ifPresent(referencedInputs::add);
 
         for (WindowNode.Function windowFunction : referencedFunctions.values()) {
-            referencedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(windowFunction, TypeProvider.viewOf(variableAllocator.getVariables())));
+            referencedInputs.addAll(WindowNodeUtil.extractWindowFunctionUniqueVariables(windowFunction));
             windowFunction.getFrame().getStartValue().ifPresent(referencedInputs::add);
             windowFunction.getFrame().getEndValue().ifPresent(referencedInputs::add);
             windowFunction.getFrame().getSortKeyCoercedForFrameStartComparison().ifPresent(referencedInputs::add);

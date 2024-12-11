@@ -178,9 +178,9 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
     public void testArrayContainsWithCastBothRules()
     {
         tester().assertThat(
-                ImmutableSet.of(
-                        new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
-                        new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
+                        ImmutableSet.of(
+                                new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
+                                new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
                 .setSystemProperty(REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN, "true")
                 .on(p ->
                 {
@@ -211,9 +211,9 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
     public void testArrayContainsWithCastBothRules2()
     {
         tester().assertThat(
-                ImmutableSet.of(
-                        new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
-                        new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
+                        ImmutableSet.of(
+                                new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
+                                new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
                 .setSystemProperty(REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN, "true")
                 .on(p ->
                 {
@@ -244,9 +244,9 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
     public void testArrayContainsWithCastBothRulesArrayRightSide()
     {
         tester().assertThat(
-                ImmutableSet.of(
-                        new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
-                        new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
+                        ImmutableSet.of(
+                                new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
+                                new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
                 .setSystemProperty(REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN, "true")
                 .on(p ->
                 {
@@ -277,9 +277,9 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
     public void testArrayContainsWithCoalesceBothRules()
     {
         tester().assertThat(
-                ImmutableSet.of(
-                        new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
-                        new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
+                        ImmutableSet.of(
+                                new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
+                                new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
                 .setSystemProperty(REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN, "true")
                 .on(p ->
                 {
@@ -311,9 +311,9 @@ public class TestCrossJoinWithArrayContainsToInnerJoin
     public void testArrayContainsWithCoalesceBothRulesArrayOnRight()
     {
         tester().assertThat(
-                ImmutableSet.of(
-                        new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
-                        new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
+                        ImmutableSet.of(
+                                new PushDownFilterExpressionEvaluationThroughCrossJoin(getFunctionManager()),
+                                new CrossJoinWithArrayContainsToInnerJoin(getMetadata().getFunctionAndTypeManager())))
                 .setSystemProperty(REWRITE_CROSS_JOIN_ARRAY_CONTAINS_TO_INNER_JOIN, "true")
                 .on(p ->
                 {

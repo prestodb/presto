@@ -34,11 +34,9 @@ public final class CassandraQueryRunner
 
     private static boolean tpchLoaded;
 
-    public static synchronized DistributedQueryRunner createCassandraQueryRunner()
+    public static DistributedQueryRunner createCassandraQueryRunner(CassandraServer server)
             throws Exception
     {
-        EmbeddedCassandra.start();
-
         DistributedQueryRunner queryRunner = new DistributedQueryRunner(createCassandraSession("tpch"), 4);
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -46,18 +44,15 @@ public final class CassandraQueryRunner
 
         queryRunner.installPlugin(new CassandraPlugin());
         queryRunner.createCatalog("cassandra", "cassandra", ImmutableMap.of(
-                "cassandra.contact-points", EmbeddedCassandra.getHost(),
-                "cassandra.native-protocol-port", Integer.toString(EmbeddedCassandra.getPort()),
+                "cassandra.contact-points", server.getHost(),
+                "cassandra.native-protocol-port", Integer.toString(server.getPort()),
                 "cassandra.allow-drop-table", "true"));
 
-        if (!tpchLoaded) {
-            createKeyspace(EmbeddedCassandra.getSession(), "tpch");
-            List<TpchTable<?>> tables = TpchTable.getTables();
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
-            for (TpchTable table : tables) {
-                EmbeddedCassandra.refreshSizeEstimates("tpch", table.getTableName());
-            }
-            tpchLoaded = true;
+        createKeyspace(server.getSession(), "tpch");
+        List<TpchTable<?>> tables = TpchTable.getTables();
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createCassandraSession("tpch"), tables);
+        for (TpchTable<?> table : tables) {
+            server.refreshSizeEstimates("tpch", table.getTableName());
         }
 
         return queryRunner;

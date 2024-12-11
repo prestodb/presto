@@ -17,12 +17,15 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
@@ -39,9 +42,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.testing.QueryRunner;
@@ -68,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT;
 import static com.facebook.presto.SystemSessionProperties.SIMPLIFY_PLAN_WITH_EMPTY_INPUT;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
@@ -75,6 +77,7 @@ import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
@@ -135,6 +138,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestLogicalPlanner
         extends BasePlanTest
@@ -449,7 +454,7 @@ public class TestLogicalPlanner
                                         project(ImmutableMap.of("hash", expression("combine_hash(bigint '0', coalesce(\"$operator$hash_code\"(orderstatus_35), 0))")),
                                                 project(
                                                         ImmutableMap.of("orderstatus_35", expression("'F'")),
-                                                tableScan("orders", ImmutableMap.of())))))));
+                                                        tableScan("orders", ImmutableMap.of())))))));
     }
 
     @Test
@@ -788,12 +793,12 @@ public class TestLogicalPlanner
                 noJoinReordering(),
                 anyTree(
                         markDistinct("is_distinct", ImmutableList.of("unique"),
-                                        join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
-                                                assignUniqueId("unique",
-                                                        exchange(REMOTE_STREAMING, REPARTITION,
-                                                                anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
-                                                anyTree(
-                                                        tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))));
+                                join(LEFT, ImmutableList.of(equiJoinClause("n_regionkey", "r_regionkey")),
+                                        assignUniqueId("unique",
+                                                exchange(REMOTE_STREAMING, REPARTITION,
+                                                        anyTree(tableScan("nation", ImmutableMap.of("n_regionkey", "regionkey"))))),
+                                        anyTree(
+                                                tableScan("region", ImmutableMap.of("r_regionkey", "regionkey")))))));
     }
 
     @Test
@@ -1003,11 +1008,11 @@ public class TestLogicalPlanner
                 output(
                         project(
                                 ImmutableMap.of("expr_2", expression("5")),
-                        filter("orderkey = BIGINT '5'",
-                                constrainedTableScanWithTableLayout(
-                                        "orders",
-                                        ImmutableMap.of(),
-                                        ImmutableMap.of("orderkey", "orderkey"))))));
+                                filter("orderkey = BIGINT '5'",
+                                        constrainedTableScanWithTableLayout(
+                                                "orders",
+                                                ImmutableMap.of(),
+                                                ImmutableMap.of("orderkey", "orderkey"))))));
         assertPlan(
                 "SELECT orderkey FROM orders WHERE orderstatus='F'",
                 output(
@@ -1080,6 +1085,14 @@ public class TestLogicalPlanner
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
                 .build();
 
+        Session disableRemoveCrossJoin = Session.builder(broadcastJoin)
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "false")
+                .build();
+
+        Session enableRemoveCrossJoin = Session.builder(broadcastJoin)
+                .setSystemProperty(REMOVE_CROSS_JOIN_WITH_CONSTANT_SINGLE_ROW_INPUT, "true")
+                .build();
+
         // replicated join with naturally partitioned and distributed probe side is rewritten to partitioned join
         assertPlanWithSession(
                 "SELECT r1.regionkey FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey = r1.regionkey",
@@ -1106,7 +1119,7 @@ public class TestLogicalPlanner
         // replicated join is preserved if probe side is single node
         assertPlanWithSession(
                 "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a",
-                broadcastJoin,
+                disableRemoveCrossJoin,
                 false,
                 anyTree(
                         node(JoinNode.class,
@@ -1115,6 +1128,12 @@ public class TestLogicalPlanner
                                 anyTree(
                                         exchange(REMOTE_STREAMING, GATHER,
                                                 node(TableScanNode.class))))));
+
+        assertPlanWithSession(
+                "SELECT * FROM (SELECT * FROM (VALUES 1) t(a)) t, region r WHERE r.regionkey = t.a",
+                enableRemoveCrossJoin,
+                false,
+                anyTree(node(TableScanNode.class)));
 
         // replicated join is preserved if there are no equality criteria
         assertPlanWithSession(
@@ -1362,6 +1381,24 @@ public class TestLogicalPlanner
                 "SELECT * FROM (SELECT regionkey FROM region GROUP BY regionkey) r1, region r2 WHERE r2.regionkey > r1.regionkey LIMIT 0",
                 output(
                         values("expr_8", "expr_9", "expr_10", "expr_11")));
+    }
+
+    @Test
+    public void testInvalidLimit()
+    {
+        try {
+            assertPlan(
+                    "SELECT orderkey FROM orders LIMIT 10000000000000000000000",
+                    output(
+                            values("NOOP")));
+            fail("PrestoException not thrown for invalid limit");
+        }
+        catch (Exception e) {
+            assertTrue(e instanceof PrestoException, format("Expected PrestoException but found %s", e));
+            PrestoException prestoException = (PrestoException) e;
+            assertEquals(prestoException.getErrorCode(), INVALID_LIMIT_CLAUSE.toErrorCode());
+            assertEquals(prestoException.getMessage(), "Invalid limit: 10000000000000000000000");
+        }
     }
 
     @Test

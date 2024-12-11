@@ -8,11 +8,11 @@ General Changes
 * Fix planning performance regression that can affect queries over Hive tables
   with many partitions.
 * Fix deadlock in memory management logic introduced in the previous release.
-* Add :func:`word_stem` function.
+* Add :func:`!word_stem` function.
 * Restrict ``n`` (number of result elements) to 10,000 or less for
   ``min(col, n)``, ``max(col, n)``, ``min_by(col1, col2, n)``, and ``max_by(col1, col2, n)``.
 * Improve error message when a session property references an invalid catalog.
-* Reduce memory usage of :func:`histogram` aggregation function.
+* Reduce memory usage of :func:`!histogram` aggregation function.
 * Improve coordinator CPU efficiency when discovering splits.
 * Include minimum and maximum values for columns in ``SHOW STATS``.
 

@@ -169,7 +169,7 @@ public class RawRowEncoder
         private static FieldType parseFieldType(String dataFormat, String columnName)
         {
             try {
-                if (!dataFormat.equals("")) {
+                if (!dataFormat.isEmpty()) {
                     return FieldType.valueOf(dataFormat.toUpperCase(Locale.ENGLISH));
                 }
                 return FieldType.BYTE;
@@ -196,7 +196,7 @@ public class RawRowEncoder
             else if (columnType == BOOLEAN) {
                 checkFieldTypeOneOf(fieldType, columnName, columnType, FieldType.BYTE, FieldType.SHORT, FieldType.INT, FieldType.LONG);
             }
-            else if (columnType == DOUBLE) {
+            else if (columnType.equals(DOUBLE)) {
                 checkFieldTypeOneOf(fieldType, columnName, columnType, FieldType.DOUBLE, FieldType.FLOAT);
             }
             else if (isVarcharType(columnType)) {

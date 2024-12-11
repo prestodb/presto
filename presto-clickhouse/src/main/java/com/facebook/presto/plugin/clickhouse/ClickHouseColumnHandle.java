@@ -195,10 +195,10 @@ public final class ClickHouseColumnHandle
         if (type == BIGINT) {
             return new ClickHouseTypeHandle(Types.BIGINT, Optional.of("bigint"), 8, 0, Optional.empty(), Optional.empty());
         }
-        if (type == REAL) {
+        if (type.equals(REAL)) {
             return new ClickHouseTypeHandle(Types.REAL, Optional.of("real"), 16, 4, Optional.empty(), Optional.empty());
         }
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return new ClickHouseTypeHandle(Types.DOUBLE, Optional.of("double precision"), 32, 4, Optional.empty(), Optional.empty());
         }
         if (type instanceof CharType || type instanceof VarcharType) {

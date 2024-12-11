@@ -8,7 +8,7 @@ Unicode Support
 All string functions have been updated to support Unicode. The functions assume
 that the string contains valid UTF-8 encoded code points. There are no explicit
 checks for valid UTF-8, and the functions may return incorrect results on
-invalid UTF-8.  Invalid UTF-8 data can be corrected with :func:`from_utf8`.
+invalid UTF-8.  Invalid UTF-8 data can be corrected with :func:`!from_utf8`.
 
 Additionally, the functions operate on Unicode code points and not user visible
 *characters* (or *grapheme clusters*).  Some languages combine multiple code points
@@ -31,11 +31,11 @@ General Changes
   be joined on the inner side.
 * Add support for full outer joins.
 * Support returning booleans as numbers in JDBC driver
-* Fix :func:`contains` to return ``NULL`` if the value was not found, but a ``NULL`` was.
+* Fix :func:`!contains` to return ``NULL`` if the value was not found, but a ``NULL`` was.
 * Fix nested :ref:`row_type` rendering in ``DESCRIBE``.
-* Add :func:`array_join`.
+* Add :func:`!array_join`.
 * Optimize map subscript operator.
-* Add :func:`from_utf8` and :func:`to_utf8` functions.
+* Add :func:`!from_utf8` and :func:`!to_utf8` functions.
 * Add ``task_writer_count`` session property to set ``task.writer-count``.
 * Add cast from ``ARRAY(F)`` to ``ARRAY(T)``.
 * Extend implicit coercions to ``ARRAY`` element types.

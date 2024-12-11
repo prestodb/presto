@@ -129,7 +129,6 @@ public class TestPrestoSparkNativeSimpleQueries
     public void testAggregationCompanionFunction()
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .setCatalogSessionProperty("hive", "orc_compression_codec", "ZSTD")
                 .build();

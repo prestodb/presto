@@ -71,6 +71,12 @@ public class DdlMatchResult
     }
 
     @Override
+    public boolean isMismatchPossiblyCausedByReuseOutdatedTable()
+    {
+        return false;
+    }
+
+    @Override
     public String getReport()
     {
         StringBuilder message = new StringBuilder()

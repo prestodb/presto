@@ -26,10 +26,10 @@ General Changes
 * Add configuration property ``max-concurrent-materializations`` and session
   property ``max_concurrent_materializations`` to limit the number of plan
   sections that will run concurrently when using materialized exchanges.
-* Add support for computing :func:`approx_distinct` over BingTile values.
-* Add :func:`merge_hll` to merge an array of HyperLogLogs.
-* Add bitwise shift operations, :func:`bitwise_arithmetic_shift_right`,
-  :func:`bitwise_logical_shift_right` and :func:`bitwise_shift_left`.
+* Add support for computing :func:`!approx_distinct` over BingTile values.
+* Add :func:`!merge_hll` to merge an array of HyperLogLogs.
+* Add bitwise shift operations, :func:`!bitwise_arithmetic_shift_right`,
+  :func:`!bitwise_logical_shift_right` and :func:`!bitwise_shift_left`.
 
 Web UI Changes
 --------------

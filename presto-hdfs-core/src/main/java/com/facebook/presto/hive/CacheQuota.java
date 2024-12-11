@@ -18,7 +18,7 @@ import io.airlift.units.DataSize;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.hash.Hashing.md5;
+import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +33,7 @@ public class CacheQuota
     public CacheQuota(String identity, Optional<DataSize> quota)
     {
         this.identity = requireNonNull(identity, "identity is null");
-        this.identifier = md5().hashString(identity, UTF_8).asLong();
+        this.identifier = sha256().hashString(identity, UTF_8).asLong();
         this.quota = requireNonNull(quota, "quota is null");
     }
 

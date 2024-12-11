@@ -18,7 +18,7 @@
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::presto {
@@ -134,6 +134,9 @@ class TaskManager {
     return taskMap_.rlock()->size();
   }
 
+  /// Returns the processed input data size in bytes for tasks.
+  int64_t getBytesProcessed() const;
+
   /// Stores the number of drivers in various states of execution.
   velox::exec::Task::DriverCounts getDriverCounts() const;
 
@@ -150,9 +153,10 @@ class TaskManager {
       std::vector<std::string>& deadlockTasks,
       std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const;
 
-  /// Build directory path for spilling for the given task.
-  /// Always returns non-empty string.
-  static std::string buildTaskSpillDirectoryPath(
+  /// Always returns tuple of non-empty string containing the spill directory
+  /// and the date string directory, which is parent directory of task spill
+  /// directory.
+  static std::tuple<std::string, std::string> buildTaskSpillDirectoryPath(
       const std::string& baseSpillPath,
       const std::string& nodeIp,
       const std::string& nodeId,

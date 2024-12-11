@@ -187,6 +187,11 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
+    }
+
+    @Override
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingAccessControlManager.TestingPrivilege... deniedPrivileges)
     {
     }
@@ -209,6 +214,12 @@ public class TestQueryPlanDeterminism
     @Override
     protected void assertTableColumnNames(String tableName, String... columnNames)
     {
+    }
+
+    @Test
+    public void testUse()
+    {
+        // USE statement is not supported
     }
 
     @Override

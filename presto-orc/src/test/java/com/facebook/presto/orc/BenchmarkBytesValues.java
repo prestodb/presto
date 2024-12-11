@@ -43,7 +43,7 @@ public class BenchmarkBytesValues
 {
     // NOT IN ("apple", "grape", "orange")
     // "abc", "apple", "banana", "grape", "orange", "peach"
-    private final byte[][] testWords = new byte[][] {"abc".getBytes(), "apple".getBytes(), "banana".getBytes(), "grape".getBytes(), "orange".getBytes(), "peach".getBytes()};
+    private final byte[][] testWords = {"abc".getBytes(), "apple".getBytes(), "banana".getBytes(), "grape".getBytes(), "orange".getBytes(), "peach".getBytes()};
 
     @Benchmark
     public int lookupInExclusive(BenchmarkBytesValues.BenchmarkData data)

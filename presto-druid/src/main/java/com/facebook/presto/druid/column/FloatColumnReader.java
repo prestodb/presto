@@ -36,7 +36,7 @@ public class FloatColumnReader
     @Override
     public Block readBlock(Type type, int batchSize)
     {
-        checkArgument(type == REAL);
+        checkArgument(type.equals(REAL));
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
             type.writeLong(builder, floatToRawIntBits(valueSelector.getFloat()));

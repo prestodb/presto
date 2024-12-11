@@ -25,7 +25,7 @@ Configuration
 After a plugin that implements ``PasswordAuthenticatorFactory`` has been
 installed on the coordinator, it is configured using an
 ``etc/password-authenticator.properties`` file. All of the
-properties other than ``access-control.name`` are specific to the
+properties other than ``password-authenticator.name`` are specific to the
 ``PasswordAuthenticatorFactory`` implementation.
 
 The ``password-authenticator.name`` property is used by Presto to find a
@@ -37,9 +37,15 @@ Example configuration file:
 
 .. code-block:: none
 
-    password-authenticator.name=custom-access-control
+    password-authenticator.name=custom-password-authenticator
     custom-property1=custom-value1
     custom-property2=custom-value2
 
 Additionally, the coordinator must be configured to use password authentication
 and have HTTPS enabled.
+
+Add the property shown below to the coordinator's ``config.properties`` file :
+
+.. code-block:: none
+
+   http-server.authentication.type=PASSWORD

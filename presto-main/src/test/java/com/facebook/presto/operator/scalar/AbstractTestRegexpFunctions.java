@@ -17,7 +17,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.spi.function.ScalarFunction;
 import com.facebook.presto.spi.function.SqlType;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.analyzer.RegexLibrary;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -38,7 +38,7 @@ public abstract class AbstractTestRegexpFunctions
 {
     AbstractTestRegexpFunctions(RegexLibrary regexLibrary)
     {
-        super(new FeaturesConfig().setRegexLibrary(regexLibrary));
+        super(new FunctionsConfig().setRegexLibrary(regexLibrary));
     }
 
     @BeforeClass

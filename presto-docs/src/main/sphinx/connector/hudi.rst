@@ -1,6 +1,6 @@
-====================
-Hudi connector
-====================
+==============
+Hudi Connector
+==============
 
 Overview
 --------
@@ -18,8 +18,8 @@ To use Hudi, we need:
 
 * Network access from the Presto coordinator and workers to the distributed object storage.
 * Access to a Hive metastore service (HMS).
-* Network access from the Presto coordinator to the HMS. Hive metastore access with the Thrift
-protocol defaults to using port 9083.
+* Network access from the Presto coordinator to the HMS. Hive metastore access with the Thrift 
+  protocol defaults to using port 9083.
 
 Configuration
 -------------

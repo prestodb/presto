@@ -13,6 +13,9 @@
  */
 
 #include "presto_cpp/main/TaskManager.h"
+
+#include <utility>
+
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
@@ -67,14 +70,38 @@ static void maybeSetupTaskSpillDirectory(
   const auto includeNodeInSpillPath =
       SystemConfig::instance()->includeNodeInSpillPath();
   auto nodeConfig = NodeConfig::instance();
-  const auto taskSpillDirPath = TaskManager::buildTaskSpillDirectoryPath(
-      baseSpillDirectory,
-      nodeConfig->nodeInternalAddress(),
-      nodeConfig->nodeId(),
-      execTask.queryCtx()->queryId(),
-      execTask.taskId(),
-      includeNodeInSpillPath);
+  const auto [taskSpillDirPath, dateSpillDirPath] =
+      TaskManager::buildTaskSpillDirectoryPath(
+          baseSpillDirectory,
+          nodeConfig->nodeInternalAddress(),
+          nodeConfig->nodeId(),
+          execTask.queryCtx()->queryId(),
+          execTask.taskId(),
+          includeNodeInSpillPath);
   execTask.setSpillDirectory(taskSpillDirPath, /*alreadyCreated=*/false);
+
+  execTask.setCreateSpillDirectoryCb(
+      [spillDir = taskSpillDirPath, dateStrDir = dateSpillDirPath]() {
+        auto fs = filesystems::getFileSystem(dateStrDir, nullptr);
+        // First create the top level directory (date string of the query) with
+        // TTL or other configs if set.
+        filesystems::DirectoryOptions options;
+        // Do not fail if the directory already exist because another process
+        // may have already created the dateStrDir.
+        options.failIfExists = false;
+        auto config = SystemConfig::instance()->spillerDirectoryCreateConfig();
+        if (!config.empty()) {
+          options.values.emplace(
+              filesystems::DirectoryOptions::kMakeDirectoryConfig.toString(),
+              config);
+        }
+        fs->mkdir(dateStrDir, options);
+
+        // After the parent directory is created,
+        // then create the spill directory for the actual task.
+        fs->mkdir(spillDir);
+        return spillDir;
+      });
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
@@ -376,7 +403,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
   return std::make_unique<TaskInfo>(info);
 }
 
-/*static*/ std::string TaskManager::buildTaskSpillDirectoryPath(
+/*static*/ std::tuple<std::string, std::string>
+TaskManager::buildTaskSpillDirectoryPath(
     const std::string& baseSpillPath,
     const std::string& nodeIp,
     const std::string& nodeId,
@@ -394,13 +422,20 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
             queryId.substr(6, 2))
       : "1970-01-01";
 
-  std::string path;
-  folly::toAppend(fmt::format("{}/presto_native/", baseSpillPath), &path);
+  std::string taskSpillDirPath;
+  folly::toAppend(
+      fmt::format("{}/presto_native/", baseSpillPath), &taskSpillDirPath);
   if (includeNodeInSpillPath) {
-    folly::toAppend(fmt::format("{}_{}/", nodeIp, nodeId), &path);
+    folly::toAppend(fmt::format("{}_{}/", nodeIp, nodeId), &taskSpillDirPath);
   }
-  folly::toAppend(fmt::format("{}/{}/{}/", dateString, queryId, taskId), &path);
-  return path;
+
+  std::string dateSpillDirPath = taskSpillDirPath;
+  folly::toAppend(fmt::format("{}/", dateString), &dateSpillDirPath);
+
+  folly::toAppend(
+      fmt::format("{}/{}/{}/", dateString, queryId, taskId), &taskSpillDirPath);
+  return std::make_tuple(
+      std::move(taskSpillDirPath), std::move(dateSpillDirPath));
 }
 
 void TaskManager::getDataForResultRequests(
@@ -434,7 +469,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
-      queryCtx,
+      std::move(queryCtx),
       startProcessCpuTime);
 }
 
@@ -488,7 +523,9 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
           planFragment,
           prestoTask->id.id(),
           std::move(queryCtx),
-          exec::Task::ExecutionMode::kParallel);
+          exec::Task::ExecutionMode::kParallel,
+          static_cast<exec::Consumer>(nullptr),
+          prestoTask->id.stageId());
       // TODO: move spill directory creation inside velox task execution
       // whenever spilling is triggered. It will reduce the unnecessary file
       // operations on remote storage.
@@ -626,7 +663,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
   auto execTask = prestoTask->task;
   if (execTask) {
     auto state = execTask->state();
-    if (state == exec::kRunning) {
+    if (state == exec::TaskState::kRunning) {
       execTask->requestAbort();
     }
     prestoTask->info.stats.endTime =
@@ -878,13 +915,13 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
     for (;;) {
       if (prestoTask->taskStarted) {
         // If the task has finished, then send completion result.
-        if (prestoTask->task->state() == exec::kFinished) {
+        if (prestoTask->task->state() == exec::TaskState::kFinished) {
           promiseHolder->promise.setValue(createCompleteResult(token));
           return std::move(future).via(httpSrvCpuExecutor_);
         }
         // If task is not running let the request timeout. The task may have
         // failed at creation time and the coordinator hasn't yet caught up.
-        if (prestoTask->task->state() == exec::kRunning) {
+        if (prestoTask->task->state() == exec::TaskState::kRunning) {
           getData(
               promiseHolder,
               folly::to_weak_ptr(state),
@@ -1038,8 +1075,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
     UuidSplit split;
   };
 
-  UuidParse uuid;
-  uuid.uuid = boost::uuids::random_generator()();
+  UuidParse uuid = {boost::uuids::random_generator()()};
 
   prestoTask->info.taskStatus.taskInstanceIdLeastSignificantBits =
       uuid.split.lo;
@@ -1099,16 +1135,47 @@ bool TaskManager::getStuckOpCalls(
     std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const {
   const auto thresholdDurationMs =
       SystemConfig::instance()->driverStuckOperatorThresholdMs();
+  const auto thresholdCancelMs =
+      SystemConfig::instance()
+          ->driverCancelTasksWithStuckOperatorsThresholdMs();
+  stuckOpCalls.clear();
+
   const std::chrono::milliseconds lockTimeoutMs(thresholdDurationMs);
   auto taskMap = taskMap_.rlock(lockTimeoutMs);
   if (!taskMap) {
     return false;
   }
-  for (const auto& [_, prestoTask] : *taskMap) {
-    if (prestoTask->task != nullptr &&
-        !prestoTask->task->getLongRunningOpCalls(
-            lockTimeoutMs, thresholdDurationMs, stuckOpCalls)) {
-      deadlockTasks.push_back(prestoTask->task->taskId());
+
+  for (const auto& [id, prestoTask] : *taskMap) {
+    if (prestoTask->task != nullptr) {
+      const auto numPrevStuckOps = stuckOpCalls.size();
+      if (!prestoTask->task->getLongRunningOpCalls(
+              lockTimeoutMs, thresholdDurationMs, stuckOpCalls)) {
+        deadlockTasks.push_back(id);
+        continue;
+      }
+      // See if we need to cancel the Task - it should be running, the cancel
+      // threshold should be valid and it should have at least one stuck driver
+      // that was stuck for enough time.
+      if (numPrevStuckOps < stuckOpCalls.size() && thresholdCancelMs != 0 &&
+          prestoTask->task->isRunning()) {
+        for (auto it = stuckOpCalls.begin() + numPrevStuckOps;
+             it != stuckOpCalls.end();
+             ++it) {
+          if (it->durationMs >= thresholdCancelMs) {
+            std::stringstream ss;
+            ss << "Task " << id
+               << " cancelled due to stuck operator: tid=" << it->tid
+               << " opCall=" << it->opCall
+               << " duration= " << velox::succinctMillis(it->durationMs);
+            const std::string msg = ss.str();
+            LOG(ERROR) << msg;
+            prestoTask->task->setError(msg);
+            RECORD_METRIC_VALUE(kCounterNumCancelledTasksByStuckDriver, 1);
+            break;
+          }
+        }
+      }
     }
   }
   return true;
@@ -1137,18 +1204,27 @@ std::array<size_t, 5> TaskManager::getTaskNumbers(size_t& numTasks) const {
   numTasks = 0;
   for (const auto& pair : *taskMap) {
     if (pair.second->task != nullptr) {
-      ++res[pair.second->task->state()];
+      ++res[static_cast<int>(pair.second->task->state())];
       ++numTasks;
     }
   }
   return res;
 }
 
+int64_t TaskManager::getBytesProcessed() const {
+  const auto taskMap = *taskMap_.rlock();
+  int64_t totalCount = 0;
+  for (const auto& pair : taskMap) {
+    totalCount += pair.second->info.stats.processedInputDataSizeInBytes;
+  }
+  return totalCount;
+}
+
 void TaskManager::shutdown() {
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
-  while (taskNumbers[velox::exec::TaskState::kRunning] > 0) {
+  while (taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)] > 0) {
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks

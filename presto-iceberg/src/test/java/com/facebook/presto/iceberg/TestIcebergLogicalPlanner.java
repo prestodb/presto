@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -40,7 +41,6 @@ import com.facebook.presto.sql.planner.assertions.MatchResult;
 import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.StringLiteral;
@@ -1505,8 +1505,8 @@ public class TestIcebergLogicalPlanner
                         plan,
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
-                                "partkey",
-                                ImmutableList.of()),
+                                        "partkey",
+                                        ImmutableList.of()),
                                 singleValue(BIGINT, 10L))),
                         TRUE_CONSTANT,
                         ImmutableSet.of("partkey")));
@@ -1519,8 +1519,8 @@ public class TestIcebergLogicalPlanner
                         plan,
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
-                                "partkey",
-                                ImmutableList.of()),
+                                        "partkey",
+                                        ImmutableList.of()),
                                 singleValue(BIGINT, 10L))),
                         TRUE_CONSTANT,
                         ImmutableSet.of("partkey")));
@@ -1648,8 +1648,8 @@ public class TestIcebergLogicalPlanner
                         plan,
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
-                                "partkey",
-                                ImmutableList.of()),
+                                        "partkey",
+                                        ImmutableList.of()),
                                 singleValue(BIGINT, 10L))),
                         remainingPredicate,
                         ImmutableSet.of("partkey", "orderkey")));
@@ -1662,8 +1662,8 @@ public class TestIcebergLogicalPlanner
                         plan,
                         "lineitem",
                         withColumnDomains(ImmutableMap.of(new Subfield(
-                                "partkey",
-                                ImmutableList.of()),
+                                        "partkey",
+                                        ImmutableList.of()),
                                 singleValue(BIGINT, 10L))),
                         remainingPredicate,
                         ImmutableSet.of("partkey", "orderkey")));

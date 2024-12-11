@@ -95,7 +95,7 @@ public class TaskExecutor
     // Interrupt a split if it is running longer than this AND it's blocked on something known
     private static final Predicate<List<StackTraceElement>> DEFAULT_INTERRUPTIBLE_SPLIT_PREDICATE = elements ->
                     elements.stream()
-                            .anyMatch(element -> element.getClassName().equals(JoniRegexpFunctions.class.getName()));
+                            .anyMatch(element -> element.getClassName().equals(JoniRegexpFunctions.CLASS_NAME));
     private static final Duration DEFAULT_INTERRUPT_SPLIT_INTERVAL = new Duration(60, SECONDS);
 
     private static final AtomicLong NEXT_RUNNER_ID = new AtomicLong();

@@ -73,11 +73,13 @@ AbstractClasses:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveOutputTableHandle,          key: hive }
+        - { name: IcebergOutputTableHandle,       key: hive-iceberg }
 
     ConnectorInsertTableHandle:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveInsertTableHandle,          key: hive }
+        - { name: IcebergInsertTableHandle,       key: hive-iceberg }
 
     ConnectorTransactionHandle:
       super: JsonEncodedSubclass
@@ -130,7 +132,7 @@ AbstractClasses:
         - { name: EnforceSingleRowNode,     key: com.facebook.presto.sql.planner.plan.EnforceSingleRowNode }
         - { name: ExchangeNode,             key: com.facebook.presto.sql.planner.plan.ExchangeNode }
         - { name: FilterNode,               key: .FilterNode }
-        - { name: JoinNode,                 key: com.facebook.presto.sql.planner.plan.JoinNode }
+        - { name: JoinNode,                 key: .JoinNode }
         - { name: LimitNode,                key: .LimitNode }
         - { name: MarkDistinctNode,         key: .MarkDistinctNode }
         - { name: SortNode,                 key: .SortNode }
@@ -139,17 +141,17 @@ AbstractClasses:
         - { name: RowNumberNode,            key: com.facebook.presto.sql.planner.plan.RowNumberNode }
         - { name: RemoteSourceNode,         key: com.facebook.presto.sql.planner.plan.RemoteSourceNode }
         - { name: SampleNode,               key: com.facebook.presto.sql.planner.plan.SampleNode }
-        - { name: SemiJoinNode,             key: com.facebook.presto.sql.planner.plan.SemiJoinNode }
+        - { name: SemiJoinNode,             key: .SemiJoinNode }
         - { name: TableScanNode,            key: .TableScanNode }
-        - { name: TableWriterNode,          key: com.facebook.presto.sql.planner.plan.TableWriterNode }
+        - { name: TableWriterNode,          key: .TableWriterNode }
         - { name: TableWriterMergeNode,     key: com.facebook.presto.sql.planner.plan.TableWriterMergeNode }
         - { name: TopNNode,                 key: .TopNNode }
         - { name: TopNRowNumberNode,        key: com.facebook.presto.sql.planner.plan.TopNRowNumberNode }
         - { name: UnnestNode,               key: com.facebook.presto.sql.planner.plan.UnnestNode }
         - { name: ValuesNode,               key: .ValuesNode }
         - { name: AssignUniqueId,           key: com.facebook.presto.sql.planner.plan.AssignUniqueId }
-        - { name: MergeJoinNode,            key: com.facebook.presto.sql.planner.plan.MergeJoinNode }
-        - { name: WindowNode,               key: com.facebook.presto.sql.planner.plan.WindowNode }
+        - { name: MergeJoinNode,            key: .MergeJoinNode }
+        - { name: WindowNode,               key: .WindowNode }
 
     RowExpression:
       super: JsonEncodedSubclass
@@ -189,9 +191,9 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/metadata/BuiltInFunctionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/SqlFunctionHandle.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/BucketFunctionType.java
-  - presto-hive-common/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
-  - presto-hive-common/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
   - presto-hive-common/src/main/java/com/facebook/presto/hive/BaseHiveColumnHandle.java
+  - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaRequirement.java
+  - presto-hdfs-core/src/main/java/com/facebook/presto/hive/CacheQuotaScope.java
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/CallExpression.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/Column.java
   - presto-verifier/src/main/java/com/facebook/presto/verifier/framework/Column.java
@@ -219,10 +221,10 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/RowNumberNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SampleNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TopNRowNumberNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/TableWriterNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterMergeNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/UnnestNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/WindowNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/WindowNode.java
   - presto-main/src/main/java/com/facebook/presto/execution/ExecutionFailureInfo.java
   - presto-main/src/main/java/com/facebook/presto/execution/Location.java
   - presto-main/src/main/java/com/facebook/presto/metadata/RemoteTransactionHandle.java
@@ -250,13 +252,18 @@ JavaClasses:
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTransactionHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileContent.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/FileFormat.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergSchema.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergSplit.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableName.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableType.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergTableLayoutHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergOutputTableHandle.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergInsertTableHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/IcebergColumnHandle.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/ColumnIdentity.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergPartitionSpec.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/PrestoIcebergNestedField.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/delete/DeleteFile.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogOperation.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogSplitInfo.java
@@ -282,16 +289,17 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/OutputNode.java
   - presto-main/src/main/java/com/facebook/presto/execution/buffer/PageBufferInfo.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/Parameter.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/Partitioning.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/PartitioningHandle.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/PartitioningScheme.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/Partitioning.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/PartitioningHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/PartitioningScheme.java
   - presto-main/src/main/java/com/facebook/presto/operator/PipelineStats.java
   - presto-main/src/main/java/com/facebook/presto/cost/PlanCostEstimate.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/PlanFragment.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/statistics/SourceInfo.java
   - presto-main/src/main/java/com/facebook/presto/cost/PlanNodeStatsEstimate.java
   - presto-main/src/main/java/com/facebook/presto/cost/JoinNodeStatsEstimate.java
   - presto-main/src/main/java/com/facebook/presto/cost/TableWriterNodeStatsEstimate.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/StatisticAggregations.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/StatisticAggregations.java
   - presto-main/src/main/java/com/facebook/presto/cost/PartialAggregationStatsEstimate.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/ProjectNode.java
   - presto-matching/src/test/java/com/facebook/presto/matching/example/rel/ProjectNode.java
@@ -309,7 +317,7 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/SpecialFormExpression.java
   - presto-main/src/main/java/com/facebook/presto/metadata/Split.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SplitContext.java
-  - presto-main/src/main/java/com/facebook/presto/operator/StageExecutionDescriptor.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/StageExecutionDescriptor.java
   - presto-main/src/main/java/com/facebook/presto/cost/StatsAndCosts.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/Storage.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/StorageFormat.java
@@ -334,9 +342,9 @@ JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/relation/VariableReferenceExpression.java
   - presto-main/src/main/java/com/facebook/presto/cost/VariableStatsEstimate.java
   - presto-main/src/main/java/com/facebook/presto/metadata/MetadataUpdates.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/JoinNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SemiJoinNode.java
-  - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/MergeJoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/JoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/SemiJoinNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/MergeJoinNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/TopNNode.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveMetadataUpdateHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/ConnectorMetadataUpdateHandle.java
@@ -355,3 +363,5 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemColumnHandle.java
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTableLayoutHandle.java
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
+  - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/json/JsonBasedUdfFunctionMetadata.java

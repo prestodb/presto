@@ -57,6 +57,7 @@ public class HashAggregationOperator
         implements Operator
 {
     private static final double MERGE_WITH_MEMORY_RATIO = 0.9;
+    public static final String OPERATOR_TYPE = "HashAggregationOperator";
 
     public static class HashAggregationOperatorFactory
             implements OperatorFactory

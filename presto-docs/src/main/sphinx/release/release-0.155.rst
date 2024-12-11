@@ -12,8 +12,8 @@ General Changes
 * Fix error messages for failures during commit.
 * Fix memory accounting for simple aggregation, top N and distinct queries.
   These queries may now report higher memory usage than before.
-* Reduce unnecessary memory usage of :func:`map_agg`, :func:`multimap_agg`
-  and :func:`map_union`.
+* Reduce unnecessary memory usage of :func:`!map_agg`, :func:`!multimap_agg`
+  and :func:`!map_union`.
 * Make ``INCLUDING``, ``EXCLUDING`` and ``PROPERTIES`` non-reserved keywords.
 * Remove support for the experimental feature to compute approximate queries
   based on sampled tables.

@@ -56,7 +56,8 @@ results or by a downstream worker to fetch intermediate results from the
 upstream worker.
 
 * A ``GET`` on ``{taskId}/results/{bufferId}/{token}`` returns the next batch
-  of results from the specified output buffer.
+  of results from the specified output buffer. Acknowledges the receipt of the
+  previous batch.
 * A ``GET`` on ``{taskId}/results/{bufferId}/{token}/acknowledge`` acknowledges
   the receipt of the results and allows the worker to delete them.
 * A ``DELETE`` on ``{taskId}/results/{bufferId}`` deletes all results from the
@@ -64,7 +65,7 @@ upstream worker.
 * Optionally, a ``HEAD`` request can be made to ``{taskId}/results/{bufferId}``
   to retrieve any non-data page sequence related headers.  Use this to check if
   the buffer is finished, or to see how much data is buffered without fetching
-  the data.
+  the data. Acknowledges the receipt of the previous batch of results.
 
 Coordinator and workers fetch results in chunks. They specify the maximum size
 in bytes for the chunk using ``X-Presto-Max-Size`` HTTP header. Each chunk is
@@ -76,7 +77,7 @@ response includes:
 * The sequence number to use to acknowledge the receipt of the chunk and to
   request the next chunk as ``X-Presto-Page-End-Sequence-Id`` HTTP header,
 * An indication that there are no more results as ``X-Presto-Buffer-Complete``
-  HTTP header with the value of "true".
+  HTTP header with the value of ``true``.
 * The remaining buffered bytes in the output buffer as ``X-Presto-Buffer-Remaining-Bytes``
   HTTP header.  This should return a comma separated list of the size in bytes of
   the pages that can be returned in the next request.  This can be used as a hint
@@ -84,12 +85,16 @@ response includes:
 
 The body of the response contains a list of pages in :doc:`SerializedPage wire format <serialized-page>`.
 
-After receiving the first chunk of results, the client sends an ack via a GET
-on ``{taskId}/results/{bufferId}/{token}/acknowledge`` with the token set to
-the value of the ``X-Presto-Page-End-Sequence-Id`` HTTP header received earlier
-along with the results. Then, the client uses that sequence number to request
-the next chunk of results. The client keeps fetching results until it receives
-``X-Presto-Buffer-Complete`` HTTP header with the value of "true".
+After receiving the first chunk of results, the client uses the
+``X-Presto-Page-End-Sequence-Id`` sequence number to request the next chunk of results.
+Requesting the next chunk automatically acknowledges reception of the previous chunk.
+The client keeps fetching results until it receives ``X-Presto-Buffer-Complete`` HTTP header
+with the value of ``true``.
+
+When a client decides not to fetch the next chunk of data right away, it sends an
+explicit ack using a GET on ``{taskId}/results/{bufferId}/{token}/acknowledge``. The client
+sets the token to the value of the ``X-Presto-Page-End-Sequence-Id`` header
+received earlier.
 
 If the worker times out populating a response, or the task has already failed
 or been aborted, the worker will return empty results. The client can attempt

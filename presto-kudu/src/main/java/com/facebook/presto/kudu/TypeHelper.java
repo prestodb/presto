@@ -65,10 +65,10 @@ public class TypeHelper
         else if (type == TinyintType.TINYINT) {
             return org.apache.kudu.Type.INT8;
         }
-        else if (type == RealType.REAL) {
+        else if (type.equals(RealType.REAL)) {
             return org.apache.kudu.Type.FLOAT;
         }
-        else if (type == DoubleType.DOUBLE) {
+        else if (type.equals(DoubleType.DOUBLE)) {
             return org.apache.kudu.Type.DOUBLE;
         }
         else if (type == BooleanType.BOOLEAN) {
@@ -146,10 +146,10 @@ public class TypeHelper
         else if (type == TinyintType.TINYINT) {
             return ((Long) nativeValue).byteValue();
         }
-        else if (type == DoubleType.DOUBLE) {
+        else if (type.equals(DoubleType.DOUBLE)) {
             return nativeValue;
         }
-        else if (type == RealType.REAL) {
+        else if (type.equals(RealType.REAL)) {
             // conversion can result in precision lost
             return intBitsToFloat(((Long) nativeValue).intValue());
         }
@@ -191,10 +191,10 @@ public class TypeHelper
             else if (type == TinyintType.TINYINT) {
                 return row.getByte(field);
             }
-            else if (type == DoubleType.DOUBLE) {
+            else if (type.equals(DoubleType.DOUBLE)) {
                 return row.getDouble(field);
             }
-            else if (type == RealType.REAL) {
+            else if (type.equals(RealType.REAL)) {
                 return row.getFloat(field);
             }
             else if (type == BooleanType.BOOLEAN) {
@@ -229,7 +229,7 @@ public class TypeHelper
         else if (type == TinyintType.TINYINT) {
             return row.getByte(field);
         }
-        else if (type == RealType.REAL) {
+        else if (type.equals(RealType.REAL)) {
             return floatToRawIntBits(row.getFloat(field));
         }
         else if (type instanceof DecimalType) {
@@ -258,7 +258,7 @@ public class TypeHelper
 
     public static double getDouble(Type type, RowResult row, int field)
     {
-        if (type == DoubleType.DOUBLE) {
+        if (type.equals(DoubleType.DOUBLE)) {
             return row.getDouble(field);
         }
         else {

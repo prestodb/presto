@@ -11,9 +11,9 @@ General Changes
 * Fix failure during query planning when lambda expressions are used in ``UNNEST`` or ``VALUES`` clauses.
 * Fix ``Tried to free more revocable memory than is reserved`` error for queries that have spilling enabled
   and run in the reserved memory pool.
-* Improve the performance of the :func:`ST_Contains` function.
-* Add :func:`map_zip_with` lambda function.
-* Add :func:`normal_cdf` function.
+* Improve the performance of the :func:`!ST_Contains` function.
+* Add :func:`!map_zip_with` lambda function.
+* Add :func:`!normal_cdf` function.
 * Add ``SET_DIGEST`` type and related functions.
 * Add query stat that tracks peak total memory.
 * Improve performance of queries that filter all data from a table up-front (e.g., due to partition pruning).

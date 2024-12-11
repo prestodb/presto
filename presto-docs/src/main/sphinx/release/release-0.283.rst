@@ -18,10 +18,10 @@ _______________
 * Improve performance of getting resource group metrics.
 * Add a optimizer rule ``RemoveIdentityProjectionsBelowProjection`` to remove identity projections under project node.
 * Add a session parameter ``use_broadcast_when_buildsize_small_probeside_unknown`` to choose join distribution type This session is default to false. When enabled, broadcast join will be chosen when one side of input is within broadcast limit and the other side is unknow.
-* Add function :func:`any_keys_match`.
-* Add function :func:`any_values_match`.
+* Add function :func:`!any_keys_match`.
+* Add function :func:`!any_values_match`.
 * Add option to add partial row number node for row number node with max count limit, enabled by session parameter ``add_partial_node_for_row_number_node_with_limit``.
-* Add string functions :func:`starts_with` and :func:`ends_with`.
+* Add string functions :func:`!starts_with` and :func:`!ends_with`.
 * Add support for broadcast join in Presto-on-Spark/Velox execution path.
 * Add support for internal authentication using JWT. Can be configured using configs ``internal-communication.jwt.enabled=[true/false]`` and ``internal-communication.shared-secret=<shared-secret-value>``.
 * Add support for worker isolation by configuring leaf and intermediate worker pools.
@@ -31,8 +31,8 @@ _______________
 * Remove ``Experimental`` prefix from Dynamic Filtering.
 * Add support for Hive S3 configuration to Iceberg Hadoop and Nessie catalogs.
 
-Hive Changes
-____________
+Hive Connector Changes
+______________________
 * Fix a bug where the ParquetWriter throws "Size is greater than maximum int value" error when the table is large.
 * Add Prestissimo support to write Parquet table storage format.
 * Add support for the TTL of Alluxio SDK cache.
@@ -41,8 +41,8 @@ JDBC Changes
 ____________
 * Add cache support for JDBC metadata calls. This can be enabled by configuring parameter ``metadata-cache-ttl``, ``metadata-cache-refresh-interval`` and ``metadata-cache-size``.
 
-Native Changes
-______________
+Native Connector Changes
+________________________
 * Add TPC-DS tests for native execution based on Parquet files.
 
 Presto on Spark Changes

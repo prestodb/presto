@@ -19,10 +19,28 @@
             primitiveType: "byte"
         },
         {
-            classNamePrefix: "Int64TimestampMicros",
+            classNamePrefix: "Int64TimeAndTimestampMicros",
             blockType: "LongArrayBlock",
-            valuesDecoder: "Int64TimestampMicrosValuesDecoder",
+            valuesDecoder: "Int64TimeAndTimestampMicrosValuesDecoder",
             primitiveType: "long"
-        }
+        },
+        {
+            classNamePrefix: "ShortDecimal",
+            blockType: "LongArrayBlock",
+            valuesDecoder: "ShortDecimalValuesDecoder",
+            primitiveType: "long"
+        },
+        {
+            classNamePrefix: "LongDecimal",
+            blockType: "Int128ArrayBlock",
+            valuesDecoder: "LongDecimalValuesDecoder",
+            primitiveType: "long"
+        },
+        {
+            classNamePrefix: "Uuid",
+            blockType: "Int128ArrayBlock",
+            valuesDecoder: "UuidValuesDecoder",
+            primitiveType: "long"
+        },
     ]
 }

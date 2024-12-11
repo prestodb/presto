@@ -173,7 +173,7 @@ public class TestKHyperLogLogAggregationFunction
 
     private long toLong(Object value, Type type)
     {
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return Double.doubleToLongBits((double) value);
         }
         else if (type == VARCHAR) {
@@ -186,7 +186,7 @@ public class TestKHyperLogLogAggregationFunction
 
     private Block buildBlock(List<?> values, Type type)
     {
-        if (type == DOUBLE) {
+        if (type.equals(DOUBLE)) {
             return createDoublesBlock(values.stream().map(o -> (Double) o).collect(Collectors.toList()));
         }
         else if (type == VARCHAR) {

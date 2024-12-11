@@ -23,8 +23,8 @@ import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.LocalProperty;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;

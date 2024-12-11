@@ -28,7 +28,7 @@ class ShuffleReadOperator : public Exchange {
  public:
   ShuffleReadOperator(
       int32_t operatorId,
-      DriverCtx* FOLLY_NONNULL ctx,
+      DriverCtx* ctx,
       const std::shared_ptr<const ShuffleReadNode>& shuffleReadNode,
       std::shared_ptr<ExchangeClient> exchangeClient)
       : Exchange(
@@ -36,7 +36,8 @@ class ShuffleReadOperator : public Exchange {
             ctx,
             std::make_shared<core::ExchangeNode>(
                 shuffleReadNode->id(),
-                shuffleReadNode->outputType()),
+                shuffleReadNode->outputType(),
+                velox::VectorSerde::Kind::kCompactRow),
             exchangeClient,
             "ShuffleRead"),
         serde_(std::make_unique<velox::serializer::CompactRowVectorSerde>()) {}

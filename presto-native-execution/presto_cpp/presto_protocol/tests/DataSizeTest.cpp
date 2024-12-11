@@ -13,7 +13,7 @@
  */
 #include <gtest/gtest.h>
 
-#include "presto_cpp/presto_protocol/DataSize.h"
+#include "presto_cpp/presto_protocol/core/DataSize.h"
 
 using namespace facebook::presto::protocol;
 

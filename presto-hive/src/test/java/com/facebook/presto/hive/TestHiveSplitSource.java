@@ -327,7 +327,7 @@ public class TestHiveSplitSource
 
             // sleep for a bit, and assure the thread is blocked
             MILLISECONDS.sleep(200);
-            assertTrue(!splits.isDone());
+            assertFalse(splits.isDone());
 
             // add a split
             hiveSplitSource.addToQueue(new TestSplit(33));

@@ -136,6 +136,8 @@ import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.plan.SimplePlanFragment;
+import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
@@ -162,11 +164,15 @@ import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
 import com.facebook.presto.sql.analyzer.BuiltInQueryAnalyzer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparerProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -183,7 +189,10 @@ import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManagerConfig;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.tracing.TracerProviderManager;
@@ -250,6 +259,8 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(QueryManagerConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(QueryManagerConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(FeaturesConfig.class);
+        configBinder(binder).bindConfig(FunctionsConfig.class);
+        configBinder(binder).bindConfig(JavaFeaturesConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(FeaturesConfig.class, PrestoSparkSettingsRequirements::setDefaults);
         configBinder(binder).bindConfig(MemoryManagerConfig.class);
         configBinder(binder).bindConfig(TaskManagerConfig.class);
@@ -266,6 +277,7 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(NativeExecutionSystemConfig.class);
         configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
         configBinder(binder).bindConfig(NativeExecutionConnectorConfig.class);
+        configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
 
         // json codecs
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
@@ -288,6 +300,8 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkLocalShuffleWriteInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(BatchTaskUpdateRequest.class);
         jsonCodecBinder(binder).bindJsonCodec(BroadcastFileInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(SimplePlanFragment.class);
+        binder.bind(SimplePlanFragmentSerde.class).to(JsonCodecSimplePlanFragmentSerde.class).in(Scopes.SINGLETON);
 
         // smile codecs
         smileCodecBinder(binder).bindSmileCodec(TaskSource.class);
@@ -428,6 +442,8 @@ public class PrestoSparkModule
 
         // analyzer
         binder.bind(BuiltInQueryPreparer.class).in(Scopes.SINGLETON);
+        binder.bind(BuiltInQueryPreparerProvider.class).in(Scopes.SINGLETON);
+        binder.bind(QueryPreparerProviderManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, QueryExplainer.class);
         binder.bind(BuiltInQueryAnalyzer.class).in(Scopes.SINGLETON);
         binder.bind(BuiltInAnalyzerProvider.class).in(Scopes.SINGLETON);
@@ -536,6 +552,8 @@ public class PrestoSparkModule
         // extra credentials and authenticator for Presto-on-Spark
         newSetBinder(binder, PrestoSparkCredentialsProvider.class);
         newSetBinder(binder, PrestoSparkAuthenticatorProvider.class);
+
+        binder.bind(PlanCheckerProviderManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

@@ -219,6 +219,7 @@ public class DeltaMetadata
         }
 
         Optional<DeltaTable> table = deltaClient.getTable(
+                config,
                 session,
                 schemaTableName,
                 tableLocation,
@@ -331,7 +332,7 @@ public class DeltaMetadata
         }
 
         List<ColumnMetadata> columnMetadata = tableHandle.getDeltaTable().getColumns().stream()
-                .map(column -> getColumnMetadata(column))
+                .map(this::getColumnMetadata)
                 .collect(Collectors.toList());
 
         return new ConnectorTableMetadata(tableName, columnMetadata);

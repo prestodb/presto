@@ -12,13 +12,13 @@ _______________
 * Fix an optimizer failure introduced in ``0.229``, where a ``LIKE`` pattern is deduced into a constant, e.g., ``col LIKE 'a' and col = 'b'``.
 * Fix correctness issue in queries with joins over ``UNNEST``. (:issue:`14257`).
 * Fix ``ArbitraryOutputBuffer`` to avoid skewing output data distribution. (:pr:`14083`).
-* Fix an issue where :func:`classification_fall_out` cannot be found.
+* Fix an issue where :func:`!classification_fall_out` cannot be found.
 * Add support for async page transport with non-blocking IO. This can be enabled by the ``exchange.async-page-transport-enabled`` configuration property.
 * Add support to handle http request timeouts using multiple thread pools. This can be controlled by the ``task.http-timeout-concurrency`` configuration property.
 * Add support for soft affinity scheduling, which makes the best effort to fetch the same piece of data from the same worker,
   while allowing fallback to random workers if the preferred workers are too busy to handle additional splits. (See :doc:`/develop/connectors`).
 * Add hash functions ``fnv1_32``, ``fnv1_64``, ``fnv1a_32``, and ``fnv1a_64``.
-* Add IP address functions :func:`ip_subnet_min`, :func:`ip_subnet_max`, :func:`ip_subnet_range`, and :func:`is_subnet_of`.
+* Add IP address functions :func:`!ip_subnet_min`, :func:`!ip_subnet_max`, :func:`!ip_subnet_range`, and :func:`!is_subnet_of`.
 * Improve performance of ``StreamingAggregationOperator``.
 
 Hive Changes
@@ -52,12 +52,12 @@ _____________
 
 Geospatial Changes
 __________________
-* Improve :func:`ST_Points` to add support for major well-known spatial objects.
-  :func:`ST_Points` now supports ``POINT``, ``LINESTRING``, ``POLYGON``, ``MULTIPOINT``, ``MULTILINESTRING``, ``MULTIPOLYGON`` and ``GEOMETRYCOLLECTION``.
-* Improve :func:`ST_IsValid` and :func:`ST_IsSimple` to adhere to the ISO/OGC standards more closely.
+* Improve :func:`!ST_Points` to add support for major well-known spatial objects.
+  :func:`!ST_Points` now supports ``POINT``, ``LINESTRING``, ``POLYGON``, ``MULTIPOINT``, ``MULTILINESTRING``, ``MULTIPOLYGON`` and ``GEOMETRYCOLLECTION``.
+* Improve :func:`!ST_IsValid` and :func:`!ST_IsSimple` to adhere to the ISO/OGC standards more closely.
   The two functions used to return the same result but may now be different. Users should check both functions to be sure their geometries are well-behaved.
-  :func:`geometry_invalid_reason` will return different but semantically similar strings.
-* Improve performance of :func:`ST_Intersection` by simply returning the geometry if it has an enclosing envelope.
+  :func:`!geometry_invalid_reason` will return different but semantically similar strings.
+* Improve performance of :func:`!ST_Intersection` by simply returning the geometry if it has an enclosing envelope.
   This can reduce CPU cost by up to ``10^5x`` for complex polygons.
 
 SPI Changes

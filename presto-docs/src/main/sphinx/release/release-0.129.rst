@@ -13,7 +13,7 @@ General Changes
 
 * Fix a planner issue that could cause queries involving ``OUTER JOIN`` to
   return incorrect results.
-* Some queries, particularly those using :func:`max_by` or :func:`min_by`, now
+* Some queries, particularly those using :func:`!max_by` or :func:`!min_by`, now
   accurately reflect their true memory usage and thus appear to use more memory
   than before.
 * Fix :doc:`/sql/show-session` to not show hidden session properties.

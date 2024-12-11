@@ -27,6 +27,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableHandle;
@@ -37,6 +38,7 @@ import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.security.GrantInfo;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
@@ -44,7 +46,6 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
-import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
@@ -155,12 +156,6 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public PartitioningHandle getPartitioningHandleForCteMaterialization(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
-    {
-        return delegate.getPartitioningHandleForCteMaterialization(session, catalogName, partitionCount, partitionTypes);
-    }
-
-    @Override
     public Optional<Object> getInfo(Session session, TableHandle handle)
     {
         return delegate.getInfo(session, handle);
@@ -244,6 +239,11 @@ public abstract class DelegatingMetadataManager
         delegate.renameTable(session, tableHandle, newTableName);
     }
 
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        delegate.setTableProperties(session, tableHandle, properties);
+    }
+
     @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
@@ -281,12 +281,6 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
-    {
-        return delegate.getPreferredShuffleLayoutForNewTable(session, catalogName, tableMetadata);
-    }
-
-    @Override
     public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout)
     {
         return delegate.beginCreateTable(session, catalogName, tableMetadata, layout);
@@ -306,12 +300,6 @@ public abstract class DelegatingMetadataManager
     public Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target)
     {
         return delegate.getInsertLayout(session, target);
-    }
-
-    @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle target)
-    {
-        return delegate.getPreferredShuffleLayoutForInsert(session, target);
     }
 
     @Override

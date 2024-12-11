@@ -78,6 +78,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class TableWriterOperator
         implements Operator
 {
+    public static final String OPERATOR_TYPE = "TableWriterOperator";
     public static class TableWriterOperatorFactory
             implements OperatorFactory
     {

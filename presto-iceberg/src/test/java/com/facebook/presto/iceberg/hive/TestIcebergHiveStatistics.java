@@ -27,15 +27,20 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -45,6 +50,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -52,9 +58,12 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.HIVE_METASTORE_STATISTICS_MERGE_STRATEGY;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -330,6 +339,50 @@ public class TestIcebergHiveStatistics
         assertEquals(columnStatistics.get("i").getDataSize(), Estimate.unknown());
         assertEquals(columnStatistics.get("v").getDistinctValuesCount(), Estimate.of(4.0));
         assertEquals(columnStatistics.get("v").getDataSize(), Estimate.of(11));
+    }
+
+    @DataProvider(name = "pushdownFilterEnabled")
+    public Object[][] pushdownFilterPropertyProvider()
+    {
+        return new Object[][] {
+                {true, true},
+                {true, false},
+                {false, true},
+                {false, false},
+        };
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testPredicateOnlyColumnInStatisticsOutput(boolean pushdownFilterEnabled, boolean partitioned)
+    {
+        assertQuerySucceeds(format("CREATE TABLE scanFilterStats (i int, j int, k int)%s", partitioned ? " WITH (partitioning = ARRAY['j'])" : ""));
+        assertUpdate("INSERT INTO scanFilterStats VALUES (1, 2, 3), (3, 4, 5), (5, 6, 7)", 3);
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", PUSHDOWN_FILTER_ENABLED, Boolean.toString(pushdownFilterEnabled))
+                .build();
+        try {
+            TableStatistics est = getScanStatsEstimate(session, "SELECT k from scanFilterStats WHERE j > 2 AND i = 3");
+            assertEquals(est.getColumnStatistics().size(), 3);
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE scanFilterStats");
+        }
+    }
+
+    private TableStatistics getScanStatsEstimate(Session session, @Language("SQL") String sql)
+    {
+        Plan plan = plan(sql, session);
+        TableScanNode node = plan.getPlanIdNodeMap().values().stream()
+                .filter(planNode -> planNode instanceof TableScanNode)
+                .map(TableScanNode.class::cast)
+                .findFirst().get();
+        return transaction(getQueryRunner().getTransactionManager(), new AllowAllAccessControl())
+                .singleStatement()
+                .execute(session, (Function<Session, TableStatistics>) txnSession -> getQueryRunner().getMetadata()
+                        .getTableStatistics(txnSession,
+                                node.getTable(),
+                                ImmutableList.copyOf(node.getAssignments().values()),
+                                new Constraint<>(node.getCurrentConstraint())));
     }
 
     private TableStatistics getTableStatistics(Session session, String table)

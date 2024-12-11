@@ -18,6 +18,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -26,6 +27,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
@@ -52,6 +54,8 @@ public interface QueryRunner
     NodePartitioningManager getNodePartitioningManager();
 
     ConnectorPlanOptimizerManager getPlanOptimizerManager();
+
+    PlanCheckerProviderManager getPlanCheckerProviderManager();
 
     StatsCalculator getStatsCalculator();
 
@@ -84,9 +88,19 @@ public interface QueryRunner
 
     void installPlugin(Plugin plugin);
 
+    default void installCoordinatorPlugin(CoordinatorPlugin plugin)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
     void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties);
+
+    default void loadSessionPropertyProvider(String sessionPropertyProviderName)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     Lock getExclusiveLock();
 

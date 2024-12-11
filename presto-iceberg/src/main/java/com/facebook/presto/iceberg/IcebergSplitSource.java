@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -40,6 +41,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelect
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.IcebergUtil.metadataColumnsMatchPredicates;
 import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.limit;
@@ -56,16 +58,20 @@ public class IcebergSplitSource
     private final double minimumAssignedSplitWeight;
     private final ConnectorSession session;
 
+    private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
+
     public IcebergSplitSource(
             ConnectorSession session,
             TableScan tableScan,
             CloseableIterable<FileScanTask> fileScanTaskIterable,
-            double minimumAssignedSplitWeight)
+            double minimumAssignedSplitWeight,
+            TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
     {
         this.session = requireNonNull(session, "session is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.fileScanTaskIterator = fileScanTaskIterable.iterator();
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
+        this.metadataColumnConstraints = requireNonNull(metadataColumnConstraints, "metadataColumnConstraints is null");
         closer.register(fileScanTaskIterator);
     }
 
@@ -77,7 +83,10 @@ public class IcebergSplitSource
         Iterator<FileScanTask> iterator = limit(fileScanTaskIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
-            splits.add(toIcebergSplit(task));
+            IcebergSplit icebergSplit = (IcebergSplit) toIcebergSplit(task);
+            if (metadataColumnsMatchPredicates(metadataColumnConstraints, icebergSplit.getPath(), icebergSplit.getDataSequenceNumber())) {
+                splits.add(icebergSplit);
+            }
         }
         return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
     }

@@ -35,7 +35,7 @@ public class DoubleColumnReader
     @Override
     public Block readBlock(Type type, int batchSize)
     {
-        checkArgument(type == DOUBLE);
+        checkArgument(type.equals(DOUBLE));
         BlockBuilder builder = type.createBlockBuilder(null, batchSize);
         for (int i = 0; i < batchSize; i++) {
             type.writeDouble(builder, valueSelector.getDouble());

@@ -324,8 +324,9 @@ public class TextRenderer
 
     private String cteInformationToText(List<CTEInformation> cteInformationList)
     {
-        List<String> cteInfo = cteInformationList.stream().map(
-                x -> x.getCteName() + ": " + x.getNumberOfReferences() + " (is_view: " + x.getIsView() + ")")
+        List<String> cteInfo = cteInformationList.stream().map(x -> x.getCteName() + ": " + x.getNumberOfReferences()
+                        + " (is_view: " + x.getIsView() + ")"
+                        + " (is_materialized: " + x.isMaterialized() + ")")
                 .collect(toList());
 
         return "CTEInfo: [" + String.join(", ", cteInfo) + "]\n";

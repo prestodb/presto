@@ -16,8 +16,8 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 
@@ -45,10 +45,10 @@ public class PruneSemiJoinColumns
         }
 
         Set<VariableReferenceExpression> requiredSourceInputs = Streams.concat(
-                referencedOutputs.stream()
-                        .filter(variable -> !variable.equals(semiJoinNode.getSemiJoinOutput())),
-                Stream.of(semiJoinNode.getSourceJoinVariable()),
-                semiJoinNode.getSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
+                        referencedOutputs.stream()
+                                .filter(variable -> !variable.equals(semiJoinNode.getSemiJoinOutput())),
+                        Stream.of(semiJoinNode.getSourceJoinVariable()),
+                        semiJoinNode.getSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
                 .collect(toImmutableSet());
 
         return restrictOutputs(idAllocator, semiJoinNode.getSource(), requiredSourceInputs)

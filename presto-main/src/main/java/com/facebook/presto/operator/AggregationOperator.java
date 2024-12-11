@@ -35,6 +35,8 @@ import static java.util.Objects.requireNonNull;
 public class AggregationOperator
         implements Operator
 {
+    public static final String OPERATOR_TYPE = "AggregationOperator";
+
     public static class AggregationOperatorFactory
             implements OperatorFactory
     {

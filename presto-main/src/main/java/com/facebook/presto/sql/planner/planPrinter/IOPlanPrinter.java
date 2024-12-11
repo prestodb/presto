@@ -34,11 +34,11 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode.WriterTarget;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.IOPlanBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -501,7 +501,7 @@ public class IOPlanPrinter
         @Override
         public Void visitTableFinish(TableFinishNode node, IOPlanBuilder context)
         {
-            WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
+            TableWriterNode.WriterTarget writerTarget = node.getTarget().orElseThrow(() -> new VerifyException("target is absent"));
             context.setOutputTable(new CatalogSchemaTableName(
                     writerTarget.getConnectorId().getCatalogName(),
                     writerTarget.getSchemaTableName().getSchemaName(),

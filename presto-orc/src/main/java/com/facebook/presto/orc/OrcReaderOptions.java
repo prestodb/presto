@@ -16,10 +16,12 @@ package com.facebook.presto.orc;
 import io.airlift.units.DataSize;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static java.util.Objects.requireNonNull;
 
 public class OrcReaderOptions
 {
+    private static final DataSize DEFAULT_MAX_SLICE_SIZE = new DataSize(1, GIGABYTE);
     private final DataSize maxMergeDistance;
     private final DataSize tinyStripeThreshold;
     private final DataSize maxBlockSize;
@@ -27,6 +29,8 @@ public class OrcReaderOptions
     private final boolean mapNullKeysEnabled;
     // if the option is set to true, OrcSelectiveReader will append a row number block at the end of the page
     private final boolean appendRowNumber;
+    // slice reader will throw if the slice size is larger than this value
+    private final DataSize maxSliceSize;
 
     /**
      * Read column statistics for flat map columns. Usually there are quite a
@@ -41,7 +45,8 @@ public class OrcReaderOptions
             boolean zstdJniDecompressionEnabled,
             boolean mapNullKeysEnabled,
             boolean appendRowNumber,
-            boolean readMapStatistics)
+            boolean readMapStatistics,
+            DataSize maxSliceSize)
     {
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
@@ -50,6 +55,7 @@ public class OrcReaderOptions
         this.mapNullKeysEnabled = mapNullKeysEnabled;
         this.appendRowNumber = appendRowNumber;
         this.readMapStatistics = readMapStatistics;
+        this.maxSliceSize = maxSliceSize;
     }
 
     public DataSize getMaxMergeDistance()
@@ -87,6 +93,11 @@ public class OrcReaderOptions
         return readMapStatistics;
     }
 
+    public DataSize getMaxSliceSize()
+    {
+        return maxSliceSize;
+    }
+
     @Override
     public String toString()
     {
@@ -98,6 +109,7 @@ public class OrcReaderOptions
                 .add("mapNullKeysEnabled", mapNullKeysEnabled)
                 .add("appendRowNumber", appendRowNumber)
                 .add("readMapStatistics", readMapStatistics)
+                .add("maxSliceSize", maxSliceSize)
                 .toString();
     }
 
@@ -115,6 +127,7 @@ public class OrcReaderOptions
         private boolean mapNullKeysEnabled;
         private boolean appendRowNumber;
         private boolean readMapStatistics;
+        private DataSize maxSliceSize = DEFAULT_MAX_SLICE_SIZE;
 
         private Builder() {}
 
@@ -160,6 +173,12 @@ public class OrcReaderOptions
             return this;
         }
 
+        public Builder withMaxSliceSize(DataSize maxSliceSize)
+        {
+            this.maxSliceSize = maxSliceSize;
+            return this;
+        }
+
         public OrcReaderOptions build()
         {
             return new OrcReaderOptions(
@@ -169,7 +188,8 @@ public class OrcReaderOptions
                     zstdJniDecompressionEnabled,
                     mapNullKeysEnabled,
                     appendRowNumber,
-                    readMapStatistics);
+                    readMapStatistics,
+                    maxSliceSize);
         }
     }
 }

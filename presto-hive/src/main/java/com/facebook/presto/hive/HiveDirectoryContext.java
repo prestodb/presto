@@ -28,10 +28,12 @@ public class HiveDirectoryContext
     private final Map<String, String> additionalProperties;
     private final RuntimeStats runtimeStats;
     private boolean cacheable;
+    private boolean skipEmptyFiles;
 
     public HiveDirectoryContext(
             NestedDirectoryPolicy nestedDirectoryPolicy,
             boolean cacheable,
+            boolean skipEmptyFiles,
             ConnectorIdentity connectorIdentity,
             Map<String, String> additionalProperties,
             RuntimeStats runtimeStats)
@@ -43,6 +45,7 @@ public class HiveDirectoryContext
 
         // this can be disabled
         this.cacheable = cacheable;
+        this.skipEmptyFiles = skipEmptyFiles;
     }
 
     public NestedDirectoryPolicy getNestedDirectoryPolicy()
@@ -68,6 +71,11 @@ public class HiveDirectoryContext
     public Map<String, String> getAdditionalProperties()
     {
         return additionalProperties;
+    }
+
+    public boolean isSkipEmptyFilesEnabled()
+    {
+        return skipEmptyFiles;
     }
 
     public RuntimeStats getRuntimeStats()

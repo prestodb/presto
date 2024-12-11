@@ -19,7 +19,6 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -72,7 +71,7 @@ public class TestTopNRowNumberOperator
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
     }
 
     @AfterMethod
@@ -261,7 +260,7 @@ public class TestTopNRowNumberOperator
                 .build()
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
 
         TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
                 0,
@@ -298,7 +297,7 @@ public class TestTopNRowNumberOperator
                 .build()
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+        joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
 
         TopNRowNumberOperatorFactory operatorFactory = new TopNRowNumberOperatorFactory(
                 0,

@@ -37,3 +37,4 @@ Functions and Operators
     functions/internationalization
     functions/setdigest
     functions/sketch
+    functions/pinot

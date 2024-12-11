@@ -54,7 +54,7 @@ public class QueryCompletedEvent
     private final List<CTEInformation> cteInformationList;
     private final Set<String> scalarFunctions;
     private final Set<String> aggregateFunctions;
-    private final Set<String> windowsFunctions;
+    private final Set<String> windowFunctions;
     private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
     private final Map<PlanCanonicalizationStrategy, String> hboPlanHash;
 
@@ -82,7 +82,7 @@ public class QueryCompletedEvent
             List<CTEInformation> cteInformationList,
             Set<String> scalarFunctions,
             Set<String> aggregateFunctions,
-            Set<String> windowsFunctions,
+            Set<String> windowFunctions,
             Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext,
             Map<PlanCanonicalizationStrategy, String> hboPlanHash)
     {
@@ -109,7 +109,7 @@ public class QueryCompletedEvent
         this.cteInformationList = requireNonNull(cteInformationList, "cteInformationList is null");
         this.scalarFunctions = requireNonNull(scalarFunctions, "scalarFunctions is null");
         this.aggregateFunctions = requireNonNull(aggregateFunctions, "aggregateFunctions is null");
-        this.windowsFunctions = requireNonNull(windowsFunctions, "windowsFunctions is null");
+        this.windowFunctions = requireNonNull(windowFunctions, "windowFunctions is null");
         this.prestoSparkExecutionContext = requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
         this.hboPlanHash = requireNonNull(hboPlanHash, "planHash is null");
     }
@@ -229,9 +229,9 @@ public class QueryCompletedEvent
         return aggregateFunctions;
     }
 
-    public Set<String> getWindowsFunctions()
+    public Set<String> getWindowFunctions()
     {
-        return windowsFunctions;
+        return windowFunctions;
     }
 
     public Optional<PrestoSparkExecutionContext> getPrestoSparkExecutionContext()

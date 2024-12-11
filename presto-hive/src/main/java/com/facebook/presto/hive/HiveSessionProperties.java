@@ -95,6 +95,7 @@ public final class HiveSessionProperties
     public static final String PARQUET_PUSHDOWN_FILTER_ENABLED = "parquet_pushdown_filter_enabled";
     public static final String ADAPTIVE_FILTER_REORDERING_ENABLED = "adaptive_filter_reordering_enabled";
     public static final String VIRTUAL_BUCKET_COUNT = "virtual_bucket_count";
+    public static final String CTE_VIRTUAL_BUCKET_COUNT = "cte_virtual_bucket_count";
     public static final String MAX_BUCKETS_FOR_GROUPED_EXECUTION = "max_buckets_for_grouped_execution";
     public static final String OFFLINE_DATA_DEBUG_MODE_ENABLED = "offline_data_debug_mode_enabled";
     public static final String FAIL_FAST_ON_INSERT_INTO_IMMUTABLE_PARTITIONS_ENABLED = "fail_fast_on_insert_into_immutable_partitions_enabled";
@@ -131,6 +132,8 @@ public final class HiveSessionProperties
     public static final String QUICK_STATS_BACKGROUND_BUILD_TIMEOUT = "quick_stats_background_build_timeout";
     public static final String DYNAMIC_SPLIT_SIZES_ENABLED = "dynamic_split_sizes_enabled";
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
+    public static final String SKIP_EMPTY_FILES = "skip_empty_files";
+    public static final String LEGACY_TIMESTAMP_BUCKETING = "legacy_timestamp_bucketing";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -400,6 +403,11 @@ public final class HiveSessionProperties
                         0,
                         false),
                 integerProperty(
+                        CTE_VIRTUAL_BUCKET_COUNT,
+                        "Number of virtual bucket assigned for bucketed cte materialization temporary tables",
+                        hiveClientConfig.getCteVirtualBucketCount(),
+                        false),
+                integerProperty(
                         MAX_BUCKETS_FOR_GROUPED_EXECUTION,
                         "maximum total buckets to allow using grouped execution",
                         hiveClientConfig.getMaxBucketsForGroupedExecution(),
@@ -635,6 +643,16 @@ public final class HiveSessionProperties
                         AFFINITY_SCHEDULING_FILE_SECTION_SIZE,
                         "Size of file section for affinity scheduling",
                         hiveClientConfig.getAffinitySchedulingFileSectionSize(),
+                        false),
+                booleanProperty(
+                        SKIP_EMPTY_FILES,
+                        "If it is required empty files will be skipped",
+                        hiveClientConfig.isSkipEmptyFilesEnabled(),
+                        false),
+                booleanProperty(
+                        LEGACY_TIMESTAMP_BUCKETING,
+                        "Use legacy timestamp bucketing algorithm (which is not Hive compatible) for table bucketed by timestamp type.",
+                        hiveClientConfig.isLegacyTimestampBucketing(),
                         false));
     }
 
@@ -901,6 +919,15 @@ public final class HiveSessionProperties
         return virtualBucketCount;
     }
 
+    public static int getCteVirtualBucketCount(ConnectorSession session)
+    {
+        int virtualBucketCount = session.getProperty(CTE_VIRTUAL_BUCKET_COUNT, Integer.class);
+        if (virtualBucketCount < 0) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must not be negative: %s", CTE_VIRTUAL_BUCKET_COUNT, virtualBucketCount));
+        }
+        return virtualBucketCount;
+    }
+
     public static boolean isOfflineDataDebugModeEnabled(ConnectorSession session)
     {
         return session.getProperty(OFFLINE_DATA_DEBUG_MODE_ENABLED, Boolean.class);
@@ -1102,5 +1129,15 @@ public final class HiveSessionProperties
     public static DataSize getAffinitySchedulingFileSectionSize(ConnectorSession session)
     {
         return session.getProperty(AFFINITY_SCHEDULING_FILE_SECTION_SIZE, DataSize.class);
+    }
+
+    public static boolean isSkipEmptyFilesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SKIP_EMPTY_FILES, Boolean.class);
+    }
+
+    public static boolean isLegacyTimestampBucketing(ConnectorSession session)
+    {
+        return session.getProperty(LEGACY_TIMESTAMP_BUCKETING, Boolean.class);
     }
 }

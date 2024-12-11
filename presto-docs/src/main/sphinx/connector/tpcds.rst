@@ -57,3 +57,13 @@ corresponds to a gigabyte of data. For example, for scale factor ``300``,
 a total of ``300`` gigabytes will be generated. The ``tiny`` schema is an
 alias for scale factor ``0.01``, which is a very small data set useful for
 testing.
+
+General Configuration Properties
+---------------------------------
+
+================================================== ========================================================================== ==============================
+Property Name                                      Description                                                                Default
+================================================== ========================================================================== ==============================
+``tpcds.splits-per-node``                          Number of data splits generated per Presto worker node when querying       Number of available processors
+                                                   data from the TPCDS connector.
+================================================== ========================================================================== ==============================

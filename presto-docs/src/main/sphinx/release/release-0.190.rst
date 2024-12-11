@@ -5,7 +5,7 @@ Release 0.190
 General Changes
 ---------------
 
-* Fix correctness issue for :func:`array_min` and :func:`array_max` when arrays contain ``NaN``.
+* Fix correctness issue for :func:`!array_min` and :func:`!array_max` when arrays contain ``NaN``.
 * Fix planning failure for queries involving ``GROUPING`` that require implicit coercions
   in expressions containing aggregate functions.
 * Fix potential workload imbalance when using topology-aware scheduling.
@@ -16,14 +16,14 @@ General Changes
   the same partition property as the data being written.
 * Ignore case when sorting the output of ``SHOW FUNCTIONS``.
 * Improve rendering of the ``BingTile`` type.
-* The :func:`approx_distinct` function now supports a standard error
+* The :func:`!approx_distinct` function now supports a standard error
   in the range of ``[0.0040625, 0.26000]``.
 * Add support for ``ORDER BY`` in aggregation functions.
 * Add dictionary processing for joins which can improve join performance up to 50%.
   This optimization can be disabled using the ``dictionary-processing-joins-enabled``
   config property or the ``dictionary_processing_join`` session property.
 * Add support for casting to ``INTERVAL`` types.
-* Add :func:`ST_Buffer` geospatial function.
+* Add :func:`!ST_Buffer` geospatial function.
 * Allow treating decimal literals as values of the ``DECIMAL`` type rather than ``DOUBLE``.
   This behavior can be enabled by setting the ``parse-decimal-literals-as-double``
   config property or the ``parse_decimal_literals_as_double`` session property to ``false``.

@@ -10,9 +10,9 @@ General Changes
   creation permission is now only checked at query time, not at creation time,
   and the query time check is skipped if the user is the owner of the view.
 * Add support for spatial left join.
-* Add :func:`hmac_md5`, :func:`hmac_sha1`, :func:`hmac_sha256`, and :func:`hmac_sha512` functions.
-* Add :func:`array_sort` function that takes a lambda as a comparator.
-* Add :func:`line_locate_point` geospatial function.
+* Add :func:`!hmac_md5`, :func:`!hmac_sha1`, :func:`!hmac_sha256`, and :func:`!hmac_sha512` functions.
+* Add :func:`!array_sort` function that takes a lambda as a comparator.
+* Add :func:`!line_locate_point` geospatial function.
 * Add support for ``ORDER BY`` clause in aggregations for queries that use grouping sets.
 * Add support for yielding when unspilling an aggregation.
 * Expand grouped execution support to ``GROUP BY`` and ``UNION ALL``, making it possible
@@ -24,16 +24,16 @@ General Changes
 * Accessing anonymous row fields via ``.field0``, ``.field1``, etc., is no longer allowed.
   This behavior can be restored with the ``deprecated.legacy-row-field-ordinal-access``
   config option or the ``legacy_row_field_ordinal_access`` session property.
-* Optimize the :func:`ST_Intersection` function for rectangles aligned with coordinate axes
-  (e.g., polygons produced by the :func:`ST_Envelope` and :func:`bing_tile_polygon` functions).
+* Optimize the :func:`!ST_Intersection` function for rectangles aligned with coordinate axes
+  (e.g., polygons produced by the :func:`!ST_Envelope` and :func:`!bing_tile_polygon` functions).
 * Finish joins early when possible if one side has no rows. This happens for
   either side of an inner join, for the left side of a left join, and for the
   right side of a right join.
 * Improve predicate evaluation performance during predicate pushdown in planning.
 * Improve the performance of queries that use ``LIKE`` predicates on the columns of ``information_schema`` tables.
 * Improve the performance of map-to-map cast.
-* Improve the performance of :func:`ST_Touches`, :func:`ST_Within`, :func:`ST_Overlaps`, :func:`ST_Disjoint`,
-  and :func:`ST_Crosses` functions.
+* Improve the performance of :func:`!ST_Touches`, :func:`!ST_Within`, :func:`!ST_Overlaps`, :func:`!ST_Disjoint`,
+  and :func:`!ST_Crosses` functions.
 * Improve the serialization performance of geometry values.
 * Improve the performance of functions that return maps.
 * Improve the performance of joins and aggregations that include map columns.

@@ -30,7 +30,7 @@ ScyllaDB uses the same port as Cassandra by default.
 Just point to ScyllaDB nodes in ``cassandra.contact-points`` config property.
 
 Multiple Cassandra or ScyllaDB Clusters
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
 Cassandra(ScyllaDB) clusters, simply add another properties file to ``etc/catalog``
@@ -161,7 +161,7 @@ Property Name                                                 Description
 ============================================================= ======================================================================
 
 Querying Cassandra or ScyllaDB Tables
--------------------------
+-------------------------------------
 
 The ``users`` table is an example Cassandra table from the Cassandra
 `Getting Started`_ guide. It can be created along with the ``mykeyspace``

@@ -131,7 +131,7 @@ public class DeterminismAnalyzer
         Map<QueryBundle, DeterminismAnalysisRun.Builder> queryRuns = new HashMap<>();
         try {
             for (int i = 0; i < maxAnalysisRuns; i++) {
-                QueryObjectBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), CONTROL);
+                QueryObjectBundle queryBundle = queryRewriter.rewriteQuery(sourceQuery.getQuery(CONTROL), sourceQuery.getQueryConfiguration(CONTROL), CONTROL, false);
                 DeterminismAnalysisRun.Builder run = determinismAnalysisDetails.addRun().setTableName(queryBundle.getObjectName().toString());
                 queryRuns.put(queryBundle, run);
 
@@ -144,7 +144,7 @@ public class DeterminismAnalyzer
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setQueryId));
 
                 // Run checksum query
-                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns);
+                Query checksumQuery = checksumValidator.generateChecksumQuery(queryBundle.getObjectName(), columns, Optional.empty());
                 ChecksumResult testChecksum = getOnlyElement(callAndConsume(
                         () -> prestoAction.execute(checksumQuery, DETERMINISM_ANALYSIS_CHECKSUM, ChecksumResult::fromResultSet),
                         stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(run::setChecksumQueryId)).getResults());

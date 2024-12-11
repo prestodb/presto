@@ -16,8 +16,8 @@ used throughout the Presto documentation.
 While it's easy to understand statements and queries, as an end-user
 you should have familiarity with concepts such as stages and splits to
 take full advantage of Presto to execute efficient queries.  As a
-Presto administrator or a Presto contributor you should understand how
-Presto's concepts of stages map to tasks and how tasks contain a set
+Presto administrator or a Presto contributor, you should understand how
+Presto's stages map to tasks and how tasks contain a set
 of drivers which process data.
 
 This section provides a solid definition for the core concepts
@@ -27,18 +27,18 @@ general to most specific.
 Server Types
 ------------
 
-There are three types of Presto servers: resource manager, coordinators and workers. The
+There are three types of Presto servers: resource manager, coordinators, and workers. The
 following section explains the difference between them.
 
 Resource Manager
-^^^^^^^^^^^
+^^^^^^^^^^^^^^^^
 
 The Presto resource manager is the server that aggregates
 data from all coordinators and workers and constructs a global view of the cluster.
-Presto installation with disaggregated coordinator must need resource manager.
+A Presto installation with a disaggregated coordinator needs a resource manager.
 Clusters support multiple resource managers, each acting as a primary.
 
-Coordinators and workers communicate with Resource managers using thrift API.
+Coordinators and workers communicate with resource managers using a thrift API.
 
 Coordinator
 ^^^^^^^^^^^
@@ -156,7 +156,7 @@ Statement
 
 Presto executes ANSI-compatible SQL statements.  When the Presto
 documentation refers to a statement, it is referring to statements as
-defined in the ANSI SQL standard which consists of clauses,
+defined in the ANSI SQL standard which consist of clauses,
 expressions, and predicates.
 
 Some readers might be curious why this section lists separate concepts
@@ -183,13 +183,40 @@ that statement. A query encompasses stages, tasks, splits, connectors,
 and other components and data sources working in concert to produce a
 result.
 
+Query Plan
+^^^^^^^^^^
+
+A query plan is a sequence of steps used to access and manipulate data 
+according to the SQL query. It is represented as a tree of nodes, with 
+each node loosely representing an `operator <https://prestodb.io/docs/current/overview/concepts.html#operator>`_. 
+Since SQL is declarative, multiple query plans can be generated to execute 
+a given query. Because query plans can have different performance behavior, 
+Presto uses a query optimizer to choose an efficient plan.
+
+There are two phases of optimization: logical and physical. The logical 
+phase of optimization transforms plans by only considering algorithmic 
+complexity. The logically optimized query plan is then converted into 
+a physical query plan, which is optimized for distributed execution and 
+includes details such as the number and 
+`types <https://prestodb.io/docs/current/overview/concepts.html#server-types>`_ 
+of Presto servers which should process a query plan node, and how data is 
+`exchanged <https://prestodb.io/docs/current/overview/concepts.html#exchange>`_ 
+between them.
+
+Plan Fragment
+^^^^^^^^^^^^^
+
+A plan fragment is a section of the physical query plan executed by 
+`tasks <https://prestodb.io/docs/current/overview/concepts.html#task>`_ on different 
+`Presto servers <https://prestodb.io/docs/current/overview/concepts.html#server-types>`_.
+
 Stage
 ^^^^^
 
 When Presto executes a query, it does so by breaking up the execution
 into a hierarchy of stages. For example, if Presto needs to aggregate
 data from one billion rows stored in Hive, it does so by creating a
-root stage to aggregate the output of several other stages all of
+root stage to aggregate the output of several other stages, all of
 which are designed to implement different sections of a distributed
 query plan.
 
@@ -208,7 +235,7 @@ execute on Presto workers. To understand how a stage is executed,
 you'll need to understand that a stage is implemented as a series of
 tasks distributed over a network of Presto workers.
 
-Tasks are the "work horse" in the Presto architecture as a distributed
+Tasks are the "work horse" in the Presto architecture. A distributed
 query plan is deconstructed into a series of stages which are then
 translated to tasks which then act upon or process splits. A Presto
 task has inputs and outputs, and just as a stage can be executed in
@@ -233,8 +260,8 @@ Driver
 
 Tasks contain one or more parallel drivers. Drivers act upon data and
 combine operators to produce output that is then aggregated by a task
-and then delivered to another task in another stage. A driver is a
-sequence of operator instances, or you can think of a driver as a
+and delivered to another task in another stage. A driver is a
+sequence of operator instances. You can think of a driver as a
 physical set of operators in memory. It is the lowest level of
 parallelism in the Presto architecture. A driver has one input and
 one output.
@@ -242,7 +269,7 @@ one output.
 Operator
 ^^^^^^^^
 
-An operator consumes, transforms and produces data. For example, a table
+An operator consumes, transforms, and produces data. For example, a table
 scan fetches data from a connector and produces data that can be consumed
 by other operators, and a filter operator consumes data and produces a
 subset by applying a predicate over the input data.
@@ -251,5 +278,5 @@ Exchange
 ^^^^^^^^
 
 Exchanges transfer data between Presto nodes for different stages of
-a query. Tasks produce data into an output buffer and consume data
+a query. Tasks write data into an output buffer and consume data
 from other tasks using an exchange client.

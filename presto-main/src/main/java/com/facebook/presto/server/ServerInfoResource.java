@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.client.ServerInfo;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.spi.NodeState;
 
@@ -56,10 +57,11 @@ public class ServerInfoResource
     private final GracefulShutdownHandler shutdownHandler;
     private final long startTime = System.nanoTime();
     private final NodeResourceStatusProvider nodeResourceStatusProvider;
+    private final ResourceGroupManager resourceGroupManager;
     private NodeState nodeState = ACTIVE;
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, StaticCatalogStore catalogStore, GracefulShutdownHandler shutdownHandler, NodeResourceStatusProvider nodeResourceStatusProvider, ResourceGroupManager resourceGroupManager)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
@@ -68,6 +70,7 @@ public class ServerInfoResource
         this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
         this.nodeResourceStatusProvider = requireNonNull(nodeResourceStatusProvider, "nodeResourceStatusProvider is null");
+        this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
     }
 
     @GET
@@ -118,7 +121,7 @@ public class ServerInfoResource
         if (shutdownHandler.isShutdownRequested()) {
             return SHUTTING_DOWN;
         }
-        else if (!nodeResourceStatusProvider.hasResources()) {
+        else if (!nodeResourceStatusProvider.hasResources() || !resourceGroupManager.isConfigurationManagerLoaded()) {
             return INACTIVE;
         }
         else {

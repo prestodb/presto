@@ -95,7 +95,6 @@ public class BenchmarkArrayTransform
                         data.getPage()));
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {

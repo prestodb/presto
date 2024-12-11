@@ -58,24 +58,43 @@ public class TestOrcOutputBuffer
     @Test
     public void testWriteHugeByteChucks()
     {
+        // compression buffer size should be at least 2x smaller than the size of test data
         int size = 1024 * 1024;
         byte[] largeByteArray = new byte[size];
         Arrays.fill(largeByteArray, (byte) 0xA);
-        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder().setCompressionKind(CompressionKind.NONE).build();
+        ColumnWriterOptions columnWriterOptions = ColumnWriterOptions.builder()
+                .setCompressionKind(CompressionKind.NONE)
+                .setCompressionMaxBufferSize(DataSize.valueOf("256kB"))
+                .build();
         OrcOutputBuffer orcOutputBuffer = new OrcOutputBuffer(columnWriterOptions, Optional.empty());
 
+        // write size-10 bytes from offset 10
         DynamicSliceOutput output = new DynamicSliceOutput(size);
         orcOutputBuffer.writeBytes(largeByteArray, 10, size - 10);
         orcOutputBuffer.flush();
         assertEquals(orcOutputBuffer.writeDataTo(output), size - 10);
         assertEquals(output.slice(), wrappedBuffer(largeByteArray, 10, size - 10));
+        assertEquals(orcOutputBuffer.size(), size - 10);
 
         orcOutputBuffer.reset();
         output.reset();
+
+        // write size-100 bytes from offset 100
         orcOutputBuffer.writeBytes(wrappedBuffer(largeByteArray), 100, size - 100);
         orcOutputBuffer.flush();
         assertEquals(orcOutputBuffer.writeDataTo(output), size - 100);
         assertEquals(output.slice(), wrappedBuffer(largeByteArray, 100, size - 100));
+        assertEquals(orcOutputBuffer.size(), size - 100);
+
+        orcOutputBuffer.reset();
+        output.reset();
+
+        // write all bytes
+        orcOutputBuffer.writeBytes(wrappedBuffer(largeByteArray), 0, size);
+        orcOutputBuffer.flush();
+        assertEquals(orcOutputBuffer.writeDataTo(output), size);
+        assertEquals(output.slice(), wrappedBuffer(largeByteArray));
+        assertEquals(orcOutputBuffer.size(), size);
     }
 
     @Test

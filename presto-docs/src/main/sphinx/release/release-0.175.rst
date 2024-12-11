@@ -20,7 +20,7 @@ General Changes
   operations will take advantage of this in future releases.
 * Add ``enable_intermediate_aggregations`` session property to enable the
   use of intermediate aggregations within un-grouped aggregations.
-* Add support for ``INTERVAL`` data type to :func:`avg` and :func:`sum` aggregation functions.
+* Add support for ``INTERVAL`` data type to :func:`!avg` and :func:`!sum` aggregation functions.
 * Add support for ``INT`` as an alias for the ``INTEGER`` data type.
 * Add resource group information to query events.
 

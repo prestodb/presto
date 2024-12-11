@@ -16,7 +16,7 @@ General Changes
 * Fix issue that may cause queries containing expensive functions, such as regular
   expressions, to continue using CPU resources even after they are killed.
 * Fix performance issue caused by redundant casts.
-* Fix :func:`json_parse` to not ignore trailing characters. Previously,
+* Fix :func:`!json_parse` to not ignore trailing characters. Previously,
   input such as ``[1,2]abc`` would successfully parse as ``[1,2]``.
 * Fix leak in running query counter for failed queries. The counter would
   increment but never decrement for queries that failed before starting.
@@ -26,7 +26,7 @@ General Changes
 * Add queued time and elapsed time to the client protocol.
 * Add ``query_max_execution_time`` session property and ``query.max-execution-time`` config
   property. Queries will be aborted after they execute for more than the specified duration.
-* Add :func:`inverse_normal_cdf` function.
+* Add :func:`!inverse_normal_cdf` function.
 * Add :doc:`/functions/geospatial` including functions for processing Bing tiles.
 * Add :doc:`/admin/spill` for joins.
 * Add :doc:`/connector/redshift`.

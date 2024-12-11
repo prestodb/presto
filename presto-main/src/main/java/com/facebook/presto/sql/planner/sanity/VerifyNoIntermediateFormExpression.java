@@ -20,9 +20,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.IntermediateFormExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.ExpressionExtractor;
-import com.facebook.presto.sql.planner.TypeProvider;
 
 import java.util.List;
 
@@ -33,7 +31,7 @@ public final class VerifyNoIntermediateFormExpression
         implements PlanChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
+    public void validate(PlanNode plan, Session session, Metadata metadata, WarningCollector warningCollector)
     {
         List<RowExpression> expressions = ExpressionExtractor.extractExpressions(plan)
                 .stream()

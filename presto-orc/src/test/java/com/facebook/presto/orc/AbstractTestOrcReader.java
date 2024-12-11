@@ -259,7 +259,7 @@ public abstract class AbstractTestOrcReader
         TempFile file = new TempFile();
         RecordWriter writer = createOrcRecordWriter(file.getFile(), ORC_12, CompressionKind.NONE, BIGINT);
 
-        @SuppressWarnings("deprecation") Serializer serde = new OrcSerde();
+        Serializer serde = new OrcSerde();
         SettableStructObjectInspector objectInspector = createSettableStructObjectInspector("test", BIGINT);
         Object row = objectInspector.create();
         StructField field = objectInspector.getAllStructFieldRefs().get(0);

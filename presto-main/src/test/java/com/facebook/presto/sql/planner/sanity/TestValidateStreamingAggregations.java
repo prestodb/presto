@@ -21,7 +21,6 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -45,7 +44,6 @@ public class TestValidateStreamingAggregations
         extends BasePlanTest
 {
     private Metadata metadata;
-    private SqlParser sqlParser;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
 
@@ -53,7 +51,6 @@ public class TestValidateStreamingAggregations
     public void setup()
     {
         metadata = getQueryRunner().getMetadata();
-        sqlParser = getQueryRunner().getSqlParser();
 
         TpchTableHandle nationTpchTableHandle = new TpchTableHandle("nation", 1.0);
         ConnectorId connectorId = getCurrentConnectorId();
@@ -115,7 +112,7 @@ public class TestValidateStreamingAggregations
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateStreamingAggregations().validate(planNode, session, metadata, sqlParser, types, WarningCollector.NOOP);
+            new ValidateStreamingAggregations().validate(planNode, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }

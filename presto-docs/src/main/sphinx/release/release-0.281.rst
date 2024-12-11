@@ -12,8 +12,8 @@ _______________
 * Improve outer join where the join key is from the output of another outer join which can have many null values. The optimization is controlled by session property ``randomize_outer_join_null_key_strategy`` and the default value is ``DISABLED``
 * Add timeouts for long running optimization rules.
 * Improve performance for queries with multiple similar aggregations, with and without filters. The optimization is controlled by session parameter merge_aggs_with_and_without_filter and by default it is set to false.* Add an optimization rule to merge aggregations when there are multiple duplicate aggregations in the aggregation node. The optimization is controlled by session property ``merge_duplicate_aggregations`` and default value is ``true``.
-* Add :func:`f_cdf()` and :func:`inverse_f_cdf()` functions.
-* Add :func:`gamma_cdf()`` and :func:`inverse_gamma_cdf()` functions.
+* Add :func:`!f_cdf()` and :func:`!inverse_f_cdf()` functions.
+* Add :func:`!gamma_cdf()`` and :func:`!inverse_gamma_cdf()` functions.
 * Add groups support to :doc:`/functions/window`.
 * Add optimization for joins when build side is empty at runtime. The optimization is controlled by session parameter ``optimize_join_probe_for_empty_build_runtime`` and by default it is set to ``false``.
 * Add system config to enable access log on presto-on-spark native. This can be enabled with the system config ``http-server.enable-access-log`` and default value is ``true``.
@@ -31,20 +31,20 @@ ___________
 * Add ``MetadataResolver`` in the ``AnalyzerContext``, which is passed in the pluggable analyzer interface.
 
 
-Hive Changes
-____________
+Hive Connector Changes
+______________________
 * Fix a bug where the filter on a ``CHAR(n)`` column is not evaluated correctly for ORC/DWRF files when filter pushdown is enabled.
 * Fix issue while accessing HUDI Merge-on-Read Realtime tables (:issue:`18911`).
 * Enable Hive splits for uncompressed inputs in S3 Select connector by leveraging the scan range feature of the service.
 
-Apache Hudi Changes
-____________
+Apache Hudi Connector Changes
+_____________________________
 * Add the asynchronous split generation in Hudi connector to speed up the query execution and reduce overall query finishing time. ``hudi.max-outstanding-splits`` session property controls the maximum outstanding splits in a batch enqueued for processing.  ``hudi.split-generator-parallelism`` session property controls the number of threads to generate splits from partitions.
 * Upgrade Apache Hudi version to 0.12.1.
 
 
-Apache Iceberg Changes
-_______________
+Apache Iceberg Connector Changes
+________________________________
 * Upgrade Apache Iceberg version from 1.1.0 to 1.2.0.
 
 JDBC Changes

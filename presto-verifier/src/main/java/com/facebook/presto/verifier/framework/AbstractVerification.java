@@ -196,6 +196,8 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         ChecksumQueryContext testChecksumQueryContext = new ChecksumQueryContext();
         Optional<R> matchResult = Optional.empty();
         Optional<DeterminismAnalysisDetails> determinismAnalysisDetails = Optional.empty();
+        boolean controlReuseTable = false;
+        boolean testReuseTable = false;
 
         Optional<PartialVerificationResult> partialResult = Optional.empty();
         Optional<Throwable> throwable = Optional.empty();
@@ -204,11 +206,22 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             // Rewrite queries
             if (isControlEnabled()) {
                 control = Optional.of(getQueryRewrite(CONTROL));
+                controlReuseTable = control.isPresent() && control.get() instanceof QueryObjectBundle && ((QueryObjectBundle) control.get()).isReuseTable();
+                if (controlReuseTable) {
+                    controlQueryContext.setState(QueryState.REUSE);
+                    controlQueryContext.setMainQueryStats(QueryActionStats.queryIdStats(sourceQuery.getQueryId(CONTROL).get()));
+                }
             }
+
             test = Optional.of(getQueryRewrite(TEST));
+            testReuseTable = test.isPresent() && test.get() instanceof QueryObjectBundle && ((QueryObjectBundle) test.get()).isReuseTable();
+            if (testReuseTable) {
+                testQueryContext.setState(QueryState.REUSE);
+                testQueryContext.setMainQueryStats(QueryActionStats.queryIdStats(sourceQuery.getQueryId(TEST).get()));
+            }
 
             // First run setup queries
-            if (isControlEnabled()) {
+            if (isControlEnabled() && !controlReuseTable) {
                 QueryBundle controlQueryBundle = control.get();
                 QueryAction controlSetupAction = setupOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
                 controlQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
@@ -216,40 +229,51 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                         controlQueryContext::addSetupQuery,
                         controlQueryContext::setException));
             }
-            QueryBundle testQueryBundle = test.get();
-            QueryAction testSetupAction = setupOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
-            testQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
-                    () -> testSetupAction.execute(query, TEST_SETUP),
-                    testQueryContext::addSetupQuery,
-                    testQueryContext::setException));
+            if (!testReuseTable) {
+                QueryBundle testQueryBundle = test.get();
+                QueryAction testSetupAction = setupOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
+                testQueryBundle.getSetupQueries().forEach(query -> runAndConsume(
+                        () -> testSetupAction.execute(query, TEST_SETUP),
+                        testQueryContext::addSetupQuery,
+                        testQueryContext::setException));
+            }
 
             ListenableFuture<Optional<QueryResult<V>>> controlQueryFuture = immediateFuture(Optional.empty());
+            ListenableFuture<Optional<QueryResult<V>>> testQueryFuture = immediateFuture(Optional.empty());
             // Start control query
-            if (isControlEnabled()) {
+            if (isControlEnabled() && !controlReuseTable) {
                 QueryBundle controlQueryBundle = control.get();
                 controlQueryFuture = executor.submit(() -> runMainQuery(controlQueryBundle.getQuery(), CONTROL, controlQueryContext));
             }
-
             if (!concurrentControlAndTest) {
                 getFutureValue(controlQueryFuture);
             }
 
             // Run test queries
-            ListenableFuture<Optional<QueryResult<V>>> testQueryFuture = executor.submit(() -> runMainQuery(testQueryBundle.getQuery(), TEST, testQueryContext));
+            if (!testReuseTable) {
+                QueryBundle testQueryBundle = test.get();
+                testQueryFuture = executor.submit(() -> runMainQuery(testQueryBundle.getQuery(), TEST, testQueryContext));
+            }
             controlQueryResult = getFutureValue(controlQueryFuture);
+
             if (QUERY_BANK_MODE.equals(runningMode) && !saveSnapshot) {
                 controlQueryContext.setState(QueryState.SUCCEEDED);
                 controlQueryContext.setMainQueryStats(EMPTY_STATS);
             }
             else if (!skipControl || QUERY_BANK_MODE.equals(runningMode)) {
                 // saveSnapshot or regular run with skipControl = false
-                controlQueryContext.setState(QueryState.SUCCEEDED);
+                if (!controlReuseTable) {
+                    controlQueryContext.setState(QueryState.SUCCEEDED);
+                }
             }
             else {
                 controlQueryContext.setState(NOT_RUN);
             }
+
             testQueryResult = getFutureValue(testQueryFuture);
-            testQueryContext.setState(QueryState.SUCCEEDED);
+            if (!testReuseTable) {
+                testQueryContext.setState(QueryState.SUCCEEDED);
+            }
 
             // Verify results
             if (QUERY_BANK_MODE.equals(runningMode) && !saveSnapshot && !skipChecksum) {
@@ -262,8 +286,13 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                 matchResult = Optional.of(verify(control.get(), test.get(), controlQueryResult, testQueryResult, controlChecksumQueryContext, testChecksumQueryContext));
 
                 // Determinism analysis
-                if (!QUERY_BANK_MODE.equals(runningMode) && matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
-                    determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.get(), matchResult.get()));
+                if (!QUERY_BANK_MODE.equals(runningMode)) {
+                    if ((controlReuseTable || testReuseTable) && matchResult.get().isMismatchPossiblyCausedByReuseOutdatedTable() && verificationContext.getResubmissionCount() < verificationResubmissionLimit) {
+                        return new VerificationResult(this, true, Optional.empty());
+                    }
+                    else if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
+                        determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.get(), matchResult.get()));
+                    }
                 }
             }
 
@@ -287,7 +316,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         }
         finally {
             if (!smartTeardown
-                    || testQueryContext.getState() != QueryState.SUCCEEDED
+                    || !ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(testQueryContext.getState())
                     || (partialResult.isPresent() && partialResult.get().getStatus().equals(SUCCEEDED))) {
                 QueryAction controlTeardownAction = teardownOnMainClusters ? queryActions.getControlAction() : queryActions.getHelperAction();
                 QueryAction testTeardownAction = teardownOnMainClusters ? queryActions.getTestAction() : queryActions.getHelperAction();
@@ -347,13 +376,14 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         }
 
         if (skipControl) {
-            if (testQueryContext.getState() == QueryState.SUCCEEDED) {
+            if (ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(testQueryContext.getState())) {
                 return SUCCEEDED;
             }
         }
         else {
             if (skipChecksum) {
-                if (controlQueryContext.getState() == QueryState.SUCCEEDED && testQueryContext.getState() == QueryState.SUCCEEDED) {
+                if (ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(testQueryContext.getState()) &&
+                        ImmutableList.of(QueryState.SUCCEEDED, QueryState.REUSE).contains(controlQueryContext.getState())) {
                     return SUCCEEDED;
                 }
             }

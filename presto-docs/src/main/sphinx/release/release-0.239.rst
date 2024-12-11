@@ -21,7 +21,7 @@ Release 0.239
 
 General Changes
 _______________
-* Fix incorrect results from :func:`classification_miss_rate`, :func:`classification_fall_out` (:pr:`14740`).
+* Fix incorrect results from :func:`!classification_miss_rate`, :func:`!classification_fall_out` (:pr:`14740`).
 * Fix error in ``/v1/thread`` end point.
 * Fix an issue where the property ``ignore_stats_calculator_failures`` would not be honored
   for certain queries.
@@ -30,12 +30,12 @@ _______________
 * Optimize queries with repeated expressions in filters or projections by computing the
   common expressions only once. This can be disabled by the session property
   ``optimize_common_sub_expressions``.
-* Optimize queries containing only :func:`min` and :func:`max` on columns that can be
+* Optimize queries containing only :func:`!min` and :func:`!max` on columns that can be
   evaluated using metadata (e.g., Hive partitions). This is controlled by configuration property
   ``optimizer.optimize-metadata-queries`` and session property ``optimize_metadata_queries``.
   Note: Enabling this optimization might change query result if there are metadata that refers to
   empty data, see :pr:`14845` for examples.
-* Add aggregation function :func:`set_union`.
+* Add aggregation function :func:`!set_union`.
 * Add local disk spilling support for queries with ``ORDER BY`` or ``DISTINCT``.
 * Add new unified grouped execution configuration property ``grouped-execution-enabled`` and
   session property ``grouped_execution`` with default set to ``true``. The property

@@ -5,13 +5,13 @@ Release 0.216
 General Changes
 ---------------
 
-* Fix correctness issue for :func:`array_intersect` and :func:`array_distinct` when input contains
+* Fix correctness issue for :func:`!array_intersect` and :func:`!array_distinct` when input contains
   both zeros and nulls.
 * Fix ``count(*)`` aggregation on empty relation when ``optimize_mixed_distinct_aggregation`` is enabled.
 * Improve table scan performance for structural types.
-* Improve performance for :func:`array_intersect`.
-* Add :func:`reduce_agg` aggregate function.
-* Add :func:`millisecond` function.
+* Improve performance for :func:`!array_intersect`.
+* Add :func:`!reduce_agg` aggregate function.
+* Add :func:`!millisecond` function.
 * Add an optimizer rule to filter the window partitions before executing the window operators.
 * Remove ``ON`` keyword for :doc:`/sql/show-stats`.
 * Restrict ``WHERE`` clause in :doc:`/sql/show-stats` to filters that can be pushed down to the connectors.

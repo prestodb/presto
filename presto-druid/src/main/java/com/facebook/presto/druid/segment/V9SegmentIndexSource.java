@@ -29,6 +29,7 @@ import org.apache.druid.java.util.common.Intervals;
 import org.apache.druid.segment.Metadata;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.SimpleQueryableIndex;
+import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ColumnDescriptor;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.data.BitmapSerde;
@@ -135,7 +136,7 @@ public class V9SegmentIndexSource
         try {
             ByteBuffer columnData = ByteBuffer.wrap(segmentColumnSource.getColumnData(columnName));
             ColumnDescriptor columnDescriptor = readColumnDescriptor(columnData);
-            return columnDescriptor.read(columnData, () -> 0, null);
+            return columnDescriptor.read(columnData, ColumnConfig.DEFAULT, null);
         }
         catch (IOException e) {
             throw new PrestoException(DRUID_SEGMENT_LOAD_ERROR, e);

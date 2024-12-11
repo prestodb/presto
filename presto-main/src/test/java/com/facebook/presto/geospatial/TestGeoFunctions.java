@@ -1371,4 +1371,69 @@ public class TestGeoFunctions
     {
         assertInvalidFunction("geometry_from_geojson('" + json + "')", "Invalid GeoJSON:.*");
     }
+
+    @Test
+    public void testGooglePolylineDecode()
+    {
+        // Google's standard example
+        assertFunction("google_polyline_decode('_p~iF~ps|U_ulLnnqC_mqNvxq`@')",
+                new ArrayType(GEOMETRY),
+                ImmutableList.of("POINT (38.5 -120.2)", "POINT (40.7 -120.95)", "POINT (43.252 -126.453)"));
+
+        /* more complex scenario:
+            (1) precision in the input floats higher than supported
+            (2) duplicate points in a row
+            (3) line crosses back over itself (not very significant, but hey)
+            (4) line terminates at the origin (non consecutive duplicate points)
+                37.78327388736858, -122.43876656873093
+                37.7588492882026, -122.43533334119186
+                37.76373485345523, -122.41027078015671
+                37.76780591132951, -122.42537698132858
+                37.76780591132951, -122.42537698132858
+                37.76834870211408, -122.45421609265671
+                37.78327388736858, -122.43876656873093
+         */
+        assertFunction("google_polyline_decode('mpreFhyhjVrwCoTo]s{CoXl}A??kBfsDg|Aq_B')",
+                new ArrayType(GEOMETRY),
+                ImmutableList.of(
+                        "POINT (37.78327 -122.43877)",
+                        "POINT (37.75885 -122.43533)",
+                        "POINT (37.76373 -122.41027)",
+                        "POINT (37.76781 -122.42538)",
+                        "POINT (37.76781 -122.42538)",
+                        "POINT (37.76835 -122.45422)",
+                        "POINT (37.78327 -122.43877)"));
+
+        assertInvalidFunction("google_polyline_decode('A')", INVALID_FUNCTION_ARGUMENT, "Input is not a valid Google polyline string");
+
+        assertFunction("google_polyline_decode('_izlhA~rlgdF_{geC~ywl@_kwzCn`{nI', 6)",
+                new ArrayType(GEOMETRY),
+                ImmutableList.of("POINT (38.5 -120.2)", "POINT (40.7 -120.95)", "POINT (43.252 -126.453)"));
+        assertInvalidFunction("google_polyline_decode('_p~iF~ps|U_ulLnnqC_mqNvxq`@', 0) ", INVALID_FUNCTION_ARGUMENT, "Polyline precision must be greater or equal to 1");
+    }
+
+    @Test
+    public void testGooglePolylineEncode()
+    {
+        // Google's standard example
+        assertFunction("google_polyline_encode(ARRAY[ST_Point(38.5, -120.2), ST_Point(40.7, -120.95), ST_Point(43.252, -126.453)])",
+                VARCHAR, "_p~iF~ps|U_ulLnnqC_mqNvxq`@");
+        assertInvalidFunction("google_polyline_encode(ARRAY[ST_Point(37.78327, -122.43877)], 0)", INVALID_FUNCTION_ARGUMENT, "Polyline precision must be greater or equal to 1");
+
+        // the more complex example in the decode tests
+        assertFunction(
+                new StringBuilder("google_polyline_encode(")
+                        .append("ARRAY[")
+                        .append("ST_Point(37.78327, -122.43877),")
+                        .append("ST_Point(37.75885, -122.43533),")
+                        .append("ST_Point(37.76373, -122.41027),")
+                        .append("ST_Point(37.76781, -122.42538),")
+                        .append("ST_Point(37.76781, -122.42538),")
+                        .append("ST_Point(37.76835, -122.45422),")
+                        .append("ST_Point(37.78327, -122.43877)")
+                        .append("])")
+                        .toString(),
+                VARCHAR,
+                "mpreFhyhjVrwCoTo]s{CoXl}A??kBfsDg|Aq_B");
+    }
 }

@@ -1,0 +1,16 @@
+{
+  "mappings": [
+    {
+      "user": "admin",
+      "accessKey": "AKIAxxxaccess",
+      "secretKey": "iXbXxxxsecret"
+    },
+    {
+      "user": "analyst|scientist",
+      "iamRole": "arn:aws:iam::123456789101:role/analyst_and_scientist_role"
+    },
+    {
+      "iamRole": "arn:aws:iam::123456789101:role/default"
+    }
+  ]
+}

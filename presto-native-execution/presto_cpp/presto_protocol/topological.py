@@ -29,21 +29,23 @@ GRAY, BLACK = 0, 1
 
 
 def topological(graph):
-    order, enter, state = deque(), set(graph), {}
+    order, enter, state = deque(), sorted(graph), {}
 
     def dfs(node):
         state[node] = GRAY
-        for k in graph.get(node, ()):
+        adjacency_list = sorted(graph.get(node, ()))
+        for k in adjacency_list:
             sk = state.get(k, None)
             if sk == GRAY:
                 raise ValueError(f"cycle: {node} {k}")
             if sk == BLACK:
                 continue
-            enter.discard(k)
+            if k in enter:
+                enter.remove(k)
             dfs(k)
         order.appendleft(node)
         state[node] = BLACK
 
     while enter:
-        dfs(enter.pop())
+        dfs(enter.pop(0))
     return order

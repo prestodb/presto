@@ -179,6 +179,10 @@ public class MockConnectorFactory
                 return listTables.apply(session, schemaNameOrNull);
             }
 
+            public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> properties)
+            {
+            }
+
             @Override
             public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
             {
@@ -203,7 +207,11 @@ public class MockConnectorFactory
             }
 
             @Override
-            public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
+            public ConnectorTableLayoutResult getTableLayoutForConstraint(
+                    ConnectorSession session,
+                    ConnectorTableHandle table,
+                    Constraint<ColumnHandle> constraint,
+                    Optional<Set<ColumnHandle>> desiredColumns)
             {
                 throw new UnsupportedOperationException();
             }

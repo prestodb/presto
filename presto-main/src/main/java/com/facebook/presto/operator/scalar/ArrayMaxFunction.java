@@ -95,8 +95,12 @@ public final class ArrayMaxFunction
                 return null;
             }
 
+            if (block.isNull(0)) {
+                return null;
+            }
+
             Block selectedValue = (Block) elementType.getObject(block, 0);
-            for (int i = 0; i < block.getPositionCount(); i++) {
+            for (int i = 1; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     return null;
                 }

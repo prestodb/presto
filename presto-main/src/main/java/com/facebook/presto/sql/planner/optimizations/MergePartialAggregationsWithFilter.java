@@ -20,6 +20,7 @@ import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
@@ -356,6 +356,7 @@ public class MergePartialAggregationsWithFilter
                         children.get(children.size() - 1).getOutputVariables(),
                         node.getPartitioningScheme().getHashColumn(),
                         node.getPartitioningScheme().isReplicateNullsAndAny(),
+                        node.getPartitioningScheme().getEncoding(),
                         node.getPartitioningScheme().getBucketToPartition());
 
                 return new ExchangeNode(

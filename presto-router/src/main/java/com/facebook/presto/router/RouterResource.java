@@ -18,6 +18,7 @@ import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.RequestInfo;
 import com.google.inject.Inject;
 
+import javax.annotation.security.PermitAll;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -35,6 +36,7 @@ import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static javax.ws.rs.core.Response.Status.BAD_GATEWAY;
 
 @Path("/")
+@PermitAll
 public class RouterResource
 {
     private static final Logger log = Logger.get(RouterResource.class);

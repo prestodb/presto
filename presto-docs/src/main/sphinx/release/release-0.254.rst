@@ -12,9 +12,9 @@ Release 0.254
 General Changes
 _______________
 * Fix a bug where queries that have both remote functions and a local function with only constant arguments could throw an ``IndexOutOfBoundException`` during planning. The bug was introduced by :pr:`16039`.
-* Fix a CPU regression for queries using :func:`element_at` for ``MAP``. Introduced by :pr:`16027`.
+* Fix a CPU regression for queries using :func:`!element_at` for ``MAP``. Introduced by :pr:`16027`.
 * Add fragment result caching support for ``UNNEST`` queries.
-* Add :func:`poisson_cdf` and :func:`inverse_poisson_cdf` functions.
+* Add :func:`!poisson_cdf` and :func:`!inverse_poisson_cdf` functions.
 * Add memory tracking in ``TableFinishOperator`` which can be enabled by setting the ``table-finish-operator-memory-tracking-enabled`` configuration property to ``true``. Enabling this property can help with investigating GC issues on the coordinator by allowing us to debug whether stats collection uses a lot of memory.
 * Remove spilling strategy ``PER_QUERY_MEMORY_LIMIT`` and add configuration property ``experimental.query-limit-spill-enabled`` and session property ``query_limit_spill_enabled``. When ``query_limit_spill_enabled`` is set to ``true`` and the spill strategy is not ``PER_TASK_MEMORY_THRESHOLD``, then we will spill whenever a query uses more than the per-node total memory limit in combined revocable and non-revocable memory.
 

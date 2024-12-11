@@ -1218,7 +1218,7 @@ public class FileHiveMetastore
             }
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Could not delete constraints file" + constraintsFilePath);
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Could not delete constraints file " + constraintsFilePath);
         }
     }
 

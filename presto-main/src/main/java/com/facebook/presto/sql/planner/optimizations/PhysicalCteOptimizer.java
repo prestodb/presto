@@ -14,9 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.PartitioningMetadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
@@ -31,28 +29,22 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.BasePlanFragmenter;
-import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.facebook.presto.SystemSessionProperties.getCteHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getCtePartitioningProviderCatalog;
 import static com.facebook.presto.SystemSessionProperties.isCteMaterializationApplicable;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableColumnNames;
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableScan;
 import static com.facebook.presto.sql.TemporaryTableUtil.createTemporaryTableWriteWithoutExchanges;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -126,34 +118,16 @@ public class PhysicalCteOptimizer
             isPlanRewritten = true;
             // Create Table Metadata
             PlanNode actualSource = node.getSource();
-            // The cte will be bucketed on the first column currently
-            VariableReferenceExpression partitionVariable = actualSource.getOutputVariables()
-                    .get(0);
-            List<Type> partitioningTypes = Arrays.asList(partitionVariable.getType());
             String partitioningProviderCatalog = getCtePartitioningProviderCatalog(session);
-            // First column is taken as the partitioning column
-            Partitioning partitioning = Partitioning.create(
-                    metadata.getPartitioningHandleForCteMaterialization(session, partitioningProviderCatalog,
-                            getCteHashPartitionCount(session), partitioningTypes),
-                    Arrays.asList(partitionVariable));
-            BasePlanFragmenter.PartitioningVariableAssignments partitioningVariableAssignments
-                    = assignPartitioningVariables(variableAllocator, partitioning);
             Map<VariableReferenceExpression, ColumnMetadata> variableToColumnMap =
-                    assignTemporaryTableColumnNames(actualSource.getOutputVariables(),
-                            partitioningVariableAssignments.getConstants().keySet());
-            List<VariableReferenceExpression> partitioningVariables = partitioningVariableAssignments.getVariables();
-            List<String> partitionColumns = partitioningVariables.stream()
-                    .map(variable -> variableToColumnMap.get(variable).getName())
-                    .collect(toImmutableList());
-            PartitioningMetadata partitioningMetadata = new PartitioningMetadata(partitioning.getHandle(), partitionColumns);
-
+                    assignTemporaryTableColumnNames(actualSource.getOutputVariables());
             TableHandle temporaryTableHandle;
             try {
                 temporaryTableHandle = metadata.createTemporaryTable(
                         session,
                         partitioningProviderCatalog,
                         ImmutableList.copyOf(variableToColumnMap.values()),
-                        Optional.of(partitioningMetadata));
+                        Optional.empty());
                 context.get().put(node.getCteId(),
                         new PhysicalCteTransformerContext.TemporaryTableInfo(
                                 createTemporaryTableScan(
@@ -164,7 +138,7 @@ public class PhysicalCteOptimizer
                                         temporaryTableHandle,
                                         actualSource.getOutputVariables(),
                                         variableToColumnMap,
-                                        partitioningMetadata), node.getOutputVariables()));
+                                        Optional.empty()), node.getOutputVariables()));
             }
             catch (PrestoException e) {
                 if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
@@ -185,7 +159,6 @@ public class PhysicalCteOptimizer
                     temporaryTableHandle,
                     actualSource.getOutputVariables(),
                     variableToColumnMap,
-                    partitioningMetadata,
                     node.getRowCountVariable());
         }
 

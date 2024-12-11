@@ -9,7 +9,7 @@ General Changes
   during planning.
 * Reduce CPU usage of coordinator in large, heavily loaded clusters.
 * Add support for ``DESCRIBE OUTPUT``.
-* Add :func:`bitwise_and_agg` and :func:`bitwise_or_agg` aggregation functions.
+* Add :func:`!bitwise_and_agg` and :func:`!bitwise_or_agg` aggregation functions.
 * Add JMX stats for the scheduler.
 * Add ``query.min-schedule-split-batch-size`` config flag to set the minimum number of
   splits to consider for scheduling per batch.

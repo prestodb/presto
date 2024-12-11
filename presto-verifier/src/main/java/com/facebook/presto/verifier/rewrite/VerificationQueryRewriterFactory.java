@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.rewrite;
 
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -48,10 +49,13 @@ public class VerificationQueryRewriterFactory
 {
     private final SqlParser sqlParser;
     private final TypeManager typeManager;
+    private final BlockEncodingSerde blockEncodingSerde;
     private final QualifiedName controlTablePrefix;
     private final QualifiedName testTablePrefix;
     private final List<Property> controlTableProperties;
     private final List<Property> testTableProperties;
+    private final boolean controlReuseTable;
+    private final boolean testReuseTable;
 
     private final Multimap<String, FunctionCallSubstitute> functionSubstitutes;
 
@@ -59,16 +63,20 @@ public class VerificationQueryRewriterFactory
     public VerificationQueryRewriterFactory(
             SqlParser sqlParser,
             TypeManager typeManager,
+            BlockEncodingSerde blockEncodingSerde,
             @ForControl QueryRewriteConfig controlConfig,
             @ForTest QueryRewriteConfig testConfig,
             VerifierConfig verifierConfig)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerge is null");
         this.controlTablePrefix = requireNonNull(controlConfig.getTablePrefix(), "controlTablePrefix is null");
         this.testTablePrefix = requireNonNull(testConfig.getTablePrefix(), "testTablePrefix is null");
         this.controlTableProperties = constructProperties(controlConfig.getTableProperties());
         this.testTableProperties = constructProperties(testConfig.getTableProperties());
+        this.controlReuseTable = controlConfig.isReuseTable();
+        this.testReuseTable = testConfig.isReuseTable();
         this.functionSubstitutes = verifierConfig.getFunctionSubstitutes();
     }
 
@@ -78,9 +86,11 @@ public class VerificationQueryRewriterFactory
         return new QueryRewriter(
                 sqlParser,
                 typeManager,
+                blockEncodingSerde,
                 prestoAction,
                 ImmutableMap.of(CONTROL, controlTablePrefix, TEST, testTablePrefix),
                 ImmutableMap.of(CONTROL, controlTableProperties, TEST, testTableProperties),
+                ImmutableMap.of(CONTROL, controlReuseTable, TEST, testReuseTable),
                 functionSubstitutes);
     }
 

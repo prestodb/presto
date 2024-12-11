@@ -92,6 +92,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -813,6 +814,27 @@ public final class SqlFormatter
                             .append(formatStringLiteral(value)));
 
             return null;
+        }
+
+        protected Void visitSetProperties(SetProperties node, Integer context)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()));
+            builder.append(" SET PROPERTIES ( ");
+            builder.append(joinProperties(node.getProperties()));
+            builder.append(" )");
+            return null;
+        }
+
+        private String joinProperties(List<Property> properties)
+        {
+            return properties.stream()
+                    .map(element -> formatExpression(element.getName(), Optional.empty()) + " = " +
+                            formatExpression(element.getValue(), Optional.empty()))
+                    .collect(joining(", "));
         }
 
         @Override

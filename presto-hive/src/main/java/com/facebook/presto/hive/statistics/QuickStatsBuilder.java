@@ -15,8 +15,8 @@
 package com.facebook.presto.hive.statistics;
 
 import com.facebook.presto.hive.HiveFileInfo;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 
@@ -25,6 +25,6 @@ import java.util.Iterator;
 @FunctionalInterface
 public interface QuickStatsBuilder
 {
-    PartitionQuickStats buildQuickStats(ConnectorSession session, SemiTransactionalHiveMetastore metastore, SchemaTableName table,
+    PartitionQuickStats buildQuickStats(ConnectorSession session, ExtendedHiveMetastore metastore, SchemaTableName table,
             MetastoreContext metastoreContext, String partitionId, Iterator<HiveFileInfo> files);
 }

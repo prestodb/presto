@@ -97,6 +97,7 @@ Functions
 
     This function is particularly useful for adding externally-created tdigests to Presto.
 
- .. function:: merge_tdigest(array<tdigest<double>>) -> tdigest<double>
-     Returns a merged ``tdigest`` of the T-digests in an array. This is the
-     scalar complement to the aggregation function ``merge``.
+.. function:: merge_tdigest(array<tdigest<double>>) -> tdigest<double>
+
+    Returns a merged ``tdigest`` of the T-digests in an array. This is the
+    scalar complement to the aggregation function ``merge``.

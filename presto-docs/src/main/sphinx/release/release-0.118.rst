@@ -6,7 +6,7 @@ General Changes
 ---------------
 
 * Fix planning error for ``UNION`` queries that require implicit coercions.
-* Fix null pointer exception when using :func:`checksum`.
+* Fix null pointer exception when using :func:`!checksum`.
 * Fix completion condition for ``SqlTask`` that can cause queries to be blocked.
 
 Authorization

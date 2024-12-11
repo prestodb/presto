@@ -60,14 +60,14 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -650,7 +650,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         {
             // Result Tasks only have outputType of PrestoSparkSerializedPage.
             checkArgument(outputType == PrestoSparkSerializedPage.class,
-                    format("PrestoSparkNativeTaskExecutorFactory only outputType=PrestoSparkSerializedPage" +
+                    format("PrestoSparkNativeTaskExecutorFactory only outputType=PrestoSparkSerializedPage " +
                             "But tried to extract outputType=%s", outputType));
 
             // Set partition ID to help match the results to the task on the driver for debugging.

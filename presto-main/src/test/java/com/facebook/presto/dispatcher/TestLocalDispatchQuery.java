@@ -30,7 +30,6 @@ import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.resourceGroups.QueryQueueFullException;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -39,6 +38,7 @@ import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
+import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
@@ -66,6 +66,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.execution.TaskTestUtils.createQueryStateMachine;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_TASK;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
@@ -235,7 +236,8 @@ public class TestLocalDispatchQuery
                 dispatchQuery -> {},
                 execution -> {},
                 false,
-                new QueryPrerequisites() {
+                new QueryPrerequisites()
+                {
                     @Override
                     public CompletableFuture<?> waitForPrerequisites(QueryId queryId, QueryPrerequisitesContext context, WarningCollector warningCollector)
                     {
@@ -440,7 +442,7 @@ public class TestLocalDispatchQuery
 
     private ClusterSizeMonitor createClusterSizeMonitor(int minimumNodes)
     {
-        return new ClusterSizeMonitor(new InMemoryNodeManager(), true, minimumNodes, minimumNodes, new Duration(10, MILLISECONDS), 1, 1, new Duration(1, SECONDS), 0);
+        return new ClusterSizeMonitor(new InMemoryNodeManager(), true, minimumNodes, minimumNodes, new Duration(10, MILLISECONDS), 1, 1, new Duration(1, SECONDS), new Duration(1, SECONDS), 0, false);
     }
 
     private QueryMonitor createQueryMonitor(CountingEventListener eventListener)
@@ -453,10 +455,11 @@ public class TestLocalDispatchQuery
                 eventListenerManager,
                 new NodeInfo("test"),
                 UNKNOWN,
-                new SessionPropertyManager(),
+                createTestingSessionPropertyManager(),
                 metadata,
                 new QueryMonitorConfig(),
-                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), new SessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), new FeaturesConfig(), new NodeVersion("1")));
+                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), createTestingSessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig(), new FeaturesConfig(), new NodeVersion("1")),
+                new FeaturesConfig());
     }
 
     private EventListenerManager createEventListenerManager(CountingEventListener countingEventListener)
@@ -518,6 +521,12 @@ public class TestLocalDispatchQuery
         public void queryUpdated(QueryUpdatedEvent queryUpdatedEvent)
         {
             fail("Query update events should not be created in this test");
+        }
+
+        @Override
+        public void publishQueryProgress(QueryProgressEvent queryProgressEvent)
+        {
+            fail("Query Progress events should not be created in this test");
         }
 
         @Override

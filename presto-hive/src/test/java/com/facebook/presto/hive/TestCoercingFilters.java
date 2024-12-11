@@ -17,17 +17,31 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.BytesRange;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveCoercer.IntegerNumberToVarcharCoercer;
 import com.facebook.presto.hive.HiveCoercer.VarcharToIntegerNumberCoercer;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.hive.HiveType.HIVE_BYTE;
+import static com.facebook.presto.hive.HiveType.HIVE_DOUBLE;
+import static com.facebook.presto.hive.HiveType.HIVE_FLOAT;
+import static com.facebook.presto.hive.HiveType.HIVE_INT;
+import static com.facebook.presto.hive.HiveType.HIVE_LONG;
+import static com.facebook.presto.hive.HiveType.HIVE_SHORT;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestCoercingFilters
 {
+    private final TypeManager typeManager = MetadataManager.createTestMetadataManager().getFunctionAndTypeManager();
+
     @Test
     public void testIntegerToVarchar()
     {
@@ -69,5 +83,76 @@ public class TestCoercingFilters
         assertFalse(coercingFilter.testBytes("2147483648".getBytes(), 0, 10));
 
         assertFalse(coercingFilter.testNull());
+    }
+
+    @Test
+    public void testShortToInteger()
+    {
+        HiveCoercer coercer = HiveCoercer.createCoercer(typeManager, HIVE_SHORT, HIVE_INT);
+        assertEquals(coercer.getToType(), INTEGER);
+    }
+
+    @Test
+    public void testShortToLong()
+    {
+        HiveCoercer coercer = HiveCoercer.createCoercer(typeManager, HIVE_SHORT, HIVE_LONG);
+        assertEquals(coercer.getToType(), BIGINT);
+    }
+
+    @Test
+    public void testByteToInteger()
+    {
+        HiveCoercer coercer = HiveCoercer.createCoercer(typeManager, HIVE_BYTE, HIVE_INT);
+        assertEquals(coercer.getToType(), INTEGER);
+    }
+
+    @Test
+    public void testByteToLong()
+    {
+        HiveCoercer coercer = HiveCoercer.createCoercer(typeManager, HIVE_BYTE, HIVE_LONG);
+        assertEquals(coercer.getToType(), BIGINT);
+    }
+
+    @Test
+    public void testByteToShort()
+    {
+        HiveCoercer coercer = HiveCoercer.createCoercer(typeManager, HIVE_BYTE, HIVE_SHORT);
+        assertEquals(coercer.getToType(), SMALLINT);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testDoubleToShort()
+    {
+        HiveCoercer.createCoercer(typeManager, HIVE_DOUBLE, HIVE_SHORT);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testDoubleToInt()
+    {
+        HiveCoercer.createCoercer(typeManager, HIVE_DOUBLE, HIVE_INT);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testDoubleToLong()
+    {
+        HiveCoercer.createCoercer(typeManager, HIVE_DOUBLE, HIVE_LONG);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testShortToDouble()
+    {
+        HiveCoercer.createCoercer(typeManager, HIVE_SHORT, HIVE_DOUBLE);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testIntToFloat()
+    {
+        HiveCoercer.createCoercer(typeManager, HIVE_INT, HIVE_FLOAT);
+    }
+
+    @Test(expectedExceptions = PrestoException.class)
+    public void testLongToFloat()
+    {
+        HiveCoercer.createCoercer(typeManager, HIVE_LONG, HIVE_FLOAT);
     }
 }

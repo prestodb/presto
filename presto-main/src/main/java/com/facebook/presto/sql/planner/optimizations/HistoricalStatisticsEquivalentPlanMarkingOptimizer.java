@@ -20,14 +20,14 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.sql.planner.StatsEquivalentPlanNodeWithLimit;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.google.common.collect.ImmutableList;
@@ -38,13 +38,18 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
+import static com.facebook.presto.SystemSessionProperties.enforceHistoryBasedOptimizerRegistrationTimeout;
 import static com.facebook.presto.SystemSessionProperties.getHistoryBasedOptimizerTimeoutLimit;
 import static com.facebook.presto.SystemSessionProperties.getHistoryCanonicalPlanNodeLimit;
 import static com.facebook.presto.SystemSessionProperties.restrictHistoryBasedOptimizationToComplexQuery;
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
@@ -120,9 +125,25 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         }
 
         // Fetch and cache history based statistics of all plan nodes, so no serial network calls happen later.
-        boolean registerSucceed = statsCalculator.registerPlan(newPlan, session, startTimeInNano, timeoutInMilliseconds);
+        boolean registrationSucceeded = false;
+        if (enforceHistoryBasedOptimizerRegistrationTimeout(session)) {
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            Future<Boolean> future = executor.submit(() -> statsCalculator.registerPlan(newPlan, session, startTimeInNano, timeoutInMilliseconds));
+            try {
+                registrationSucceeded = future.get(timeoutInMilliseconds, MILLISECONDS);
+            }
+            catch (Exception ignored) {
+            }
+            finally {
+                executor.shutdownNow();
+            }
+        }
+        else {
+            registrationSucceeded = statsCalculator.registerPlan(newPlan, session, startTimeInNano, timeoutInMilliseconds);
+        }
+
         // Return original plan if timeout or registration not successful
-        if (checkTimeOut(startTimeInNano, timeoutInMilliseconds) || !registerSucceed) {
+        if (checkTimeOut(startTimeInNano, timeoutInMilliseconds) || !registrationSucceeded) {
             logOptimizerFailure(session);
             return PlanOptimizerResult.optimizerResult(plan, false);
         }

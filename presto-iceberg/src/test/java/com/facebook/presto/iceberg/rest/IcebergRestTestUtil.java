@@ -70,6 +70,7 @@ public class IcebergRestTestUtil
                 .put(WAREHOUSE_LOCATION, location)
                 .put("jdbc.username", "user")
                 .put("jdbc.password", "password")
+                .put("jdbc.schema-version", "V1")
                 .build();
         backingCatalog.initialize("rest_jdbc_backend", properties);
 

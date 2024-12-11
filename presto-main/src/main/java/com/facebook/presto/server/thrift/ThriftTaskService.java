@@ -66,9 +66,11 @@ public class ThriftTaskService
                 () -> BufferResult.emptyResults(
                         taskManager.getTaskInstanceId(taskId),
                         token,
-                        taskManager.getTaskBufferInfo(taskId, bufferId)
+                        taskManager.getOutputBufferInfo(taskId).getBuffers().stream()
+                                .filter(info -> info.getBufferId().equals(bufferId))
                                 .map(BufferInfo::getPageBufferInfo)
                                 .map(PageBufferInfo::getBufferedBytes)
+                                .findFirst()
                                 .orElse(0L),
                         false),
                 waitTime,

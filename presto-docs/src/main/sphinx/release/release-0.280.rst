@@ -9,12 +9,12 @@ General Changes
 _______________
 * Fix a race condition, where if a query was submitted before the resource group configuration had been loaded by the Presto server, all queries to the cluster would fail with a ``NullPointerException``. 
 * Fix a bug in the ``GatherAndMergeWindows`` optimization would produces invalid plans when the output of a window function was used in the frame definition of another window function.
-* Fix the output of :func:`find_first` function for ``NULL`` Now it will throw exception if the found matched value is NULL.
+* Fix the output of :func:`!find_first` function for ``NULL`` Now it will throw exception if the found matched value is NULL.
 * Fix a bug where duplicate items in ``UNNEST`` would lead to query compilation failure.
-* Improve the column access checks for :func:`transform` and :func:`cardinality` functions, such that only the required subfields are checked.
+* Improve the column access checks for :func:`!transform` and :func:`!cardinality` functions, such that only the required subfields are checked.
 * Improve filtering for large tables with ``LIMIT`` number of keys for queries that do simple ``GROUP BY LIMIT`` with no ``ORDER BY``. This feature can be enabled with a boolean session param: ``prefilter_for_groupby_limit``.
-* Add :func:`remove_nulls` to remove null elements from the given array.
-* Add function :func:`find_first_index` which returns the index of the first element which satisfies the condition.
+* Add :func:`!remove_nulls` to remove null elements from the given array.
+* Add function :func:`!find_first_index` which returns the index of the first element which satisfies the condition.
 * Add range with offset expression support to :doc:`/functions/window`.
 * Add the names of the functions invoked by the query to the completed event. This can be enabled with the ``log_invoked_function_names_enabled`` session property or the ``log-invoked-function-names-enabled`` configuration property.
 * Add a new runtime metric ``optimizerTimeNanos`` to measure the time taken by the optimizers. With this change the time taken by optimizers has been removed from runtime metric ``logicalPlannerTimeNanos``.
@@ -27,8 +27,8 @@ Resource Groups Changes
 _______________________
 * Fix blocking resource group lock when query queue is full (``QUERY_QUEUE_FULL`` error)
 
-Hive Changes
-____________
+Hive Connector Changes
+______________________
 * Add Amazon S3 Select pushdown for JSON files.
 
 **Credits**

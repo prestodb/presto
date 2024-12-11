@@ -63,6 +63,28 @@ public class TestHistoricalPlanStatistics
     }
 
     @Test
+    public void testWithGivenMatchingThreshold()
+    {
+        HistoricalPlanStatistics stats = HistoricalPlanStatistics.empty();
+        stats = updatePlanStatistics(stats, ImmutableList.of(stats(100, 100)), stats(10, 10));
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(100, 100)), 0.0), stats(10, 10));
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(95, 105)), 0.1), stats(10, 10));
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(80, 80)), 0.1), PlanStatistics.empty());
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(99, 101)), 0.0), PlanStatistics.empty());
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(99, 101)), 0.0001), PlanStatistics.empty());
+
+        stats = updatePlanStatistics(stats, ImmutableList.of(stats(105, 110)), stats(11, 11));
+        assertEquals(stats.getLastRunsStatistics().size(), 1);
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(105, 110)), 0.0), stats(11, 11));
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(95, 105)), 0.0), PlanStatistics.empty());
+
+        stats = updatePlanStatistics(stats, ImmutableList.of(stats(80, 120)), stats(15, 15));
+        assertEquals(stats.getLastRunsStatistics().size(), 2);
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(100, 100)), 0.1), stats(11, 11));
+        assertEquals(getPredictedPlanStatisticsForGivenMatchingThreshold(stats, ImmutableList.of(stats(80, 120)), 0.0), stats(15, 15));
+    }
+
+    @Test
     public void testWithTwoTables()
     {
         HistoricalPlanStatistics stats = HistoricalPlanStatistics.empty();
@@ -114,6 +136,18 @@ public class TestHistoricalPlanStatistics
                 historicalPlanStatistics,
                 inputTableStatistics,
                 0.1);
+        return historicalPlanStatisticsEntry.isPresent() ? historicalPlanStatisticsEntry.get().getPlanStatistics() : PlanStatistics.empty();
+    }
+
+    private static PlanStatistics getPredictedPlanStatisticsForGivenMatchingThreshold(
+            HistoricalPlanStatistics historicalPlanStatistics,
+            List<PlanStatistics> inputTableStatistics,
+            double historyMatchingThreshold)
+    {
+        Optional<HistoricalPlanStatisticsEntry> historicalPlanStatisticsEntry = getSelectedHistoricalPlanStatisticsEntry(
+                historicalPlanStatistics,
+                inputTableStatistics,
+                historyMatchingThreshold);
         return historicalPlanStatisticsEntry.isPresent() ? historicalPlanStatisticsEntry.get().getPlanStatistics() : PlanStatistics.empty();
     }
 }

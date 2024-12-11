@@ -45,6 +45,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowSchemas;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowTablesMetadata;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -155,6 +156,16 @@ public interface SystemAccessControl
     default void checkCanCreateTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         denyCreateTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to alter properties to the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        denySetTableProperties(table.toString());
     }
 
     /**

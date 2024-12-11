@@ -102,6 +102,7 @@ public class TestVerboseOptimizerInfo
 
         checkOptimizerInfo(explainPayloadJoinQuery, "Triggered", ImmutableList.of("PayloadJoinOptimizer"));
     }
+
     @Test
     public void testCostBasedOptimizers()
     {
@@ -149,6 +150,17 @@ public class TestVerboseOptimizerInfo
         explain = (String) getOnlyElement(materializedResult.getOnlyColumnAsSet());
 
         checkOptimizerResults(explain, ImmutableList.of("PayloadJoinOptimizer", "RemoveRedundantIdentityProjections"), ImmutableList.of("PruneUnreferencedOutputs"));
+    }
+
+    @Override
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
+    }
+
+    @Test
+    public void testUse()
+    {
+        // USE statement is not supported
     }
 
     private void checkOptimizerInfo(String explain, String optimizerType, List<String> optimizers)

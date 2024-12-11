@@ -28,12 +28,16 @@ import com.facebook.presto.dispatcher.DispatchExecutor;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.DispatchQueryFactory;
 import com.facebook.presto.dispatcher.FailedDispatchQueryFactory;
+import com.facebook.presto.dispatcher.FailedLocalDispatchQueryFactory;
 import com.facebook.presto.dispatcher.LocalDispatchQueryFactory;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.event.QueryMonitorConfig;
+import com.facebook.presto.event.QueryProgressMonitor;
 import com.facebook.presto.execution.ClusterSizeMonitor;
+import com.facebook.presto.execution.EagerPlanValidationExecutionMBean;
 import com.facebook.presto.execution.ExecutionFactoriesManager;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
+import com.facebook.presto.execution.ForEagerPlanValidation;
 import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.ForTimeoutThread;
 import com.facebook.presto.execution.NodeResourceStatusConfig;
@@ -70,7 +74,9 @@ import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.operator.OperatorInfo;
 import com.facebook.presto.resourcemanager.ForResourceManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
+import com.facebook.presto.server.protocol.ExecutingQueryResponseProvider;
 import com.facebook.presto.server.protocol.ExecutingStatementResource;
+import com.facebook.presto.server.protocol.LocalExecutingQueryResponseProvider;
 import com.facebook.presto.server.protocol.LocalQueryProvider;
 import com.facebook.presto.server.protocol.QueryBlockingRateLimiter;
 import com.facebook.presto.server.protocol.QueuedStatementResource;
@@ -79,6 +85,7 @@ import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -100,8 +107,11 @@ import javax.inject.Singleton;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
@@ -163,6 +173,7 @@ public class CoordinatorModule
         jsonCodecBinder(binder).bindJsonCodec(OperatorInfo.class);
         configBinder(binder).bindConfig(QueryMonitorConfig.class);
         binder.bind(QueryMonitor.class).in(Scopes.SINGLETON);
+        binder.bind(QueryProgressMonitor.class).in(Scopes.SINGLETON);
 
         // query manager
         jaxrsBinder(binder).bind(QueryResource.class);
@@ -184,13 +195,14 @@ public class CoordinatorModule
         newExporter(binder).export(QueryBlockingRateLimiter.class).withGeneratedName();
 
         binder.bind(LocalQueryProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ExecutingQueryResponseProvider.class).to(LocalExecutingQueryResponseProvider.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(TaskInfoResource.class);
 
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DispatchManager.class).withGeneratedName();
-        binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
+        binder.bind(FailedDispatchQueryFactory.class).to(FailedLocalDispatchQueryFactory.class);
         binder.bind(DispatchExecutor.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DispatchExecutor.class).withGeneratedName();
 
@@ -258,6 +270,8 @@ public class CoordinatorModule
                 .toInstance(newCachedThreadPool(threadsNamed("query-execution-%s")));
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
+        binder.bind(EagerPlanValidationExecutionMBean.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(EagerPlanValidationExecutionMBean.class).withGeneratedName();
 
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
@@ -370,6 +384,14 @@ public class CoordinatorModule
         return executor;
     }
 
+    @Provides
+    @Singleton
+    @ForEagerPlanValidation
+    public static ExecutorService createEagerPlanValidationExecutor(FeaturesConfig featuresConfig)
+    {
+        return new ThreadPoolExecutor(0, featuresConfig.getEagerPlanValidationThreadPoolSize(), 1L, TimeUnit.MINUTES, new LinkedBlockingQueue(), threadsNamed("plan-validation-%s"));
+    }
+
     private void bindLowMemoryKiller(String name, Class<? extends LowMemoryKiller> clazz)
     {
         install(installModuleIf(
@@ -389,7 +411,8 @@ public class CoordinatorModule
                 @ForQueryExecution ExecutorService queryExecutionExecutor,
                 @ForScheduler ScheduledExecutorService schedulerExecutor,
                 @ForTransactionManager ExecutorService transactionFinishingExecutor,
-                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor)
+                @ForTransactionManager ScheduledExecutorService transactionIdleExecutor,
+                @ForEagerPlanValidation ExecutorService eagerPlanValidationExecutor)
         {
             executors = ImmutableList.<ExecutorService>builder()
                     .add(statementResponseExecutor)
@@ -398,6 +421,7 @@ public class CoordinatorModule
                     .add(schedulerExecutor)
                     .add(transactionFinishingExecutor)
                     .add(transactionIdleExecutor)
+                    .add(eagerPlanValidationExecutor)
                     .build();
         }
 

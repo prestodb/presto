@@ -22,7 +22,6 @@ import com.facebook.presto.operator.HashAggregationOperator.HashAggregationOpera
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.TestingTaskContext;
@@ -60,7 +59,7 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
+    private JoinCompiler joinCompiler = new JoinCompiler(MetadataManager.createTestMetadataManager());
 
     private HashAggregationOperatorFactory operatorFactory = new HashAggregationOperatorFactory(
             0,
@@ -102,9 +101,9 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
     public void testSegmentedAggregationSinglePage()
     {
         int numberOfRows = 10;
-        Block sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 1, 1, 2, 2, 2, 3, 3, 3, 3});
-        Block groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 1, 1, 2, 1, 2, 2, 1, 2, 1});
-        Block countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
+        Block sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 1, 1, 2, 2, 2, 3, 3, 3, 3});
+        Block groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 1, 1, 2, 1, 2, 2, 1, 2, 1});
+        Block countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10});
         Page inputPage = new Page(sortedBlock, groupingBlock, countBlock);
 
         DriverContext driverContext = createDriverContext();
@@ -126,19 +125,19 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
     {
         int numberOfRows = 5;
 
-        Block sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 1, 1, 1, 1});
-        Block groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 1, 2, 1});
-        Block countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5});
+        Block sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 1, 1, 1, 1});
+        Block groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 1, 2, 1});
+        Block countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5});
         Page inputPage1 = new Page(sortedBlock, groupingBlock, countBlock);
 
-        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 1, 1, 1, 1});
-        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 1, 2, 1});
-        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5});
+        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 1, 1, 1, 1});
+        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 1, 2, 1});
+        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5});
         Page inputPage2 = new Page(sortedBlock, groupingBlock, countBlock);
 
-        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 1, 1, 1, 1});
-        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 1, 2, 1});
-        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5});
+        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 1, 1, 1, 1});
+        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 1, 2, 1});
+        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5});
         Page inputPage3 = new Page(sortedBlock, groupingBlock, countBlock);
 
         DriverContext driverContext = createDriverContext();
@@ -157,29 +156,29 @@ public class TestHashAggregationOperatorInSegmentedAggregationMode
     {
         int numberOfRows = 5;
 
-        Block sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 1, 1, 2, 2});
-        Block groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 1, 2, 1});
-        Block countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5});
+        Block sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 1, 1, 2, 2});
+        Block groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 1, 2, 1});
+        Block countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5});
         Page inputPage1 = new Page(sortedBlock, groupingBlock, countBlock);
 
-        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{2, 2, 2, 2, 2});
-        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 1, 2, 1});
-        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5});
+        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {2, 2, 2, 2, 2});
+        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 1, 2, 1});
+        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5});
         Page inputPage2 = new Page(sortedBlock, groupingBlock, countBlock);
 
-        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{2, 2, 3, 3, 4});
-        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 1, 2, 1});
-        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5});
+        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {2, 2, 3, 3, 4});
+        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 1, 2, 1});
+        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5});
         Page inputPage3 = new Page(sortedBlock, groupingBlock, countBlock);
 
-        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{5, 5, 5, 5, 5});
-        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 1, 2, 1});
-        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5});
+        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {5, 5, 5, 5, 5});
+        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 1, 2, 1});
+        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5});
         Page inputPage4 = new Page(sortedBlock, groupingBlock, countBlock);
 
-        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{5, 6, 7, 8, 8});
-        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 1, 2, 1});
-        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[]{1, 2, 3, 4, 5});
+        sortedBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {5, 6, 7, 8, 8});
+        groupingBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 1, 2, 1});
+        countBlock = new LongArrayBlock(numberOfRows, Optional.of(new boolean[numberOfRows]), new long[] {1, 2, 3, 4, 5});
         Page inputPage5 = new Page(sortedBlock, groupingBlock, countBlock);
 
         DriverContext driverContext = createDriverContext();

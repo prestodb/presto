@@ -22,11 +22,11 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ListMultimap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.jheaps.annotations.VisibleForTesting;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;

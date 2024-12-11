@@ -19,7 +19,9 @@ import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
+import com.facebook.presto.cost.VariableStatsEstimate;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
@@ -38,13 +40,17 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.FutureCallback;
@@ -93,6 +99,8 @@ import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
@@ -167,7 +175,7 @@ public class QueryStateMachine
     private final WarningCollector warningCollector;
     private final AtomicReference<Set<String>> scalarFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> aggregateFunctions = new AtomicReference<>(ImmutableSet.of());
-    private final AtomicReference<Set<String>> windowsFunctions = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Set<String>> windowFunctions = new AtomicReference<>(ImmutableSet.of());
 
     private QueryStateMachine(
             String query,
@@ -493,7 +501,7 @@ public class QueryStateMachine
                 session.getCteInformationCollector().getCTEInformationList(),
                 scalarFunctions.get(),
                 aggregateFunctions.get(),
-                windowsFunctions.get(),
+                windowFunctions.get(),
                 Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of),
                 Optional.ofNullable(planIdNodeMap.get()).orElseGet(ImmutableMap::of),
                 Optional.empty());
@@ -581,10 +589,10 @@ public class QueryStateMachine
         this.aggregateFunctions.set(ImmutableSet.copyOf(aggregateFunctions));
     }
 
-    public void setWindowsFunctions(Set<String> windowsFunctions)
+    public void setWindowFunctions(Set<String> windowFunctions)
     {
-        requireNonNull(windowsFunctions, "windowsFunctions is null");
-        this.windowsFunctions.set(ImmutableSet.copyOf(windowsFunctions));
+        requireNonNull(windowFunctions, "windowFunctions is null");
+        this.windowFunctions.set(ImmutableSet.copyOf(windowFunctions));
     }
 
     private void addSerializedCommitOutputToOutput(ConnectorCommitHandle commitHandle)
@@ -1046,7 +1054,24 @@ public class QueryStateMachine
      * Remove large objects from the query info object graph, e.g : plan, stats, stage summaries, failed attempts
      * Used when pruning expired queries from the state machine
      */
-    public void pruneQueryInfo()
+    public void pruneQueryInfoExpired()
+    {
+        Optional<QueryInfo> finalInfo = finalQueryInfo.get();
+        if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
+            return;
+        }
+        QueryInfo queryInfo = finalInfo.get();
+        QueryInfo prunedQueryInfo;
+
+        prunedQueryInfo = pruneExpiredQueryInfo(queryInfo, getMemoryPool());
+        finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
+    }
+
+    /**
+     * Remove the largest objects from the query info object graph, e.g : extraneous stats, costs,
+     * and histograms to reduce memory utilization
+     */
+    public void pruneQueryInfoFinished()
     {
         Optional<QueryInfo> finalInfo = finalQueryInfo.get();
         if (!finalInfo.isPresent() || !finalInfo.get().getOutputStage().isPresent()) {
@@ -1054,20 +1079,150 @@ public class QueryStateMachine
         }
 
         QueryInfo queryInfo = finalInfo.get();
+        QueryInfo prunedQueryInfo;
+
+        // no longer needed in the session after query finishes
+        session.getPlanNodeStatsMap().clear();
+        session.getPlanNodeCostMap().clear();
+        // inputs contain some statistics which should be cleared
+        inputs.getAndUpdate(QueryStateMachine::pruneInputHistograms);
+        // query listeners maintain state in their arguments which holds
+        // onto plan nodes and statistics. Since finalQueryInfo was
+        // already set it should be in a terminal state and be safe to
+        // clear the listeners.
+        finalQueryInfo.clearEventListeners();
+        planStatsAndCosts.getAndUpdate(stats -> Optional.ofNullable(stats)
+                .map(QueryStateMachine::pruneHistogramsFromStatsAndCosts)
+                .orElse(null));
+        prunedQueryInfo = pruneFinishedQueryInfo(queryInfo, inputs.get());
+        finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
+    }
+
+    private static QueryInfo pruneFinishedQueryInfo(QueryInfo queryInfo, Set<Input> prunedInputs)
+    {
+        return new QueryInfo(
+                queryInfo.getQueryId(),
+                queryInfo.getSession(),
+                queryInfo.getState(),
+                queryInfo.getMemoryPool(),
+                queryInfo.isScheduled(),
+                queryInfo.getSelf(),
+                queryInfo.getFieldNames(),
+                queryInfo.getQuery(),
+                queryInfo.getExpandedQuery(),
+                queryInfo.getPreparedQuery(),
+                queryInfo.getQueryStats(),
+                queryInfo.getSetCatalog(),
+                queryInfo.getSetSchema(),
+                queryInfo.getSetSessionProperties(),
+                queryInfo.getResetSessionProperties(),
+                queryInfo.getSetRoles(),
+                queryInfo.getAddedPreparedStatements(),
+                queryInfo.getDeallocatedPreparedStatements(),
+                queryInfo.getStartedTransactionId(),
+                queryInfo.isClearTransactionId(),
+                queryInfo.getUpdateType(),
+                queryInfo.getOutputStage().map(QueryStateMachine::pruneStatsFromStageInfo),
+                queryInfo.getFailureInfo(),
+                queryInfo.getErrorCode(),
+                queryInfo.getWarnings(),
+                prunedInputs,
+                queryInfo.getOutput(),
+                queryInfo.isFinalQueryInfo(),
+                queryInfo.getResourceGroupId(),
+                queryInfo.getQueryType(),
+                queryInfo.getFailedTasks(),
+                queryInfo.getRuntimeOptimizedStages(),
+                queryInfo.getAddedSessionFunctions(),
+                queryInfo.getRemovedSessionFunctions(),
+                pruneHistogramsFromStatsAndCosts(queryInfo.getPlanStatsAndCosts()),
+                queryInfo.getOptimizerInformation(),
+                queryInfo.getCteInformationList(),
+                queryInfo.getScalarFunctions(),
+                queryInfo.getAggregateFunctions(),
+                queryInfo.getWindowFunctions(),
+                ImmutableList.of(),
+                ImmutableMap.of(),
+                queryInfo.getPrestoSparkExecutionContext());
+    }
+
+    private static Set<Input> pruneInputHistograms(Set<Input> inputs)
+    {
+        return inputs.stream().map(input -> new Input(input.getConnectorId(),
+                        input.getSchema(),
+                        input.getTable(),
+                        input.getConnectorInfo(),
+                        input.getColumns(),
+                        input.getStatistics().map(tableStats -> TableStatistics.buildFrom(tableStats)
+                                .setColumnStatistics(ImmutableMap.copyOf(
+                                        Maps.transformValues(tableStats.getColumnStatistics(),
+                                                columnStats -> ColumnStatistics.buildFrom(columnStats)
+                                                        .setHistogram(Optional.empty())
+                                                        .build())))
+                                .build()),
+                        input.getSerializedCommitOutput()))
+                .collect(toImmutableSet());
+    }
+
+    protected static StatsAndCosts pruneHistogramsFromStatsAndCosts(StatsAndCosts statsAndCosts)
+    {
+        Map<PlanNodeId, PlanNodeStatsEstimate> newStats = statsAndCosts.getStats()
+                .entrySet()
+                .stream()
+                .collect(toImmutableMap(entry -> entry.getKey(),
+                        entry -> PlanNodeStatsEstimate.buildFrom(entry.getValue())
+                                .addVariableStatistics(ImmutableMap.copyOf(
+                                        Maps.transformValues(
+                                                entry.getValue().getVariableStatistics(),
+                                                variableStats -> VariableStatsEstimate.buildFrom(variableStats)
+                                                        .setHistogram(Optional.empty())
+                                                        .build())))
+                                .build()));
+
+        return new StatsAndCosts(newStats,
+                statsAndCosts.getCosts());
+    }
+
+    private static StageInfo pruneStatsFromStageInfo(StageInfo stage)
+    {
+        return new StageInfo(
+                stage.getStageId(),
+                stage.getSelf(),
+                stage.getPlan().map(plan -> new PlanFragment(
+                        plan.getId(),
+                        plan.getRoot(),
+                        plan.getVariables(),
+                        plan.getPartitioning(),
+                        plan.getTableScanSchedulingOrder(),
+                        plan.getPartitioningScheme(),
+                        plan.getStageExecutionDescriptor(),
+                        plan.isOutputTableWriterFragment(),
+                        plan.getStatsAndCosts().map(QueryStateMachine::pruneHistogramsFromStatsAndCosts),
+                        plan.getJsonRepresentation())), // Remove the plan
+                stage.getLatestAttemptExecutionInfo(),
+                stage.getPreviousAttemptsExecutionInfos(), // Remove failed attempts
+                stage.getSubStages().stream()
+                        .map(QueryStateMachine::pruneStatsFromStageInfo)
+                        .collect(toImmutableList()), // Remove the substages
+                stage.isRuntimeOptimized());
+    }
+
+    private static QueryInfo pruneExpiredQueryInfo(QueryInfo queryInfo, VersionedMemoryPoolId pool)
+    {
         Optional<StageInfo> prunedOutputStage = queryInfo.getOutputStage().map(outputStage -> new StageInfo(
                 outputStage.getStageId(),
                 outputStage.getSelf(),
                 Optional.empty(), // Remove the plan
                 pruneStageExecutionInfo(outputStage.getLatestAttemptExecutionInfo()),
                 ImmutableList.of(), // Remove failed attempts
-                ImmutableList.of(),
-                outputStage.isRuntimeOptimized())); // Remove the substages
+                ImmutableList.of(), // Remove the substages
+                outputStage.isRuntimeOptimized()));
 
-        QueryInfo prunedQueryInfo = new QueryInfo(
+        return new QueryInfo(
                 queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
-                getMemoryPool().getId(),
+                pool.getId(),
                 queryInfo.isScheduled(),
                 queryInfo.getSelf(),
                 queryInfo.getFieldNames(),
@@ -1103,11 +1258,10 @@ public class QueryStateMachine
                 queryInfo.getCteInformationList(),
                 queryInfo.getScalarFunctions(),
                 queryInfo.getAggregateFunctions(),
-                queryInfo.getWindowsFunctions(),
+                queryInfo.getWindowFunctions(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 queryInfo.getPrestoSparkExecutionContext());
-        finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
     private static StageExecutionInfo pruneStageExecutionInfo(StageExecutionInfo info)

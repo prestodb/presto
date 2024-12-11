@@ -1,4 +1,5 @@
 <#list parquetTypes.flatTypes as type>
+<#if !type.classNamePrefix?ends_with("Decimal") && !type.classNamePrefix?starts_with("Uuid")>
 <@pp.changeOutputFile name="/com/facebook/presto/parquet/batchreader/${type.classNamePrefix}NestedBatchReader.java" />
 <#assign updatedTemplate = nestedTypeTemplate?replace("Int32NestedBatchReader", "${type.classNamePrefix}NestedBatchReader")>
 <#assign updatedTemplate = updatedTemplate?replace("com.facebook.presto.common.block.IntArrayBlock", "com.facebook.presto.common.block.${type.blockType}")>
@@ -6,4 +7,5 @@
 <#assign updatedTemplate = updatedTemplate?replace("Int32ValuesDecoder", "${type.valuesDecoder}")>
 <#assign updatedTemplate = updatedTemplate?replace("int[] values = new int[newBatchSize]", "${type.primitiveType}[] values = new ${type.primitiveType}[newBatchSize]")>
 ${updatedTemplate}
+</#if>
 </#list>

@@ -108,7 +108,6 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
@@ -587,7 +586,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreateFunction(ShowCreateFunction node, Void context)
         {
-            QualifiedObjectName functionName = qualifyObjectName(node.getName());
+            QualifiedObjectName functionName = metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().qualifyObjectName(node.getName());
             Collection<? extends SqlFunction> functions = metadata.getFunctionAndTypeManager().getFunctions(session, functionName);
             if (node.getParameterTypes().isPresent()) {
                 List<TypeSignature> parameterTypes = node.getParameterTypes().get().stream()

@@ -121,7 +121,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testDescribeTable()
     {
         MaterializedResult actualColumns = computeActual("DESC orders").toTestTypes();
-        assertEquals(actualColumns, getExpectedOrdersTableDescription(isDateTypeSupported(), isParameterizedVarcharSupported()));
+        assertEquals(actualColumns, getExpectedOrdersTableDescription());
     }
 
     @Test
@@ -185,16 +185,16 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "line 1:49: Column name 'orderkey' specified more than once");
     }
 
-    protected MaterializedResult getExpectedOrdersTableDescription(boolean dateSupported, boolean parametrizedVarchar)
+    protected MaterializedResult getExpectedOrdersTableDescription()
     {
         String orderDateType;
-        if (dateSupported) {
+        if (isDateTypeSupported()) {
             orderDateType = "date";
         }
         else {
             orderDateType = "varchar";
         }
-        if (parametrizedVarchar) {
+        if (isParameterizedVarcharSupported()) {
             return MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                     .row("orderkey", "bigint", "", "")
                     .row("custkey", "bigint", "", "")

@@ -23,8 +23,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
-import com.facebook.presto.execution.buffer.BufferInfo;
 import com.facebook.presto.execution.buffer.BufferResult;
+import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.SpoolingOutputBufferFactory;
@@ -454,12 +454,10 @@ public class SqlTaskManager
         return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
     }
 
-    @Override
-    public Optional<BufferInfo> getTaskBufferInfo(TaskId taskId, OutputBufferId bufferId)
+    public OutputBufferInfo getOutputBufferInfo(TaskId taskId)
     {
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(bufferId, "bufferId is null");
-        return tasks.getUnchecked(taskId).getTaskBufferInfo(bufferId);
+        return tasks.getUnchecked(taskId).getOutputBufferInfo();
     }
 
     @Override

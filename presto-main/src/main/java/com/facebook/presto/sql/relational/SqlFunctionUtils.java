@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.expressions.RowExpressionRewriter;
@@ -45,6 +46,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeSqlFunctionExpression;
@@ -111,6 +113,50 @@ public final class SqlFunctionUtils
                 functionMetadata.getArgumentNames().get(),
                 arguments,
                 argumentVariables);
+    }
+
+    public static RowExpression sqlFunctionToRowExpression(String functionBody,
+            Set<VariableReferenceExpression> variables,
+            FunctionAndTypeManager functionAndTypeManager,
+            Session session,
+            Map<String, String> columnNameToInputVariableNameMap)
+    {
+        Expression expression = parseSqlFunctionExpression(
+                new SqlInvokedScalarFunctionImplementation(functionBody),
+                session.getSqlFunctionProperties());
+
+        // Translate the parameter name in functionBody to input variable name
+        expression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Map<String, String>>()
+        {
+            @Override
+            public Expression rewriteIdentifier(Identifier node, Map<String, String> context, ExpressionTreeRewriter<Map<String, String>> treeRewriter)
+            {
+                String name = node.getValueLowerCase();
+                if (context.containsKey(name)) {
+                    return new Identifier(context.get(name));
+                }
+                return node;
+            }
+        }, expression, columnNameToInputVariableNameMap);
+
+        return SqlToRowExpressionTranslator.translate(
+                expression,
+                analyzeSqlFunctionExpression(
+                        functionAndTypeManager.getFunctionAndTypeResolver(),
+                        session.getSqlFunctionProperties(),
+                        expression,
+                        variables.stream()
+                                .collect(toImmutableMap(
+                                        VariableReferenceExpression::getName,
+                                        VariableReferenceExpression::getType)))
+                        .getExpressionTypes(),
+                ImmutableMap.of(),
+                functionAndTypeManager,
+                Optional.empty(),
+                Optional.empty(),
+                session.getSqlFunctionProperties(),
+                session.getSessionFunctions(),
+                new SqlToRowExpressionTranslator.Context());
     }
 
     private static Expression getSqlFunctionImplementationExpression(

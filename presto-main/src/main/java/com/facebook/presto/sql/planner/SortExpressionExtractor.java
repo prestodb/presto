@@ -17,6 +17,7 @@ import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
@@ -64,6 +65,12 @@ public final class SortExpressionExtractor
        by sorting position links according to the result of f(...) function.
      */
     private SortExpressionExtractor() {}
+
+    public static Optional<SortExpressionContext> getSortExpressionContext(JoinNode joinNode, FunctionAndTypeManager functionAndTypeManager)
+    {
+        return joinNode.getFilter()
+                .flatMap(filter -> SortExpressionExtractor.extractSortExpression(ImmutableSet.copyOf(joinNode.getRight().getOutputVariables()), filter, functionAndTypeManager));
+    }
 
     public static Optional<SortExpressionContext> extractSortExpression(Set<VariableReferenceExpression> buildVariables, RowExpression filter, FunctionAndTypeManager functionAndTypeManager)
     {

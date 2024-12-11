@@ -29,7 +29,7 @@ _______________
 
 Geospatial Changes
 __________________
-* Fix error in :func:`geometry_invalid_reason`.
+* Fix error in :func:`!geometry_invalid_reason`.
 * Fix integer overflow in certain cases with Bing Tiles.
 
 Hive Changes

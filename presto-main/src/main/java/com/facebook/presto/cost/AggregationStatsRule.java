@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -66,6 +67,11 @@ public class AggregationStatsRule
     public static PlanNodeStatsEstimate groupBy(PlanNodeStatsEstimate sourceStats, Collection<VariableReferenceExpression> groupByVariables, Map<VariableReferenceExpression, Aggregation> aggregations)
     {
         PlanNodeStatsEstimate.Builder result = PlanNodeStatsEstimate.builder();
+
+        if (isGlobalAggregation(groupByVariables)) {
+            result.setConfidence(FACT);
+        }
+
         for (VariableReferenceExpression groupByVariable : groupByVariables) {
             VariableStatsEstimate symbolStatistics = sourceStats.getVariableStatistics(groupByVariable);
             result.addVariableStatistics(groupByVariable, symbolStatistics.mapNullsFraction(nullsFraction -> {
@@ -98,5 +104,10 @@ public class AggregationStatsRule
 
         // TODO implement simple aggregations like: min, max, count, sum
         return VariableStatsEstimate.unknown();
+    }
+
+    private static boolean isGlobalAggregation(Collection<VariableReferenceExpression> groupingKeys)
+    {
+        return groupingKeys.isEmpty();
     }
 }

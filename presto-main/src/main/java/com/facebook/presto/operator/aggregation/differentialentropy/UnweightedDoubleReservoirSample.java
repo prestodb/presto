@@ -121,7 +121,7 @@ public class UnweightedDoubleReservoirSample
     }
 
     @Override
-    public UnweightedDoubleReservoirSample clone()
+    public final UnweightedDoubleReservoirSample clone()
     {
         return new UnweightedDoubleReservoirSample(this);
     }

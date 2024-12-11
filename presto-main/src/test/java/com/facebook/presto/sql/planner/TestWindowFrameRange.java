@@ -34,6 +34,10 @@ import java.util.Optional;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.FOLLOWING;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.BoundType.PRECEDING;
+import static com.facebook.presto.spi.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.sql.Optimizer.PlanStage.CREATED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -47,10 +51,6 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.specif
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.window;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.CURRENT_ROW;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.FOLLOWING;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.PRECEDING;
-import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 
 public class TestWindowFrameRange
         extends BasePlanTest
@@ -85,15 +85,15 @@ public class TestWindowFrameRange
                                                         Optional.empty(),
                                                         Optional.empty(),
                                                         Optional.empty())),
-                                                project(// coerce sort key to calculate frame start values
-                                                        ImmutableMap.of("key_for_frame_start_comparison", expression("CAST(key AS decimal(12, 1))"), "key", expression("key"), "frame_start_value", expression("CAST(key AS decimal(10, 0)) - x")),
-                                                        node(
-                                                                FilterNode.class,
-                                                                values(
-                                                                        ImmutableList.of("key", "x"),
-                                                                        ImmutableList.of(
-                                                                                ImmutableList.of(new LongLiteral("1"), new DecimalLiteral("11")), // 11 is the java type representation of 1.1
-                                                                                ImmutableList.of(new LongLiteral("2"), new DecimalLiteral("22"))))))));
+                                project(// coerce sort key to calculate frame start values
+                                        ImmutableMap.of("key_for_frame_start_comparison", expression("CAST(key AS decimal(12, 1))"), "key", expression("key"), "frame_start_value", expression("CAST(key AS decimal(10, 0)) - x")),
+                                        node(
+                                                FilterNode.class,
+                                                values(
+                                                        ImmutableList.of("key", "x"),
+                                                        ImmutableList.of(
+                                                                ImmutableList.of(new LongLiteral("1"), new DecimalLiteral("11")), // 11 is the java type representation of 1.1
+                                                                ImmutableList.of(new LongLiteral("2"), new DecimalLiteral("22"))))))));
 
         assertPlan(sql, OPTIMIZED, pattern);
     }

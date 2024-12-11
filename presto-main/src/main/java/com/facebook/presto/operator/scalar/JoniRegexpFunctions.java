@@ -47,6 +47,7 @@ import static java.lang.String.format;
 
 public final class JoniRegexpFunctions
 {
+    public static final String CLASS_NAME = "JoniRegexpFunctions";
     private static final Block EMPTY_BLOCK = VarcharType.VARCHAR.createBlockBuilder(null, 0).build();
     private JoniRegexpFunctions()
     {

@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.spi.security;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -23,13 +27,18 @@ public class AuthorizedIdentity
     private final Optional<String> reasonForSelect;
     private final Optional<Boolean> delegationCheckResult;
 
-    public AuthorizedIdentity(String userName, String reasonForSelect, Boolean delegationCheckResult)
+    @JsonCreator
+    public AuthorizedIdentity(
+            @JsonProperty("userName") String userName,
+            @JsonProperty("reasonForSelect") String reasonForSelect,
+            @JsonProperty("delegationCheckResult") Boolean delegationCheckResult)
     {
         this.userName = requireNonNull(userName, "userName is null");
         this.reasonForSelect = Optional.ofNullable(reasonForSelect);
         this.delegationCheckResult = Optional.ofNullable(delegationCheckResult);
     }
 
+    @JsonProperty("userName")
     public String getUserName()
     {
         return userName;
@@ -40,8 +49,39 @@ public class AuthorizedIdentity
         return reasonForSelect;
     }
 
+    @JsonProperty("reasonForSelect")
+    public String getReasonForSelectValue()
+    {
+        return reasonForSelect.orElse(null);
+    }
+
     public Optional<Boolean> getDelegationCheckResult()
     {
         return delegationCheckResult;
+    }
+
+    @JsonProperty("delegationCheckResult")
+    public Boolean getDelegationCheckResultValue()
+    {
+        return delegationCheckResult.orElse(null);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        AuthorizedIdentity that = (AuthorizedIdentity) o;
+        return Objects.equals(userName, that.userName) && Objects.equals(reasonForSelect, that.reasonForSelect) && Objects.equals(delegationCheckResult, that.delegationCheckResult);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(userName, reasonForSelect, delegationCheckResult);
     }
 }

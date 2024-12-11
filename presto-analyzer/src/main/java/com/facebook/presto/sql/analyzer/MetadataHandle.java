@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 
 import java.util.Map;
@@ -23,8 +24,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import static com.facebook.presto.spi.StandardErrorCode.VIEW_NOT_FOUND;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static java.lang.String.format;
 
 public class MetadataHandle
 {
@@ -60,7 +63,10 @@ public class MetadataHandle
 
     public Optional<ViewDefinition> getViewDefinition(QualifiedObjectName viewName)
     {
-        checkState(viewDefinitions.containsKey(viewName), "View " + viewName + " not found, the available view names are " + viewDefinitions.keySet());
+        if (!viewDefinitions.containsKey(viewName)) {
+            throw new PrestoException(VIEW_NOT_FOUND, format("View %s not found, the available view names are: %s", viewName, viewDefinitions.keySet()));
+        }
+
         try {
             return viewDefinitions.get(viewName).get();
         }

@@ -20,6 +20,7 @@ NUM_THREADS ?= $(shell getconf _NPROCESSORS_CONF 2>/dev/null || echo 1)
 CPU_TARGET ?= "avx"
 CMAKE_PREFIX_PATH ?= "/usr/local"
 PRESTOCPP_ROOT_DIR="$(shell pwd)"
+PYTHON_VENV ?= .venv
 
 EXTRA_CMAKE_FLAGS ?= ""
 
@@ -37,6 +38,12 @@ ifeq ($(PRESTO_ENABLE_REMOTE_FUNCTIONS), ON)
 endif
 ifeq ($(PRESTO_ENABLE_JWT), ON)
   EXTRA_CMAKE_FLAGS += -DPRESTO_ENABLE_JWT=ON
+endif
+ifneq ($(PRESTO_STATS_REPORTER_TYPE),)
+  EXTRA_CMAKE_FLAGS += -DPRESTO_STATS_REPORTER_TYPE=$(PRESTO_STATS_REPORTER_TYPE)
+endif
+ifneq ($(PRESTO_MEMORY_CHECKER_TYPE),)
+  EXTRA_CMAKE_FLAGS += -DPRESTO_MEMORY_CHECKER_TYPE=$(PRESTO_MEMORY_CHECKER_TYPE)
 endif
 
 CMAKE_FLAGS := -DTREAT_WARNINGS_AS_ERRORS=${TREAT_WARNINGS_AS_ERRORS}
@@ -98,24 +105,34 @@ presto_protocol:		#: Build the presto_protocol serde library
 TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
-format-fix: 			#: Fix formatting issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master --fix && popd
+format-fix: 			#: Fix formatting issues in the presto-native-execution directory
+ifneq ("$(wildcard ${PYTHON_VENV}/pyvenv.cfg)","")
+	source ${PYTHON_VENV}/bin/activate; scripts/check.py format master --fix
+else
+	scripts/check.py format master --fix
+endif
 
-format-check: 			#: Check for formatting issues on the master branch
+format-check: 			#: Check for formatting issues in the presto-native-execution directory
 	clang-format --version
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master && popd
+ifneq ("$(wildcard ${PYTHON_VENV}/pyvenv.cfg)","")
+	source ${PYTHON_VENV}/bin/activate; scripts/check.py format master
+else
+	scripts/check.py format master
+endif
 
-header-fix:				#: Fix license header issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master --fix && popd
+header-fix:			#: Fix license header issues in the presto-native-execution directory
+ifneq ("$(wildcard ${PYTHON_VENV}/pyvenv.cfg)","")
+	source ${PYTHON_VENV}/bin/activate; scripts/check.py header master --fix
+else
+	scripts/check.py header master --fix
+endif
 
-header-check:			#: Check for license header issues on the man branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master && popd
-
-tidy-fix: cmake			#: Fix clang-tidy issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master --fix && popd
-
-tidy-check: cmake		#: Check clang-tidy issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master && popd
+header-check:			#: Check for license header issues in the presto-native-execution directory
+ifneq ("$(wildcard ${PYTHON_VENV}/pyvenv.cfg)","")
+	source ${PYTHON_VENV}/bin/activate; scripts/check.py header master
+else
+	scripts/check.py header master
+endif
 
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \

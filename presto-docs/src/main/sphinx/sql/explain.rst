@@ -20,10 +20,10 @@ Description
 -----------
 
 Show the logical or distributed execution plan of a statement, or validate the statement.
-Use ``TYPE DISTRIBUTED`` option to display fragmented plan. Each plan fragment is executed by
-a single or multiple Presto nodes. Fragments separation represent the data exchange between Presto nodes.
-Fragment type specifies how the fragment is executed by Presto nodes and how the data is
-distributed between fragments:
+Use ``TYPE DISTRIBUTED`` option to display fragmented plan. Each 
+`plan fragment <https://prestodb.io/docs/current/overview/concepts.html#plan-fragment>`_ 
+is executed by a single or multiple Presto nodes. Fragment type specifies how the fragment 
+is executed by Presto nodes and how the data is distributed between fragments:
 
 ``SINGLE``
     Fragment is executed on a single node.
@@ -38,7 +38,7 @@ distributed between fragments:
 
 ``BROADCAST``
     Fragment is executed on a fixed number of nodes with the input data
-    broadcasted to all nodes.
+    broadcast to all nodes.
 
 ``SOURCE``
     Fragment is executed on nodes where input splits are accessed.

@@ -17,8 +17,8 @@
 #include <string>
 #include <unordered_map>
 
-namespace facebook::velox {
-class Config;
+namespace facebook::velox::config {
+class ConfigBase;
 }
 
 namespace facebook::presto::util {
@@ -31,7 +31,7 @@ std::string requiredProperty(
     const std::string& name);
 
 std::string requiredProperty(
-    const velox::Config& properties,
+    const velox::config::ConfigBase& properties,
     const std::string& name);
 
 std::string getOptionalProperty(
@@ -45,7 +45,7 @@ std::string getOptionalProperty(
     const std::string& defaultValue);
 
 std::string getOptionalProperty(
-    const velox::Config& properties,
+    const velox::config::ConfigBase& properties,
     const std::string& name,
     const std::string& defaultValue);
 

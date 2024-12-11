@@ -19,12 +19,12 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -87,7 +87,7 @@ import static io.airlift.tpch.TpchTable.SUPPLIER;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
-import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -812,7 +812,7 @@ public class TestHiveMaterializedViewLogicalPlanner
             // from sampled table and full table
             String viewHalfQuery = format("SELECT * from %s ORDER BY nationkey", viewHalf);
             MaterializedResult viewHalfTable = computeActual(viewHalfQuery);
-            assertFalse(viewFullTable.equals(viewHalfTable));
+            assertNotEquals(viewFullTable, viewHalfTable);
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + viewFull);
@@ -1802,10 +1802,10 @@ public class TestHiveMaterializedViewLogicalPlanner
                     view, table1, table2, table3));
 
             assertQueryFails(format("CREATE MATERIALIZED VIEW should_fail WITH (partitioned_by = ARRAY['ds']) AS " +
-                            "SELECT t1.orderkey AS view_orderkey, t2.totalprice AS view_totalprice, t3.orderstatus AS view_orderstatus, t1.ds " +
-                            "FROM %s t1 INNER JOIN %s t2 ON (t1.ds=t2.ds AND t1.orderkey = t2.orderkey) INNER JOIN %s t3" +
-                            " ON (t1.orderkey = t3.orderkey)",
-                    table1, table2, table3),
+                                    "SELECT t1.orderkey AS view_orderkey, t2.totalprice AS view_totalprice, t3.orderstatus AS view_orderstatus, t1.ds " +
+                                    "FROM %s t1 INNER JOIN %s t2 ON (t1.ds=t2.ds AND t1.orderkey = t2.orderkey) INNER JOIN %s t3" +
+                                    " ON (t1.orderkey = t3.orderkey)",
+                            table1, table2, table3),
                     "Materialized view tpch.should_fail must have at least one partition column" +
                             " that exists in orders_status_partitioned_join as well");
 

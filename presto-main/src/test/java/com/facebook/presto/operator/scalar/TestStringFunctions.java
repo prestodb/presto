@@ -317,9 +317,10 @@ public class TestStringFunctions
         assertFunction("STRRPOS('x', '')", BIGINT, 1L);
         assertFunction("STRRPOS('', '')", BIGINT, 1L);
 
-        assertFunction("STRRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", BIGINT, 2L);
-        assertFunction("STRRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", BIGINT, 3L);
+        assertFunction("STRRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u7231')", BIGINT, 4L);
+        assertFunction("STRRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u5E0C\u671B')", BIGINT, 6L);
         assertFunction("STRRPOS('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', 'nice')", BIGINT, 0L);
+        assertFunction("STRRPOS('Screenshot 2024-12-01 at 12.00.51\u202fPM.png', '.')", BIGINT, 37L);
 
         assertFunction("STRRPOS(NULL, '')", BIGINT, null);
         assertFunction("STRRPOS('', NULL)", BIGINT, null);

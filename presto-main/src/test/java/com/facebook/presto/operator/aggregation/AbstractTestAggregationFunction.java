@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -88,7 +87,7 @@ public abstract class AbstractTestAggregationFunction
         FunctionHandle functionHandle = functionAndTypeManager.resolveFunction(
                 Optional.empty(),
                 session.getTransactionId(),
-                qualifyObjectName(QualifiedName.of(getFunctionName())),
+                functionAndTypeManager.getFunctionAndTypeResolver().qualifyObjectName(QualifiedName.of(getFunctionName())),
                 parameterTypes);
         return functionAndTypeManager.getJavaAggregateFunctionImplementation(functionHandle);
     }

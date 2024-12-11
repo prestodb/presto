@@ -122,6 +122,7 @@ public class TestHudiDirectoryLister
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
                     IGNORED,
                     false,
+                    false,
                     new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
                     ImmutableMap.of(),
                     new RuntimeStats()));
@@ -148,6 +149,7 @@ public class TestHudiDirectoryLister
             ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
             Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
                     IGNORED,
+                    false,
                     false,
                     new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
                     ImmutableMap.of(),

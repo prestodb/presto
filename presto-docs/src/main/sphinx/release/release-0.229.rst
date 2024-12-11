@@ -4,8 +4,8 @@ Release 0.229
 
 General Changes
 _______________
-* Fix an issue that would cause query failure when calling :func:`geometry_to_bing_tiles` on certain degenerate geometries.
-* Add geospatial function :func:`line_interpolate_point`.
+* Fix an issue that would cause query failure when calling :func:`!geometry_to_bing_tiles` on certain degenerate geometries.
+* Add geospatial function :func:`!line_interpolate_point`.
 * Add support for ``CREATE FUNCTION``
 * Add support for passing ``X_Forwarded_For`` header from Proxy to coordinator.
 * Add support to respect configuration property ``stage.max-tasks-per-stage`` for limiting the number of tasks per scan.

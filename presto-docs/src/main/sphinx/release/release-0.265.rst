@@ -8,7 +8,7 @@ Release 0.265
 General Changes
 _______________
 * Add a configuration property ``fragment-result-cache.max-cache-size`` to control the total on-disk size of fragment result cache. The default value is 100G.
-* Rename function ``array_dupes`` to :func:`array_duplicates`, and rename function ``array_has_dupes`` to :func:`array_has_duplicates`. Previous names are kept as aliases but will be deprecated in the future.
+* Rename function ``array_dupes`` to :func:`!array_duplicates`, and rename function ``array_has_dupes`` to :func:`!array_has_duplicates`. Previous names are kept as aliases but will be deprecated in the future.
 
 Verifier Changes
 ________________

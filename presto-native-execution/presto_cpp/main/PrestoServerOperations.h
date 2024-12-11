@@ -63,6 +63,12 @@ class PrestoServerOperations {
 
   std::string serverOperationAnnouncer(proxygen::HTTPMessage* message);
 
+  // Clears the in-memory (and optional ssd) cache.
+  std::string serverOperationClearCache(proxygen::HTTPMessage* message);
+
+  // Writes the in-memory cache into SSD and makes checkpoints.
+  std::string serverOperationWriteSsd(proxygen::HTTPMessage* message);
+
   TaskManager* const taskManager_;
   PrestoServer* const server_;
 };

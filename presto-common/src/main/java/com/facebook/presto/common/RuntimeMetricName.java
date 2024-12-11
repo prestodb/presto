@@ -38,7 +38,18 @@ public class RuntimeMetricName
     public static final String GET_TABLE_HANDLE_TIME_NANOS = "getTableHandleTimeNanos";
     public static final String GET_COLUMN_HANDLE_TIME_NANOS = "getColumnHandleTimeNanos";
     public static final String GET_COLUMN_METADATA_TIME_NANOS = "getColumnMetadataTimeNanos";
+    public static final String GET_PARTITIONS_BY_NAMES_TIME_NANOS = "getPartitionsByNamesTimeNanos";
+    public static final String GET_TABLE_TIME_NANOS = "getTableTimeNanos";
     public static final String GET_SPLITS_TIME_NANOS = "getSplitsTimeNanos";
+    // CPU time taken to schedule a given stage
+    public static final String SCHEDULER_CPU_TIME_NANOS = "schedulerCpuTimeNanos";
+    // Wall time taken to schedule a given stage
+    public static final String SCHEDULER_WALL_TIME_NANOS = "schedulerWallTimeNanos";
+    // Blocked time of the scheduler during scheduling a given stage
+    public static final String SCHEDULER_BLOCKED_TIME_NANOS = "schedulerBlockedTimeNanos";
+    public static final String SCAN_STAGE_SCHEDULER_CPU_TIME_NANOS = "scanStageSchedulerCpuTimeNanos";
+    public static final String SCAN_STAGE_SCHEDULER_WALL_TIME_NANOS = "scanStageSchedulerWallTimeNanos";
+    public static final String SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS = "scanStageSchedulerBlockedTimeNanos";
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
     public static final String OPTIMIZER_TIME_NANOS = "optimizerTimeNanos";
     public static final String GET_CANONICAL_INFO_TIME_NANOS = "getCanonicalInfoTimeNanos";
@@ -51,6 +62,9 @@ public class RuntimeMetricName
     public static final String TASK_SCHEDULED_TIME_NANOS = "taskScheduledTimeNanos";
     // Blocked time for the operators due to waiting for inputs.
     public static final String TASK_BLOCKED_TIME_NANOS = "taskBlockedTimeNanos";
+    public static final String TASK_UPDATE_DELIVERED_WALL_TIME_NANOS = "taskUpdateDeliveredWallTimeNanos";
+    public static final String TASK_UPDATE_SERIALIZED_CPU_TIME_NANOS = "taskUpdateSerializedCpuNanos";
+    public static final String TASK_PLAN_SERIALIZED_CPU_TIME_NANOS = "taskPlanSerializedCpuNanos";
     // Time taken for a read call to storage
     public static final String STORAGE_READ_TIME_NANOS = "storageReadTimeNanos";
     // Size of the data retrieved by read call to storage
@@ -60,5 +74,6 @@ public class RuntimeMetricName
     public static final String HISTORY_OPTIMIZER_QUERY_REGISTRATION_GET_STATISTICS = "historyOptimizerQueryRegistrationGetStatistics";
     public static final String DIRECTORY_LISTING_CACHE_HIT = "directoryListingCacheHit";
     public static final String DIRECTORY_LISTING_CACHE_MISS = "directoryListingCacheMiss";
+    public static final String DIRECTORY_LISTING_TIME_NANOS = "directoryListingTimeNanos";
     public static final String FILES_READ_COUNT = "filesReadCount";
 }

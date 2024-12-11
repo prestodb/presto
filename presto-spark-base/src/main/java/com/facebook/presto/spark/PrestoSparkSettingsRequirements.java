@@ -97,6 +97,7 @@ public class PrestoSparkSettingsRequirements
         config.setEnforceFixedDistributionForOutputOperator(true);
         config.setPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled(true);
         config.setTrackPartialAggregationHistory(false);
+        config.setPrestoSparkExecutionEnvironment(true);
     }
 
     public static void setDefaults(QueryManagerConfig config)

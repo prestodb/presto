@@ -19,7 +19,7 @@ _______________
 * Add support for returning partial results for the queries by setting ``partial_results_enabled`` session property. Additionally ``partial_results_max_execution_time_multiplier``, ``partial_results_completion_ratio_threshold`` session properties can be set to configure the max execution time multiplier and minimum completion ratio threshold for the queries.
 * Add automatic query retry functionality for transient failures. This can be enabled by setting ``per-query-retry-limit`` to a non-zero integer to indicate the per query retry count.
 * Add support to coordinator endpoint ``/v1/info/state`` to return ``ACTIVE`` when the coordinator is not shutting down and the cluster has the minimum required workers.
-* Add functions :func:`chisquared_cdf` and :func:`inverse_chisquared_cdf`.
+* Add functions :func:`!chisquared_cdf` and :func:`!inverse_chisquared_cdf`.
 
 Security Changes
 ________________

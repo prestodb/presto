@@ -195,6 +195,11 @@ Property Name                                      Description                  
                                                    S3SelectPushdown.
 
 ``hive.metastore.load-balancing-enabled``          Enable load balancing between multiple Metastore instances
+
+``hive.skip-empty-files``                          Enable skipping empty files. Otherwise, it will produce an   ``false``
+                                                   error iterating through empty files.
+
+ ``hive.file-status-cache.max-retained-size``      Maximum size in bytes of the directory listing cache          ``0KB``
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
@@ -382,6 +387,90 @@ IAM role-based credentials (using ``STSAssumeRoleSessionCredentialsProvider``),
 or credentials for a specific use case (e.g., bucket/user specific credentials).
 This Hadoop configuration property must be set in the Hadoop configuration
 files referenced by the ``hive.config.resources`` Hive connector property.
+
+AWS Security Mapping
+^^^^^^^^^^^^^^^^^^^^
+
+Presto supports flexible mapping for AWS Lake Formation and AWS S3 API calls, allowing for separate
+credentials or IAM roles for specific users.
+
+The mappings can be of two types: ``S3`` or ``LAKEFORMATION``.
+
+The mapping entries are processed in the order listed in the configuration
+file. More specific mappings should be specified before less specific mappings.
+You can set default configuration by not including any match criteria for the last
+entry in the list.
+
+Each mapping entry when mapping type is ``S3`` may specify one match criteria. Available match criteria:
+
+* ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+The mapping must provide one or more configuration settings:
+
+* ``accessKey`` and ``secretKey``: AWS access key and secret key. This overrides
+  any globally configured credentials, such as access key or instance credentials.
+
+* ``iamRole``: IAM role to use. This overrides any globally configured IAM role.
+
+Example JSON configuration file for s3:
+
+.. code-block:: json
+
+    {
+      "mappings": [
+        {
+          "user": "admin",
+          "accessKey": "AKIAxxxaccess",
+          "secretKey": "iXbXxxxsecret"
+        },
+        {
+          "user": "analyst|scientist",
+          "iamRole": "arn:aws:iam::123456789101:role/analyst_and_scientist_role"
+        },
+        {
+          "iamRole": "arn:aws:iam::123456789101:role/default"
+        }
+      ]
+    }
+
+Each mapping entry when mapping type is ``LAKEFORMATION`` may specify one match criteria. Available match criteria:
+
+* ``user``: Regular expression to match against username. Example: ``alice|bob``
+
+The mapping must provide one configuration setting:
+
+* ``iamRole``: IAM role to use. This overrides any globally configured IAM role.
+
+Example JSON configuration file for lakeformation:
+
+.. code-block:: json
+
+    {
+      "mappings": [
+        {
+          "user": "admin",
+          "iamRole": "arn:aws:iam::123456789101:role/admin_role"
+        },
+        {
+          "user": "analyst",
+          "iamRole": "arn:aws:iam::123456789101:role/analyst_role"
+        },
+        {
+          "iamRole": "arn:aws:iam::123456789101:role/default_role"
+        }
+      ]
+    }
+
+======================================================= =================================================================
+Property Name                                           Description
+======================================================= =================================================================
+``hive.aws.security-mapping.type``                      AWS Security Mapping Type. Possible values: S3 or LAKEFORMATION
+
+``hive.aws.security-mapping.config-file``               JSON configuration file containing AWS IAM Security mappings
+
+``hive.aws.security-mapping.refresh-period``            Time interval after which AWS IAM security mapping configuration
+                                                        will be refreshed
+======================================================= =================================================================
 
 Tuning Properties
 ^^^^^^^^^^^^^^^^^
@@ -658,7 +747,7 @@ This query will collect statistics for 2 partitions with keys:
 * ``partition2_value1, partition2_value2``
 
 Quick Stats
---------------------------------------
+-----------
 
 The Hive connector can build basic statistics for partitions with missing statistics
 by examining file or table metadata. For example, Parquet footers can be used to infer
@@ -825,7 +914,7 @@ Parquet Writer Version
 
 Presto now supports Parquet writer versions V1 and V2 for the Hive catalog.
 It can be toggled using the session property ``parquet_writer_version`` and the config property ``hive.parquet.writer.version``.
-Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_2_0``.
+Valid values for these properties are ``PARQUET_1_0`` and ``PARQUET_2_0``. Default is ``PARQUET_1_0``.
 
 Procedures
 ----------
@@ -874,7 +963,7 @@ columns as a part of the query like any other columns of the table.
 * ``$file_modified_time`` : Last file modified time for the given row (int64_t), in milliseconds since January 1, 1970 UTC
 
 How to invalidate metastore cache?
----------------------------------
+----------------------------------
 
 The Hive connector exposes a procedure over JMX (``com.facebook.presto.hive.metastore.CachingHiveMetastore#flushCache``) to invalidate the metastore cache.
 You can call this procedure to invalidate the metastore cache by connecting via jconsole or jmxterm.

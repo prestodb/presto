@@ -1,0 +1,224 @@
+openapi: 3.0.0
+info:
+  title: Presto Query Info
+  description: Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.
+  version: "1"
+servers:
+  - url: http://localhost:8080
+    description: Presto endpoint when running locally
+paths:
+  /v1/statement:
+    post:
+      summary: Submit a new query
+      description: Submits a new query to the Presto Coordinator
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: The statement or SQL query string to be submitted
+      parameters:
+        - name: binaryResults
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Whether to return results in binary format
+        - name: X-Forwarded-Proto
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Forwarded protocol (http or https)
+        - name: Presto-Prefix-URL
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Prefix URL for Presto
+      responses:
+        '200':
+          description: Query submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/QueryResults'
+        '400':
+          description: Bad request
+  /v1/statement/{queryId}:
+    put:
+      summary: Submit a new query
+      description: Submits a new query to the Presto coordinator, with a pre-minted query id and slug
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: The statement or SQL query string to be submitted
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The query id to associate with this query
+        - name: slug
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Nonce to associate with this query, which is required for future requests
+        - name: binaryResults
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Whether to return results in binary format
+        - name: X-Forwarded-Proto
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Forwarded protocol (http or https)
+        - name: Presto-Prefix-URL
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Prefix URL for Presto
+      responses:
+        '200':
+          description: Query submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/QueryResults'
+        '400':
+          description: Bad request
+        '409':
+          description: Conflict, this query already exists
+  /v1/statement/queued/retry/{queryId}:
+    get:
+      summary: Retry a failed query
+      description: Retries a failed query identified by queryId
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the query to retry
+        - name: binaryResults
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Whether to return results in binary format
+        - name: X-Forwarded-Proto
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Forwarded protocol (http or https)
+        - name: Presto-Prefix-URL
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Prefix URL for Presto
+      responses:
+        '200':
+          description: Query retried successfully
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/QueryResults'
+        '404':
+          description: Query not found
+  /v1/statement/queued/{queryId}/{token}:
+    get:
+      summary: Get the status of a submitted query
+      description: Retrieves the status of a submitted query identified by queryId
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the query to retrieve
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Monotonically increasing token that identifies the next batch of query results
+        - name: slug
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Unique security token generated for each query that controls access to that query's results
+        - name: maxWait
+          in: query
+          required: false
+          schema:
+            type: string
+            format: duration
+          description: Time to wait for the query to be dispatched
+        - name: binaryResults
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Whether to return results in binary format
+        - name: X-Forwarded-Proto
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Forwarded protocol (http or https)
+        - name: Presto-Prefix-URL
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Prefix URL for Presto
+      responses:
+        '200':
+          description: Query status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: './schemas.yaml/#/components/schemas/QueryResults'
+        '404':
+          description: Query not found
+
+    delete:
+      summary: Cancel a query
+      description: Cancels a query identified by queryId
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the query to cancel
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: increasing token that identifies the next batch of query results
+        - name: slug
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Unique security token generated for each query that controls access to that query's results
+      responses:
+        '204':
+          description: Query canceled successfully
+        '404':
+          description: Query not found

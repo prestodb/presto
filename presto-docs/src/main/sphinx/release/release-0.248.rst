@@ -8,7 +8,7 @@ Release 0.248
 
 **Highlights**
 ==============
-* New aggregation function :func:`map_union_sum`.
+* New aggregation function :func:`!map_union_sum`.
 * Add support for overriding session properties using session property managers. See :doc:`/admin/session-property-managers`.
 
 **Details**
@@ -20,13 +20,13 @@ _______________
 * Add support for overriding session properties using session property managers :doc:`/admin/session-property-managers`. Setting ``overrideSessionProperties`` to true will cause the property to be overridden and remain overridden even if subsequent rules match the property but don't have ``overrideSessionProperties`` set.
 * Add support to drop multiple UDFs at the same time.
 * Add a REST endpoint ``/v1/taskInfo/{{taskId}}`` on the coordinator to get TaskInfo without needing to go directly to the worker's endpoint.
-* Add new aggregation function :func:`map_union_sum`.
+* Add new aggregation function :func:`!map_union_sum`.
 * Add support to configure ZSTD compression level for ORC writer.
 * Add warning for JOIN conditions with OR expressions.
 * Add configuration property ``internal-communication.https.trust-store-password`` to set the Java Truststore password used for https in internal communications between nodes.
 
 Hive Connector Changes
-________________
+______________________
 * Add session property ``temporary_table_create_empty_bucket_files`` and configuration property ``hive.create-empty-bucket-files-for-temporary-table``, which, when set to ``false``, disables the creation of zero-row files for temporary table empty buckets, to improve performance.
 
 Verifier Changes

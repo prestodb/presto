@@ -12,7 +12,7 @@ General Changes
 * Fix responses to client for certain types of errors that are encountered
   during query creation.
 * Improve error message when an invalid comparator is provided to the
-  :func:`array_sort` function.
+  :func:`!array_sort` function.
 * Improve performance of lookup operations on map data types.
 * Improve planning and query performance for queries with ``TINYINT``,
   ``SMALLINT`` and ``VARBINARY`` literals.
@@ -22,7 +22,7 @@ General Changes
 * Add session property ``optimize-top-n-row-number`` and configuration property
   ``optimizer.optimize-top-n-row-number`` to toggle the top N row number
   optimization.
-* Add :func:`ngrams` function to generate N-grams from an array.
+* Add :func:`!ngrams` function to generate N-grams from an array.
 * Add :ref:`qdigest <qdigest_type>` type and associated :doc:`/functions/qdigest`.
 * Add functionality to delay query execution until a minimum number of workers
   nodes are available. The minimum number of workers can be set with the

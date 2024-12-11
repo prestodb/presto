@@ -19,15 +19,17 @@ import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.Partitioning;
+import com.facebook.presto.spi.plan.PartitioningScheme;
+import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.BasePlanFragmenter.FragmentProperties;
-import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -49,36 +51,33 @@ public class PlanFragmenter
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig config;
-    private final SqlParser sqlParser;
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
 
     @Inject
-    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, SqlParser sqlParser, FeaturesConfig featuresConfig)
+    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig, FeaturesConfig featuresConfig, PlanCheckerProviderManager planCheckerProviderManager)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
-        this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.distributedPlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), false);
-        this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true);
+        this.distributedPlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), false, planCheckerProviderManager);
+        this.singleNodePlanChecker = new PlanChecker(requireNonNull(featuresConfig, "featuresConfig is null"), true, planCheckerProviderManager);
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean noExchange, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
         VariableAllocator variableAllocator = new VariableAllocator(plan.getTypes().allVariables());
-        return createSubPlans(session, plan, forceSingleNode, idAllocator, variableAllocator, warningCollector);
+        return createSubPlans(session, plan, noExchange, idAllocator, variableAllocator, warningCollector);
     }
 
-    public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, WarningCollector warningCollector)
+    public SubPlan createSubPlans(Session session, Plan plan, boolean noExchange, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, WarningCollector warningCollector)
     {
         Fragmenter fragmenter = new Fragmenter(
                 session,
                 metadata,
                 plan.getStatsAndCosts(),
-                forceSingleNode ? singleNodePlanChecker : distributedPlanChecker,
+                noExchange ? singleNodePlanChecker : distributedPlanChecker,
                 warningCollector,
-                sqlParser,
                 idAllocator,
                 variableAllocator,
                 getOutputTableWriterNodeIds(plan.getRoot()));
@@ -86,13 +85,13 @@ public class PlanFragmenter
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
                 plan.getRoot().getOutputVariables()));
-        if (forceSingleNode || isForceSingleNodeOutput(session)) {
+        if (noExchange || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
-        return finalizeSubPlan(subPlan, config, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, subPlan.getFragment().getPartitioning());
+        return finalizeSubPlan(subPlan, config, metadata, nodePartitioningManager, session, noExchange, warningCollector, subPlan.getFragment().getPartitioning());
     }
 
     private static class Fragmenter
@@ -100,9 +99,9 @@ public class PlanFragmenter
     {
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
-        public Fragmenter(Session session, Metadata metadata, StatsAndCosts statsAndCosts, PlanChecker planChecker, WarningCollector warningCollector, SqlParser sqlParser, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<PlanNodeId> outputTableWriterNodeIds)
+        public Fragmenter(Session session, Metadata metadata, StatsAndCosts statsAndCosts, PlanChecker planChecker, WarningCollector warningCollector, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<PlanNodeId> outputTableWriterNodeIds)
         {
-            super(session, metadata, statsAndCosts, planChecker, warningCollector, sqlParser, idAllocator, variableAllocator, outputTableWriterNodeIds);
+            super(session, metadata, statsAndCosts, planChecker, warningCollector, idAllocator, variableAllocator, outputTableWriterNodeIds);
         }
 
         @Override

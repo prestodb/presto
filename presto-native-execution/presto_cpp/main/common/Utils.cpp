@@ -15,6 +15,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include <fmt/format.h>
 #include <sys/resource.h>
+#include "velox/common/process/ThreadDebugInfo.h"
 
 namespace facebook::presto::util {
 
@@ -55,4 +56,21 @@ long getProcessCpuTimeNs() {
   return tvNanos(rusageEnd.ru_utime) + tvNanos(rusageEnd.ru_stime);
 }
 
+void installSignalHandler() {
+#ifdef __APPLE__
+  google::InstallFailureSignalHandler();
+#else
+  facebook::velox::process::addDefaultFatalSignalHandler();
+#endif // __APPLE__
+}
+
+std::string extractMessageBody(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body) {
+  // TODO Avoid copy
+  std::ostringstream oss;
+  for (auto& buf : body) {
+    oss << std::string((const char*)buf->data(), buf->length());
+  }
+  return oss.str();
+}
 } // namespace facebook::presto::util

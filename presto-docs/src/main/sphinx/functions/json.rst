@@ -5,25 +5,25 @@ JSON Functions and Operators
 Cast to JSON
 ------------
 
-    Casting from ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INTEGER``,
-    ``BIGINT``, ``REAL``, ``DOUBLE`` or ``VARCHAR`` is supported.
-    Casting from ``ARRAY``, ``MAP`` or ``ROW`` is supported when the element type of
-    the array is one of the supported types, or when the key type of the map
-    is ``VARCHAR`` and value type of the map is one of the supported types,
-    or when every field type of the row is one of the supported types.
-    Behaviors of the casts are shown with the examples below::
+Casting from ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INTEGER``,
+``BIGINT``, ``REAL``, ``DOUBLE`` or ``VARCHAR`` is supported.
+Casting from ``ARRAY``, ``MAP`` or ``ROW`` is supported when the element type of
+the array is one of the supported types, or when the key type of the map
+is ``VARCHAR`` and value type of the map is one of the supported types,
+or when every field type of the row is one of the supported types.
+Behaviors of the casts are shown with the examples below::
 
-        SELECT CAST(NULL AS JSON); -- NULL
-        SELECT CAST(1 AS JSON); -- JSON '1'
-        SELECT CAST(9223372036854775807 AS JSON); -- JSON '9223372036854775807'
-        SELECT CAST('abc' AS JSON); -- JSON '"abc"'
-        SELECT CAST(true AS JSON); -- JSON 'true'
-        SELECT CAST(1.234 AS JSON); -- JSON '1.234'
-        SELECT CAST(ARRAY[1, 23, 456] AS JSON); -- JSON '[1,23,456]'
-        SELECT CAST(ARRAY[1, NULL, 456] AS JSON); -- JSON '[1,null,456]'
-        SELECT CAST(ARRAY[ARRAY[1, 23], ARRAY[456]] AS JSON); -- JSON '[[1,23],[456]]'
-        SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('k1', 1), ('k2', 23), ('k3', 456)]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'
-        SELECT CAST(CAST(ROW(123, 'abc', true) AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)) AS JSON); -- JSON '[123,"abc",true]'
+    SELECT CAST(NULL AS JSON); -- NULL
+    SELECT CAST(1 AS JSON); -- JSON '1'
+    SELECT CAST(9223372036854775807 AS JSON); -- JSON '9223372036854775807'
+    SELECT CAST('abc' AS JSON); -- JSON '"abc"'
+    SELECT CAST(true AS JSON); -- JSON 'true'
+    SELECT CAST(1.234 AS JSON); -- JSON '1.234'
+    SELECT CAST(ARRAY[1, 23, 456] AS JSON); -- JSON '[1,23,456]'
+    SELECT CAST(ARRAY[1, NULL, 456] AS JSON); -- JSON '[1,null,456]'
+    SELECT CAST(ARRAY[ARRAY[1, 23], ARRAY[456]] AS JSON); -- JSON '[[1,23],[456]]'
+    SELECT CAST(MAP_FROM_ENTRIES(ARRAY[('k1', 1), ('k2', 23), ('k3', 456)]) AS JSON); -- JSON '{"k1":1,"k2":23,"k3":456}'
+    SELECT CAST(CAST(ROW(123, 'abc', true) AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)) AS JSON); -- JSON '[123,"abc",true]'
 
 .. note::
 
@@ -38,28 +38,42 @@ Cast to JSON
     than a JSON object. This is because positions are more important than
     names for rows in SQL.
 
+.. note::
+
+    Set the session property ``field_names_in_json_cast_enabled`` to ``true`` to preserve the row field names as JSON field names. With ``field_names_in_json_cast_enabled=false``, the result of::
+
+        SELECT CAST(CAST(ROW(123, 'abc', true) AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)) AS JSON);
+    
+    is::
+    
+        JSON '[123,"abc",true]'
+    
+    With ``field_names_in_json_cast_enabled=true``, the result is::
+
+        JSON '{"v1":123,"v2":"abc","v3":true}'
+
 Cast from JSON
 --------------
 
-    Casting to ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INTEGER``,
-    ``BIGINT``, ``REAL``, ``DOUBLE`` or ``VARCHAR`` is supported.
-    Casting to ``ARRAY`` and ``MAP`` is supported when the element type of
-    the array is one of the supported types, or when the key type of the map
-    is ``VARCHAR`` and value type of the map is one of the supported types.
-    Behaviors of the casts are shown with the examples below::
+Casting to ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INTEGER``,
+``BIGINT``, ``REAL``, ``DOUBLE`` or ``VARCHAR`` is supported.
+Casting to ``ARRAY`` and ``MAP`` is supported when the element type of
+the array is one of the supported types, or when the key type of the map
+is ``VARCHAR`` and value type of the map is one of the supported types.
+Behaviors of the casts are shown with the examples below::
 
-        SELECT CAST(JSON 'null' AS VARCHAR); -- NULL
-        SELECT CAST(JSON '1' AS INTEGER); -- 1
-        SELECT CAST(JSON '9223372036854775807' AS BIGINT); -- 9223372036854775807
-        SELECT CAST(JSON '"abc"' AS VARCHAR); -- abc
-        SELECT CAST(JSON 'true' AS BOOLEAN); -- true
-        SELECT CAST(JSON '1.234' AS DOUBLE); -- 1.234
-        SELECT CAST(JSON '[1,23,456]' AS ARRAY(INTEGER)); -- [1, 23, 456]
-        SELECT CAST(JSON '[1,null,456]' AS ARRAY(INTEGER)); -- [1, NULL, 456]
-        SELECT CAST(JSON '[[1,23],[456]]' AS ARRAY(ARRAY(INTEGER))); -- [[1, 23], [456]]
-        SELECT CAST(JSON '{"k1":1,"k2":23,"k3":456}' AS MAP(VARCHAR, INTEGER)); -- {k1=1, k2=23, k3=456}
-        SELECT CAST(JSON '{"v1":123,"v2":"abc","v3":true}' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
-        SELECT CAST(JSON '[123,"abc",true]' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {value1=123, value2=abc, value3=true}
+    SELECT CAST(JSON 'null' AS VARCHAR); -- NULL
+    SELECT CAST(JSON '1' AS INTEGER); -- 1
+    SELECT CAST(JSON '9223372036854775807' AS BIGINT); -- 9223372036854775807
+    SELECT CAST(JSON '"abc"' AS VARCHAR); -- abc
+    SELECT CAST(JSON 'true' AS BOOLEAN); -- true
+    SELECT CAST(JSON '1.234' AS DOUBLE); -- 1.234
+    SELECT CAST(JSON '[1,23,456]' AS ARRAY(INTEGER)); -- [1, 23, 456]
+    SELECT CAST(JSON '[1,null,456]' AS ARRAY(INTEGER)); -- [1, NULL, 456]
+    SELECT CAST(JSON '[[1,23],[456]]' AS ARRAY(ARRAY(INTEGER))); -- [[1, 23], [456]]
+    SELECT CAST(JSON '{"k1":1,"k2":23,"k3":456}' AS MAP(VARCHAR, INTEGER)); -- {k1=1, k2=23, k3=456}
+    SELECT CAST(JSON '{"v1":123,"v2":"abc","v3":true}' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
+    SELECT CAST(JSON '[123,"abc",true]' AS ROW(v1 BIGINT, v2 VARCHAR, v3 BOOLEAN)); -- {v1=123, v2=abc, v3=true}
 
 .. note::
 
@@ -159,7 +173,7 @@ JSON Functions
 
 .. function:: json_extract_scalar(json, json_path) -> varchar
 
-    Like :func:`json_extract`, but returns the result value as a string (as opposed
+    Like :func:`!json_extract`, but returns the result value as a string (as opposed
     to being encoded as JSON). The value referenced by ``json_path`` must be a
     scalar (boolean, number or string)::
 
@@ -169,17 +183,17 @@ JSON Functions
 .. function:: json_format(json) -> varchar
 
     Returns the JSON text serialized from the input JSON value.
-    This is inverse function to :func:`json_parse`::
+    This is inverse function to :func:`!json_parse`::
 
         SELECT json_format(JSON '[1, 2, 3]'); -- '[1,2,3]'
         SELECT json_format(JSON '"a"'); -- '"a"'
 
 .. note::
 
-    :func:`json_format` and ``CAST(json AS VARCHAR)`` have completely
+    :func:`!json_format` and ``CAST(json AS VARCHAR)`` have completely
     different semantics.
 
-    :func:`json_format` serializes the input JSON value to JSON text conforming to
+    :func:`!json_format` serializes the input JSON value to JSON text conforming to
     :rfc:`7159`. The JSON value can be a JSON object, a JSON array, a JSON string,
     a JSON number, ``true``, ``false`` or ``null``::
 
@@ -205,17 +219,17 @@ JSON Functions
 .. function:: json_parse(string) -> json
 
     Returns the JSON value deserialized from the input JSON text.
-    This is inverse function to :func:`json_format`::
+    This is inverse function to :func:`!json_format`::
 
         SELECT json_parse('[1, 2, 3]'); -- JSON '[1,2,3]'
         SELECT json_parse('"abc"'); -- JSON '"abc"'
 
 .. note::
 
-    :func:`json_parse` and ``CAST(string AS JSON)`` have completely
+    :func:`!json_parse` and ``CAST(string AS JSON)`` have completely
     different semantics.
 
-    :func:`json_parse` expects a JSON text conforming to :rfc:`7159`, and returns
+    :func:`!json_parse` expects a JSON text conforming to :rfc:`7159`, and returns
     the JSON value deserialized from the JSON text.
     The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number,
     ``true``, ``false`` or ``null``::
@@ -241,7 +255,7 @@ JSON Functions
 
 .. function:: json_size(json, json_path) -> bigint
 
-    Like :func:`json_extract`, but returns the size of the value.
+    Like :func:`!json_extract`, but returns the size of the value.
     For objects or arrays, the size is the number of members,
     and the size of a scalar value is zero::
 

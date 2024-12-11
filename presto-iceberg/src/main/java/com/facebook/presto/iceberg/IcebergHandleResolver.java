@@ -53,13 +53,13 @@ public class IcebergHandleResolver
     @Override
     public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
     {
-        return IcebergWritableTableHandle.class;
+        return IcebergOutputTableHandle.class;
     }
 
     @Override
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
-        return IcebergWritableTableHandle.class;
+        return IcebergInsertTableHandle.class;
     }
 
     @Override

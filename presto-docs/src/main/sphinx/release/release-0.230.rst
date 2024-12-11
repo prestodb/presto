@@ -9,13 +9,13 @@ _______________
 * Fix an issue where SQL functions do not respect behavior specification for null arguments during execution.
 * Fix compilation errors for expressions over types containing an extremely large number of nested types (:pr:`13405`).
 * Fix a regression in lambda evaluation (:issue:`13648`).
-* Fix :func:`geometry_to_bing_tiles` function for geometries at -180 longitude or 85.05112878 latitude.
+* Fix :func:`!geometry_to_bing_tiles` function for geometries at -180 longitude or 85.05112878 latitude.
 * Improve ``PRESTO_EXTRA_CREDENTIAL`` header parsing to allow for values contain multiple ``=`` characters and url-encoded characters.
 * Add support to list non-builtin functions in SHOW FUNCTIONS. The feature can be turned on by the configuration property ``list-non-built-in-functions``.
 * Add support for ``DROP FUNCTION``.
-* Add :func:`combinations` function, which returns ``n`` combinations of values in an array, up to ``n = 5``.
-* Add :func:`all_match()`, :func:`any_match()`, and :func:`none_match()` functions.
-* Add :func:`expand_envelope` function to return a geometry's envelope expanded by a distance.
+* Add :func:`!combinations` function, which returns ``n`` combinations of values in an array, up to ``n = 5``.
+* Add :func:`!all_match()`, :func:`!any_match()`, and :func:`!none_match()` functions.
+* Add :func:`!expand_envelope` function to return a geometry's envelope expanded by a distance.
 
 Hive Changes
 ____________

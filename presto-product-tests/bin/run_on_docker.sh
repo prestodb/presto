@@ -127,7 +127,7 @@ elif [[ "$ENVIRONMENT" == "multinode-tls-kerberos" ]]; then
 fi
 
 # check docker and docker compose installation
-docker-compose version
+docker compose version
 docker version
 
 stop_all_containers

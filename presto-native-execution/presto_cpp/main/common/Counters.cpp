@@ -31,30 +31,10 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
-      kCounterHttpClientPrestoExchangeNumOnBody,
-      facebook::velox::StatType::COUNT);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterHttpClientPrestoExchangeOnBodyBytes,
-      1000,
-      0,
-      1000000,
-      50,
-      90,
-      95,
-      99,
-      100);
-  DEFINE_HISTOGRAM_METRIC(
-      kCounterPrestoExchangeSerializedPageSize,
-      10000,
-      0,
-      10000000,
-      50,
-      90,
-      95,
-      99,
-      100);
+      kCounterHttpClientNumConnectionsCreated, facebook::velox::StatType::SUM);
   DEFINE_METRIC(kCounterNumQueryContexts, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasks, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksBytesProcessed, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksRunning, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksFinished, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksCancelled, facebook::velox::StatType::AVG);
@@ -64,6 +44,8 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterNumZombiePrestoTasks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumTasksWithStuckOperator, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterNumCancelledTasksByStuckDriver, facebook::velox::StatType::COUNT);
   DEFINE_METRIC(kCounterNumTasksDeadlock, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumTaskManagerLockTimeOut, facebook::velox::StatType::AVG);
@@ -90,8 +72,6 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterNumBlockedWaitForConnectorDrivers,
       facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterNumBlockedWaitForSpillDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
@@ -112,7 +92,43 @@ void registerPrestoMetrics() {
       1l * 1024 * 1024 * 1024,
       0,
       62l * 1024 * 1024 * 1024, // max bucket value: 62GB
+      50,
+      90,
+      95,
+      99,
       100);
+  DEFINE_METRIC(kCounterMemoryPushbackCount, facebook::velox::StatType::COUNT);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterMemoryPushbackLatencyMs, 10'000, 0, 100'000, 50, 90, 99, 100);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterMemoryPushbackReductionBytes,
+      100l * 1024 * 1024, // 100MB
+      0,
+      15l * 1024 * 1024 * 1024, // 15GB
+      50,
+      90,
+      99,
+      100);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterMemoryPushbackExpectedReductionBytes,
+      100l * 1024 * 1024, // 100MB
+      0,
+      15l * 1024 * 1024 * 1024, // 15GB
+      50,
+      90,
+      99,
+      100);
+
+  // NOTE: Metrics type exporting for thread pool executor counters are in
+  // PeriodicTaskManager because they have dynamic names and report configs. The
+  // following counters have their type exported there:
+  // [
+  //  kCounterThreadPoolNumThreadsFormat,
+  //  kCounterThreadPoolNumActiveThreadsFormat,
+  //  kCounterThreadPoolNumPendingTasksFormat,
+  //  kCounterThreadPoolNumTotalTasksFormat,
+  //  kCounterThreadPoolMaxIdleTimeNsFormat
+  // ]
 
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters

@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.jdbi.v3.core.mapper.reflect.ColumnName;
 import org.jdbi.v3.core.mapper.reflect.JdbiConstructor;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -29,11 +31,14 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryConfiguration
 {
+    public static final String CLIENT_TAG_OUTPUT_RETAINED = "OUTPUT_RETAINED";
     private final String catalog;
     private final String schema;
     private final Optional<String> username;
     private final Optional<String> password;
     private final Map<String, String> sessionProperties;
+    private final boolean isReusableTable;
+    private final List<String> partitions;
 
     @JdbiConstructor
     public QueryConfiguration(
@@ -41,13 +46,29 @@ public class QueryConfiguration
             @ColumnName("schema") String schema,
             @ColumnName("username") Optional<String> username,
             @ColumnName("password") Optional<String> password,
-            @ColumnName("session_properties") Optional<Map<String, String>> sessionProperties)
+            @ColumnName("session_properties") Optional<Map<String, String>> sessionProperties,
+            @ColumnName("client_tags") Optional<List<String>> clientTags,
+            @ColumnName("partitions") Optional<List<String>> partitions)
+    {
+        this(catalog, schema, username, password, sessionProperties, clientTags.filter(tags -> tags.contains(CLIENT_TAG_OUTPUT_RETAINED)).isPresent(), partitions);
+    }
+
+    public QueryConfiguration(
+            String catalog,
+            String schema,
+            Optional<String> username,
+            Optional<String> password,
+            Optional<Map<String, String>> sessionProperties,
+            boolean isReusableTable,
+            Optional<List<String>> partitions)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.username = requireNonNull(username, "username is null");
         this.password = requireNonNull(password, "password is null");
         this.sessionProperties = ImmutableMap.copyOf(sessionProperties.orElse(ImmutableMap.of()));
+        this.isReusableTable = isReusableTable;
+        this.partitions = ImmutableList.copyOf(partitions.orElse(ImmutableList.of()));
     }
 
     public QueryConfiguration applyOverrides(QueryConfigurationOverrides overrides)
@@ -68,7 +89,9 @@ public class QueryConfiguration
                 overrides.getSchemaOverride().orElse(schema),
                 Optional.ofNullable(overrides.getUsernameOverride().orElse(username.orElse(null))),
                 Optional.ofNullable(overrides.getPasswordOverride().orElse(password.orElse(null))),
-                Optional.of(sessionProperties));
+                Optional.of(sessionProperties),
+                isReusableTable,
+                Optional.of(partitions));
     }
 
     public String getCatalog()
@@ -96,6 +119,16 @@ public class QueryConfiguration
         return sessionProperties;
     }
 
+    public boolean isReusableTable()
+    {
+        return isReusableTable;
+    }
+
+    public List<String> getPartitions()
+    {
+        return partitions;
+    }
+
     @Override
     public boolean equals(Object obj)
     {
@@ -110,13 +143,15 @@ public class QueryConfiguration
                 Objects.equals(schema, o.schema) &&
                 Objects.equals(username, o.username) &&
                 Objects.equals(password, o.password) &&
-                Objects.equals(sessionProperties, o.sessionProperties);
+                Objects.equals(sessionProperties, o.sessionProperties) &&
+                isReusableTable == o.isReusableTable &&
+                Objects.equals(partitions, partitions);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalog, schema, username, password, sessionProperties);
+        return Objects.hash(catalog, schema, username, password, sessionProperties, isReusableTable, partitions);
     }
 
     @Override
@@ -128,6 +163,8 @@ public class QueryConfiguration
                 .add("username", username)
                 .add("password", password)
                 .add("sessionProperties", sessionProperties)
+                .add("isReusableTable", isReusableTable)
+                .add("partitions", partitions)
                 .toString();
     }
 }

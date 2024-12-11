@@ -372,33 +372,14 @@ class StageOperatorGraph extends React.Component {
             document.getElementById('operator-detail'));
     }
 
-    computeOperatorGraphs(planNode, operatorMap) {
-        const sources = getChildren(planNode);
-
-        const sourceResults = new Map();
-        sources.forEach(source => {
-            const sourceResult = this.computeOperatorGraphs(source, operatorMap);
-            sourceResult.forEach((operator, pipelineId) => {
-                if (sourceResults.has(pipelineId)) {
-                    console.error("Multiple sources for ", planNode['@type'], " had the same pipeline ID");
-                    return sourceResults;
-                }
-                sourceResults.set(pipelineId, operator);
-            });
-        });
-
-        let nodeOperators = operatorMap.get(planNode.id);
-        if (!nodeOperators || nodeOperators.length === 0) {
-            return sourceResults;
-        }
-
+    computeOperatorGraphs() {
         const pipelineOperators = new Map();
-        nodeOperators.forEach(operator => {
+        this.props.stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
             if (!pipelineOperators.has(operator.pipelineId)) {
                 pipelineOperators.set(operator.pipelineId, []);
             }
             pipelineOperators.get(operator.pipelineId).push(operator);
-        });
+         });
 
         const result = new Map();
         pipelineOperators.forEach((pipelineOperators, pipelineId) => {
@@ -406,13 +387,6 @@ class StageOperatorGraph extends React.Component {
             const linkedOperators = pipelineOperators.map(a => Object.assign({}, a)).sort((a, b) => a.operatorId - b.operatorId);
             const sinkOperator = linkedOperators[linkedOperators.length - 1];
             const sourceOperator = linkedOperators[0];
-
-            if (sourceResults.has(pipelineId)) {
-                const pipelineChildResult = sourceResults.get(pipelineId);
-                if (pipelineChildResult) {
-                    sourceOperator.child = pipelineChildResult;
-                }
-            }
 
             // chain operators at this level
             let currentOperator = sourceOperator;
@@ -424,26 +398,7 @@ class StageOperatorGraph extends React.Component {
             result.set(pipelineId, sinkOperator);
         });
 
-        sourceResults.forEach((operator, pipelineId) => {
-            if (!result.has(pipelineId)) {
-                result.set(pipelineId, operator);
-            }
-        });
-
         return result;
-    }
-
-    computeOperatorMap() {
-        const operatorMap = new Map();
-        this.props.stage.latestAttemptExecutionInfo.stats.operatorSummaries.forEach(operator => {
-            if (!operatorMap.has(operator.planNodeId)) {
-                operatorMap.set(operator.planNodeId, [])
-            }
-
-            operatorMap.get(operator.planNodeId).push(operator);
-        });
-
-        return operatorMap;
     }
 
     computeD3StageOperatorGraph(graph, operator, sink, pipelineNode) {
@@ -469,9 +424,7 @@ class StageOperatorGraph extends React.Component {
             return;
         }
 
-        const stage = this.props.stage;
-        const operatorMap = this.computeOperatorMap();
-        const operatorGraphs = this.computeOperatorGraphs(stage.plan.root, operatorMap);
+        const operatorGraphs = this.computeOperatorGraphs();
 
         const graph = initializeGraph();
         operatorGraphs.forEach((operator, pipelineId) => {

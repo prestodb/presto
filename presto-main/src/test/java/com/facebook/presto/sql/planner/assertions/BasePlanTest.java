@@ -27,6 +27,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -90,7 +91,7 @@ public class BasePlanTest
         return objectMapper;
     }
 
-    private static ObjectMapper createObjectMapper()
+    protected static ObjectMapper createObjectMapper()
     {
         TestingTypeManager typeManager = new TestingTypeManager();
         TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
@@ -111,7 +112,7 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
+        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
@@ -153,9 +154,9 @@ public class BasePlanTest
         assertPlan(sql, session, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(true));
     }
 
-    protected void assertPlan(String sql, Session session, PlanMatchPattern pattern, boolean forceSingleNode)
+    protected void assertPlan(String sql, Session session, PlanMatchPattern pattern, boolean noExchange)
     {
-        assertPlan(sql, session, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(forceSingleNode));
+        assertPlan(sql, session, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, pattern, queryRunner.getPlanOptimizers(noExchange));
     }
 
     protected void assertPlan(String sql, Optimizer.PlanStage stage, PlanMatchPattern pattern)
@@ -247,29 +248,29 @@ public class BasePlanTest
         assertPlanDoesNotMatch(sql, queryRunner.getDefaultSession(), Optimizer.PlanStage.OPTIMIZED, pattern, optimizers);
     }
 
-    protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
+    protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean noExchange, PlanMatchPattern pattern)
     {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, noExchange, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });
     }
 
-    protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern, Consumer<Plan> planValidator)
+    protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean noExchange, PlanMatchPattern pattern, Consumer<Plan> planValidator)
     {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, noExchange, WarningCollector.NOOP);
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             planValidator.accept(actualPlan);
             return null;
         });
     }
 
-    protected void assertPlanValidatorWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, Consumer<Plan> planValidator)
+    protected void assertPlanValidatorWithSession(@Language("SQL") String sql, Session session, boolean noExchange, Consumer<Plan> planValidator)
     {
         queryRunner.inTransaction(session, transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, forceSingleNode, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED, noExchange, WarningCollector.NOOP);
             planValidator.accept(actualPlan);
             return null;
         });
@@ -308,10 +309,15 @@ public class BasePlanTest
         return plan(sql, stage, true);
     }
 
-    protected Plan plan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode)
+    protected Plan plan(String sql, Optimizer.PlanStage stage, boolean noExchange)
+    {
+        return plan(queryRunner.getDefaultSession(), sql, stage, noExchange);
+    }
+
+    protected Plan plan(Session session, String sql, Optimizer.PlanStage stage, boolean noExchange)
     {
         try {
-            return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
+            return queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, noExchange, WarningCollector.NOOP));
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
@@ -323,27 +329,27 @@ public class BasePlanTest
         return plan(sql, stage, true, session);
     }
 
-    protected Plan plan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode, Session session)
+    protected Plan plan(String sql, Optimizer.PlanStage stage, boolean noExchange, Session session)
     {
         try {
-            return queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP));
+            return queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql, stage, noExchange, WarningCollector.NOOP));
         }
         catch (RuntimeException e) {
             throw new AssertionError("Planning failed for SQL: " + sql, e);
         }
     }
 
-    protected SubPlan subplan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode)
+    protected SubPlan subplan(String sql, Optimizer.PlanStage stage, boolean noExchange)
     {
-        return subplan(sql, stage, forceSingleNode, getQueryRunner().getDefaultSession());
+        return subplan(sql, stage, noExchange, getQueryRunner().getDefaultSession());
     }
 
-    protected SubPlan subplan(String sql, Optimizer.PlanStage stage, boolean forceSingleNode, Session session)
+    protected SubPlan subplan(String sql, Optimizer.PlanStage stage, boolean noExchange, Session session)
     {
         try {
             return queryRunner.inTransaction(session, transactionSession -> {
-                Plan plan = queryRunner.createPlan(transactionSession, sql, stage, forceSingleNode, WarningCollector.NOOP);
-                return queryRunner.createSubPlans(transactionSession, plan, forceSingleNode);
+                Plan plan = queryRunner.createPlan(transactionSession, sql, stage, noExchange, WarningCollector.NOOP);
+                return queryRunner.createSubPlans(transactionSession, plan, noExchange);
             });
         }
         catch (RuntimeException e) {

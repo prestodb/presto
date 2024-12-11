@@ -72,6 +72,7 @@ public class TestQueryManagerConfig
                 .setRequiredWorkersMaxWait(new Duration(5, TimeUnit.MINUTES))
                 .setRequiredCoordinators(1)
                 .setRequiredCoordinatorsMaxWait(new Duration(5, TimeUnit.MINUTES))
+                .setRequiredCoordinatorSidecarsMaxWait(new Duration(5, TimeUnit.MINUTES))
                 .setRequiredResourceManagers(1)
                 .setQuerySubmissionMaxThreads(Runtime.getRuntime().availableProcessors() * 2)
                 .setUseStreamingExchangeForMarkDistinct(false)
@@ -80,10 +81,10 @@ public class TestQueryManagerConfig
                 .setGlobalQueryRetryFailureLimit(150)
                 .setGlobalQueryRetryFailureWindow(new Duration(5, MINUTES))
                 .setRateLimiterBucketMaxSize(100)
-                .setCteHashPartitionCount(100)
                 .setRateLimiterCacheLimit(1000)
                 .setRateLimiterCacheWindowMinutes(5)
-                .setEnableWorkerIsolation(false));
+                .setEnableWorkerIsolation(false)
+                .setMinColumnarEncodingChannelsToPreferRowWiseEncoding(1000));
     }
 
     @Test
@@ -125,6 +126,7 @@ public class TestQueryManagerConfig
                 .put("query-manager.required-workers-max-wait", "33m")
                 .put("query-manager.experimental.required-coordinators", "999")
                 .put("query-manager.experimental.required-coordinators-max-wait", "99m")
+                .put("query-manager.experimental.required-coordinator-sidecars-max-wait", "99m")
                 .put("query-manager.experimental.required-resource-managers", "9")
                 .put("query-manager.experimental.query-submission-max-threads", "5")
                 .put("per-query-retry-limit", "10")
@@ -134,10 +136,9 @@ public class TestQueryManagerConfig
                 .put("query-manager.rate-limiter-bucket-max-size", "200")
                 .put("query-manager.rate-limiter-cache-limit", "10000")
                 .put("query-manager.rate-limiter-cache-window-minutes", "60")
-                .put("query.cte-hash-partition-count", "128")
                 .put("query.cte-partitioning-provider-catalog", "hive")
                 .put("query-manager.enable-worker-isolation", "true")
-
+                .put("min-columnar-encoding-channels-to-prefer-row-wise-encoding", "123")
                 .build();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -176,6 +177,7 @@ public class TestQueryManagerConfig
                 .setRequiredWorkersMaxWait(new Duration(33, TimeUnit.MINUTES))
                 .setRequiredCoordinators(999)
                 .setRequiredCoordinatorsMaxWait(new Duration(99, TimeUnit.MINUTES))
+                .setRequiredCoordinatorSidecarsMaxWait(new Duration(99, TimeUnit.MINUTES))
                 .setRequiredResourceManagers(9)
                 .setQuerySubmissionMaxThreads(5)
                 .setUseStreamingExchangeForMarkDistinct(true)
@@ -186,9 +188,9 @@ public class TestQueryManagerConfig
                 .setRateLimiterBucketMaxSize(200)
                 .setRateLimiterCacheLimit(10000)
                 .setRateLimiterCacheWindowMinutes(60)
-                .setCteHashPartitionCount(128)
                 .setCtePartitioningProviderCatalog("hive")
-                .setEnableWorkerIsolation(true);
+                .setEnableWorkerIsolation(true)
+                .setMinColumnarEncodingChannelsToPreferRowWiseEncoding(123);
         ConfigAssertions.assertFullMapping(properties, expected);
     }
 }
