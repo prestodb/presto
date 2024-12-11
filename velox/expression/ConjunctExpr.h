@@ -21,6 +21,9 @@
 
 namespace facebook::velox::exec {
 
+constexpr const char* kAnd = "and";
+constexpr const char* kOr = "or";
+
 class ConjunctExpr : public SpecialForm {
  public:
   ConjunctExpr(
@@ -31,7 +34,7 @@ class ConjunctExpr : public SpecialForm {
       : SpecialForm(
             std::move(type),
             std::move(inputs),
-            isAnd ? "and" : "or",
+            isAnd ? kAnd : kOr,
             inputsSupportFlatNoNullsFastPath,
             false /* trackCpuUsage */),
         isAnd_(isAnd) {

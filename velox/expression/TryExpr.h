@@ -20,6 +20,8 @@
 
 namespace facebook::velox::exec {
 
+constexpr const char* kTry = "try";
+
 class TryExpr : public SpecialForm {
  public:
   /// Try expression adds nulls, hence, doesn't support flat-no-nulls fast path.
@@ -27,7 +29,7 @@ class TryExpr : public SpecialForm {
       : SpecialForm(
             std::move(type),
             {std::move(input)},
-            "try",
+            kTry,
             false /* supportsFlatNoNullsFastPath */,
             false /* trackCpuUsage */) {}
 

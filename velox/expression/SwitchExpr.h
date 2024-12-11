@@ -20,6 +20,9 @@
 
 namespace facebook::velox::exec {
 
+constexpr const char* kIf = "if";
+constexpr const char* kSwitch = "switch";
+
 /// CASE expression:
 ///
 /// case

@@ -29,21 +29,21 @@
 namespace facebook::velox::exec {
 void registerFunctionCallToSpecialForms() {
   registerFunctionCallToSpecialForm(
-      "and", std::make_unique<ConjunctCallToSpecialForm>(true /* isAnd */));
+      kAnd, std::make_unique<ConjunctCallToSpecialForm>(true /* isAnd */));
   registerFunctionCallToSpecialForm(
-      "cast", std::make_unique<CastCallToSpecialForm>());
+      kCast.str(), std::make_unique<CastCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
-      "try_cast", std::make_unique<TryCastCallToSpecialForm>());
+      kTryCast.str(), std::make_unique<TryCastCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
-      "coalesce", std::make_unique<CoalesceCallToSpecialForm>());
+      kCoalesce, std::make_unique<CoalesceCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
-      "if", std::make_unique<IfCallToSpecialForm>());
+      kIf, std::make_unique<IfCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
-      "or", std::make_unique<ConjunctCallToSpecialForm>(false /* isAnd */));
+      kOr, std::make_unique<ConjunctCallToSpecialForm>(false /* isAnd */));
   registerFunctionCallToSpecialForm(
-      "switch", std::make_unique<SwitchCallToSpecialForm>());
+      kSwitch, std::make_unique<SwitchCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
-      "try", std::make_unique<TryCallToSpecialForm>());
+      kTry, std::make_unique<TryCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
       RowConstructorCallToSpecialForm::kRowConstructor,
       std::make_unique<RowConstructorCallToSpecialForm>());
