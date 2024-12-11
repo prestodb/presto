@@ -638,18 +638,6 @@ std::optional<std::string> PrestoQueryRunner::toSql(
 
 std::optional<std::string> PrestoQueryRunner::toSql(
     const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode) {
-  const auto& joinKeysToSql = [](auto keys) {
-    std::stringstream out;
-    for (auto i = 0; i < keys.size(); ++i) {
-      if (i > 0) {
-        out << ", ";
-      }
-      out << keys[i]->name();
-    }
-    return out.str();
-  };
-
-  const auto& outputNames = joinNode->outputType()->names();
   std::stringstream sql;
 
   // Nested loop join without filter.

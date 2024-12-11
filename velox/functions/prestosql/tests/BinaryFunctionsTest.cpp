@@ -300,13 +300,6 @@ TEST_F(BinaryFunctionsTest, xxhash64) {
     return evaluateOnce<std::string>("xxhash64(c0)", VARBINARY(), value);
   };
 
-  const auto toVarbinary = [](const int64_t input) {
-    std::string out;
-    out.resize(sizeof(input));
-    std::memcpy(out.data(), &input, sizeof(input));
-    return out;
-  };
-
   EXPECT_EQ(hexToDec("EF46DB3751D8E999"), xxhash64(""));
   EXPECT_EQ(std::nullopt, xxhash64(std::nullopt));
 

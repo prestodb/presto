@@ -136,7 +136,6 @@ class SerializerBenchmark : public VectorTestBase {
     for (auto bits : bitsValues) {
       for (auto nullIdx = 0; nullIdx < nullPctValues.size(); ++nullIdx) {
         for (auto selIdx = 0; selIdx < numSelectedValues.size(); ++selIdx) {
-          int32_t numRepeat = 10 / numSelectedValues[selIdx];
           cases.push_back(runCase(nullIdx, selIdx, bits));
         }
       }

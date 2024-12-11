@@ -1873,7 +1873,6 @@ int64_t generateRangeWithCustomLimits(
   // Generate the range such that we have similar amounts of values generated
   // for each exponent.
   double center = size % 2 ? -0.5 : interval / 2 - 0.5;
-  double value = center + (i - size / 2) * interval;
   // Return a guard-railed value with the numeric limits.
   // NOTE: There can be a more compact way to write this if we cast i and size
   // to signed types, but it's not worth the effort enforcing the assumptions.

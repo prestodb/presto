@@ -144,7 +144,6 @@ class MemoryPoolTest : public testing::TestWithParam<TestParam> {
 };
 
 TEST_P(MemoryPoolTest, ctor) {
-  constexpr uint16_t kAlignment = 64;
   setupMemory({.alignment = 64, .allocatorCapacity = kDefaultCapacity});
   MemoryManager& manager = *getMemoryManager();
   const int64_t capacity = 4 * GB;
@@ -690,7 +689,6 @@ TEST_P(MemoryPoolTest, alignmentCheck) {
     ASSERT_EQ(
         pool->alignment(),
         alignment == 0 ? MemoryAllocator::kMinAlignment : alignment);
-    const int32_t kTestIterations = 10;
     for (int32_t i = 0; i < 10; ++i) {
       const int64_t bytesToAlloc = 1 + folly::Random::rand32() % (1 * MB);
       void* ptr = pool->allocate(bytesToAlloc);
@@ -1028,11 +1026,6 @@ TEST_P(MemoryPoolTest, contiguousAllocate) {
       ASSERT_GE(numAllocatedPages, 0);
       allocations.erase(allocations.begin() + freeAllocationIdx);
     }
-    const MachinePageCount minSizeClass = folly::Random().oneIn(4)
-        ? 0
-        : std::min(
-              manager->allocator()->largestSizeClass(),
-              folly::Random().rand32() % kMaxAllocationPages);
     pool->allocateContiguous(pagesToAllocate, allocation);
     numAllocatedPages += allocation.numPages();
     for (int32_t j = 0; j < allocation.size(); ++j) {
@@ -1082,7 +1075,6 @@ TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
 TEST_P(MemoryPoolTest, badContiguousAllocation) {
   auto manager = getMemoryManager();
   auto pool = manager->addLeafPool("badContiguousAllocation");
-  constexpr MachinePageCount kAllocSize = 8;
   ContiguousAllocation allocation;
   ASSERT_THROW(pool->allocateContiguous(0, allocation), VeloxRuntimeError);
 }
@@ -2500,7 +2492,6 @@ TEST_P(MemoryPoolTest, concurrentUpdateToSharedPools) {
 TEST_P(MemoryPoolTest, concurrentPoolStructureAccess) {
   folly::Random::DefaultGenerator rng;
   rng.seed(1234);
-  constexpr int64_t kMaxMemory = 8 * GB;
   MemoryManager& manager = *getMemoryManager();
   auto root = manager.addRootPool();
   std::atomic<int64_t> poolId{0};
@@ -2665,7 +2656,6 @@ TEST(MemoryPoolTest, debugMode) {
 
 TEST(MemoryPoolTest, debugModeWithFilter) {
   constexpr int64_t kMaxMemory = 10 * GB;
-  constexpr int64_t kNumIterations = 100;
   const std::vector<int64_t> kAllocSizes = {128, 8 * KB, 2 * MB};
   const std::vector<bool> debugEnabledSet{true, false};
   for (const auto& debugEnabled : debugEnabledSet) {

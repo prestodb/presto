@@ -554,7 +554,6 @@ TEST_F(MemoryManagerTest, concurrentPoolAccess) {
   std::atomic<bool> stopCheck{false};
   std::thread checkThread([&]() {
     while (!stopCheck) {
-      const int numPools = manager.numPools();
       std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
   });
