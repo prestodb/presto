@@ -232,7 +232,6 @@ TEST_F(IndexedPriorityQueueTest, remove) {
 }
 
 TEST_F(IndexedPriorityQueueTest, fuzz) {
-  const int numIterations{1000};
   std::mt19937 rng{100};
   IndexedPriorityQueue<uint32_t, true> maxQueue;
   fuzz<uint32_t, true>(maxQueue, 1'000, rng);

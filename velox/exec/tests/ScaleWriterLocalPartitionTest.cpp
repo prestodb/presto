@@ -690,7 +690,6 @@ TEST_F(ScaleWriterLocalPartitionTest, unpartitionBasic) {
 TEST_F(ScaleWriterLocalPartitionTest, unpartitionFuzzer) {
   const std::vector<RowVectorPtr> inputVectors = makeVectors(256, 512);
   const uint64_t queryCapacity = 256 << 20;
-  const uint32_t maxDrivers = 32;
   const uint32_t maxExchanegBufferSize = 2 << 20;
 
   for (bool fastConsumer : {false, true}) {
@@ -914,7 +913,6 @@ TEST_F(ScaleWriterLocalPartitionTest, partitionFuzzer) {
   const std::vector<RowVectorPtr> inputVectors =
       makeVectors(1024, 256, {1, 2, 3, 4, 5, 6, 7, 8});
   const uint64_t queryCapacity = 256 << 20;
-  const uint32_t maxDrivers = 32;
   const uint32_t maxExchanegBufferSize = 2 << 20;
 
   for (bool fastConsumer : {false, true}) {

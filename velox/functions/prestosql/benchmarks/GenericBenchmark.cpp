@@ -120,9 +120,6 @@ int main(int argc, char** argv) {
   facebook::velox::registerFunction<TypedArraySum, int64_t, Array<int64_t>>(
       {"typed_sum"});
 
-  auto* pool = benchmarkBuilder.pool();
-  auto& vm = benchmarkBuilder.vectorMaker();
-
   benchmarkBuilder
       .addBenchmarkSet(
           fmt::format("array_sum"),

@@ -83,7 +83,6 @@ class LocalRunnerTest : public LocalRunnerTestBase {
   MultiFragmentPlanPtr makeScanPlan(const std::string& id, int32_t numWorkers) {
     MultiFragmentPlan::Options options = {
         .queryId = id, .numWorkers = numWorkers, .numDrivers = 2};
-    const int32_t width = 3;
 
     DistributedPlanBuilder rootBuilder(options, idGenerator_, pool_.get());
     rootBuilder.tableScan("T", rowType_);

@@ -171,7 +171,6 @@ TEST_F(SimdUtilTest, gather32) {
 
 TEST_F(SimdUtilTest, gather64) {
   int32_t indices4[4] = {3, 2, 1, 0};
-  int32_t indices3[4] = {3, 2, 1, 1 << 31};
   int64_t data[4] = {44, 55, 66, 77};
   constexpr int kBatchSize = xsimd::batch<int64_t>::size;
   const int32_t* indices = indices4 + (4 - kBatchSize);

@@ -38,9 +38,6 @@ int main(int argc, char** argv) {
   options.vectorSize = 1'000;
   options.nullRatio = 0.01;
 
-  auto* pool = benchmarkBuilder.pool();
-  auto& vm = benchmarkBuilder.vectorMaker();
-
   // Compare regexp_replace with fixed and lambda replacement.
   benchmarkBuilder.addBenchmarkSet("lambda_one_group", ROW({"c0"}, {VARCHAR()}))
       .withFuzzerOptions(options)

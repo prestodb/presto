@@ -545,7 +545,6 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::RelRoot& root) {
   // TODO: Use the names as the output names for the whole computing.
-  const auto& names = root.names();
   if (root.has_input()) {
     const auto& rel = root.input();
     return toVeloxPlan(rel);

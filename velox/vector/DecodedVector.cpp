@@ -442,7 +442,7 @@ const uint64_t* DecodedVector::nulls(const SelectivityVector* rows) {
         // end but not greater.
         VELOX_CHECK_LE(rows->end(), size_);
       }
-      auto baseSize = baseVector_->size();
+      VELOX_DEBUG_ONLY const auto baseSize = baseVector_->size();
       applyToRows(rows, [&](auto i) {
         VELOX_DCHECK_LT(indices_[i], baseSize);
         bits::setNull(rawCopiedNulls, i, bits::isBitNull(nulls_, indices_[i]));
