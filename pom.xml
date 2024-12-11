@@ -2607,6 +2607,10 @@
                             <ignoredClassPattern>javax.inject.*</ignoredClassPattern>
                             <ignoredClassPattern>org.apache.commons.*</ignoredClassPattern>
                         </ignoredClassPatterns>
+                        <ignoredResourcePatterns combine.children="append">
+                            <!-- Ignoring specific duplicate resources -->
+                            <ignoredResourcePattern>com/github/rvesse/airline/core.version</ignoredResourcePattern>
+                        </ignoredResourcePatterns>
                     </configuration>
                 </plugin>
 
