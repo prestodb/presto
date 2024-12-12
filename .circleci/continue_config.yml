@@ -268,6 +268,7 @@ jobs:
                   export PRESTO_SERVER_PATH="${HOME}/project/presto-native-execution/_build/debug/presto_cpp/main/presto_server"
                   export TEMP_PATH="/tmp"
                   TESTFILES=$(circleci tests glob "presto-native-execution/src/test/**/TestPrestoSpark*.java" | circleci tests split --split-by=timings)
+                  echo "TESTFILES=${TESTFILES}"
                   # Convert file paths to comma separated class names
                   export TESTCLASSES=
                   for test_file in $TESTFILES
@@ -277,6 +278,7 @@ jobs:
                     export TESTCLASSES="${TESTCLASSES},$test_class"
                   done
                   export TESTCLASSES=${TESTCLASSES#,}
+                  echo "TESTCLASSES=${TESTCLASSES}"
                   if [ ! -z $TESTCLASSES ]; then
                     mvn test \
                       ${MAVEN_TEST} \
