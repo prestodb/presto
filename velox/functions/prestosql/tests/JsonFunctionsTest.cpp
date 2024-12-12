@@ -280,6 +280,19 @@ TEST_F(JsonFunctionsTest, jsonParse) {
       JSON());
   velox::test::assertEqualVectors(expected, result);
 
+  // ':' are placed below to make parser think its a key and not a value.
+  // when processing the next string.
+  auto svData = {
+      "\"SomeVerylargeStringThatIsUsedAaaBbbService::someSortOfImpressions\""_sv,
+      "\"SomeBusinessClusterImagesSignal::genValue\""_sv,
+      "\"SomeVerylargeStringThatIsUsedAaaBbbCc::Service::someSortOfImpressions\""_sv,
+      "\"SomePreviewUtils::genMediaComponent\""_sv};
+
+  data = makeRowVector({makeFlatVector<StringView>(svData)});
+  expected = makeFlatVector<StringView>(svData, JSON());
+  result = evaluate("json_parse(c0)", data);
+  velox::test::assertEqualVectors(expected, result);
+
   data = makeRowVector({makeConstant(R"("apple")", 2)});
   result = evaluate("json_parse(c0)", data);
   expected = makeFlatVector<StringView>({{R"("apple")", R"("apple")"}}, JSON());

@@ -234,8 +234,13 @@ class JsonParseFunction : public exec::VectorFunction {
               paddedInput_.data(), value.data(), size);
           if (maxSize < size) {
             paddedInput_.resize(size + simdjson::SIMDJSON_PADDING);
+            maxSize = size;
           }
         } else {
+          // We clear out the buffer since SIMDJSON peeks past the size of the
+          // string and can throw if a ':' comes after a '"'.
+          // issue : https://github.com/simdjson/simdjson/issues/2312
+          memset(paddedInput_.data(), 0, paddedInput_.size());
           memcpy(paddedInput_.data(), value.data(), size);
         }
 
@@ -322,7 +327,7 @@ class JsonParseFunction : public exec::VectorFunction {
           // Remove the quotes from the keys before we sort them.
           auto af = std::string_view{a.first.data() + 1, a.first.size() - 2};
           auto bf = std::string_view{b.first.data() + 1, b.first.size() - 2};
-          return lessThan(a.first, b.first);
+          return lessThan(af, bf);
         });
 
         jsonViews.push_back(kObjectStart);
