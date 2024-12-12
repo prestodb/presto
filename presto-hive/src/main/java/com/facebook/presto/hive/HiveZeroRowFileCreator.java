@@ -106,7 +106,7 @@ public class HiveZeroRowFileCreator
             HiveCompressionCodec compressionCodec)
     {
         String tmpDirectoryPath = System.getProperty("java.io.tmpdir");
-        String tmpFileName = format("presto-hive-zero-row-file-creator-%s-%s", session.getQueryId(), randomUUID().toString());
+        String tmpFileName = format("presto-hive-zero-row-file-creator-%s-%s", session.getQueryId(), randomUUID());
         java.nio.file.Path tmpFilePath = Paths.get(tmpDirectoryPath, tmpFileName);
 
         try {
