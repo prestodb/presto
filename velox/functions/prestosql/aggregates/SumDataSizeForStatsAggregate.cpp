@@ -85,7 +85,7 @@ class SumDataSizeForStatsAggregate
           result = checkedPlus(result, value);
         },
         mayPushdown,
-        (int64_t)0);
+        static_cast<int64_t>(0));
   }
 
   void addSingleGroupRawInput(

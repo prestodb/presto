@@ -165,9 +165,9 @@ struct DecimalAddSubtractBase {
     // Adjust fractional parts to higher scale.
     const auto higherScale = std::max(aScale, bScale);
     const auto aFractionScaled =
-        increaseScale((int128_t)aFraction, higherScale - aScale);
+        increaseScale(static_cast<int128_t>(aFraction), higherScale - aScale);
     const auto bFractionScaled =
-        increaseScale((int128_t)bFraction, higherScale - bScale);
+        increaseScale(static_cast<int128_t>(bFraction), higherScale - bScale);
 
     int128_t fraction;
     bool carryToLeft = false;
@@ -205,12 +205,13 @@ struct DecimalAddSubtractBase {
     // Adjust fractional parts to higher scale.
     const auto higherScale = std::max(aScale, bScale);
     const auto aFractionScaled =
-        increaseScale((int128_t)aFraction, higherScale - aScale);
+        increaseScale(static_cast<int128_t>(aFraction), higherScale - aScale);
     const auto bFractionScaled =
-        increaseScale((int128_t)bFraction, higherScale - bScale);
+        increaseScale(static_cast<int128_t>(bFraction), higherScale - bScale);
 
     // No need to consider overflow because two inputs are opposite.
-    int128_t whole = (int128_t)aWhole + (int128_t)bWhole;
+    int128_t whole =
+        static_cast<int128_t>(aWhole) + static_cast<int128_t>(bWhole);
     int128_t fraction = aFractionScaled + bFractionScaled;
 
     // If the whole and fractional parts have different signs, adjust them to

@@ -61,7 +61,8 @@ std::optional<Timestamp> makeTimeStampFromDecodedArgs(
 
   // Micros has at most 8 digits (2 for seconds + 6 for microseconds),
   // thus it's safe to cast micros from int64_t to int32_t.
-  auto localMicros = util::fromTime(hour, minute, 0, (int32_t)micros);
+  auto localMicros =
+      util::fromTime(hour, minute, 0, static_cast<int32_t>(micros));
   return util::fromDatetime(daysSinceEpoch.value(), localMicros);
 }
 

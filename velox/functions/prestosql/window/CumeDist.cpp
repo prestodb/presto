@@ -51,7 +51,7 @@ class CumeDistFunction : public exec::WindowFunction {
       if (peerStart != currentPeerGroupStart_) {
         currentPeerGroupStart_ = peerStart;
         runningTotal_ += peerGroupEndsVector[i] - peerStart + 1;
-        cumeDist_ = double(runningTotal_) / numPartitionRows_;
+        cumeDist_ = static_cast<double>(runningTotal_) / numPartitionRows_;
       }
       rawValues[resultOffset + i] = cumeDist_;
     }

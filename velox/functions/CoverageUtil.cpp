@@ -204,7 +204,8 @@ void printCoverageMap(
   // Split scalar functions into 'numScalarColumns' columns. Put all aggregate
   // functions into one column.
   auto numRows = std::max(
-      {(size_t)std::ceil((double)scalarCnt / numScalarColumns),
+      {static_cast<size_t>(
+           std::ceil(static_cast<double>(scalarCnt) / numScalarColumns)),
        aggCnt,
        windowCnt});
 
@@ -426,8 +427,8 @@ void printVeloxFunctions(
   auto scalarCnt = scalarNames.size();
   auto aggCnt = aggNames.size();
   auto windowCnt = windowNames.size();
-  auto numRows =
-      std::max({(size_t)std::ceil(scalarCnt / 3.0), aggCnt, windowCnt});
+  auto numRows = std::max(
+      {static_cast<size_t>(std::ceil(scalarCnt / 3.0)), aggCnt, windowCnt});
 
   auto printName = [&](const std::string& name) {
     return linkBlockList.count(name) == 0 ? toFuncLink(name, domain) : name;

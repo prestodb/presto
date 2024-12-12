@@ -74,8 +74,9 @@ class MakeDecimalFunction final : public exec::VectorFunction {
             [&](vector_size_t row) { rawResults[row] = constant; });
       }
     } else {
-      rows.applyToSelected(
-          [&](vector_size_t row) { rawResults[row] = (int128_t)constant; });
+      rows.applyToSelected([&](vector_size_t row) {
+        rawResults[row] = static_cast<int128_t>(constant);
+      });
     }
   }
 
@@ -105,7 +106,7 @@ class MakeDecimalFunction final : public exec::VectorFunction {
       });
     } else {
       rows.applyToSelected([&](vector_size_t row) {
-        rawResults[row] = (int128_t)rawValues[row];
+        rawResults[row] = static_cast<int128_t>(rawValues[row]);
       });
     }
   }

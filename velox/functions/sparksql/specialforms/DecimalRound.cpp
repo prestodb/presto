@@ -31,8 +31,12 @@ class DecimalRoundFunction : public exec::VectorFunction {
       uint8_t resultScale)
       : scale_(
             scale >= 0
-                ? std::min(scale, (int32_t)LongDecimalType::kMaxPrecision)
-                : std::max(scale, -(int32_t)LongDecimalType::kMaxPrecision)),
+                ? std::min(
+                      scale,
+                      static_cast<int32_t>(LongDecimalType::kMaxPrecision))
+                : std::max(
+                      scale,
+                      -static_cast<int32_t>(LongDecimalType::kMaxPrecision))),
         inputPrecision_(inputPrecision),
         inputScale_(inputScale),
         resultPrecision_(resultPrecision),
@@ -54,7 +58,7 @@ class DecimalRoundFunction : public exec::VectorFunction {
       VELOX_USER_CHECK_GT(
           rescale, 0, "A non-negative rescale value is expected.");
       return DecimalUtil::kPowersOfTen[std::min(
-          rescale, (int32_t)LongDecimalType::kMaxPrecision)];
+          rescale, static_cast<int32_t>(LongDecimalType::kMaxPrecision))];
     };
     if (scale_ < 0) {
       divideFactor_ = rescaleFactor(inputScale_ - scale_);
@@ -179,18 +183,23 @@ DecimalRoundCallToSpecialForm::getResultPrecisionScale(
     // rounding, and the result scale is 0.
     const auto newPrecision = std::max(
         integralLeastNumDigits,
-        -std::max(roundScale, -(int32_t)LongDecimalType::kMaxPrecision) + 1);
+        -std::max(
+            roundScale, -static_cast<int32_t>(LongDecimalType::kMaxPrecision)) +
+            1);
     // We have to accept the risk of overflow as we can't exceed the max
     // precision.
-    return {std::min(newPrecision, (int32_t)LongDecimalType::kMaxPrecision), 0};
+    return {
+        std::min(
+            newPrecision, static_cast<int32_t>(LongDecimalType::kMaxPrecision)),
+        0};
   }
-  const uint8_t newScale = std::min((int32_t)scale, roundScale);
+  const uint8_t newScale = std::min(static_cast<int32_t>(scale), roundScale);
   // We have to accept the risk of overflow as we cannot exceed the max
   // precision.
   return {
       std::min(
           integralLeastNumDigits + newScale,
-          (int32_t)LongDecimalType::kMaxPrecision),
+          static_cast<int32_t>(LongDecimalType::kMaxPrecision)),
       newScale};
 }
 

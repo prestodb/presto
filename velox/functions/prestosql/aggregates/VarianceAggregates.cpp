@@ -74,7 +74,8 @@ struct VarianceAccumulator {
     int64_t newCount = countOther + count();
     double delta = meanOther - mean();
     double newMean = mean() + delta / newCount * countOther;
-    m2_ += m2Other + delta * delta * countOther * count() / (double)newCount;
+    m2_ += m2Other +
+        delta * delta * countOther * count() / static_cast<double>(newCount);
     count_ = newCount;
     mean_ = newMean;
   }
@@ -218,7 +219,7 @@ class VarianceAggregate : public exec::Aggregate {
       if (!decodedRaw_.isNullAt(0)) {
         const T value = decodedRaw_.valueAt<T>(0);
         const auto numRows = rows.countSelected();
-        VarianceAccumulator accData(numRows, (double)value);
+        VarianceAccumulator accData(numRows, static_cast<double>(value));
         updateNonNullValue(group, accData);
       }
     } else if (decodedRaw_.mayHaveNulls()) {
@@ -384,7 +385,7 @@ class VarianceAggregate : public exec::Aggregate {
       exec::Aggregate::clearNull(group);
     }
     VarianceAccumulator* thisAccData = accumulator(group);
-    thisAccData->update((double)value);
+    thisAccData->update(static_cast<double>(value));
   }
 
   template <bool tableHasNulls = true>

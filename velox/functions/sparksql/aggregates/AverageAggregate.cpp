@@ -68,7 +68,7 @@ class AverageAggregate
         vector->setNull(i, true);
       } else {
         this->clearNull(rawNulls, i);
-        rawValues[i] = (TResult)sumCount->sum / sumCount->count;
+        rawValues[i] = static_cast<TResult>(sumCount->sum) / sumCount->count;
       }
     }
   }

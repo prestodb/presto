@@ -324,13 +324,17 @@ class ApproxPercentileAggregate : public exec::Aggregate {
         BaseVector::wrapInConstant(numGroups, 0, std::move(array));
     rowResult->childAt(kPercentilesIsArray) =
         std::make_shared<ConstantVector<bool>>(
-            pool, numGroups, false, BOOLEAN(), bool(percentiles_->isArray));
+            pool,
+            numGroups,
+            false,
+            BOOLEAN(),
+            static_cast<bool&&>(percentiles_->isArray));
     rowResult->childAt(kAccuracy) = std::make_shared<ConstantVector<double>>(
         pool,
         numGroups,
         accuracy_ == kMissingNormalizedValue,
         DOUBLE(),
-        double(accuracy_));
+        static_cast<double&&>(accuracy_));
     auto k = rowResult->childAt(kK)->asFlatVector<int32_t>();
     auto n = rowResult->childAt(kN)->asFlatVector<int64_t>();
     auto minValue = rowResult->childAt(kMinValue)->asFlatVector<T>();

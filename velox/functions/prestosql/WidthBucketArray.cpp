@@ -129,7 +129,7 @@ class WidthBucketArrayFunctionConstantBins : public exec::VectorFunction {
     VELOX_USER_CHECK(!std::isnan(operand), "Operand cannot be NaN");
 
     int lower = 0;
-    int upper = (int)bins.size();
+    int upper = static_cast<int>(bins.size());
     while (lower < upper) {
       int index = (lower + upper) / 2;
       auto bin = bins.at(index);

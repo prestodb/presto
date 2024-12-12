@@ -95,7 +95,7 @@ class MaxSizeForStatsAggregate
           result = value;
         },
         mayPushdown,
-        (int64_t)0);
+        static_cast<int64_t>(0));
   }
 
   void addSingleGroupRawInput(
