@@ -1,5 +1,5 @@
 mkdir build && cd build
-../scripts/setup-ubuntu.sh
+../scripts/setup-$1.sh
 ../velox/scripts/setup-adapters.sh
 ../scripts/setup-adapters.sh
 rm -rf build

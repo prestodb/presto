@@ -19,4 +19,4 @@ ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
 COPY velox/scripts /velox/scripts
-RUN /scripts/install_minimal_dependencies.sh
+RUN chmod +x /scripts/install_minimal_dependencies.sh && /scripts/install_minimal_dependencies.sh centos

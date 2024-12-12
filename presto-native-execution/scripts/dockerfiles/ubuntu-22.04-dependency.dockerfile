@@ -28,4 +28,4 @@ COPY scripts /scripts
 COPY velox/scripts /velox/scripts
 # setup-adapters.sh does not install rpm needed for minio install.
 RUN apt install -y rpm
-RUN /scripts/install_minimal_dependencies.sh
+RUN chmod +x /scripts/install_minimal_dependencies.sh && /scripts/install_minimal_dependencies.sh ubuntu
