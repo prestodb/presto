@@ -22,6 +22,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -49,7 +50,13 @@ public class TestMetastoreClientConfig
                 .setPartitionCacheValidationPercentage(0)
                 .setPartitionCacheColumnCountLimit(500)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
-                .setDeleteFilesOnTableDrop(false));
+                .setDeleteFilesOnTableDrop(false)
+                .setDeleteFilesOnTableDrop(false)
+                .setMetastoreTlsEnabled(false)
+                .setMetastoreTlsKeystorePath(null)
+                .setMetastoreTlsKeystorePassword(null)
+                .setMetastoreTlsTruststorePath(null)
+                .setMetastoreTlsTruststorePassword(null));
     }
 
     @Test
@@ -75,6 +82,11 @@ public class TestMetastoreClientConfig
                 .put("hive.partition-cache-column-count-limit", "50")
                 .put("hive.metastore.authentication.type", "KERBEROS")
                 .put("hive.metastore.thrift.delete-files-on-table-drop", "true")
+                .put("hive.metastore.thrift.client.tls.enabled", "true")
+                .put("hive.metastore.thrift.client.tls.keystore.path", "/tmp/keystore")
+                .put("hive.metastore.thrift.client.tls.keystore.password", "tmp-keystore-password")
+                .put("hive.metastore.thrift.client.tls.truststore.path", "/tmp/truststore")
+                .put("hive.metastore.thrift.client.tls.truststore.password", "tmp-truststore-password")
                 .build();
 
         MetastoreClientConfig expected = new MetastoreClientConfig()
@@ -96,7 +108,13 @@ public class TestMetastoreClientConfig
                 .setPartitionCacheValidationPercentage(60.0)
                 .setPartitionCacheColumnCountLimit(50)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
-                .setDeleteFilesOnTableDrop(true);
+                .setDeleteFilesOnTableDrop(true)
+                .setDeleteFilesOnTableDrop(true)
+                .setMetastoreTlsEnabled(true)
+                .setMetastoreTlsKeystorePath(new File("/tmp/keystore"))
+                .setMetastoreTlsKeystorePassword("tmp-keystore-password")
+                .setMetastoreTlsTruststorePath(new File("/tmp/truststore"))
+                .setMetastoreTlsTruststorePassword("tmp-truststore-password");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
