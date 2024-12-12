@@ -29,7 +29,7 @@ jobs:
     # prevent errors when forks ff their main branch
     if: ${{ github.repository == 'facebookincubator/velox' }}
     runs-on: 8-core-ubuntu
-    container: ghcr.io/assignuser/velox-dev:adapters
+    container: ghcr.io/facebookincubator/velox-dev:adapters
     defaults:
       run:
         shell: bash
