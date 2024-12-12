@@ -70,8 +70,7 @@ set(icu_components
     i18n
     io
     uc
-    tu
-    test)
+    tu)
 
 foreach(component ${icu_components})
   add_library(ICU::${component} SHARED IMPORTED)

@@ -427,8 +427,7 @@ velox_resolve_dependency(
   i18n
   io
   uc
-  tu
-  test)
+  tu)
 
 set(BOOST_INCLUDE_LIBRARIES
     atomic
