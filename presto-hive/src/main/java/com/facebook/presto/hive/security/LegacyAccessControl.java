@@ -26,6 +26,7 @@ import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import javax.inject.Inject;
 
@@ -280,5 +281,11 @@ public class LegacyAccessControl
         if (!allowAddConstraint) {
             denyAddConstraint(tableName.toString());
         }
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        return Optional.empty();
     }
 }
