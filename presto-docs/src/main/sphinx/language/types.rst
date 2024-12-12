@@ -28,7 +28,7 @@ Integer
 
 .. note::
 
-    Cast conversion functions allow leading and trailing spaces when casting 
+    Cast conversion functions allow leading and trailing spaces when casting
     a string to ``TINYINT``, ``SMALLINT``, ``INTEGER``, or ``BIGINT``.
 
 ``TINYINT``
@@ -102,9 +102,10 @@ Example literals: ``DECIMAL '10.3'``, ``DECIMAL '1234567890'``, ``1.1``
 
 .. note::
 
-    For compatibility reasons decimal literals without explicit type specifier (e.g. ``1.2``)
-    are treated as values of the ``DOUBLE`` type by default up to version 0.198. 
-    After 0.198 they are parsed as DECIMAL.
+    Decimal literals without explicit type specifier such as ``1.2``
+    are parsed as values of the ``DECIMAL`` type by default.
+    To change the behavior and parse such values as ``DOUBLE`` type set
+    the following property to ``true``:
 
     - System wide property: ``parse-decimal-literals-as-double``
     - Session wide property: ``parse_decimal_literals_as_double``
@@ -115,9 +116,13 @@ String
 ``VARCHAR``
 ^^^^^^^^^^^
 
-Variable length character data with an optional maximum length.
+Variable length character data with an optional maximum length indicating
+the maximum number of characters allowed.
 
 Example type definitions: ``varchar``, ``varchar(20)``.
+
+For ``varchar(20)`` the length value indicates that the string data may
+consist of up to 20 characters.
 
 SQL supports simple and Unicode string literals:
  - Literal string : ``'Hello winter !'``
@@ -144,10 +149,10 @@ equal, but comparison of such values implicitly converts the types to the same
 length and pads with spaces so that the following query returns `true`:
 
 ``SELECT cast('example' AS char(20)) = cast('example    ' AS char(25));``
-    
+
 As with `VARCHAR`, a single quote in a `CHAR`
 literal can be escaped with another single quote:
-    
+
 ``SELECT CHAR 'All right, Mr. DeMille, I''m ready for my close-up.'``
 
 
