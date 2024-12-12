@@ -35,7 +35,7 @@ namespace {
 #define REPORT_IF_NOT_ZERO(name, counter)   \
   do {                                      \
     if ((counter) != 0) {                   \
-      RECORD_METRIC_VALUE((name), (counter)); \
+    RECORD_METRIC_VALUE((name), (counter)); \
     }                                       \
   } while (0)
 } // namespace
