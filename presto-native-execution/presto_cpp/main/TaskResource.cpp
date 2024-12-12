@@ -293,7 +293,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
 
         auto queryCtx =
             taskManager_.getQueryContextManager()->findOrCreateQueryCtx(
-                taskId, updateRequest.session);
+                taskId, updateRequest);
 
         VeloxBatchQueryPlanConverter converter(
             shuffleName,
@@ -332,7 +332,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
 
           queryCtx =
               taskManager_.getQueryContextManager()->findOrCreateQueryCtx(
-                  taskId, updateRequest.session);
+                  taskId, updateRequest);
 
           VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
           planFragment = converter.toVeloxQueryPlan(
