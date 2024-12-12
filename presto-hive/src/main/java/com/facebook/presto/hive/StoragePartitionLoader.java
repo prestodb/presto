@@ -47,6 +47,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,8 @@ public class StoragePartitionLoader
 {
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
+    private final HashMap<Integer, JobConf> jobConfCache = new HashMap<>();
+    private final HashMap<Integer, Configuration> configurationCache = new HashMap<>();
     private final Table table;
     private final Map<Integer, Domain> infoColumnConstraints;
     private final Optional<BucketSplitInfo> tableBucketInfo;
@@ -184,7 +187,8 @@ public class StoragePartitionLoader
             // the splits must be generated using the file system for the target path
             // get the configuration for the target path -- it may be a different hdfs instance
             ExtendedFileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
-            JobConf targetJob = toJobConf(targetFilesystem.getConf());
+            Configuration targetConf = configurationCache.computeIfAbsent(targetFilesystem.hashCode(), ignored -> targetFilesystem.getConf());
+            JobConf targetJob = jobConfCache.computeIfAbsent(targetConf.hashCode(), ignored -> toJobConf(targetConf));
             targetJob.setInputFormat(TextInputFormat.class);
             targetInputFormat.configure(targetJob);
             targetJob.set(SPLIT_MINSIZE, Long.toString(getMaxSplitSize(session).toBytes()));
