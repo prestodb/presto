@@ -665,6 +665,13 @@ bool applyPartitionFilter(
     case TypeKind::BOOLEAN: {
       return applyFilter(*filter, folly::to<bool>(partitionValue));
     }
+    case TypeKind::TIMESTAMP: {
+      auto result = util::fromTimestampString(
+          StringView(partitionValue), util::TimestampParseMode::kPrestoCast);
+      VELOX_CHECK(!result.hasError());
+      result.value().toGMT(Timestamp::defaultTimezone());
+      return applyFilter(*filter, result.value());
+    }
     case TypeKind::VARCHAR: {
       return applyFilter(*filter, partitionValue);
     }

@@ -199,8 +199,20 @@ class TableScanTest : public virtual HiveConnectorTestBase {
                   .endTableScan()
                   .planNode();
 
-    std::string partitionValueStr =
-        partitionValue.has_value() ? "'" + *partitionValue + "'" : "null";
+    std::string partitionValueStr;
+    if (partitionType->isTimestamp() && partitionValue.has_value()) {
+      auto t = util::fromTimestampString(
+                   StringView(*partitionValue),
+                   util::TimestampParseMode::kPrestoCast)
+                   .thenOrThrow(folly::identity, [&](const Status& status) {
+                     VELOX_USER_FAIL("{}", status.message());
+                   });
+      t.toGMT(Timestamp::defaultTimezone());
+      partitionValueStr = "'" + t.toString() + "'";
+    } else {
+      partitionValueStr =
+          partitionValue.has_value() ? "'" + *partitionValue + "'" : "null";
+    }
     assertQuery(
         op, split, fmt::format("SELECT {}, * FROM tmp", partitionValueStr));
 
@@ -1975,6 +1987,58 @@ TEST_F(TableScanTest, partitionedTableDateKey) {
         std::move(assignments));
 
     std::string partitionValueStr = "'" + partitionValue + "'";
+    assertQuery(
+        op, split, fmt::format("SELECT {}, * FROM tmp", partitionValueStr));
+  }
+}
+
+TEST_F(TableScanTest, partitionedTableTimestampKey) {
+  auto rowType = ROW({"c0", "c1"}, {BIGINT(), DOUBLE()});
+  auto vectors = makeVectors(10, 1'000, rowType);
+  auto filePath = TempFilePath::create();
+  writeToFile(filePath->getPath(), vectors);
+  createDuckDbTable(vectors);
+  const std::string partitionValue = "2023-10-27 00:12:35";
+  testPartitionedTable(filePath->getPath(), TIMESTAMP(), partitionValue);
+
+  // Test partition filter on TIMESTAMP column.
+  {
+    auto split = exec::test::HiveConnectorSplitBuilder(filePath->getPath())
+                     .partitionKey("pkey", partitionValue)
+                     .build();
+    auto outputType =
+        ROW({"pkey", "c0", "c1"}, {TIMESTAMP(), BIGINT(), DOUBLE()});
+    ColumnHandleMap assignments = {
+        {"pkey", partitionKey("pkey", TIMESTAMP())},
+        {"c0", regularColumn("c0", BIGINT())},
+        {"c1", regularColumn("c1", DOUBLE())}};
+
+    SubfieldFilters filters;
+    // pkey = 2023-10-27 00:12:35.
+    auto lower = util::fromTimestampString(
+                     StringView("2023-10-27 00:12:35"),
+                     util::TimestampParseMode::kPrestoCast)
+                     .value();
+    lower.toGMT(Timestamp::defaultTimezone());
+    filters[common::Subfield("pkey")] =
+        std::make_unique<common::TimestampRange>(lower, lower, false);
+
+    auto tableHandle = std::make_shared<HiveTableHandle>(
+        "test-hive", "hive_table", true, std::move(filters), nullptr, nullptr);
+    auto op = std::make_shared<TableScanNode>(
+        "0",
+        std::move(outputType),
+        std::move(tableHandle),
+        std::move(assignments));
+
+    auto t =
+        util::fromTimestampString(
+            StringView(partitionValue), util::TimestampParseMode::kPrestoCast)
+            .thenOrThrow(folly::identity, [&](const Status& status) {
+              VELOX_USER_FAIL("{}", status.message());
+            });
+    t.toGMT(Timestamp::defaultTimezone());
+    std::string partitionValueStr = "'" + t.toString() + "'";
     assertQuery(
         op, split, fmt::format("SELECT {}, * FROM tmp", partitionValueStr));
   }
