@@ -142,4 +142,15 @@ public class QueryAssertions
     {
         runner.close();
     }
+
+    protected void executeExclusively(Runnable executionBlock)
+    {
+        runner.getExclusiveLock().lock();
+        try {
+            executionBlock.run();
+        }
+        finally {
+            runner.getExclusiveLock().unlock();
+        }
+    }
 }
