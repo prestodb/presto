@@ -39,6 +39,10 @@ import org.joda.time.format.PeriodParser;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.time.format.SignStyle;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -78,6 +82,7 @@ public final class DateTimeUtils
     private static final DateTimeFormatter TIMESTAMP_WITHOUT_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER;
     private static final DateTimeFormatter TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER;
+    private static final java.time.format.DateTimeFormatter TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER;
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -135,6 +140,33 @@ public final class DateTimeUtils
                 .append(timestampWithTimeZonePrinter, timestampWithOrWithoutTimeZoneParser)
                 .toFormatter()
                 .withOffsetParsed();
+
+        TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER = new java.time.format.DateTimeFormatterBuilder()
+                .appendValue(ChronoField.YEAR_OF_ERA, 3, 19, SignStyle.NORMAL)
+                .appendLiteral("-")
+                .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NORMAL)
+                .appendLiteral("-")
+                .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NORMAL)
+                .optionalStart()
+                .appendLiteral(" ")
+                .appendValue(ChronoField.HOUR_OF_DAY, 2)
+                .appendLiteral(":")
+                .appendValue(ChronoField.MINUTE_OF_HOUR, 2)
+                .optionalStart()
+                .appendLiteral(":")
+                .appendValue(ChronoField.SECOND_OF_MINUTE, 2)
+                .optionalStart()
+                .appendLiteral(".")
+                .appendValue(ChronoField.MICRO_OF_SECOND, 1, 9, SignStyle.NORMAL)
+                .optionalEnd()
+                .optionalStart()
+                .appendLiteral(" ")
+                .optionalEnd()
+                .optionalStart()
+                .appendZoneOrOffsetId()
+                .optionalEnd()
+                .optionalEnd()
+                .toFormatter();
     }
 
     /**
@@ -218,6 +250,24 @@ public final class DateTimeUtils
      */
     public static long parseTimestampWithoutTimeZone(String value)
     {
+        try {
+            return java.time.LocalDateTime.parse(value, TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER).atZone(ZoneId.of(TimeZoneKey.UTC_KEY.getId())).toInstant().toEpochMilli();
+        }
+        catch (DateTimeParseException e) {
+            try {
+                return java.time.LocalDate.parse(value, TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER).atStartOfDay().atZone(ZoneId.of(TimeZoneKey.UTC_KEY.getId())).toInstant().toEpochMilli();
+            }
+            catch (Exception f) {
+                throw new RuntimeException(e);
+            }
+        }
+        catch (ArithmeticException e) {
+            throw new ArithmeticException("timestamp could not be converted to epoch milliseconds due to numeric overflow");
+        }
+    }
+
+    public static long parseTimestampWithoutTimeZoneOld(String value)
+    {
         LocalDateTime localDateTime = TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.parseLocalDateTime(value);
         try {
             return (long) getLocalMillis.invokeExact(localDateTime);
@@ -226,7 +276,6 @@ public final class DateTimeUtils
             throw new RuntimeException(e);
         }
     }
-
     /**
      * Parse a string (optionally containing a zone) as a value of TIMESTAMP type.
      * If the string doesn't specify a zone, it is interpreted in {@code timeZoneKey} zone.
@@ -236,7 +285,12 @@ public final class DateTimeUtils
     @Deprecated
     public static long parseTimestampWithoutTimeZone(TimeZoneKey timeZoneKey, String value)
     {
-        return TIMESTAMP_WITH_OR_WITHOUT_TIME_ZONE_FORMATTER.withChronology(getChronology(timeZoneKey)).parseMillis(value);
+        try {
+            return java.time.LocalDateTime.parse(value, TIMESTAMP_OPTIONAL_TIMEZONE_FORMATTER).atZone(ZoneId.of(timeZoneKey.getId())).toInstant().toEpochMilli();
+        }
+        catch (ArithmeticException e) {
+            throw new ArithmeticException("timestamp could not be converted to epoch milliseconds due to numeric overflow");
+        }
     }
 
     public static String printTimestampWithTimeZone(long timestampWithTimeZone)
