@@ -38,6 +38,7 @@ import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionT
 import com.facebook.presto.sql.planner.iterative.rule.DetermineRemotePartitionedExchangeEncoding;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
+import com.facebook.presto.sql.planner.iterative.rule.EvaluateArbitraryNull;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
@@ -381,6 +382,12 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new EvaluateZeroLimit())),
+                new IterativeOptimizer(
+                        metadata,
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        ImmutableSet.of(new EvaluateArbitraryNull())),
                 new IterativeOptimizer(
                         metadata,
                         ruleStats,
