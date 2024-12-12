@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.RuntimeStats;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,6 +30,7 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class StatementStats
 {
     private final String state;
@@ -53,6 +57,7 @@ public class StatementStats
     private final RuntimeStats runtimeStats;
 
     @JsonCreator
+    @ThriftConstructor
     public StatementStats(
             @JsonProperty("state") String state,
             @JsonProperty("waitingForPrerequisites") boolean waitingForPrerequisites,
@@ -102,121 +107,148 @@ public class StatementStats
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getState()
     {
         return state;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public boolean isWaitingForPrerequisites()
     {
         return waitingForPrerequisites;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public boolean isQueued()
     {
         return queued;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public boolean isScheduled()
     {
         return scheduled;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public int getNodes()
     {
         return nodes;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public int getTotalSplits()
     {
         return totalSplits;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public int getQueuedSplits()
     {
         return queuedSplits;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public int getRunningSplits()
     {
         return runningSplits;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public int getCompletedSplits()
     {
         return completedSplits;
     }
 
     @JsonProperty
+    @ThriftField(10)
     public long getCpuTimeMillis()
     {
         return cpuTimeMillis;
     }
 
     @JsonProperty
+    @ThriftField(11)
     public long getWallTimeMillis()
     {
         return wallTimeMillis;
     }
 
     @JsonProperty
+    @ThriftField(12)
     public long getWaitingForPrerequisitesTimeMillis()
     {
         return waitingForPrerequisitesTimeMillis;
     }
 
     @JsonProperty
+    @ThriftField(13)
     public long getQueuedTimeMillis()
     {
         return queuedTimeMillis;
     }
 
     @JsonProperty
+    @ThriftField(14)
     public long getElapsedTimeMillis()
     {
         return elapsedTimeMillis;
     }
 
     @JsonProperty
+    @ThriftField(15)
     public long getProcessedRows()
     {
         return processedRows;
     }
 
     @JsonProperty
+    @ThriftField(16)
     public long getProcessedBytes()
     {
         return processedBytes;
     }
 
     @JsonProperty
+    @ThriftField(17)
     public long getPeakMemoryBytes()
     {
         return peakMemoryBytes;
     }
 
     @JsonProperty
+    @ThriftField(18)
     public long getPeakTotalMemoryBytes()
     {
         return peakTotalMemoryBytes;
     }
 
     @JsonProperty
+    @ThriftField(19)
     public long getPeakTaskTotalMemoryBytes()
     {
         return peakTaskTotalMemoryBytes;
     }
 
+    @JsonProperty
+    @ThriftField(20)
+    public long getSpilledBytes()
+    {
+        return spilledBytes;
+    }
+
     @Nullable
     @JsonProperty
+    @ThriftField(21)
     public StageStats getRootStage()
     {
         return rootStage;
@@ -224,24 +256,20 @@ public class StatementStats
 
     @Nullable
     @JsonProperty
+    @ThriftField(22)
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
     }
 
     @JsonProperty
+    @ThriftField(23)
     public OptionalDouble getProgressPercentage()
     {
         if (!scheduled || totalSplits == 0) {
             return OptionalDouble.empty();
         }
         return OptionalDouble.of(min(100, (completedSplits * 100.0) / totalSplits));
-    }
-
-    @JsonProperty
-    public long getSpilledBytes()
-    {
-        return spilledBytes;
     }
 
     @Override

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public class StageStats
 {
     private final String stageId;
@@ -42,6 +46,7 @@ public class StageStats
     private final List<StageStats> subStages;
 
     @JsonCreator
+    @ThriftConstructor
     public StageStats(
             @JsonProperty("stageId") String stageId,
             @JsonProperty("state") String state,
@@ -73,78 +78,91 @@ public class StageStats
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getStageId()
     {
         return stageId;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public String getState()
     {
         return state;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public boolean isDone()
     {
         return done;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public int getNodes()
     {
         return nodes;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public int getTotalSplits()
     {
         return totalSplits;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public int getQueuedSplits()
     {
         return queuedSplits;
     }
 
     @JsonProperty
+    @ThriftField(7)
     public int getRunningSplits()
     {
         return runningSplits;
     }
 
     @JsonProperty
+    @ThriftField(8)
     public int getCompletedSplits()
     {
         return completedSplits;
     }
 
     @JsonProperty
+    @ThriftField(9)
     public long getCpuTimeMillis()
     {
         return cpuTimeMillis;
     }
 
     @JsonProperty
+    @ThriftField(10)
     public long getWallTimeMillis()
     {
         return wallTimeMillis;
     }
 
     @JsonProperty
+    @ThriftField(11)
     public long getProcessedRows()
     {
         return processedRows;
     }
 
     @JsonProperty
+    @ThriftField(12)
     public long getProcessedBytes()
     {
         return processedBytes;
     }
 
     @JsonProperty
+    @ThriftField(13)
     public List<StageStats> getSubStages()
     {
         return subStages;

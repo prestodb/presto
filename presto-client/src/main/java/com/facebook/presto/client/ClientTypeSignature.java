@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
 import com.facebook.presto.common.type.RowFieldName;
@@ -41,6 +44,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 @Immutable
+@ThriftStruct
 public class ClientTypeSignature
 {
     private static final Pattern PATTERN = Pattern.compile(".*[<>,].*");
@@ -60,6 +64,7 @@ public class ClientTypeSignature
     }
 
     @JsonCreator
+    @ThriftConstructor
     public ClientTypeSignature(
             @JsonProperty("rawType") String rawType,
             @JsonProperty("typeArguments") List<ClientTypeSignature> typeArguments,
@@ -121,12 +126,14 @@ public class ClientTypeSignature
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getRawType()
     {
         return rawType;
     }
 
     @JsonProperty
+    @ThriftField(2)
     public List<ClientTypeSignatureParameter> getArguments()
     {
         return arguments;
@@ -137,6 +144,7 @@ public class ClientTypeSignature
      */
     @Deprecated
     @JsonProperty
+    @ThriftField(3)
     public List<ClientTypeSignature> getTypeArguments()
     {
         List<ClientTypeSignature> result = new ArrayList<>();
@@ -160,6 +168,7 @@ public class ClientTypeSignature
      */
     @Deprecated
     @JsonProperty
+    @ThriftField(4)
     public List<Object> getLiteralArguments()
     {
         List<Object> result = new ArrayList<>();

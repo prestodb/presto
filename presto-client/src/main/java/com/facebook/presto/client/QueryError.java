@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.client;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,6 +25,7 @@ import javax.annotation.concurrent.Immutable;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 @Immutable
+@ThriftStruct
 public class QueryError
 {
     private final String message;
@@ -34,6 +38,7 @@ public class QueryError
     private final FailureInfo failureInfo;
 
     @JsonCreator
+    @ThriftConstructor
     public QueryError(
             @JsonProperty("message") String message,
             @JsonProperty("sqlState") String sqlState,
@@ -55,6 +60,7 @@ public class QueryError
     }
 
     @JsonProperty
+    @ThriftField(1)
     public String getMessage()
     {
         return message;
@@ -62,30 +68,35 @@ public class QueryError
 
     @Nullable
     @JsonProperty
+    @ThriftField(2)
     public String getSqlState()
     {
         return sqlState;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public int getErrorCode()
     {
         return errorCode;
     }
 
     @JsonProperty
+    @ThriftField(4)
     public String getErrorName()
     {
         return errorName;
     }
 
     @JsonProperty
+    @ThriftField(5)
     public String getErrorType()
     {
         return errorType;
     }
 
     @JsonProperty
+    @ThriftField(6)
     public boolean isRetriable()
     {
         return retriable;
@@ -93,6 +104,7 @@ public class QueryError
 
     @Nullable
     @JsonProperty
+    @ThriftField(7)
     public ErrorLocation getErrorLocation()
     {
         return errorLocation;
@@ -100,6 +112,7 @@ public class QueryError
 
     @Nullable
     @JsonProperty
+    @ThriftField(8)
     public FailureInfo getFailureInfo()
     {
         return failureInfo;

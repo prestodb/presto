@@ -44,6 +44,7 @@ public enum ParameterKind
     }
 
     @JsonValue
+    @ThriftEnumValue
     public String jsonName()
     {
         return oldName.orElse(name());
