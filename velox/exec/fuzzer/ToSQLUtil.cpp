@@ -188,6 +188,14 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
     sql << "ARRAY[";
     toCallInputsSql(call->inputs(), sql);
     sql << "]";
+  } else if (call->name() == "between") {
+    const auto& inputs = call->inputs();
+    VELOX_CHECK_EQ(inputs.size(), 3);
+    toCallInputsSql({inputs[0]}, sql);
+    sql << " between ";
+    toCallInputsSql({inputs[1]}, sql);
+    sql << " and ";
+    toCallInputsSql({inputs[2]}, sql);
   } else {
     // Regular function call syntax.
     sql << call->name() << "(";
