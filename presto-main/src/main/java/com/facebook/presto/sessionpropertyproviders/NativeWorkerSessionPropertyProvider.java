@@ -300,8 +300,8 @@ public class NativeWorkerSessionPropertyProvider
                         !nativeExecution),
                 longProperty(
                         NATIVE_SCALED_WRITER_MIN_PARTITION_PROCESSED_BYTES_REBALANCE_THRESHOLD,
-                        "Minimum amount of data processed by all the logical table partitions " +
-                        "to trigger skewed partition rebalancing by scale writer exchange.",
+                        "Minimum amount of data processed by a logical table partition " +
+                        "to trigger writer scaling if it is detected as overloaded by scale writer exchange.",
                         128L << 20,
                         !nativeExecution),
                 longProperty(
