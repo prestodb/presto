@@ -443,9 +443,10 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::unordered_map<std::string, std::string>& serdeParameters,
     const std::shared_ptr<dwio::common::WriterOptions>& options,
     const std::string& outputFileName,
-    const common::CompressionKind compressionKind) {
+    const common::CompressionKind compressionKind,
+    const RowTypePtr& schema) {
   VELOX_CHECK_NOT_NULL(planNode_, "TableWrite cannot be the source node");
-  auto rowType = planNode_->outputType();
+  auto rowType = schema ? schema : planNode_->outputType();
 
   std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
       columnHandles;

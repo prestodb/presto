@@ -485,6 +485,8 @@ class PlanBuilder {
   /// only be specified in non-bucketing write.
   /// @param compressionKind Compression scheme to use for writing the
   /// output data files.
+  /// @param schema Output schema to be passed to the writer. By default use the
+  /// output of the previous operator.
   PlanBuilder& tableWrite(
       const std::string& outputDirectoryPath,
       const std::vector<std::string>& partitionBy,
@@ -499,7 +501,8 @@ class PlanBuilder {
       const std::unordered_map<std::string, std::string>& serdeParameters = {},
       const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr,
       const std::string& outputFileName = "",
-      const common::CompressionKind = common::CompressionKind_NONE);
+      const common::CompressionKind = common::CompressionKind_NONE,
+      const RowTypePtr& schema = nullptr);
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(
