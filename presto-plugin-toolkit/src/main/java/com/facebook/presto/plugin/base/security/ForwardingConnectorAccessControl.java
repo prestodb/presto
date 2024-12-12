@@ -21,6 +21,7 @@ import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import java.util.Map;
 import java.util.Optional;
@@ -261,5 +262,11 @@ public abstract class ForwardingConnectorAccessControl
     public void checkCanAddConstraint(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         delegate().checkCanAddConstraint(transactionHandle, identity, context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        return delegate().getRowFilter(transactionHandle, identity, context, tableName);
     }
 }
