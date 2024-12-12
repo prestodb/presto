@@ -47,8 +47,11 @@ public class SheetsModule
         binder.bind(SheetsConnector.class).in(Scopes.SINGLETON);
         binder.bind(SheetsMetadata.class).in(Scopes.SINGLETON);
         binder.bind(SheetsClient.class).in(Scopes.SINGLETON);
+        binder.bind(GoogleDriveClient.class).in(Scopes.SINGLETON);
+        binder.bind(SheetsHelper.class).in(Scopes.SINGLETON);
         binder.bind(SheetsSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(SheetsRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(SheetsPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(SheetsConfig.class);
 
