@@ -2252,6 +2252,13 @@
                 <artifactId>snakeyaml</artifactId>
                 <version>${dep.snakeyaml.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-dbcp2</artifactId>
+                <version>2.12.0</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
