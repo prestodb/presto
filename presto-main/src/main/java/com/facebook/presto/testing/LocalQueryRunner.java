@@ -123,6 +123,7 @@ import com.facebook.presto.server.NodeStatusNotificationManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.SessionPropertyDefaults;
+import com.facebook.presto.server.security.JWTAuthenticatorManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -519,6 +520,7 @@ public class LocalQueryRunner
                 new QueryPreparerProviderManager(queryPreparerProvider),
                 accessControl,
                 new PasswordAuthenticatorManager(),
+                new JWTAuthenticatorManager(),
                 new EventListenerManager(),
                 blockEncodingManager,
                 new TestingTempStorageManager(),
