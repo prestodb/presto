@@ -185,16 +185,16 @@ public class TestDistinctType
     {
         assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int00) AS INTEGER)", "1", 1);
         assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.varchar_alt) AS VARCHAR)", "CAST('name' AS VARCHAR)", "name");
-        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int00) AS VARCHAR)", "Cannot cast test.dt.int00 to varchar");
-        assertQueryFails("SELECT CAST(CAST(1 AS BIGINT) AS test.dt.int00)", "Cannot cast bigint to test.dt.int00");
-        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int00) AS BIGINT)", "Cannot cast test.dt.int00 to bigint");
+        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int00) AS VARCHAR)", "Cannot cast test.dt.int00 to varchar.");
+        assertQueryFails("SELECT CAST(CAST(1 AS BIGINT) AS test.dt.int00)", "Cannot cast bigint to test.dt.int00.");
+        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int00) AS BIGINT)", "Cannot cast test.dt.int00 to bigint.");
 
         assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int00) AS test.dt.int00)", "1", 1);
         assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int00) AS test.dt.int30)", "1", 1);
         assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int10) AS test.dt.int30)", "1", 1);
         assertSingleResultFromValues("SELECT CAST(CAST(x AS test.dt.int30) AS test.dt.int00)", "1", 1);
-        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int30) AS test.dt.int11)", "Cannot cast test.dt.int30 to test.dt.int11");
-        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int20) AS test.dt.int21)", "Cannot cast test.dt.int20 to test.dt.int21");
+        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int30) AS test.dt.int11)", "Cannot cast test.dt.int30 to test.dt.int11.");
+        assertQueryFails("SELECT CAST(CAST(1 AS test.dt.int20) AS test.dt.int21)", "Cannot cast test.dt.int20 to test.dt.int21.");
 
         assertSingleResultFromValues("SELECT CAST(ARRAY[ARRAY[CAST(x AS test.dt.int00)]] AS ARRAY<ARRAY<test.dt.int30>>)", "1", ImmutableList.of(ImmutableList.of(1)));
         assertSingleResultFromValues("SELECT CAST(ARRAY[ARRAY[CAST(x AS test.dt.int30)]] AS ARRAY<ARRAY<test.dt.int00>>)", "1", ImmutableList.of(ImmutableList.of(1)));
