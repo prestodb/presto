@@ -260,18 +260,24 @@ bool containTypeName(
   return false;
 }
 
-bool usesTypeName(
+bool usesInputTypeName(
     const exec::FunctionSignature& signature,
     const std::string& typeName) {
-  if (containTypeName(signature.returnType(), typeName)) {
-    return true;
-  }
   for (const auto& argument : signature.argumentTypes()) {
     if (containTypeName(argument, typeName)) {
       return true;
     }
   }
   return false;
+}
+
+bool usesTypeName(
+    const exec::FunctionSignature& signature,
+    const std::string& typeName) {
+  if (containTypeName(signature.returnType(), typeName)) {
+    return true;
+  }
+  return usesInputTypeName(signature, typeName);
 }
 
 // If 'type' is a RowType or contains RowTypes with empty field names, adds

@@ -30,6 +30,8 @@
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/ToSQLUtil.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/parser/TypeParser.h"
@@ -424,16 +426,18 @@ bool PrestoQueryRunner::isConstantExprSupported(
     const core::TypedExprPtr& expr) {
   if (std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr)) {
     // TODO: support constant literals of these types. Complex-typed constant
-    // literals require support of converting them to SQL. Json can be enabled
-    // after we're able to generate valid Json strings, because when Json is
-    // used as the type of constant literals in SQL, Presto implicitly invoke
-    // json_parse() on it, which makes the behavior of Presto different from
-    // Velox. Timestamp constant literals require further investigation to
+    // literals require support of converting them to SQL. Json, Ipaddress, and
+    // Ipprefix can be enabled after we're able to generate valid input values,
+    // because when these types are used as the type of a constant literal in
+    // SQL, Presto implicitly invoke json_parse(), cast(x as Ipaddress), and
+    // cast(x as Ipprefix) on it, which makes the behavior of Presto different
+    // from Velox. Timestamp constant literals require further investigation to
     // ensure Presto uses the same timezone as Velox. Interval type cannot be
     // used as the type of constant literals in Presto SQL.
     auto& type = expr->type();
     return type->isPrimitiveType() && !type->isTimestamp() &&
-        !isJsonType(type) && !type->isIntervalDayTime();
+        !isJsonType(type) && !type->isIntervalDayTime() &&
+        !isIPAddressType(type) && !isIPPrefixType(type);
   }
   return true;
 }
@@ -444,14 +448,16 @@ bool PrestoQueryRunner::isSupported(const exec::FunctionSignature& signature) {
   // cast-to or constant literals. Hyperloglog can only be casted from varbinary
   // and cannot be used as the type of constant literals. Interval year to month
   // can only be casted from NULL and cannot be used as the type of constant
-  // literals. Json requires special handling, because Presto requires Json
-  // literals to be valid Json strings, and doesn't allow creation of Json-typed
-  // HIVE columns.
+  // literals. Json, Ipaddress, and Ipprefix require special handling, because
+  // Presto requires literals of these types to be valid, and doesn't allow
+  // creating HIVE columns of these types.
   return !(
       usesTypeName(signature, "interval year to month") ||
       usesTypeName(signature, "hugeint") ||
       usesTypeName(signature, "hyperloglog") ||
-      usesTypeName(signature, "json"));
+      usesInputTypeName(signature, "json") ||
+      usesInputTypeName(signature, "ipaddress") ||
+      usesInputTypeName(signature, "ipprefix"));
 }
 
 std::optional<std::string> PrestoQueryRunner::toSql(

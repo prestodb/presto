@@ -93,6 +93,12 @@ RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b);
 /// TODO Investigate mismatches reported when comparing Varbinary.
 bool containsUnsupportedTypes(const TypePtr& type);
 
+/// Determines whether the signature has an argument that contains typeName.
+/// typeName should be in lower case.
+bool usesInputTypeName(
+    const exec::FunctionSignature& signature,
+    const std::string& typeName);
+
 /// Determines whether the signature has an argument or return type that
 /// contains typeName. typeName should be in lower case.
 bool usesTypeName(
