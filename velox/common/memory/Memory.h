@@ -274,6 +274,11 @@ class MemoryManager {
     return spillPool_.get();
   }
 
+  /// Returns the process wide leaf memory pool used for ssd cache.
+  MemoryPool* cachePool() {
+    return cachePool_.get();
+  }
+
   /// Returns the process wide leaf memory pool used for query tracing.
   MemoryPool* tracePool() const {
     return tracePool_.get();
@@ -311,6 +316,7 @@ class MemoryManager {
 
   const std::shared_ptr<MemoryPool> sysRoot_;
   const std::shared_ptr<MemoryPool> spillPool_;
+  const std::shared_ptr<MemoryPool> cachePool_;
   const std::shared_ptr<MemoryPool> tracePool_;
   const std::vector<std::shared_ptr<MemoryPool>> sharedLeafPools_;
 

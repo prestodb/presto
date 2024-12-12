@@ -22,6 +22,7 @@
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/SsdFileTracker.h"
 #include "velox/common/file/File.h"
+#include "velox/common/file/FileInputStream.h"
 #include "velox/common/file/FileSystems.h"
 
 DECLARE_bool(ssd_odirect);
@@ -373,13 +374,7 @@ class SsdFile {
 
   /// Returns the checkpoint file path.
   std::string getCheckpointFilePath() const {
-    // Faulty file path needs to be handled manually before we switch checkpoint
-    // file to Velox filesystem.
-    const std::string faultyPrefix = "faulty:";
-    std::string checkpointPath = fileName_ + kCheckpointExtension;
-    return checkpointPath.find(faultyPrefix) == 0
-        ? checkpointPath.substr(faultyPrefix.size())
-        : checkpointPath;
+    return fileName_ + kCheckpointExtension;
   }
 
   /// Resets this' to a post-construction empty state. See SsdCache::clear().
@@ -448,7 +443,7 @@ class SsdFile {
   // Reads a checkpoint state file and sets 'this' accordingly if read is
   // successful. Return true for successful read. A failed read deletes the
   // checkpoint and leaves the log truncated open.
-  void readCheckpoint(std::ifstream& state);
+  void readCheckpoint(std::unique_ptr<common::FileInputStream> stream);
 
   // Logs an error message, deletes the checkpoint and stop making new
   // checkpoints.
@@ -493,6 +488,48 @@ class SsdFile {
   // file system not supporting cow feature.
   void disableFileCow();
 
+  // Truncates the eviction log file to 0.
+  void truncateEvictLogFile();
+
+  // Truncates the checkpoint file to 0.
+  void truncateCheckpointFile();
+
+  // Deletes the eviction log file if it exists.
+  void deleteEvictLogFile();
+
+  // Deletes the checkpoint file if it exists.
+  void deleteCheckpointFile();
+
+  // Allocates 'kCheckpointBufferSize' buffer from cache memory pool for
+  // checkpointing.
+  void allocateCheckpointBuffer();
+
+  // Frees checkpoint buffer.
+  void freeCheckpointBuffer();
+
+  // Appends 'size' bytes from source buffer to the checkpoint buffer and
+  // flushes the buffered data to disk if necessary.
+  void appendToCheckpointBuffer(const void* source, int32_t size);
+
+  void appendToCheckpointBuffer(const std::string& string);
+
+  template <typename T>
+  void appendToCheckpointBuffer(const std::vector<T>& vector) {
+    appendToCheckpointBuffer(vector.data(), vector.size() * sizeof(T));
+  }
+
+  template <typename T>
+  void appendToCheckpointBuffer(const T& data) {
+    appendToCheckpointBuffer(&data, sizeof(data));
+  }
+
+  // Flushs the buffered data to write file if the buffered data has exceeded
+  // 'kCheckpointBufferSize' or 'force' is set true.
+  void maybeFlushCheckpointBuffer(uint32_t appendBytes, bool force = false);
+
+  // Flushs the buffered data to disk.
+  void flushCheckpointFile();
+
   // Returns true if checksum write is enabled for the given version.
   static bool isChecksumEnabledOnCheckpointVersion(
       const std::string& checkpointVersion) {
@@ -501,6 +538,7 @@ class SsdFile {
 
   static constexpr const char* kLogExtension = ".log";
   static constexpr const char* kCheckpointExtension = ".cpt";
+  static constexpr uint32_t kCheckpointBufferSize = 1 << 20; // 1MB
 
   // Name of cache file, used as prefix for checkpoint files.
   const std::string fileName_;
@@ -565,6 +603,9 @@ class SsdFile {
   // WriteFile for evict log file.
   std::unique_ptr<WriteFile> evictLogWriteFile_;
 
+  // WriteFile for checkpoint file.
+  std::unique_ptr<WriteFile> checkpointWriteFile_;
+
   // Counters.
   SsdCacheStats stats_;
 
@@ -580,6 +621,12 @@ class SsdFile {
 
   // True if there was an error with checkpoint and the checkpoint was deleted.
   bool checkpointDeleted_{false};
+
+  // Used for checkpoint buffer and is only set during the checkpoint write.
+  void* checkpointBuffer_ = nullptr;
+
+  // Buffered data size for checkpoint.
+  uint32_t checkpointBufferedDataSize_;
 
   friend class test::SsdFileTestHelper;
   friend class test::SsdCacheTestHelper;

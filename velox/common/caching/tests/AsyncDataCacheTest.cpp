@@ -111,6 +111,17 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
     }
   }
 
+  void initializeMemoryManager(int64_t capacity) {
+    if (!memory::MemoryManager::testInstance()) {
+      memory::MemoryManagerOptions options;
+      options.useMmapAllocator = true;
+      options.allocatorCapacity = capacity;
+      options.arbitratorCapacity = capacity;
+      options.trackDefaultUsage = true;
+      memory::MemoryManager::initialize(options);
+    }
+  }
+
   void initializeCache(
       uint64_t maxBytes,
       int64_t ssdBytes = 0,
@@ -1204,6 +1215,8 @@ TEST_P(AsyncDataCacheTest, shutdown) {
   constexpr uint64_t kRamBytes = 16 << 20;
   constexpr uint64_t kSsdBytes = 64UL << 20;
 
+  initializeMemoryManager(kRamBytes);
+
   for (const auto asyncShutdown : {false, true}) {
     SCOPED_TRACE(fmt::format("asyncShutdown {}", asyncShutdown));
     // Initialize cache with a big checkpointIntervalBytes, giving eviction log
@@ -1535,6 +1548,7 @@ TEST_P(AsyncDataCacheTest, checkpoint) {
   constexpr uint64_t kRamBytes = 16UL << 20; // 16 MB
   constexpr uint64_t kSsdBytes = 64UL << 20; // 64 MB
 
+  initializeMemoryManager(kRamBytes);
   initializeCache(
       kRamBytes,
       kSsdBytes,

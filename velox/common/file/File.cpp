@@ -383,6 +383,8 @@ void LocalWriteFile::truncate(int64_t newSize) {
       0,
       "ftruncate failed in LocalWriteFile::truncate: {}.",
       folly::errnoStr(errno));
+  // Reposition the file offset to the end of the file for append().
+  ::lseek(fd_, newSize, SEEK_SET);
   size_ = newSize;
 }
 

@@ -114,6 +114,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
               .coreOnAllocationFailureEnabled =
                   options.coreOnAllocationFailureEnabled})},
       spillPool_{addLeafPool("__sys_spilling__")},
+      cachePool_{addLeafPool("__sys_caching__")},
       tracePool_{addLeafPool("__sys_tracing__")},
       sharedLeafPools_(createSharedLeafMemoryPools(*sysRoot_)) {
   VELOX_CHECK_NOT_NULL(allocator_);
