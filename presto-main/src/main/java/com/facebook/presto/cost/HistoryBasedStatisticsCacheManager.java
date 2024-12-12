@@ -47,7 +47,7 @@ public class HistoryBasedStatisticsCacheManager
     // Cache hashes of plan node.
     private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.CacheKey, PlanNodeCanonicalInfo>> canonicalInfoCache = new ConcurrentHashMap<>();
 
-    private final Map<QueryId, Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics>> inputTableStatistics = new ConcurrentHashMap<>();
+    private final Map<QueryId, Map<PlanNodeCanonicalInfo.InputTableCacheKey, PlanStatistics>> inputTableStatistics = new ConcurrentHashMap<>();
 
     // Stores query IDs which timeout during history optimizer registration
     private final Set<QueryId> queryIdsRegistrationTimeOut = ConcurrentHashMap.newKeySet();
@@ -85,7 +85,7 @@ public class HistoryBasedStatisticsCacheManager
         return canonicalInfoCache.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap());
     }
 
-    public Map<CachingPlanCanonicalInfoProvider.InputTableCacheKey, PlanStatistics> getInputTableStatistics(QueryId queryId)
+    public Map<PlanNodeCanonicalInfo.InputTableCacheKey, PlanStatistics> getInputTableStatistics(QueryId queryId)
     {
         return inputTableStatistics.computeIfAbsent(queryId, ignored -> new ConcurrentHashMap());
     }
