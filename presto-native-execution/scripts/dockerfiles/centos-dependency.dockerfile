@@ -19,8 +19,4 @@ ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
 COPY velox/scripts /velox/scripts
-RUN mkdir build && \
-    (cd build && ../scripts/setup-centos.sh && \
-                 ../velox/scripts/setup-adapters.sh && \
-                 ../scripts/setup-adapters.sh ) && \
-    rm -rf build
+RUN /scripts/install_minimal_dependencies.sh
