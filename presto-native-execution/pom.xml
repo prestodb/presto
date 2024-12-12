@@ -68,6 +68,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tests</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
