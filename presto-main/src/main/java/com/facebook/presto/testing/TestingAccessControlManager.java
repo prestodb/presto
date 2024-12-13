@@ -17,6 +17,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -95,6 +96,7 @@ public class TestingAccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
+    private final Map<ColumnMaskKey, List<ViewExpression>> columnMasks = new HashMap<>();
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
@@ -122,12 +124,19 @@ public class TestingAccessControlManager
     {
         denyPrivileges.clear();
         rowFilters.clear();
+        columnMasks.clear();
     }
 
     public void rowFilter(QualifiedObjectName table, String identity, ViewExpression filter)
     {
         rowFilters.computeIfAbsent(new RowFilterKey(identity, table), key -> new ArrayList<>())
                 .add(filter);
+    }
+
+    public void columnMask(QualifiedObjectName table, String column, String identity, ViewExpression mask)
+    {
+        columnMasks.computeIfAbsent(new ColumnMaskKey(identity, table, column), key -> new ArrayList<>())
+                .add(mask);
     }
 
     @Override
@@ -397,6 +406,12 @@ public class TestingAccessControlManager
         return rowFilters.getOrDefault(new RowFilterKey(identity.getUser(), tableName), ImmutableList.of());
     }
 
+    @Override
+    public List<ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String column, Type type)
+    {
+        return columnMasks.getOrDefault(new ColumnMaskKey(identity.getUser(), tableName, column), ImmutableList.of());
+    }
+
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
     {
         TestingPrivilege testPrivilege = privilege(userName, entityName, type);
@@ -499,6 +514,41 @@ public class TestingAccessControlManager
         public int hashCode()
         {
             return Objects.hash(identity, table);
+        }
+    }
+
+    private static class ColumnMaskKey
+    {
+        private final String identity;
+        private final QualifiedObjectName table;
+        private final String column;
+
+        public ColumnMaskKey(String identity, QualifiedObjectName table, String column)
+        {
+            this.identity = identity;
+            this.table = table;
+            this.column = column;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnMaskKey that = (ColumnMaskKey) o;
+            return identity.equals(that.identity) &&
+                    table.equals(that.table) &&
+                    column.equals(that.column);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, table, column);
         }
     }
 }
