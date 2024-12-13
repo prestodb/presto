@@ -268,6 +268,12 @@ FOLLY_ALWAYS_INLINE int64_t addToTimestampWithTimezone(
                                     .count());
       auto updatedTimeStamp =
           addToTimestamp(originalTimestamp, unit, (int32_t)value);
+      updatedTimeStamp = Timestamp(
+          timeZone
+              ->correct_nonexistent_time(
+                  std::chrono::seconds(updatedTimeStamp.getSeconds()))
+              .count(),
+          updatedTimeStamp.getNanos());
       finalSysMs =
           timeZone
               ->to_sys(

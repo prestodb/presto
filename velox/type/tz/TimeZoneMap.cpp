@@ -445,6 +445,24 @@ TimeZone::milliseconds TimeZone::to_local(
   return toLocalImpl(timestamp, tz_, offset_);
 }
 
+TimeZone::seconds TimeZone::correct_nonexistent_time(
+    TimeZone::seconds timestamp) const {
+  // If this is an offset time zone.
+  if (tz_ == nullptr) {
+    return timestamp;
+  }
+
+  const auto localInfo = tz_->get_info(date::local_time<seconds>{timestamp});
+
+  if (localInfo.result != date::local_info::nonexistent) {
+    return timestamp;
+  }
+
+  const auto adjustment = localInfo.second.offset - localInfo.first.offset;
+
+  return timestamp + adjustment;
+}
+
 std::string TimeZone::getShortName(
     TimeZone::milliseconds timestamp,
     TimeZone::TChoose choose) const {

@@ -1269,8 +1269,13 @@ struct DateAddFunction : public TimestampWithTimezoneSupport<T> {
         result = Timestamp(
             resultTimestamp.getSeconds() + offset, resultTimestamp.getNanos());
       } else {
-        resultTimestamp.toGMT(*sessionTimeZone_);
-        result = resultTimestamp;
+        result = Timestamp(
+            sessionTimeZone_
+                ->correct_nonexistent_time(
+                    std::chrono::seconds(resultTimestamp.getSeconds()))
+                .count(),
+            resultTimestamp.getNanos());
+        result.toGMT(*sessionTimeZone_);
       }
     } else {
       result = addToTimestamp(timestamp, unit, (int32_t)value);

@@ -2375,6 +2375,16 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestamp) {
           "year",
           -2,
           Timestamp(1582970400, 500'999'999) /*2020-02-29 10:00:00.500*/));
+
+  // Test cases where the result would end up in the nonexistent gap between
+  // daylight savings time and standard time. 2023-03-12 02:30:00.000 does not
+  // exist in America/Los_Angeles since that hour is skipped.
+  EXPECT_EQ(
+      Timestamp(1678617000, 0), /*2023-03-12 03:30:00*/
+      dateAdd("day", 45, Timestamp(1674729000, 0) /*2023-01-26 02:30:00*/));
+  EXPECT_EQ(
+      Timestamp(1678617000, 0), /*2023-03-12 03:30:00*/
+      dateAdd("day", -45, Timestamp(1682501400, 0) /*2023-04-26 02:30:00*/));
 }
 
 TEST_F(DateTimeFunctionsTest, dateAddTimestampWithTimeZone) {
@@ -2553,6 +2563,17 @@ TEST_F(DateTimeFunctionsTest, dateAddTimestampWithTimeZone) {
       "2023-03-11 00:00:00.000 America/Los_Angeles",
       dateAddAndCast(
           "year", -1, "2024-03-11 00:00:00.000 America/Los_Angeles"));
+
+  // Test cases where the result would end up in the nonexistent gap between
+  // daylight savings time and standard time. 2023-03-12 02:30:00.000 does not
+  // exist in America/Los_Angeles since that hour is skipped.
+  EXPECT_EQ(
+      "2023-03-12 03:30:00.000 America/Los_Angeles",
+      dateAddAndCast("day", 45, "2023-01-26 02:30:00.000 America/Los_Angeles"));
+  EXPECT_EQ(
+      "2023-03-12 03:30:00.000 America/Los_Angeles",
+      dateAddAndCast(
+          "day", -45, "2023-04-26 02:30:00.000 America/Los_Angeles"));
 }
 
 TEST_F(DateTimeFunctionsTest, dateDiffDate) {

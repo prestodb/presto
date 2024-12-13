@@ -143,6 +143,14 @@ class TimeZone {
   seconds to_local(seconds timestamp) const;
   milliseconds to_local(milliseconds timestamp) const;
 
+  /// If a local time is nonexistent, i.e. refers to a time that exists in the
+  /// gap during a time zone conversion, this returns the time adjusted by
+  /// the difference between the two time zones, so that it lies in the later
+  /// time zone.
+  ///
+  /// If the local time exists then the same time is returned.
+  seconds correct_nonexistent_time(seconds timestamp) const;
+
   const std::string& name() const {
     return timeZoneName_;
   }
