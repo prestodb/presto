@@ -162,7 +162,7 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromWriterOptions) {
       10'000, [](auto row) { return Timestamp(row, row); })});
   parquet::WriterOptions writerOptions;
   writerOptions.memoryPool = leafPool_.get();
-  writerOptions.parquetWriteTimestampUnit = TimestampUnit::kMicro;
+  writerOptions.parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
   writerOptions.parquetWriteTimestampTimeZone = "America/Los_Angeles";
 
   // Create an in-memory writer.
@@ -191,7 +191,7 @@ TEST_F(ParquetWriterTest, parquetWriteTimestampTimeZoneWithDefault) {
       10'000, [](auto row) { return Timestamp(row, row); })});
   parquet::WriterOptions writerOptions;
   writerOptions.memoryPool = leafPool_.get();
-  writerOptions.parquetWriteTimestampUnit = TimestampUnit::kMicro;
+  writerOptions.parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
 
   // Create an in-memory writer.
   auto sink = std::make_unique<MemorySink>(
@@ -220,7 +220,7 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromHiveConfig) {
   const auto outputDirectory = TempDirectoryPath::create();
 
   auto writerOptions = std::make_shared<parquet::WriterOptions>();
-  writerOptions->parquetWriteTimestampUnit = TimestampUnit::kMicro;
+  writerOptions->parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
 
   const auto plan = PlanBuilder()
                         .values({data})

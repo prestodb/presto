@@ -424,7 +424,8 @@ TEST_F(HiveConnectorUtilTest, updateWriterOptionsFromHiveConfigParquet) {
   auto parquetOptions =
       std::dynamic_pointer_cast<parquet::WriterOptions>(options);
   ASSERT_EQ(
-      parquetOptions->parquetWriteTimestampUnit.value(), TimestampUnit::kMilli);
+      parquetOptions->parquetWriteTimestampUnit.value(),
+      TimestampPrecision::kMilliseconds);
   ASSERT_EQ(parquetOptions->parquetWriteTimestampTimeZone.value(), "UTC");
 }
 #endif

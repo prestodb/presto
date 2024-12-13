@@ -258,7 +258,7 @@ TEST_F(E2EFilterTest, integerDictionary) {
       20);
 }
 
-TEST_F(E2EFilterTest, timestampDirect) {
+TEST_F(E2EFilterTest, timestampInt96Direct) {
   options_.enableDictionary = false;
   options_.dataPageSize = 4 * 1024;
   options_.writeInt96AsTimestamp = true;
@@ -272,7 +272,7 @@ TEST_F(E2EFilterTest, timestampDirect) {
       20);
 }
 
-TEST_F(E2EFilterTest, timestampDictionary) {
+TEST_F(E2EFilterTest, timestampInt96Dictionary) {
   options_.dataPageSize = 4 * 1024;
   options_.writeInt96AsTimestamp = true;
 

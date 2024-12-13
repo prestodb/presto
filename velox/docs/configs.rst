@@ -558,7 +558,7 @@ Each query can override the config by setting corresponding query session proper
      - tinyint
      - 9
      - Timestamp unit used when writing timestamps into Parquet through Arrow bridge.
-       Valid values are 0 (second), 3 (millisecond), 6 (microsecond), 9 (nanosecond).
+       Valid values are 3 (millisecond), 6 (microsecond), and 9 (nanosecond).
    * - hive.orc.writer.linear-stripe-size-heuristics
      - orc_writer_linear_stripe_size_heuristics
      - bool
@@ -709,7 +709,7 @@ These semantics are similar to the `Apache Hadoop-Aws module <https://hadoop.apa
    * - fs.azure.account.auth.type.<storage-account>.dfs.core.windows.net
      - string
      - SharedKey
-     - Specifies the authentication mechanism to use for Azure storage accounts. 
+     - Specifies the authentication mechanism to use for Azure storage accounts.
        **Allowed values:** "SharedKey", "OAuth", "SAS".
        "SharedKey": Uses the storage account name and key for authentication.
        "OAuth": Utilizes OAuth tokens for secure authentication.
@@ -739,7 +739,7 @@ These semantics are similar to the `Apache Hadoop-Aws module <https://hadoop.apa
    * - fs.azure.account.oauth2.client.endpoint.<storage-account>.dfs.core.windows.net
      - string
      -
-     - Specifies the OAuth 2.0 token endpoint URL for the Azure AD application.  
+     - Specifies the OAuth 2.0 token endpoint URL for the Azure AD application.
        This endpoint is used to acquire access tokens for authenticating with Azure storage.
        The URL follows the format: `https://login.microsoftonline.com/<tenant-id>/oauth2/token`.
 

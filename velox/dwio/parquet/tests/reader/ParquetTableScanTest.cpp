@@ -99,7 +99,13 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
                 rowType, subfieldFilters, remainingFilter, nullptr, assignments)
             .planNode();
 
-    assertQuery(plan, splits_, sql);
+    AssertQueryBuilder(plan, duckDbQueryRunner_)
+        .connectorSessionProperty(
+            kHiveConnectorId,
+            HiveConfig::kReadTimestampUnitSession,
+            std::to_string(static_cast<int>(timestampPrecision_)))
+        .splits(splits_)
+        .assertResults(sql);
   }
 
   void assertSelectWithAgg(
@@ -211,6 +217,10 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
         rootPool_->addAggregateChild("ParquetTableScanTest.Writer");
     options.memoryPool = childPool.get();
 
+    if (options.parquetWriteTimestampUnit.has_value()) {
+      timestampPrecision_ = options.parquetWriteTimestampUnit.value();
+    }
+
     auto writer = std::make_unique<Writer>(
         std::move(sink), options, asRowType(data[0]->type()));
 
@@ -220,7 +230,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
     writer->close();
   }
 
-  void testInt96TimestampRead(const WriterOptions& options) {
+  void testTimestampRead(const WriterOptions& options) {
     auto stringToTimestamp = [](std::string_view view) {
       return util::fromTimestampString(
                  view.data(),
@@ -231,16 +241,16 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
           });
     };
     std::vector<std::string_view> views = {
-        "2015-06-01 19:34:56",
-        "2015-06-02 19:34:56",
-        "2001-02-03 03:34:06",
-        "1998-03-01 08:01:06",
+        "2015-06-01 19:34:56.007",
+        "2015-06-02 19:34:56.12306",
+        "2001-02-03 03:34:06.056",
+        "1998-03-01 08:01:06.996669",
         "2022-12-23 03:56:01",
         "1980-01-24 00:23:07",
-        "1999-12-08 13:39:26",
-        "2023-04-21 09:09:34",
+        "1999-12-08 13:39:26.123456",
+        "2023-04-21 09:09:34.5",
         "2000-09-12 22:36:29",
-        "2007-12-12 04:27:56",
+        "2007-12-12 04:27:56.999",
     };
     std::vector<Timestamp> values;
     values.reserve(views.size());
@@ -298,6 +308,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
 
   RowTypePtr rowType_;
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits_;
+  TimestampPrecision timestampPrecision_ = TimestampPrecision::kMicroseconds;
 };
 
 TEST_F(ParquetTableScanTest, basic) {
@@ -820,14 +831,16 @@ TEST_F(ParquetTableScanTest, timestampInt96Dictionary) {
   WriterOptions options;
   options.writeInt96AsTimestamp = true;
   options.enableDictionary = true;
-  testInt96TimestampRead(options);
+  options.parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
+  testTimestampRead(options);
 }
 
 TEST_F(ParquetTableScanTest, timestampInt96Plain) {
   WriterOptions options;
   options.writeInt96AsTimestamp = true;
   options.enableDictionary = false;
-  testInt96TimestampRead(options);
+  options.parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
+  testTimestampRead(options);
 }
 
 TEST_F(ParquetTableScanTest, timestampPrecisionMicrosecond) {

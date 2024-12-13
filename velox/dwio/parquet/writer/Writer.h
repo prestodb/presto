@@ -103,8 +103,8 @@ struct WriterOptions : public dwio::common::WriterOptions {
       columnCompressionsMap;
 
   /// Timestamp unit for Parquet write through Arrow bridge.
-  /// Default if not specified: TimestampUnit::kNano (9).
-  std::optional<TimestampUnit> parquetWriteTimestampUnit;
+  /// Default if not specified: TimestampPrecision::kNanoseconds (9).
+  std::optional<TimestampPrecision> parquetWriteTimestampUnit;
   /// Timestamp time zone for Parquet write through Arrow bridge.
   std::optional<std::string> parquetWriteTimestampTimeZone;
   bool writeInt96AsTimestamp = false;

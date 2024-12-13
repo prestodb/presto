@@ -239,7 +239,8 @@ Writer::Writer(
     flushPolicy_ = std::make_unique<DefaultFlushPolicy>();
   }
   options_.timestampUnit =
-      options.parquetWriteTimestampUnit.value_or(TimestampUnit::kNano);
+      static_cast<TimestampUnit>(options.parquetWriteTimestampUnit.value_or(
+          TimestampPrecision::kNanoseconds));
   options_.timestampTimeZone = options.parquetWriteTimestampTimeZone;
   arrowContext_->properties =
       getArrowParquetWriterOptions(options, flushPolicy_);

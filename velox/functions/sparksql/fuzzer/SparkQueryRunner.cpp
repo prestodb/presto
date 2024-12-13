@@ -51,7 +51,7 @@ void writeToFile(
   options->memoryPool = pool;
   // Spark does not recognize int64-timestamp written as nano precision in
   // Parquet.
-  options->parquetWriteTimestampUnit = TimestampUnit::kMicro;
+  options->parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
 
   auto writeFile = std::make_unique<LocalWriteFile>(path, true, false);
   auto sink =
