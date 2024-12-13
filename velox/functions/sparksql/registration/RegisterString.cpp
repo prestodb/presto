@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/expression/SpecialFormRegistry.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/prestosql/URLFunctions.h"
+#include "velox/functions/sparksql/ConcatWs.h"
 #include "velox/functions/sparksql/MaskFunction.h"
 #include "velox/functions/sparksql/Split.h"
 #include "velox/functions/sparksql/String.h"
@@ -142,6 +144,9 @@ void registerStringFunctions(const std::string& prefix) {
       Varchar,
       Varchar,
       Varchar>({prefix + "mask"});
+  registerFunctionCallToSpecialForm(
+      ConcatWsCallToSpecialForm::kConcatWs,
+      std::make_unique<ConcatWsCallToSpecialForm>());
 }
 } // namespace sparksql
 } // namespace facebook::velox::functions

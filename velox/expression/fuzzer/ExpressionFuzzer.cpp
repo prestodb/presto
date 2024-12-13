@@ -354,10 +354,22 @@ static void appendSpecialForms(
           },
           {
               "cast",
-              /// TODO: Add supported Cast signatures to CastTypedExpr and
-              /// expose
-              /// them to fuzzer instead of hard-coding signatures here.
+              // TODO: Add supported Cast signatures to CastTypedExpr and
+              // expose
+              // them to fuzzer instead of hard-coding signatures here.
               getSignaturesForCast(),
+          },
+          {
+              // For Spark SQL only.
+              "concat_ws",
+              std::vector<facebook::velox::exec::FunctionSignaturePtr>{
+                  // Signature: concat_ws (separator, input, ...) -> output:
+                  // varchar, varchar, varchar, ... -> varchar
+                  facebook::velox::exec::FunctionSignatureBuilder()
+                      .argumentType("varchar")
+                      .variableArity("varchar")
+                      .returnType("varchar")
+                      .build()},
           },
       };
 

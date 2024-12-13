@@ -18,6 +18,7 @@ velox_add_library(
   ArrayGetFunction.cpp
   ArraySort.cpp
   Comparisons.cpp
+  ConcatWs.cpp
   DecimalArithmetic.cpp
   DecimalCompare.cpp
   Hash.cpp
