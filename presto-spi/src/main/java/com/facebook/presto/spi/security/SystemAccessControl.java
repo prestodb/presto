@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
 
@@ -389,6 +390,19 @@ public interface SystemAccessControl
      * @return the filter, or {@link Optional#empty()} if not applicable
      */
     default Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Get a column mask associated with the given table, column and identity.
+     *
+     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * must be written in terms of columns in the table.
+     *
+     * @return the mask, or {@link Optional#empty()} if not applicable
+     */
+    default Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
     }
