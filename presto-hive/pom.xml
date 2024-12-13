@@ -499,10 +499,6 @@
                             <groupId>net.bytebuddy</groupId>
                             <artifactId>byte-buddy</artifactId>
                         </dependency>
-                        <dependency>
-                            <groupId>org.alluxio</groupId>
-                            <artifactId>alluxio-shaded-client</artifactId>
-                        </dependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>
