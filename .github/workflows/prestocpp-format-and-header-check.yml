@@ -1,0 +1,33 @@
+name: prestocpp-format-and-header-check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'presto-native-execution/**'
+      - '.github/workflows/prestocpp-format-and-header-check.yml'
+
+jobs:
+  prestocpp-format-and-header-check:
+    runs-on: ubuntu-latest
+    container:
+      image: public.ecr.aws/oss-presto/velox-dev:check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
+
+      - name: Check formatting
+        run: |
+          git fetch origin master
+          cd presto-native-execution
+          make format-check
+
+      - name: Check license headers
+        run: |
+          git fetch origin master
+          cd presto-native-execution
+          make header-check
