@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -259,5 +260,11 @@ public abstract class ForwardingSystemAccessControl
     public Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
     {
         return delegate().getRowFilter(identity, context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return delegate().getColumnMask(identity, context, tableName, columnName, type);
     }
 }
