@@ -14,11 +14,9 @@
 #pragma once
 
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-
-#include "velox/common/base/VeloxException.h"
-
 #include <exception>
 #include <unordered_map>
+#include "velox/common/base/VeloxException.h"
 
 namespace std {
 class exception;
