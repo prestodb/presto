@@ -176,7 +176,7 @@ std::string SeekableArrayInputStream::getName() const {
       "SeekableArrayInputStream ", position_, " of ", length_);
 }
 
-size_t SeekableArrayInputStream::positionSize() {
+size_t SeekableArrayInputStream::positionSize() const {
   // not compressed, so only need 1 position (uncompressed position)
   return 1;
 }
@@ -257,7 +257,7 @@ std::string SeekableFileInputStream::getName() const {
       input_->getName(), " from ", start_, " for ", length_);
 }
 
-size_t SeekableFileInputStream::positionSize() {
+size_t SeekableFileInputStream::positionSize() const {
   // not compressed, so only need 1 position (uncompressed position)
   return 1;
 }

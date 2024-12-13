@@ -160,7 +160,7 @@ std::string CacheInputStream::getName() const {
   return result;
 }
 
-size_t CacheInputStream::positionSize() {
+size_t CacheInputStream::positionSize() const {
   // not compressed, so only need 1 position (uncompressed position)
   return 1;
 }

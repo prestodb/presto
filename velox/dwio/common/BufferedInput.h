@@ -91,7 +91,7 @@ class BufferedInput {
 
   virtual std::unique_ptr<SeekableInputStream>
   read(uint64_t offset, uint64_t length, LogType logType) const {
-    std::unique_ptr<SeekableInputStream> ret = readBuffer(offset, length);
+    auto ret = readBuffer(offset, length);
     if (ret != nullptr) {
       return ret;
     }

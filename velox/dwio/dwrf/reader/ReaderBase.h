@@ -80,13 +80,13 @@ class ReaderBase {
       const proto::Footer* footer,
       std::unique_ptr<StripeMetadataCache> cache,
       std::unique_ptr<encryption::DecryptionHandler> handler = nullptr)
-      : postScript_{std::move(ps)},
-        footer_{std::make_unique<FooterWrapper>(footer)},
-        cache_{std::move(cache)},
-        handler_{std::move(handler)},
-        options_{dwio::common::ReaderOptions(&pool)},
+      : options_{dwio::common::ReaderOptions(&pool)},
         input_{std::move(input)},
         fileLength_{0},
+        postScript_{std::move(ps)},
+        footer_{std::make_unique<FooterWrapper>(footer)},
+        handler_{std::move(handler)},
+        cache_{std::move(cache)},
         schema_{
             std::dynamic_pointer_cast<const RowType>(convertType(*footer_))},
         psLength_{0} {
@@ -149,6 +149,8 @@ class ReaderBase {
   dwio::common::BufferedInput& bufferedInput() const {
     return *input_;
   }
+
+  void loadCache();
 
   const std::unique_ptr<StripeMetadataCache>& metadataCache() const {
     return cache_;
@@ -246,6 +248,10 @@ class ReaderBase {
     return options_.randomSkip();
   }
 
+  int footerBufferOverread() const {
+    return footerBufferOverread_;
+  }
+
  private:
   static std::shared_ptr<const Type> convertType(
       const FooterWrapper& footer,
@@ -260,15 +266,18 @@ class ReaderBase {
     return options;
   }
 
-  std::unique_ptr<google::protobuf::Arena> arena_;
-  std::unique_ptr<PostScript> postScript_;
-  std::unique_ptr<FooterWrapper> footer_ = nullptr;
-  std::unique_ptr<StripeMetadataCache> cache_;
-  std::unique_ptr<encryption::DecryptionHandler> handler_;
-
   const dwio::common::ReaderOptions options_;
   const std::unique_ptr<dwio::common::BufferedInput> input_;
   const uint64_t fileLength_;
+
+  BufferPtr stripeMetadataCacheBuffer_;
+  int32_t stripeMetadataCacheBufferSize_;
+  int32_t footerBufferOverread_;
+  std::unique_ptr<google::protobuf::Arena> arena_;
+  std::unique_ptr<PostScript> postScript_;
+  std::unique_ptr<FooterWrapper> footer_;
+  std::unique_ptr<encryption::DecryptionHandler> handler_;
+  std::unique_ptr<StripeMetadataCache> cache_;
 
   RowTypePtr schema_;
   // Lazily populated

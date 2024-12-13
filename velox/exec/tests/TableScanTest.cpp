@@ -2388,8 +2388,8 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
   EXPECT_EQ(31'234, stats.rawInputRows);
   EXPECT_EQ(31'234, stats.inputRows);
   EXPECT_EQ(31'234, stats.outputRows);
-  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedSplits").sum, 0);
-  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedStrides").sum, 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).count("skippedSplits"), 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).count("skippedStrides"), 0);
 
   task = assertQuery("c0 IS NULL");
 
@@ -2398,7 +2398,7 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
   EXPECT_EQ(0, stats.inputRows);
   EXPECT_EQ(0, stats.outputRows);
   ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedSplits").sum, 1);
-  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedStrides").sum, 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).count("skippedStrides"), 0);
 
   // c1 IS NULL - first stride should be skipped based on stats
   task = assertQuery("c1 IS NULL");
@@ -2407,7 +2407,7 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
   EXPECT_EQ(size - 10'000, stats.rawInputRows);
   EXPECT_EQ(size - 11'111, stats.inputRows);
   EXPECT_EQ(size - 11'111, stats.outputRows);
-  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedSplits").sum, 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).count("skippedSplits"), 0);
   ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedStrides").sum, 1);
 
   // c1 IS NOT NULL - 3rd and 4th strides should be skipped based on stats
@@ -2417,7 +2417,7 @@ TEST_F(TableScanTest, statsBasedSkippingNulls) {
   EXPECT_EQ(20'000, stats.rawInputRows);
   EXPECT_EQ(11'111, stats.inputRows);
   EXPECT_EQ(11'111, stats.outputRows);
-  ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedSplits").sum, 0);
+  ASSERT_EQ(getTableScanRuntimeStats(task).count("skippedSplits"), 0);
   ASSERT_EQ(getTableScanRuntimeStats(task).at("skippedStrides").sum, 2);
 }
 
@@ -5418,4 +5418,21 @@ TEST_F(TableScanTest, rowId) {
     });
     AssertQueryBuilder(plan).split(split).assertResults(expected);
   }
+}
+
+TEST_F(TableScanTest, footerIOCount) {
+  // We should issue only 1 IO for a split range that does not contain any
+  // stripe.
+  auto vector = makeRowVector({makeFlatVector<int64_t>(10, folly::identity)});
+  auto file = TempFilePath::create();
+  writeToFile(file->getPath(), {vector});
+  auto plan = PlanBuilder().tableScan(asRowType(vector->type())).planNode();
+  auto task =
+      AssertQueryBuilder(plan)
+          .split(makeHiveConnectorSplit(file->getPath(), 10'000, 10'000))
+          .assertResults(
+              BaseVector::create<RowVector>(vector->type(), 0, pool()));
+  auto stats = getTableScanRuntimeStats(task);
+  ASSERT_EQ(stats.at("numStorageRead").sum, 1);
+  ASSERT_GT(stats.at("footerBufferOverread").sum, 0);
 }

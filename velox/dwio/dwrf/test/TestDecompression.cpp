@@ -1054,7 +1054,7 @@ class TestingSeekableInputStream : public SeekableInputStream {
     return "testing";
   }
 
-  size_t positionSize() override {
+  size_t positionSize() const override {
     return 1;
   }
 

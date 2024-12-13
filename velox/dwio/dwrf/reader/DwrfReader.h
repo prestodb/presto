@@ -108,6 +108,8 @@ class DwrfRowReader : public StrideIndexProvider,
   void updateRuntimeStats(
       dwio::common::RuntimeStatistics& stats) const override {
     stats.skippedStrides += skippedStrides_;
+    stats.footerBufferOverread += getReader().footerBufferOverread();
+    stats.numStripes += stripeCeiling_ - firstStripe_;
     stats.columnReaderStatistics.flattenStringDictionaryValues +=
         columnReaderStatistics_.flattenStringDictionaryValues;
   }
@@ -152,7 +154,7 @@ class DwrfRowReader : public StrideIndexProvider,
       const dwio::common::Statistics& stats,
       uint32_t nodeId) const;
 
-  bool isEmptyFile() const {
+  bool emptyFile() const {
     return stripeCeiling_ == firstStripe_;
   }
 

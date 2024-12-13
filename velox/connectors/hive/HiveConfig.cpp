@@ -266,7 +266,7 @@ uint64_t HiveConfig::sortWriterFinishTimeSliceLimitMs(
 }
 
 uint64_t HiveConfig::footerEstimatedSize() const {
-  return config_->get<uint64_t>(kFooterEstimatedSize, 1UL << 20);
+  return config_->get<uint64_t>(kFooterEstimatedSize, 256UL << 10);
 }
 
 uint64_t HiveConfig::filePreloadThreshold() const {

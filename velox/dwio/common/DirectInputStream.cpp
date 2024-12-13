@@ -105,7 +105,7 @@ std::string DirectInputStream::getName() const {
       "DirectInputStream {} of {}", offsetInRegion_, region_.length);
 }
 
-size_t DirectInputStream::positionSize() {
+size_t DirectInputStream::positionSize() const {
   // not compressed, so only need 1 position (uncompressed position)
   return 1;
 }

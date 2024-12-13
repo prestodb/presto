@@ -535,16 +535,39 @@ struct RuntimeStatistics {
   // Number of strides (row groups) skipped based on statistics.
   int64_t skippedStrides{0};
 
+  int64_t footerBufferOverread{0};
+
+  int64_t numStripes{0};
+
   ColumnReaderStatistics columnReaderStatistics;
 
   std::unordered_map<std::string, RuntimeCounter> toMap() {
-    return {
-        {"skippedSplits", RuntimeCounter(skippedSplits)},
-        {"skippedSplitBytes",
-         RuntimeCounter(skippedSplitBytes, RuntimeCounter::Unit::kBytes)},
-        {"skippedStrides", RuntimeCounter(skippedStrides)},
-        {"flattenStringDictionaryValues",
-         RuntimeCounter(columnReaderStatistics.flattenStringDictionaryValues)}};
+    std::unordered_map<std::string, RuntimeCounter> result;
+    if (skippedSplits > 0) {
+      result.emplace("skippedSplits", RuntimeCounter(skippedSplits));
+    }
+    if (skippedSplitBytes > 0) {
+      result.emplace(
+          "skippedSplitBytes",
+          RuntimeCounter(skippedSplitBytes, RuntimeCounter::Unit::kBytes));
+    }
+    if (skippedStrides > 0) {
+      result.emplace("skippedStrides", RuntimeCounter(skippedStrides));
+    }
+    if (footerBufferOverread > 0) {
+      result.emplace(
+          "footerBufferOverread",
+          RuntimeCounter(footerBufferOverread, RuntimeCounter::Unit::kBytes));
+    }
+    if (numStripes > 0) {
+      result.emplace("numStripes", RuntimeCounter(numStripes));
+    }
+    if (columnReaderStatistics.flattenStringDictionaryValues > 0) {
+      result.emplace(
+          "flattenStringDictionaryValues",
+          RuntimeCounter(columnReaderStatistics.flattenStringDictionaryValues));
+    }
+    return result;
   }
 };
 

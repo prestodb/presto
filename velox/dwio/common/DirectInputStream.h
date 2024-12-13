@@ -48,7 +48,7 @@ class DirectInputStream : public SeekableInputStream {
 
   void seekToPosition(PositionProvider& position) override;
   std::string getName() const override;
-  size_t positionSize() override;
+  size_t positionSize() const override;
 
   /// Testing function to access loaded state.
   void testingData(

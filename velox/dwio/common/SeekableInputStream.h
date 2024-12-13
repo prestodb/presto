@@ -40,7 +40,7 @@ class SeekableInputStream : public google::protobuf::io::ZeroCopyInputStream {
 
   // Returns the number of position values this input stream uses to identify an
   // ORC/DWRF stream address.
-  virtual size_t positionSize() = 0;
+  virtual size_t positionSize() const = 0;
 
   virtual bool SkipInt64(int64_t count) = 0;
 
@@ -82,7 +82,7 @@ class SeekableArrayInputStream : public SeekableInputStream {
   virtual google::protobuf::int64 ByteCount() const override;
   virtual void seekToPosition(PositionProvider& position) override;
   virtual std::string getName() const override;
-  virtual size_t positionSize() override;
+  virtual size_t positionSize() const override;
 
   /// Return the total number of bytes returned from Next() calls.  Intended to
   /// be used for test validation.
@@ -123,7 +123,7 @@ class SeekableFileInputStream : public SeekableInputStream {
   virtual google::protobuf::int64 ByteCount() const override;
   virtual void seekToPosition(PositionProvider& position) override;
   virtual std::string getName() const override;
-  virtual size_t positionSize() override;
+  virtual size_t positionSize() const override;
 
  private:
   const std::shared_ptr<ReadFileInputStream> input_;

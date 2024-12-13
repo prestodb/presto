@@ -74,7 +74,7 @@ class PagedInputStream : public dwio::common::SeekableInputStream {
         ")");
   }
 
-  size_t positionSize() override {
+  size_t positionSize() const override {
     // not compressed, so need 2 positions (compressed position + uncompressed
     // position)
     return 2;

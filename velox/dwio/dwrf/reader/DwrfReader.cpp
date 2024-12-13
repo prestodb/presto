@@ -301,6 +301,9 @@ DwrfRowReader::DwrfRowReader(
   }
 
   unitLoader_ = getUnitLoader();
+  if (!emptyFile()) {
+    getReader().loadCache();
+  }
 }
 
 std::unique_ptr<ColumnReader>& DwrfRowReader::getColumnReader() {
@@ -339,7 +342,7 @@ std::unique_ptr<dwio::common::UnitLoader> DwrfRowReader::getUnitLoader() {
 
 uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
   // Empty file
-  if (isEmptyFile()) {
+  if (emptyFile()) {
     return 0;
   }
   nextRowNumber_.reset();
@@ -422,7 +425,7 @@ uint64_t DwrfRowReader::seekToRow(uint64_t rowNumber) {
 }
 
 uint64_t DwrfRowReader::skipRows(uint64_t numberOfRowsToSkip) {
-  if (isEmptyFile()) {
+  if (emptyFile()) {
     VLOG(1) << "Empty file, nothing to skip";
     return 0;
   }
@@ -586,7 +589,7 @@ uint64_t DwrfRowReader::rowNumber() {
   if (nextRow != kAtEnd) {
     return nextRow;
   }
-  if (isEmptyFile()) {
+  if (emptyFile()) {
     return 0;
   }
   return getReader().footer().numberOfRows();
@@ -615,7 +618,7 @@ uint64_t DwrfRowReader::next(
     const dwio::common::Mutation* mutation) {
   const auto nextRow = nextRowNumber();
   if (nextRow == kAtEnd) {
-    if (!isEmptyFile()) {
+    if (!emptyFile()) {
       previousRow_ = firstRowOfStripe_[stripeCeiling_ - 1] +
           getReader().footer().stripes(stripeCeiling_ - 1).numberOfRows();
     } else {

@@ -43,13 +43,18 @@ class CacheInputStream : public SeekableInputStream {
 
   ~CacheInputStream() override;
 
+  CacheInputStream& operator=(const CacheInputStream&) = delete;
+  CacheInputStream(const CacheInputStream&) = delete;
+  CacheInputStream& operator=(CacheInputStream&&) = delete;
+  CacheInputStream(CacheInputStream&&) = delete;
+
   bool Next(const void** data, int* size) override;
   void BackUp(int count) override;
   bool SkipInt64(int64_t count) override;
   google::protobuf::int64 ByteCount() const override;
   void seekToPosition(PositionProvider& position) override;
   std::string getName() const override;
-  size_t positionSize() override;
+  size_t positionSize() const override;
 
   /// Returns a copy of 'this', ranging over the same bytes. The clone is
   /// initially positioned at the position of 'this' and can be moved

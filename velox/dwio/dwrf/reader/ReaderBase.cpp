@@ -82,56 +82,76 @@ ReaderBase::ReaderBase(
     FileFormat fileFormat)
     : ReaderBase(createReaderOptions(pool, fileFormat), std::move(input)) {}
 
+namespace {
+
+template <typename T>
+std::unique_ptr<PostScript> parsePostScript(const char* input, int size) {
+  auto impl = std::make_unique<T>();
+  VELOX_CHECK(impl->ParseFromArray(input, size));
+  return std::make_unique<PostScript>(std::move(impl));
+}
+
+template <typename T>
+std::unique_ptr<FooterWrapper> parseFooter(
+    dwio::common::SeekableInputStream* input,
+    google::protobuf::Arena* arena) {
+  auto* impl = google::protobuf::Arena::CreateMessage<T>(arena);
+  VELOX_CHECK(impl->ParseFromZeroCopyStream(input));
+  return std::make_unique<FooterWrapper>(impl);
+}
+
+} // namespace
+
 ReaderBase::ReaderBase(
     const dwio::common::ReaderOptions& options,
     std::unique_ptr<dwio::common::BufferedInput> input)
-    : arena_(std::make_unique<google::protobuf::Arena>()),
-      options_{options},
+    : options_{options},
       input_(std::move(input)),
-      fileLength_(input_->getReadFile()->size()) {
+      fileLength_(input_->getReadFile()->size()),
+      arena_(std::make_unique<google::protobuf::Arena>()) {
   process::TraceContext trace("ReaderBase::ReaderBase");
   // TODO: make a config
   DWIO_ENSURE(fileLength_ > 0, "ORC file is empty");
   VELOX_CHECK_GE(fileLength_, 4, "File size too small");
 
   const auto preloadFile = fileLength_ <= options_.filePreloadThreshold();
-  const uint64_t readSize = preloadFile
-      ? fileLength_
-      : std::min(fileLength_, options_.footerEstimatedSize());
+  const int64_t footerBufSize =
+      std::min(fileLength_, options_.footerEstimatedSize());
+  const uint64_t readSize = preloadFile ? fileLength_ : footerBufSize;
   if (input_->supportSyncLoad()) {
     input_->enqueue({fileLength_ - readSize, readSize, "footer"});
     input_->load(preloadFile ? LogType::FILE : LogType::FOOTER);
   }
 
   // TODO: read footer from spectrum
-  {
-    const void* buf;
-    int32_t ignored;
-    auto lastByteStream = input_->read(fileLength_ - 1, 1, LogType::FOOTER);
-    const bool ret = lastByteStream->Next(&buf, &ignored);
-    VELOX_CHECK(ret, "Failed to read");
-    // Make sure 'lastByteStream' is live while dereferencing 'buf'.
-    psLength_ = *static_cast<const char*>(buf) & 0xff;
-  }
+  auto footerBuffer =
+      AlignedBuffer::allocate<char>(footerBufSize, &options_.memoryPool());
+  auto* rawFooterBuffer = footerBuffer->asMutable<char>();
+  input_->read(fileLength_ - footerBufSize, footerBufSize, LogType::FOOTER)
+      ->readFully(rawFooterBuffer, footerBufSize);
+  int32_t footerOffset = footerBufSize - 1;
+  psLength_ = static_cast<uint8_t>(rawFooterBuffer[footerOffset]);
   VELOX_CHECK_LE(
       psLength_ + 4, // 1 byte for post script len, 3 byte "ORC" header.
       fileLength_,
       "Corrupted file, Post script size is invalid");
 
+  VELOX_CHECK_GE(footerOffset, psLength_);
+  footerOffset -= psLength_;
   if (fileFormat() == FileFormat::DWRF) {
-    auto postScript = ProtoUtils::readProto<proto::PostScript>(
-        input_->read(fileLength_ - psLength_ - 1, psLength_, LogType::FOOTER));
-    postScript_ = std::make_unique<PostScript>(std::move(postScript));
+    postScript_ = parsePostScript<proto::PostScript>(
+        rawFooterBuffer + footerOffset, psLength_);
   } else {
-    auto postScript = ProtoUtils::readProto<proto::orc::PostScript>(
-        input_->read(fileLength_ - psLength_ - 1, psLength_, LogType::FOOTER));
-    postScript_ = std::make_unique<PostScript>(std::move(postScript));
+    postScript_ = parsePostScript<proto::orc::PostScript>(
+        rawFooterBuffer + footerOffset, psLength_);
   }
 
   const uint64_t footerSize = postScript_->footerLength();
   const uint64_t cacheSize =
       postScript_->hasCacheSize() ? postScript_->cacheSize() : 0;
   const uint64_t tailSize = 1 + psLength_ + footerSize + cacheSize;
+  footerBufferOverread_ =
+      std::max<int>(0, footerBufSize - static_cast<int64_t>(tailSize));
 
   // There are cases in warehouse, where RC/text files are stored
   // in ORC partition. This causes the Reader to SIGSEGV. The following
@@ -154,29 +174,57 @@ ReaderBase::ReaderBase(
     input_->load(LogType::FOOTER);
   }
 
-  auto footerStream = input_->read(
-      fileLength_ - psLength_ - footerSize - 1, footerSize, LogType::FOOTER);
-  if (fileFormat() == FileFormat::DWRF) {
-    auto footer =
-        google::protobuf::Arena::CreateMessage<proto::Footer>(arena_.get());
-    ProtoUtils::readProtoInto<proto::Footer>(
-        createDecompressedStream(std::move(footerStream), "File Footer"),
-        footer);
-    footer_ = std::make_unique<FooterWrapper>(footer);
+  BufferPtr fullFooterBuffer;
+  char* footerStart;
+  if (footerOffset >= footerSize) {
+    footerOffset -= footerSize;
+    footerStart = rawFooterBuffer + footerOffset;
   } else {
-    auto footer = google::protobuf::Arena::CreateMessage<proto::orc::Footer>(
-        arena_.get());
-    ProtoUtils::readProtoInto<proto::orc::Footer>(
-        createDecompressedStream(std::move(footerStream), "File Footer"),
-        footer);
-    footer_ = std::make_unique<FooterWrapper>(footer);
+    fullFooterBuffer =
+        AlignedBuffer::allocate<char>(footerSize, &options_.memoryPool());
+    footerStart = fullFooterBuffer->asMutable<char>();
+    auto remainingBytes = footerSize - footerOffset;
+    input_
+        ->read(
+            fileLength_ - footerSize - psLength_ - 1,
+            remainingBytes,
+            LogType::FOOTER)
+        ->readFully(footerStart, remainingBytes);
+    ::memcpy(footerStart + remainingBytes, rawFooterBuffer, footerOffset);
+    footerOffset = 0;
   }
+  auto decompressed = createDecompressedStream(
+      std::make_unique<dwio::common::SeekableArrayInputStream>(
+          footerStart, footerSize),
+      "File Footer");
+  if (fileFormat() == FileFormat::DWRF) {
+    footer_ = parseFooter<proto::Footer>(decompressed.get(), arena_.get());
+  } else {
+    footer_ = parseFooter<proto::orc::Footer>(decompressed.get(), arena_.get());
+  }
+
+  stripeMetadataCacheBuffer_ = footerBuffer;
+  stripeMetadataCacheBufferSize_ = footerOffset;
 
   schema_ = std::dynamic_pointer_cast<const RowType>(
       convertType(*footer_, 0, options_.fileColumnNamesReadAsLowerCase()));
   VELOX_CHECK_NOT_NULL(schema_, "invalid schema");
 
-  // load stripe index/footer cache
+  // initialize file decrypter
+  handler_ =
+      DecryptionHandler::create(*footer_, options_.decrypterFactory().get());
+}
+
+void ReaderBase::loadCache() {
+  if (!stripeMetadataCacheBuffer_) {
+    // NOTE: we only expect call this once as stripeMetadataCacheBuffer_ is
+    // reset on the first call.
+    return;
+  }
+  const uint64_t footerSize = postScript_->footerLength();
+  const uint64_t cacheSize =
+      postScript_->hasCacheSize() ? postScript_->cacheSize() : 0;
+  const uint64_t tailSize = 1 + psLength_ + footerSize + cacheSize;
   if (cacheSize > 0) {
     VELOX_CHECK_EQ(format(), DwrfFormat::kDwrf);
     const uint64_t cacheOffset = fileLength_ - tailSize;
@@ -189,8 +237,20 @@ ReaderBase::ReaderBase(
     } else {
       auto cacheBuffer = std::make_shared<dwio::common::DataBuffer<char>>(
           options_.memoryPool(), cacheSize);
-      input_->read(cacheOffset, cacheSize, LogType::FOOTER)
-          ->readFully(cacheBuffer->data(), cacheSize);
+      auto* target = cacheBuffer->data();
+      auto* source = stripeMetadataCacheBuffer_->as<char>();
+      auto copySize = cacheSize;
+      if (cacheSize > stripeMetadataCacheBufferSize_) {
+        auto remainingBytes = cacheSize - stripeMetadataCacheBufferSize_;
+        auto stream =
+            input_->read(cacheOffset, remainingBytes, LogType::FOOTER);
+        stream->readFully(target, remainingBytes);
+        target += remainingBytes;
+        copySize -= remainingBytes;
+      } else {
+        source += stripeMetadataCacheBufferSize_ - cacheSize;
+      }
+      ::memcpy(target, source, copySize);
       cache_ = std::make_unique<StripeMetadataCache>(
           postScript_->cacheMode(), *footer_, std::move(cacheBuffer));
     }
@@ -208,9 +268,8 @@ ReaderBase::ReaderBase(
       input_->load(LogType::FOOTER);
     }
   }
-  // initialize file decrypter
-  handler_ =
-      DecryptionHandler::create(*footer_, options_.decrypterFactory().get());
+  // Release the memory as we no longer need it.
+  stripeMetadataCacheBuffer_.reset();
 }
 
 std::vector<uint64_t> ReaderBase::rowsPerStripe() const {
