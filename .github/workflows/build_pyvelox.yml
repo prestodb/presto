@@ -157,7 +157,7 @@ jobs:
           cd wheelhouse
           rename 's/11_0/10_15/g' *.whl
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: |
@@ -170,7 +170,7 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: wheels
           path: ./wheelhouse

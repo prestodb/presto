@@ -80,37 +80,31 @@ jobs:
           ccache -s
 
       - name: Upload aggregation fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aggregation
           path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test
 
       - name: Upload spark aggregation fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spark_aggregation_fuzzer
           path: velox/_build/debug/velox/functions/sparksql/fuzzer/spark_aggregation_fuzzer_test
 
-      - name: Upload aggregation fuzzer
-        uses: actions/upload-artifact@v3
-        with:
-          name: aggregation
-          path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_aggregation_fuzzer_test
-
       - name: Upload join fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: join
           path: velox/_build/debug/velox/exec/tests/velox_join_fuzzer_test
 
       - name: Upload Presto expression fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: presto_expression_fuzzer
           path: velox/_build/debug/velox/expression/fuzzer/velox_expression_fuzzer_test
 
       - name: Upload Spark expression fuzzer
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spark_expression_fuzzer
           path: velox/_build/debug/velox/expression/fuzzer/spark_expression_fuzzer_test
@@ -173,7 +167,7 @@ jobs:
 
       - name: Archive aggregate production artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: aggregate-fuzzer-failure-artifacts
           path: |
@@ -195,7 +189,7 @@ jobs:
         run: source ./scripts/setup-ubuntu.sh && install_apt_deps
 
       - name: Download spark aggregation fuzzer
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: spark_aggregation_fuzzer
 
@@ -215,7 +209,7 @@ jobs:
 
       - name: Archive Spark aggregate production artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spark-agg-fuzzer-failure-artifacts
           path: |
@@ -236,7 +230,7 @@ jobs:
         run: source ./scripts/setup-ubuntu.sh && install_apt_deps
 
       - name: Download join fuzzer
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: join
 
@@ -256,7 +250,7 @@ jobs:
 
       - name: Archive aggregate production artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: join-fuzzer-failure-artifacts
           path: |
@@ -277,7 +271,7 @@ jobs:
         run: source ./scripts/setup-ubuntu.sh && install_apt_deps
 
       - name: Download presto fuzzer
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: presto_expression_fuzzer
 
@@ -306,7 +300,7 @@ jobs:
 
       - name: Archive Presto expression production artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: presto-fuzzer-failure-artifacts
           path: |
@@ -327,7 +321,7 @@ jobs:
         run: source ./scripts/setup-ubuntu.sh && install_apt_deps
 
       - name: Download spark fuzzer
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: spark_expression_fuzzer
 
@@ -349,7 +343,7 @@ jobs:
 
       - name: Archive Spark expression production artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: spark-fuzzer-failure-artifacts
           path: |

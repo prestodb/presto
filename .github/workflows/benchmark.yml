@@ -203,13 +203,13 @@ jobs:
         run: echo "${{ github.event.pull_request.number || 0 }}" > pr_number.txt
 
       - name: "Upload PR number"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           path: "pr_number.txt"
           name: "pr_number"
       
       - name: "Upload result artifact"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           path: "benchmark-results"
           name: "benchmark-results"

@@ -32,53 +32,28 @@ permissions:
 jobs:
   upload:
     runs-on: ubuntu-latest
-    # Disabling workflow due to potential security sev
-    if: false
     steps:
 
-    - name: 'Download artifacts'
-      id: 'download'
-      uses: actions/github-script@v6
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
       with:
+        run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
+        merge-multiple: true
+        path: /tmp/artifacts/
+        github-token: ${{ github.token }}
+
+    - name: Set meta data outputs
+      id: 'download'
+      uses: actions/github-script@v7
+      with:
+        # Have to get the run data explicitly instead of using the payload
+        # for workflow_dispatch to work.
         script: |
-          const run_id = "${{ github.event.workflow_run.id || inputs.run_id }}";
           let benchmark_run = await github.rest.actions.getWorkflowRun({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            run_id: run_id,
+            run_id: "${{ github.event.workflow_run.id || inputs.run_id }}",
           });
-
-          let artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            run_id: run_id,
-          });
-
-          let result_artifact = artifacts.data.artifacts.filter((artifact) => {
-            return artifact.name == "benchmark-results"
-          })[0];
-
-          let pr_artifact = artifacts.data.artifacts.filter((artifact) => {
-            return artifact.name == "pr_number"
-          })[0];
-
-          let result_download = await github.rest.actions.downloadArtifact({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            artifact_id: result_artifact.id,
-            archive_format: 'zip',
-          });
-
-          let pr_download = await github.rest.actions.downloadArtifact({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            artifact_id: pr_artifact.id,
-            archive_format: 'zip',
-          });
-
-          var fs = require('fs');
-          fs.writeFileSync('${{github.workspace}}/benchmark-results.zip', Buffer.from(result_download.data));
-          fs.writeFileSync('${{github.workspace}}/pr_number.zip', Buffer.from(pr_download.data));
 
           core.setOutput('contender_sha', benchmark_run.data.head_sha);
 
@@ -88,13 +63,10 @@ jobs:
             core.setOutput('merge_commit_message', '');
           }
 
-    - name: Extract artifact
+    - name: Extract PR Number
       id: extract
       run: |
-        unzip benchmark-results.zip -d benchmark-results
-        unzip pr_number.zip
-
-        pr_number=$(grep -ox '[[:digit:]]*' pr_number.txt | head -1)
+        pr_number=$(grep -ox '[[:digit:]]*' /tmp/artifacts/pr_number.txt | head -1)
 
         if [ "$pr_number" -ge 0 ]; then
           echo "Found PR number: $pr_number"
@@ -105,9 +77,11 @@ jobs:
 
         echo "pr_number=$pr_number" >> $GITHUB_OUTPUT
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         path: velox
+        persist-credentials: false
+
     - uses: actions/setup-python@v4
       with:
         python-version: '3.8'
@@ -115,7 +89,7 @@ jobs:
         cache-dependency-path: "velox/scripts/*"
 
     - name: "Install dependencies"
-      run: python -m pip install -r velox/scripts/benchmark-requirements.txt
+      run: pip install -r velox/scripts/benchmark-requirements.txt
 
     - name: "Upload results"
       env:
@@ -126,7 +100,7 @@ jobs:
         CONBENCH_PROJECT_REPOSITORY: "${{ github.repository }}"
         CONBENCH_PROJECT_COMMIT: "${{ steps.download.outputs.contender_sha }}"
       run: |
-        if [ "${{ steps.extract.outputs.pr_number }}" -gt 0]; then
+        if [ "${{ steps.extract.outputs.pr_number }}" -gt 0 ]; then
           export CONBENCH_PROJECT_PR_NUMBER="${{ steps.extract.outputs.pr_number }}"
         fi
 
@@ -134,7 +108,7 @@ jobs:
           --run_id "GHA-${{ github.run_id }}-${{ github.run_attempt }}" \
           --pr_number "${{ steps.extract.outputs.pr_number }}" \
           --sha "${{ steps.download.outputs.contender_sha }}" \
-          --output_dir "${{ github.workspace }}/benchmark-results/contender/"
+          --output_dir "/tmp/artifacts/benchmark-results/contender/"
 
     - name: "Check the status of the upload"
       # Status functions like failure() only work in `if:`
@@ -143,7 +117,7 @@ jobs:
       run: echo "failed=true" >> $GITHUB_OUTPUT
 
     - name: "Create a GitHub Status on the contender commit (whether the upload was successful)"
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       if: ${{ !cancelled() && steps.extract.conclusion != 'failure' }}
       with:
         script: |
