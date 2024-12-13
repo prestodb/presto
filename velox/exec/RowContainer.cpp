@@ -567,7 +567,8 @@ void RowContainer::store(
         decoded,
         rows,
         isKey,
-        offsets_[column]);
+        offsets_[column],
+        column);
   } else {
     const auto rowColumn = rowColumns_[column];
     VELOX_DYNAMIC_TYPE_DISPATCH_ALL(

@@ -659,7 +659,7 @@ DEBUG_ONLY_TEST_F(WindowTest, reserveMemorySort) {
     const auto plan = usePrefixSort ? prefixSortPlan : nonPrefixSortPlan;
     velox::common::PrefixSortConfig prefixSortConfig =
         velox::common::PrefixSortConfig{
-            std::numeric_limits<int32_t>::max(), 130};
+            std::numeric_limits<int32_t>::max(), 130, 12};
     auto sortWindowBuild = std::make_unique<SortWindowBuild>(
         plan,
         pool_.get(),

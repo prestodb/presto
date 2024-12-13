@@ -66,7 +66,13 @@ class SortBufferTest : public OperatorTestBase,
     OperatorTestBase::TearDown();
   }
 
-  common::SpillConfig getSpillConfig(const std::string& spillDir) const {
+  common::SpillConfig getSpillConfig(
+      const std::string& spillDir,
+      bool enableSpillPrefixSort = true) const {
+    std::optional<common::PrefixSortConfig> spillPrefixSortConfig =
+        enableSpillPrefixSort
+        ? std::optional<common::PrefixSortConfig>(prefixSortConfig_)
+        : std::nullopt;
     return common::SpillConfig(
         [spillDir]() -> const std::string& { return spillDir; },
         [&](uint64_t) {},
@@ -83,14 +89,15 @@ class SortBufferTest : public OperatorTestBase,
         0,
         0,
         "none",
-        spillPrefixSortConfig_);
+        spillPrefixSortConfig);
   }
 
   const bool enableSpillPrefixSort_{GetParam()};
   const velox::common::PrefixSortConfig prefixSortConfig_ =
       velox::common::PrefixSortConfig{
           std::numeric_limits<uint32_t>::max(),
-          GetParam() ? 8 : std::numeric_limits<uint32_t>::max()};
+          GetParam() ? 8 : std::numeric_limits<uint32_t>::max(),
+          12};
   const std::optional<common::PrefixSortConfig> spillPrefixSortConfig_ =
       enableSpillPrefixSort_
       ? std::optional<common::PrefixSortConfig>(prefixSortConfig_)
@@ -102,13 +109,6 @@ class SortBufferTest : public OperatorTestBase,
        {"c2", SMALLINT()},
        {"c3", REAL()},
        {"c4", DOUBLE()},
-       {"c5", VARCHAR()}});
-  const RowTypePtr nonPrefixSortInputType_ = ROW(
-      {{"c0", VARCHAR()},
-       {"c1", VARCHAR()},
-       {"c2", VARCHAR()},
-       {"c3", VARCHAR()},
-       {"c4", VARCHAR()},
        {"c5", VARCHAR()}});
   // Specifies the sort columns ["c4", "c1"].
   std::vector<column_index_t> sortColumnIndices_{4, 1};
@@ -738,12 +738,10 @@ DEBUG_ONLY_TEST_P(SortBufferTest, reserveMemorySort) {
     SCOPED_TRACE(fmt::format(
         "usePrefixSort: {}, spillEnabled: {}, ", usePrefixSort, spillEnabled));
     auto spillDirectory = exec::test::TempDirectoryPath::create();
-    auto spillConfig = getSpillConfig(spillDirectory->getPath());
+    auto spillConfig = getSpillConfig(spillDirectory->getPath(), usePrefixSort);
     folly::Synchronized<common::SpillStats> spillStats;
-    const RowTypePtr inputType =
-        usePrefixSort ? inputType_ : nonPrefixSortInputType_;
     auto sortBuffer = std::make_unique<SortBuffer>(
-        inputType,
+        inputType_,
         sortColumnIndices_,
         sortCompareFlags_,
         pool_.get(),
@@ -757,7 +755,7 @@ DEBUG_ONLY_TEST_P(SortBufferTest, reserveMemorySort) {
     VectorFuzzer fuzzer({.vectorSize = 100}, spillSource.get());
 
     TestScopedSpillInjection scopedSpillInjection(0);
-    sortBuffer->addInput(fuzzer.fuzzRow(inputType));
+    sortBuffer->addInput(fuzzer.fuzzRow(inputType_));
 
     std::atomic_bool hasReserveMemory = false;
     // Reserve memory for sort.

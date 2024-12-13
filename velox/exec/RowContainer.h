@@ -1056,6 +1056,7 @@ class RowContainer {
     for (int32_t i = 0; i < rows.size(); ++i) {
       storeWithNulls<Kind>(
           decoded, i, isKey, rows[i], offset, nullByte, nullMask, column);
+      updateColumnStats(decoded, i, rows[i], column);
     }
   }
 
@@ -1064,9 +1065,11 @@ class RowContainer {
       const DecodedVector& decoded,
       folly::Range<char**> rows,
       bool isKey,
-      int32_t offset) {
+      int32_t offset,
+      int32_t column) {
     for (int32_t i = 0; i < rows.size(); ++i) {
       storeNoNulls<Kind>(decoded, i, isKey, rows[i], offset);
+      updateColumnStats(decoded, i, rows[i], column);
     }
   }
 
