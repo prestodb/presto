@@ -377,3 +377,45 @@ The shard id to be traced. If not specified, all shards will be matched.
 
 The regular expression to match a task for tracing. It will be deprecated if there is
 no issue with native_query_trace_fragment_id and native_query_trace_shard_id.
+
+``native_scaled_writer_rebalance_max_memory_usage_ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Minimum value:** ``0``
+* **Maximum value:** ``1``
+* **Default value:** ``0.7``
+
+The max ratio of a query used memory to its max capacity, and the scale
+writer exchange stops scaling writer processing if the query's current
+memory usage exceeds this ratio. The value is in the range of (0, 1].
+
+``native_scaled_writer_max_partitions_per_writer``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``128``
+
+The max number of logical table partitions that can be assigned to a
+single table writer thread. The logical table partition is used by local
+exchange writer for writer scaling, and multiple physical table
+partitions can be mapped to the same logical table partition based on the
+hash value of calculated partitioned ids.
+
+``native_scaled_writer_min_partition_processed_bytes_rebalance_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``134217728``
+
+Minimum amount of data processed by a logical table partition to trigger
+writer scaling if it is detected as overloaded by scale writer exchange.
+
+``native_scaled_writer_min_processed_bytes_rebalance_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``268435456``
+
+Minimum amount of data processed by all the logical table partitions to
+trigger skewed partition rebalancing by scale writer exchange.

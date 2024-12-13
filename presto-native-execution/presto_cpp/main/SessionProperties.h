@@ -178,6 +178,31 @@ class SessionProperties {
   static constexpr const char* kSelectiveNimbleReaderEnabled =
       "native_selective_nimble_reader_enabled";
 
+  /// The max ratio of a query used memory to its max capacity, and the scale
+  /// writer exchange stops scaling writer processing if the query's current
+  /// memory usage exceeds this ratio. The value is in the range of (0, 1].
+  static constexpr const char* kScaleWriterRebalanceMaxMemoryUsageRatio =
+      "native_scaled_writer_rebalance_max_memory_usage_ratio";
+
+  /// The max number of logical table partitions that can be assigned to a
+  /// single table writer thread. The logical table partition is used by local
+  /// exchange writer for writer scaling, and multiple physical table
+  /// partitions can be mapped to the same logical table partition based on the
+  /// hash value of calculated partitioned ids.
+  static constexpr const char* kScaleWriterMaxPartitionsPerWriter =
+      "native_scaled_writer_max_partitions_per_writer";
+
+  /// Minimum amount of data processed by a logical table partition to trigger
+  /// writer scaling if it is detected as overloaded by scale writer exchange.
+  static constexpr const char*
+      kScaleWriterMinPartitionProcessedBytesRebalanceThreshold =
+          "native_scaled_writer_min_partition_processed_bytes_rebalance_threshold";
+
+  /// Minimum amount of data processed by all the logical table partitions to
+  /// trigger skewed partition rebalancing by scale writer exchange.
+  static constexpr const char* kScaleWriterMinProcessedBytesRebalanceThreshold =
+      "native_scaled_writer_min_processed_bytes_rebalance_threshold";
+
   /// Enable timezone-less timestamp conversions.
   static constexpr const char* kLegacyTimestamp = "legacy_timestamp";
 
@@ -246,7 +271,7 @@ class SessionProperties {
   /// prefix keys, which might have potential risk of running out of server
   /// memory.
   static constexpr const char* kSpillPrefixSortEnabled =
-      "spill_prefixsort_enabled";
+      "native_spill_prefixsort_enabled";
 
   /// Maximum number of bytes to use for the normalized key in prefix-sort. Use
   /// 0 to disable prefix-sort.
