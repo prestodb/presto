@@ -171,8 +171,9 @@ class TpchConnectorFactory : public ConnectorFactory {
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
       std::shared_ptr<const config::ConfigBase> config,
-      folly::Executor* executor = nullptr) override {
-    return std::make_shared<TpchConnector>(id, config, executor);
+      folly::Executor* ioExecutor = nullptr,
+      folly::Executor* cpuExecutor = nullptr) override {
+    return std::make_shared<TpchConnector>(id, config, ioExecutor);
   }
 };
 
