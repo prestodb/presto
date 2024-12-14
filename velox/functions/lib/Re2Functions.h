@@ -157,8 +157,6 @@ class PatternMetadata {
   std::vector<std::string> substrings_;
 };
 
-inline const int kMaxCompiledRegexes = 20;
-
 /// The functions in this file use RE2 as the regex engine. RE2 is fast, but
 /// supports only a subset of PCRE syntax and in particular does not support
 /// backtracking and associated features (e.g. backreferences).
@@ -255,18 +253,26 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2ExtractAllSignatures();
 namespace detail {
 
 // A cache of compiled regular expressions (RE2 instances). Allows up to
-// 'kMaxCompiledRegexes' different expressions.
+// 'expression.max_compiled_regexes' different expressions.
 //
 // Compiling regular expressions is expensive. It can take up to 200 times
 // more CPU time to compile a regex vs. evaluate it.
 class ReCache {
  public:
+  explicit ReCache(uint64_t maxCompiledRegexes)
+      : maxCompiledRegexes_(maxCompiledRegexes) {}
+
+  void setMaxCompiledRegexes(uint64_t maxCompiledRegexes) {
+    maxCompiledRegexes_ = maxCompiledRegexes;
+  }
+
   RE2* findOrCompile(const StringView& pattern);
 
   Expected<RE2*> tryFindOrCompile(const StringView& pattern);
 
  private:
   folly::F14FastMap<std::string, std::unique_ptr<RE2>> cache_;
+  uint64_t maxCompiledRegexes_;
 };
 
 } // namespace detail
@@ -287,6 +293,8 @@ template <
     std::string (*prepareRegexpPattern)(const StringView&),
     std::string (*prepareRegexpReplacement)(const RE2&, const StringView&)>
 struct Re2RegexpReplace {
+  Re2RegexpReplace() : cache_(0) {}
+
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   FOLLY_ALWAYS_INLINE void initialize(
@@ -304,6 +312,7 @@ struct Re2RegexpReplace {
           processedPattern,
           re_->error());
     }
+    cache_.setMaxCompiledRegexes(config.exprMaxCompiledRegexes());
 
     if (replacement != nullptr) {
       // Constant 'replacement' with non-constant 'pattern' needs to be
@@ -377,7 +386,17 @@ struct Re2RegexpReplace {
 
 template <typename TExec>
 struct Re2RegexpSplit {
+  Re2RegexpSplit() : cache_(0) {}
+
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* /*string*/,
+      const arg_type<Varchar>* /*pattern*/) {
+    cache_.setMaxCompiledRegexes(config.exprMaxCompiledRegexes());
+  }
 
   static constexpr int32_t reuse_strings_from_arg = 0;
 

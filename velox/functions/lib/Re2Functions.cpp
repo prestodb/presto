@@ -43,7 +43,7 @@ Expected<RE2*> ReCache::tryFindOrCompile(const StringView& pattern) {
     return reIt->second.get();
   }
 
-  if (cache_.size() >= kMaxCompiledRegexes) {
+  if (cache_.size() >= maxCompiledRegexes_) {
     return folly::makeUnexpected(
         Status::UserError("Max number of regex reached"));
   }
@@ -239,6 +239,8 @@ class Re2MatchConstantPattern final : public exec::VectorFunction {
 template <bool (*Fn)(StringView, const RE2&)>
 class Re2Match final : public exec::VectorFunction {
  public:
+  explicit Re2Match(int64_t maxCompiledRegexes) : cache_(maxCompiledRegexes) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -359,8 +361,8 @@ class Re2SearchAndExtractConstantPattern final : public exec::VectorFunction {
 template <typename T>
 class Re2SearchAndExtract final : public exec::VectorFunction {
  public:
-  explicit Re2SearchAndExtract(bool emptyNoMatch)
-      : emptyNoMatch_(emptyNoMatch) {}
+  explicit Re2SearchAndExtract(bool emptyNoMatch, int64_t maxCompiledRegexes)
+      : emptyNoMatch_(emptyNoMatch), cache_(maxCompiledRegexes) {}
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -886,11 +888,15 @@ class LikeWithRe2 final : public exec::VectorFunction {
 };
 
 // This function is constructed when pattern or escape are not constants.
-// It allows up to kMaxCompiledRegexes different regular expressions to be
-// compiled throughout the query lifetime per expression and thread of
-// execution, note that optimized regular expressions that are not compiled are
-// not counted.
+// It allows up to 'expression.max_compiled_regexes' different regular
+// expressions to be compiled throughout the query lifetime per expression and
+// thread of execution, note that optimized regular expressions that are not
+// compiled are not counted.
 class LikeGeneric final : public exec::VectorFunction {
+ public:
+  explicit LikeGeneric(int64_t maxCompiledRegexes)
+      : maxCompiledRegexes_(maxCompiledRegexes) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -1008,7 +1014,7 @@ class LikeGeneric final : public exec::VectorFunction {
 
     VELOX_USER_CHECK_LT(
         compiledRegularExpressions_.size(),
-        kMaxCompiledRegexes,
+        maxCompiledRegexes_,
         "Max number of regex reached");
 
     bool validEscapeUsage;
@@ -1033,6 +1039,7 @@ class LikeGeneric final : public exec::VectorFunction {
       std::pair<std::string, std::optional<char>>,
       std::unique_ptr<RE2>>
       compiledRegularExpressions_;
+  int64_t maxCompiledRegexes_;
 };
 
 void re2ExtractAll(
@@ -1145,6 +1152,9 @@ class Re2ExtractAllConstantPattern final : public exec::VectorFunction {
 template <typename T>
 class Re2ExtractAll final : public exec::VectorFunction {
  public:
+  explicit Re2ExtractAll(int64_t maxCompiledRegexes)
+      : cache_(maxCompiledRegexes) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -1204,7 +1214,8 @@ class Re2ExtractAll final : public exec::VectorFunction {
 template <bool (*Fn)(StringView, const RE2&)>
 std::shared_ptr<exec::VectorFunction> makeRe2MatchImpl(
     const std::string& name,
-    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+    const std::vector<exec::VectorFunctionArg>& inputArgs,
+    const core::QueryConfig& config) {
   if (inputArgs.size() != 2 || !inputArgs[0].type->isVarchar() ||
       !inputArgs[1].type->isVarchar()) {
     VELOX_UNSUPPORTED(
@@ -1220,11 +1231,14 @@ std::shared_ptr<exec::VectorFunction> makeRe2MatchImpl(
         constantPattern->as<ConstantVector<StringView>>()->valueAt(0));
   }
 
-  return std::make_shared<Re2Match<Fn>>();
+  return std::make_shared<Re2Match<Fn>>(config.exprMaxCompiledRegexes());
 }
 
 class RegexpReplaceWithLambdaFunction : public exec::VectorFunction {
  public:
+  explicit RegexpReplaceWithLambdaFunction(int64_t maxCompiledRegexes)
+      : cache_(maxCompiledRegexes) {}
+
   void apply(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
@@ -1592,8 +1606,8 @@ class RegexpReplaceWithLambdaFunction : public exec::VectorFunction {
 std::shared_ptr<exec::VectorFunction> makeRe2Match(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& /*config*/) {
-  return makeRe2MatchImpl<re2FullMatch>(name, inputArgs);
+    const core::QueryConfig& config) {
+  return makeRe2MatchImpl<re2FullMatch>(name, inputArgs, config);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2MatchSignatures() {
@@ -1608,8 +1622,8 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2MatchSignatures() {
 std::shared_ptr<exec::VectorFunction> makeRe2Search(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& /*config*/) {
-  return makeRe2MatchImpl<re2PartialMatch>(name, inputArgs);
+    const core::QueryConfig& config) {
+  return makeRe2MatchImpl<re2PartialMatch>(name, inputArgs, config);
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> re2SearchSignatures() {
@@ -1624,7 +1638,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> re2SearchSignatures() {
 std::shared_ptr<exec::VectorFunction> makeRe2Extract(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& /*config*/,
+    const core::QueryConfig& config,
     const bool emptyNoMatch) {
   auto numArgs = inputArgs.size();
   VELOX_USER_CHECK(
@@ -1673,11 +1687,14 @@ std::shared_ptr<exec::VectorFunction> makeRe2Extract(
     }
   }
 
+  const auto maxCompiledRegexes = config.exprMaxCompiledRegexes();
   switch (groupIdTypeKind) {
     case TypeKind::INTEGER:
-      return std::make_shared<Re2SearchAndExtract<int32_t>>(emptyNoMatch);
+      return std::make_shared<Re2SearchAndExtract<int32_t>>(
+          emptyNoMatch, maxCompiledRegexes);
     case TypeKind::BIGINT:
-      return std::make_shared<Re2SearchAndExtract<int64_t>>(emptyNoMatch);
+      return std::make_shared<Re2SearchAndExtract<int64_t>>(
+          emptyNoMatch, maxCompiledRegexes);
     default:
       VELOX_UNREACHABLE();
   }
@@ -2158,14 +2175,14 @@ PatternMetadata determinePatternKind(
 std::shared_ptr<exec::VectorFunction> makeLike(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& /*config*/) {
+    const core::QueryConfig& config) {
   auto numArgs = inputArgs.size();
 
   std::optional<char> escapeChar;
   if (numArgs == 3) {
     BaseVector* escape = inputArgs[2].constantValue.get();
     if (!escape) {
-      return std::make_shared<LikeGeneric>();
+      return std::make_shared<LikeGeneric>(config.exprMaxCompiledRegexes());
     }
 
     auto constantEscape = escape->as<ConstantVector<StringView>>();
@@ -2191,7 +2208,7 @@ std::shared_ptr<exec::VectorFunction> makeLike(
 
   BaseVector* constantPattern = inputArgs[1].constantValue.get();
   if (!constantPattern) {
-    return std::make_shared<LikeGeneric>();
+    return std::make_shared<LikeGeneric>(config.exprMaxCompiledRegexes());
   }
 
   if (constantPattern->isNullAt(0)) {
@@ -2273,7 +2290,7 @@ std::vector<std::shared_ptr<exec::FunctionSignature>> likeSignatures() {
 std::shared_ptr<exec::VectorFunction> makeRe2ExtractAll(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
-    const core::QueryConfig& /*config*/) {
+    const core::QueryConfig& config) {
   auto numArgs = inputArgs.size();
   VELOX_USER_CHECK(
       numArgs == 2 || numArgs == 3,
@@ -2318,11 +2335,12 @@ std::shared_ptr<exec::VectorFunction> makeRe2ExtractAll(
     }
   }
 
+  const auto maxCompiledRegexes = config.exprMaxCompiledRegexes();
   switch (groupIdTypeKind) {
     case TypeKind::INTEGER:
-      return std::make_shared<Re2ExtractAll<int32_t>>();
+      return std::make_shared<Re2ExtractAll<int32_t>>(maxCompiledRegexes);
     case TypeKind::BIGINT:
-      return std::make_shared<Re2ExtractAll<int64_t>>();
+      return std::make_shared<Re2ExtractAll<int64_t>>(maxCompiledRegexes);
     default:
       VELOX_UNREACHABLE();
   }
@@ -2357,7 +2375,8 @@ std::shared_ptr<exec::VectorFunction> makeRegexpReplaceWithLambda(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs,
     const core::QueryConfig& config) {
-  return std::make_shared<RegexpReplaceWithLambdaFunction>();
+  return std::make_shared<RegexpReplaceWithLambdaFunction>(
+      config.exprMaxCompiledRegexes());
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>>

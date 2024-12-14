@@ -42,6 +42,8 @@ void ensureRegexIsConstant(
 // If position > length string, return string.
 template <typename T>
 struct RegexpReplaceFunction {
+  RegexpReplaceFunction() : cache_(0) {}
+
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   static constexpr bool is_default_ascii_behavior = true;
@@ -49,19 +51,19 @@ struct RegexpReplaceFunction {
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& inputTypes,
       const core::QueryConfig& config,
-      const arg_type<Varchar>* str,
+      const arg_type<Varchar>* stringInput,
       const arg_type<Varchar>* pattern,
       const arg_type<Varchar>* replacement) {
-    initialize(inputTypes, config, str, pattern, replacement, nullptr);
+    initialize(inputTypes, config, stringInput, pattern, replacement, nullptr);
   }
 
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& /*inputTypes*/,
-      const core::QueryConfig& /*config*/,
-      const arg_type<Varchar>* /*string*/,
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* /*stringInput*/,
       const arg_type<Varchar>* pattern,
       const arg_type<Varchar>* replacement,
-      const arg_type<int64_t>* /*position*/) {
+      const arg_type<int32_t>* /*position*/) {
     if (pattern) {
       const auto processedPattern = prepareRegexpReplacePattern(*pattern);
       re_.emplace(processedPattern, RE2::Quiet);
@@ -79,23 +81,25 @@ struct RegexpReplaceFunction {
             prepareRegexpReplaceReplacement(re_.value(), *replacement);
       }
     }
+    cache_.setMaxCompiledRegexes(config.exprMaxCompiledRegexes());
   }
 
   void call(
       out_type<Varchar>& result,
       const arg_type<Varchar>& stringInput,
       const arg_type<Varchar>& pattern,
-      const arg_type<Varchar>& replace) {
-    call(result, stringInput, pattern, replace, 1);
+      const arg_type<Varchar>& replacement) {
+    call(result, stringInput, pattern, replacement, 1);
   }
 
   void call(
       out_type<Varchar>& result,
       const arg_type<Varchar>& stringInput,
       const arg_type<Varchar>& pattern,
-      const arg_type<Varchar>& replace,
-      const arg_type<int64_t>& position) {
-    if (performChecks(result, stringInput, pattern, replace, position - 1)) {
+      const arg_type<Varchar>& replacement,
+      const arg_type<int32_t>& position) {
+    if (performChecks(
+            result, stringInput, pattern, replacement, position - 1)) {
       return;
     }
     size_t start = functions::stringImpl::cappedByteLength<false>(
@@ -104,27 +108,28 @@ struct RegexpReplaceFunction {
       result = stringInput;
       return;
     }
-    performReplace(result, stringInput, pattern, replace, start);
+    performReplace(result, stringInput, pattern, replacement, start);
   }
 
   void callAscii(
       out_type<Varchar>& result,
       const arg_type<Varchar>& stringInput,
       const arg_type<Varchar>& pattern,
-      const arg_type<Varchar>& replace) {
-    callAscii(result, stringInput, pattern, replace, 1);
+      const arg_type<Varchar>& replacement) {
+    callAscii(result, stringInput, pattern, replacement, 1);
   }
 
   void callAscii(
       out_type<Varchar>& result,
       const arg_type<Varchar>& stringInput,
       const arg_type<Varchar>& pattern,
-      const arg_type<Varchar>& replace,
-      const arg_type<int64_t>& position) {
-    if (performChecks(result, stringInput, pattern, replace, position - 1)) {
+      const arg_type<Varchar>& replacement,
+      const arg_type<int32_t>& position) {
+    if (performChecks(
+            result, stringInput, pattern, replacement, position - 1)) {
       return;
     }
-    performReplace(result, stringInput, pattern, replace, position - 1);
+    performReplace(result, stringInput, pattern, replacement, position - 1);
   }
 
  private:
@@ -133,7 +138,7 @@ struct RegexpReplaceFunction {
       const arg_type<Varchar>& stringInput,
       const arg_type<Varchar>& pattern,
       const arg_type<Varchar>& replace,
-      const arg_type<int64_t>& position) {
+      const arg_type<int32_t>& position) {
     VELOX_USER_CHECK_GE(
         position + 1, 1, "regexp_replace requires a position >= 1");
     if (position > stringInput.size()) {
@@ -153,7 +158,7 @@ struct RegexpReplaceFunction {
       const arg_type<Varchar>& stringInput,
       const arg_type<Varchar>& pattern,
       const arg_type<Varchar>& replace,
-      const arg_type<int64_t>& position) {
+      const arg_type<int32_t>& position) {
     auto& re = ensurePattern(pattern);
     const auto& processedReplacement = constantReplacement_.has_value()
         ? constantReplacement_.value()

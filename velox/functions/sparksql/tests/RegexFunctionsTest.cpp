@@ -551,8 +551,9 @@ TEST_F(RegexFunctionsTest, regexpReplaceCacheLimitTest) {
   std::vector<std::string> strings;
   std::vector<std::string> replaces;
   std::vector<std::string> expectedOutputs;
+  const core::QueryConfig config({});
 
-  for (int i = 0; i <= kMaxCompiledRegexes; ++i) {
+  for (int i = 0; i <= config.exprMaxCompiledRegexes(); ++i) {
     patterns.push_back("\\d" + std::to_string(i) + "-\\d" + std::to_string(i));
     strings.push_back("1" + std::to_string(i) + "-2" + std::to_string(i));
     replaces.push_back("X" + std::to_string(i) + "-Y" + std::to_string(i));
@@ -571,8 +572,9 @@ TEST_F(RegexFunctionsTest, regexpReplaceCacheMissLimit) {
   std::vector<std::string> replaces;
   std::vector<std::string> expectedOutputs;
   std::vector<int32_t> positions;
+  const core::QueryConfig config({});
 
-  for (int i = 0; i <= kMaxCompiledRegexes - 1; ++i) {
+  for (int i = 0; i <= config.exprMaxCompiledRegexes() - 1; ++i) {
     patterns.push_back("\\d" + std::to_string(i) + "-\\d" + std::to_string(i));
     strings.push_back("1" + std::to_string(i) + "-2" + std::to_string(i));
     replaces.push_back("X" + std::to_string(i) + "-Y" + std::to_string(i));

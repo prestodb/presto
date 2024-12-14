@@ -28,10 +28,29 @@ namespace facebook::velox::functions::sparksql {
 /// applied as many times as possible.
 template <typename T>
 struct Split {
+  Split() : cache_(0) {}
+
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   // Results refer to strings in the first argument.
   static constexpr int32_t reuse_strings_from_arg = 0;
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& inputTypes,
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* input,
+      const arg_type<Varchar>* delimiter) {
+    initialize(inputTypes, config, input, delimiter, nullptr);
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const std::vector<TypePtr>& /*inputTypes*/,
+      const core::QueryConfig& config,
+      const arg_type<Varchar>* /*input*/,
+      const arg_type<Varchar>* /*delimiter*/,
+      const arg_type<int32_t>* /*limit*/) {
+    cache_.setMaxCompiledRegexes(config.exprMaxCompiledRegexes());
+  }
 
   FOLLY_ALWAYS_INLINE void call(
       out_type<Array<Varchar>>& result,

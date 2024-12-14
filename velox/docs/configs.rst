@@ -183,6 +183,10 @@ Expression Evaluation Configuration
      - integer
      - 100000
      - ``Reduce`` function will throw an error if encountered an array of size greater than this.
+   * - expression.max_compiled_regexes
+     - integer
+     - 100
+     - Controls maximum number of compiled regular expression patterns per batch.
    * - debug_disable_expression_with_peeling
      - bool
      - false

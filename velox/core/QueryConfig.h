@@ -82,6 +82,11 @@ class QueryConfig {
   static constexpr const char* kExprMaxArraySizeInReduce =
       "expression.max_array_size_in_reduce";
 
+  /// Controls maximum number of compiled regular expression patterns per
+  /// function instance per thread of execution.
+  static constexpr const char* kExprMaxCompiledRegexes =
+      "expression.max_compiled_regexes";
+
   /// Used for backpressure to block local exchange producers when the local
   /// exchange buffer reaches or exceeds this size.
   static constexpr const char* kMaxLocalExchangeBufferSize =
@@ -615,6 +620,10 @@ class QueryConfig {
 
   uint64_t exprMaxArraySizeInReduce() const {
     return get<uint64_t>(kExprMaxArraySizeInReduce, 100'000);
+  }
+
+  uint64_t exprMaxCompiledRegexes() const {
+    return get<uint64_t>(kExprMaxCompiledRegexes, 100);
   }
 
   bool adjustTimestampToTimezone() const {

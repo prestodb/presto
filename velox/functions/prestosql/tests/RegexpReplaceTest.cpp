@@ -270,5 +270,29 @@ TEST_F(RegexpReplaceTest, lambda) {
   test::assertEqualVectors(expected, result);
 }
 
+// Make sure we do not compile more than "expression.max_compiled_regexes".
+TEST_F(RegexpReplaceTest, limit) {
+  const auto maxCompiledRegexes =
+      core::QueryConfig({}).exprMaxCompiledRegexes();
+  const auto aboveMaxCompiledRegexes = maxCompiledRegexes + 5;
+
+  auto data = makeRowVector(
+      {makeFlatVector<std::string>(
+           aboveMaxCompiledRegexes,
+           [](auto row) { return fmt::format("Apples and oranges {}", row); }),
+       makeFlatVector<std::string>(
+           aboveMaxCompiledRegexes,
+           [](auto row) { return fmt::format("\\d+[ab]{}", row); }),
+       makeFlatVector<std::string>(aboveMaxCompiledRegexes, [&](auto row) {
+         return fmt::format("Apples (.*) oranges {}", row % maxCompiledRegexes);
+       })});
+
+  VELOX_ASSERT_THROW(
+      evaluate("regexp_replace(c0, c1, c2)", data),
+      "Max number of regex reached");
+  VELOX_ASSERT_THROW(
+      evaluate("regexp_replace(c0, c1)", data), "Max number of regex reached");
+}
+
 } // namespace
 } // namespace facebook::velox

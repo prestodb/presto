@@ -26,9 +26,9 @@ See https://github.com/google/re2/wiki/Syntax for more information.
     Note: The wildcard '%' represents 0, 1 or multiple characters and the
     wildcard '_' represents exactly one character.
 
-    Note: Each function instance allow for a maximum of 20 regular expressions to
-    be compiled per thread of execution. Not all patterns require
-    compilation of regular expressions. Patterns 'hello', 'hello%', '_hello__%',
+    Note: Each function instance allow for a maximum of ``expression.max_compiled_regexes``
+    (default 100) regular expressions to be compiled per thread of execution. Not all patterns
+    require compilation of regular expressions. Patterns 'hello', 'hello%', '_hello__%',
     '%hello', '%__hello_', '%hello%', where 'hello', 'velox'
     contains only regular characters and '_' wildcards are evaluated without
     using regular expressions. Only those patterns that require the compilation of
