@@ -5,6 +5,7 @@ Testing Tools
 .. toctree::
     :maxdepth: 1
 
+    testing/cache-fuzzer
     testing/fuzzer
     testing/join-fuzzer
     testing/memory-arbitration-fuzzer

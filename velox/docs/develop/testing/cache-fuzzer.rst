@@ -41,23 +41,24 @@ Here is a full list of supported command line arguments.
 
 * ``–-num_source_files``: Number of data files to be created.
 
-* ``–-min_source_file_bytes``: Minimum source file size in bytes.
+* ``–-source_file_bytes``: Source file size in bytes. When set to -1, a random
+  value from 32MB to 48MB will be used, inclusively.
 
-* ``–-max_source_file_bytes``: Maximum source file size in bytes.
+* ``–-memory_cache_bytes``: Memory cache size in bytes. When set to -1, a
+  random value from 48 to 64MB will be used, inclusively.
 
-* ``–-memory_cache_bytes``: Memory cache size in bytes.
+* ``–-ssd_cache_bytes``: SSD cache size in bytes. When set to -1, 1 out of
+  10 times SSD cache will be disabled, while the other times, a random value
+  from 128MB to 256MB will be used, inclusively.
 
-* ``–-ssd_cache_bytes``: Ssd cache size in bytes.
-
-* ``–-num_ssd_cache_shards``: Number of SSD cache shards.
+* ``–-num_ssd_cache_shards``: Number of SSD cache shards. When set to -1, a
+  random value from 1 to 4 will be used, inclusively.
 
 * ``–-ssd_checkpoint_interval_bytes``: Checkpoint after every
-  ``--ssd_checkpoint_interval_bytes``/``--num_ssd_cache_shards`` written into
-  each file. 0 means no checkpointing.
-
-* ``–-enable_checksum``: Enable checksum write to SSD.
-
-* ``–-enable_checksum_read_verification``: Enable checksum read verification
-  from SSD.
+  ``--ssd_checkpoint_interval_bytes``/``--num_ssd_cache_shards``, written into
+  each file. 0 means no checkpointing. When set to -1, 1 out of 4 times
+  checkpoint will be disabled, while the other times, a random value from 32MB
+  to 64MB will be used, inclusively. Checkpoint after every written into each
+  file. 0 means no checkpointing.
 
 If running from CLion IDE, add ``--logtostderr=1`` to see the full output.
