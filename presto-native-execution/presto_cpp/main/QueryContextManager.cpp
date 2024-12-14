@@ -217,9 +217,17 @@ QueryContextManager::toVeloxConfigs(
   // Use base velox query config as the starting point and add Presto session
   // properties on top of it.
   auto configs = BaseVeloxQueryConfig::instance()->values();
+  std::optional<std::string> traceFragmentId;
+  std::optional<std::string> traceShardId;
   for (const auto& it : session.systemProperties) {
-    configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
-    sessionProperties_.updateVeloxConfig(it.first, it.second);
+    if (it.first == SessionProperties::kQueryTraceFragmentId) {
+      traceFragmentId = it.second;
+    } else if (it.first == SessionProperties::kQueryTraceShardId) {
+      traceShardId = it.second;
+    } else {
+      configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
+      sessionProperties_.updateVeloxConfig(it.first, it.second);
+    }
   }
 
   // If there's a timeZoneKey, convert to timezone name and add to the
@@ -229,6 +237,16 @@ QueryContextManager::toVeloxConfigs(
         velox::core::QueryConfig::kSessionTimezone,
         velox::tz::getTimeZoneName(session.timeZoneKey));
   }
+
+  // Construct query tracing regex and pass to Velox config.
+  // It replaces the given native_query_trace_task_reg_exp if also set.
+  if (traceFragmentId.has_value() || traceShardId.has_value()) {
+    configs.emplace(
+        velox::core::QueryConfig::kQueryTraceTaskRegExp,
+        ".*\\." + traceFragmentId.value_or(".*") + "\\..*\\." +
+            traceShardId.value_or(".*") + "\\..*");
+  }
+
   updateFromSystemConfigs(configs);
   return configs;
 }

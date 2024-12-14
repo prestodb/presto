@@ -324,6 +324,8 @@ public final class SystemSessionProperties
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String WARN_ON_COMMON_NAN_PATTERNS = "warn_on_common_nan_patterns";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
+    public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
+    public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1820,10 +1822,19 @@ public final class SystemSessionProperties
                         "Whether to evaluate project node on values node",
                         featuresConfig.getInlineProjectionsOnValues(),
                         false),
+                booleanProperty(INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER,
+                        "Include values node for connector optimizer",
+                        featuresConfig.isIncludeValuesNodeInConnectorOptimizer(),
+                        false),
                 integerProperty(
                         NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
                         "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
                         queryManagerConfig.getMinColumnarEncodingChannelsToPreferRowWiseEncoding(),
+                        false),
+                booleanProperty(
+                        SINGLE_NODE_EXECUTION_ENABLED,
+                        "Enable single node execution",
+                        featuresConfig.isSingleNodeExecutionEnabled(),
                         false));
     }
 
@@ -2269,6 +2280,11 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isSingleNodeExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(SINGLE_NODE_EXECUTION_ENABLED, Boolean.class);
     }
 
     public static boolean isPushAggregationThroughJoin(Session session)
@@ -3094,6 +3110,11 @@ public final class SystemSessionProperties
     public static boolean isInlineProjectionsOnValues(Session session)
     {
         return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
+    }
+
+    public static boolean isIncludeValuesNodeInConnectorOptimizer(Session session)
+    {
+        return session.getSystemProperty(INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER, Boolean.class);
     }
 
     public static int getMinColumnarEncodingChannelsToPreferRowWiseEncoding(Session session)

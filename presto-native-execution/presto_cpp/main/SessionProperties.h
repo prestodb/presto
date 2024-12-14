@@ -213,6 +213,16 @@ class SessionProperties {
   static constexpr const char* kOpTraceDirectoryCreateConfig =
       "native_op_trace_directory_create_config";
 
+  /// The fragment id of the traced task. Used to construct
+  /// the regular expression for matching
+  static constexpr const char* kQueryTraceFragmentId =
+      "native_query_trace_fragment_id";
+
+  /// The shard id of the traced task. Used to construct
+  /// the regular expression for matching
+  static constexpr const char* kQueryTraceShardId =
+      "native_query_trace_shard_id";
+
   /// The maximum size in bytes for the task's buffered output. The buffer is
   /// shared among all drivers.
   static constexpr const char* kMaxOutputBufferSize =

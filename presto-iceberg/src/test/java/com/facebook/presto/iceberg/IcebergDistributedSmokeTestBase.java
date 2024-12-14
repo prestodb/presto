@@ -38,6 +38,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
@@ -753,35 +754,54 @@ public abstract class IcebergDistributedSmokeTestBase
                 ")", getLocation(schemaName, "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
 
-        assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
-                "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
-                "   partitioning = ARRAY['adate']\n" +
-                ")", catalogType.equals(CatalogType.HIVE) ?
-                getLocation(schemaName, "test_create_table_like_original") :
-                getLocation(schemaName, "test_create_table_like_copy3")));
-        dropTable(session, "test_create_table_like_copy3");
+        if (!catalogType.equals(HADOOP)) {
+            assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
+            assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
+                            "   delete_mode = 'merge-on-read',\n" +
+                            "   format = 'PARQUET',\n" +
+                            "   format_version = '2',\n" +
+                            "   location = '%s',\n" +
+                            "   metadata_delete_after_commit = false,\n" +
+                            "   metadata_previous_versions_max = 100,\n" +
+                            "   metrics_max_inferred_column = 100,\n" +
+                            "   partitioning = ARRAY['adate']\n" +
+                            ")",
+                    getLocation(schemaName, "test_create_table_like_original")));
+            dropTable(session, "test_create_table_like_copy3");
 
-        assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2',\n" +
-                "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
-                "   partitioning = ARRAY['adate']\n" +
-                ")", catalogType.equals(CatalogType.HIVE) ?
-                getLocation(schemaName, "test_create_table_like_original") :
-                getLocation(schemaName, "test_create_table_like_copy4")));
-        dropTable(session, "test_create_table_like_copy4");
+            assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
+            assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
+                    "   delete_mode = 'merge-on-read',\n" +
+                    "   format = 'ORC',\n" +
+                    "   format_version = '2',\n" +
+                    "   location = '%s',\n" +
+                    "   metadata_delete_after_commit = false,\n" +
+                    "   metadata_previous_versions_max = 100,\n" +
+                    "   metrics_max_inferred_column = 100,\n" +
+                    "   partitioning = ARRAY['adate']\n" +
+                    ")",
+                    getLocation(schemaName, "test_create_table_like_original")));
+            dropTable(session, "test_create_table_like_copy4");
+        }
+        else {
+            assertUpdate(session, "CREATE TABLE test_create_table_like_copy5 (LIKE test_create_table_like_original INCLUDING PROPERTIES)" +
+                    " WITH (location = '', format = 'ORC')");
+            assertEquals(getTablePropertiesString("test_create_table_like_copy5"), format("WITH (\n" +
+                            "   delete_mode = 'merge-on-read',\n" +
+                            "   format = 'ORC',\n" +
+                            "   format_version = '2',\n" +
+                            "   location = '%s',\n" +
+                            "   metadata_delete_after_commit = false,\n" +
+                            "   metadata_previous_versions_max = 100,\n" +
+                            "   metrics_max_inferred_column = 100,\n" +
+                            "   partitioning = ARRAY['adate']\n" +
+                            ")",
+                    getLocation(schemaName, "test_create_table_like_copy5")));
+            dropTable(session, "test_create_table_like_copy5");
+
+            assertQueryFails(session, "CREATE TABLE test_create_table_like_copy6 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
+                    "Cannot set a custom location for a path-based table.*");
+        }
 
         dropTable(session, "test_create_table_like_original");
     }
