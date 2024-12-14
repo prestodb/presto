@@ -665,6 +665,15 @@ void PrestoServer::run() {
   // HTTP IO executor threads are joined.
   driverExecutor_.reset();
 
+  if (connectorCpuExecutor_) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining Connector CPU Executor '"
+        << connectorCpuExecutor_->getName()
+        << "': threads: " << connectorCpuExecutor_->numActiveThreads() << "/"
+        << connectorCpuExecutor_->numThreads();
+    connectorCpuExecutor_->join();
+  }
+
   if (connectorIoExecutor_) {
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Joining Connector IO Executor '" << connectorIoExecutor_->getName()
@@ -1172,6 +1181,20 @@ std::vector<std::string> PrestoServer::registerConnectors(
     const fs::path& configDirectoryPath) {
   static const std::string kPropertiesExtension = ".properties";
 
+  const auto numConnectorCpuThreads = std::max<size_t>(
+      SystemConfig::instance()->connectorNumCpuThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      0);
+  if (numConnectorCpuThreads > 0) {
+    connectorCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
+        numConnectorCpuThreads,
+        std::make_shared<folly::NamedThreadFactory>("Connector"));
+
+    PRESTO_STARTUP_LOG(INFO)
+        << "Connector CPU executor has " << connectorCpuExecutor_->numThreads()
+        << " threads.";
+  }
+
   const auto numConnectorIoThreads = std::max<size_t>(
       SystemConfig::instance()->connectorNumIoThreadsHwMultiplier() *
           std::thread::hardware_concurrency(),
@@ -1218,7 +1241,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
               ->newConnector(
                   catalogName,
                   std::move(properties),
-                  connectorIoExecutor_.get());
+                  connectorIoExecutor_.get(),
+                  connectorCpuExecutor_.get());
       velox::connector::registerConnector(connector);
     }
   }
