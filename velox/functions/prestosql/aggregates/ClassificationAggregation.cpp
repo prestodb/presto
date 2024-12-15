@@ -491,7 +491,7 @@ class ClassificationAggregation : public exec::Aggregate {
       auto* accumulator = value<Accumulator<type>>(group);
       const auto size = accumulator->size();
       if (isNull(group)) {
-        vector->setNull(i, true);
+        clearNull(rawNulls, i);
         continue;
       }
 
