@@ -198,11 +198,6 @@
             <artifactId>jaxrs-testing</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>test</scope>
-        </dependency>
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
