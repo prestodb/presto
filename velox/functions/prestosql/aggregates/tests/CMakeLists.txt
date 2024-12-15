@@ -25,6 +25,7 @@ add_executable(
   BoolAndOrTest.cpp
   CentralMomentsAggregationTest.cpp
   ChecksumAggregateTest.cpp
+  ClassificationAggregationTest.cpp
   CountAggregationTest.cpp
   CountDistinctTest.cpp
   CountIfAggregationTest.cpp

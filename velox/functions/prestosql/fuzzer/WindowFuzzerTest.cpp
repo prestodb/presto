@@ -25,6 +25,7 @@
 #include "velox/functions/prestosql/fuzzer/ApproxDistinctResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileResultVerifier.h"
+#include "velox/functions/prestosql/fuzzer/ClassificationAggregationInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/WindowOffsetInputGenerator.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -74,7 +75,16 @@ getCustomInputGenerators() {
       {"lag", std::make_shared<WindowOffsetInputGenerator>(1)},
       {"nth_value", std::make_shared<WindowOffsetInputGenerator>(1)},
       {"ntile", std::make_shared<WindowOffsetInputGenerator>(0)},
-  };
+      {"classification_fall_out",
+       std::make_shared<ClassificationAggregationInputGenerator>()},
+      {"classification_precision",
+       std::make_shared<ClassificationAggregationInputGenerator>()},
+      {"classification_recall",
+       std::make_shared<ClassificationAggregationInputGenerator>()},
+      {"classification_miss_rate",
+       std::make_shared<ClassificationAggregationInputGenerator>()},
+      {"classification_thresholds",
+       std::make_shared<ClassificationAggregationInputGenerator>()}};
 }
 
 } // namespace
@@ -158,6 +168,11 @@ int main(int argc, char** argv) {
       "any_value",
       "arbitrary",
       "array_agg",
+      "classification_fall_out",
+      "classification_precision",
+      "classification_recall",
+      "classification_miss_rate",
+      "classification_thresholds",
       "set_agg",
       "set_union",
       "map_agg",

@@ -29,6 +29,7 @@
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/ArbitraryResultVerifier.h"
+#include "velox/functions/prestosql/fuzzer/ClassificationAggregationInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MapUnionSumInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxByResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
@@ -76,7 +77,16 @@ getCustomInputGenerators() {
       {"approx_set", std::make_shared<ApproxDistinctInputGenerator>()},
       {"approx_percentile", std::make_shared<ApproxPercentileInputGenerator>()},
       {"map_union_sum", std::make_shared<MapUnionSumInputGenerator>()},
-  };
+      {"classification_fall_out",
+       std::make_shared<ClassificationAggregationInputGenerator>()},
+      {"classification_precision",
+       std::make_shared<ClassificationAggregationInputGenerator>()},
+      {"classification_recall",
+       std::make_shared<ClassificationAggregationInputGenerator>()},
+      {"classification_miss_rate",
+       std::make_shared<ClassificationAggregationInputGenerator>()},
+      {"classification_thresholds",
+       std::make_shared<ClassificationAggregationInputGenerator>()}};
 }
 
 } // namespace

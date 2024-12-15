@@ -47,6 +47,10 @@ extern void registerChecksumAggregate(
     const std::string& prefix,
     bool withCompanionFunctions,
     bool overwrite);
+extern void registerClassificationFunctions(
+    const std::string& prefix,
+    bool withCompanionFunctions,
+    bool overwrite);
 extern void registerCountAggregate(
     const std::string& prefix,
     bool withCompanionFunctions,
@@ -165,6 +169,7 @@ void registerAllAggregateFunctions(
   registerBoolAggregates(prefix, withCompanionFunctions, overwrite);
   registerCentralMomentsAggregates(prefix, withCompanionFunctions, overwrite);
   registerChecksumAggregate(prefix, withCompanionFunctions, overwrite);
+  registerClassificationFunctions(prefix, withCompanionFunctions, overwrite);
   registerCountAggregate(prefix, withCompanionFunctions, overwrite);
   registerCountIfAggregate(prefix, withCompanionFunctions, overwrite);
   registerCovarianceAggregates(prefix, withCompanionFunctions, overwrite);
