@@ -1220,21 +1220,24 @@ void HashProbe::prepareFilterRowsForNullAwareJoin(
       filterInputColumnDecodedVector_.decode(
           *filterInput->childAt(projection.outputChannel), filterInputRows_);
       if (filterInputColumnDecodedVector_.mayHaveNulls()) {
-        SelectivityVector nullsInActiveRows(numRows);
-        memcpy(
-            nullsInActiveRows.asMutableRange().bits(),
-            filterInputColumnDecodedVector_.nulls(&filterInputRows_),
-            bits::nbytes(numRows));
-        // All rows that are not active count as non-null here.
-        bits::orWithNegatedBits(
-            nullsInActiveRows.asMutableRange().bits(),
-            filterInputRows_.asRange().bits(),
-            0,
-            numRows);
-        // NOTE: the false value of a raw null bit indicates null so we OR
-        // with negative of the raw bit.
-        bits::orWithNegatedBits(
-            rawNullRows, nullsInActiveRows.asRange().bits(), 0, numRows);
+        if (const uint64_t* nulls =
+                filterInputColumnDecodedVector_.nulls(&filterInputRows_)) {
+          SelectivityVector nullsInActiveRows(numRows);
+          memcpy(
+              nullsInActiveRows.asMutableRange().bits(),
+              nulls,
+              bits::nbytes(numRows));
+          // All rows that are not active count as non-null here.
+          bits::orWithNegatedBits(
+              nullsInActiveRows.asMutableRange().bits(),
+              filterInputRows_.asRange().bits(),
+              0,
+              numRows);
+          // NOTE: the false value of a raw null bit indicates null so we OR
+          // with negative of the raw bit.
+          bits::orWithNegatedBits(
+              rawNullRows, nullsInActiveRows.asRange().bits(), 0, numRows);
+        }
       }
     }
     nullFilterInputRows_.updateBounds();
