@@ -364,8 +364,9 @@ class LazyVector : public BaseVector {
   void validate(const VectorValidateOptions& options) const override;
 
   VectorPtr copyPreserveEncodings(
-      velox::memory::MemoryPool* /* pool */ = nullptr) const override {
-    VELOX_UNSUPPORTED("copyPreserveEncodings not defined for LazyVector");
+      velox::memory::MemoryPool* pool = nullptr) const override {
+    VELOX_CHECK(isLoaded());
+    return loadedVector()->copyPreserveEncodings(pool);
   }
 
  private:
