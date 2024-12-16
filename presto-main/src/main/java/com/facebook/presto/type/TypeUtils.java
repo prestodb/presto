@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.HashGenerator;
 import com.facebook.presto.operator.InterpretedHashGenerator;
+import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
@@ -33,7 +34,9 @@ import io.airlift.slice.Slice;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.facebook.presto.common.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -174,7 +177,8 @@ public final class TypeUtils
     public static void checkElementNotNull(boolean isNull, String errorMsg)
     {
         if (isNull) {
-            throw new PrestoException(NOT_SUPPORTED, errorMsg);
+            ErrorCodeSupplier errorCodeSupplier = ARRAY_NULL_ELEMENT_MSG.equals(errorMsg) ? INVALID_FUNCTION_ARGUMENT : NOT_SUPPORTED;
+            throw new PrestoException(errorCodeSupplier, errorMsg);
         }
     }
 }
