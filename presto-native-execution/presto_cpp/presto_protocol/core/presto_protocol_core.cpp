@@ -4830,6 +4830,13 @@ void to_json(json& j, const PartitioningScheme& p) {
       "replicateNullsAndAny");
   to_json_key(
       j,
+      "scaleWriters",
+      p.scaleWriters,
+      "PartitioningScheme",
+      "bool",
+      "scaleWriters");
+  to_json_key(
+      j,
       "encoding",
       p.encoding,
       "PartitioningScheme",
@@ -4873,6 +4880,13 @@ void from_json(const json& j, PartitioningScheme& p) {
       "PartitioningScheme",
       "bool",
       "replicateNullsAndAny");
+  from_json_key(
+      j,
+      "scaleWriters",
+      p.scaleWriters,
+      "PartitioningScheme",
+      "bool",
+      "scaleWriters");
   from_json_key(
       j,
       "encoding",
@@ -8690,6 +8704,13 @@ void to_json(json& j, const SortNode& p) {
       "OrderingScheme",
       "orderingScheme");
   to_json_key(j, "isPartial", p.isPartial, "SortNode", "bool", "isPartial");
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "SortNode",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
 }
 
 void from_json(const json& j, SortNode& p) {
@@ -8704,6 +8725,13 @@ void from_json(const json& j, SortNode& p) {
       "OrderingScheme",
       "orderingScheme");
   from_json_key(j, "isPartial", p.isPartial, "SortNode", "bool", "isPartial");
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "SortNode",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
