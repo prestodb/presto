@@ -575,7 +575,12 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     return out.str();
   };
 
-  const auto equiClausesToSql = [](auto joinNode) {
+  const auto filterToSql = [](core::TypedExprPtr filter) {
+    auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(filter);
+    return toCallSql(call);
+  };
+
+  const auto& joinConditionAsSql = [&](auto joinNode) {
     std::stringstream out;
     for (auto i = 0; i < joinNode->leftKeys().size(); ++i) {
       if (i > 0) {
@@ -583,6 +588,9 @@ std::optional<std::string> PrestoQueryRunner::toSql(
       }
       out << joinNode->leftKeys()[i]->name() << " = "
           << joinNode->rightKeys()[i]->name();
+    }
+    if (joinNode->filter()) {
+      out << " AND " << filterToSql(joinNode->filter());
     }
     return out.str();
   };
@@ -599,46 +607,62 @@ std::optional<std::string> PrestoQueryRunner::toSql(
 
   switch (joinNode->joinType()) {
     case core::JoinType::kInner:
-      sql << " FROM t INNER JOIN u ON " << equiClausesToSql(joinNode);
+      sql << " FROM t INNER JOIN u ON " << joinConditionAsSql(joinNode);
       break;
     case core::JoinType::kLeft:
-      sql << " FROM t LEFT JOIN u ON " << equiClausesToSql(joinNode);
+      sql << " FROM t LEFT JOIN u ON " << joinConditionAsSql(joinNode);
       break;
     case core::JoinType::kFull:
-      sql << " FROM t FULL OUTER JOIN u ON " << equiClausesToSql(joinNode);
+      sql << " FROM t FULL OUTER JOIN u ON " << joinConditionAsSql(joinNode);
       break;
     case core::JoinType::kLeftSemiFilter:
+      // Multiple columns returned by a scalar subquery is not supported in
+      // Presto. A scalar subquery expression is a subquery that returns one
+      // result row from exactly one column for every input row.
       if (joinNode->leftKeys().size() > 1) {
         return std::nullopt;
       }
       sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
           << " IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-          << " FROM u)";
+          << " FROM u";
+      if (joinNode->filter()) {
+        sql << " WHERE " << filterToSql(joinNode->filter());
+      }
+      sql << ")";
       break;
     case core::JoinType::kLeftSemiProject:
       if (joinNode->isNullAware()) {
         sql << ", " << joinKeysToSql(joinNode->leftKeys()) << " IN (SELECT "
-            << joinKeysToSql(joinNode->rightKeys()) << " FROM u) FROM t";
+            << joinKeysToSql(joinNode->rightKeys()) << " FROM u";
+        if (joinNode->filter()) {
+          sql << " WHERE " << filterToSql(joinNode->filter());
+        }
+        sql << ") FROM t";
       } else {
-        sql << ", EXISTS (SELECT * FROM u WHERE " << equiClausesToSql(joinNode)
-            << ") FROM t";
+        sql << ", EXISTS (SELECT * FROM u WHERE "
+            << joinConditionAsSql(joinNode);
+        sql << ") FROM t";
       }
       break;
     case core::JoinType::kAnti:
       if (joinNode->isNullAware()) {
         sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
             << " NOT IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-            << " FROM u)";
+            << " FROM u";
+        if (joinNode->filter()) {
+          sql << " WHERE " << filterToSql(joinNode->filter());
+        }
+        sql << ")";
       } else {
         sql << " FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE "
-            << equiClausesToSql(joinNode) << ")";
+            << joinConditionAsSql(joinNode);
+        sql << ")";
       }
       break;
     default:
       VELOX_UNREACHABLE(
           "Unknown join type: {}", static_cast<int>(joinNode->joinType()));
   }
-
   return sql.str();
 }
 
