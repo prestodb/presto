@@ -428,7 +428,8 @@ void HashProbe::asyncWaitForHashTable() {
     }
   } else if (
       (isInnerJoin(joinType_) || isLeftSemiFilterJoin(joinType_) ||
-       isRightSemiFilterJoin(joinType_) || isRightSemiProjectJoin(joinType_)) &&
+       isRightSemiFilterJoin(joinType_) ||
+       (isRightSemiProjectJoin(joinType_) && !nullAware_)) &&
       table_->hashMode() != BaseHashTable::HashMode::kHash && !isSpillInput() &&
       !hasMoreSpillData()) {
     // Find out whether there are any upstream operators that can accept dynamic
@@ -443,13 +444,9 @@ void HashProbe::asyncWaitForHashTable() {
     const auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
         this, keyChannels_);
 
-    // Null aware Right Semi Project join needs to know whether there are any
-    // nulls on the probe side. Hence, cannot filter these out.
-    const auto nullAllowed = isRightSemiProjectJoin(joinType_) && nullAware_;
-
     for (auto i = 0; i < keyChannels_.size(); ++i) {
       if (channels.find(keyChannels_[i]) != channels.end()) {
-        if (auto filter = buildHashers[i]->getFilter(nullAllowed)) {
+        if (auto filter = buildHashers[i]->getFilter(/*nullAllowed=*/false)) {
           dynamicFilters_.emplace(keyChannels_[i], std::move(filter));
         }
       }
