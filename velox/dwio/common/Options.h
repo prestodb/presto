@@ -50,6 +50,7 @@ enum class FileFormat {
   PARQUET = 7,
   NIMBLE = 8,
   ORC = 9,
+  SST = 10, // rocksdb sst format
 };
 
 FileFormat toFileFormat(std::string_view s);
