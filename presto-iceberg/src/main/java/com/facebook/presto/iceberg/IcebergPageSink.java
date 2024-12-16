@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
@@ -30,18 +31,23 @@ import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.OrcFileWriterFactory;
 import com.facebook.presto.iceberg.PartitionTransforms.ColumnTransform;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexer;
 import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.MetricsConfig;
@@ -50,7 +56,9 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.types.Types;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -65,8 +73,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
+import static com.facebook.presto.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isSortedWritingEnabled;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.PartitionTransforms.getColumnTransform;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -108,6 +120,18 @@ public class IcebergPageSink
     private long validationCpuNanos;
     private Table table;
 
+    private final List<SortField> sortOrder;
+    private final boolean sortedWritingEnabled;
+    private final DataSize sortingFileWriterBufferSize;
+    private final Integer sortingFileWriterMaxOpenFiles;
+    private final Path tempDirectory;
+    private final TypeManager typeManager;
+    private final PageSorter pageSorter;
+    private final List<Type> columnTypes;
+    private final List<Integer> sortColumnIndexes;
+    private final List<SortOrder> sortOrders;
+    private final OrcFileWriterFactory orcFileWriterFactory;
+
     public IcebergPageSink(
             Table table,
             LocationProvider locationProvider,
@@ -119,7 +143,13 @@ public class IcebergPageSink
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
             FileFormat fileFormat,
-            int maxOpenWriters)
+            int maxOpenWriters,
+            List<SortField> sortOrder,
+            DataSize sortingFileWriterBufferSize,
+            int sortingFileWriterMaxOpenFiles,
+            TypeManager typeManager,
+            PageSorter pageSorter,
+            OrcFileWriterFactory orcFileWriterFactory)
     {
         requireNonNull(inputColumns, "inputColumns is null");
         this.table = requireNonNull(table, "table is null");
@@ -137,6 +167,37 @@ public class IcebergPageSink
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory,
                 toPartitionColumns(inputColumns, partitionSpec),
                 session);
+        this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
+        this.sortedWritingEnabled = isSortedWritingEnabled(session);
+        this.sortingFileWriterBufferSize = requireNonNull(sortingFileWriterBufferSize, "sortingFileWriterBufferSize is null");
+        this.sortingFileWriterMaxOpenFiles = sortingFileWriterMaxOpenFiles;
+        String tempDirectoryPath = locationProvider.newDataLocation("sort-tmp-files");
+        this.tempDirectory = new Path(tempDirectoryPath);
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
+        this.columnTypes = getColumns(outputSchema, partitionSpec, typeManager).stream()
+                .map(IcebergColumnHandle::getType)
+                .collect(toImmutableList());
+        this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
+
+        if (sortedWritingEnabled) {
+            ImmutableList.Builder<Integer> sortColumnIndexes = ImmutableList.builder();
+            ImmutableList.Builder<SortOrder> sortOrders = ImmutableList.builder();
+            for (SortField sortField : sortOrder) {
+                Types.NestedField column = outputSchema.findField(sortField.getSourceColumnId());
+                if (column == null) {
+                    throw new PrestoException(ICEBERG_INVALID_METADATA, "Unable to find sort field source column in the table schema: " + sortField);
+                }
+                sortColumnIndexes.add(outputSchema.columns().indexOf(column));
+                sortOrders.add(sortField.getSortOrder());
+            }
+            this.sortColumnIndexes = sortColumnIndexes.build();
+            this.sortOrders = sortOrders.build();
+        }
+        else {
+            this.sortColumnIndexes = ImmutableList.of();
+            this.sortOrders = ImmutableList.of();
+        }
     }
 
     @Override
@@ -296,27 +357,53 @@ public class IcebergPageSink
         Page transformedPage = pagePartitioner.getTransformedPage();
         for (int position = 0; position < page.getPositionCount(); position++) {
             int writerIndex = writerIndexes[position];
-            if (writers.get(writerIndex) != null) {
+            WriteContext writer = writers.get(writerIndex);
+            if (writer != null) {
                 continue;
             }
 
             Optional<PartitionData> partitionData = getPartitionData(pagePartitioner.getColumns(), transformedPage, position);
-            WriteContext writer = createWriter(partitionData);
 
-            writers.set(writerIndex, writer);
+            String fileName = fileFormat.addExtension(randomUUID().toString());
+            Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
+                    .orElse(new Path(locationProvider.newDataLocation(fileName)));
+
+            try {
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), outputPath, jobConf);
+                if (!sortOrder.isEmpty() && sortedWritingEnabled) {
+                    Path tempFilePrefix = new Path(tempDirectory, format("sorting-file-writer-%s-%s", session.getQueryId(), randomUUID()));
+                    WriteContext writerContext = createWriter(partitionData, outputPath);
+                    IcebergFileWriter sortedFileWriter = new IcebergSortingFileWriter(
+                            fileSystem,
+                            tempFilePrefix,
+                            writerContext.getWriter(),
+                            sortingFileWriterBufferSize,
+                            sortingFileWriterMaxOpenFiles,
+                            columnTypes,
+                            sortColumnIndexes,
+                            sortOrders,
+                            pageSorter,
+                            false,
+                            session,
+                            orcFileWriterFactory);
+                    writer = new WriteContext(sortedFileWriter, outputPath, partitionData);
+                }
+                else {
+                    writer = createWriter(partitionData, outputPath);
+                }
+                writers.set(writerIndex, writer);
+            }
+            catch (IOException e) {
+                throw new PrestoException(HIVE_WRITER_OPEN_ERROR, e);
+            }
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
         verify(!writers.contains(null));
-
         return writerIndexes;
     }
 
-    private WriteContext createWriter(Optional<PartitionData> partitionData)
+    private WriteContext createWriter(Optional<PartitionData> partitionData, Path outputPath)
     {
-        String fileName = fileFormat.addExtension(randomUUID().toString());
-        Path outputPath = partitionData.map(partition -> new Path(locationProvider.newDataLocation(partitionSpec, partition, fileName)))
-                .orElse(new Path(locationProvider.newDataLocation(fileName)));
-
         IcebergFileWriter writer = fileWriterFactory.createFileWriter(
                 outputPath,
                 outputSchema,

@@ -130,7 +130,7 @@ public class HiveClientModule
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class);
         configBinder(binder).bindConfig(HiveClientConfig.class);
-
+        configBinder(binder).bindConfig(SortingFileWriterConfig.class, "hive");
         binder.bind(HiveSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
