@@ -449,6 +449,7 @@ std::optional<std::string> DuckQueryRunner::toSql(
 std::optional<std::string> DuckQueryRunner::toSql(
     const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode) {
   std::stringstream sql;
+  sql << "SELECT " << folly::join(", ", joinNode->outputType()->names());
 
   // Nested loop join without filter.
   VELOX_CHECK(
