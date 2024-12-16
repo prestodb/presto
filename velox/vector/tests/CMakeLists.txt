@@ -60,6 +60,7 @@ target_link_libraries(
   Boost::system
   GTest::gtest
   GTest::gtest_main
+  GTest::gmock
   Folly::folly
   gflags::gflags
   glog::glog

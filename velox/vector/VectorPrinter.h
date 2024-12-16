@@ -40,4 +40,73 @@ std::string printVector(
     const BaseVector& vector,
     const SelectivityVector& rows);
 
+class VectorPrinter {
+ public:
+  struct Options {
+    // Options that control summarization of types.
+    velox::Type::TypeSummaryOptions types;
+
+    // Maximum number of child vectors to include in the summary.
+    size_t maxChildren{5};
+
+    // Whether to include the names of the RowVector child vectors.
+    bool includeChildNames{false};
+
+    // Whether to include unique IDs for each node in the vector hierarchy.
+    bool includeNodeIds{false};
+
+    // Optional indent to add to all lines. Useful when embedding the output of
+    // the printer into some other text. Each indentation is 3 spaces. 0 means
+    // no indentation. 1 - 3 spaces. 2 - 6 spaces.
+    int32_t indent{0};
+
+    // Whether to skip printing the summary of the top level vector. Similar to
+    // 'indent', useful when embedding the output of the printer into some other
+    // text.
+    bool skipTopSummary{false};
+
+    // Workaround for compiler error: default member initializer for
+    // 'maxChildren' needed within definition of enclosing class 'VectorPrinter'
+    // outside of member functions
+    //
+    // static std::string summarizeToText(
+    //    const BaseVector& vector,
+    //    Options options = {});
+    static Options defaultOptions() {
+      return {};
+    }
+  };
+
+  // Returns a summary of the vector in human-readable text format.
+  //
+  // Prints a hierarchy of vectors with up to options.maxChildren children at
+  // each level. For each vector, prints a header that includes the data type,
+  // number of rows, encoding.
+  //
+  // For example,
+  //
+  // A flat vector of integers:
+  //
+  //  INTEGER 8 rows FLAT 32B
+  //
+  // A flat array of integers with 3 null arrays, 1 empty array and the rest
+  // of arrays of average size 3:
+  //
+  //  ARRAY 8 rows ARRAY 288B
+  //       Stats: 3 nulls, 1 empty, sizes: [2...4, avg 3]
+  //    BIGINT 12 rows FLAT 128B
+  //
+  // A dictionary over map with 4 unique maps:
+  //
+  //  MAP 8 rows DICTIONARY 192B
+  //      Stats: 0 nulls, 4 unique
+  //    MAP 4 rows MAP 160B
+  //        Stats: 0 nulls, 1 empty, sizes: [1...4, avg 2]
+  //      INTEGER 8 rows FLAT 32B
+  //      REAL 8 rows FLAT 32B
+  static std::string summarizeToText(
+      const BaseVector& vector,
+      const Options& options = Options::defaultOptions());
+};
+
 } // namespace facebook::velox

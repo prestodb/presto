@@ -39,11 +39,11 @@ std::string printFixedWidth(
   return base->toString(baseIndex);
 }
 
-class VectorPrinter {
+class VectorPrinterBase {
  public:
-  explicit VectorPrinter(const BaseVector& vector) : decoded_{vector} {}
+  explicit VectorPrinterBase(const BaseVector& vector) : decoded_{vector} {}
 
-  virtual ~VectorPrinter() = default;
+  virtual ~VectorPrinterBase() = default;
 
   std::string summarize(vector_size_t index) const {
     if (decoded_.isNullAt(index)) {
@@ -75,15 +75,16 @@ class VectorPrinter {
   virtual std::string summarizeNonNull(vector_size_t index) const = 0;
 
   DecodedVector decoded_;
-  std::vector<std::unique_ptr<VectorPrinter>> children_;
+  std::vector<std::unique_ptr<VectorPrinterBase>> children_;
 };
 
-std::unique_ptr<VectorPrinter> createVectorPrinter(const BaseVector& vector);
+std::unique_ptr<VectorPrinterBase> createVectorPrinter(
+    const BaseVector& vector);
 
-class PrimitiveVectorPrinter : public VectorPrinter {
+class PrimitiveVectorPrinter : public VectorPrinterBase {
  public:
   explicit PrimitiveVectorPrinter(const BaseVector& vector)
-      : VectorPrinter(vector) {}
+      : VectorPrinterBase(vector) {}
 
  protected:
   std::string printNonNull(vector_size_t index, const std::string& indent)
@@ -109,10 +110,10 @@ class PrimitiveVectorPrinter : public VectorPrinter {
   }
 };
 
-class ArrayVectorPrinter : public VectorPrinter {
+class ArrayVectorPrinter : public VectorPrinterBase {
  public:
   explicit ArrayVectorPrinter(const BaseVector& vector)
-      : VectorPrinter(vector) {
+      : VectorPrinterBase(vector) {
     auto* arrayVector = decoded_.base()->as<ArrayVector>();
     children_.emplace_back(createVectorPrinter(*arrayVector->elements()));
   }
@@ -157,9 +158,10 @@ class ArrayVectorPrinter : public VectorPrinter {
   }
 };
 
-class MapVectorPrinter : public VectorPrinter {
+class MapVectorPrinter : public VectorPrinterBase {
  public:
-  explicit MapVectorPrinter(const BaseVector& vector) : VectorPrinter(vector) {
+  explicit MapVectorPrinter(const BaseVector& vector)
+      : VectorPrinterBase(vector) {
     auto* mapVector = decoded_.base()->as<MapVector>();
     children_.emplace_back(createVectorPrinter(*mapVector->mapKeys()));
     children_.emplace_back(createVectorPrinter(*mapVector->mapValues()));
@@ -217,9 +219,10 @@ class MapVectorPrinter : public VectorPrinter {
   }
 };
 
-class RowVectorPrinter : public VectorPrinter {
+class RowVectorPrinter : public VectorPrinterBase {
  public:
-  explicit RowVectorPrinter(const BaseVector& vector) : VectorPrinter(vector) {
+  explicit RowVectorPrinter(const BaseVector& vector)
+      : VectorPrinterBase(vector) {
     auto* rowVector = decoded_.base()->as<RowVector>();
     for (const auto& child : rowVector->children()) {
       children_.emplace_back(createVectorPrinter(*child));
@@ -249,7 +252,8 @@ class RowVectorPrinter : public VectorPrinter {
   }
 };
 
-std::unique_ptr<VectorPrinter> createVectorPrinter(const BaseVector& vector) {
+std::unique_ptr<VectorPrinterBase> createVectorPrinter(
+    const BaseVector& vector) {
   switch (vector.typeKind()) {
     case TypeKind::ARRAY:
       return std::make_unique<ArrayVectorPrinter>(vector);
@@ -393,6 +397,246 @@ std::string printVector(
   });
 
   return out.str();
+}
+
+namespace {
+class VectorVisitor {
+ public:
+  struct Context {
+    VectorPrinter::Options options;
+
+    std::stringstream text;
+
+    int32_t indent{0};
+
+    bool skipTopSummary{false};
+
+    // Vector name if a child or a RowVector.
+    std::optional<std::string> name;
+
+    // Node ID in the format A.B.C.D, where each component is an index of the
+    // node in the corresponding layer of the hierarchy.
+    std::string parentNodeId;
+
+    size_t nodeId{0};
+  };
+
+  void visit(const BaseVector& vector, Context& ctx) {
+    const auto parentNodeId = ctx.parentNodeId;
+    const auto nodeId = ctx.nodeId;
+    const auto name = ctx.name;
+
+    ctx.parentNodeId = ctx.parentNodeId.empty()
+        ? std::to_string(ctx.nodeId)
+        : fmt::format("{}.{}", parentNodeId, ctx.nodeId);
+
+    if (ctx.skipTopSummary) {
+      ctx.skipTopSummary = false;
+    } else {
+      ctx.text << toIndentation(ctx.indent);
+      if (ctx.options.includeNodeIds) {
+        ctx.text << ctx.parentNodeId << " ";
+      }
+      ctx.text << toSummaryString(vector, ctx) << std::endl;
+    }
+
+    ctx.nodeId = 0;
+    ctx.name.reset();
+    ctx.indent++;
+
+    SCOPE_EXIT {
+      ctx.parentNodeId = parentNodeId;
+      ctx.nodeId = nodeId;
+      ctx.name = name;
+      ctx.indent--;
+    };
+
+    switch (vector.encoding()) {
+      case VectorEncoding::Simple::FLAT:
+        break;
+      case VectorEncoding::Simple::ARRAY:
+        visitArrayVector(*vector.as<ArrayVector>(), ctx);
+        break;
+      case VectorEncoding::Simple::MAP:
+        visitMapVector(*vector.as<MapVector>(), ctx);
+        break;
+      case VectorEncoding::Simple::ROW:
+        visitRowVector(*vector.as<RowVector>(), ctx);
+        break;
+      case VectorEncoding::Simple::DICTIONARY:
+        visitDictionaryVector(vector, ctx);
+        break;
+      case VectorEncoding::Simple::CONSTANT:
+        visitConstantVector(vector, ctx);
+        break;
+      default:
+        VELOX_NYI();
+    }
+  }
+
+ private:
+  static std::string toIndentation(int32_t indent) {
+    static constexpr auto kIndentSize = 3;
+
+    return std::string(indent * kIndentSize, ' ');
+  }
+
+  static std::string truncate(const std::string& str, size_t maxLen = 50) {
+    return str.substr(0, maxLen);
+  }
+
+  static std::string toSummaryString(const BaseVector& vector, Context& ctx) {
+    std::stringstream summary;
+    summary << vector.type()->toSummaryString(ctx.options.types);
+    summary << " " << vector.size() << " rows";
+
+    summary << " " << VectorEncoding::mapSimpleToName(vector.encoding());
+    summary << " " << succinctBytes(vector.retainedSize());
+
+    if (ctx.name.has_value()) {
+      summary << " " << truncate(ctx.name.value());
+    }
+    return summary.str();
+  }
+
+  // Computes basic statistics about integers: min, max, avg.
+  class IntegerStats {
+   public:
+    void add(int64_t value) {
+      min_ = std::min(min_, value);
+      max_ = std::max(max_, value);
+      sum_ += value;
+      ++cnt_;
+    }
+
+    int64_t min() const {
+      return min_;
+    }
+
+    int64_t max() const {
+      return max_;
+    }
+
+    int64_t count() const {
+      return cnt_;
+    }
+
+    double avg() const {
+      return cnt_ > 0 ? (sum_ / cnt_) : 0;
+    }
+
+   private:
+    int64_t min_{std::numeric_limits<int64_t>::max()};
+    int64_t max_{std::numeric_limits<int64_t>::min()};
+    size_t cnt_{0};
+    double sum_{0.0};
+  };
+
+  static void appendArrayStats(const ArrayVectorBase& base, Context& ctx) {
+    size_t numNulls = 0;
+    size_t numEmpty = 0;
+    IntegerStats sizeStats;
+
+    for (auto i = 0; i < base.size(); ++i) {
+      if (base.isNullAt(i)) {
+        ++numNulls;
+      } else if (base.sizeAt(i) == 0) {
+        ++numEmpty;
+      } else {
+        sizeStats.add(base.sizeAt(i));
+      }
+    }
+
+    const auto indent = toIndentation(ctx.indent + 1);
+    ctx.text << indent << "Stats: " << numNulls << " nulls, " << numEmpty
+             << " empty";
+
+    if (sizeStats.count() > 0) {
+      if (sizeStats.min() == sizeStats.max()) {
+        ctx.text << ", sizes: " << sizeStats.min();
+      } else {
+        ctx.text << ", sizes: [" << sizeStats.min() << "..." << sizeStats.max()
+                 << ", avg " << (int)sizeStats.avg() << "]";
+      }
+    }
+
+    ctx.text << std::endl;
+  }
+
+  void visitArrayVector(const ArrayVector& vector, Context& ctx) {
+    appendArrayStats(vector, ctx);
+
+    visit(*vector.elements(), ctx);
+  }
+
+  void visitMapVector(const MapVector& vector, Context& ctx) {
+    appendArrayStats(vector, ctx);
+
+    visit(*vector.mapKeys(), ctx);
+
+    ctx.nodeId++;
+    visit(*vector.mapValues(), ctx);
+  }
+
+  void visitRowVector(const RowVector& vector, Context& ctx) {
+    const auto& rowType = vector.type()->asRow();
+    const auto cnt =
+        std::min<size_t>(ctx.options.maxChildren, vector.childrenSize());
+    for (size_t i = 0; i < cnt; ++i) {
+      if (ctx.options.includeChildNames) {
+        ctx.name = rowType.nameOf(i);
+      }
+
+      visit(*vector.childAt(i), ctx);
+      ctx.nodeId++;
+    }
+    ctx.name.reset();
+
+    if (vector.childrenSize() > cnt) {
+      ctx.text << toIndentation(ctx.indent) << "..."
+               << (vector.childrenSize() - cnt) << " more" << std::endl;
+    }
+  }
+
+  void visitDictionaryVector(const BaseVector& vector, Context& ctx) {
+    size_t numNulls = 0;
+    std::unordered_set<vector_size_t> uniqueIndices;
+
+    const auto* rawIndices = vector.wrapInfo()->as<vector_size_t>();
+    for (auto i = 0; i < vector.size(); ++i) {
+      if (vector.isNullAt(i)) {
+        ++numNulls;
+      } else {
+        uniqueIndices.insert(rawIndices[i]);
+      }
+    }
+
+    ctx.text << toIndentation(ctx.indent + 1) << "Stats: " << numNulls
+             << " nulls, " << uniqueIndices.size() << " unique" << std::endl;
+
+    visit(*vector.valueVector(), ctx);
+  }
+
+  void visitConstantVector(const BaseVector& vector, Context& ctx) {
+    if (vector.valueVector() != nullptr) {
+      visit(*vector.valueVector(), ctx);
+    }
+  }
+};
+} // namespace
+
+// static
+std::string VectorPrinter::summarizeToText(
+    const BaseVector& vector,
+    const Options& options) {
+  VectorVisitor::Context ctx;
+  ctx.options = options;
+  ctx.skipTopSummary = options.skipTopSummary;
+  ctx.indent = options.indent;
+
+  VectorVisitor visitor;
+  visitor.visit(vector, ctx);
+  return ctx.text.str();
 }
 
 } // namespace facebook::velox
