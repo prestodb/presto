@@ -129,8 +129,9 @@ void TpchDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   currentSplit_ = std::dynamic_pointer_cast<TpchConnectorSplit>(split);
   VELOX_CHECK(currentSplit_, "Wrong type of split for TpchDataSource.");
 
-  size_t partSize =
-      std::ceil((double)tpchTableRowCount_ / (double)currentSplit_->totalParts);
+  size_t partSize = std::ceil(
+      static_cast<double>(tpchTableRowCount_) /
+      static_cast<double>(currentSplit_->totalParts));
 
   splitOffset_ = partSize * currentSplit_->partNumber;
   splitEnd_ = splitOffset_ + partSize;

@@ -259,7 +259,7 @@ void init_text_pool(long bSize, DBGenContext* ctx) {
   gen_index(prepositions_index, &prepositions);
 
   txtBufferSize = bSize;
-  szTextPool = (char*)malloc(bSize + 1 + 100);
+  szTextPool = reinterpret_cast<char*>(malloc(bSize + 1 + 100));
   MALLOC_CHECK(szTextPool);
   memset(szTextPool, 0, bSize + 1 + 100);
 
@@ -285,7 +285,7 @@ void dbg_text(char* tgt, int min, int max, seed_t* seed) {
 
   RANDOM(hgOffset, 0, txtBufferSize - max, seed);
   RANDOM(hgLength, min, max, seed);
-  strncpy(&tgt[0], &szTextPool[hgOffset], (int)hgLength);
+  strncpy(&tgt[0], &szTextPool[hgOffset], static_cast<int>(hgLength));
   tgt[hgLength] = '\0';
 
   return;

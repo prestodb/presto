@@ -135,7 +135,7 @@ typedef struct {
  * some handy access functions
  */
 #define DIST_SIZE(d) d->count
-#define DIST_MEMBER(d, i) ((set_member*)((d)->list + i))->text
+#define DIST_MEMBER(d, i) (reinterpret_cast<set_member*>((d)->list + i))->text
 #define DIST_PERMUTE(d, i) (d->permute[i])
 
 typedef struct {

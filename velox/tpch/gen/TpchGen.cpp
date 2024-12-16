@@ -78,7 +78,7 @@ std::vector<VectorPtr> allocateVectors(
 }
 
 double decimalToDouble(int64_t value) {
-  return (double)value * 0.01;
+  return static_cast<double>(value) * 0.01;
 }
 
 int32_t toDate(std::string_view stringDate) {

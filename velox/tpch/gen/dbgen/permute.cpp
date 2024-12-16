@@ -1,4 +1,19 @@
 /*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
  * Copyright owned by the Transaction Processing Performance Council.
  *
  * A copy of the license is included under extension/tpch/dbgen/LICENSE
@@ -32,9 +47,9 @@ void permute(long* a, int c, seed_t* seed) {
   static DSS_HUGE source;
   static long temp;
 
-  if (a != (long*)NULL) {
+  if (a != reinterpret_cast<long*>(NULL)) {
     for (i = 0; i < c; i++) {
-      RANDOM(source, (long)i, (long)(c - 1), seed);
+      RANDOM(source, static_cast<long>(i), static_cast<long>(c - 1), seed);
       temp = *(a + source);
       *(a + source) = *(a + i);
       *(a + i) = temp;
@@ -48,8 +63,8 @@ void permute_dist(distribution* d, seed_t* seed) {
   int i;
 
   if (d != NULL) {
-    if (d->permute == (long*)NULL) {
-      d->permute = (long*)malloc(sizeof(long) * DIST_SIZE(d));
+    if (d->permute == reinterpret_cast<long*>(NULL)) {
+      d->permute = reinterpret_cast<long*>(malloc(sizeof(long) * DIST_SIZE(d)));
       MALLOC_CHECK(d->permute);
     }
     for (i = 0; i < DIST_SIZE(d); i++)

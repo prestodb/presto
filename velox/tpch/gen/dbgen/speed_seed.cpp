@@ -1,4 +1,19 @@
 /*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
  * Copyright owned by the Transaction Processing Performance Council.
  *
  * A copy of the license is included under extension/tpch/dbgen/LICENSE
@@ -75,7 +90,7 @@ void NthElement(DSS_HUGE N, DSS_HUGE* StartSeed) {
     fprintf(stderr, "%c\b", lnoise[i]);
   }
   Mult = Multiplier;
-  Z = (DSS_HUGE)*StartSeed;
+  Z = static_cast<DSS_HUGE>(*StartSeed);
   while (N > 0) {
     if (N % 2 != 0) /* testing for oddness, this seems portable */
       Z = (Mult * Z) % Modulus;
@@ -104,8 +119,7 @@ void fake_tpch_a_rnd(int min, int max, seed_t* seed) {
   return;
 }
 
-long sd_part(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
-  (void)child;
+long sd_part(int /*child*/, DSS_HUGE skip_count, DBGenContext* ctx) {
   int i;
 
   for (i = P_MFG_SD; i <= P_CNTR_SD; i++)
@@ -140,8 +154,7 @@ long sd_line(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
   return (0L);
 }
 
-long sd_order(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
-  (void)child;
+long sd_order(int /*child*/, DSS_HUGE skip_count, DBGenContext* ctx) {
   ADVANCE_STREAM(&ctx->Seed[O_LCNT_SD], skip_count);
   /*
       if (ctx->scale_factor >= 30000)
@@ -158,9 +171,7 @@ long sd_order(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
   return (0L);
 }
 
-long sd_psupp(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
-  (void)child;
-
+long sd_psupp(int /*child*/, DSS_HUGE skip_count, DBGenContext* ctx) {
   int j;
 
   for (j = 0; j < SUPP_PER_PART; j++) {
@@ -172,9 +183,7 @@ long sd_psupp(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
   return (0L);
 }
 
-long sd_cust(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
-  (void)child;
-
+long sd_cust(int /*child*/, DSS_HUGE skip_count, DBGenContext* ctx) {
   ADVANCE_STREAM(&ctx->Seed[C_ADDR_SD], skip_count * 9);
   ADVANCE_STREAM(&ctx->Seed[C_CMNT_SD], skip_count * 2);
   ADVANCE_STREAM(&ctx->Seed[C_NTRG_SD], skip_count);
@@ -184,9 +193,7 @@ long sd_cust(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
   return (0L);
 }
 
-long sd_supp(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
-  (void)child;
-
+long sd_supp(int /*child*/, DSS_HUGE skip_count, DBGenContext* ctx) {
   ADVANCE_STREAM(&ctx->Seed[S_NTRG_SD], skip_count);
   ADVANCE_STREAM(&ctx->Seed[S_PHNE_SD], 3L * skip_count);
   ADVANCE_STREAM(&ctx->Seed[S_ABAL_SD], skip_count);
@@ -200,17 +207,13 @@ long sd_supp(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
   return (0L);
 }
 
-long sd_nation(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
-  (void)child;
-
+long sd_nation(int /*child*/, DSS_HUGE skip_count, DBGenContext* ctx) {
   ADVANCE_STREAM(&ctx->Seed[N_CMNT_SD], skip_count * 2);
 
   return (0L);
 }
 
-long sd_region(int child, DSS_HUGE skip_count, DBGenContext* ctx) {
-  (void)child;
-
+long sd_region(int /*child*/, DSS_HUGE skip_count, DBGenContext* ctx) {
   ADVANCE_STREAM(&ctx->Seed[R_CMNT_SD], skip_count * 2);
 
   return (0L);

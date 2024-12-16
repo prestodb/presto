@@ -1,4 +1,19 @@
 /*
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
  * Copyright owned by the Transaction Processing Performance Council.
  *
  * A copy of the license is included under extension/tpch/dbgen/LICENSE
@@ -40,7 +55,6 @@ void dss_random(DSS_HUGE* tgt, DSS_HUGE lower, DSS_HUGE upper, seed_t* seed) {
 }
 
 void row_start(int t, DBGenContext* ctx) {
-  (void)t;
   int i;
   for (i = 0; i <= MAX_STREAM; i++)
     ctx->Seed[i].usage = 0;
@@ -138,19 +152,21 @@ UnifInt(DSS_HUGE nLow, DSS_HUGE nHigh, seed_t* seed)
 {
   double dRange;
   DSS_HUGE nTemp;
-  int32_t nLow32 = (int32_t)nLow, nHigh32 = (int32_t)nHigh;
+  int32_t nLow32 = static_cast<int32_t>(nLow),
+          nHigh32 = static_cast<int32_t>(nHigh);
 
   if ((nHigh == MAX_LONG) && (nLow == 0)) {
-    dRange = (double)((DSS_HUGE)(nHigh32 - nLow32) + 1);
+    dRange = static_cast<double>(static_cast<DSS_HUGE>(nHigh32 - nLow32) + 1);
   } else {
-    dRange = (double)(nHigh - nLow + 1);
+    dRange = static_cast<double>(nHigh - nLow + 1);
   }
 
   seed->value = NextRand(seed->value);
 #ifdef RNG_TEST
   seed->nCalls += 1;
 #endif
-  nTemp = (DSS_HUGE)(((double)seed->value / DBGenContext::dM) * (dRange));
+  nTemp = static_cast<DSS_HUGE>(
+      (static_cast<double>(seed->value) / DBGenContext::dM) * (dRange));
   return (nLow + nTemp);
 }
 
