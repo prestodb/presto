@@ -330,8 +330,8 @@ public interface AccessControl
         return Collections.emptyList();
     }
 
-    default List<ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String columnName, Type type)
+    default Optional<ViewExpression> getColumnMask(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
-        return Collections.emptyList();
+        return Optional.empty();
     }
 }
