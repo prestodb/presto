@@ -41,8 +41,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
-import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfoForTable;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
@@ -425,7 +423,7 @@ class StatementAnalyzer
             List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
 
             for (ColumnMetadata column : columnsMetadata) {
-                if (!accessControl.getColumnMasks(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
+                if (accessControl.getColumnMask(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable, column.getName(), column.getType()).isPresent()) {
                     throw new SemanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
                 }
             }
@@ -620,11 +618,11 @@ class StatementAnalyzer
             if (!accessControl.getRowFilters(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName).isEmpty()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Delete from table with row filter is not supported");
             }
-            
+
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), tableName);
             List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
             for (ColumnMetadata columnMetadata : columnsMetadata) {
-                if (!accessControl.getColumnMasks(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, columnMetadata.getName(), columnMetadata.getType()).isEmpty()) {
+                if (accessControl.getColumnMask(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, columnMetadata.getName(), columnMetadata.getType()).isPresent()) {
                     throw new SemanticException(NOT_SUPPORTED, node, "Delete from table with column mask is not supported");
                 }
             }
@@ -1402,12 +1400,14 @@ class StatementAnalyzer
                     .build();
 
             for (Field field : outputFields) {
-                accessControl.getColumnMasks(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name, field.getName().get(), field.getType())
-                        .forEach(mask -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, mask));
+                Optional<ViewExpression> mask = accessControl.getColumnMask(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name, field.getName().get(), field.getType());
+                mask.ifPresent(viewExpression -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, viewExpression));
             }
 
             accessControl.getRowFilters(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name)
                     .forEach(filter -> analyzeRowFilter(session.getIdentity().getUser(), table, name, accessControlScope, filter));
+
+            analysis.registerTable(table, tableHandle.get());
 
             if (statement instanceof RefreshMaterializedView) {
                 Table view = ((RefreshMaterializedView) statement).getTarget();
