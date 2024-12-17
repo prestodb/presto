@@ -41,6 +41,7 @@ static const std::string localhost = "localhost";
 static const std::string fullDestinationPath =
     "hdfs://" + localhost + ":" + hdfsPort + destinationPath;
 static const std::string simpleDestinationPath = "hdfs://" + destinationPath;
+static const std::string viewfsDestinationPath = "viewfs://" + destinationPath;
 static const std::unordered_map<std::string, std::string> configurationValues(
     {{"hive.hdfs.host", localhost}, {"hive.hdfs.port", hdfsPort}});
 
@@ -239,9 +240,8 @@ TEST_F(HdfsFileSystemTest, initializeFsWithEndpointInfoInFilePath) {
 TEST_F(HdfsFileSystemTest, fallbackToUseConfig) {
   auto config = std::make_shared<const config::ConfigBase>(
       std::unordered_map<std::string, std::string>(configurationValues));
-  auto hdfsFileSystem =
-      filesystems::getFileSystem(simpleDestinationPath, config);
-  auto readFile = hdfsFileSystem->openFileForRead(simpleDestinationPath);
+  auto hdfsFileSystem = filesystems::getFileSystem(fullDestinationPath, config);
+  auto readFile = hdfsFileSystem->openFileForRead(fullDestinationPath);
   readData(readFile.get());
 }
 
@@ -262,7 +262,7 @@ TEST_F(HdfsFileSystemTest, missingFileViaFileSystem) {
       hdfsFileSystem->openFileForRead(
           "hdfs://localhost:7777/path/that/does/not/exist"),
       error_code::kFileNotFound,
-      "Unable to get file path info for file: /path/that/does/not/exist. got error: FileNotFoundException: Path /path/that/does/not/exist does not exist.");
+      "Unable to get file path info for file: hdfs://localhost:7777/path/that/does/not/exist. got error: FileNotFoundException: Path hdfs://localhost:7777/path/that/does/not/exist does not exist.");
 }
 
 TEST_F(HdfsFileSystemTest, missingHost) {
@@ -331,6 +331,10 @@ TEST_F(HdfsFileSystemTest, schemeMatching) {
   auto fs = std::dynamic_pointer_cast<filesystems::HdfsFileSystem>(
       filesystems::getFileSystem(fullDestinationPath, nullptr));
   ASSERT_TRUE(fs->isHdfsFile(fullDestinationPath));
+
+  fs = std::dynamic_pointer_cast<filesystems::HdfsFileSystem>(
+      filesystems::getFileSystem(viewfsDestinationPath, nullptr));
+  ASSERT_TRUE(fs->isHdfsFile(viewfsDestinationPath));
 }
 
 TEST_F(HdfsFileSystemTest, writeNotSupported) {

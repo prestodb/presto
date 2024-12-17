@@ -22,6 +22,8 @@
 namespace facebook::velox::filesystems {
 std::string_view HdfsFileSystem::kScheme("hdfs://");
 
+std::string_view HdfsFileSystem::kViewfsScheme("viewfs://");
+
 class HdfsFileSystem::Impl {
  public:
   // Keep config here for possible use in the future.
@@ -35,8 +37,15 @@ class HdfsFileSystem::Impl {
 
     // connect to HDFS with the builder object
     hdfsBuilder* builder = driver_->NewBuilder();
-    driver_->BuilderSetNameNode(builder, endpoint.host.c_str());
-    driver_->BuilderSetNameNodePort(builder, atoi(endpoint.port.data()));
+    if (endpoint.isViewfs) {
+      // The default NameNode configuration will be used (from the XML
+      // configuration files). See:
+      // https://github.com/facebookincubator/velox/blob/main/velox/external/hdfs/hdfs.h#L289
+      driver_->BuilderSetNameNode(builder, "default");
+    } else {
+      driver_->BuilderSetNameNode(builder, endpoint.host.c_str());
+      driver_->BuilderSetNameNodePort(builder, atoi(endpoint.port.data()));
+    }
     driver_->BuilderSetForceNewInstance(builder);
     hdfsClient_ = driver_->BuilderConnect(builder);
     VELOX_CHECK_NOT_NULL(
@@ -82,13 +91,6 @@ std::string HdfsFileSystem::name() const {
 std::unique_ptr<ReadFile> HdfsFileSystem::openFileForRead(
     std::string_view path,
     const FileOptions& /*unused*/) {
-  if (path.find(kScheme) == 0) {
-    path.remove_prefix(kScheme.length());
-  }
-  if (auto index = path.find('/')) {
-    path.remove_prefix(index);
-  }
-
   return std::make_unique<HdfsReadFile>(
       impl_->hdfsShim(), impl_->hdfsClient(), path);
 }
@@ -101,7 +103,7 @@ std::unique_ptr<WriteFile> HdfsFileSystem::openFileForWrite(
 }
 
 bool HdfsFileSystem::isHdfsFile(const std::string_view filePath) {
-  return filePath.find(kScheme) == 0;
+  return (filePath.find(kScheme) == 0) || (filePath.find(kViewfsScheme) == 0);
 }
 
 /// Gets hdfs endpoint from a given file path. If not found, fall back to get a
@@ -109,6 +111,10 @@ bool HdfsFileSystem::isHdfsFile(const std::string_view filePath) {
 HdfsServiceEndpoint HdfsFileSystem::getServiceEndpoint(
     const std::string_view filePath,
     const config::ConfigBase* config) {
+  if (filePath.find(kViewfsScheme) == 0) {
+    return HdfsServiceEndpoint{"viewfs", "", true};
+  }
+
   auto endOfIdentityInfo = filePath.find('/', kScheme.size());
   std::string hdfsIdentity{
       filePath.data(), kScheme.size(), endOfIdentityInfo - kScheme.size()};
