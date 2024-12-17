@@ -247,24 +247,24 @@ class RelationPlanner
 
     private RelationPlan addColumnMasks(Table table, RelationPlan plan, SqlPlannerContext context)
     {
-        Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
+        Map<String, Expression> columnMasks = analysis.getColumnMasks(table);
 
-        PlanNode root = plan.getRoot();
         List<VariableReferenceExpression> mappings = plan.getFieldMappings();
-
         TranslationMap translations = new TranslationMap(plan, analysis, lambdaDeclarationToVariableMap);
         translations.setFieldMappings(mappings);
 
-        PlanBuilder planBuilder = new PlanBuilder(translations, root);
+        PlanBuilder planBuilder = new PlanBuilder(translations, plan.getRoot());
 
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
-            for (Expression mask : columnMasks.getOrDefault(field.getName().get(), ImmutableList.of())) {
+            if (field.getName().isPresent() && columnMasks.containsKey(field.getName().get())) {
+                Expression mask = columnMasks.get(field.getName().get());
+
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask, context);
 
                 Map<VariableReferenceExpression, RowExpression> assignments = new LinkedHashMap<>();
-                for (VariableReferenceExpression variableReferenceExpression : root.getOutputVariables()) {
+                for (VariableReferenceExpression variableReferenceExpression : planBuilder.getRoot().getOutputVariables()) {
                     assignments.put(variableReferenceExpression, rowExpression(new SymbolReference(variableReferenceExpression.getName()), context));
                 }
                 assignments.put(mappings.get(i), rowExpression(translations.rewrite(mask), context));

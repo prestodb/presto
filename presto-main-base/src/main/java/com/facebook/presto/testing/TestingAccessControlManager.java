@@ -96,7 +96,7 @@ public class TestingAccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
     private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
-    private final Map<ColumnMaskKey, List<ViewExpression>> columnMasks = new HashMap<>();
+    private final Map<ColumnMaskKey, ViewExpression> columnMasks = new HashMap<>();
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
@@ -135,8 +135,7 @@ public class TestingAccessControlManager
 
     public void columnMask(QualifiedObjectName table, String column, String identity, ViewExpression mask)
     {
-        columnMasks.computeIfAbsent(new ColumnMaskKey(identity, table, column), key -> new ArrayList<>())
-                .add(mask);
+        columnMasks.put(new ColumnMaskKey(identity, table, column), mask);
     }
 
     @Override
@@ -407,9 +406,11 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String column, Type type)
+    public Optional<ViewExpression> getColumnMask(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String column, Type type)
     {
-        return columnMasks.getOrDefault(new ColumnMaskKey(identity.getUser(), tableName, column), ImmutableList.of());
+        return Optional.ofNullable(
+                columnMasks.getOrDefault(new ColumnMaskKey(identity.getUser(), tableName, column),
+                        super.getColumnMask(transactionId, identity, context, tableName, column, type).orElse(null)));
     }
 
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
