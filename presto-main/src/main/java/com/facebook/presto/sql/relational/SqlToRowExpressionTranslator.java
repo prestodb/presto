@@ -908,12 +908,19 @@ public final class SqlToRowExpressionTranslator
 
             if (node.getEscape().isPresent()) {
                 RowExpression escape = process(node.getEscape().get(), context);
+                if (!functionResolution.supportsLikePatternFunction()) {
+                    return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharVarcharVarcharFunction(), BOOLEAN, value, pattern, escape);
+                }
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
             RowExpression prefixOrSuffixMatch = generateLikePrefixOrSuffixMatch(value, pattern);
             if (prefixOrSuffixMatch != null) {
                 return prefixOrSuffixMatch;
+            }
+
+            if (!functionResolution.supportsLikePatternFunction()) {
+                return likeFunctionCall(value, pattern);
             }
 
             return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
@@ -961,6 +968,9 @@ public final class SqlToRowExpressionTranslator
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
         {
             if (value.getType() instanceof VarcharType) {
+                if (!functionResolution.supportsLikePatternFunction()) {
+                    return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharVarcharFunction(), BOOLEAN, value, pattern);
+                }
                 return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
             }
 

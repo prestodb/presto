@@ -596,7 +596,8 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableMap.of(
                         "supported-function-languages", "CPP",
                         "function-implementation-type", "CPP",
-                        "json-based-function-manager.path-to-function-definition", jsonDefinitionPath));
+                        "json-based-function-manager.path-to-function-definition", jsonDefinitionPath),
+                false);
     }
 
     private static Table createHiveSymlinkTable(String databaseName, String tableName, List<Column> columns, String location)
