@@ -139,6 +139,7 @@ target_link_libraries(
   velox_hive_connector
   velox_memory
   velox_serialization
+  velox_test_output_matcher
   velox_test_util
   velox_type
   velox_type_test_lib

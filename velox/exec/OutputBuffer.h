@@ -115,6 +115,18 @@ class DestinationBuffer {
     int64_t bytesSent{0};
     int64_t rowsSent{0};
     int64_t pagesSent{0};
+
+    std::string toString() const {
+      return fmt::format(
+          "[finished: {}, bytesBuffered: {}, rowsBuffered: {}, pagesBuffered: {}, bytesSent: {}, rowsSent: {}, pagesSent:{}]",
+          finished,
+          succinctBytes(bytesBuffered),
+          rowsBuffered,
+          pagesBuffered,
+          succinctBytes(bytesSent),
+          rowsSent,
+          pagesSent);
+    }
   };
 
   void enqueue(std::shared_ptr<SerializedPage> data);
@@ -254,7 +266,29 @@ class OutputBuffer {
     /// Stats of the OutputBuffer's destinations.
     std::vector<DestinationBuffer::Stats> buffersStats;
 
-    std::string toString() const;
+    std::string toString() const {
+      std::string destinationBufferStats;
+      if (!buffersStats.empty()) {
+        for (int i = 0; i < buffersStats.size(); i++) {
+          auto& destinationBufferStat = buffersStats[i];
+          destinationBufferStats +=
+              fmt::format("  D{}: {}\n", i, destinationBufferStat.toString());
+        }
+      }
+
+      return fmt::format(
+          "[bufferedBytes: {}, bufferedPages: {}, "
+          "totalBytesSent: {}, totalRowsSent: {}, totalPagesSent: {}, "
+          "averageBufferTimeMs: {}, numTopBuffers: {}]\n{}",
+          succinctBytes(bufferedBytes),
+          bufferedPages,
+          succinctBytes(totalBytesSent),
+          totalRowsSent,
+          totalPagesSent,
+          averageBufferTimeMs,
+          numTopBuffers,
+          destinationBufferStats);
+    }
   };
 
   OutputBuffer(
