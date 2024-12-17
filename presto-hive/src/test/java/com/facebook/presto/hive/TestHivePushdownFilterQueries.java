@@ -81,27 +81,27 @@ public class TestHivePushdownFilterQueries
             "   CASE WHEN orderkey % 5 = 0 THEN null ELSE CAST(discount AS REAL) END AS discount_real, \n" +
             "   CASE WHEN orderkey % 43  = 0 THEN null ELSE discount END as discount, \n" +
             "   CASE WHEN orderkey % 7 = 0 THEN null ELSE CAST(tax AS REAL) END AS tax_real, \n" +
-            "   CASE WHEN linenumber % 2 = 0 THEN null ELSE (CAST(day(shipdate) AS TINYINT) , CAST(month(shipdate) AS TINYINT)) END AS ship_day_month, " +
+            "   CASE WHEN linenumber % 2 = 0 THEN null ELSE ARRAY[CAST(day(shipdate) AS TINYINT) , CAST(month(shipdate) AS TINYINT)] END AS ship_day_month, " +
             "   CASE WHEN orderkey % 37 = 0 THEN null ELSE CAST(discount AS DECIMAL(20, 8)) END AS discount_long_decimal, " +
             "   CASE WHEN orderkey % 41 = 0 THEN null ELSE CAST(tax AS DECIMAL(3, 2)) END AS tax_short_decimal, " +
-            "   CASE WHEN orderkey % 43 = 0 THEN null ELSE (CAST(discount AS DECIMAL(20, 8)), CAST(tax AS DECIMAL(20, 8))) END AS long_decimals, " +
-            "   CASE WHEN orderkey % 11 = 0 THEN null ELSE (orderkey, partkey, suppkey) END AS keys, \n" +
-            "   CASE WHEN orderkey % 41 = 0 THEN null ELSE (extendedprice, discount, tax) END AS doubles, \n" +
+            "   CASE WHEN orderkey % 43 = 0 THEN null ELSE ARRAY[CAST(discount AS DECIMAL(20, 8)), CAST(tax AS DECIMAL(20, 8))] END AS long_decimals, " +
+            "   CASE WHEN orderkey % 11 = 0 THEN null ELSE ARRAY[orderkey, partkey, suppkey] END AS keys, \n" +
+            "   CASE WHEN orderkey % 41 = 0 THEN null ELSE ARRAY[extendedprice, discount, tax] END AS doubles, \n" +
             "   CASE WHEN orderkey % 13 = 0 THEN null ELSE ARRAY[ARRAY[orderkey, partkey], ARRAY[suppkey], CASE WHEN orderkey % 17 = 0 THEN null ELSE ARRAY[orderkey, partkey] END] END AS nested_keys, \n" +
-            "   CASE WHEN orderkey % 17 = 0 THEN null ELSE (shipmode = 'AIR', returnflag = 'R') END as flags, \n" +
-            "   CASE WHEN orderkey % 19 = 0 THEN null ELSE (CAST(discount AS REAL), CAST(tax AS REAL)) END as reals, \n" +
+            "   CASE WHEN orderkey % 17 = 0 THEN null ELSE ARRAY[shipmode = 'AIR', returnflag = 'R'] END as flags, \n" +
+            "   CASE WHEN orderkey % 19 = 0 THEN null ELSE ARRAY[CAST(discount AS REAL), CAST(tax AS REAL)] END as reals, \n" +
             "   CASE WHEN orderkey % 23 = 0 THEN null ELSE (orderkey, linenumber, (CAST(day(shipdate) as TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER))) END AS info, \n" +
-            "   CASE WHEN orderkey % 31 = 0 THEN null ELSE (" +
+            "   CASE WHEN orderkey % 31 = 0 THEN null ELSE ARRAY[" +
             "       (CAST(day(shipdate) AS TINYINT), CAST(month(shipdate) AS TINYINT), CAST(year(shipdate) AS INTEGER)), " +
             "       (CAST(day(commitdate) AS TINYINT), CAST(month(commitdate) AS TINYINT), CAST(year(commitdate) AS INTEGER)), " +
-            "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))) END AS dates, \n" +
-            "   CASE WHEN orderkey % 37 = 0 THEN null ELSE (CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)) END AS timestamps, \n" +
+            "       (CAST(day(receiptdate) AS TINYINT), CAST(month(receiptdate) AS TINYINT), CAST(year(receiptdate) AS INTEGER))] END AS dates, \n" +
+            "   CASE WHEN orderkey % 37 = 0 THEN null ELSE ARRAY[CAST(shipdate AS TIMESTAMP), CAST(commitdate AS TIMESTAMP)] END AS timestamps, \n" +
             "   CASE WHEN orderkey % 43 = 0 THEN null ELSE comment END AS comment, \n" +
             "   CASE WHEN orderkey % 43 = 0 THEN null ELSE upper(comment) END AS uppercase_comment, \n" +
             "   CAST('' as VARBINARY) AS empty_comment, \n" +
             "   CASE WHEN orderkey % 47 = 0 THEN null ELSE CAST(comment AS CHAR(5)) END AS fixed_comment, \n" +
-            "   CASE WHEN orderkey % 49 = 0 THEN null ELSE (CAST(comment AS CHAR(4)), CAST(comment AS CHAR(3)), CAST(SUBSTR(comment,length(comment) - 4) AS CHAR(4))) END AS char_array, \n" +
-            "   CASE WHEN orderkey % 49 = 0 THEN null ELSE (comment, comment) END AS varchar_array \n" +
+            "   CASE WHEN orderkey % 49 = 0 THEN null ELSE ARRAY[CAST(comment AS CHAR(4)), CAST(comment AS CHAR(3)), CAST(SUBSTR(comment,length(comment) - 4) AS CHAR(4))] END AS char_array, \n" +
+            "   CASE WHEN orderkey % 49 = 0 THEN null ELSE ARRAY[comment, comment] END AS varchar_array \n" +
 
             "FROM lineitem)\n";
 

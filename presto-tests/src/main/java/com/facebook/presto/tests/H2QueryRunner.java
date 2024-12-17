@@ -16,11 +16,9 @@ package com.facebook.presto.tests;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
-import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DistinctType;
 import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
@@ -36,8 +34,6 @@ import com.facebook.presto.tpch.TpchMetadata;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.google.common.base.Joiner;
 import io.airlift.tpch.TpchTable;
-import org.h2.jdbc.JdbcArray;
-import org.h2.jdbc.JdbcResultSet;
 import org.intellij.lang.annotations.Language;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -54,12 +50,10 @@ import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
@@ -339,12 +333,45 @@ public class H2QueryRunner
                             .round(new MathContext(decimalType.getPrecision()));
                 }
                 else if (type instanceof ArrayType) {
-                    Array array = resultSet.getArray(position);
-                    return resultSet.wasNull() ? null : newArrayList(mapArrayValues(((ArrayType) type), (Object[]) array.getArray()));
+                    Type elementType = ((ArrayType) type).getElementType();
+                    Object[] testData = null;
+                    if (resultSet.getArray(position) != null) {
+                        Array array = resultSet.getArray(position);
+                        ResultSet arrayResultset = array.getResultSet();
+                        if (arrayResultset != null) {
+                            int rowCount = getResultsetRowCount(arrayResultset);
+                            int arrayIndex = 0;
+                            testData = new Object[rowCount];
+                            if (arrayResultset.next()) {
+                                do {
+                                    //For Array data type, array.getResultSet() return the values in result set as row format and keeping in second column.
+                                    testData[arrayIndex] = getValue(elementType, arrayResultset, 2);
+                                    arrayIndex++;
+                                } while (arrayResultset.next());
+                            }
+                        }
+                    }
+                    return resultSet.wasNull() ? null : newArrayList(testData);
                 }
                 else if (type instanceof RowType) {
-                    Array array = resultSet.getArray(position);
-                    return resultSet.wasNull() ? null : newArrayList(mapRowValues((RowType) type, (Object[]) array.getArray()));
+                    Object[] testData = null;
+                    if (resultSet.getArray(position) != null) {
+                        Array array = resultSet.getArray(position);
+                        Object[] data = (Object[]) array.getArray();
+                        //For ROW data type, array.getArray() return only one value. ie, Resultset.
+                        if (data[0] != null) {
+                            ResultSet rowResultset = (ResultSet) data[0];
+                            int columnCount = rowResultset.getMetaData().getColumnCount();
+                            testData = new Object[columnCount];
+                            if (rowResultset.next()) {
+                                for (int i = 0; i < columnCount; i++) {
+                                    Type elementType = type.getTypeParameters().get(i);
+                                    testData[i] = getValue(elementType, rowResultset, i + 1);
+                                }
+                            }
+                        }
+                    }
+                    return resultSet.wasNull() ? null : newArrayList(testData);
                 }
                 else if (type instanceof TypeWithName) {
                     return getValue(((TypeWithName) type).getType(), resultSet, position);
@@ -370,64 +397,6 @@ public class H2QueryRunner
                 return new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, row);
             }
         };
-    }
-
-    private static Object[] mapArrayValues(ArrayType arrayType, Object[] values)
-    {
-        Type elementType = arrayType.getElementType();
-        if (elementType instanceof ArrayType) {
-            return Arrays.stream(values)
-                    .map(v -> v == null ? null : newArrayList(getArrayObject((JdbcArray) v)))
-                    .toArray();
-        }
-
-        if (elementType instanceof RowType) {
-            RowType rowType = (RowType) elementType;
-            return Arrays.stream(values)
-                    .map(v -> v == null ? null : newArrayList(mapRowValues(rowType, getRowObject(rowType, (JdbcResultSet) v))))
-                    .toArray();
-        }
-
-        if (elementType instanceof CharType) {
-            int length = ((CharType) elementType).getLength();
-            return Arrays.stream(values)
-                    .map(String.class::cast)
-                    .map(v -> v == null ? null : padEnd(v, length, ' '))
-                    .toArray();
-        }
-
-        if (elementType instanceof TimestampType) {
-            return Arrays.stream(values)
-                    .map(v -> v == null ? null : ((Timestamp) v).toLocalDateTime())
-                    .toArray();
-        }
-
-        if (elementType instanceof DateType) {
-            return Arrays.stream(values).map(v -> v == null ? null : ((Date) v).toLocalDate()).toArray();
-        }
-
-        return values;
-    }
-
-    private static Object[] mapRowValues(RowType rowType, Object[] values)
-    {
-        int fieldCount = rowType.getFields().size();
-        Object[] fields = new Object[fieldCount];
-
-        if (values.length == 1) {
-            values = getRowObject(rowType, (JdbcResultSet) values[0]);
-        }
-
-        for (int j = 0; j < fieldCount; j++) {
-            Type fieldType = rowType.getTypeParameters().get(j);
-            if (fieldType instanceof RowType) {
-                fields[j] = newArrayList(mapRowValues((RowType) fieldType, getRowObject((RowType) fieldType, (JdbcResultSet) values[j])));
-            }
-            else {
-                fields[j] = values[j];
-            }
-        }
-        return fields;
     }
 
     private static void insertRows(ConnectorTableMetadata tableMetadata, Handle handle, RecordSet data)
@@ -503,32 +472,18 @@ public class H2QueryRunner
         }
     }
 
-    private static Object[] getArrayObject(JdbcArray jdbcArray)
+    private static int getResultsetRowCount(ResultSet resultset)
     {
-        Object[] objectArray = null;
+        int rowCount = 0;
         try {
-            objectArray = (Object[]) jdbcArray.getArray();
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-        return objectArray;
-    }
-
-    private static Object[] getRowObject(RowType rowType, JdbcResultSet jdbcResultSet)
-    {
-        int fieldCount = rowType.getFields().size();
-        Object[] objectArray = new Object[fieldCount];
-        try {
-            jdbcResultSet.next();
-            for (int i = 0; i < fieldCount; i++) {
-                // JdbcResultSet getObject index start from 1.
-                objectArray[i] = jdbcResultSet.getObject(i + 1);
+            if (resultset.last()) {
+                rowCount = resultset.getRow();
+                resultset.beforeFirst();
             }
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
-        return objectArray;
+        return rowCount;
     }
 }
