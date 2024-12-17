@@ -18,6 +18,13 @@
         <scala.version>2.12.2</scala.version>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -63,8 +70,9 @@
             <artifactId>tempto-ldap</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
-            <artifactId>tempto-kafka</artifactId>
+            <groupId>com.github.adkharat</groupId>
+            <artifactId>tempto</artifactId>
+            <version>Tag</version>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>

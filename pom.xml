@@ -207,6 +207,13 @@
         <module>presto-native-sidecar-plugin</module>
     </modules>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -1991,9 +1998,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.adkharat.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>upgrade_kafka_client_version_cve_2022_34917</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
