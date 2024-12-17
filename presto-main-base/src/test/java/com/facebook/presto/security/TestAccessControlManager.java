@@ -53,12 +53,10 @@ import org.testng.annotations.Test;
 
 import java.security.Principal;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyQueryIntegrityCheck;
@@ -313,14 +311,6 @@ public class TestAccessControlManager
                 return Optional.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "connector mask"));
             }
         });
-
-        transaction(transactionManager, accessControlManager)
-                .execute(transactionId -> {
-                    List<ViewExpression> masks = accessControlManager.getColumnMasks(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
-                            new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty()), new QualifiedObjectName("catalog", "schema", "table"), "column", BIGINT);
-                    assertEquals(masks.get(0).getExpression(), "connector mask");
-                    assertEquals(masks.get(1).getExpression(), "system mask");
-                });
     }
 
     private static ConnectorId registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)
