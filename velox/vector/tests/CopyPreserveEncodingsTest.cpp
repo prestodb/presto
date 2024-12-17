@@ -327,10 +327,12 @@ TEST_F(CopyPreserveEncodingsTest, flatNoNulls) {
 TEST_F(CopyPreserveEncodingsTest, lazyNoNulls) {
   auto lazyVector = vectorMaker_.lazyFlatVector<int32_t>(
       10, [](vector_size_t row) { return row; });
+  VELOX_ASSERT_THROW(lazyVector->copyPreserveEncodings(), "");
 
-  VELOX_ASSERT_THROW(
-      lazyVector->copyPreserveEncodings(),
-      "copyPreserveEncodings not defined for LazyVector");
+  auto copy = lazyVector->loadedVector()->copyPreserveEncodings();
+  assertEqualVectors(lazyVector, copy);
+  ASSERT_EQ(copy->encoding(), VectorEncoding::Simple::FLAT);
+  ASSERT_EQ(copy->nulls(), nullptr);
 }
 
 TEST_F(CopyPreserveEncodingsTest, sequenceHasNulls) {
