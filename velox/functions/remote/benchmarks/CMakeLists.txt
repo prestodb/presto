@@ -12,8 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(if)
-add_subdirectory(client)
-add_subdirectory(server)
-add_subdirectory(utils)
-add_subdirectory(benchmarks)
+add_executable(velox_benchmark_local_remote_comparison
+               LocalRemoteComparisonBenchmark.cpp)
+
+target_link_libraries(
+  velox_benchmark_local_remote_comparison
+  PUBLIC velox_type
+         velox_benchmark_builder
+         velox_vector_test_lib
+         velox_function_registry
+         velox_functions_remote
+         velox_functions_remote_utils
+         Folly::folly
+         Folly::follybenchmark
+         gflags::gflags
+         glog::glog)
