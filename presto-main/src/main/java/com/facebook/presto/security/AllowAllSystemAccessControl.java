@@ -14,6 +14,7 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -230,6 +231,12 @@ public class AllowAllSystemAccessControl
 
     @Override
     public Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
     }

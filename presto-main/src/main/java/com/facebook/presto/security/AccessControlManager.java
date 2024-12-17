@@ -58,6 +58,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -805,7 +806,7 @@ public class AccessControlManager
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
         requireNonNull(transactionId, "transactionId is null");
         requireNonNull(identity, "identity is null");
@@ -823,7 +824,12 @@ public class AccessControlManager
         systemAccessControl.get().getColumnMask(identity, context, toCatalogSchemaTableName(tableName), columnName, type)
                 .ifPresent(masks::add);
 
-        return masks.build();
+        List<ViewExpression> allMasks = masks.build();
+        if (allMasks.size() > 1) {
+            throw new PrestoException(INVALID_COLUMN_MASK, format("Column must have a single mask: %s", columnName));
+        }
+
+        return allMasks.stream().findFirst();
     }
 
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)

@@ -165,7 +165,7 @@ public class Analysis
     private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
-    private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
 
     // for create table
     private Optional<QualifiedObjectName> createTableDestination = Optional.empty();
@@ -1047,12 +1047,12 @@ public class Analysis
 
     public void addColumnMask(Table table, String column, Expression mask)
     {
-        Map<String, List<Expression>> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
-        masks.computeIfAbsent(column, name -> new ArrayList<>())
-                .add(mask);
+        Map<String, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
+        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column);
+        masks.put(column, mask);
     }
 
-    public Map<String, List<Expression>> getColumnMasks(Table table)
+    public Map<String, Expression> getColumnMasks(Table table)
     {
         return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
     }
