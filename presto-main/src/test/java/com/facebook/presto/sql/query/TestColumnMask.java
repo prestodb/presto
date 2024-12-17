@@ -87,24 +87,22 @@ public class TestColumnMask
     }
 
     @Test
-    public void testMultipleMasks()
+    public void testMultipleMasksOnDifferentColumns()
     {
-        assertions.executeExclusively(() -> {
-            accessControl.reset();
-            accessControl.columnMask(
-                    new QualifiedObjectName(CATALOG, "tiny", "orders"),
-                    "custkey",
-                    USER,
-                    new ViewExpression(USER, Optional.empty(), Optional.empty(), "-custkey"));
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "custkey",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "-custkey"));
 
-            accessControl.columnMask(
-                    new QualifiedObjectName(CATALOG, "tiny", "orders"),
-                    "custkey",
-                    USER,
-                    new ViewExpression(USER, Optional.empty(), Optional.empty(), "custkey * 2"));
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderstatus",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "'X'"));
 
-            assertions.assertQuery("SELECT custkey FROM orders WHERE orderkey = 1", "VALUES BIGINT '-740'");
-        });
+        assertions.assertQuery("SELECT custkey, orderstatus FROM orders WHERE orderkey = 1", "VALUES (BIGINT '-370', 'X')");
     }
 
     @Test
