@@ -41,8 +41,7 @@ public class CustomPrestoAuthenticator
             throws AuthenticationException
     {
         try {
-            ReadOnlyHttpServletRequest restrictedRequest = new ReadOnlyHttpServletRequest(request);
-            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(restrictedRequest);
+            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(new ReadOnlyHttpServletRequest(request));
         }
         catch (RuntimeException e) {
             throw new RuntimeException("Authentication error", e);
