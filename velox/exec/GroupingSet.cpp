@@ -760,22 +760,23 @@ bool GroupingSet::getOutput(
     }
     return false;
   }
-  extractGroups(folly::Range<char**>(groups, numGroups), result);
+  extractGroups(
+      table_->rows(), folly::Range<char**>(groups, numGroups), result);
   return true;
 }
 
 void GroupingSet::extractGroups(
+    RowContainer* rowContainer,
     folly::Range<char**> groups,
     const RowVectorPtr& result) {
   result->resize(groups.size());
   if (groups.empty()) {
     return;
   }
-  RowContainer& rows = *table_->rows();
-  const auto totalKeys = rows.keyTypes().size();
+  const auto totalKeys = rowContainer->keyTypes().size();
   for (int32_t i = 0; i < totalKeys; ++i) {
     auto& keyVector = result->childAt(i);
-    rows.extractColumn(
+    rowContainer->extractColumn(
         groups.data(),
         groups.size(),
         groupingKeyOutputProjections_[i],
@@ -1252,7 +1253,8 @@ void GroupingSet::extractSpillResult(const RowVectorPtr& result) {
     mergeRows_->listRows(
         &iter, rows.size(), RowContainer::kUnlimited, rows.data());
   }
-  extractGroups(folly::Range<char**>(rows.data(), rows.size()), result);
+  extractGroups(
+      mergeRows_.get(), folly::Range<char**>(rows.data(), rows.size()), result);
   mergeRows_->clear();
 }
 

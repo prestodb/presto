@@ -203,7 +203,10 @@ class GroupingSet {
   // Copies the grouping keys and aggregates for 'groups' into 'result' If
   // partial output, extracts the intermediate type for aggregates, final result
   // otherwise.
-  void extractGroups(folly::Range<char**> groups, const RowVectorPtr& result);
+  void extractGroups(
+      RowContainer* container,
+      folly::Range<char**> groups,
+      const RowVectorPtr& result);
 
   // Produces output in if spilling has occurred. First produces data
   // from non-spilled partitions, then merges spill runs and unspilled data
