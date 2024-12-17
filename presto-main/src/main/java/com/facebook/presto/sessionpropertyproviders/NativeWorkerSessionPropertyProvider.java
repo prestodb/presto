@@ -62,7 +62,6 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_QUERY_TRACE_DIR = "native_query_trace_dir";
     public static final String NATIVE_QUERY_TRACE_NODE_IDS = "native_query_trace_node_ids";
     public static final String NATIVE_QUERY_TRACE_MAX_BYTES = "native_query_trace_max_bytes";
-    public static final String NATIVE_QUERY_TRACE_REG_EXP = "native_query_trace_task_reg_exp";
     public static final String NATIVE_QUERY_TRACE_FRAGMENT_ID = "native_query_trace_fragment_id";
     public static final String NATIVE_QUERY_TRACE_SHARD_ID = "native_query_trace_shard_id";
     public static final String NATIVE_MAX_LOCAL_EXCHANGE_PARTITION_COUNT = "native_max_local_exchange_partition_count";
@@ -236,10 +235,6 @@ public class NativeWorkerSessionPropertyProvider
                 longProperty(NATIVE_QUERY_TRACE_MAX_BYTES,
                         "The max trace bytes limit. Tracing is disabled if zero.",
                         0L,
-                        !nativeExecution),
-                stringProperty(NATIVE_QUERY_TRACE_REG_EXP,
-                        "The regexp of traced task id. We only enable trace on a task if its id matches.",
-                        "",
                         !nativeExecution),
                 stringProperty(NATIVE_OP_TRACE_DIR_CREATE_CONFIG,
                         "Config used to create operator trace directory. This config is provided to underlying file system and the config is free form. The form should be defined by the underlying file system.",
