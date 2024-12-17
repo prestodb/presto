@@ -16,7 +16,7 @@ package com.facebook.presto.iceberg.optimizer;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.HivePartition;
+import com.facebook.presto.hive.LazyLoadedPartitions;
 import com.facebook.presto.hive.rule.BaseSubfieldExtractionRewriter;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
@@ -155,7 +155,7 @@ public class IcebergFilterPushdown
             TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(
                             constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
 
-            List<HivePartition> partitions = getPartitions(
+            LazyLoadedPartitions partitions = getPartitions(
                     typeManager,
                     tableHandle,
                     icebergTable,
@@ -174,7 +174,7 @@ public class IcebergFilterPushdown
                                     .setRequestedColumns(requestedColumns)
                                     .setPushdownFilterEnabled(true)
                                     .setPartitionColumnPredicate(partitionColumnPredicate)
-                                    .setPartitions(Optional.ofNullable(partitions.size() == 0 ? null : partitions))
+                                    .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                                     .setTable((IcebergTableHandle) tableHandle)
                                     .build()),
                     remainingExpressions.getDynamicFilterExpression());
