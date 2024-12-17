@@ -47,10 +47,6 @@ jobs:
     defaults:
       run:
         shell: bash
-    env:
-      VELOX_DEPENDENCY_SOURCE: SYSTEM
-      simdjson_SOURCE: BUNDLED
-      xsimd_SOURCE: BUNDLED
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,7 +117,6 @@ jobs:
             "/tmp/metrics"
 
   upload-report:
-    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'facebookincubator/velox' }}
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -155,6 +150,13 @@ jobs:
         run: |
           cd scripts/bm-report
           nix-shell --run "quarto render report.qmd"
+
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: report
+          path: scripts/bm-report/report.html
+          retention-days: 5
 
       - name: Push Report
         # The report only uses conbench data from 'main'
