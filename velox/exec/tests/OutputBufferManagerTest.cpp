@@ -1335,10 +1335,8 @@ TEST_P(AllOutputBufferManagerTest, printOutputBufferStats) {
       1);
 
   const int numPages = numDestinations;
-  int totalNumRows = 0;
-  int totalBytes = 0;
   for (int pageId = 0; pageId < numPages; ++pageId) {
-    const auto pageBytes = enqueue(taskId, pageId, rowType_, vectorSize);
+    enqueue(taskId, pageId, rowType_, vectorSize);
     fetchOneAndAck(taskId, pageId, 0);
   }
 
