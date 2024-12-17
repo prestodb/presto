@@ -18,15 +18,33 @@
 
 #include <fmt/core.h>
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SuccinctPrinter.h"
 
 namespace facebook::velox::exec::trace {
 
 std::string OperatorTraceSummary::toString() const {
-  return fmt::format(
-      "opType {}, inputRows {}, peakMemory {}",
-      opType,
-      inputRows,
-      succinctBytes(peakMemory));
+  if (numSplits.has_value()) {
+    VELOX_CHECK_EQ(opType, "TableScan");
+    return fmt::format(
+        "opType {}, numSplits {}, inputRows {}, inputBytes {}, rawInputRows {}, rawInputBytes {}, peakMemory {}",
+        opType,
+        numSplits.value(),
+        inputRows,
+        succinctBytes(inputBytes),
+        rawInputRows,
+        succinctBytes(rawInputBytes),
+        succinctBytes(peakMemory));
+  } else {
+    VELOX_CHECK_NE(opType, "TableScan");
+    return fmt::format(
+        "opType {}, inputRows {},  inputBytes {}, rawInputRows {}, rawInputBytes {}, peakMemory {}",
+        opType,
+        inputRows,
+        succinctBytes(inputBytes),
+        rawInputRows,
+        succinctBytes(rawInputBytes),
+        succinctBytes(peakMemory));
+  }
 }
 } // namespace facebook::velox::exec::trace

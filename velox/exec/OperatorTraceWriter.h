@@ -65,7 +65,6 @@ class OperatorTraceInputWriter {
   const UpdateAndCheckTraceLimitCB updateAndCheckTraceLimitCB_;
 
   std::unique_ptr<WriteFile> traceFile_;
-  TypePtr dataType_;
   std::unique_ptr<VectorStreamGroup> batch_;
   bool limitExceeded_{false};
   bool finished_{false};

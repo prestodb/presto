@@ -223,7 +223,9 @@ void TraceReplayRunner::init() {
   VELOX_USER_CHECK(!FLAGS_query_id.empty(), "--query_id must be provided");
   VELOX_USER_CHECK(!FLAGS_node_id.empty(), "--node_id must be provided");
 
-  memory::initializeMemoryManager({});
+  if (memory::memoryManager() == nullptr) {
+    memory::initializeMemoryManager({});
+  }
   filesystems::registerLocalFileSystem();
   filesystems::registerS3FileSystem();
   filesystems::registerHdfsFileSystem();
@@ -265,15 +267,17 @@ void TraceReplayRunner::init() {
   aggregate::prestosql::registerAllAggregateFunctions();
   parse::registerTypeResolver();
 
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>());
-  const auto hiveConnector =
-      connector::getConnectorFactory("hive")->newConnector(
-          "test-hive",
-          std::make_shared<config::ConfigBase>(
-              std::unordered_map<std::string, std::string>()),
-          ioExecutor_.get());
-  connector::registerConnector(hiveConnector);
+  if (!facebook::velox::connector::hasConnectorFactory("hive")) {
+    connector::registerConnectorFactory(
+        std::make_shared<connector::hive::HiveConnectorFactory>());
+    const auto hiveConnector =
+        connector::getConnectorFactory("hive")->newConnector(
+            "test-hive",
+            std::make_shared<config::ConfigBase>(
+                std::unordered_map<std::string, std::string>()),
+            ioExecutor_.get());
+    connector::registerConnector(hiveConnector);
+  }
 
   fs_ = filesystems::getFileSystem(FLAGS_root_dir, nullptr);
 }

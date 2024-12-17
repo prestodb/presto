@@ -50,7 +50,7 @@ class TraceReplayRunner {
   /// Runs the trace replay with a set of gflags passed from replayer tool.
   virtual void run();
 
- private:
+ protected:
   std::unique_ptr<tool::trace::OperatorReplayerBase> createReplayer() const;
 
   const std::unique_ptr<folly::IOThreadPoolExecutor> ioExecutor_;

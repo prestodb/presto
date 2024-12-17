@@ -89,7 +89,15 @@ TEST_F(TraceUtilTest, OperatorTraceSummary) {
   summary.inputRows = 100;
   summary.peakMemory = 200;
   ASSERT_EQ(
-      summary.toString(), "opType summary, inputRows 100, peakMemory 200B");
+      summary.toString(),
+      "opType summary, inputRows 100,  inputBytes 0B, rawInputRows 0, rawInputBytes 0B, peakMemory 200B");
+  summary.numSplits = 10;
+  summary.rawInputBytes = 222;
+  VELOX_ASSERT_THROW(summary.toString(), "summary vs. TableScan");
+  summary.opType = "TableScan";
+  ASSERT_EQ(
+      summary.toString(),
+      "opType TableScan, numSplits 10, inputRows 100, inputBytes 0B, rawInputRows 0, rawInputBytes 222B, peakMemory 200B");
 }
 
 TEST_F(TraceUtilTest, traceDirectoryLayoutUtilities) {

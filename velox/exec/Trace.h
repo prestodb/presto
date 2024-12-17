@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace facebook::velox::exec::trace {
@@ -24,7 +25,6 @@ namespace facebook::velox::exec::trace {
 struct TraceTraits {
   static inline const std::string kPlanNodeKey = "planNode";
   static inline const std::string kQueryConfigKey = "queryConfig";
-  static inline const std::string kDataTypeKey = "rowType";
   static inline const std::string kConnectorPropertiesKey =
       "connectorProperties";
 
@@ -40,13 +40,23 @@ struct OperatorTraceTraits {
   static inline const std::string kOpTypeKey = "opType";
   static inline const std::string kPeakMemoryKey = "peakMemory";
   static inline const std::string kInputRowsKey = "inputRows";
-  static inline const std::string kNumSplits = "numSplits";
+  static inline const std::string kInputBytesKey = "inputBytes";
+  static inline const std::string kRawInputRowsKey = "rawInputRows";
+  static inline const std::string kRawInputBytesKey = "rawInputBytes";
+  static inline const std::string kNumSplitsKey = "numSplits";
 };
 
 /// Contains the summary of an operator trace.
 struct OperatorTraceSummary {
   std::string opType;
+  /// The number of splits processed by a table scan operator, nullopt for the
+  /// other operator types.
+  std::optional<uint32_t> numSplits{std::nullopt};
+
   uint64_t inputRows{0};
+  uint64_t inputBytes{0};
+  uint64_t rawInputRows{0};
+  uint64_t rawInputBytes{0};
   uint64_t peakMemory{0};
 
   std::string toString() const;

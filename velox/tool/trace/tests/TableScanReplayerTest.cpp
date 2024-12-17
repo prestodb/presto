@@ -25,8 +25,8 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/hyperloglog/SparseHll.h"
+#include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/PartitionFunction.h"
-#include "velox/exec/TableWriter.h"
 #include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -34,6 +34,7 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/tool/trace/TableScanReplayer.h"
+#include "velox/tool/trace/TraceReplayRunner.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -99,6 +100,70 @@ class TableScanReplayerTest : public HiveConnectorTestBase {
            TINYINT()})};
   core::PlanNodeId traceNodeId_;
 };
+
+TEST_F(TableScanReplayerTest, runner) {
+  const auto vectors = makeVectors(10, 100);
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  const auto fs = filesystems::getFileSystem(testDir->getPath(), nullptr);
+  const int numSplits{5};
+  std::vector<std::shared_ptr<TempFilePath>> splitFiles;
+  for (int i = 0; i < numSplits; ++i) {
+    auto filePath = TempFilePath::create();
+    writeToFile(filePath->getPath(), vectors);
+    splitFiles.push_back(std::move(filePath));
+  }
+
+  const auto plan = tableScanNode();
+  std::shared_ptr<Task> task;
+  auto traceResult =
+      AssertQueryBuilder(plan)
+          .maxDrivers(1)
+          .config(core::QueryConfig::kQueryTraceEnabled, true)
+          .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+          .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+          .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+          .splits(makeHiveConnectorSplits(splitFiles))
+          .copyResults(pool(), task);
+
+  const auto taskTraceDir =
+      exec::trace::getTaskTraceDirectory(traceRoot, *task);
+  const auto opTraceDir = exec::trace::getOpTraceDirectory(
+      taskTraceDir,
+      traceNodeId_,
+      /*pipelineId=*/0,
+      /*driverId=*/0);
+  const auto summary =
+      exec::trace::OperatorTraceSummaryReader(opTraceDir, pool()).read();
+  ASSERT_EQ(summary.opType, "TableScan");
+  ASSERT_GT(summary.peakMemory, 0);
+  const int expectedTotalRows = numSplits * 10 * 100;
+  ASSERT_EQ(summary.inputRows, expectedTotalRows);
+  ASSERT_GT(summary.inputBytes, 0);
+  ASSERT_EQ(summary.rawInputRows, expectedTotalRows);
+  ASSERT_GT(summary.rawInputBytes, 0);
+  ASSERT_EQ(summary.numSplits.value(), numSplits);
+
+  FLAGS_root_dir = traceRoot;
+  FLAGS_query_id = task->queryCtx()->queryId();
+  FLAGS_node_id = traceNodeId_;
+  FLAGS_summary = true;
+  {
+    TraceReplayRunner runner;
+    runner.init();
+    runner.run();
+  }
+
+  FLAGS_task_id = task->taskId();
+  FLAGS_driver_ids = "";
+  FLAGS_summary = false;
+  {
+    TraceReplayRunner runner;
+    runner.init();
+    runner.run();
+  }
+}
 
 TEST_F(TableScanReplayerTest, basic) {
   const auto vectors = makeVectors(10, 100);

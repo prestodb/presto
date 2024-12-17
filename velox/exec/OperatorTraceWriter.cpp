@@ -27,6 +27,21 @@
 #include "velox/exec/TraceUtil.h"
 
 namespace facebook::velox::exec::trace {
+namespace {
+void recordOperatorSummary(Operator* op, folly::dynamic& obj) {
+  obj[OperatorTraceTraits::kOpTypeKey] = op->operatorType();
+  const auto stats = op->stats(/*clear=*/false);
+  if (op->operatorType() == "TableScan") {
+    obj[OperatorTraceTraits::kNumSplitsKey] = stats.numSplits;
+  }
+  obj[OperatorTraceTraits::kPeakMemoryKey] =
+      stats.memoryStats.peakTotalMemoryReservation;
+  obj[OperatorTraceTraits::kInputRowsKey] = stats.inputPositions;
+  obj[OperatorTraceTraits::kInputBytesKey] = stats.inputBytes;
+  obj[OperatorTraceTraits::kRawInputRowsKey] = stats.rawInputPositions;
+  obj[OperatorTraceTraits::kRawInputBytesKey] = stats.rawInputBytes;
+}
+} // namespace
 
 OperatorTraceInputWriter::OperatorTraceInputWriter(
     Operator* traceOp,
@@ -46,9 +61,6 @@ OperatorTraceInputWriter::OperatorTraceInputWriter(
 void OperatorTraceInputWriter::write(const RowVectorPtr& rows) {
   if (FOLLY_UNLIKELY(finished_)) {
     return;
-  }
-  if (FOLLY_UNLIKELY(dataType_ == nullptr)) {
-    dataType_ = rows->type();
   }
 
   if (batch_ == nullptr) {
@@ -88,14 +100,7 @@ void OperatorTraceInputWriter::writeSummary() const {
   const auto summaryFilePath = getOpTraceSummaryFilePath(traceDir_);
   const auto file = fs_->openFileForWrite(summaryFilePath);
   folly::dynamic obj = folly::dynamic::object;
-  if (dataType_ != nullptr) {
-    obj[TraceTraits::kDataTypeKey] = dataType_->serialize();
-  }
-  obj[OperatorTraceTraits::kOpTypeKey] = traceOp_->operatorType();
-  const auto stats = traceOp_->stats(/*clear=*/false);
-  obj[OperatorTraceTraits::kPeakMemoryKey] =
-      stats.memoryStats.peakTotalMemoryReservation;
-  obj[OperatorTraceTraits::kInputRowsKey] = stats.inputPositions;
+  recordOperatorSummary(traceOp_, obj);
   file->append(folly::toJson(obj));
   file->close();
 }
@@ -151,11 +156,7 @@ void OperatorTraceSplitWriter::writeSummary() const {
   const auto summaryFilePath = getOpTraceSummaryFilePath(traceDir_);
   const auto file = fs_->openFileForWrite(summaryFilePath);
   folly::dynamic obj = folly::dynamic::object;
-  obj[OperatorTraceTraits::kOpTypeKey] = traceOp_->operatorType();
-  const auto stats = traceOp_->stats(/*clear=*/false);
-  obj[OperatorTraceTraits::kPeakMemoryKey] =
-      stats.memoryStats.peakTotalMemoryReservation;
-  obj[OperatorTraceTraits::kNumSplits] = stats.numSplits;
+  recordOperatorSummary(traceOp_, obj);
   file->append(folly::toJson(obj));
   file->close();
 }

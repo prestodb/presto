@@ -80,8 +80,16 @@ OperatorTraceSummary OperatorTraceSummaryReader::read() const {
   folly::dynamic summaryObj = folly::parseJson(summaryStr);
   OperatorTraceSummary summary;
   summary.opType = summaryObj[OperatorTraceTraits::kOpTypeKey].asString();
+  if (summary.opType == "TableScan") {
+    summary.numSplits = summaryObj[OperatorTraceTraits::kNumSplitsKey].asInt();
+  }
   summary.peakMemory = summaryObj[OperatorTraceTraits::kPeakMemoryKey].asInt();
   summary.inputRows = summaryObj[OperatorTraceTraits::kInputRowsKey].asInt();
+  summary.inputBytes = summaryObj[OperatorTraceTraits::kInputBytesKey].asInt();
+  summary.rawInputRows =
+      summaryObj[OperatorTraceTraits::kRawInputRowsKey].asInt();
+  summary.rawInputBytes =
+      summaryObj[OperatorTraceTraits::kRawInputBytesKey].asInt();
   return summary;
 }
 
