@@ -17,18 +17,24 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllSystemAccessControl;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -89,6 +95,8 @@ public class TestingAccessControlManager
         extends AccessControlManager
 {
     private final Set<TestingPrivilege> denyPrivileges = new HashSet<>();
+    private final Map<RowFilterKey, List<ViewExpression>> rowFilters = new HashMap<>();
+    private final Map<ColumnMaskKey, ViewExpression> columnMasks = new HashMap<>();
 
     @Inject
     public TestingAccessControlManager(TransactionManager transactionManager)
@@ -115,6 +123,19 @@ public class TestingAccessControlManager
     public void reset()
     {
         denyPrivileges.clear();
+        rowFilters.clear();
+        columnMasks.clear();
+    }
+
+    public void rowFilter(QualifiedObjectName table, String identity, ViewExpression filter)
+    {
+        rowFilters.computeIfAbsent(new RowFilterKey(identity, table), key -> new ArrayList<>())
+                .add(filter);
+    }
+
+    public void columnMask(QualifiedObjectName table, String column, String identity, ViewExpression mask)
+    {
+        columnMasks.put(new ColumnMaskKey(identity, table, column), mask);
     }
 
     @Override
@@ -378,6 +399,20 @@ public class TestingAccessControlManager
         super.checkCanAddConstraints(transactionId, identity, context, tableName);
     }
 
+    @Override
+    public List<ViewExpression> getRowFilters(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
+    {
+        return rowFilters.getOrDefault(new RowFilterKey(identity.getUser(), tableName), ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String column, Type type)
+    {
+        return Optional.ofNullable(
+                columnMasks.getOrDefault(new ColumnMaskKey(identity.getUser(), tableName, column),
+                        super.getColumnMask(transactionId, identity, context, tableName, column, type).orElse(null)));
+    }
+
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
     {
         TestingPrivilege testPrivilege = privilege(userName, entityName, type);
@@ -448,6 +483,73 @@ public class TestingAccessControlManager
                     .add("entityName", entityName)
                     .add("type", type)
                     .toString();
+        }
+    }
+
+    private static class RowFilterKey
+    {
+        private final String identity;
+        private final QualifiedObjectName table;
+
+        public RowFilterKey(String identity, QualifiedObjectName table)
+        {
+            this.identity = requireNonNull(identity, "identity is null");
+            this.table = requireNonNull(table, "table is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            RowFilterKey that = (RowFilterKey) o;
+            return identity.equals(that.identity) &&
+                    table.equals(that.table);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, table);
+        }
+    }
+
+    private static class ColumnMaskKey
+    {
+        private final String identity;
+        private final QualifiedObjectName table;
+        private final String column;
+
+        public ColumnMaskKey(String identity, QualifiedObjectName table, String column)
+        {
+            this.identity = identity;
+            this.table = table;
+            this.column = column;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnMaskKey that = (ColumnMaskKey) o;
+            return identity.equals(that.identity) &&
+                    table.equals(that.table) &&
+                    column.equals(that.column);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(identity, table, column);
         }
     }
 }
