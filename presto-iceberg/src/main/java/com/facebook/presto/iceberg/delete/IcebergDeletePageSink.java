@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.facebook.presto.common.Utils.nativeValueToBlock;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
+import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_ROLLBACK_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromJson;
@@ -149,7 +150,8 @@ public class IcebergDeletePageSink
                 partitionSpec.specId(),
                 partitionData.map(PartitionData::toJson),
                 fileFormat,
-                dataFile);
+                dataFile,
+                POSITION_DELETES);
 
         commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
 
