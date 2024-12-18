@@ -6,6 +6,11 @@ on:
     paths:
       - 'presto-native-execution/**'
       - '.github/workflows/prestocpp-linux-build-and-unit-test.yml'
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'presto-docs/**'
 
 jobs:
   prestocpp-linux-build-for-test:
