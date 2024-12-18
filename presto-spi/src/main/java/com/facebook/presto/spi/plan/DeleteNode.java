@@ -115,22 +115,4 @@ public final class DeleteNode
     {
         return new DeleteNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, rowId, outputVariables, inputDistribution);
     }
-
-    public interface InputDistribution
-    {
-        default List<VariableReferenceExpression> getPartitionBy()
-        {
-            return Collections.emptyList();
-        }
-
-        default Optional<OrderingScheme> getOrderingScheme()
-        {
-            return Optional.empty();
-        }
-
-        default List<VariableReferenceExpression> getInputVariables()
-        {
-            return Collections.emptyList();
-        }
-    }
 }

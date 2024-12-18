@@ -67,21 +67,21 @@ extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
 class Exception : public std::runtime_error {
  public:
   explicit Exception(const std::string& message)
-      : std::runtime_error(message){};
+      : std::runtime_error(message) {};
 };
 
 class TypeError : public Exception {
  public:
-  explicit TypeError(const std::string& message) : Exception(message){};
+  explicit TypeError(const std::string& message) : Exception(message) {};
 };
 
 class OutOfRange : public Exception {
  public:
-  explicit OutOfRange(const std::string& message) : Exception(message){};
+  explicit OutOfRange(const std::string& message) : Exception(message) {};
 };
 class ParseError : public Exception {
  public:
-  explicit ParseError(const std::string& message) : Exception(message){};
+  explicit ParseError(const std::string& message) : Exception(message) {};
 };
 
 using String = std::string;
@@ -312,6 +312,11 @@ void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p);
 void from_json(const json& j, std::shared_ptr<ConnectorOutputTableHandle>& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct InputDistribution : public JsonEncodedSubclass {};
+void to_json(json& j, const std::shared_ptr<InputDistribution>& p);
+void from_json(const json& j, std::shared_ptr<InputDistribution>& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct ValueSet : public JsonEncodedSubclass {};
 void to_json(json& j, const std::shared_ptr<ValueSet>& p);
 void from_json(const json& j, std::shared_ptr<ValueSet>& p);
@@ -521,6 +526,17 @@ struct Assignments {
 };
 void to_json(json& j, const Assignments& p);
 void from_json(const json& j, Assignments& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct BaseInputDistribution : public InputDistribution {
+  List<VariableReferenceExpression> partitionBy = {};
+  std::shared_ptr<OrderingScheme> orderingScheme = {};
+  List<VariableReferenceExpression> inputVariables = {};
+
+  BaseInputDistribution() noexcept;
+};
+void to_json(json& j, const BaseInputDistribution& p);
+void from_json(const json& j, BaseInputDistribution& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 enum class BufferType {
@@ -1018,6 +1034,18 @@ struct DeleteHandle : public ExecutionWriterTarget {
 };
 void to_json(json& j, const DeleteHandle& p);
 void from_json(const json& j, DeleteHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct DeleteNode : public PlanNode {
+  std::shared_ptr<PlanNode> source = {};
+  VariableReferenceExpression rowId = {};
+  List<VariableReferenceExpression> outputVariables = {};
+  std::shared_ptr<InputDistribution> inputDistribution = {};
+
+  DeleteNode() noexcept;
+};
+void to_json(json& j, const DeleteNode& p);
+void from_json(const json& j, DeleteNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct DistinctLimitNode : public PlanNode {

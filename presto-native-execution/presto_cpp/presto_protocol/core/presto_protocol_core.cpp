@@ -636,6 +636,10 @@ void to_json(json& j, const std::shared_ptr<PlanNode>& p) {
     j = *std::static_pointer_cast<GroupIdNode>(p);
     return;
   }
+  if (type == ".DeleteNode") {
+    j = *std::static_pointer_cast<DeleteNode>(p);
+    return;
+  }
   if (type == ".DistinctLimitNode") {
     j = *std::static_pointer_cast<DistinctLimitNode>(p);
     return;
@@ -752,6 +756,12 @@ void from_json(const json& j, std::shared_ptr<PlanNode>& p) {
   }
   if (type == "com.facebook.presto.sql.planner.plan.GroupIdNode") {
     std::shared_ptr<GroupIdNode> k = std::make_shared<GroupIdNode>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<PlanNode>(k);
+    return;
+  }
+  if (type == ".DeleteNode") {
+    std::shared_ptr<DeleteNode> k = std::make_shared<DeleteNode>();
     j.get_to(*k);
     p = std::static_pointer_cast<PlanNode>(k);
     return;
@@ -1218,6 +1228,62 @@ void from_json(const json& j, Assignments& p) {
       "Assignments",
       "Map<VariableReferenceExpression, std::shared_ptr<RowExpression>>",
       "assignments");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+BaseInputDistribution::BaseInputDistribution() noexcept {
+  _type = ".BaseInputDistribution";
+}
+
+void to_json(json& j, const BaseInputDistribution& p) {
+  j = json::object();
+  j["@type"] = ".BaseInputDistribution";
+  to_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
+  to_json_key(
+      j,
+      "orderingScheme",
+      p.orderingScheme,
+      "BaseInputDistribution",
+      "OrderingScheme",
+      "orderingScheme");
+  to_json_key(
+      j,
+      "inputVariables",
+      p.inputVariables,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "inputVariables");
+}
+
+void from_json(const json& j, BaseInputDistribution& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "partitionBy",
+      p.partitionBy,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "partitionBy");
+  from_json_key(
+      j,
+      "orderingScheme",
+      p.orderingScheme,
+      "BaseInputDistribution",
+      "OrderingScheme",
+      "orderingScheme");
+  from_json_key(
+      j,
+      "inputVariables",
+      p.inputVariables,
+      "BaseInputDistribution",
+      "List<VariableReferenceExpression>",
+      "inputVariables");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -3213,6 +3279,101 @@ void from_json(const json& j, DeleteHandle& p) {
       "DeleteHandle",
       "SchemaTableName",
       "schemaTableName");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+void to_json(json& j, const std::shared_ptr<InputDistribution>& p) {
+  if (p == nullptr) {
+    return;
+  }
+  String type = p->_type;
+
+  if (type == ".BaseInputDistribution") {
+    j = *std::static_pointer_cast<BaseInputDistribution>(p);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type InputDistribution ");
+}
+
+void from_json(const json& j, std::shared_ptr<InputDistribution>& p) {
+  String type;
+  try {
+    type = p->getSubclassKey(j);
+  } catch (json::parse_error& e) {
+    throw ParseError(
+        std::string(e.what()) + " InputDistribution  InputDistribution");
+  }
+
+  if (type == ".BaseInputDistribution") {
+    std::shared_ptr<BaseInputDistribution> k =
+        std::make_shared<BaseInputDistribution>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<InputDistribution>(k);
+    return;
+  }
+
+  throw TypeError(type + " no abstract type InputDistribution ");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+DeleteNode::DeleteNode() noexcept {
+  _type = ".DeleteNode";
+}
+
+void to_json(json& j, const DeleteNode& p) {
+  j = json::object();
+  j["@type"] = ".DeleteNode";
+  to_json_key(j, "id", p.id, "DeleteNode", "PlanNodeId", "id");
+  to_json_key(j, "source", p.source, "DeleteNode", "PlanNode", "source");
+  to_json_key(
+      j,
+      "rowId",
+      p.rowId,
+      "DeleteNode",
+      "VariableReferenceExpression",
+      "rowId");
+  to_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "DeleteNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  to_json_key(
+      j,
+      "inputDistribution",
+      p.inputDistribution,
+      "DeleteNode",
+      "InputDistribution",
+      "inputDistribution");
+}
+
+void from_json(const json& j, DeleteNode& p) {
+  p._type = j["@type"];
+  from_json_key(j, "id", p.id, "DeleteNode", "PlanNodeId", "id");
+  from_json_key(j, "source", p.source, "DeleteNode", "PlanNode", "source");
+  from_json_key(
+      j,
+      "rowId",
+      p.rowId,
+      "DeleteNode",
+      "VariableReferenceExpression",
+      "rowId");
+  from_json_key(
+      j,
+      "outputVariables",
+      p.outputVariables,
+      "DeleteNode",
+      "List<VariableReferenceExpression>",
+      "outputVariables");
+  from_json_key(
+      j,
+      "inputDistribution",
+      p.inputDistribution,
+      "DeleteNode",
+      "InputDistribution",
+      "inputDistribution");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
