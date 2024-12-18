@@ -20,6 +20,30 @@
 
 namespace facebook::presto {
 
+static const std::unordered_map<std::string, std::string> kPrestoOperatorMap = {
+    // Operator overrides: com.facebook.presto.common.function.OperatorType
+    {"presto.default.$operator$add", "presto.default.plus"},
+    {"presto.default.$operator$between", "presto.default.between"},
+    {"presto.default.$operator$divide", "presto.default.divide"},
+    {"presto.default.$operator$equal", "presto.default.eq"},
+    {"presto.default.$operator$greater_than", "presto.default.gt"},
+    {"presto.default.$operator$greater_than_or_equal", "presto.default.gte"},
+    {"presto.default.$operator$is_distinct_from",
+     "presto.default.distinct_from"},
+    {"presto.default.$operator$less_than", "presto.default.lt"},
+    {"presto.default.$operator$less_than_or_equal", "presto.default.lte"},
+    {"presto.default.$operator$modulus", "presto.default.mod"},
+    {"presto.default.$operator$multiply", "presto.default.multiply"},
+    {"presto.default.$operator$negation", "presto.default.negate"},
+    {"presto.default.$operator$not_equal", "presto.default.neq"},
+    {"presto.default.$operator$subtract", "presto.default.minus"},
+    {"presto.default.$operator$subscript", "presto.default.subscript"},
+    // Special form function overrides.
+    {"presto.default.in", "in"},
+};
+
+const std::unordered_map<std::string, std::string> veloxToPrestoOperatorMap();
+
 class VeloxExprConverter {
  public:
   VeloxExprConverter(velox::memory::MemoryPool* pool, TypeParser* typeParser)
