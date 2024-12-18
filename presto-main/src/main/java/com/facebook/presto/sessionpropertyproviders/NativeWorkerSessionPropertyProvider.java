@@ -34,6 +34,7 @@ public class NativeWorkerSessionPropertyProvider
 {
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
     public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression_max_array_size_in_reduce";
+    public static final String NATIVE_EXPRESSION_MAX_COMPILED_REGEXES = "native_expression_max_compiled_regexes";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
     public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
     public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
@@ -89,6 +90,12 @@ public class NativeWorkerSessionPropertyProvider
                         NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE,
                         "Native Execution only. Reduce() function will throw an error if it encounters an array of size greater than this value.",
                         100000,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_EXPRESSION_MAX_COMPILED_REGEXES,
+                        "Native Execution only. Controls maximum number of compiled regular expression patterns " +
+                                "per regular expression function instance per thread of execution.",
+                        100,
                         !nativeExecution),
                 integerProperty(
                         NATIVE_MAX_SPILL_LEVEL,

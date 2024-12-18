@@ -82,6 +82,11 @@ class SessionProperties {
   static constexpr const char* kExprMaxArraySizeInReduce =
       "native_expression_max_array_size_in_reduce";
 
+  /// Controls maximum number of compiled regular expression patterns per
+  /// regular expression function instance per thread of execution.
+  static constexpr const char* kExprMaxCompiledRegexes =
+      "native_expression_max_compiled_regexes";
+
   /// The maximum memory used by partial aggregation when data reduction is not
   /// optimal.
   static constexpr const char* kMaxPartialAggregationMemory =
