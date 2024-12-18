@@ -197,6 +197,7 @@ import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEF
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
+import static org.apache.iceberg.TableProperties.UPDATE_MODE_DEFAULT;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
@@ -1144,10 +1145,13 @@ public final class IcebergUtil
 
         if (parseFormatVersion(formatVersion) < MIN_FORMAT_VERSION_FOR_DELETE) {
             propertiesBuilder.put(DELETE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
+            propertiesBuilder.put(UPDATE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
         }
         else {
             RowLevelOperationMode deleteMode = IcebergTableProperties.getDeleteMode(tableMetadata.getProperties());
             propertiesBuilder.put(DELETE_MODE, deleteMode.modeName());
+            RowLevelOperationMode updateMode = IcebergTableProperties.getUpdateMode(tableMetadata.getProperties());
+            propertiesBuilder.put(UPDATE_MODE, updateMode.modeName());
         }
 
         Integer metadataPreviousVersionsMax = IcebergTableProperties.getMetadataPreviousVersionsMax(tableMetadata.getProperties());
@@ -1175,6 +1179,13 @@ public final class IcebergUtil
     {
         return RowLevelOperationMode.fromName(table.properties()
                 .getOrDefault(DELETE_MODE, DELETE_MODE_DEFAULT)
+                .toUpperCase(Locale.ENGLISH));
+    }
+
+    public static RowLevelOperationMode getUpdateMode(Table table)
+    {
+        return RowLevelOperationMode.fromName(table.properties()
+                .getOrDefault(UPDATE_MODE, UPDATE_MODE_DEFAULT)
                 .toUpperCase(Locale.ENGLISH));
     }
 
