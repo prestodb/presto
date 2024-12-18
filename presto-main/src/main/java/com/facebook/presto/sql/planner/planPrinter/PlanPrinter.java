@@ -98,6 +98,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.ComparisonExpression;
@@ -1237,6 +1238,14 @@ public class PlanPrinter
         public Void visitDelete(DeleteNode node, Void context)
         {
             addNode(node, "Delete");
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitUpdate(UpdateNode node, Void context)
+        {
+            addNode(node, "Update");
 
             return processChildren(node, context);
         }

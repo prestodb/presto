@@ -310,6 +310,7 @@ class QueryPlanner
                 .filter(entry -> updatedColumnNames.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
                 .collect(toImmutableList());
+        handle = metadata.beginUpdate(session, handle, updatedColumns);
         ColumnHandle rowIdHandle = metadata.getUpdateRowIdColumnHandle(session, handle, updatedColumns);
         Type rowIdType = metadata.getColumnMetadata(session, handle, rowIdHandle).getType();
 
@@ -324,12 +325,12 @@ class QueryPlanner
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
             String name = field.getName().get();
+            VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), name, field.getType());
+            outputVariablesBuilder.add(variable);
+            columns.put(variable, analysis.getColumn(field));
+            fields.add(field);
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
-                VariableReferenceExpression variable = variableAllocator.newVariable(getSourceLocation(field.getNodeLocation()), field.getName().get(), field.getType());
-                outputVariablesBuilder.add(variable);
-                columns.put(variable, analysis.getColumn(field));
-                fields.add(field);
                 orderedColumnValuesBuilder.add(node.getAssignments().get(index).getValue());
             }
         }
