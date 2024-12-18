@@ -227,11 +227,6 @@ class SessionProperties {
   static constexpr const char* kQueryTraceMaxBytes =
       "native_query_trace_max_bytes";
 
-  /// The regexp of traced task id. We only enable trace on a task if its id
-  /// matches.
-  static constexpr const char* kQueryTraceTaskRegExp =
-      "native_query_trace_task_reg_exp";
-
   /// Config used to create operator trace directory. This config is provided to
   /// underlying file system and the config is free form. The form should be
   /// defined by the underlying file system.

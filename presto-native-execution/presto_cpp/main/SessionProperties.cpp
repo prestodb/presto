@@ -297,14 +297,6 @@ SessionProperties::SessionProperties() {
       QueryConfig::kQueryTraceMaxBytes,
       std::to_string(c.queryTraceMaxBytes()));
 
-  addSessionProperty(
-      kQueryTraceTaskRegExp,
-      "The regexp of traced task id. We only enable trace on a task if its id"
-      " matches.",
-      VARCHAR(),
-      false,
-      QueryConfig::kQueryTraceTaskRegExp,
-      c.queryTraceTaskRegExp());
 
   addSessionProperty(
       kOpTraceDirectoryCreateConfig,

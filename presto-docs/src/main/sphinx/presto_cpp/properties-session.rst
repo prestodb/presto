@@ -369,15 +369,6 @@ The fragment id to be traced. If not specified, all fragments will be matched.
 
 The shard id to be traced. If not specified, all shards will be matched.
 
-``native_query_trace_task_reg_exp``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``varchar``
-* **Default value:** ``""``
-
-The regular expression to match a task for tracing. It will be deprecated if there is
-no issue with native_query_trace_fragment_id and native_query_trace_shard_id.
-
 ``native_scaled_writer_rebalance_max_memory_usage_ratio``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
