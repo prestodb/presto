@@ -458,7 +458,7 @@ SessionProperties::SessionProperties() {
       DOUBLE(),
       false,
       QueryConfig::kTableScanScaleUpMemoryUsageRatio,
-      std::to_string(c.kTableScanScaleUpMemoryUsageRatio()));
+      std::to_string(c.tableScanScaleUpMemoryUsageRatio()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
