@@ -20,6 +20,8 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.GcMonitor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -68,6 +70,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
 import java.io.Closeable;
+import java.lang.management.ManagementFactory;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
@@ -95,6 +98,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Iterables.filter;
 import static com.google.common.collect.Iterables.transform;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -407,6 +411,10 @@ public class SqlTaskManager
         requireNonNull(sources, "sources is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
 
+        RuntimeStats runtimeStats = session.getRuntimeStats();
+        long startHouseKeepingWallTime = System.nanoTime();
+        long starthouseKeepingCPUTime = ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime();
+
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         QueryContext queryContext = sqlTask.getQueryContext();
         if (!queryContext.isMemoryLimitsInitialized()) {
@@ -431,6 +439,9 @@ public class SqlTaskManager
         queryContext.setHeapDumpFilePath(heapDumpFilePath);
 
         sqlTask.recordHeartbeat();
+        runtimeStats.addMetricValue("houseKeepingOnWorkerCPUTimeNano", RuntimeUnit.NANO, max(0, ManagementFactory.getThreadMXBean().getCurrentThreadCpuTime() - starthouseKeepingCPUTime));
+        runtimeStats.addMetricValue("houseKeepingOnWorkerWallTimeNano", RuntimeUnit.NANO, max(0, System.nanoTime() - startHouseKeepingWallTime));
+
         return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
     }
 
