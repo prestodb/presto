@@ -32,6 +32,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 
 public class IcebergTableProperties
 {
@@ -123,6 +124,15 @@ public class IcebergTableProperties
                         "The maximum number of columns for which metrics are collected",
                         icebergConfig.getMetricsMaxInferredColumn(),
                         false))
+                .add(new PropertyMetadata<>(
+                        UPDATE_MODE,
+                        "Update mode for the table",
+                        createUnboundedVarcharType(),
+                        RowLevelOperationMode.class,
+                        RowLevelOperationMode.MERGE_ON_READ,
+                        false,
+                        value -> RowLevelOperationMode.fromName((String) value),
+                        RowLevelOperationMode::modeName))
                 .build();
 
         columnProperties = ImmutableList.of(stringProperty(
@@ -194,5 +204,10 @@ public class IcebergTableProperties
     public static Integer getMetricsMaxInferredColumn(Map<String, Object> tableProperties)
     {
         return (Integer) tableProperties.get(METRICS_MAX_INFERRED_COLUMN);
+    }
+
+    public static RowLevelOperationMode getUpdateMode(Map<String, Object> tableProperties)
+    {
+        return (RowLevelOperationMode) tableProperties.get(UPDATE_MODE);
     }
 }

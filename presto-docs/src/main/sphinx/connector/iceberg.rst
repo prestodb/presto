@@ -1414,6 +1414,30 @@ For example, ``DESCRIBE`` from the partitioned Iceberg table ``customer``:
      comment   | varchar |       |
      (3 rows)
 
+UPDATE
+^^^^^^
+
+The Iceberg connector supports :doc:`../sql/update` operations on Iceberg
+tables. Only some tables support updates. These tables must be at minimum format
+version 2, and the ``write.update.mode`` must be set to `merge-on-read`.
+
+.. code-block:: sql
+
+    UPDATE region SET name = 'EU', comment = 'Europe' WHERE regionkey = 1;
+
+.. code-block:: text
+
+    UPDATE: 1 row
+
+    Query 20250204_010341_00021_ymwi5, FINISHED, 2 nodes
+
+The query returns an error if the table does not meet the requirements for
+updates.
+
+.. code-block:: text
+
+    Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require at least format version 2 and update mode must be merge-on-read
+
 Schema Evolution
 ----------------
 

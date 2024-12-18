@@ -103,7 +103,7 @@ public class ColumnIdentity
     @Override
     public String toString()
     {
-        return id + ":" + name;
+        return id + ":" + name + ":" + typeCategory + ":" + children;
     }
 
     public enum TypeCategory

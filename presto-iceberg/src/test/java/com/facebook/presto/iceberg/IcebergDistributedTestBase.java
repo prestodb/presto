@@ -2313,6 +2313,97 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP SCHEMA ICEBERG.TEST_SCHEMA2");
     }
 
+    @Test
+    public void testUpdateWithPredicates()
+    {
+        String tableName = "test_update_predicates_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, full_name varchar(20))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'aaaa'), (2, 'bbbb'), (3, 'cccc')", 3);
+        // update single row on id
+        assertUpdate("UPDATE " + tableName + " SET full_name = 'aaaa AAAA' WHERE id = 1", 1);
+        assertQuery("SELECT id, full_name FROM " + tableName, "VALUES (1, 'aaaa AAAA'), (2, 'bbbb'), (3, 'cccc')");
+
+        // update single row with compound predicate
+        assertUpdate("UPDATE " + tableName + " SET full_name = 'aaaa' WHERE id = 1 and full_name='aaaa AAAA'", 1);
+        assertQuery("SELECT id, full_name FROM " + tableName, "VALUES (1, 'aaaa'), (2, 'bbbb'), (3, 'cccc')");
+
+        // update multiple rows at once
+        assertUpdate("UPDATE " + tableName + " SET full_name = 'ssss' WHERE id != 1 ", 2);
+        assertQuery("SELECT id, full_name FROM " + tableName, "VALUES (1, 'aaaa'), (2, 'ssss'), (3, 'ssss')");
+
+        // update with filter matching no rows
+        assertUpdate("UPDATE " + tableName + " SET full_name = 'ssss' WHERE id > 4 ", 0);
+        assertQuery("SELECT id, full_name FROM " + tableName, "VALUES (1, 'aaaa'), (2, 'ssss'), (3, 'ssss')");
+
+        // add column and update null values
+        assertUpdate("ALTER TABLE  " + tableName + " ADD  column email varchar");
+        assertQuery("SELECT id, full_name, email FROM " + tableName, "VALUES (1, 'aaaa', NULL), (2, 'ssss', NULL), (3, 'ssss', NULL)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'dddd', 'ddd@gmail.com')", 1);
+        assertUpdate("UPDATE " + tableName + " SET email = 'abc@gmail.com' WHERE id in(1, 2, 3)", 3);
+        assertQuery("SELECT id, full_name, email FROM " + tableName, "VALUES (1, 'aaaa', 'abc@gmail.com'), (2, 'ssss', 'abc@gmail.com'), (3, 'ssss', 'abc@gmail.com'), (4, 'dddd', 'ddd@gmail.com') ");
+
+        // set all values to null
+        assertUpdate("UPDATE " + tableName + " SET email = NULL", 4);
+        assertQuery("SELECT email FROM " + tableName + " WHERE email is NULL", "VALUES NULL, NULL, NULL, NULL");
+
+        // update nulls to non-null
+        assertUpdate("UPDATE " + tableName + " SET email = 'test@gmail.com' WHERE email is NULL", 4);
+        assertQuery("SELECT count(*) FROM " + tableName + " WHERE email is not NULL", "VALUES 4");
+    }
+
+    @Test
+    public void testUpdateAllValues()
+    {
+        String tableName = "test_update_all_values_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a int, b int, c int)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1, b = b - 1, c = c * 2", 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, 1, 6), (12, 11, 26), (22, 21, 46)");
+
+        // update multiple columns with predicate
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1, b = b - 1, c = c * 2 WHERE a = 2 AND b = 1", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (3, 0, 12), (12, 11, 26), (22, 21, 46)");
+    }
+
+    @Test
+    public void testUpdateRowType()
+    {
+        String tableName = "test_update_row_type" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(int_t INT, row_t ROW(f1 INT, f2 INT))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 3)), (11, ROW(12, 13)), (21, ROW(22, 23))", 3);
+        assertUpdate("UPDATE " + tableName + " SET int_t = int_t - 1 WHERE row_t.f2 = 3", 1);
+        assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 13), (21, 22, 23)");
+        assertUpdate("UPDATE " + tableName + " SET row_t = ROW(row_t.f1, row_t.f2 + 1) WHERE int_t = 11", 1);
+        assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 22, 23)");
+        assertUpdate("UPDATE " + tableName + " SET row_t = ROW(row_t.f1 * 2, row_t.f2) WHERE row_t.f1 = 22", 1);
+        assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
+    }
+
+    public void testUpdateOnPartitionTable()
+    {
+        String tableName = "test_update_partition_column_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar(10))" + "with(partitioning=ARRAY['a'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first'), (1, 'second'), (2, 'third')", 3);
+        // update all rows on partition column
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1", 3);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (2,'first'), (2,'second'), (3,'third')");
+
+        assertUpdate("UPDATE " + tableName + " SET a = a + (CASE b WHEN 'first' THEN 1 ELSE 0 END)", 3);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (2,'second'), (3,'third')");
+
+        // update on partition column with predicate
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1 WHERE b = 'second'", 1);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (3,'second'), (3,'third')");
+
+        // update non-partition column on a partitioned table without a predicate
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1 WHERE b = 'second'", 1);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (4,'second'), (3,'third')");
+
+        // update non-partition column on a partitioned table with a predicate
+        assertUpdate("UPDATE " + tableName + " SET b = CONCAT(CAST(a as varchar), CASE a WHEN 1 THEN 'st' WHEN 2 THEN 'nd' WHEN 3 THEN 'rd' ELSE 'th' END) WHERE b = 'second'", 1);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (4,'4th'), (3,'third')");
+    }
+
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
     {
         // check delete file list
