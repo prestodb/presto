@@ -50,6 +50,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.QuerySessionSupplier;
 import com.facebook.presto.server.SessionContext;
@@ -111,7 +112,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.BaseEncoding;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
@@ -615,7 +615,7 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
-        SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, Span.getInvalid(), Span.getInvalid(), sessionContext, warningCollectorFactory);
+        SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, TracingSpan.getInvalid(), TracingSpan.getInvalid(), sessionContext, warningCollectorFactory);
         sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, Optional.empty(), Optional.empty());
 
         if (!executionStrategies.isEmpty()) {

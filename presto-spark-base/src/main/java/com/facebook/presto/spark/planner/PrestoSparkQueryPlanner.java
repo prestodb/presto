@@ -47,7 +47,6 @@ import com.facebook.presto.sql.planner.PlanOptimizers;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.opentelemetry.api.trace.Tracer;
 import org.apache.spark.SparkContext;
 
 import javax.inject.Inject;
@@ -83,7 +82,6 @@ public class PrestoSparkQueryPlanner
     private final AccessControl accessControl;
     private final PlanChecker planChecker;
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
-    private final Tracer tracer;
 
     @Inject
     public PrestoSparkQueryPlanner(
@@ -95,8 +93,7 @@ public class PrestoSparkQueryPlanner
             CostCalculator costCalculator,
             AccessControl accessControl,
             PlanChecker planChecker,
-            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
-            Tracer tracer)
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.optimizers = requireNonNull(optimizers, "optimizers is null");
@@ -107,7 +104,6 @@ public class PrestoSparkQueryPlanner
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
         this.planCanonicalInfoProvider = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getPlanCanonicalInfoProvider();
-        this.tracer = tracer;
     }
 
     public PlanAndMore createQueryPlan(Session session, BuiltInPreparedQuery preparedQuery, WarningCollector warningCollector, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, SparkContext sparkContext)
@@ -149,7 +145,7 @@ public class PrestoSparkQueryPlanner
 
         Plan plan = session.getRuntimeStats().profileNanos(
                 OPTIMIZER_TIME_NANOS,
-                () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED, tracer));
+                () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
 
         List<Input> inputs = new InputExtractor(metadata, session).extractInputs(plan.getRoot());
         Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());

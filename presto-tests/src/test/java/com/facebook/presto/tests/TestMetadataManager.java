@@ -27,7 +27,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.facebook.presto.testing.TestingOpenTelemetryManager;
+import com.facebook.presto.testing.TestingTelemetryManager;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.tests.tpch.TpchQueryRunnerBuilder;
 import com.facebook.presto.transaction.TransactionBuilder;
@@ -64,7 +64,7 @@ public class TestMetadataManager
 {
     private DistributedQueryRunner queryRunner;
     private MetadataManager metadataManager;
-    private static TestingOpenTelemetryManager testingOpenTelemetryManager;
+    private static TestingTelemetryManager testingTelemetryManager;
 
     @BeforeClass
     public void setUp()
@@ -214,8 +214,8 @@ public class TestMetadataManager
         //With sampling
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
         TelemetryConfig.getTelemetryConfig().setSpanSampling(true);
-        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
-        testingOpenTelemetryManager.createInstances();
+        TestingTelemetryManager testingTelemetryManager = new TestingTelemetryManager();
+        testingTelemetryManager.createInstances();
 
         @Language("SQL") String sql = "SELECT * FROM nation";
         queryRunner.execute(sql);
@@ -223,13 +223,13 @@ public class TestMetadataManager
 
         Thread.sleep(5000);
 
-        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        List<SpanData> spans = testingTelemetryManager.getFinishedSpanItems();
         assertTrue(!spans.isEmpty());
         assertTrue(spans.stream().anyMatch(s -> "query".equals(s.getName())));
         assertTrue(spans.stream().anyMatch(s -> "dispatch".equals(s.getName())));
         assertFalse(spans.stream().anyMatch(s -> "getCatalogsByQueryId".equals(s.getName())));
 
-        testingOpenTelemetryManager.clearSpanList();
+        testingTelemetryManager.clearSpanList();
     }
 
     @Test
@@ -238,8 +238,8 @@ public class TestMetadataManager
         //Without sampling
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
         TelemetryConfig.getTelemetryConfig().setSpanSampling(false);
-        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
-        testingOpenTelemetryManager.createInstances();
+        TestingTelemetryManager testingTelemetryManager = new TestingTelemetryManager();
+        testingTelemetryManager.createInstances();
 
         @Language("SQL") String sql = "SELECT * FROM nation";
         queryRunner.execute(sql);
@@ -247,7 +247,7 @@ public class TestMetadataManager
 
         Thread.sleep(5000);
 
-        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        List<SpanData> spans = testingTelemetryManager.getFinishedSpanItems();
 //        spans.forEach(spanData -> System.out.println(spanData.getName()));
 
         assertTrue(!spans.isEmpty());
@@ -255,7 +255,7 @@ public class TestMetadataManager
         assertTrue(spans.stream().anyMatch(s -> "dispatch".equals(s.getName())));
         assertTrue(spans.stream().anyMatch(s -> "getCatalogsByQueryId".equals(s.getName())));
 
-        testingOpenTelemetryManager.clearSpanList();
+        testingTelemetryManager.clearSpanList();
     }
 
     @Test
@@ -263,8 +263,8 @@ public class TestMetadataManager
     {
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(false);
         TelemetryConfig.getTelemetryConfig().setSpanSampling(false);
-        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
-        testingOpenTelemetryManager.createInstances();
+        TestingTelemetryManager testingTelemetryManager = new TestingTelemetryManager();
+        testingTelemetryManager.createInstances();
 
         @Language("SQL") String sql = "SELECT * FROM nation";
         queryRunner.execute(sql);
@@ -272,10 +272,10 @@ public class TestMetadataManager
 
         Thread.sleep(5000);
 
-        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        List<SpanData> spans = testingTelemetryManager.getFinishedSpanItems();
         assertEquals(spans.size(), 0);
 
-        testingOpenTelemetryManager.clearSpanList();
+        testingTelemetryManager.clearSpanList();
     }
 
     @Test
@@ -283,8 +283,8 @@ public class TestMetadataManager
     {
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
         TelemetryConfig.getTelemetryConfig().setSpanSampling(true);
-        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
-        testingOpenTelemetryManager.createInstances();
+        TestingTelemetryManager testingTelemetryManager = new TestingTelemetryManager();
+        testingTelemetryManager.createInstances();
 
         @Language("SQL") String sql = "SELECT * FROM dummy";
         try {
@@ -297,11 +297,11 @@ public class TestMetadataManager
 
         Thread.sleep(5000);
 
-        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
+        List<SpanData> spans = testingTelemetryManager.getFinishedSpanItems();
         assertTrue(!spans.isEmpty());
         assertTrue(spans.stream().anyMatch(s -> "query".equals(s.getName())));
         assertTrue(spans.stream().anyMatch(s -> "dispatch".equals(s.getName())));
 
-        testingOpenTelemetryManager.clearSpanList();
+        testingTelemetryManager.clearSpanList();
     }
 }

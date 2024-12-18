@@ -27,11 +27,10 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.metadata.MetadataUpdates;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
 
 import java.util.List;
 import java.util.Optional;
@@ -82,7 +81,7 @@ public class PrestoSparkTaskManager
     }
 
     @Override
-    public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, Optional<TableWriteInfo> tableWriteInfo, Context context, Tracer tracer)
+    public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, Optional<TableWriteInfo> tableWriteInfo, TracingSpan span)
     {
         throw new UnsupportedOperationException();
     }

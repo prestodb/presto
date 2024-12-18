@@ -14,9 +14,8 @@
 package com.facebook.presto.opentelemetry.tracing;
 
 import com.facebook.presto.common.TelemetryConfig;
+import com.facebook.presto.telemetry.TelemetryManager;
 import com.google.errorprone.annotations.MustBeClosed;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
 
 import java.util.Objects;
@@ -24,14 +23,14 @@ import java.util.Objects;
 public final class ScopedSpan
         implements AutoCloseable
 {
-    private final Span span;
+    private final TracingSpan span;
     private final Scope scope;
 
     @SuppressWarnings("MustBeClosedChecker")
-    private ScopedSpan(Span span)
+    private ScopedSpan(TracingSpan span)
     {
         this.span = span;
-        this.scope = span.makeCurrent();
+        this.scope = span.getSpan().makeCurrent();
     }
 
     @Override
@@ -52,18 +51,17 @@ public final class ScopedSpan
 
     /**
      * starts a basic span and passes it to overloaded method. This method is used for creating basic spans with no attributes.
-     * @param tracer tracer instance
      * @param name name of span to be created
      * @param skipSpan optional parameter to implement span sampling by skipping the current span export
      * @return
      */
     @MustBeClosed
-    public static ScopedSpan scopedSpan(Tracer tracer, String name, Boolean... skipSpan)
+    public static ScopedSpan scopedSpan(String name, Boolean... skipSpan)
     {
         if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
             return null;
         }
-        return scopedSpan(tracer.spanBuilder(name).startSpan());
+        return scopedSpan(new TracingSpan(TelemetryManager.getTracer().spanBuilder(name).startSpan()));
     }
 
     /**
@@ -74,7 +72,7 @@ public final class ScopedSpan
      * @return
      */
     @MustBeClosed
-    public static ScopedSpan scopedSpan(Span span, Boolean... skipSpan)
+    public static ScopedSpan scopedSpan(TracingSpan span, Boolean... skipSpan)
     {
         if ((!TelemetryConfig.getTracingEnabled() || Objects.isNull(span)) || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
             return null;

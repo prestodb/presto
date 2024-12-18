@@ -37,7 +37,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCode;
 import com.facebook.presto.spi.eventlistener.QueryCompletedEvent;
 import com.facebook.presto.spi.memory.MemoryPoolId;
-import com.facebook.presto.testing.TestingOpenTelemetryManager;
+import com.facebook.presto.testing.TestingTelemetryManager;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -158,8 +158,8 @@ public class TestQueryManager
     public void testDispatchManagerCreateQueryWithTracingEnabled() throws Exception
     {
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
-        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
-        testingOpenTelemetryManager.createInstances();
+        TestingTelemetryManager testingTelemetryManager = new TestingTelemetryManager();
+        testingTelemetryManager.createInstances();
 
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         QueryId queryId = dispatchManager.createQueryId();
@@ -174,21 +174,21 @@ public class TestQueryManager
                 .get();
 
         Thread.sleep(5000);
-        List<SpanData> spanDataList = testingOpenTelemetryManager.getFinishedSpanItems();
+        List<SpanData> spanDataList = testingTelemetryManager.getFinishedSpanItems();
         spanDataList.forEach(spanData -> System.out.println(spanData.getName()));
 
         assertTrue(!spanDataList.isEmpty());
         assertTrue(spanDataList.stream().anyMatch(spandata -> "dispatch".equals(spandata.getName())));
 
-        testingOpenTelemetryManager.clearSpanList();
+        testingTelemetryManager.clearSpanList();
     }
 
     @Test
     public void testDispatchManagerCreateQueryWithTracingDisabled() throws Exception
     {
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(false);
-        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
-        testingOpenTelemetryManager.createInstances();
+        TestingTelemetryManager testingTelemetryManager = new TestingTelemetryManager();
+        testingTelemetryManager.createInstances();
 
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         QueryId queryId = dispatchManager.createQueryId();
@@ -203,13 +203,13 @@ public class TestQueryManager
                 .get();
 
         Thread.sleep(5000);
-        List<SpanData> spanDataList = testingOpenTelemetryManager.getFinishedSpanItems();
+        List<SpanData> spanDataList = testingTelemetryManager.getFinishedSpanItems();
         spanDataList.forEach(spanData -> System.out.println(spanData.getName()));
 
         assertTrue(spanDataList.isEmpty());
         assertFalse(spanDataList.stream().anyMatch(spandata -> "dispatch".equals(spandata.getName())));
 
-        testingOpenTelemetryManager.clearSpanList();
+        testingTelemetryManager.clearSpanList();
     }
 
     @Test(timeOut = 60_000L)

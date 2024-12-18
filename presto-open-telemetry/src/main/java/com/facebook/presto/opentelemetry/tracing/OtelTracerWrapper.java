@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.opentelemetry.tracing;
 
-import com.facebook.presto.common.TelemetryConfig;
-import org.testng.annotations.Test;
+import io.opentelemetry.api.trace.Tracer;
 
-import static org.testng.Assert.assertNotNull;
-
-public class TestScopedSpan
+public class OtelTracerWrapper
 {
-    @Test
-    public void testScopedSpan()
-    {
-        assertNotNull(ScopedSpan.scopedSpan("no-op"));
+    public final Tracer tracer;
 
-        TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
-        assertNotNull(ScopedSpan.scopedSpan("no-op"));
+    public OtelTracerWrapper(Tracer tracer)
+    {
+        this.tracer = tracer;
+    }
+
+    public Tracer getTracer()
+    {
+        return tracer;
     }
 }

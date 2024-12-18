@@ -43,15 +43,14 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.operator.ForScheduler;
 import com.facebook.presto.server.InternalCommunicationConfig;
 import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.telemetry.TelemetryManager;
 import com.google.common.collect.Multimap;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -103,7 +102,6 @@ public class HttpRemoteTaskFactory
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
     private final DecayCounter taskUpdateRequestSize;
-    private final TelemetryManager openTelemetryManager;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -128,8 +126,7 @@ public class HttpRemoteTaskFactory
             MetadataManager metadataManager,
             QueryManager queryManager,
             HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager,
-            TelemetryManager openTelemetryManager)
+            ConnectorTypeSerdeManager connectorTypeSerdeManager)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
@@ -150,7 +147,6 @@ public class HttpRemoteTaskFactory
         taskInfoThriftTransportEnabled = communicationConfig.isTaskInfoThriftTransportEnabled();
         thriftProtocol = communicationConfig.getThriftProtocol();
         this.maxTaskUpdateSizeInBytes = toIntExact(requireNonNull(communicationConfig, "communicationConfig is null").getMaxTaskUpdateSize().toBytes());
-        this.openTelemetryManager = openTelemetryManager;
 
         if (thriftTransportEnabled) {
             this.taskStatusCodec = wrapThriftCodec(taskStatusThriftCodec);
@@ -224,7 +220,7 @@ public class HttpRemoteTaskFactory
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
             SchedulerStatsTracker schedulerStatsTracker,
-            Span stageSpan)
+            TracingSpan stageSpan)
     {
         return new HttpRemoteTask(
                 session,
@@ -264,7 +260,6 @@ public class HttpRemoteTaskFactory
                 handleResolver,
                 connectorTypeSerdeManager,
                 schedulerStatsTracker,
-                openTelemetryManager,
                 stageSpan);
     }
 }

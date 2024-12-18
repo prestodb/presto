@@ -41,6 +41,7 @@ import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.metadata.MetadataUpdates;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -54,8 +55,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.units.DataSize;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -225,7 +224,7 @@ public class TestThriftTaskIntegration
                 }
 
                 @Override
-                public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, Optional<TableWriteInfo> tableWriteInfo, Context context, Tracer tracer)
+                public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, Optional<TableWriteInfo> tableWriteInfo, TracingSpan span)
                 {
                     throw new UnsupportedOperationException();
                 }

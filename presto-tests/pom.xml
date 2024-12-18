@@ -329,6 +329,11 @@
             <version>1.38.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-open-telemetry</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>

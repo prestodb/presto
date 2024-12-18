@@ -17,8 +17,6 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.TelemetryConfig;
-import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.LocationFactory;
@@ -37,6 +35,7 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
@@ -50,6 +49,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.telemetry.TelemetryManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -57,9 +57,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.sun.management.ThreadMXBean;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
 
 import java.lang.management.ManagementFactory;
 import java.net.URI;
@@ -155,8 +152,7 @@ public class SqlQueryScheduler
     private final AtomicBoolean scheduling = new AtomicBoolean();
 
     private final PartialResultQueryTaskTracker partialResultQueryTaskTracker;
-    private Span schedulerSpan;
-    private final Tracer tracer;
+    private TracingSpan schedulerSpan;
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
@@ -179,8 +175,7 @@ public class SqlQueryScheduler
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
-            PartialResultQueryManager partialResultQueryManager,
-            Tracer tracer)
+            PartialResultQueryManager partialResultQueryManager)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 locationFactory,
@@ -203,8 +198,7 @@ public class SqlQueryScheduler
                 planChecker,
                 metadata,
                 sqlParser,
-                partialResultQueryManager,
-                tracer);
+                partialResultQueryManager);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -230,8 +224,7 @@ public class SqlQueryScheduler
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
-            PartialResultQueryManager partialResultQueryManager,
-            Tracer tracer)
+            PartialResultQueryManager partialResultQueryManager)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
@@ -252,13 +245,9 @@ public class SqlQueryScheduler
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
         this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
-        this.tracer = tracer;
 
-        Span querySpan = queryStateMachine.getSession().getQuerySpan();
-        this.schedulerSpan = (!TelemetryConfig.getTracingEnabled()) ? null : tracer.spanBuilder(TracingEnum.SCHEDULER.getName())
-                .setParent((querySpan != null) ? Context.current().with(querySpan) : Context.current())
-                .setAttribute("QUERY_ID", queryStateMachine.getQueryId().toString())
-                .startSpan();
+        TracingSpan querySpan = queryStateMachine.getSession().getQuerySpan();
+        this.schedulerSpan = TelemetryManager.createSchedulerSpan(querySpan, queryStateMachine.getQueryId().toString());
 
         OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         List<StageExecutionAndScheduler> stageExecutions = createStageExecutions(
@@ -391,7 +380,6 @@ public class SqlQueryScheduler
                         remoteTaskFactory,
                         splitSourceFactory,
                         0,
-                        tracer,
                         schedulerSpan).getSectionStages();
         stages.addAll(sectionStages);
 
@@ -714,7 +702,6 @@ public class SqlQueryScheduler
                 remoteTaskFactory,
                 splitSourceFactory,
                 0,
-                tracer,
                 schedulerSpan);
         addStateChangeListeners(sectionExecution);
         Map<StageId, StageExecutionAndScheduler> updatedStageExecutions = sectionExecution.getSectionStages().stream()

@@ -46,7 +46,7 @@ public final class HeapDumper
                 if (hotspotMBean == null) {
                     hotspotMBean = getHotspotMBean();
                 }
-                hotspotMBean.dumpHeap(fileName, false);
+                //hotspotMBean.dumpHeap(fileName, false);
             }
             catch (Throwable throwable) {
                 // Consume the error as we do not want to fail during heapdump

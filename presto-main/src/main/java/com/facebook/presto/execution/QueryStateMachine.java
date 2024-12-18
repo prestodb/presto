@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
-import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
@@ -27,6 +26,7 @@ import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.spi.PrestoException;
@@ -45,6 +45,7 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.telemetry.TelemetryManager;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
@@ -57,10 +58,6 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.opentelemetry.api.common.AttributeKey;
-import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.StatusCode;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -104,7 +101,6 @@ import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -269,12 +265,10 @@ public class QueryStateMachine
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
-        Span querySpan = session.getQuerySpan();
-        Span rootSpan = session.getRootSpan();
+        TracingSpan querySpan = session.getQuerySpan();
+        TracingSpan rootSpan = session.getRootSpan();
 
-        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(querySpan)) {
-            querySpan.setAttribute("QUERY_TYPE", queryType.map(Enum::name).orElse("UNKNOWN"));
-        }
+        TelemetryManager.setAttributeQueryType(querySpan, queryType.map(Enum::name).orElse("UNKNOWN"));
 
         QueryStateMachine queryStateMachine = new QueryStateMachine(
                 query,
@@ -293,9 +287,7 @@ public class QueryStateMachine
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
             // mark finished or failed transaction as inactive
 
-            if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(querySpan)) {
-                querySpan.addEvent("query_state", Attributes.of(AttributeKey.stringKey("EVENT_STATE"), newState.toString()));
-            }
+            TelemetryManager.addEvent(newState.toString(), querySpan);
             if (newState.isDone()) {
                 try {
                     queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
@@ -304,19 +296,11 @@ public class QueryStateMachine
                             failure -> {
                                 ErrorCode errorCode = requireNonNull(failure.getErrorCode());
 
-                                if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(querySpan)) {
-                                    querySpan.setStatus(StatusCode.ERROR, nullToEmpty(failure.getMessage()))
-                                            .recordException(failure.toException())
-                                            .setAttribute("ERROR_CODE", errorCode.getCode())
-                                            .setAttribute("ERROR_NAME", errorCode.getName())
-                                            .setAttribute("ERROR_TYPE", errorCode.getType().toString());
-                                }
+                                TelemetryManager.recordException(querySpan, failure.getMessage(), failure.toException(), errorCode);
                             });
 
                     queryStateMachine.getFailureInfo().orElseGet(() -> {
-                        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(querySpan)) {
-                            querySpan.setStatus(StatusCode.OK);
-                        }
+                        TelemetryManager.setSuccess(querySpan);
                         return null;
                     });
                 }
