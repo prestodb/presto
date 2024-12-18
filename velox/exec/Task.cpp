@@ -236,6 +236,52 @@ bool unregisterTaskListener(const std::shared_ptr<TaskListener>& listener) {
   });
 }
 
+// static
+std::shared_ptr<Task> Task::create(
+    const std::string& taskId,
+    core::PlanFragment planFragment,
+    int destination,
+    std::shared_ptr<core::QueryCtx> queryCtx,
+    ExecutionMode mode,
+    Consumer consumer,
+    int32_t memoryArbitrationPriority,
+    std::function<void(std::exception_ptr)> onError) {
+  return Task::create(
+      taskId,
+      std::move(planFragment),
+      destination,
+      std::move(queryCtx),
+      mode,
+      (consumer ? [c = std::move(consumer)]() { return c; }
+                : ConsumerSupplier{}),
+      memoryArbitrationPriority,
+      std::move(onError));
+}
+
+// static
+std::shared_ptr<Task> Task::create(
+    const std::string& taskId,
+    core::PlanFragment planFragment,
+    int destination,
+    std::shared_ptr<core::QueryCtx> queryCtx,
+    ExecutionMode mode,
+    ConsumerSupplier consumerSupplier,
+    int32_t memoryArbitrationPriority,
+    std::function<void(std::exception_ptr)> onError) {
+  auto task = std::shared_ptr<Task>(new Task(
+      taskId,
+      std::move(planFragment),
+      destination,
+      std::move(queryCtx),
+      mode,
+      std::move(consumerSupplier),
+      memoryArbitrationPriority,
+      std::move(onError)));
+  task->initTaskPool();
+  task->addToTaskList();
+  return task;
+}
+
 Task::Task(
     const std::string& taskId,
     core::PlanFragment planFragment,
