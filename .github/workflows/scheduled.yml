@@ -313,6 +313,13 @@ jobs:
           path: velox/_build/debug/velox/functions/prestosql/fuzzer/velox_window_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
+      - name: Upload cache fuzzer
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache_fuzzer
+          path: velox/_build/debug/velox/exec/tests/velox_cache_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
+
       - name: Upload row number fuzzer
         uses: actions/upload-artifact@v4
         with:
@@ -706,6 +713,41 @@ jobs:
             name: row-fuzzer-failure-artifacts
             path: |
               /tmp/row_fuzzer_repro
+
+  cache-fuzzer-run:
+    name: Cache Fuzzer
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos9
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: Download cache fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: cache_fuzzer
+
+      - name: Run cache Fuzzer
+        run: |
+          mkdir -p /tmp/cache_fuzzer_test/logs/
+          chmod -R 777 /tmp/cache_fuzzer_test
+          chmod +x velox_cache_fuzzer_test
+          ./velox_cache_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/cache_fuzzer_test/logs \
+            && echo -e "\n\Cache fuzzer run finished successfully."
+
+      - name: Archive Cache production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+            name: cache-fuzzer-test-logs
+            path: |
+              /tmp/cache_fuzzer_test
+
   presto-java-aggregation-fuzzer-run:
     name: Aggregation Fuzzer with Presto as source of truth
     needs: compile
