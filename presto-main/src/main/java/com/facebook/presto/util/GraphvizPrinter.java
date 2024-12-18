@@ -68,6 +68,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
@@ -129,6 +130,7 @@ public final class GraphvizPrinter
         UNNEST,
         ANALYZE_FINISH,
         EXPLAIN_ANALYZE,
+        UPDATE,
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -159,6 +161,7 @@ public final class GraphvizPrinter
             .put(NodeType.SAMPLE, "goldenrod4")
             .put(NodeType.ANALYZE_FINISH, "plum")
             .put(NodeType.EXPLAIN_ANALYZE, "cadetblue1")
+            .put(NodeType.UPDATE, "blue")
             .build());
 
     static {
@@ -308,6 +311,13 @@ public final class GraphvizPrinter
         public Void visitTableWriteMerge(TableWriterMergeNode node, Void context)
         {
             printNode(node, "TableWriterMerge", NODE_COLORS.get(NodeType.TABLE_WRITER_MERGE));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitUpdate(UpdateNode node, Void context)
+        {
+            printNode(node, format("UpdateNode[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.UPDATE));
             return node.getSource().accept(this, context);
         }
 

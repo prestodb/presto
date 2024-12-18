@@ -70,6 +70,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -381,6 +382,12 @@ public class PropertyDerivations
         public ActualProperties visitDelete(DeleteNode node, List<ActualProperties> inputProperties)
         {
             // drop all symbols in property because delete doesn't pass on any of the columns
+            return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
+        }
+
+        @Override
+        public ActualProperties visitUpdate(UpdateNode node, List<ActualProperties> inputProperties)
+        {
             return Iterables.getOnlyElement(inputProperties).translateVariable(symbol -> Optional.empty());
         }
 

@@ -123,6 +123,7 @@ public abstract class IcebergDistributedSmokeTestBase
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
     }
+
     @Test
     public void testShowCreateTable()
     {
@@ -146,7 +147,8 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   location = '%s',\n" +
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100\n" +
+                        "   metrics_max_inferred_column = 100,\n" +
+                        "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
     }
 
@@ -427,7 +429,8 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
+                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
+                        "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -630,7 +633,8 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   location = '%s',\n" +
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100\n" +
+                "   metrics_max_inferred_column = 100,\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
 
@@ -722,7 +726,8 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   partitioning = ARRAY['adate']\n" +
+                "   partitioning = ARRAY['adate'],\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_original")));
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
@@ -738,7 +743,8 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   location = '%s',\n" +
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100\n" +
+                "   metrics_max_inferred_column = 100,\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
 
@@ -750,7 +756,8 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   location = '%s',\n" +
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100\n" +
+                "   metrics_max_inferred_column = 100,\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
 
@@ -764,22 +771,24 @@ public abstract class IcebergDistributedSmokeTestBase
                             "   metadata_delete_after_commit = false,\n" +
                             "   metadata_previous_versions_max = 100,\n" +
                             "   metrics_max_inferred_column = 100,\n" +
-                            "   partitioning = ARRAY['adate']\n" +
+                            "   partitioning = ARRAY['adate'],\n" +
+                            "   \"write.update.mode\" = 'merge-on-read'\n" +
                             ")",
                     getLocation(schemaName, "test_create_table_like_original")));
             dropTable(session, "test_create_table_like_copy3");
 
             assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
             assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
-                    "   delete_mode = 'merge-on-read',\n" +
-                    "   format = 'ORC',\n" +
-                    "   format_version = '2',\n" +
-                    "   location = '%s',\n" +
-                    "   metadata_delete_after_commit = false,\n" +
-                    "   metadata_previous_versions_max = 100,\n" +
-                    "   metrics_max_inferred_column = 100,\n" +
-                    "   partitioning = ARRAY['adate']\n" +
-                    ")",
+                            "   delete_mode = 'merge-on-read',\n" +
+                            "   format = 'ORC',\n" +
+                            "   format_version = '2',\n" +
+                            "   location = '%s',\n" +
+                            "   metadata_delete_after_commit = false,\n" +
+                            "   metadata_previous_versions_max = 100,\n" +
+                            "   metrics_max_inferred_column = 100,\n" +
+                            "   partitioning = ARRAY['adate'],\n" +
+                            "   \"write.update.mode\" = 'merge-on-read'\n" +
+                            ")",
                     getLocation(schemaName, "test_create_table_like_original")));
             dropTable(session, "test_create_table_like_copy4");
         }
@@ -794,7 +803,8 @@ public abstract class IcebergDistributedSmokeTestBase
                             "   metadata_delete_after_commit = false,\n" +
                             "   metadata_previous_versions_max = 100,\n" +
                             "   metrics_max_inferred_column = 100,\n" +
-                            "   partitioning = ARRAY['adate']\n" +
+                            "   partitioning = ARRAY['adate'],\n" +
+                            "   \"write.update.mode\" = 'merge-on-read'\n" +
                             ")",
                     getLocation(schemaName, "test_create_table_like_copy5")));
             dropTable(session, "test_create_table_like_copy5");
@@ -841,14 +851,16 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   location = '%s',\n" +
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100\n" +
+                        "   metrics_max_inferred_column = 100,\n" +
+                        "   \"write.update.mode\" = '%s'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_create_table_with_format_version_" + formatVersion,
                 defaultDeleteMode,
                 formatVersion,
-                getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion));
+                getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion),
+                defaultDeleteMode);
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version_" + formatVersion);
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);

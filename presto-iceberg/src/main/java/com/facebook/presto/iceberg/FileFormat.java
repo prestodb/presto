@@ -67,4 +67,23 @@ public enum FileFormat
 
         return prestoFileFormat;
     }
+
+    public org.apache.iceberg.FileFormat toIceberg()
+    {
+        org.apache.iceberg.FileFormat fileFormat;
+        switch (this) {
+            case ORC:
+                fileFormat = org.apache.iceberg.FileFormat.ORC;
+                break;
+            case PARQUET:
+                fileFormat = org.apache.iceberg.FileFormat.PARQUET;
+                break;
+            case AVRO:
+                fileFormat = org.apache.iceberg.FileFormat.AVRO;
+                break;
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported file format: " + this);
+        }
+        return fileFormat;
+    }
 }

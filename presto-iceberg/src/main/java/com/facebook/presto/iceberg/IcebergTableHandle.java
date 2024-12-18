@@ -37,6 +37,7 @@ public class IcebergTableHandle
     private final Optional<Set<Integer>> partitionFieldIds;
     private final Optional<Set<Integer>> equalityFieldIds;
     private final List<SortField> sortOrder;
+    private final List<IcebergColumnHandle> updatedColumns;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -48,7 +49,8 @@ public class IcebergTableHandle
             @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
             @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
             @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
-            @JsonProperty("sortOrder") List<SortField> sortOrder)
+            @JsonProperty("sortOrder") List<SortField> sortOrder,
+            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
     {
         super(schemaName, icebergTableName.getTableName());
 
@@ -60,6 +62,7 @@ public class IcebergTableHandle
         this.partitionFieldIds = requireNonNull(partitionFieldIds, "partitionFieldIds is null");
         this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
         this.sortOrder = ImmutableList.copyOf(requireNonNull(sortOrder, "sortOrder is null"));
+        this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
     }
 
     @JsonProperty
@@ -108,6 +111,27 @@ public class IcebergTableHandle
     public Optional<Set<Integer>> getEqualityFieldIds()
     {
         return equalityFieldIds;
+    }
+
+    @JsonProperty
+    public List<IcebergColumnHandle> getUpdatedColumns()
+    {
+        return updatedColumns;
+    }
+
+    public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
+    {
+        return new IcebergTableHandle(
+                getSchemaName(),
+                icebergTableName,
+                snapshotSpecified,
+                outputPath,
+                storageProperties,
+                tableSchemaJson,
+                partitionFieldIds,
+                equalityFieldIds,
+                sortOrder,
+                updatedColumns);
     }
 
     @Override
