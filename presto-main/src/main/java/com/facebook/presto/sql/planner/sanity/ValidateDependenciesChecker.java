@@ -71,6 +71,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -614,6 +615,16 @@ public final class ValidateDependenciesChecker
             source.accept(this, boundVariables); // visit child
 
             checkArgument(source.getOutputVariables().contains(node.getRowId()), "Invalid node. Row ID symbol (%s) is not in source plan output (%s)", node.getRowId(), node.getSource().getOutputVariables());
+
+            return null;
+        }
+        @Override
+        public Void visitUpdate(UpdateNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            PlanNode source = node.getSource();
+            source.accept(this, boundVariables); // visit child
+            checkArgument(source.getOutputVariables().contains(node.getRowId()), "Invalid node. Row ID symbol (%s) is not in source plan output (%s)", node.getRowId(), node.getSource().getOutputVariables());
+            checkArgument(source.getOutputVariables().containsAll(node.getColumnValueAndRowIdSymbols()), "Invalid node. Some UPDATE SET expression symbols (%s) are not contained in the outputSymbols (%s)", node.getColumnValueAndRowIdSymbols(), source.getOutputVariables());
 
             return null;
         }

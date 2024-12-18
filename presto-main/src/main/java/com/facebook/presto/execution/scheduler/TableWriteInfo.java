@@ -106,6 +106,10 @@ public class TableWriteInfo
                 TableWriterNode.RefreshMaterializedViewReference refresh = (TableWriterNode.RefreshMaterializedViewReference) target;
                 return Optional.of(new ExecutionWriterTarget.RefreshMaterializedViewHandle(metadata.beginRefreshMaterializedView(session, refresh.getHandle()), refresh.getSchemaTableName()));
             }
+            if (target instanceof TableWriterNode.UpdateTarget) {
+                TableWriterNode.UpdateTarget update = (TableWriterNode.UpdateTarget) target;
+                return Optional.of(new ExecutionWriterTarget.UpdateHandle(update.getHandle(), update.getSchemaTableName()));
+            }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 

@@ -91,6 +91,7 @@ public class UpdateNode
         return ImmutableList.of(source);
     }
 
+    @JsonProperty
     @Override
     public List<VariableReferenceExpression> getOutputVariables()
     {
@@ -112,6 +113,6 @@ public class UpdateNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new UpdateNode(getSourceLocation(), getId(), Optional.of(Iterables.getOnlyElement(newChildren)), source, rowId, columnValueAndRowIdSymbols, outputVariables);
+        return new UpdateNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), rowId, columnValueAndRowIdSymbols, outputVariables);
     }
 }
