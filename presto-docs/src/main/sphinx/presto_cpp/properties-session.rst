@@ -179,13 +179,22 @@ Native Execution only. Enable row number spilling on native engine.
 Native Execution only. Enable simplified path in expression evaluation.
 
 ``native_expression_max_array_size_in_reduce``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``100000``
 
 Native Execution only. The `reduce <https://prestodb.io/docs/current/functions/array.html#reduce-array-T-initialState-S-inputFunction-S-T-S-outputFunction-S-R-R>`_ 
 function will throw an error if it encounters an array of size greater than this value.
+
+``native_expression_max_compiled_regexes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``100``
+
+Native Execution only. Controls maximum number of compiled regular expression patterns per
+regular expression function instance per thread of execution.
 
 ``native_spill_compression_codec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
