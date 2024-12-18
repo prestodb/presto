@@ -21,6 +21,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
+#include "velox/vector/fuzzer/Utils.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -33,13 +34,13 @@ class ArgumentTypeFuzzer {
  public:
   ArgumentTypeFuzzer(
       const exec::FunctionSignature& signature,
-      std::mt19937& rng)
+      FuzzerGenerator& rng)
       : ArgumentTypeFuzzer(signature, nullptr, rng) {}
 
   ArgumentTypeFuzzer(
       const exec::FunctionSignature& signature,
       const TypePtr& returnType,
-      std::mt19937& rng)
+      FuzzerGenerator& rng)
       : signature_{signature}, returnType_{returnType}, rng_{rng} {}
 
   /// Generate random argument types. If the desired returnType has been
@@ -110,7 +111,7 @@ class ArgumentTypeFuzzer {
   std::unordered_map<std::string, int> integerBindings_;
 
   /// RNG to generate random types for unbounded type variables when necessary.
-  std::mt19937& rng_;
+  FuzzerGenerator& rng_;
 };
 
 /// Return the kind name of type in lower case. This is expected to match the

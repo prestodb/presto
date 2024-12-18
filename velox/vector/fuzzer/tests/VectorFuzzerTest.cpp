@@ -499,6 +499,8 @@ TEST_F(VectorFuzzerTest, containerHasNulls) {
   opts.nullRatio = 0.5;
   opts.normalizeMapKeys = false;
   opts.containerHasNulls = true;
+  opts.allowDictionaryVector = false;
+  opts.allowConstantVector = false;
 
   {
     VectorFuzzer fuzzer(opts, pool());

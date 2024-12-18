@@ -20,7 +20,6 @@
 
 namespace facebook::velox::generator_spec_examples {
 
-using Rng = std::mt19937;
 using Sample =
     std::tuple<std::map<int32_t, size_t>, int32_t, int32_t>; // (histogram, null
                                                              // count, total

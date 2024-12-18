@@ -149,6 +149,10 @@ class VectorFuzzer {
     /// dictionary layers on top of them.
     bool allowLazyVector{false};
 
+    bool allowSlice{true};
+    bool allowConstantVector{true};
+    bool allowDictionaryVector{true};
+
     /// Data spec for randomly generated data.
     DataSpec dataSpec{false, false};
   };

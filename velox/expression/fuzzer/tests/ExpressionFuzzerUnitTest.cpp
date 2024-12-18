@@ -39,7 +39,7 @@ class ExpressionFuzzerUnitTest : public testing::Test {
     return maxLevelOfNesting;
   }
 
-  TypePtr randomType(std::mt19937& seed) {
+  TypePtr randomType(FuzzerGenerator& seed) {
     static std::vector<TypePtr> kSupportedTypes{
         BOOLEAN(),
         TINYINT(),
@@ -70,7 +70,7 @@ auto makeOptionsWithMaxLevelNesting(int32_t value) {
 } // namespace
 TEST_F(ExpressionFuzzerUnitTest, restrictedLevelOfNesting) {
   velox::functions::prestosql::registerAllScalarFunctions();
-  std::mt19937 seed{0};
+  FuzzerGenerator seed{0};
 
   auto testLevelOfNesting = [&](int32_t maxLevelOfNesting) {
     ExpressionFuzzer fuzzer{
@@ -111,7 +111,7 @@ TEST_F(ExpressionFuzzerUnitTest, reproduceExpressionWithSeed) {
   // the same.
   auto generateExpressions = [&]() {
     std::vector<std::string> firstGeneration;
-    std::mt19937 seed{7654321};
+    FuzzerGenerator seed{7654321};
     ExpressionFuzzer fuzzer{
         velox::getFunctionSignatures(),
         1234567,
@@ -135,7 +135,7 @@ TEST_F(ExpressionFuzzerUnitTest, reproduceExpressionWithSeed) {
 
 TEST_F(ExpressionFuzzerUnitTest, exprBank) {
   velox::functions::prestosql::registerAllScalarFunctions();
-  std::mt19937 seed{0};
+  FuzzerGenerator seed{0};
   int32_t maxLevelOfNesting = 10;
   {
     ExpressionFuzzer fuzzer{

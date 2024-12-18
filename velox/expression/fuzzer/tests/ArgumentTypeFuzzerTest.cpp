@@ -33,7 +33,7 @@ class ArgumentTypeFuzzerTest : public testing::Test {
       const std::shared_ptr<exec::FunctionSignature>& signature,
       const TypePtr& returnType,
       const std::vector<TypePtr>& expectedArgumentTypes) {
-    std::mt19937 seed{0};
+    FuzzerGenerator seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, returnType, seed};
     ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
@@ -62,7 +62,7 @@ class ArgumentTypeFuzzerTest : public testing::Test {
   void testFuzzingFailure(
       const std::shared_ptr<exec::FunctionSignature>& signature,
       const TypePtr& returnType) {
-    std::mt19937 seed{0};
+    FuzzerGenerator seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, returnType, seed};
     ASSERT_FALSE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
   }
@@ -136,7 +136,7 @@ TEST_F(ArgumentTypeFuzzerTest, signatureTemplate) {
 
     auto verifyArgumentTypes = [&](const TypePtr& returnType,
                                    const TypePtr& firstArg) {
-      std::mt19937 seed{0};
+      FuzzerGenerator seed{0};
       ArgumentTypeFuzzer fuzzer{*signature, returnType, seed};
       ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
@@ -161,7 +161,7 @@ TEST_F(ArgumentTypeFuzzerTest, signatureTemplate) {
                          .build();
 
     {
-      std::mt19937 seed{0};
+      FuzzerGenerator seed{0};
       ArgumentTypeFuzzer fuzzer{*signature, BIGINT(), seed};
       ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
@@ -194,7 +194,7 @@ TEST_F(ArgumentTypeFuzzerTest, variableArity) {
                          .returnType("bigint")
                          .variableArity("K")
                          .build();
-    std::mt19937 seed{0};
+    FuzzerGenerator seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, BIGINT(), seed};
     ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
@@ -211,7 +211,7 @@ TEST_F(ArgumentTypeFuzzerTest, any) {
                        .returnType("bigint")
                        .argumentType("any")
                        .build();
-  std::mt19937 seed{0};
+  FuzzerGenerator seed{0};
   ArgumentTypeFuzzer fuzzer{*signature, BIGINT(), seed};
   ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
@@ -279,7 +279,7 @@ TEST_F(ArgumentTypeFuzzerTest, lambda) {
                   .build();
 
   {
-    std::mt19937 seed{0};
+    FuzzerGenerator seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, ARRAY(VARCHAR()), seed};
     ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
@@ -302,7 +302,7 @@ TEST_F(ArgumentTypeFuzzerTest, lambda) {
                   .build();
 
   {
-    std::mt19937 seed{0};
+    FuzzerGenerator seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, MAP(BIGINT(), VARCHAR()), seed};
     ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
@@ -325,7 +325,7 @@ TEST_F(ArgumentTypeFuzzerTest, unconstrainedSignatureTemplate) {
                        .argumentType("K")
                        .build();
 
-  std::mt19937 seed{0};
+  FuzzerGenerator seed{0};
   ArgumentTypeFuzzer fuzzer{*signature, MAP(BIGINT(), VARCHAR()), seed};
   ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
@@ -336,7 +336,7 @@ TEST_F(ArgumentTypeFuzzerTest, unconstrainedSignatureTemplate) {
 
   ASSERT_EQ(argumentTypes[0]->kind(), TypeKind::MAP);
 
-  ASSERT_EQ(argumentTypes[0]->childAt(0), argumentTypes[1]);
+  ASSERT_EQ(*argumentTypes[0]->childAt(0), *argumentTypes[1]);
 }
 
 TEST_F(ArgumentTypeFuzzerTest, orderableConstraint) {
@@ -348,7 +348,7 @@ TEST_F(ArgumentTypeFuzzerTest, orderableConstraint) {
                          .build();
 
     for (size_t i = 0; i < 100; ++i) {
-      std::mt19937 rng(i);
+      FuzzerGenerator rng(i);
       ArgumentTypeFuzzer fuzzer{*signature, nullptr, rng};
       fuzzer.fuzzArgumentTypes(kMaxVariadicArgs);
       ASSERT_TRUE(fuzzer.argumentTypes()[0]->isOrderable())
@@ -419,7 +419,7 @@ TEST_F(ArgumentTypeFuzzerTest, orderableConstraint) {
 TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalArgumentTypes) {
   auto fuzzArgumentTypes = [](const exec::FunctionSignature& signature,
                               const TypePtr& returnType) {
-    std::mt19937 seed{0};
+    FuzzerGenerator seed{0};
     ArgumentTypeFuzzer fuzzer{signature, returnType, seed};
     bool ok = fuzzer.fuzzArgumentTypes(kMaxVariadicArgs);
     VELOX_CHECK(
@@ -596,7 +596,7 @@ TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalArgumentTypes) {
 
 TEST_F(ArgumentTypeFuzzerTest, fuzzDecimalReturnType) {
   auto fuzzReturnType = [](const exec::FunctionSignature& signature) {
-    std::mt19937 seed{0};
+    FuzzerGenerator seed{0};
     ArgumentTypeFuzzer fuzzer{signature, seed};
     return fuzzer.fuzzReturnType();
   };

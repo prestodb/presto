@@ -1244,10 +1244,10 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
     }
 
     if (self->numFinishedDrivers_ == self->numTotalDrivers_) {
-      LOG(INFO) << "All drivers (" << self->numFinishedDrivers_
-                << ") finished for task " << self->taskId()
-                << " after running for "
-                << succinctMillis(self->timeSinceStartMsLocked());
+      VLOG(1) << "All drivers (" << self->numFinishedDrivers_
+              << ") finished for task " << self->taskId()
+              << " after running for "
+              << succinctMillis(self->timeSinceStartMsLocked());
     }
   }
   stateChangeNotifier.notify();

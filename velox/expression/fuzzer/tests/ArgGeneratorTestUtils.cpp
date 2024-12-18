@@ -23,7 +23,7 @@ void assertReturnType(
     const std::shared_ptr<ArgGenerator>& generator,
     const exec::FunctionSignature& signature,
     const TypePtr& returnType) {
-  std::mt19937 seed{0};
+  FuzzerGenerator seed{0};
   const auto argTypes = generator->generateArgs(signature, returnType, seed);
 
   // Resolve return type from argument types for the given signature.
@@ -42,7 +42,7 @@ void assertEmptyArgs(
     std::shared_ptr<ArgGenerator> generator,
     const exec::FunctionSignature& signature,
     const TypePtr& returnType) {
-  std::mt19937 seed{0};
+  FuzzerGenerator seed{0};
   const auto argTypes = generator->generateArgs(signature, returnType, seed);
   EXPECT_TRUE(argTypes.empty());
 }

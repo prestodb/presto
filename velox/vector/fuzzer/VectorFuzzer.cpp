@@ -407,13 +407,13 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
 
   bool usingLazyVector = opts_.allowLazyVector && coinToss(0.1);
   // Lazy Vectors cannot be sliced, so we skip this if using lazy wrapping.
-  if (!usingLazyVector && coinToss(0.1)) {
+  if (opts_.allowSlice && !usingLazyVector && coinToss(0.1)) {
     // Extend the underlying vector to allow slicing later.
     vectorSize += rand<uint32_t>(rng_) % 8;
   }
 
   // 20% chance of adding a constant vector.
-  if (coinToss(0.2)) {
+  if (opts_.allowConstantVector && coinToss(0.2)) {
     vector = fuzzConstant(type, vectorSize);
   } else if (type->isPrimitiveType()) {
     vector = fuzzFlatPrimitive(type, vectorSize);
@@ -433,9 +433,10 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   }
 
   // Toss a coin and add dictionary indirections.
-  while (coinToss(0.5)) {
+  while (opts_.allowDictionaryVector && coinToss(0.5)) {
     vectorSize = size;
-    if (!usingLazyVector && vectorSize > 0 && coinToss(0.05)) {
+    if (opts_.allowSlice && !usingLazyVector && vectorSize > 0 &&
+        coinToss(0.05)) {
       vectorSize += rand<uint32_t>(rng_) % 8;
     }
     vector = fuzzDictionary(vector, vectorSize);

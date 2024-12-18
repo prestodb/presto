@@ -34,7 +34,7 @@ class ArgGeneratorTest : public SparkFunctionBaseTest {
       const exec::FunctionSignature& signature,
       const TypePtr& returnType,
       std::function<void(const std::vector<TypePtr>&)> check) {
-    std::mt19937 seed{0};
+    FuzzerGenerator seed{0};
     const auto argTypes = generator->generateArgs(signature, returnType, seed);
     check(argTypes);
   }

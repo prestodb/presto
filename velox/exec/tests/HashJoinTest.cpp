@@ -532,7 +532,7 @@ class HashJoinBuilder {
     if (vectorSize != 0) {
       fuzzerOpts_.vectorSize = vectorSize;
       fuzzerOpts_.nullRatio = nullRatio;
-      VectorFuzzer fuzzer(fuzzerOpts_, &pool_);
+      VectorFuzzer fuzzer(fuzzerOpts_, &pool_, 42);
       for (int32_t i = 0; i < numVectors; ++i) {
         vectors.push_back(fuzzer.fuzzInputRow(rowType));
       }
