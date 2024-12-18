@@ -17,12 +17,12 @@
 #include <gtest/gtest.h>
 #include "folly/experimental/EventCount.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/testutil/OutputMatcher.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/SerializedPageUtil.h"
 #include "velox/serializers/CompactRowSerializer.h"
+#include "velox/serializers/PrestoSerializer.h"
 #include "velox/serializers/UnsafeRowSerializer.h"
 
 using namespace facebook::velox;
@@ -1323,42 +1323,6 @@ TEST_P(AllOutputBufferManagerTest, outputBufferUtilization) {
   verifyOutputBuffer(task, OutputBufferStatus::kFinished);
 }
 
-TEST_P(AllOutputBufferManagerTest, printOutputBufferStats) {
-  const vector_size_t vectorSize = 100;
-  const std::string taskId = std::to_string(folly::Random::rand32());
-  const int numDestinations = 4;
-  initializeTask(
-      taskId,
-      rowType_,
-      core::PartitionedOutputNode::Kind::kPartitioned,
-      numDestinations,
-      1);
-
-  const int numPages = numDestinations;
-  for (int pageId = 0; pageId < numPages; ++pageId) {
-    enqueue(taskId, pageId, rowType_, vectorSize);
-    fetchOneAndAck(taskId, pageId, 0);
-  }
-
-  const auto statsEnqueue = getStats(taskId);
-  OutputMatcher::compareOutputs(
-      ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-      statsEnqueue.toString(),
-      {{"\\[bufferedBytes: ([\\d.]+[KMGT]?[B]?), bufferedPages: (\\d+), totalBytesSent: ([\\d.]+[KMGT]?[B]?), totalRowsSent: (\\d+), totalPagesSent: (\\d+), averageBufferTimeMs: (\\d+), numTopBuffers: (\\d+)\\]"},
-       {"\\s*D0: \\[finished: (true|false), bytesBuffered: ([\\d.]+[KMGT]?[B]?), rowsBuffered: (\\d+), pagesBuffered: (\\d+), bytesSent: ([\\d.]+[KMGT]?[B]?), rowsSent: (\\d+), pagesSent:(\\d+)\\]"},
-       {"\\s*D1: \\[finished: (true|false), bytesBuffered: ([\\d.]+[KMGT]?[B]?), rowsBuffered: (\\d+), pagesBuffered: (\\d+), bytesSent: ([\\d.]+[KMGT]?[B]?), rowsSent: (\\d+), pagesSent:(\\d+)\\]"},
-       {"\\s*D2: \\[finished: (true|false), bytesBuffered: ([\\d.]+[KMGT]?[B]?), rowsBuffered: (\\d+), pagesBuffered: (\\d+), bytesSent: ([\\d.]+[KMGT]?[B]?), rowsSent: (\\d+), pagesSent:(\\d+)\\]"},
-       {"\\s*D3: \\[finished: (true|false), bytesBuffered: ([\\d.]+[KMGT]?[B]?), rowsBuffered: (\\d+), pagesBuffered: (\\d+), bytesSent: ([\\d.]+[KMGT]?[B]?), rowsSent: (\\d+), pagesSent:(\\d+)\\]"}});
-
-  bufferManager_->updateOutputBuffers(taskId, numDestinations, true);
-  noMoreData(taskId);
-  for (int pageId = 0; pageId < numPages; ++pageId) {
-    fetchEndMarker(taskId, pageId, 1);
-    deleteResults(taskId, pageId);
-  }
-  bufferManager_->removeTask(taskId);
-}
-
 TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
   const vector_size_t vectorSize = 100;
   const std::string taskId = std::to_string(folly::Random::rand32());
@@ -1390,7 +1354,6 @@ TEST_P(AllOutputBufferManagerTest, outputBufferStats) {
       fetchOne(taskId, 0, pageId);
     }
     const auto statsEnqueue = getStats(taskId);
-    std::cout << statsEnqueue.toString();
     ASSERT_EQ(statsEnqueue.buffersStats[0].pagesBuffered, 1);
     ASSERT_EQ(statsEnqueue.buffersStats[0].rowsBuffered, vectorSize);
     if (outputKind_ == core::PartitionedOutputNode::Kind::kBroadcast) {

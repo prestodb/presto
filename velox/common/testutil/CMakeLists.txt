@@ -21,9 +21,5 @@ velox_link_libraries(
   PRIVATE glog::glog Folly::folly)
 
 if(${VELOX_BUILD_TESTING})
-  velox_add_library(velox_test_output_matcher OutputMatcher.cpp)
-  velox_link_libraries(velox_test_output_matcher PUBLIC Folly::folly
-                                                        GTest::gtest re2::re2)
-
   add_subdirectory(tests)
 endif()
