@@ -16,15 +16,13 @@ package com.facebook.presto.event;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
 import com.facebook.presto.spi.eventlistener.SplitStatistics;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
 
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -42,7 +40,6 @@ public class SplitMonitor
 
     private final ObjectMapper objectMapper;
     private final EventListenerManager eventListenerManager;
-    private Tracer tracer;
 
     @Inject
     public SplitMonitor(EventListenerManager eventListenerManager, ObjectMapper objectMapper)
@@ -51,19 +48,17 @@ public class SplitMonitor
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
-    public void splitCompletedEvent(TaskId taskId, DriverStats driverStats, Span pipelineSpan, Tracer tracer)
+    public void splitCompletedEvent(TaskId taskId, DriverStats driverStats, TracingSpan pipelineSpan)
     {
-        this.tracer = tracer;
         splitCompletedEvent(taskId, driverStats, null, null, pipelineSpan);
     }
 
-    public void splitFailedEvent(TaskId taskId, DriverStats driverStats, Throwable cause, Span pipelineSpan, Tracer tracer)
+    public void splitFailedEvent(TaskId taskId, DriverStats driverStats, Throwable cause, TracingSpan pipelineSpan)
     {
-        this.tracer = tracer;
         splitCompletedEvent(taskId, driverStats, cause.getClass().getName(), cause.getMessage(), pipelineSpan);
     }
 
-    private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage, Span pipelineSpan)
+    private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage, TracingSpan pipelineSpan)
     {
         Optional<Duration> timeToStart = Optional.empty();
         if (driverStats.getStartTime() != null) {
@@ -101,8 +96,7 @@ public class SplitMonitor
                                     timeToEnd),
                             splitFailureMetadata,
                             objectMapper.writeValueAsString(driverStats)),
-                    (pipelineSpan != null) ? (Context.current().with(pipelineSpan)) : Context.current(),
-                    tracer);
+                    pipelineSpan);
         }
         catch (JsonProcessingException e) {
             log.error(e, "Error processing split completion event for task %s", taskId);

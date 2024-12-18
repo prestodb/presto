@@ -39,7 +39,6 @@ import com.facebook.presto.sql.tree.ExplainType.Type;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.api.trace.Tracer;
 
 import javax.inject.Inject;
 
@@ -72,7 +71,6 @@ public class QueryExplainer
     private final CostCalculator costCalculator;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask;
     private final PlanChecker planChecker;
-    private static Tracer tracer;
 
     @Inject
     public QueryExplainer(
@@ -118,11 +116,6 @@ public class QueryExplainer
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
-    }
-
-    public static void setTracer(Tracer tracer)
-    {
-        QueryExplainer.tracer = tracer;
     }
 
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
@@ -235,7 +228,7 @@ public class QueryExplainer
 
         return session.getRuntimeStats().profileNanos(
                 OPTIMIZER_TIME_NANOS,
-                () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED, tracer));
+                () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
     }
 
     public SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)

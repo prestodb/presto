@@ -30,6 +30,7 @@ import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
@@ -46,7 +47,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.airlift.units.Duration;
-import io.opentelemetry.context.Context;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -353,7 +353,7 @@ public class TestSqlTaskManager
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
-                Context.current(), null);
+                TracingSpan.getInvalid());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
@@ -375,7 +375,7 @@ public class TestSqlTaskManager
                 ImmutableList.of(),
                 outputBuffers,
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
-                Context.current(), null);
+                TracingSpan.getInvalid());
     }
 
     public static class MockExchangeClientSupplier

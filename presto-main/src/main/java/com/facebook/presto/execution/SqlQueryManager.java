@@ -21,8 +21,6 @@ import com.facebook.presto.ExceededIntermediateWrittenBytesException;
 import com.facebook.presto.ExceededOutputSizeLimitException;
 import com.facebook.presto.ExceededScanLimitException;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.TelemetryConfig;
-import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
@@ -31,6 +29,7 @@ import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.opentelemetry.tracing.ScopedSpan;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
@@ -44,8 +43,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.context.Context;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -78,7 +75,6 @@ import static com.facebook.presto.execution.QueryLimit.Source.SYSTEM;
 import static com.facebook.presto.execution.QueryLimit.createDurationLimit;
 import static com.facebook.presto.execution.QueryLimit.getMinimum;
 import static com.facebook.presto.execution.QueryState.RUNNING;
-import static com.facebook.presto.opentelemetry.tracing.ScopedSpan.scopedSpan;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_POSITIONS_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -324,11 +320,9 @@ public class SqlQueryManager
         // TODO(pranjalssh): Support plan statistics tracking for other query managers
         historyBasedPlanStatisticsTracker.updateStatistics(queryExecution);
 
-        Span querySpan = queryExecution.getSession().getQuerySpan();
+        TracingSpan querySpan = queryExecution.getSession().getQuerySpan();
         try (SetThreadName ignored = new SetThreadName("Query-%s", queryExecution.getQueryId())) {
-            try (ScopedSpan ignoredStartScope = (!TelemetryConfig.getTracingEnabled()) ? null : scopedSpan(TelemetryManager.getTracer().spanBuilder(TracingEnum.QUERY_START.getName())
-                    .setParent((querySpan != null) ? Context.current().with(querySpan) : null)
-                    .startSpan())) {
+            try (ScopedSpan ignoredStartScope = TelemetryManager.startQueryStartSpan(querySpan)) {
                 embedVersion.embedVersion(queryExecution::start).run();
             }
         }

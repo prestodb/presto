@@ -28,6 +28,7 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.operator.TaskStats;
@@ -59,7 +60,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import io.opentelemetry.api.trace.Span;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -164,7 +164,7 @@ public class MockRemoteTaskFactory
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
             SchedulerStatsTracker schedulerStatsTracker,
-            Span stageSpan)
+            TracingSpan stageSpan)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, nodeStatsTracker);
     }

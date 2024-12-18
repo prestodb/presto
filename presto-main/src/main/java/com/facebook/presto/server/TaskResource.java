@@ -17,8 +17,6 @@ import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.TelemetryConfig;
-import com.facebook.presto.common.util.TextMapGetterImpl;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -31,6 +29,7 @@ import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.opentelemetry.tracing.ScopedSpan;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.telemetry.TelemetryManager;
@@ -38,9 +37,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.propagation.TextMapPropagator;
 import org.joda.time.DateTime;
 
 import javax.annotation.security.RolesAllowed;
@@ -106,8 +102,6 @@ public class TaskResource
     private final HandleResolver handleResolver;
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
-    private final TelemetryManager openTelemetryManager;
-
     @Inject
     public TaskResource(
             TaskManager taskManager,
@@ -116,8 +110,7 @@ public class TaskResource
             @ForAsyncRpc ScheduledExecutorService timeoutExecutor,
             JsonCodec<PlanFragment> planFragmentJsonCodec,
             HandleResolver handleResolver,
-            ConnectorTypeSerdeManager connectorTypeSerdeManager,
-            TelemetryManager openTelemetryManager)
+            ConnectorTypeSerdeManager connectorTypeSerdeManager)
     {
         this.taskManager = requireNonNull(taskManager, "taskManager is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
@@ -126,7 +119,6 @@ public class TaskResource
         this.planFragmentCodec = planFragmentJsonCodec;
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.connectorTypeSerdeManager = requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
-        this.openTelemetryManager = openTelemetryManager;
     }
 
     @GET
@@ -149,13 +141,7 @@ public class TaskResource
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "POST /v1/task/{taskId}");
-
-        context.makeCurrent();
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "POST /v1/task/{taskId}"); // Recheck if working without context.makeCurrent();
 
         TaskInfo taskInfo;
 
@@ -167,8 +153,7 @@ public class TaskResource
                     taskUpdateRequest.getSources(),
                     taskUpdateRequest.getOutputIds(),
                     taskUpdateRequest.getTableWriteInfo(),
-                    io.opentelemetry.context.Context.current().with(span),
-                    openTelemetryManager.getTracer());
+                    span);
 
             if (shouldSummarize(uriInfo)) {
                 taskInfo = taskInfo.summarize();
@@ -193,11 +178,7 @@ public class TaskResource
     {
         requireNonNull(taskId, "taskId is null");
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "GET /v1/task/{taskId}");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "GET /v1/task/{taskId}"); // Recheck if working
 
         boolean isThriftRequest = isThriftRequest(httpHeaders);
 
@@ -256,11 +237,7 @@ public class TaskResource
     {
         requireNonNull(taskId, "taskId is null");
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "GET /v1/task/{taskId}/status");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "GET /v1/task/{taskId}/status");
 
         if (currentState == null || maxWait == null) {
             TaskStatus taskStatus = taskManager.getTaskStatus(taskId);
@@ -295,11 +272,7 @@ public class TaskResource
     {
         requireNonNull(metadataUpdates, "metadataUpdates is null");
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "POST /v1/task/{taskId}/metadataresults");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "POST /v1/task/{taskId}/metadataresults");
 
         taskManager.updateMetadataResults(taskId, metadataUpdates);
 
@@ -323,11 +296,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         TaskInfo taskInfo;
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-
-        Tracer tracer = openTelemetryManager.getTracer();
-        Span span = getSpan(traceParent, tracer, context, "DELETE /v1/task/{taskId}");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "DELETE /v1/task/{taskId}");
 
         if (abort) {
             taskInfo = taskManager.abortTask(taskId);
@@ -382,11 +351,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "GET /v1/task/{taskId}/results/{bufferId}/{token}/acknowledge");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "GET /v1/task/{taskId}/results/{bufferId}/{token}/acknowledge");
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
 
@@ -405,11 +370,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "HEAD /v1/task/{taskId}/results/{bufferId}");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "HEAD /v1/task/{taskId}/results/{bufferId}");
 
         if (!Objects.isNull(span)) {
             span.end();
@@ -439,11 +400,7 @@ public class TaskResource
             @PathParam("token") final long token,
             @HeaderParam("traceparent") String traceParent)
     {
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "HEAD /v1/task/{taskId}/results/{bufferId}/{token}");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "HEAD /v1/task/{taskId}/results/{bufferId}/{token}");
 
         if (!Objects.isNull(span)) {
             span.end();
@@ -461,11 +418,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "DELETE v1/task/{taskId}/results/{bufferId}");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "DELETE v1/task/{taskId}/results/{bufferId}");
 
         taskManager.abortTaskResults(taskId, bufferId);
 
@@ -481,11 +434,7 @@ public class TaskResource
         requireNonNull(taskId, "taskId is null");
         requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
 
-        TextMapPropagator propagator = openTelemetryManager.getOpenTelemetry().getPropagators().getTextMapPropagator();
-        io.opentelemetry.context.Context context = propagator.extract(io.opentelemetry.context.Context.current(), traceParent, new TextMapGetterImpl());
-        Tracer tracer = openTelemetryManager.getTracer();
-
-        Span span = getSpan(traceParent, tracer, context, "DELETE /v1/task/{taskId}/remote-source/{remoteSourceTaskId}");
+        TracingSpan span = TelemetryManager.getSpan(traceParent, "DELETE /v1/task/{taskId}/remote-source/{remoteSourceTaskId}");
 
         taskManager.removeRemoteSource(taskId, remoteSourceTaskId);
 
@@ -497,12 +446,5 @@ public class TaskResource
     private static boolean shouldSummarize(UriInfo uriInfo)
     {
         return uriInfo.getQueryParameters().containsKey("summarize");
-    }
-
-    private Span getSpan(String traceParent, Tracer tracer, io.opentelemetry.context.Context context, String spanName)
-    {
-        return !TelemetryConfig.getTracingEnabled() && traceParent != null ? null : tracer.spanBuilder(spanName)
-                .setParent(context)
-                .startSpan();
     }
 }

@@ -189,7 +189,6 @@ public class TestSqlTaskExecution
                     taskExecutor,
                     taskNotificationExecutor,
                     createTestSplitMonitor(),
-                    null,
                     null);
 
             //
@@ -453,7 +452,6 @@ public class TestSqlTaskExecution
                     taskExecutor,
                     taskNotificationExecutor,
                     createTestSplitMonitor(),
-                    null,
                     null);
 
             //

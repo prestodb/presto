@@ -28,7 +28,6 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
-import com.facebook.presto.telemetry.TelemetryManager;
 import com.google.inject.Inject;
 
 import java.util.Optional;
@@ -94,7 +93,7 @@ public class BuiltInQueryAnalyzer
                 session.getWarningCollector(),
                 Optional.of(metadataExtractorExecutor));
 
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), TracingEnum.ANALYZE.getName())) {
+        try (ScopedSpan ignored = scopedSpan(TracingEnum.ANALYZE.getName())) {
             Analysis analysis = analyzer.analyzeSemantic(((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getStatement(), false);
             return new BuiltInQueryAnalysis(analysis);
         }

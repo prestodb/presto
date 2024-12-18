@@ -44,18 +44,16 @@ import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.testing.TestingConnectorContext;
-import com.facebook.presto.testing.TestingOpenTelemetryManager;
+import com.facebook.presto.testing.TestingTelemetryManager;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.opentelemetry.sdk.trace.data.SpanData;
 import org.testng.annotations.Test;
 
 import java.security.Principal;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -148,8 +146,8 @@ public class TestAccessControlManager
     {
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
         TelemetryConfig.getTelemetryConfig().setSpanSampling(false);
-        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
-        testingOpenTelemetryManager.createInstances();
+        TestingTelemetryManager testingTelemetryManager = new TestingTelemetryManager();
+        testingTelemetryManager.createInstances();
 
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
 
@@ -158,18 +156,17 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         Thread.sleep(5000);
-        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
-        assertTrue(!spans.isEmpty());
-        assertTrue(spans.stream().anyMatch(spanName -> "AccessControl.setSystemAccessControl".equals(spanName.getName())));
+        assertTrue(!testingTelemetryManager.isSpansEmpty());
+        assertTrue(testingTelemetryManager.spansAnyMatch("AccessControl.setSystemAccessControl"));
 
-        testingOpenTelemetryManager.clearSpanList();
+        testingTelemetryManager.clearSpanList();
     }
 
     @Test
     public void testSetSystemAccessControlTracingDisabled() throws InterruptedException
     {
-        TestingOpenTelemetryManager testingOpenTelemetryManager = new TestingOpenTelemetryManager();
-        testingOpenTelemetryManager.createInstances();
+        TestingTelemetryManager testingTelemetryManager = new TestingTelemetryManager();
+        testingTelemetryManager.createInstances();
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(false);
 
         AccessControlManager accessControlManager = new AccessControlManager(createTestTransactionManager());
@@ -179,10 +176,9 @@ public class TestAccessControlManager
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
         Thread.sleep(5000);
-        List<SpanData> spans = testingOpenTelemetryManager.getFinishedSpanItems();
-        assertTrue(spans.isEmpty());
+        assertTrue(testingTelemetryManager.isSpansEmpty());
 
-        testingOpenTelemetryManager.clearSpanList();
+        testingTelemetryManager.clearSpanList();
     }
 
     @Test

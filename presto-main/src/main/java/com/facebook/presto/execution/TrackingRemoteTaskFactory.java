@@ -20,10 +20,10 @@ import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
-import io.opentelemetry.api.trace.Span;
 
 import static com.facebook.presto.execution.TaskState.PLANNED;
 import static com.facebook.presto.execution.TaskState.RUNNING;
@@ -52,7 +52,7 @@ public class TrackingRemoteTaskFactory
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
             SchedulerStatsTracker schedulerStatsTracker,
-            Span stageSpan)
+            TracingSpan stageSpan)
     {
         RemoteTask task = remoteTaskFactory.createRemoteTask(session,
                 taskId,

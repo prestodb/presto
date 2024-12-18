@@ -15,14 +15,14 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.spi.QueryId;
-import io.opentelemetry.api.trace.Span;
 
 import static com.facebook.presto.Session.SessionBuilder;
 
 public interface SessionSupplier
 {
-    Session createSession(QueryId queryId, Span querySpan, Span rootSpan, SessionContext context, WarningCollectorFactory warningCollectorFactory);
+    Session createSession(QueryId queryId, TracingSpan querySpan, TracingSpan rootSpan, SessionContext context, WarningCollectorFactory warningCollectorFactory);
 
-    SessionBuilder createSessionBuilder(QueryId queryId, Span querySpan, Span rootSpan, SessionContext context, WarningCollectorFactory warningCollectorFactory);
+    SessionBuilder createSessionBuilder(QueryId queryId, TracingSpan querySpan, TracingSpan rootSpan, SessionContext context, WarningCollectorFactory warningCollectorFactory);
 }
