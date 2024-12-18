@@ -17,7 +17,7 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/dwio/common/BitPackDecoder.h"
-#include "velox/dwio/parquet/writer/arrow/util/BitStreamUtilsInternal.h"
+#include "velox/dwio/parquet/common/BitStreamUtilsInternal.h"
 
 #ifdef __BMI2__
 #include "velox/dwio/common/tests/Lemire/bmipacking32.h"
@@ -307,7 +307,7 @@ void lemirebmi2(uint8_t bitWidth, uint32_t* result) {
 
 template <typename T>
 void arrowBitUnpack(uint8_t bitWidth, T* result) {
-  facebook::velox::parquet::arrow::bit_util::BitReader bitReader(
+  facebook::velox::parquet::BitReader bitReader(
       reinterpret_cast<const uint8_t*>(bitPackedData[bitWidth].data()),
       BYTES(kNumValues, bitWidth));
   bitReader.GetBatch<T>(bitWidth, result, kNumValues);

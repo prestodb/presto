@@ -15,14 +15,14 @@
  */
 
 #include "velox/dwio/common/BitPackDecoder.h"
-#include "velox/dwio/parquet/writer/arrow/util/RleEncodingInternal.h"
+#include "velox/dwio/parquet/common/RleEncodingInternal.h"
 
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
 using namespace facebook::velox::dwio::common;
 
-using facebook::velox::parquet::arrow::util::RleEncoder;
+using facebook::velox::parquet::RleEncoder;
 
 template <typename T>
 class RleBpDecoderTest {

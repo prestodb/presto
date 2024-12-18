@@ -57,7 +57,6 @@
 #include "velox/dwio/parquet/writer/arrow/Types.h"
 #include "velox/dwio/parquet/writer/arrow/util/Compression.h"
 #include "velox/dwio/parquet/writer/arrow/util/Crc32.h"
-#include "velox/dwio/parquet/writer/arrow/util/RleEncodingInternal.h"
 #include "velox/dwio/parquet/writer/arrow/util/VisitArrayInline.h"
 
 using arrow::Array;
@@ -69,12 +68,7 @@ using arrow::Status;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 
-namespace bit_util = arrow::bit_util;
-
 namespace facebook::velox::parquet::arrow {
-using bit_util::BitWriter;
-using util::RleEncoder;
-
 using util::CodecOptions;
 
 namespace {

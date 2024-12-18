@@ -22,26 +22,25 @@
 #include <cstring>
 #include <memory>
 
+#include "velox/dwio/parquet/common/RleEncodingInternal.h"
 #include "velox/dwio/parquet/writer/arrow/Exception.h"
 #include "velox/dwio/parquet/writer/arrow/Platform.h"
 #include "velox/dwio/parquet/writer/arrow/Types.h"
 #include "velox/dwio/parquet/writer/arrow/util/Compression.h"
 
 namespace arrow {
-
 class Array;
-
 } // namespace arrow
+
+namespace facebook::velox::parquet {
+class BitWriter;
+class RleEncoder;
+} // namespace facebook::velox::parquet
 
 namespace facebook::velox::parquet::arrow {
 
-namespace bit_util {
-class BitWriter;
-} // namespace bit_util
-
 namespace util {
 class CodecOptions;
-class RleEncoder;
 } // namespace util
 
 struct ArrowWriteContext;
@@ -89,8 +88,8 @@ class PARQUET_EXPORT LevelEncoder {
   int bit_width_;
   int rle_length_;
   Encoding::type encoding_;
-  std::unique_ptr<util::RleEncoder> rle_encoder_;
-  std::unique_ptr<bit_util::BitWriter> bit_packed_encoder_;
+  std::unique_ptr<RleEncoder> rle_encoder_;
+  std::unique_ptr<BitWriter> bit_packed_encoder_;
 };
 
 class PARQUET_EXPORT PageWriter {

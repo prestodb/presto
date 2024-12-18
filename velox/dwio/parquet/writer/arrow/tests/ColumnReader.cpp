@@ -51,8 +51,6 @@
 #include "velox/dwio/parquet/writer/arrow/Properties.h"
 #include "velox/dwio/parquet/writer/arrow/Statistics.h"
 #include "velox/dwio/parquet/writer/arrow/ThriftInternal.h"
-#include "velox/dwio/parquet/writer/arrow/util/BitStreamUtilsInternal.h"
-#include "velox/dwio/parquet/writer/arrow/util/RleEncodingInternal.h"
 
 using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
@@ -127,8 +125,8 @@ int LevelDecoder::SetData(
       }
       const uint8_t* decoder_data = data + 4;
       if (!rle_decoder_) {
-        rle_decoder_ = std::make_unique<arrow::util::RleDecoder>(
-            decoder_data, num_bytes, bit_width_);
+        rle_decoder_ =
+            std::make_unique<RleDecoder>(decoder_data, num_bytes, bit_width_);
       } else {
         rle_decoder_->Reset(decoder_data, num_bytes, bit_width_);
       }
@@ -147,8 +145,7 @@ int LevelDecoder::SetData(
             "Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {
-        bit_packed_decoder_ =
-            std::make_unique<arrow::bit_util::BitReader>(data, num_bytes);
+        bit_packed_decoder_ = std::make_unique<BitReader>(data, num_bytes);
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }
@@ -176,8 +173,7 @@ void LevelDecoder::SetDataV2(
   bit_width_ = ::arrow::bit_util::Log2(max_level + 1);
 
   if (!rle_decoder_) {
-    rle_decoder_ =
-        std::make_unique<arrow::util::RleDecoder>(data, num_bytes, bit_width_);
+    rle_decoder_ = std::make_unique<RleDecoder>(data, num_bytes, bit_width_);
   } else {
     rle_decoder_->Reset(data, num_bytes, bit_width_);
   }
