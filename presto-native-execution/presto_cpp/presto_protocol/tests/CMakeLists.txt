@@ -16,6 +16,7 @@ add_executable(
   CallExpressionTest.cpp
   ConstantExpressionTest.cpp
   DataSizeTest.cpp
+  DeleteTest.cpp
   DomainTest.cpp
   DurationTest.cpp
   LifespanTest.cpp
