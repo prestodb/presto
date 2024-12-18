@@ -85,6 +85,14 @@ alphabetical order.
   This property provides function signatures for built-in aggregation
   functions which are compatible with Velox.
 
+``presto.default-namespace``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``presto.default``
+
+  Specifies the namespace prefix for native C++ functions.
+
 Worker Properties
 -----------------
 
