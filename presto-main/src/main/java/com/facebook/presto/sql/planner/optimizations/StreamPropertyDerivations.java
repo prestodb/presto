@@ -59,6 +59,7 @@ import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.UpdateNode;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -447,6 +448,13 @@ public final class StreamPropertyDerivations
         {
             StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             // table writer only outputs the row count
+            return properties.withUnspecifiedPartitioning();
+        }
+
+        @Override
+        public StreamProperties visitUpdate(UpdateNode node, List<StreamProperties> inputProperties)
+        {
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
             return properties.withUnspecifiedPartitioning();
         }
 
