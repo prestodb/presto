@@ -73,6 +73,15 @@ SessionProperties::SessionProperties() {
       std::to_string(c.exprMaxArraySizeInReduce()));
 
   addSessionProperty(
+      kExprMaxCompiledRegexes,
+      "Controls maximum number of compiled regular expression patterns per regular expression function instance "
+      "per thread of execution.",
+      BIGINT(),
+      false,
+      QueryConfig::kExprMaxCompiledRegexes,
+      std::to_string(c.exprMaxCompiledRegexes()));
+
+  addSessionProperty(
       kMaxPartialAggregationMemory,
       "The max partial aggregation memory when data reduction is not optimal.",
       BIGINT(),
