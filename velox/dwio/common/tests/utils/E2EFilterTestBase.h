@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/testutil/RandomSeed.h"
 #include "velox/common/time/Timer.h"
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/FileSink.h"
@@ -102,20 +103,10 @@ class E2EFilterTestBase : public testing::Test {
     memory::MemoryManager::testingSetInstance({});
   }
 
-  static bool useRandomSeed() {
-    // Check environment variable because `buck test` does not allow pass in
-    // command line arguments.
-    const char* env = getenv("VELOX_TEST_USE_RANDOM_SEED");
-    return !env ? false : folly::to<bool>(env);
-  }
-
   void SetUp() override {
     rootPool_ = memory::memoryManager()->addRootPool("E2EFilterTestBase");
     leafPool_ = rootPool_->addLeafChild("E2EFilterTestBase");
-    if (useRandomSeed()) {
-      seed_ = folly::Random::secureRand32();
-      LOG(INFO) << "Random seed: " << seed_;
-    }
+    seed_ = common::testutil::getRandomSeed(seed_);
   }
 
   static bool typeKindSupportsValueHook(TypeKind kind) {
