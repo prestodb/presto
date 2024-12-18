@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.EncryptionInformation;
@@ -572,6 +573,16 @@ public class IcebergPageSourceProvider
                 isRowPositionList.add(column.isRowPositionColumn());
             }
 
+            // Skip the time type columns in predicate
+            ImmutableMap.Builder<IcebergColumnHandle, Domain> predicateExcludeTimeType = ImmutableMap.builder();
+            effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
+                // skip TimeType
+                if (!(columnHandle.getType() instanceof TimeType)) {
+                    predicateExcludeTimeType.put(columnHandle, domain);
+                }
+            });
+
+            effectivePredicate = TupleDomain.withColumnDomains(predicateExcludeTimeType.build());
             TupleDomain<HiveColumnHandle> hiveColumnHandleTupleDomain = effectivePredicate.transform(column -> {
                 IcebergOrcColumn icebergOrcColumn;
                 if (fileOrcColumnByIcebergId.isEmpty()) {

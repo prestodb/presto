@@ -509,7 +509,7 @@ public final class IcebergUtil
         }
     }
 
-    private static boolean isValidPartitionType(FileFormat fileFormat, Type type)
+    private static boolean isValidPartitionType(Type type)
     {
         return type instanceof DecimalType ||
                 BOOLEAN.equals(type) ||
@@ -521,15 +521,15 @@ public final class IcebergUtil
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
                 type instanceof TimestampType ||
-                (TIME.equals(type) && fileFormat == PARQUET) ||
+                TIME.equals(type) ||
                 VARBINARY.equals(type) ||
                 isVarcharType(type) ||
                 isCharType(type);
     }
 
-    private static void verifyPartitionTypeSupported(FileFormat fileFormat, String partitionName, Type type)
+    private static void verifyPartitionTypeSupported(String partitionName, Type type)
     {
-        if (!isValidPartitionType(fileFormat, type)) {
+        if (!isValidPartitionType(type)) {
             throw new PrestoException(NOT_SUPPORTED, format("Unsupported type [%s] for partition: %s", type, partitionName));
         }
     }
@@ -540,7 +540,7 @@ public final class IcebergUtil
             Type prestoType,
             String partitionName)
     {
-        verifyPartitionTypeSupported(fileFormat, partitionName, prestoType);
+        verifyPartitionTypeSupported(partitionName, prestoType);
 
         Object partitionValue = deserializePartitionValue(prestoType, partitionStringValue, partitionName);
         return partitionValue == null ? NullableValue.asNull(prestoType) : NullableValue.of(prestoType, partitionValue);
