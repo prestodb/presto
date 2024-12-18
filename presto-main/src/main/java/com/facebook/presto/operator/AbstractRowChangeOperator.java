@@ -19,6 +19,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.spi.UpdatablePageSource;
+import com.facebook.presto.split.EmptySplitPageSource;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 
@@ -31,7 +32,6 @@ import static com.facebook.airlift.concurrent.MoreFutures.toListenableFuture;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.operator.PageSinkCommitStrategy.NO_COMMIT;
-import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
@@ -170,7 +170,7 @@ public abstract class AbstractRowChangeOperator
     protected UpdatablePageSource pageSource()
     {
         Optional<UpdatablePageSource> source = pageSource.get();
-        checkState(source.isPresent(), "UpdatablePageSource not set");
-        return source.get();
+        // empty source can occur if the source operator doesn't output any rows
+        return source.orElseGet(EmptySplitPageSource::new);
     }
 }
