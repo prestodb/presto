@@ -13,9 +13,16 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.spi.function.ScalarStatsHeader;
+import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 
+import java.util.Map;
 import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class ScalarHeader
 {
@@ -23,6 +30,7 @@ public class ScalarHeader
     private final SqlFunctionVisibility visibility;
     private final boolean deterministic;
     private final boolean calledOnNullInput;
+    private final Map<Signature, ScalarStatsHeader> signatureToScalarStatsHeaders;
 
     public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput)
     {
@@ -30,6 +38,29 @@ public class ScalarHeader
         this.visibility = visibility;
         this.deterministic = deterministic;
         this.calledOnNullInput = calledOnNullInput;
+        this.signatureToScalarStatsHeaders = ImmutableMap.of();
+    }
+
+    public ScalarHeader(Optional<String> description, SqlFunctionVisibility visibility, boolean deterministic, boolean calledOnNullInput,
+            Map<Signature, ScalarStatsHeader> signatureToScalarStatsHeaders)
+    {
+        this.description = description;
+        this.visibility = visibility;
+        this.deterministic = deterministic;
+        this.calledOnNullInput = calledOnNullInput;
+        this.signatureToScalarStatsHeaders = signatureToScalarStatsHeaders;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("description:", this.description)
+                .add("visibility", this.visibility)
+                .add("deterministic", this.deterministic)
+                .add("calledOnNullInput", this.calledOnNullInput)
+                .add("signatureToScalarStatsHeadersMap", Joiner.on(" , ").withKeyValueSeparator(" -> ").join(this.signatureToScalarStatsHeaders))
+                .toString();
     }
 
     public Optional<String> getDescription()
@@ -50,5 +81,10 @@ public class ScalarHeader
     public boolean isCalledOnNullInput()
     {
         return calledOnNullInput;
+    }
+
+    public Map<Signature, ScalarStatsHeader> getSignatureToScalarStatsHeadersMap()
+    {
+        return signatureToScalarStatsHeaders;
     }
 }
