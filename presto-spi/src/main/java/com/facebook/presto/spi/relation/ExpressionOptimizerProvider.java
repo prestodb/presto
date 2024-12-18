@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.spi.ConnectorSession;
+
 public interface ExpressionOptimizerProvider
 {
-    ExpressionOptimizer getExpressionOptimizer();
+    ExpressionOptimizer getExpressionOptimizer(ConnectorSession session);
 }

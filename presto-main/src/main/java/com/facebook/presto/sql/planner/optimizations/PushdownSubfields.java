@@ -165,7 +165,7 @@ public class PushdownSubfields
             this.metadata = requireNonNull(metadata, "metadata is null");
             requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
             this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
-            this.expressionOptimizer = expressionOptimizerProvider.getExpressionOptimizer();
+            this.expressionOptimizer = expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession());
             this.subfieldExtractor = new SubfieldExtractor(
                     functionResolution,
                     expressionOptimizer,

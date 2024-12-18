@@ -356,7 +356,7 @@ public class IcebergMetadataOptimizer
                         throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "unsupported function: " + scalarFunctionName);
                     }
 
-                    Object reducedValue = rowExpressionService.getExpressionOptimizer().optimize(
+                    Object reducedValue = rowExpressionService.getExpressionOptimizer(connectorSession).optimize(
                             new CallExpression(
                                     Optional.empty(),
                                     scalarFunctionName,

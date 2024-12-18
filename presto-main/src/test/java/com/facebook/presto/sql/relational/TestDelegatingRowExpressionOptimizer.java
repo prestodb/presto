@@ -56,7 +56,7 @@ public class TestDelegatingRowExpressionOptimizer
     @BeforeClass
     public void setUp()
     {
-        optimizer = new DelegatingRowExpressionOptimizer(METADATA, InnerOptimizer::new, 3);
+        optimizer = new DelegatingRowExpressionOptimizer(METADATA, (ConnectorSession session) -> new InnerOptimizer(), 3);
     }
 
     @AfterClass(alwaysRun = true)

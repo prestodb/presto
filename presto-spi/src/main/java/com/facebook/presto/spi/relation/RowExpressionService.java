@@ -23,7 +23,7 @@ public interface RowExpressionService
 {
     DomainTranslator getDomainTranslator();
 
-    ExpressionOptimizer getExpressionOptimizer();
+    ExpressionOptimizer getExpressionOptimizer(ConnectorSession session);
 
     PredicateCompiler getPredicateCompiler();
 

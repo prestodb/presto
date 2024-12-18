@@ -67,7 +67,7 @@ public class TestingConnectorContext
     private final DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
     private final PredicateCompiler predicateCompiler = new RowExpressionPredicateCompiler(metadata);
     private final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-    private final ExpressionOptimizerProvider expressionOptimizerProvider = () -> new RowExpressionOptimizer(metadata);
+    private final ExpressionOptimizerProvider expressionOptimizerProvider = (ConnectorSession session) -> new RowExpressionOptimizer(metadata);
     private final FilterStatsCalculatorService filterStatsCalculatorService = new ConnectorFilterStatsCalculatorService(new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, expressionOptimizerProvider), new StatsNormalizer()));
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
@@ -119,7 +119,7 @@ public class TestingConnectorContext
             }
 
             @Override
-            public ExpressionOptimizer getExpressionOptimizer()
+            public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
             {
                 return new RowExpressionOptimizer(metadata);
             }

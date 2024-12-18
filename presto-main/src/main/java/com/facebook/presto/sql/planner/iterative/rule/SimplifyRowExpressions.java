@@ -21,19 +21,15 @@ import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.relation.CallExpression;
-import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.iterative.Rule;
-import com.facebook.presto.sql.relational.DelegatingRowExpressionOptimizer;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
-import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.annotations.VisibleForTesting;
 
-import static com.facebook.presto.SystemSessionProperties.isDelegatingRowExpressionOptimizerEnabled;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
@@ -52,8 +48,7 @@ public class SimplifyRowExpressions
     private static class Rewriter
             implements PlanRowExpressionRewriter
     {
-        private final ExpressionOptimizer inMemoryExpressionOptimizer;
-        private final ExpressionOptimizer delegatingExpressionOptimizer;
+        private final ExpressionOptimizerManager expressionOptimizerManager;
         private final LogicalExpressionRewriter logicalExpressionRewriter;
 
         public Rewriter(Metadata metadata, ExpressionOptimizerManager expressionOptimizerManager, FeaturesConfig featuresConfig)
@@ -61,8 +56,7 @@ public class SimplifyRowExpressions
             requireNonNull(metadata, "metadata is null");
             requireNonNull(expressionOptimizerManager, "expressionOptimizerManager is null");
             requireNonNull(featuresConfig, "featuresConfig is null");
-            this.inMemoryExpressionOptimizer = new RowExpressionOptimizer(metadata);
-            this.delegatingExpressionOptimizer = new DelegatingRowExpressionOptimizer(metadata, expressionOptimizerManager, featuresConfig.getDelegatingRowExpressionOptimizerMaxIterations());
+            this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionOptimizerManager is null");
             this.logicalExpressionRewriter = new LogicalExpressionRewriter(metadata.getFunctionAndTypeManager());
         }
 
@@ -77,12 +71,7 @@ public class SimplifyRowExpressions
             // Rewrite RowExpression first to reduce depth of RowExpression tree by balancing AND/OR predicates.
             // It doesn't matter whether we rewrite/optimize first because this will be called by IterativeOptimizer.
             RowExpression rewritten = RowExpressionTreeRewriter.rewriteWith(logicalExpressionRewriter, expression, true);
-            if (isDelegatingRowExpressionOptimizerEnabled(session)) {
-                return delegatingExpressionOptimizer.optimize(rewritten, SERIALIZABLE, session.toConnectorSession());
-            }
-            else {
-                return inMemoryExpressionOptimizer.optimize(rewritten, SERIALIZABLE, session.toConnectorSession());
-            }
+            return expressionOptimizerManager.getExpressionOptimizer(session.toConnectorSession()).optimize(rewritten, SERIALIZABLE, session.toConnectorSession());
         }
     }
 

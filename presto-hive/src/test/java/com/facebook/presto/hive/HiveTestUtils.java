@@ -126,7 +126,7 @@ public final class HiveTestUtils
         }
 
         @Override
-        public ExpressionOptimizer getExpressionOptimizer()
+        public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
         {
             return new RowExpressionOptimizer(METADATA);
         }

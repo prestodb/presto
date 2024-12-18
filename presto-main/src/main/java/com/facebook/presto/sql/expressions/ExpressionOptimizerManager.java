@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.sql.expressions;
 
+import com.facebook.presto.FullConnectorSession;
+import com.facebook.presto.Session;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
@@ -33,6 +36,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.SystemSessionProperties.isDelegatingRowExpressionOptimizerEnabled;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -96,8 +100,13 @@ public class ExpressionOptimizerManager
     }
 
     @Override
-    public ExpressionOptimizer getExpressionOptimizer()
+    public ExpressionOptimizer getExpressionOptimizer(ConnectorSession connectorSession)
     {
-        return rowExpressionInterpreter.get();
+        checkArgument(connectorSession instanceof FullConnectorSession, "connectorSession is not an instance of FullConnectorSession");
+        Session session = ((FullConnectorSession) connectorSession).getSession();
+        if (isDelegatingRowExpressionOptimizerEnabled(session)) {
+            return rowExpressionInterpreter.get();
+        }
+        return defaultExpressionOptimizer;
     }
 }

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
@@ -31,7 +32,7 @@ public class InMemoryExpressionOptimizerProvider
     }
 
     @Override
-    public ExpressionOptimizer getExpressionOptimizer()
+    public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
     {
         return new RowExpressionOptimizer(metadata);
     }

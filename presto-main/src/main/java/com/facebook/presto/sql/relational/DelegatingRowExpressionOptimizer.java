@@ -51,7 +51,7 @@ public final class DelegatingRowExpressionOptimizer
     @Override
     public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
     {
-        ExpressionOptimizer delegate = expressionOptimizerManager.getExpressionOptimizer();
+        ExpressionOptimizer delegate = expressionOptimizerManager.getExpressionOptimizer(session);
         RowExpression originalExpression;
         for (int i = 0; i < maxOptimizationAttempts; i++) {
             // Do not optimize ConstantExpression, and InputReferenceExpression because they cannot be optimized further
@@ -71,7 +71,7 @@ public final class DelegatingRowExpressionOptimizer
     @Override
     public Object optimize(RowExpression rowExpression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
     {
-        ExpressionOptimizer delegate = expressionOptimizerManager.getExpressionOptimizer();
+        ExpressionOptimizer delegate = expressionOptimizerManager.getExpressionOptimizer(session);
         Object currentExpression = rowExpression;
         Object originalExpression;
         for (int i = 0; i < maxOptimizationAttempts; i++) {
