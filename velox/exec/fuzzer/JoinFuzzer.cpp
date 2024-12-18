@@ -61,10 +61,10 @@ DEFINE_bool(
     "up after failures. Therefore, results are not compared when this is "
     "enabled. Note that this option only works in debug builds.");
 
-DEFINE_bool(
-    enable_filter,
-    false,
-    "Whether to test plans with filters enabled.");
+DEFINE_double(
+    filter_ratio,
+    0,
+    "The chance of testing plans with filters enabled.");
 
 namespace facebook::velox::exec::test {
 
@@ -1046,8 +1046,8 @@ void JoinFuzzer::verify(core::JoinType joinType) {
   const bool nullAware =
       isNullAwareSupported(joinType) && vectorFuzzer_.coinToss(0.5);
 
-  // Add boolean/integer join filter 10% of the time.
-  const bool withFilter = vectorFuzzer_.coinToss(0.1) && FLAGS_enable_filter;
+  // Add boolean/integer join filter.
+  const bool withFilter = vectorFuzzer_.coinToss(FLAGS_filter_ratio);
   // Null-aware joins allow only one join key.
   const int numKeys = nullAware ? (withFilter ? 0 : 1) : randInt(1, 5);
   std::vector<TypePtr> keyTypes = generateJoinKeyTypes(numKeys);
