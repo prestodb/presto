@@ -110,7 +110,6 @@ public class TestSqlStageExecution
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
-                null,
                 null);
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 

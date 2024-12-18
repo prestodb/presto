@@ -270,7 +270,7 @@ public class PrestoSparkTaskExecution
 
                         checkTaskCompletion();
 
-                        splitMonitor.splitCompletedEvent(taskId, getDriverStats(), null, null);
+                        splitMonitor.splitCompletedEvent(taskId, getDriverStats(), null);
                     }
                 }
 
@@ -284,7 +284,7 @@ public class PrestoSparkTaskExecution
                         remainingDrivers.decrementAndGet();
 
                         // fire failed event with cause
-                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause, null, null);
+                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause, null);
                     }
                 }
 

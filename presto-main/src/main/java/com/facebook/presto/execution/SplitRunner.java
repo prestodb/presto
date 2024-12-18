@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
 
 import java.io.Closeable;
 
@@ -31,7 +31,7 @@ public interface SplitRunner
     @Override
     void close();
 
-    default Span getPipelineSpan()
+    default TracingSpan getPipelineSpan()
     {
         return null;
     }

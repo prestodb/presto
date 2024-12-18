@@ -15,7 +15,6 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.telemetry.tracing.TracingEnum;
@@ -34,6 +33,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.opentelemetry.tracing.ScopedSpan;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
@@ -65,14 +65,10 @@ import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
-import com.facebook.presto.telemetry.TelemetryManager;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -154,7 +150,6 @@ public class SqlQueryExecution
     private final AnalyzerContext analyzerContext;
     private final CompletableFuture<PlanRoot> planFuture;
     private final AtomicBoolean planFutureLocked = new AtomicBoolean();
-    private final Tracer tracer;
 
     private SqlQueryExecution(
             QueryAnalyzer queryAnalyzer,
@@ -181,8 +176,7 @@ public class SqlQueryExecution
             CostCalculator costCalculator,
             PlanChecker planChecker,
             PartialResultQueryManager partialResultQueryManager,
-            PlanCanonicalInfoProvider planCanonicalInfoProvider,
-            Tracer tracer)
+            PlanCanonicalInfoProvider planCanonicalInfoProvider)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
@@ -207,17 +201,12 @@ public class SqlQueryExecution
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
             this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession());
-            this.tracer = tracer;
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
 
-            Span querySpan = getSession().getQuerySpan();
-            Span span = (!TelemetryConfig.getTracingEnabled()) ? null : TelemetryManager.getTracer().spanBuilder(TracingEnum.ANALYZER.getName())
-                    .setParent((querySpan != null) ? Context.current().with(querySpan) : Context.current())
-                    .startSpan();
-
-            try (ScopedSpan spanIgnored = scopedSpan(span)) {
+            TracingSpan querySpan = getSession().getQuerySpan();
+            try (ScopedSpan spanIgnored = scopedSpan(querySpan, TracingEnum.ANALYZER.getName())) {
                 try (TimeoutThread unused = new TimeoutThread(
                         Thread.currentThread(),
                         timeoutThreadExecutor,
@@ -573,11 +562,8 @@ public class SqlQueryExecution
                             LOGICAL_PLANNER_TIME_NANOS,
                             () -> queryAnalyzer.plan(this.analyzerContext, queryAnalysis));
 
-            Span querySpan = getSession().getQuerySpan();
-            Span span = (!TelemetryConfig.getTracingEnabled()) ? null : TelemetryManager.getTracer().spanBuilder(TracingEnum.PLANNER.getName())
-                    .setParent((querySpan != null) ? Context.current().with(querySpan) : Context.current())
-                    .startSpan();
-            try (ScopedSpan ignored = scopedSpan(span)) {
+            TracingSpan querySpan = getSession().getQuerySpan();
+            try (ScopedSpan ignored = scopedSpan(querySpan, TracingEnum.PLANNER.getName())) {
                 return optimizePlan(planNode);
             }
         }
@@ -601,10 +587,10 @@ public class SqlQueryExecution
                 false);
 
         Plan plan;
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "Plan Optimizer")) {
+        try (ScopedSpan ignored = scopedSpan("Plan Optimizer")) {
             plan = getSession().getRuntimeStats().profileNanos(
                     OPTIMIZER_TIME_NANOS,
-                    () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED, TelemetryManager.getTracer()));
+                    () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
         }
 
         queryPlan.set(plan);
@@ -616,13 +602,13 @@ public class SqlQueryExecution
         stateMachine.setPlanCanonicalInfo(canonicalPlanWithInfos);
 
         // extract inputs
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "extract-inputs")) {
+        try (ScopedSpan ignored = scopedSpan("extract-inputs")) {
             List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());
             stateMachine.setInputs(inputs);
         }
 
         // extract output
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "extract-outputs")) {
+        try (ScopedSpan ignored = scopedSpan("extract-outputs")) {
             Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
             stateMachine.setOutput(output);
 
@@ -631,7 +617,7 @@ public class SqlQueryExecution
             variableAllocator.set(new VariableAllocator(plan.getTypes().allVariables()));
             SubPlan fragmentedPlan;
 
-            try (ScopedSpan spanIgnored = scopedSpan(TelemetryManager.getTracer(), "fragment-plan")) {
+            try (ScopedSpan spanIgnored = scopedSpan("fragment-plan")) {
                 fragmentedPlan = getSession().getRuntimeStats().profileNanos(
                         FRAGMENT_PLAN_TIME_NANOS,
                         () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false,
@@ -716,8 +702,7 @@ public class SqlQueryExecution
                 planChecker,
                 metadata,
                 sqlParser,
-                partialResultQueryManager,
-                TelemetryManager.getTracer());
+                partialResultQueryManager);
 
         queryScheduler.set(scheduler);
 
@@ -1029,8 +1014,7 @@ public class SqlQueryExecution
                     costCalculator,
                     planChecker,
                     partialResultQueryManager,
-                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider(),
-                    TelemetryManager.getTracer());
+                    historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider());
         }
     }
 }

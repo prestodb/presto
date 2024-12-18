@@ -25,7 +25,7 @@ public class TelemetryModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TelemetryManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(TelemetryManager.class).withGeneratedName();
+        binder.bind(OpenTelemetryTracingManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(OpenTelemetryTracingManager.class).withGeneratedName();
     }
 }

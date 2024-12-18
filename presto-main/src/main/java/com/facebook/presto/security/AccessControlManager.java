@@ -36,7 +36,6 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
-import com.facebook.presto.telemetry.TelemetryManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -101,7 +100,7 @@ public class AccessControlManager
 
     public void addSystemAccessControlFactory(SystemAccessControlFactory accessControlFactory)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), TracingEnum.ADD_SYSTEM_ACCESS_CONTROL_FACTORY.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan(TracingEnum.ADD_SYSTEM_ACCESS_CONTROL_FACTORY.getName(), skipSpan)) {
             requireNonNull(accessControlFactory, "accessControlFactory is null");
 
             if (systemAccessControlFactories.putIfAbsent(accessControlFactory.getName(), accessControlFactory) != null) {
@@ -112,7 +111,7 @@ public class AccessControlManager
 
     public void addCatalogAccessControl(ConnectorId connectorId, ConnectorAccessControl accessControl)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), TracingEnum.ADD_CATALOG_ACCESS_CONTROL.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan(TracingEnum.ADD_CATALOG_ACCESS_CONTROL.getName(), skipSpan)) {
             requireNonNull(connectorId, "connectorId is null");
             requireNonNull(accessControl, "accessControl is null");
             checkState(connectorAccessControl.putIfAbsent(connectorId, new CatalogAccessControlEntry(connectorId, accessControl)) == null,
@@ -122,7 +121,7 @@ public class AccessControlManager
 
     public void removeCatalogAccessControl(ConnectorId connectorId)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), TracingEnum.REMOVE_CATALOG_ACCESS_CONTROL.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan(TracingEnum.REMOVE_CATALOG_ACCESS_CONTROL.getName(), skipSpan)) {
             connectorAccessControl.remove(connectorId);
         }
     }
@@ -130,7 +129,7 @@ public class AccessControlManager
     public void loadSystemAccessControl()
             throws Exception
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), TracingEnum.LOAD_CATALOG_ACCESS_CONTROL.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan(TracingEnum.LOAD_CATALOG_ACCESS_CONTROL.getName(), skipSpan)) {
             if (ACCESS_CONTROL_CONFIGURATION.exists()) {
                 Map<String, String> properties = loadProperties(ACCESS_CONTROL_CONFIGURATION);
                 checkArgument(!isNullOrEmpty(properties.get(ACCESS_CONTROL_PROPERTY_NAME)),
@@ -148,7 +147,7 @@ public class AccessControlManager
 
     public void loadSystemAccessControl(Map<String, String> properties)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.LOAD_SYSTEM_ACCESS_CONTROL.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.LOAD_SYSTEM_ACCESS_CONTROL.getName(), skipSpan)) {
             properties = new HashMap<>(properties);
             String accessControlName = properties.remove(ACCESS_CONTROL_PROPERTY_NAME);
             checkArgument(!isNullOrEmpty(accessControlName), "%s property must be present", ACCESS_CONTROL_PROPERTY_NAME);
@@ -160,7 +159,7 @@ public class AccessControlManager
     @VisibleForTesting
     protected void setSystemAccessControl(String name, Map<String, String> properties)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.SET_SYSTEM_ACCESS_CONTROL.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.SET_SYSTEM_ACCESS_CONTROL.getName(), skipSpan)) {
             requireNonNull(name, "name is null");
             requireNonNull(properties, "properties is null");
 
@@ -181,7 +180,7 @@ public class AccessControlManager
     @Override
     public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SET_USER.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SET_USER.getName(), skipSpan)) {
             requireNonNull(principal, "principal is null");
             requireNonNull(userName, "userName is null");
 
@@ -192,7 +191,7 @@ public class AccessControlManager
     @Override
     public AuthorizedIdentity selectAuthorizedIdentity(Identity identity, AccessControlContext context, String userName, List<X509Certificate> certificates)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.SELECT_AUTHORIZED_IDENTITY.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.SELECT_AUTHORIZED_IDENTITY.getName(), skipSpan)) {
             requireNonNull(userName, "userName is null");
             requireNonNull(certificates, "certificates is null");
 
@@ -203,7 +202,7 @@ public class AccessControlManager
     @Override
     public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_QUERY_INTEGRITY.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_QUERY_INTEGRITY.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(query, "query is null");
 
@@ -214,7 +213,7 @@ public class AccessControlManager
     @Override
     public Set<String> filterCatalogs(Identity identity, AccessControlContext context, Set<String> catalogs)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.FILTER_CATALOGS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.FILTER_CATALOGS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogs, "catalogs is null");
 
@@ -225,7 +224,7 @@ public class AccessControlManager
     @Override
     public void checkCanAccessCatalog(Identity identity, AccessControlContext context, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_ACCESS_CATALOG.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_ACCESS_CATALOG.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogName, "catalog is null");
 
@@ -236,7 +235,7 @@ public class AccessControlManager
     @Override
     public void checkCanCreateSchema(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schemaName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_CREATE_SCHEMA.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_CREATE_SCHEMA.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(schemaName, "schemaName is null");
 
@@ -254,7 +253,7 @@ public class AccessControlManager
     @Override
     public void checkCanDropSchema(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schemaName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_DROP_SCHEMA.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_DROP_SCHEMA.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(schemaName, "schemaName is null");
 
@@ -272,7 +271,7 @@ public class AccessControlManager
     @Override
     public void checkCanRenameSchema(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schemaName, String newSchemaName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_RENAME_SCHEMA.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_RENAME_SCHEMA.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(schemaName, "schemaName is null");
 
@@ -290,7 +289,7 @@ public class AccessControlManager
     @Override
     public void checkCanShowSchemas(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SHOW_SCHEMAS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SHOW_SCHEMAS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogName, "catalogName is null");
 
@@ -308,7 +307,7 @@ public class AccessControlManager
     @Override
     public Set<String> filterSchemas(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName, Set<String> schemaNames)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.FILTER_SCHEMAS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.FILTER_SCHEMAS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogName, "catalogName is null");
             requireNonNull(schemaNames, "schemaNames is null");
@@ -330,7 +329,7 @@ public class AccessControlManager
     @Override
     public void checkCanCreateTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_CREATE_TABLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_CREATE_TABLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -348,7 +347,7 @@ public class AccessControlManager
     @Override
     public void checkCanDropTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_DROP_TABLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_DROP_TABLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -366,7 +365,7 @@ public class AccessControlManager
     @Override
     public void checkCanRenameTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_RENAME_TABLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_RENAME_TABLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
             requireNonNull(newTableName, "newTableName is null");
@@ -398,7 +397,7 @@ public class AccessControlManager
     @Override
     public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SHOW_TABLES_METADATA.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SHOW_TABLES_METADATA.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(schema, "schema is null");
 
@@ -416,7 +415,7 @@ public class AccessControlManager
     @Override
     public Set<SchemaTableName> filterTables(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName, Set<SchemaTableName> tableNames)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.FILTER_TABLES.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.FILTER_TABLES.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogName, "catalogName is null");
             requireNonNull(tableNames, "tableNames is null");
@@ -438,7 +437,7 @@ public class AccessControlManager
     @Override
     public void checkCanAddColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_ADD_COLUMNS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_ADD_COLUMNS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -456,7 +455,7 @@ public class AccessControlManager
     @Override
     public void checkCanDropColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_DROP_COLUMN.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_DROP_COLUMN.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -474,7 +473,7 @@ public class AccessControlManager
     @Override
     public void checkCanRenameColumn(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_RENAME_COLUMN.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_RENAME_COLUMN.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -492,7 +491,7 @@ public class AccessControlManager
     @Override
     public void checkCanInsertIntoTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_INSERT_INTO_TABLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_INSERT_INTO_TABLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -510,7 +509,7 @@ public class AccessControlManager
     @Override
     public void checkCanDeleteFromTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_DELETE_FROM_TABLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_DELETE_FROM_TABLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -528,7 +527,7 @@ public class AccessControlManager
     @Override
     public void checkCanTruncateTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_TRUNCATE_TABLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_TRUNCATE_TABLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -546,7 +545,7 @@ public class AccessControlManager
     @Override
     public void checkCanUpdateTableColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> updatedColumnNames)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_UPDATE_TABLE_COLUMNS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_UPDATE_TABLE_COLUMNS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -564,7 +563,7 @@ public class AccessControlManager
     @Override
     public void checkCanCreateView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_CREATE_VIEW.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_CREATE_VIEW.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(viewName, "viewName is null");
 
@@ -582,7 +581,7 @@ public class AccessControlManager
     @Override
     public void checkCanDropView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_DROP_VIEW.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_DROP_VIEW.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(viewName, "viewName is null");
 
@@ -600,7 +599,7 @@ public class AccessControlManager
     @Override
     public void checkCanCreateViewWithSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<String> columnNames)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_CREATE_VIEW_WITH_SELECT_FROM_COLUMNS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_CREATE_VIEW_WITH_SELECT_FROM_COLUMNS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -618,7 +617,7 @@ public class AccessControlManager
     @Override
     public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, AccessControlContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean withGrantOption)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_GRANT_TABLE_PRIVILEGE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_GRANT_TABLE_PRIVILEGE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
             requireNonNull(privilege, "privilege is null");
@@ -637,7 +636,7 @@ public class AccessControlManager
     @Override
     public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, AccessControlContext context, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOptionFor)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_REVOKE_TABLE_PRIVILEGE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_REVOKE_TABLE_PRIVILEGE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
             requireNonNull(privilege, "privilege is null");
@@ -656,7 +655,7 @@ public class AccessControlManager
     @Override
     public void checkCanSetSystemSessionProperty(Identity identity, AccessControlContext context, String propertyName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SET_SYSTEM_SESSION_PROPERTY.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SET_SYSTEM_SESSION_PROPERTY.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(propertyName, "propertyName is null");
 
@@ -667,7 +666,7 @@ public class AccessControlManager
     @Override
     public void checkCanSetCatalogSessionProperty(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName, String propertyName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SET_CATALOG_SESSION_PROPERTY.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SET_CATALOG_SESSION_PROPERTY.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogName, "catalogName is null");
             requireNonNull(propertyName, "propertyName is null");
@@ -686,7 +685,7 @@ public class AccessControlManager
     @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SELECT_FROM_COLUMNS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SELECT_FROM_COLUMNS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
             requireNonNull(columnOrSubfieldNames, "columnOrSubfieldNames is null");
@@ -709,7 +708,7 @@ public class AccessControlManager
     @Override
     public void checkCanCreateRole(TransactionId transactionId, Identity identity, AccessControlContext context, String role, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_CREATE_ROLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_CREATE_ROLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(role, "role is null");
             requireNonNull(grantor, "grantor is null");
@@ -727,7 +726,7 @@ public class AccessControlManager
     @Override
     public void checkCanDropRole(TransactionId transactionId, Identity identity, AccessControlContext context, String role, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_DROP_ROLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_DROP_ROLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(role, "role is null");
             requireNonNull(catalogName, "catalogName is null");
@@ -744,7 +743,7 @@ public class AccessControlManager
     @Override
     public void checkCanGrantRoles(TransactionId transactionId, Identity identity, AccessControlContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean withAdminOption, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_GRANT_ROLES.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_GRANT_ROLES.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(roles, "roles is null");
             requireNonNull(grantees, "grantees is null");
@@ -763,7 +762,7 @@ public class AccessControlManager
     @Override
     public void checkCanRevokeRoles(TransactionId transactionId, Identity identity, AccessControlContext context, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOptionFor, Optional<PrestoPrincipal> grantor, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_REVOKE_ROLES.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_REVOKE_ROLES.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(roles, "roles is null");
             requireNonNull(grantees, "grantees is null");
@@ -782,7 +781,7 @@ public class AccessControlManager
     @Override
     public void checkCanSetRole(TransactionId transactionId, Identity identity, AccessControlContext context, String role, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SET_ROLE.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SET_ROLE.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(role, "role is null");
             requireNonNull(catalogName, "catalog is null");
@@ -799,7 +798,7 @@ public class AccessControlManager
     @Override
     public void checkCanShowRoles(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SHOW_ROLES.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SHOW_ROLES.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogName, "catalogName is null");
 
@@ -815,7 +814,7 @@ public class AccessControlManager
     @Override
     public void checkCanShowCurrentRoles(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SHOW_CURRENT_ROLES.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SHOW_CURRENT_ROLES.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogName, "catalogName is null");
 
@@ -831,7 +830,7 @@ public class AccessControlManager
     @Override
     public void checkCanShowRoleGrants(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_SHOW_ROLE_GRANTS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_SHOW_ROLE_GRANTS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(catalogName, "catalogName is null");
 
@@ -847,7 +846,7 @@ public class AccessControlManager
     @Override
     public void checkCanDropConstraint(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_DROP_CONSTRAINT.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_DROP_CONSTRAINT.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -865,7 +864,7 @@ public class AccessControlManager
     @Override
     public void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.CHECK_CAN_ADD_CONSTRAINTS.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.CHECK_CAN_ADD_CONSTRAINTS.getName(), skipSpan)) {
             requireNonNull(identity, "identity is null");
             requireNonNull(tableName, "tableName is null");
 
@@ -882,7 +881,7 @@ public class AccessControlManager
 
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
-        try (ScopedSpan ignored = scopedSpan(TelemetryManager.getTracer(), "AccessControl." + TracingEnum.GET_CONNECTOR_ACCESS_CONTROL.getName(), skipSpan)) {
+        try (ScopedSpan ignored = scopedSpan("AccessControl." + TracingEnum.GET_CONNECTOR_ACCESS_CONTROL.getName(), skipSpan)) {
             return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
                     .map(metadata -> connectorAccessControl.get(metadata.getConnectorId()))
                     .orElse(null);

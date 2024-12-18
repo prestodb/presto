@@ -14,9 +14,9 @@
 package com.facebook.presto.eventlistener;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.opentelemetry.tracing.ScopedSpan;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -27,9 +27,6 @@ import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
 
 import java.io.File;
 import java.util.HashMap;
@@ -129,20 +126,9 @@ public class EventListenerManager
                 .ifPresent(eventListener -> eventListener.publishQueryProgress(queryProgressEvent));
     }
 
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent, Context context, Tracer tracer)
+    public void splitCompleted(SplitCompletedEvent splitCompletedEvent, TracingSpan pipelineSpan)
     {
-        Span splitSpan = (!TelemetryConfig.getTracingEnabled() || TelemetryConfig.getSpanSampling()) ? null : tracer.spanBuilder(TracingEnum.SPLIT.getName())
-                .setParent(context)
-                .setAttribute("QUERY_ID", splitCompletedEvent.getQueryId())
-                .setAttribute("STAGE_ID", splitCompletedEvent.getStageId())
-                .setAttribute("TASK_ID", splitCompletedEvent.getTaskId())
-                .setAttribute("START_TIME", splitCompletedEvent.getStartTime().map(String::valueOf).orElse(""))
-                .setAttribute("END_TIME", splitCompletedEvent.getEndTime().map(String::valueOf).orElse(""))
-                .setAttribute("PAYLOAD", splitCompletedEvent.getPayload())
-                .setAttribute("FAILURE_INFO", splitCompletedEvent.getFailureInfo().map(String::valueOf).orElse(""))
-                .startSpan();
-
-        try (ScopedSpan ignored = scopedSpan(splitSpan)) {
+        try (ScopedSpan ignored = scopedSpan(pipelineSpan, TracingEnum.SPLIT.getName(), ImmutableMap.of("QUERY_ID", splitCompletedEvent.getQueryId(), "STAGE_ID", splitCompletedEvent.getStageId(), "TASK_ID", splitCompletedEvent.getTaskId(), "START_TIME", splitCompletedEvent.getStartTime().map(String::valueOf).orElse(""), "END_TIME", splitCompletedEvent.getEndTime().map(String::valueOf).orElse(""), "PAYLOAD", splitCompletedEvent.getPayload(), "FAILURE_INFO", splitCompletedEvent.getFailureInfo().map(String::valueOf).orElse("")))) {
             configuredEventListener.get()
                     .ifPresent(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
         }

@@ -18,27 +18,26 @@ import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.common.ErrorCode;
-import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.dispatcher.DispatchExecutor;
 import com.facebook.presto.dispatcher.DispatchInfo;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.server.HttpRequestSessionContext;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.telemetry.TelemetryManager;
+import com.facebook.presto.telemetry.OpenTelemetryTracingManager;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.SpanKind;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -534,11 +533,8 @@ public class QueuedStatementResource
             synchronized (this) {
                 if (querySubmissionFuture == null) {
                     //start tracing with root span for POST /v1/statement endpoint
-                    Span rootSpan = (!TelemetryConfig.getTracingEnabled()) ? null : TelemetryManager.getTracer().spanBuilder(TracingEnum.ROOT.getName()).setSpanKind(SpanKind.SERVER).startSpan();
-                    Span querySpan = (!TelemetryConfig.getTracingEnabled()) ? null : TelemetryManager.getTracer().spanBuilder(TracingEnum.QUERY.getName())
-                            .setAttribute("QUERY_ID", queryId.toString())
-                            .setParent(io.opentelemetry.context.Context.current().with(rootSpan))
-                            .startSpan();
+                    TracingSpan rootSpan = OpenTelemetryTracingManager.getRootSpan();
+                    TracingSpan querySpan = OpenTelemetryTracingManager.getSpan(rootSpan, TracingEnum.QUERY.getName(), ImmutableMap.of("QUERY_ID", queryId.toString()));
 
                     //propagate root and query spans through session
                     querySubmissionFuture = dispatchManager.createQuery(queryId, querySpan, rootSpan, slug, retryCount, sessionContext, query);

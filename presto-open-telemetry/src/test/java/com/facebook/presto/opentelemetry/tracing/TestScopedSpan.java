@@ -14,7 +14,6 @@
 package com.facebook.presto.opentelemetry.tracing;
 
 import com.facebook.presto.common.TelemetryConfig;
-import io.opentelemetry.api.OpenTelemetry;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertNotNull;
@@ -24,9 +23,9 @@ public class TestScopedSpan
     @Test
     public void testScopedSpan()
     {
-        assertNotNull(ScopedSpan.scopedSpan(OpenTelemetry.noop().getTracer("no-op"), "no-op"));
+        assertNotNull(ScopedSpan.scopedSpan("no-op"));
 
         TelemetryConfig.getTelemetryConfig().setTracingEnabled(true);
-        assertNotNull(ScopedSpan.scopedSpan(OpenTelemetry.noop().getTracer("no-op"), "no-op"));
+        assertNotNull(ScopedSpan.scopedSpan("no-op"));
     }
 }

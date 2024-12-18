@@ -14,11 +14,13 @@
 package com.facebook.presto.opentelemetry.tracing;
 
 import com.facebook.presto.common.TelemetryConfig;
+import com.facebook.presto.telemetry.OpenTelemetryTracingManager;
 import com.google.errorprone.annotations.MustBeClosed;
 import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.context.Scope;
 
+import java.util.Map;
 import java.util.Objects;
 
 public final class ScopedSpan
@@ -52,18 +54,17 @@ public final class ScopedSpan
 
     /**
      * starts a basic span and passes it to overloaded method. This method is used for creating basic spans with no attributes.
-     * @param tracer tracer instance
      * @param name name of span to be created
      * @param skipSpan optional parameter to implement span sampling by skipping the current span export
      * @return
      */
     @MustBeClosed
-    public static ScopedSpan scopedSpan(Tracer tracer, String name, Boolean... skipSpan)
+    public static ScopedSpan scopedSpan(String name, Boolean... skipSpan)
     {
         if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
             return null;
         }
-        return scopedSpan(tracer.spanBuilder(name).startSpan());
+        return scopedSpan(new TracingSpan(OpenTelemetryTracingManager.getTracer().spanBuilder(name).startSpan()));
     }
 
     /**
@@ -74,11 +75,53 @@ public final class ScopedSpan
      * @return
      */
     @MustBeClosed
-    public static ScopedSpan scopedSpan(Span span, Boolean... skipSpan)
+    public static ScopedSpan scopedSpan(TracingSpan span, Boolean... skipSpan)
     {
         if ((!TelemetryConfig.getTracingEnabled() || Objects.isNull(span)) || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
             return null;
         }
+        return new ScopedSpan(span.getSpan());
+    }
+
+    @MustBeClosed
+    public static ScopedSpan scopedSpan(TracingSpan parentSpan, String spanName, Map<String, String> attributes, Boolean... skipSpan)
+    {
+        if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
+            return null;
+        }
+        SpanBuilder spanBuilder = OpenTelemetryTracingManager.getTracer().spanBuilder(spanName);
+        Span span = setAttributes(spanBuilder, attributes)
+                .setParent(OpenTelemetryTracingManager.getContext(parentSpan))
+                .startSpan();
         return new ScopedSpan(span);
+    }
+
+    @MustBeClosed
+    public static ScopedSpan scopedSpan(TracingSpan parentSpan, String spanName, Boolean... skipSpan)
+    {
+        if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
+            return null;
+        }
+        Span span = OpenTelemetryTracingManager.getTracer().spanBuilder(spanName)
+                .setParent(OpenTelemetryTracingManager.getContext(parentSpan))
+                .startSpan();
+        return new ScopedSpan(span);
+    }
+
+    @MustBeClosed
+    public static ScopedSpan scopedSpan(String spanName, Map<String, String> attributes, Boolean... skipSpan)
+    {
+        if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
+            return null;
+        }
+        SpanBuilder spanBuilder = OpenTelemetryTracingManager.getTracer().spanBuilder(spanName);
+        Span span = setAttributes(spanBuilder, attributes).startSpan();
+        return new ScopedSpan(span);
+    }
+
+    private static SpanBuilder setAttributes(SpanBuilder spanBuilder, Map<String, String> attributes)
+    {
+        attributes.forEach(spanBuilder::setAttribute);
+        return spanBuilder;
     }
 }
