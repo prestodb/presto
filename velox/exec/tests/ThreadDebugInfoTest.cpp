@@ -34,6 +34,7 @@ using namespace facebook::velox::exec::test;
 // For clang
 #ifdef __has_feature
 #define IS_BUILDING_WITH_ASAN() __has_feature(address_sanitizer)
+#define IS_BUILDING_WITH_TSAN() __has_feature(thread_sanitizer)
 #else
 // For GCC
 #if defined(__SANITIZE_ADDRESS__) && __SANITIZE_ADDRESS__
@@ -41,6 +42,15 @@ using namespace facebook::velox::exec::test;
 #else
 #define IS_BUILDING_WITH_ASAN() 0
 #endif
+#if defined(__SANITIZE_THREAD__) && __SANITIZE_THREAD__
+#define IS_BUILDING_WITH_TSAN() 1
+#else
+#define IS_BUILDING_WITH_TSAN() 0
+#endif
+#endif
+
+#if IS_BUILDING_WITH_TSAN() || IS_BUILDING_WITH_ASAN()
+#define IS_BUILDING_WITH_SAN
 #endif
 
 // Ensure the test class name has "DeathTest" as a prefix to ensure this runs in
@@ -63,7 +73,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinSeperateDriverThread) {
   auto vector = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
   registerFunction<InduceSegFaultFunction, int64_t, int64_t>({"segFault"});
   auto op = PlanBuilder().values({vector}).project({"segFault(c0)"}).planNode();
-#if IS_BUILDING_WITH_ASAN() == 0
+#ifndef IS_BUILDING_WITH_SAN
   ASSERT_DEATH(
       (assertQuery(op, vector)),
       ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor 1.*");
@@ -77,7 +87,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinQueryCompilation) {
   // compilation.
   auto op = PlanBuilder().values({vector}).project({"segFault(1)"}).planNode();
 
-#if IS_BUILDING_WITH_ASAN() == 0
+#ifndef IS_BUILDING_WITH_SAN
   ASSERT_DEATH(
       (assertQuery(op, vector)),
       ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= test_cursor 1.*");
@@ -105,7 +115,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
       queryCtx,
       exec::Task::ExecutionMode::kSerial);
 
-#if IS_BUILDING_WITH_ASAN() == 0
+#ifndef IS_BUILDING_WITH_SAN
   ASSERT_DEATH(
       (task->next()),
       ".*Fatal signal handler. Query Id= TaskCursorQuery_0 Task Id= single.execution.task.0.*");
@@ -114,7 +124,7 @@ DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, withinTheCallingThread) {
 
 DEBUG_ONLY_TEST_F(ThreadDebugInfoDeathTest, noThreadContextSet) {
   int* nullpointer = nullptr;
-#if IS_BUILDING_WITH_ASAN() == 0
+#ifndef IS_BUILDING_WITH_SAN
   ASSERT_DEATH((*nullpointer = 6), ".*ThreadDebugInfo object not found.*");
 #endif
   folly::compiler_must_not_elide(nullpointer);
