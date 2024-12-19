@@ -975,7 +975,7 @@ void updateDWRFWriterOptions(
       std::dynamic_pointer_cast<dwrf::WriterOptions>(writerOptions);
   VELOX_CHECK_NOT_NULL(
       dwrfWriterOptions, "DWRF writer expected a DWRF WriterOptions object.");
-  std::map<std::string, std::string> configs;
+  std::map<std::string, std::string> configs = writerOptions->serdeParameters;
 
   if (writerOptions->compressionKind.has_value()) {
     configs.emplace(

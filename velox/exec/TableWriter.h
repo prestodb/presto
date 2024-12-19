@@ -199,6 +199,11 @@ class TableWriter : public Operator {
 
   void updateStats(const connector::DataSink::Stats& stats);
 
+  // Sets type mappings in `inputMapping_`, `mappedInputType_`, and
+  // `mappedOutputType_`.
+  void setTypeMappings(
+      const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
+
   std::string createTableCommitContext(bool lastOutput);
 
   void setConnectorMemoryReclaimer();
@@ -213,8 +218,16 @@ class TableWriter : public Operator {
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::unique_ptr<connector::DataSink> dataSink_;
+
+  // Contains the mappings between input and output columns.
   std::vector<column_index_t> inputMapping_;
-  std::shared_ptr<const RowType> mappedType_;
+
+  // Stores the mapped input and output types. Note that input types must have
+  // the same types as the types receing in addInput(), but they may be in a
+  // different order. Output type may have different types to allow the writer
+  // to convert them (for example, when writing structs as flap maps).
+  std::shared_ptr<const RowType> mappedInputType_;
+  std::shared_ptr<const RowType> mappedOutputType_;
 
   // The blocking future might be set when finish data sink.
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
