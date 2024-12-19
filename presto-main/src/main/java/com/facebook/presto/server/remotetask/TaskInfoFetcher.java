@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpUriBuilder;
 import com.facebook.airlift.http.client.Request;
@@ -45,16 +44,12 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.GuardedBy;
+import io.netty.channel.EventLoop;
 
 import java.net.URI;
 import java.util.Optional;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -87,31 +82,20 @@ public class TaskInfoFetcher
 
     private final long updateIntervalMillis;
     private final Duration taskInfoRefreshMaxWait;
-    private final AtomicLong lastUpdateNanos = new AtomicLong();
+    private long lastUpdateNanos;
 
-    private final ScheduledExecutorService updateScheduledExecutor;
-
-    private final Executor executor;
+    private final EventLoop taskEventLoop;
     private final HttpClient httpClient;
     private final RequestErrorTracker errorTracker;
 
     private final boolean summarizeTaskInfo;
 
-    @GuardedBy("this")
-    private final AtomicLong currentRequestStartNanos = new AtomicLong();
-
+    private long currentRequestStartNanos;
     private final RemoteTaskStats stats;
-
-    @GuardedBy("this")
     private boolean running;
 
-    @GuardedBy("this")
     private ScheduledFuture<?> scheduledFuture;
-
-    @GuardedBy("this")
     private ListenableFuture<BaseResponse<TaskInfo>> future;
-
-    @GuardedBy("this")
     private ListenableFuture<?> metadataUpdateFuture;
 
     private final boolean isBinaryTransportEnabled;
@@ -133,9 +117,7 @@ public class TaskInfoFetcher
             Codec<MetadataUpdates> metadataUpdatesCodec,
             Duration maxErrorDuration,
             boolean summarizeTaskInfo,
-            Executor executor,
-            ScheduledExecutorService updateScheduledExecutor,
-            ScheduledExecutorService errorScheduledExecutor,
+            EventLoop taskEventLoop,
             RemoteTaskStats stats,
             boolean isBinaryTransportEnabled,
             boolean isThriftTransportEnabled,
@@ -147,24 +129,22 @@ public class TaskInfoFetcher
             Protocol thriftProtocol)
     {
         requireNonNull(initialTask, "initialTask is null");
-        requireNonNull(errorScheduledExecutor, "errorScheduledExecutor is null");
 
         this.taskId = initialTask.getTaskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
-        this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
-        this.finalTaskInfo = new StateMachine<>("task-" + taskId, executor, Optional.empty());
+        this.taskInfo = new StateMachine<>("task " + taskId, taskEventLoop, initialTask);
+        this.finalTaskInfo = new StateMachine<>("task-" + taskId, taskEventLoop, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.metadataUpdatesCodec = requireNonNull(metadataUpdatesCodec, "metadataUpdatesCodec is null");
 
         this.updateIntervalMillis = requireNonNull(updateInterval, "updateInterval is null").toMillis();
         this.taskInfoRefreshMaxWait = requireNonNull(taskInfoRefreshMaxWait, "taskInfoRefreshMaxWait is null");
-        this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-        this.errorTracker = taskRequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), maxErrorDuration, errorScheduledExecutor, "getting info for task");
+        this.errorTracker = taskRequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), maxErrorDuration, taskEventLoop, "getting info for task");
 
         this.summarizeTaskInfo = summarizeTaskInfo;
 
-        this.executor = requireNonNull(executor, "executor is null");
+        this.taskEventLoop = requireNonNull(taskEventLoop, "taskEventLoop is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.isBinaryTransportEnabled = isBinaryTransportEnabled;
@@ -182,7 +162,7 @@ public class TaskInfoFetcher
         return taskInfo.get();
     }
 
-    public synchronized void start()
+    public void start()
     {
         if (running) {
             // already running
@@ -192,7 +172,7 @@ public class TaskInfoFetcher
         scheduleUpdate();
     }
 
-    private synchronized void stop()
+    private void stop()
     {
         running = false;
         if (future != null) {
@@ -223,17 +203,16 @@ public class TaskInfoFetcher
         fireOnceStateChangeListener.stateChanged(finalTaskInfo.get());
     }
 
-    private synchronized void scheduleUpdate()
+    private void scheduleUpdate()
     {
-        scheduledFuture = updateScheduledExecutor.scheduleWithFixedDelay(() -> {
+        scheduledFuture = taskEventLoop.scheduleWithFixedDelay(() -> {
             try {
-                synchronized (this) {
-                    // if the previous request still running, don't schedule a new request
-                    if (future != null && !future.isDone()) {
-                        return;
-                    }
+                // if the previous request still running, don't schedule a new request
+                if (future != null && !future.isDone()) {
+                    return;
                 }
-                if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
+
+                if (nanosSince(lastUpdateNanos).toMillis() >= updateIntervalMillis) {
                     sendNextRequest();
                 }
             }
@@ -244,7 +223,7 @@ public class TaskInfoFetcher
         }, 0, 100, MILLISECONDS);
     }
 
-    private synchronized void sendNextRequest()
+    private void sendNextRequest()
     {
         TaskInfo taskInfo = getTaskInfo();
         TaskStatus taskStatus = taskInfo.getTaskStatus();
@@ -267,7 +246,7 @@ public class TaskInfoFetcher
         // if throttled due to error, asynchronously wait for timeout and try again
         ListenableFuture<?> errorRateLimit = errorTracker.acquireRequestPermit();
         if (!errorRateLimit.isDone()) {
-            errorRateLimit.addListener(this::sendNextRequest, executor);
+            errorRateLimit.addListener(this::sendNextRequest, taskEventLoop);
             return;
         }
 
@@ -300,7 +279,7 @@ public class TaskInfoFetcher
         Request request = requestBuilder.setUri(uri).build();
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, responseHandler);
-        currentRequestStartNanos.set(System.nanoTime());
+        currentRequestStartNanos = System.nanoTime();
         FutureCallback callback;
         if (isThriftTransportEnabled) {
             callback = new ThriftHttpResponseHandler(this, request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR);
@@ -312,10 +291,10 @@ public class TaskInfoFetcher
         Futures.addCallback(
                 future,
                 callback,
-                executor);
+                taskEventLoop);
     }
 
-    synchronized void updateTaskInfo(TaskInfo newValue)
+    void updateTaskInfo(TaskInfo newValue)
     {
         boolean updated = taskInfo.setIf(newValue, oldValue -> {
             TaskStatus oldTaskStatus = oldValue.getTaskStatus();
@@ -337,50 +316,42 @@ public class TaskInfoFetcher
     @Override
     public void success(TaskInfo newValue)
     {
-        try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
-            lastUpdateNanos.set(System.nanoTime());
+        lastUpdateNanos = System.nanoTime();
 
-            long startNanos;
-            synchronized (this) {
-                startNanos = this.currentRequestStartNanos.get();
-            }
-            updateStats(startNanos);
-            errorTracker.requestSucceeded();
-            if (isThriftTransportEnabled) {
-                newValue = convertFromThriftTaskInfo(newValue, connectorTypeSerdeManager, handleResolver);
-            }
-            updateTaskInfo(newValue);
+        long startNanos;
+        startNanos = this.currentRequestStartNanos;
+        updateStats(startNanos);
+        errorTracker.requestSucceeded();
+        if (isThriftTransportEnabled) {
+            newValue = convertFromThriftTaskInfo(newValue, connectorTypeSerdeManager, handleResolver);
         }
+        updateTaskInfo(newValue);
     }
 
     @Override
     public void failed(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
-            lastUpdateNanos.set(System.nanoTime());
+        lastUpdateNanos = System.nanoTime();
 
-            try {
-                // if task not already done, record error
-                if (!isDone(getTaskInfo())) {
-                    errorTracker.requestFailed(cause);
-                }
+        try {
+            // if task not already done, record error
+            if (!isDone(getTaskInfo())) {
+                errorTracker.requestFailed(cause);
             }
-            catch (Error e) {
-                onFail.accept(e);
-                throw e;
-            }
-            catch (RuntimeException e) {
-                onFail.accept(e);
-            }
+        }
+        catch (Error e) {
+            onFail.accept(e);
+            throw e;
+        }
+        catch (RuntimeException e) {
+            onFail.accept(e);
         }
     }
 
     @Override
     public void fatal(Throwable cause)
     {
-        try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
-            onFail.accept(cause);
-        }
+        onFail.accept(cause);
     }
 
     private void updateStats(long currentRequestStartNanos)
@@ -396,10 +367,10 @@ public class TaskInfoFetcher
     private void scheduleMetadataUpdates(MetadataUpdates metadataUpdateRequests)
     {
         MetadataUpdates results = metadataManager.getMetadataUpdateResults(session, queryManager, metadataUpdateRequests, taskId.getQueryId());
-        executor.execute(() -> sendMetadataUpdates(results));
+        taskEventLoop.execute(() -> sendMetadataUpdates(results));
     }
 
-    private synchronized void sendMetadataUpdates(MetadataUpdates results)
+    private void sendMetadataUpdates(MetadataUpdates results)
     {
         TaskStatus taskStatus = getTaskInfo().getTaskStatus();
 
@@ -436,6 +407,6 @@ public class TaskInfoFetcher
                 return response;
             }
         });
-        currentRequestStartNanos.set(System.nanoTime());
+        currentRequestStartNanos = System.nanoTime();
     }
 }
