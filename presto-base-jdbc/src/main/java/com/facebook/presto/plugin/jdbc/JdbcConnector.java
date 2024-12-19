@@ -49,6 +49,7 @@ import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTA
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
 
@@ -131,7 +132,7 @@ public class JdbcConnector
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
         JdbcMetadata metadata = transactions.get(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
     }
 
@@ -146,7 +147,7 @@ public class JdbcConnector
     public void rollback(ConnectorTransactionHandle transaction)
     {
         JdbcMetadata metadata = transactions.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         metadata.rollback();
     }
 

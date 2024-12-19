@@ -315,7 +315,7 @@ public class TestStringStatisticsBuilder
 
     private static void assertMinMaxValuesWithLimit(Slice expectedMin, Slice expectedMax, List<Slice> values, int limit)
     {
-        checkArgument(values != null && values.size() > 0);
+        checkArgument(values.size() > 0);
         StringStatisticsBuilder builder = new StringStatisticsBuilder(limit);
         for (Slice value : values) {
             addValue(builder, value);
@@ -325,7 +325,7 @@ public class TestStringStatisticsBuilder
 
     private static void assertMinMaxValuesWithLimit(Slice expectedMin, Slice expectedMax, List<Slice> values, int limit, long expectedSum)
     {
-        checkArgument(values != null && values.size() > 0);
+        checkArgument(values.size() > 0);
         StringStatisticsBuilder builder = new StringStatisticsBuilder(limit);
         for (Slice value : values) {
             addValue(builder, value);
