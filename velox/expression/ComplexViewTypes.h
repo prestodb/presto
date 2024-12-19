@@ -1030,13 +1030,14 @@ class RowView
       const RowView& other,
       const CompareFlags flags) const {
     if constexpr (Is < sizeof...(T)) {
-      auto result = std::get<Is>(*childReaders_)
-                        ->baseVector()
-                        ->compare(
-                            std::get<Is>(*other.childReaders_)->baseVector(),
-                            offset_,
-                            other.offset_,
-                            flags);
+      auto result =
+          std::get<Is>(*childReaders_)
+              ->baseVector()
+              ->compare(
+                  std::get<Is>(*other.childReaders_)->baseVector(),
+                  std::get<Is>(*childReaders_)->index(offset_),
+                  std::get<Is>(*other.childReaders_)->index(other.offset_),
+                  flags);
       if (!result.has_value()) {
         return std::nullopt;
       }

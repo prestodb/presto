@@ -52,6 +52,10 @@ struct VectorReader {
   explicit VectorReader(const VectorReader<T>&) = delete;
   VectorReader<T>& operator=(const VectorReader<T>&) = delete;
 
+  vector_size_t index(vector_size_t idx) const {
+    return decoded_.index(idx);
+  }
+
   exec_in_t operator[](size_t offset) const {
     return decoded_.template valueAt<exec_in_t>(offset);
   }

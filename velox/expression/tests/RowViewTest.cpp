@@ -170,7 +170,8 @@ class RowViewTest : public functions::test::FunctionBaseTest {
       ASSERT_TRUE(reader2.isSet(0));
       auto l = read(reader1, 0);
       auto r = read(reader2, 0);
-      // Default flag for all operators other than `==` is kNullAsIndeterminate
+      // Default flag for all operators other than `==` is
+      // kNullAsIndeterminate
       VELOX_ASSERT_THROW(r < l, "Ordering nulls is not supported");
       VELOX_ASSERT_THROW(r <= l, "Ordering nulls is not supported");
       VELOX_ASSERT_THROW(r > l, "Ordering nulls is not supported");
@@ -204,6 +205,73 @@ class RowViewTest : public functions::test::FunctionBaseTest {
       auto flags = CompareFlags::equality(
           CompareFlags::NullHandlingMode::kNullAsIndeterminate);
       ASSERT_EQ(l.compare(l, flags), kIndeterminate);
+    }
+
+    // Test a layer of indirection with by wrapping the vector in a dictionary
+    {
+      vector_size_t size = 2;
+      auto field1Vector =
+          makeFlatVector<int32_t>(size, [](vector_size_t row) { return row; });
+      auto field2Vector =
+          makeFlatVector<float>(size, [](vector_size_t row) { return row; });
+      auto baseVector = makeRowVector(
+          {field1Vector, field2Vector}, [](vector_size_t idx) { return idx; });
+      BufferPtr indices =
+          AlignedBuffer::allocate<vector_size_t>(size, execCtx_.pool());
+      auto rawIndices = indices->asMutable<vector_size_t>();
+      for (auto i = 0; i < size; ++i) {
+        rawIndices[i] = i;
+      }
+      auto rowVector = wrapInDictionary(
+          indices, size, wrapInDictionary(indices, size, baseVector));
+      DecodedVector decoded;
+      exec::VectorReader<Row<int32_t, float>> reader(
+          decode(decoded, *rowVector.get()));
+
+      // Test the equals case so that we are traversing all of the tuples and
+      // ensuring correct index accessing.
+      auto l = read(reader, 0);
+      auto r = read(reader, 0);
+      ASSERT_TRUE(l == r);
+    }
+
+    {
+      auto vector1 = makeRowVector(
+          {makeNullableFlatVector<int32_t>({666666666666666, 4, 7}),
+           makeNullableFlatVector<float>({3.0, 1.0, 1.0})});
+      auto vector2 = makeRowVector(
+          {makeNullableFlatVector<int32_t>({3, 123, 5}),
+           makeNullableFlatVector<float>({3.0, 0.5, 0.1})});
+      vector_size_t size = vector1->size();
+      BufferPtr indices =
+          AlignedBuffer::allocate<vector_size_t>(size, execCtx_.pool());
+      auto rawIndices = indices->asMutable<vector_size_t>();
+      for (auto i = 0; i < size; ++i) {
+        rawIndices[i] = size - i - 1;
+      }
+      BufferPtr indices1 =
+          AlignedBuffer::allocate<vector_size_t>(size, execCtx_.pool());
+      auto rawIndices1 = indices1->asMutable<vector_size_t>();
+      for (auto i = 0; i < size; ++i) {
+        rawIndices1[i] = i;
+      }
+
+      DecodedVector decoded1;
+      DecodedVector decoded2;
+      auto wrappedRowVector1 =
+          wrapInDictionary(indices, (vector1->size()), vector1);
+      auto wrappedRowVector2 =
+          wrapInDictionary(indices1, (vector2->size()), vector2);
+      exec::VectorReader<Row<int32_t, float>> reader1(
+          decode(decoded1, *wrappedRowVector1));
+      exec::VectorReader<Row<int32_t, float>> reader2(
+          decode(decoded2, *wrappedRowVector2));
+
+      ASSERT_TRUE(reader1.isSet(0));
+      ASSERT_TRUE(reader2.isSet(0));
+      auto l = read(reader1, 0);
+      auto r = read(reader2, 0);
+      ASSERT_TRUE(l > r);
     }
   }
 
