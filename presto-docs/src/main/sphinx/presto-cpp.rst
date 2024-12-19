@@ -55,3 +55,5 @@ Only specific connectors are supported in the Presto C++ evaluation engine.
 * Iceberg connector supports both V1 and V2 tables, including tables with delete files.
 
 * TPCH connector, with ``tpch.naming=standard`` catalog property.
+
+* TPCDS connector.
