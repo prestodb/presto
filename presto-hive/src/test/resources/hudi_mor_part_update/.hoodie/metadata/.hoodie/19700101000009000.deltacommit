@@ -1,0 +1,186 @@
+{
+  "partitionToWriteStats" : {
+    "record_index" : [ {
+      "fileId" : "record-index-0000-0",
+      "path" : "record_index/.record-index-0000-0_00000000000000011.log.5_0-360-605",
+      "cdcStats" : null,
+      "prevCommit" : "00000000000000011",
+      "numWrites" : 1,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 1,
+      "numInserts" : 0,
+      "totalWriteBytes" : 13282,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "record_index",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 13282,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 56,
+        "totalCreateTime" : 0
+      },
+      "logVersion" : 5,
+      "logOffset" : 0,
+      "baseFile" : "",
+      "logFiles" : [ ".record-index-0000-0_00000000000000011.log.4_0-297-521", ".record-index-0000-0_00000000000000011.log.3_0-171-352", ".record-index-0000-0_00000000000000011.log.2_0-52-201", ".record-index-0000-0_00000000000000011.log.1_0-0-0", ".record-index-0000-0_00000000000000011.log.5_0-360-605" ],
+      "recordsStats" : {
+        "val" : null
+      }
+    }, {
+      "fileId" : "record-index-0001-0",
+      "path" : "record_index/.record-index-0001-0_00000000000000011.log.4_1-360-606",
+      "cdcStats" : null,
+      "prevCommit" : "00000000000000011",
+      "numWrites" : 1,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 1,
+      "numInserts" : 0,
+      "totalWriteBytes" : 13282,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "record_index",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 13282,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 51,
+        "totalCreateTime" : 0
+      },
+      "logVersion" : 4,
+      "logOffset" : 0,
+      "baseFile" : "",
+      "logFiles" : [ ".record-index-0001-0_00000000000000011.log.3_1-171-353", ".record-index-0001-0_00000000000000011.log.2_1-52-202", ".record-index-0001-0_00000000000000011.log.1_0-0-0", ".record-index-0001-0_00000000000000011.log.4_1-360-606" ],
+      "recordsStats" : {
+        "val" : null
+      }
+    }, {
+      "fileId" : "record-index-0008-0",
+      "path" : "record_index/.record-index-0008-0_00000000000000011.log.5_2-360-607",
+      "cdcStats" : null,
+      "prevCommit" : "00000000000000011",
+      "numWrites" : 1,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 1,
+      "numInserts" : 0,
+      "totalWriteBytes" : 13281,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "record_index",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 13281,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 49,
+        "totalCreateTime" : 0
+      },
+      "logVersion" : 5,
+      "logOffset" : 0,
+      "baseFile" : "",
+      "logFiles" : [ ".record-index-0008-0_00000000000000011.log.4_0-234-440", ".record-index-0008-0_00000000000000011.log.3_2-171-354", ".record-index-0008-0_00000000000000011.log.2_2-52-203", ".record-index-0008-0_00000000000000011.log.1_0-0-0", ".record-index-0008-0_00000000000000011.log.5_2-360-607" ],
+      "recordsStats" : {
+        "val" : null
+      }
+    }, {
+      "fileId" : "record-index-0009-0",
+      "path" : "record_index/.record-index-0009-0_00000000000000011.log.5_3-360-608",
+      "cdcStats" : null,
+      "prevCommit" : "00000000000000011",
+      "numWrites" : 1,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 1,
+      "numInserts" : 0,
+      "totalWriteBytes" : 13281,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "record_index",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 13281,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 47,
+        "totalCreateTime" : 0
+      },
+      "logVersion" : 5,
+      "logOffset" : 0,
+      "baseFile" : "",
+      "logFiles" : [ ".record-index-0009-0_00000000000000011.log.4_1-234-441", ".record-index-0009-0_00000000000000011.log.3_3-171-355", ".record-index-0009-0_00000000000000011.log.2_3-52-204", ".record-index-0009-0_00000000000000011.log.1_0-0-0", ".record-index-0009-0_00000000000000011.log.5_3-360-608" ],
+      "recordsStats" : {
+        "val" : null
+      }
+    } ],
+    "files" : [ {
+      "fileId" : "files-0000-0",
+      "path" : "files/.files-0000-0_00000000000000010.log.7_4-360-609",
+      "cdcStats" : null,
+      "prevCommit" : "00000000000000010",
+      "numWrites" : 3,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 3,
+      "numInserts" : 0,
+      "totalWriteBytes" : 13432,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "files",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 13432,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 54,
+        "totalCreateTime" : 0
+      },
+      "logVersion" : 7,
+      "logOffset" : 0,
+      "baseFile" : "files-0000-0_0-5-4_00000000000000010.hfile",
+      "logFiles" : [ ".files-0000-0_00000000000000010.log.6_1-297-522", ".files-0000-0_00000000000000010.log.5_2-234-442", ".files-0000-0_00000000000000010.log.4_4-171-356", ".files-0000-0_00000000000000010.log.3_0-108-273", ".files-0000-0_00000000000000010.log.2_4-52-205", ".files-0000-0_00000000000000010.log.1_0-0-0", ".files-0000-0_00000000000000010.log.7_4-360-609" ],
+      "recordsStats" : {
+        "val" : null
+      }
+    } ]
+  },
+  "compacted" : false,
+  "extraMetadata" : {
+    "schema" : "{\"type\":\"record\",\"name\":\"HoodieMetadataRecord\",\"namespace\":\"org.apache.hudi.avro.model\",\"doc\":\"A record saved within the Metadata Table\",\"fields\":[{\"name\":\"key\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"type\",\"type\":\"int\",\"doc\":\"Type of the metadata record\"},{\"name\":\"filesystemMetadata\",\"type\":[\"null\",{\"type\":\"map\",\"values\":{\"type\":\"record\",\"name\":\"HoodieMetadataFileInfo\",\"fields\":[{\"name\":\"size\",\"type\":\"long\",\"doc\":\"Size of the file\"},{\"name\":\"isDeleted\",\"type\":\"boolean\",\"doc\":\"True if this file has been deleted\"}]},\"avro.java.string\":\"String\"}],\"doc\":\"Contains information about partitions and files within the dataset\"},{\"name\":\"BloomFilterMetadata\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"HoodieMetadataBloomFilter\",\"doc\":\"Data file bloom filter details\",\"fields\":[{\"name\":\"type\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Bloom filter type code\"},{\"name\":\"timestamp\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"doc\":\"Instant timestamp when this metadata was created/updated\"},{\"name\":\"bloomFilter\",\"type\":\"bytes\",\"doc\":\"Bloom filter binary byte array\"},{\"name\":\"isDeleted\",\"type\":\"boolean\",\"doc\":\"Bloom filter entry valid/deleted flag\"}]}],\"doc\":\"Metadata Index of bloom filters for all data files in the user table\",\"default\":null},{\"name\":\"ColumnStatsMetadata\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"HoodieMetadataColumnStats\",\"doc\":\"Data file column statistics\",\"fields\":[{\"name\":\"fileName\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"File name for which this column statistics applies\",\"default\":null},{\"name\":\"columnName\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Column name for which this column statistics applies\",\"default\":null},{\"name\":\"minValue\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"BooleanWrapper\",\"doc\":\"A record wrapping boolean type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":\"boolean\"}]},{\"type\":\"record\",\"name\":\"IntWrapper\",\"doc\":\"A record wrapping int type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":\"int\"}]},{\"type\":\"record\",\"name\":\"LongWrapper\",\"doc\":\"A record wrapping long type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":\"long\"}]},{\"type\":\"record\",\"name\":\"FloatWrapper\",\"doc\":\"A record wrapping float type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":\"float\"}]},{\"type\":\"record\",\"name\":\"DoubleWrapper\",\"doc\":\"A record wrapping double type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":\"double\"}]},{\"type\":\"record\",\"name\":\"BytesWrapper\",\"doc\":\"A record wrapping bytes type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":\"bytes\"}]},{\"type\":\"record\",\"name\":\"StringWrapper\",\"doc\":\"A record wrapping string type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}}]},{\"type\":\"record\",\"name\":\"DateWrapper\",\"doc\":\"A record wrapping Date logical type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":\"int\"}]},{\"type\":\"record\",\"name\":\"DecimalWrapper\",\"doc\":\"A record wrapping Decimal logical type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":30,\"scale\":15}}]},{\"type\":\"record\",\"name\":\"TimeMicrosWrapper\",\"doc\":\"A record wrapping Time-micros logical type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":{\"type\":\"long\",\"logicalType\":\"time-micros\"}}]},{\"type\":\"record\",\"name\":\"TimestampMicrosWrapper\",\"doc\":\"A record wrapping Timestamp-micros logical type to be able to be used it w/in Avro's Union\",\"fields\":[{\"name\":\"value\",\"type\":\"long\"}]}],\"doc\":\"Minimum value in the range. Based on user data table schema, we can convert this to appropriate type\",\"default\":null},{\"name\":\"maxValue\",\"type\":[\"null\",\"BooleanWrapper\",\"IntWrapper\",\"LongWrapper\",\"FloatWrapper\",\"DoubleWrapper\",\"BytesWrapper\",\"StringWrapper\",\"DateWrapper\",\"DecimalWrapper\",\"TimeMicrosWrapper\",\"TimestampMicrosWrapper\"],\"doc\":\"Maximum value in the range. Based on user data table schema, we can convert it to appropriate type\",\"default\":null},{\"name\":\"valueCount\",\"type\":[\"null\",\"long\"],\"doc\":\"Total count of values\",\"default\":null},{\"name\":\"nullCount\",\"type\":[\"null\",\"long\"],\"doc\":\"Total count of null values\",\"default\":null},{\"name\":\"totalSize\",\"type\":[\"null\",\"long\"],\"doc\":\"Total storage size on disk\",\"default\":null},{\"name\":\"totalUncompressedSize\",\"type\":[\"null\",\"long\"],\"doc\":\"Total uncompressed storage size on disk\",\"default\":null},{\"name\":\"isDeleted\",\"type\":\"boolean\",\"doc\":\"Column range entry valid/deleted flag\"}]}],\"doc\":\"Metadata Index of column statistics for all data files in the user table\",\"default\":null},{\"name\":\"recordIndexMetadata\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"HoodieRecordIndexInfo\",\"fields\":[{\"name\":\"partitionName\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Refers to the partition name the record belongs to\",\"default\":null},{\"name\":\"fileIdHighBits\",\"type\":[\"null\",\"long\"],\"doc\":\"Refers to high 64 bits if the fileId is based on UUID format. \\nA UUID based fileId is stored as 3 pieces in RLI (fileIdHighBits, fileIdLowBits and fileIndex). \\nFileID format is {UUID}-{fileIndex}.\",\"default\":null},{\"name\":\"fileIdLowBits\",\"type\":[\"null\",\"long\"],\"doc\":\"Refers to low 64 bits if the fileId is based on UUID format. \\nA UUID based fileId is stored as 3 pieces in RLI (fileIdHighBits, fileIdLowBits and fileIndex). \\nFileID format is {UUID}-{fileIndex}.\",\"default\":null},{\"name\":\"fileIndex\",\"type\":[\"null\",\"int\"],\"doc\":\"Index representing file index which is used to re-construct UUID based fileID. Applicable when the fileId is based on UUID format. \\nA UUID based fileId is stored as 3 pieces in RLI (fileIdHighBits, fileIdLowBits and fileIndex). \\nFileID format is {UUID}-{fileIndex}.\",\"default\":null},{\"name\":\"fileId\",\"type\":[\"null\",{\"type\":\"string\",\"avro.java.string\":\"String\"}],\"doc\":\"Represents fileId of the location where record belongs to. When the encoding is 1, fileID is stored in raw string format.\",\"default\":null},{\"name\":\"instantTime\",\"type\":[\"null\",\"long\"],\"doc\":\"Epoch time in millisecond representing the commit time at which record was added\",\"default\":null},{\"name\":\"fileIdEncoding\",\"type\":\"int\",\"doc\":\"Represents fileId encoding. Possible values are 0 and 1. O represents UUID based fileID, and 1 represents raw string format of the fileId. \\nWhen the encoding is 0, reader can deduce fileID from fileIdLowBits, fileIdLowBits and fileIndex.\",\"default\":0}]}],\"doc\":\"Metadata Index that contains information about record keys and their location in the dataset\",\"default\":null}]}"
+  },
+  "operationType" : "UPSERT_PREPPED"
+}
