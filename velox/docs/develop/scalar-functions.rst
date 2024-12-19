@@ -151,7 +151,7 @@ Null-Free Fast Path
 A "callNullFree" function may be implemented in place of or along side "call"
 and/or "callNullable" functions. When only the "callNullFree" function is
 implemented, evaluation of the function will be skipped and null will
-automatically be produced if any of the input arguments are null (like deafult
+automatically be produced if any of the input arguments are null (like default
 null behavior) or if any of the input arguments are of a complex type and
 contain null anywhere in their value, e.g. an array that has a null element.
 If "callNullFree" is implemented alongside "call" and/or "callNullable", an
