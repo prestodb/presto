@@ -535,7 +535,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class BuiltInTypeAndFunctionNamespaceManager
-        implements FunctionNamespaceManager<SqlFunction>
+        implements FunctionNamespaceManager<SqlFunction>, TypeManager
 {
     public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String ID = "builtin";
@@ -1265,19 +1265,32 @@ public class BuiltInTypeAndFunctionNamespaceManager
         }
     }
 
-    public Optional<Type> getType(TypeSignature typeSignature)
+    @Override
+    public Type getType(TypeSignature typeSignature)
     {
         Type type = types.get(typeSignature);
         if (type != null) {
-            return Optional.of(type);
+            return type;
         }
         try {
-            return Optional.ofNullable(parametricTypeCache.getUnchecked(new ExactTypeSignature(typeSignature)));
+            return parametricTypeCache.getUnchecked(new ExactTypeSignature(typeSignature));
         }
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());
             throw new RuntimeException(e.getCause());
         }
+    }
+
+    @Override
+    public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean canCoerce(Type actualType, Type expectedType)
+    {
+        throw new UnsupportedOperationException();
     }
 
     public List<Type> getTypes()
@@ -1299,14 +1312,22 @@ public class BuiltInTypeAndFunctionNamespaceManager
         parametricTypes.putIfAbsent(name, parametricType);
     }
 
-    public Collection<ParametricType> getParametricTypes()
+    @Override
+    public Map<String, ParametricType> getParametricTypes()
     {
-        return parametricTypes.values();
+        return parametricTypes;
     }
 
-    private Type instantiateParametricType(ExactTypeSignature exactSignature)
+    private Type instantiateParametricType(ExactTypeSignature exactTypeSignature)
     {
-        TypeSignature signature = exactSignature.getTypeSignature();
+        return instantiateParametricType(exactTypeSignature.getTypeSignature(), functionAndTypeManager, parametricTypes);
+    }
+
+    public Type instantiateParametricType(
+            TypeSignature signature,
+            FunctionAndTypeManager functionAndTypeManager,
+            Map<String, ParametricType> parametricTypes)
+    {
         List<TypeParameter> parameters = new ArrayList<>();
 
         for (TypeSignatureParameter parameter : signature.getParameters()) {
