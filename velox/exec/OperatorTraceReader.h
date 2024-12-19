@@ -43,6 +43,7 @@ class OperatorTraceInputReader {
   const serializer::presto::PrestoVectorSerde::PrestoOptions readOptions_{
       true,
       common::CompressionKind_ZSTD, // TODO: Use trace config.
+      0.8,
       /*_nullsFirst=*/true};
   const std::shared_ptr<filesystems::FileSystem> fs_;
   const RowTypePtr dataType_;

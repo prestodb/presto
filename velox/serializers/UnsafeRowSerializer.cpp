@@ -33,9 +33,9 @@ UnsafeRowVectorSerde::createIterativeSerializer(
     RowTypePtr /* type */,
     int32_t /* numRows */,
     StreamArena* streamArena,
-    const Options* /* options */) {
+    const Options* options) {
   return std::make_unique<RowSerializer<row::UnsafeRowFast>>(
-      streamArena->pool());
+      streamArena->pool(), options);
 }
 
 void UnsafeRowVectorSerde::deserialize(
@@ -43,11 +43,11 @@ void UnsafeRowVectorSerde::deserialize(
     velox::memory::MemoryPool* pool,
     RowTypePtr type,
     RowVectorPtr* result,
-    const Options* /* options */) {
+    const Options* options) {
   std::vector<std::optional<std::string_view>> serializedRows;
   std::vector<std::unique_ptr<std::string>> serializedBuffers;
   RowDeserializer<std::optional<std::string_view>>::deserialize(
-      source, serializedRows, serializedBuffers);
+      source, serializedRows, serializedBuffers, options);
 
   if (serializedRows.empty()) {
     *result = BaseVector::create<RowVector>(type, 0, pool);

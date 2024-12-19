@@ -19,6 +19,38 @@
 
 namespace facebook::velox::exec {
 
+namespace {
+std::unique_ptr<VectorSerde::Options> getVectorSerdeOptions(
+    VectorSerde::Kind kind) {
+  std::unique_ptr<VectorSerde::Options> options =
+      kind == VectorSerde::Kind::kPresto
+      ? std::make_unique<serializer::presto::PrestoVectorSerde::PrestoOptions>()
+      : std::make_unique<VectorSerde::Options>();
+  options->compressionKind =
+      OutputBufferManager::getInstance().lock()->compressionKind();
+  return options;
+}
+} // namespace
+
+Exchange::Exchange(
+    int32_t operatorId,
+    DriverCtx* driverCtx,
+    const std::shared_ptr<const core::ExchangeNode>& exchangeNode,
+    std::shared_ptr<ExchangeClient> exchangeClient,
+    const std::string& operatorType)
+    : SourceOperator(
+          driverCtx,
+          exchangeNode->outputType(),
+          operatorId,
+          exchangeNode->id(),
+          operatorType),
+      preferredOutputBatchBytes_{
+          driverCtx->queryConfig().preferredOutputBatchBytes()},
+      serdeKind_(exchangeNode->serdeKind()),
+      options_{getVectorSerdeOptions(serdeKind_)},
+      processSplits_{operatorCtx_->driverCtx()->driverId == 0},
+      exchangeClient_{std::move(exchangeClient)} {}
+
 void Exchange::addTaskIds(std::vector<std::string>& taskIds) {
   std::shuffle(std::begin(taskIds), std::end(taskIds), rng_);
   for (const std::string& taskId : taskIds) {
@@ -127,7 +159,7 @@ RowVectorPtr Exchange::getOutput() {
             outputType_,
             &result_,
             resultOffset,
-            &options_);
+            options_.get());
         resultOffset = result_->size();
       }
     }
@@ -154,7 +186,7 @@ RowVectorPtr Exchange::getOutput() {
         outputType_,
         &result_,
         resultOffset,
-        &options_);
+        options_.get());
     // We expect the row-wise deserialization to consume all the input into one
     // output vector.
     VELOX_CHECK(inputStream->atEnd());

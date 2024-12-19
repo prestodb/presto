@@ -2408,22 +2408,18 @@ TEST_P(MultiFragmentTest, mergeSmallBatchesInExchange) {
     test(100'000, 1);
   } else if (GetParam() == VectorSerde::Kind::kCompactRow) {
     test(1, 1'000);
-    test(1'000, 28);
-    test(10'000, 3);
+    test(1'000, 38);
+    test(10'000, 4);
     test(100'000, 1);
   } else {
     test(1, 1'000);
-    test(1'000, 63);
+    test(1'000, 72);
     test(10'000, 7);
     test(100'000, 1);
   }
 }
 
 TEST_P(MultiFragmentTest, compression) {
-  // NOTE: only presto format supports compression for now
-  if (GetParam() != VectorSerde::Kind::kPresto) {
-    return;
-  }
   bufferManager_->testingSetCompression(
       common::CompressionKind::CompressionKind_LZ4);
   auto guard = folly::makeGuard([&]() {

@@ -175,7 +175,10 @@ uint64_t SpillWriter::write(
     NanosecondTimer timer(&timeNs);
     if (batch_ == nullptr) {
       serializer::presto::PrestoVectorSerde::PrestoOptions options = {
-          kDefaultUseLosslessTimestamp, compressionKind_, true /*nullsFirst*/};
+          kDefaultUseLosslessTimestamp,
+          compressionKind_,
+          0.8,
+          /*nullsFirst=*/true};
       batch_ = std::make_unique<VectorStreamGroup>(pool_, serde_);
       batch_->createStreamTree(
           std::static_pointer_cast<const RowType>(rows->type()),
@@ -300,6 +303,7 @@ SpillReadFile::SpillReadFile(
       readOptions_{
           kDefaultUseLosslessTimestamp,
           compressionKind_,
+          0.8,
           /*nullsFirst=*/true},
       pool_(pool),
       serde_(getNamedVectorSerde(VectorSerde::Kind::kPresto)),

@@ -54,9 +54,10 @@ class PrestoVectorSerde : public VectorSerde {
     PrestoOptions(
         bool _useLosslessTimestamp,
         common::CompressionKind _compressionKind,
+        float _minCompressionRatio = 0.8,
         bool _nullsFirst = false,
         bool _preserveEncodings = false)
-        : VectorSerde::Options(_compressionKind),
+        : VectorSerde::Options(_compressionKind, _minCompressionRatio),
           useLosslessTimestamp(_useLosslessTimestamp),
           nullsFirst(_nullsFirst),
           preserveEncodings(_preserveEncodings) {}
@@ -73,11 +74,6 @@ class PrestoVectorSerde : public VectorSerde {
     /// TODO: Make Presto also serialize nulls before columns of
     /// structs.
     bool nullsFirst{false};
-
-    /// Minimum achieved compression if compression is enabled. Compressing less
-    /// than this causes subsequent compression attempts to be skipped. The more
-    /// times compression misses the target the less frequently it is tried.
-    float minCompressionRatio{0.8};
 
     /// If true, the serializer will not employ any optimizations that can
     /// affect the encoding of the input vectors. This is only relevant when

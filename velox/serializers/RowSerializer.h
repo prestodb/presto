@@ -23,10 +23,52 @@ namespace facebook::velox::serializer {
 
 using TRowSize = uint32_t;
 
+namespace detail {
+struct RowHeader {
+  int32_t uncompressedSize;
+  int32_t compressedSize;
+  bool compressed;
+
+  static RowHeader read(ByteInputStream* source) {
+    RowHeader header;
+    header.uncompressedSize = source->read<int32_t>();
+    header.compressedSize = source->read<int32_t>();
+    header.compressed = source->read<char>();
+
+    VELOX_CHECK_GE(header.uncompressedSize, 0);
+    VELOX_CHECK_GE(header.compressedSize, 0);
+
+    return header;
+  }
+
+  void write(OutputStream* out) {
+    out->write(reinterpret_cast<char*>(&uncompressedSize), sizeof(int32_t));
+    out->write(reinterpret_cast<char*>(&compressedSize), sizeof(int32_t));
+    const char writeValue = compressed ? 1 : 0;
+    out->write(reinterpret_cast<const char*>(&writeValue), sizeof(char));
+  }
+
+  static size_t size() {
+    return sizeof(int32_t) * 2 + sizeof(char);
+  }
+
+  std::string debugString() const {
+    return fmt::format(
+        "uncompressedSize: {}, compressedSize: {}, compressed: {}",
+        succinctBytes(uncompressedSize),
+        succinctBytes(compressedSize),
+        compressed);
+  }
+};
+} // namespace detail
+
 template <class Serializer>
 class RowSerializer : public IterativeVectorSerializer {
  public:
-  explicit RowSerializer(memory::MemoryPool* pool) : pool_(pool) {}
+  RowSerializer(memory::MemoryPool* pool, const VectorSerde::Options* options)
+      : pool_(pool),
+        options_(options == nullptr ? VectorSerde::Options() : *options),
+        codec_(common::compressionKindToCodec(options_.compressionKind)) {}
 
   void append(
       const RowVectorPtr& vector,
@@ -99,18 +141,67 @@ class RowSerializer : public IterativeVectorSerializer {
   }
 
   size_t maxSerializedSize() const override {
-    size_t totalSize = 0;
-    for (const auto& buffer : buffers_) {
-      totalSize += buffer->size();
+    const auto size = uncompressedSize();
+    if (!needCompression()) {
+      return detail::RowHeader::size() + size;
     }
-    return totalSize;
+    VELOX_CHECK_LE(
+        size,
+        codec_->maxUncompressedLength(),
+        "UncompressedSize exceeds limit");
+    return detail::RowHeader::size() + codec_->maxCompressedLength(size);
   }
 
+  /// The serialization format is | uncompressedSize | compressedSize |
+  /// compressed | data.
   void flush(OutputStream* stream) override {
-    for (const auto& buffer : buffers_) {
-      stream->write(buffer->template asMutable<char>(), buffer->size());
+    constexpr int32_t kMaxCompressionAttemptsToSkip = 30;
+    const auto size = uncompressedSize();
+    if (!needCompression()) {
+      flushUncompressed(size, stream);
+    } else if (numCompressionToSkip_ > 0) {
+      flushUncompressed(size, stream);
+      stats_.compressionSkippedBytes += size;
+      --numCompressionToSkip_;
+      ++stats_.numCompressionSkipped;
+    } else {
+      // Compress the buffer if satisfied condition.
+      const auto toCompress = toIOBuf(buffers_);
+      const auto compressedBuffer = codec_->compress(toCompress.get());
+      const int32_t compressedSize = compressedBuffer->length();
+      stats_.compressionInputBytes += size;
+      stats_.compressedBytes += compressedSize;
+      if (compressedSize > options_.minCompressionRatio * size) {
+        // Skip this compression.
+        numCompressionToSkip_ = std::min<int64_t>(
+            kMaxCompressionAttemptsToSkip, 1 + stats_.numCompressionSkipped);
+        flushUncompressed(size, stream);
+      } else {
+        // Do the compression.
+        detail::RowHeader header = {size, compressedSize, true};
+        header.write(stream);
+        for (auto range : *compressedBuffer) {
+          stream->write(
+              reinterpret_cast<const char*>(range.data()), range.size());
+        }
+      }
     }
+
     buffers_.clear();
+  }
+
+  std::unordered_map<std::string, RuntimeCounter> runtimeStats() override {
+    std::unordered_map<std::string, RuntimeCounter> map;
+    map.insert(
+        {{"compressedBytes",
+          RuntimeCounter(stats_.compressedBytes, RuntimeCounter::Unit::kBytes)},
+         {"compressionInputBytes",
+          RuntimeCounter(
+              stats_.compressionInputBytes, RuntimeCounter::Unit::kBytes)},
+         {"compressionSkippedBytes",
+          RuntimeCounter(
+              stats_.compressionSkippedBytes, RuntimeCounter::Unit::kBytes)}});
+    return map;
   }
 
   void clear() override {}
@@ -137,6 +228,47 @@ class RowSerializer : public IterativeVectorSerializer {
 
   memory::MemoryPool* const pool_;
   std::vector<BufferPtr> buffers_;
+
+ private:
+  std::unique_ptr<folly::IOBuf> toIOBuf(const std::vector<BufferPtr>& buffers) {
+    std::unique_ptr<folly::IOBuf> iobuf;
+    for (const auto& buffer : buffers) {
+      auto newBuf =
+          folly::IOBuf::wrapBuffer(buffer->asMutable<char>(), buffer->size());
+      if (iobuf) {
+        iobuf->prev()->appendChain(std::move(newBuf));
+      } else {
+        iobuf = std::move(newBuf);
+      }
+    }
+    return iobuf;
+  }
+
+  int32_t uncompressedSize() const {
+    int32_t totalSize = 0;
+    for (const auto& buffer : buffers_) {
+      totalSize += buffer->size();
+    }
+    return totalSize;
+  }
+
+  bool needCompression() const {
+    return codec_->type() != folly::io::CodecType::NO_COMPRESSION;
+  }
+
+  void flushUncompressed(int32_t size, OutputStream* stream) {
+    detail::RowHeader header = {size, size, false};
+    header.write(stream);
+    for (const auto& buffer : buffers_) {
+      stream->write(buffer->template asMutable<char>(), buffer->size());
+    }
+  }
+
+  const VectorSerde::Options options_;
+  const std::unique_ptr<folly::io::Codec> codec_;
+  // Count of forthcoming compressions to skip.
+  int32_t numCompressionToSkip_{0};
+  CompressionStats stats_;
 };
 
 template <typename SerializeView>
@@ -145,25 +277,60 @@ class RowDeserializer {
   static void deserialize(
       ByteInputStream* source,
       std::vector<SerializeView>& serializedRows,
-      std::vector<std::unique_ptr<std::string>>& serializedBuffers) {
+      std::vector<std::unique_ptr<std::string>>& serializedBuffers,
+      const VectorSerde::Options* options) {
+    const auto compressionKind = options == nullptr
+        ? VectorSerde::Options().compressionKind
+        : options->compressionKind;
     while (!source->atEnd()) {
-      // First read row size in big endian order.
-      const auto rowSize = folly::Endian::big(source->read<TRowSize>());
-      auto serializedBuffer = std::make_unique<std::string>();
-      serializedBuffer->reserve(rowSize);
+      std::unique_ptr<folly::IOBuf> uncompressedBuf;
+      const auto header = detail::RowHeader::read(source);
+      if (header.compressed) {
+        VELOX_DCHECK_NE(
+            compressionKind, common::CompressionKind::CompressionKind_NONE);
+        auto compressBuf = folly::IOBuf::create(header.compressedSize);
+        source->readBytes(compressBuf->writableData(), header.compressedSize);
+        compressBuf->append(header.compressedSize);
 
-      const auto row = source->nextView(rowSize);
-      serializedBuffer->append(row.data(), row.size());
-      // If we couldn't read the entire row at once, we need to concatenate it
-      // in a different buffer.
-      if (serializedBuffer->size() < rowSize) {
-        concatenatePartialRow(source, rowSize, *serializedBuffer);
+        // Process chained uncompressed results IOBufs.
+        const auto codec = common::compressionKindToCodec(compressionKind);
+        uncompressedBuf =
+            codec->uncompress(compressBuf.get(), header.uncompressedSize);
       }
 
-      VELOX_CHECK_EQ(serializedBuffer->size(), rowSize);
-      serializedBuffers.emplace_back(std::move(serializedBuffer));
-      serializedRows.push_back(std::string_view(
-          serializedBuffers.back()->data(), serializedBuffers.back()->size()));
+      std::unique_ptr<ByteInputStream> uncompressedStream;
+      ByteInputStream* uncompressedSource{nullptr};
+      if (uncompressedBuf == nullptr) {
+        uncompressedSource = source;
+      } else {
+        uncompressedStream = std::make_unique<BufferInputStream>(
+            byteRangesFromIOBuf(uncompressedBuf.get()));
+        uncompressedSource = uncompressedStream.get();
+      }
+      const std::streampos initialSize = uncompressedSource->tellp();
+      while (uncompressedSource->tellp() - initialSize <
+             header.uncompressedSize) {
+        // First read row size in big endian order.
+        const auto rowSize =
+            folly::Endian::big(uncompressedSource->read<TRowSize>());
+
+        auto serializedBuffer = std::make_unique<std::string>();
+        serializedBuffer->reserve(rowSize);
+
+        const auto row = uncompressedSource->nextView(rowSize);
+        serializedBuffer->append(row.data(), row.size());
+        // If we couldn't read the entire row at once, we need to concatenate it
+        // in a different buffer.
+        if (serializedBuffer->size() < rowSize) {
+          concatenatePartialRow(uncompressedSource, rowSize, *serializedBuffer);
+        }
+
+        VELOX_CHECK_EQ(serializedBuffer->size(), rowSize);
+        serializedBuffers.emplace_back(std::move(serializedBuffer));
+        serializedRows.push_back(std::string_view(
+            serializedBuffers.back()->data(),
+            serializedBuffers.back()->size()));
+      }
     }
   }
 

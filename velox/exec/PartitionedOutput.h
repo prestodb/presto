@@ -33,17 +33,10 @@ class Destination {
       const std::string& taskId,
       int destination,
       VectorSerde* serde,
+      VectorSerde::Options* options,
       memory::MemoryPool* pool,
       bool eagerFlush,
-      std::function<void(uint64_t bytes, uint64_t rows)> recordEnqueued)
-      : taskId_(taskId),
-        destination_(destination),
-        serde_(serde),
-        pool_(pool),
-        eagerFlush_(eagerFlush),
-        recordEnqueued_(std::move(recordEnqueued)) {
-    setTargetSizePct();
-  }
+      std::function<void(uint64_t bytes, uint64_t rows)> recordEnqueued);
 
   /// Resets the destination before starting a new batch.
   void beginBatch() {
@@ -112,6 +105,7 @@ class Destination {
   const std::string taskId_;
   const int destination_;
   VectorSerde* const serde_;
+  VectorSerde::Options* const options_;
   memory::MemoryPool* const pool_;
   const bool eagerFlush_;
   const std::function<void(uint64_t bytes, uint64_t rows)> recordEnqueued_;
@@ -226,6 +220,7 @@ class PartitionedOutput : public Operator {
   const int64_t maxBufferedBytes_;
   const bool eagerFlush_;
   VectorSerde* const serde_;
+  const std::unique_ptr<VectorSerde::Options> options_;
 
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   ContinueFuture future_;

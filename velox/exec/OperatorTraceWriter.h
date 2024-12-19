@@ -58,6 +58,7 @@ class OperatorTraceInputWriter {
   const serializer::presto::PrestoVectorSerde::PrestoOptions options_ = {
       true,
       common::CompressionKind::CompressionKind_ZSTD,
+      0.8,
       /*nullsFirst=*/true};
   const std::shared_ptr<filesystems::FileSystem> fs_;
   memory::MemoryPool* const pool_;

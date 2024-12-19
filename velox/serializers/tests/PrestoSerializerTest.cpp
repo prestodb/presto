@@ -120,7 +120,7 @@ class PrestoSerializerTest
     const bool preserveEncodings =
         serdeOptions == nullptr ? false : serdeOptions->preserveEncodings;
     serializer::presto::PrestoVectorSerde::PrestoOptions paramOptions{
-        useLosslessTimestamp, kind, nullsFirst, preserveEncodings};
+        useLosslessTimestamp, kind, 0.8, nullsFirst, preserveEncodings};
 
     return paramOptions;
   }

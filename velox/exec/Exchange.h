@@ -42,21 +42,7 @@ class Exchange : public SourceOperator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::ExchangeNode>& exchangeNode,
       std::shared_ptr<ExchangeClient> exchangeClient,
-      const std::string& operatorType = "Exchange")
-      : SourceOperator(
-            driverCtx,
-            exchangeNode->outputType(),
-            operatorId,
-            exchangeNode->id(),
-            operatorType),
-        preferredOutputBatchBytes_{
-            driverCtx->queryConfig().preferredOutputBatchBytes()},
-        serdeKind_(exchangeNode->serdeKind()),
-        processSplits_{operatorCtx_->driverCtx()->driverId == 0},
-        exchangeClient_{std::move(exchangeClient)} {
-    options_.compressionKind =
-        OutputBufferManager::getInstance().lock()->compressionKind();
-  }
+      const std::string& operatorType = "Exchange");
 
   ~Exchange() override {
     close();
@@ -76,16 +62,16 @@ class Exchange : public SourceOperator {
  private:
   // Invoked to create exchange client for remote tasks.
   // The function shuffles the source task ids first to randomize the source
-  // tasks we fetch data from. This helps to avoid different tasks fetching from
-  // the same source task in a distributed system.
+  // tasks we fetch data from. This helps to avoid different tasks fetching
+  // from the same source task in a distributed system.
   void addTaskIds(std::vector<std::string>& taskIds);
 
   /// Fetches splits from the task until there are no more splits or task
   /// returns a future that will be complete when more splits arrive. Adds
-  /// splits to exchangeClient_. Returns true if received a future from the task
-  /// and sets the 'future' parameter. Returns false if fetched all splits or if
-  /// this operator is not the first operator in the pipeline and therefore is
-  /// not responsible for fetching splits and adding them to the
+  /// splits to exchangeClient_. Returns true if received a future from the
+  /// task and sets the 'future' parameter. Returns false if fetched all
+  /// splits or if this operator is not the first operator in the pipeline and
+  /// therefore is not responsible for fetching splits and adding them to the
   /// exchangeClient_.
   bool getSplits(ContinueFuture* future);
 
@@ -97,16 +83,19 @@ class Exchange : public SourceOperator {
 
   const VectorSerde::Kind serdeKind_;
 
-  /// True if this operator is responsible for fetching splits from the Task and
-  /// passing these to ExchangeClient.
+  const std::unique_ptr<VectorSerde::Options> options_;
+
+  /// True if this operator is responsible for fetching splits from the Task
+  /// and passing these to ExchangeClient.
   const bool processSplits_;
 
   bool noMoreSplits_ = false;
 
   std::shared_ptr<ExchangeClient> exchangeClient_;
 
-  /// A future received from Task::getSplitOrFuture(). It will be complete when
-  /// there are more splits available or no-more-splits signal has arrived.
+  /// A future received from Task::getSplitOrFuture(). It will be complete
+  /// when there are more splits available or no-more-splits signal has
+  /// arrived.
   ContinueFuture splitFuture_{ContinueFuture::makeEmpty()};
 
   // Reusable result vector.
@@ -115,7 +104,6 @@ class Exchange : public SourceOperator {
   std::vector<std::unique_ptr<SerializedPage>> currentPages_;
   bool atEnd_{false};
   std::default_random_engine rng_{std::random_device{}()};
-  serializer::presto::PrestoVectorSerde::PrestoOptions options_;
 };
 
 } // namespace facebook::velox::exec

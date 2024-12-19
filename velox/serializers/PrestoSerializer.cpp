@@ -4230,21 +4230,6 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
   }
 
  private:
-  struct CompressionStats {
-    // Number of times compression was not attempted.
-    int32_t numCompressionSkipped{0};
-
-    // uncompressed size for which compression was attempted.
-    int64_t compressionInputBytes{0};
-
-    // Compressed bytes.
-    int64_t compressedBytes{0};
-
-    // Bytes for which compression was not attempted because of past
-    // non-performance.
-    int64_t compressionSkippedBytes{0};
-  };
-
   const SerdeOpts opts_;
   StreamArena* const streamArena_;
   const std::unique_ptr<folly::io::Codec> codec_;

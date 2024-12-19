@@ -23,9 +23,29 @@
 namespace facebook::velox::serializer {
 namespace {
 
+struct TestParam {
+  common::CompressionKind compressionKind;
+  bool appendRow;
+
+  TestParam(common::CompressionKind _compressionKind, bool _appendRow)
+      : compressionKind(_compressionKind), appendRow(_appendRow) {}
+};
+
 class CompactRowSerializerTest : public ::testing::Test,
                                  public velox::test::VectorTestBase,
-                                 public testing::WithParamInterface<bool> {
+                                 public testing::WithParamInterface<TestParam> {
+ public:
+  static std::vector<TestParam> getTestParams() {
+    static std::vector<TestParam> testParams = {
+        {common::CompressionKind::CompressionKind_NONE, false},
+        {common::CompressionKind::CompressionKind_ZLIB, true},
+        {common::CompressionKind::CompressionKind_SNAPPY, false},
+        {common::CompressionKind::CompressionKind_ZSTD, true},
+        {common::CompressionKind::CompressionKind_LZ4, false},
+        {common::CompressionKind::CompressionKind_GZIP, true}};
+    return testParams;
+  }
+
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
@@ -41,6 +61,9 @@ class CompactRowSerializerTest : public ::testing::Test,
     ASSERT_EQ(
         getNamedVectorSerde(VectorSerde::Kind::kCompactRow)->kind(),
         VectorSerde::Kind::kCompactRow);
+    appendRow_ = GetParam().appendRow;
+    compressionKind_ = GetParam().compressionKind;
+    options_ = std::make_unique<VectorSerde::Options>(compressionKind_, 0.8);
   }
 
   void TearDown() override {
@@ -56,7 +79,7 @@ class CompactRowSerializerTest : public ::testing::Test,
     vector_size_t offset = 0;
     vector_size_t rangeSize = 1;
     std::unique_ptr<row::CompactRow> compactRow;
-    if (GetParam()) {
+    if (appendRow_) {
       compactRow = std::make_unique<row::CompactRow>(rowVector);
     }
     while (offset < numRows) {
@@ -69,10 +92,10 @@ class CompactRowSerializerTest : public ::testing::Test,
     auto arena = std::make_unique<StreamArena>(pool_.get());
     auto rowType = asRowType(rowVector->type());
     auto serializer = getVectorSerde()->createIterativeSerializer(
-        rowType, numRows, arena.get());
+        rowType, numRows, arena.get(), options_.get());
 
     Scratch scratch;
-    if (GetParam()) {
+    if (appendRow_) {
       std::vector<vector_size_t> serializedRowSizes(numRows);
       std::vector<vector_size_t*> serializedRowSizesPtr(numRows);
       for (auto i = 0; i < numRows; ++i) {
@@ -97,7 +120,11 @@ class CompactRowSerializerTest : public ::testing::Test,
     auto size = serializer->maxSerializedSize();
     OStreamOutputStream out(output);
     serializer->flush(&out);
-    ASSERT_EQ(size, output->tellp());
+    if (!needCompression()) {
+      ASSERT_EQ(size, output->tellp());
+    } else {
+      ASSERT_GT(size, output->tellp());
+    }
   }
 
   std::unique_ptr<ByteInputStream> toByteStream(
@@ -127,7 +154,7 @@ class CompactRowSerializerTest : public ::testing::Test,
 
     RowVectorPtr result;
     getVectorSerde()->deserialize(
-        byteStream.get(), pool_.get(), rowType, &result);
+        byteStream.get(), pool_.get(), rowType, &result, options_.get());
     return result;
   }
 
@@ -141,6 +168,15 @@ class CompactRowSerializerTest : public ::testing::Test,
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
+
+ private:
+  bool needCompression() {
+    return compressionKind_ != common::CompressionKind::CompressionKind_NONE;
+  }
+
+  common::CompressionKind compressionKind_;
+  std::unique_ptr<VectorSerde::Options> options_;
+  bool appendRow_;
 };
 
 TEST_P(CompactRowSerializerTest, fuzz) {
@@ -187,6 +223,6 @@ TEST_P(CompactRowSerializerTest, fuzz) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     CompactRowSerializerTest,
     CompactRowSerializerTest,
-    testing::Values(false, true));
+    testing::ValuesIn(CompactRowSerializerTest::getTestParams()));
 } // namespace
 } // namespace facebook::velox::serializer
