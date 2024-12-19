@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.server.remotetask;
 
-import com.facebook.airlift.concurrent.BoundedExecutor;
-import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
@@ -49,24 +47,18 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
+import io.netty.channel.DefaultEventLoopGroup;
+import io.netty.channel.EventLoopGroup;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.wrapThriftCodec;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
@@ -87,11 +79,6 @@ public class HttpRemoteTaskFactory
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
     private final Duration taskInfoUpdateInterval;
-    private final ExecutorService coreExecutor;
-    private final Executor executor;
-    private final ThreadPoolExecutorMBean executorMBean;
-    private final ScheduledExecutorService updateScheduledExecutor;
-    private final ScheduledExecutorService errorScheduledExecutor;
     private final RemoteTaskStats stats;
     private final boolean binaryTransportEnabled;
     private final boolean thriftTransportEnabled;
@@ -101,6 +88,8 @@ public class HttpRemoteTaskFactory
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
     private final DecayCounter taskUpdateRequestSize;
+    private final EventLoopGroup eventLoopGroup = new DefaultEventLoopGroup(Runtime.getRuntime().availableProcessors(),
+            new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build());
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -135,10 +124,6 @@ public class HttpRemoteTaskFactory
         this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
         this.handleResolver = handleResolver;
         this.connectorTypeSerdeManager = connectorTypeSerdeManager;
-
-        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
-        this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
-        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(communicationConfig, "communicationConfig is null");
         binaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
@@ -181,16 +166,7 @@ public class HttpRemoteTaskFactory
         this.metadataManager = metadataManager;
         this.queryManager = queryManager;
 
-        this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
-        this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
-    }
-
-    @Managed
-    @Nested
-    public ThreadPoolExecutorMBean getExecutor()
-    {
-        return executorMBean;
     }
 
     @Managed
@@ -202,9 +178,7 @@ public class HttpRemoteTaskFactory
     @PreDestroy
     public void stop()
     {
-        coreExecutor.shutdownNow();
-        updateScheduledExecutor.shutdownNow();
-        errorScheduledExecutor.shutdownNow();
+        eventLoopGroup.shutdownGracefully();
     }
 
     @Override
@@ -230,9 +204,6 @@ public class HttpRemoteTaskFactory
                 initialSplits,
                 outputBuffers,
                 httpClient,
-                executor,
-                updateScheduledExecutor,
-                errorScheduledExecutor,
                 maxErrorDuration,
                 taskStatusRefreshMaxWait,
                 taskInfoRefreshMaxWait,
@@ -257,6 +228,7 @@ public class HttpRemoteTaskFactory
                 taskUpdateRequestSize,
                 handleResolver,
                 connectorTypeSerdeManager,
-                schedulerStatsTracker);
+                schedulerStatsTracker,
+                eventLoopGroup.next());
     }
 }
