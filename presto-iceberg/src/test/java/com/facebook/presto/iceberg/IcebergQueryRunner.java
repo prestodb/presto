@@ -43,6 +43,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -202,13 +203,11 @@ public final class IcebergQueryRunner
         String catalogType = extraConnectorProperties.getOrDefault("iceberg.catalog.type", HIVE.name());
         Path icebergDataDirectory = getIcebergDataDirectoryPath(queryRunner.getCoordinator().getDataDirectory(), catalogType, format, addStorageFormatToPath);
 
-        Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                .put("iceberg.file-format", format.name())
-                .putAll(getConnectorProperties(CatalogType.valueOf(catalogType), icebergDataDirectory))
-                .putAll(extraConnectorProperties)
-                .build();
-
-        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
+        Map<String, String> icebergProperties = new HashMap<>();
+        icebergProperties.put("iceberg.file-format", format.name());
+        icebergProperties.putAll(getConnectorProperties(CatalogType.valueOf(catalogType), icebergDataDirectory));
+        icebergProperties.putAll(extraConnectorProperties);
+        queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.copyOf(icebergProperties));
 
         if (addJmxPlugin) {
             queryRunner.installPlugin(new JmxPlugin());
