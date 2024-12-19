@@ -2274,8 +2274,8 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT id, full_name, email FROM " + tableName, "VALUES (1, 'aaaa', 'abc@gmail.com'), (2, 'ssss', 'abc@gmail.com'), (3, 'ssss', 'abc@gmail.com'), (4, 'dddd', 'ddd@gmail.com') ");
 
         // set values to null
-        assertUpdate("UPDATE " + tableName + " SET email = NULL", 1);
-        assertQuery("SELECT email FROM " + tableName + "WHERE email is NULL", "VALUES NULL");
+        assertUpdate("UPDATE " + tableName + " SET email = NULL", 4);
+        assertQuery("SELECT email FROM " + tableName + " WHERE email is NULL", "VALUES NULL");
 
         // update nulls to non-null
         assertUpdate("UPDATE " + tableName + " SET email = 'test@gmail.com' WHERE full_name is NULL", 1);
