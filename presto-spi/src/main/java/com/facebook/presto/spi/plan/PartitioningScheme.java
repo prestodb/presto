@@ -37,8 +37,21 @@ public class PartitioningScheme
     private final List<VariableReferenceExpression> outputLayout;
     private final Optional<VariableReferenceExpression> hashColumn;
     private final boolean replicateNullsAndAny;
+    private final boolean scaleWriters;
     private final ExchangeEncoding encoding;
     private final Optional<int[]> bucketToPartition;
+
+    public PartitioningScheme(Partitioning partitioning, List<VariableReferenceExpression> outputLayout, boolean scaleWriters)
+    {
+        this(
+                partitioning,
+                outputLayout,
+                Optional.empty(),
+                false,
+                scaleWriters,
+                COLUMNAR,
+                Optional.empty());
+    }
 
     public PartitioningScheme(Partitioning partitioning, List<VariableReferenceExpression> outputLayout)
     {
@@ -46,6 +59,7 @@ public class PartitioningScheme
                 partitioning,
                 outputLayout,
                 Optional.empty(),
+                false,
                 false,
                 COLUMNAR,
                 Optional.empty());
@@ -58,6 +72,7 @@ public class PartitioningScheme
                 outputLayout,
                 hashColumn,
                 false,
+                false,
                 COLUMNAR,
                 Optional.empty());
     }
@@ -68,6 +83,7 @@ public class PartitioningScheme
             @JsonProperty("outputLayout") List<VariableReferenceExpression> outputLayout,
             @JsonProperty("hashColumn") Optional<VariableReferenceExpression> hashColumn,
             @JsonProperty("replicateNullsAndAny") boolean replicateNullsAndAny,
+            @JsonProperty("scaleWriters") boolean scaleWriters,
             @JsonProperty("encoding") ExchangeEncoding encoding,
             @JsonProperty("bucketToPartition") Optional<int[]> bucketToPartition)
     {
@@ -85,6 +101,7 @@ public class PartitioningScheme
 
         checkArgument(!replicateNullsAndAny || columns.size() <= 1, "Must have at most one partitioning column when nullPartition is REPLICATE.");
         this.replicateNullsAndAny = replicateNullsAndAny;
+        this.scaleWriters = scaleWriters;
         this.encoding = requireNonNull(encoding, "encoding is null");
         this.bucketToPartition = requireNonNull(bucketToPartition, "bucketToPartition is null");
     }
@@ -120,6 +137,12 @@ public class PartitioningScheme
     }
 
     @JsonProperty
+    public boolean isScaleWriters()
+    {
+        return scaleWriters;
+    }
+
+    @JsonProperty
     public Optional<int[]> getBucketToPartition()
     {
         return bucketToPartition;
@@ -127,12 +150,26 @@ public class PartitioningScheme
 
     public PartitioningScheme withBucketToPartition(Optional<int[]> bucketToPartition)
     {
-        return new PartitioningScheme(partitioning, outputLayout, hashColumn, replicateNullsAndAny, encoding, bucketToPartition);
+        return new PartitioningScheme(
+                partitioning,
+                outputLayout,
+                hashColumn,
+                replicateNullsAndAny,
+                scaleWriters,
+                encoding,
+                bucketToPartition);
     }
 
     public PartitioningScheme withRowWiseEncoding()
     {
-        return new PartitioningScheme(partitioning, outputLayout, hashColumn, replicateNullsAndAny, ROW_WISE, bucketToPartition);
+        return new PartitioningScheme(
+                partitioning,
+                outputLayout,
+                hashColumn,
+                replicateNullsAndAny,
+                scaleWriters,
+                ROW_WISE,
+                bucketToPartition);
     }
 
     public boolean isSingleOrBroadcastOrArbitrary()
@@ -153,6 +190,7 @@ public class PartitioningScheme
         return Objects.equals(partitioning, that.partitioning) &&
                 Objects.equals(outputLayout, that.outputLayout) &&
                 replicateNullsAndAny == that.replicateNullsAndAny &&
+                scaleWriters == that.scaleWriters &&
                 encoding == that.encoding &&
                 Objects.equals(bucketToPartition, that.bucketToPartition);
     }
@@ -160,7 +198,7 @@ public class PartitioningScheme
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioning, outputLayout, replicateNullsAndAny, encoding, bucketToPartition);
+        return Objects.hash(partitioning, outputLayout, replicateNullsAndAny, encoding, scaleWriters, bucketToPartition);
     }
 
     @Override
@@ -170,6 +208,7 @@ public class PartitioningScheme
                 ", outputLayout=" + outputLayout +
                 ", hashChannel=" + hashColumn +
                 ", replicateNullsAndAny=" + replicateNullsAndAny +
+                ", scaleWriters=" + scaleWriters +
                 ", encoding=" + encoding +
                 ", bucketToPartition=" + bucketToPartition +
                 '}';
