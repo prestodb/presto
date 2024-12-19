@@ -472,6 +472,24 @@ class QueryConfig {
   static constexpr const char* kScaleWriterMinProcessedBytesRebalanceThreshold =
       "scaled_writer_min_processed_bytes_rebalance_threshold";
 
+  /// If true, enables the scaled table scan processing. For each table scan
+  /// plan node, a scan controller is used to control the number of running scan
+  /// threads based on the query memory usage. It keeps increasing the number of
+  /// running threads until the query memory usage exceeds the threshold defined
+  /// by 'table_scan_scale_up_memory_usage_ratio'.
+  static constexpr const char* kTableScanScaledProcessingEnabled =
+      "table_scan_scaled_processing_enabled";
+
+  /// The query memory usage ratio used by scan controller to decide if it can
+  /// increase the number of running scan threads. When the query memory usage
+  /// is below this ratio, the scan controller keeps increasing the running scan
+  /// thread for scale up, and stop once exceeds this ratio. The value is in the
+  /// range of [0, 1].
+  ///
+  /// NOTE: this only applies if 'table_scan_scaled_processing_enabled' is true.
+  static constexpr const char* kTableScanScaleUpMemoryUsageRatio =
+      "table_scan_scale_up_memory_usage_ratio";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -878,6 +896,14 @@ class QueryConfig {
   uint64_t scaleWriterMinProcessedBytesRebalanceThreshold() const {
     return get<uint64_t>(
         kScaleWriterMinProcessedBytesRebalanceThreshold, 256 << 20);
+  }
+
+  bool tableScanScaledProcessingEnabled() const {
+    return get<bool>(kTableScanScaledProcessingEnabled, false);
+  }
+
+  double tableScanScaleUpMemoryUsageRatio() const {
+    return get<double>(kTableScanScaleUpMemoryUsageRatio, 0.7);
   }
 
   template <typename T>

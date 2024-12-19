@@ -2481,6 +2481,129 @@ TEST_P(MultiFragmentTest, compression) {
   test("local://t2", 0.0000001, true);
 }
 
+TEST_P(MultiFragmentTest, scaledTableScan) {
+  const int numSplits = 20;
+  std::vector<std::shared_ptr<TempFilePath>> splitFiles;
+  std::vector<RowVectorPtr> splitVectors;
+  for (auto i = 0; i < numSplits; ++i) {
+    auto vectors = makeVectors(10, 1'000);
+    auto filePath = TempFilePath::create();
+    writeToFile(filePath->getPath(), vectors);
+    splitFiles.push_back(std::move(filePath));
+    splitVectors.insert(splitVectors.end(), vectors.begin(), vectors.end());
+  }
+
+  createDuckDbTable(splitVectors);
+
+  struct {
+    bool scaleEnabled;
+    double scaleUpMemoryUsageRatio;
+    bool expectScaleUp;
+
+    std::string debugString() const {
+      return fmt::format(
+          "scaleEnabled {}, scaleUpMemoryUsageRatio {}, expectScaleUp {}",
+          scaleEnabled,
+          scaleUpMemoryUsageRatio,
+          expectScaleUp);
+    }
+  } testSettings[] = {
+      {false, 0.9, false},
+      {true, 0.9, true},
+      {false, 1.0, false},
+      {true, 1.0, true},
+      {false, 0.00001, false},
+      {true, 0.00001, false},
+      {false, 0.0, false},
+      {true, 0.0, false}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId scanNodeId;
+    configSettings_[core::QueryConfig::kTableScanScaledProcessingEnabled] =
+        testData.scaleEnabled ? "true" : "false";
+    configSettings_[core::QueryConfig::kTableScanScaleUpMemoryUsageRatio] =
+        std::to_string(testData.scaleUpMemoryUsageRatio);
+
+    const auto leafPlan =
+        PlanBuilder()
+            .tableScan(rowType_)
+            .capturePlanNodeId(scanNodeId)
+            .partialAggregation(
+                {"c5"}, {"max(c0)", "sum(c1)", "sum(c2)", "sum(c3)", "sum(c4)"})
+            .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+            .planNode();
+
+    const auto leafTaskId = "local://leaf-0";
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0, nullptr, 128ULL << 20);
+    const auto numLeafDrivers{4};
+    leafTask->start(numLeafDrivers);
+    addHiveSplits(leafTask, splitFiles);
+
+    const auto finalAggPlan =
+        PlanBuilder()
+            .exchange(leafPlan->outputType(), GetParam())
+            .finalAggregation(
+                {"c5"},
+                {"max(a0)", "sum(a1)", "sum(a2)", "sum(a3)", "sum(a4)"},
+                {{BIGINT()}, {INTEGER()}, {SMALLINT()}, {REAL()}, {DOUBLE()}})
+            .partitionedOutput({}, 1, /*outputLayout=*/{}, GetParam())
+            .planNode();
+
+    const auto finalAggTaskId = "local://final-agg-0";
+    auto finalAggTask = makeTask(finalAggTaskId, finalAggPlan, 0);
+    const auto numFinalAggrDrivers{1};
+    finalAggTask->start(numFinalAggrDrivers);
+    addRemoteSplits(finalAggTask, {leafTaskId});
+
+    const auto resultPlan =
+        PlanBuilder()
+            .exchange(finalAggPlan->outputType(), GetParam())
+            .planNode();
+
+    assertQuery(
+        resultPlan,
+        {finalAggTaskId},
+        "SELECT c5, max(c0), sum(c1), sum(c2), sum(c3), sum(c4) FROM tmp group by c5");
+
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
+    ASSERT_TRUE(waitForTaskCompletion(finalAggTask.get()))
+        << finalAggTask->taskId();
+
+    auto planStats = toPlanStats(leafTask->taskStats());
+    if (testData.scaleEnabled) {
+      ASSERT_EQ(
+          planStats.at(scanNodeId)
+              .customStats.count(TableScan::kNumRunningScaleThreads),
+          1);
+      if (testData.expectScaleUp) {
+        ASSERT_GE(
+            planStats.at(scanNodeId)
+                .customStats[TableScan::kNumRunningScaleThreads]
+                .sum,
+            1);
+        ASSERT_LE(
+            planStats.at(scanNodeId)
+                .customStats[TableScan::kNumRunningScaleThreads]
+                .sum,
+            numLeafDrivers);
+      } else {
+        ASSERT_EQ(
+            planStats.at(scanNodeId)
+                .customStats.count(TableScan::kNumRunningScaleThreads),
+            1);
+      }
+    } else {
+      ASSERT_EQ(
+          planStats.at(scanNodeId)
+              .customStats.count(TableScan::kNumRunningScaleThreads),
+          0);
+    }
+  }
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     MultiFragmentTest,
     MultiFragmentTest,

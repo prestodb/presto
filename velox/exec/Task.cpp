@@ -1122,6 +1122,14 @@ void Task::createSplitGroupStateLocked(uint32_t splitGroupId) {
     addNestedLoopJoinBridgesLocked(
         splitGroupId, factory->needsNestedLoopJoinBridges());
     addCustomJoinBridgesLocked(splitGroupId, factory->planNodes);
+
+    core::PlanNodeId tableScanNodeId;
+    if (queryCtx_->queryConfig().tableScanScaledProcessingEnabled() &&
+        factory->needsTableScan(tableScanNodeId)) {
+      VELOX_CHECK(!tableScanNodeId.empty());
+      addScaledScanControllerLocked(
+          splitGroupId, tableScanNodeId, factory->numDrivers);
+    }
   }
 }
 
@@ -1630,6 +1638,37 @@ exec::Split Task::getSplitLocked(
   }
 
   return split;
+}
+
+std::shared_ptr<ScaledScanController> Task::getScaledScanControllerLocked(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
+  auto& splitGroupState = splitGroupStates_[splitGroupId];
+  auto it = splitGroupState.scaledScanControllers.find(planNodeId);
+  if (it == splitGroupState.scaledScanControllers.end()) {
+    VELOX_CHECK(!queryCtx_->queryConfig().tableScanScaledProcessingEnabled());
+    return nullptr;
+  }
+
+  VELOX_CHECK(queryCtx_->queryConfig().tableScanScaledProcessingEnabled());
+  VELOX_CHECK_NOT_NULL(it->second);
+  return it->second;
+}
+
+void Task::addScaledScanControllerLocked(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId,
+    uint32_t numDrivers) {
+  VELOX_CHECK(queryCtx_->queryConfig().tableScanScaledProcessingEnabled());
+
+  auto& splitGroupState = splitGroupStates_[splitGroupId];
+  VELOX_CHECK_EQ(splitGroupState.scaledScanControllers.count(planNodeId), 0);
+  splitGroupState.scaledScanControllers.emplace(
+      planNodeId,
+      std::make_shared<ScaledScanController>(
+          getOrAddNodePool(planNodeId),
+          numDrivers,
+          queryCtx_->queryConfig().tableScanScaleUpMemoryUsageRatio()));
 }
 
 void Task::splitFinished(bool fromTableScan, int64_t splitWeight) {

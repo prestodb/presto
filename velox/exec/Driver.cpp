@@ -631,11 +631,10 @@ StopReason Driver::runInternal(
                     nextOp,
                     curOperatorId_ + 1,
                     kOpMethodAddInput);
-
-                // The next iteration will see if operators_[i + 1] has
-                // output now that it got input.
-                i += 2;
               });
+              // The next iteration will see if operators_[i + 1] has
+              // output now that it got input.
+              i += 2;
               continue;
             } else {
               stop = task()->shouldStop();
@@ -1129,6 +1128,8 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kYield";
     case BlockingReason::kWaitForArbitration:
       return "kWaitForArbitration";
+    case BlockingReason::kWaitForScanScaleUp:
+      return "kWaitForScanScaleUp";
     default:
       VELOX_UNREACHABLE(
           fmt::format("Unknown blocking reason {}", static_cast<int>(reason)));

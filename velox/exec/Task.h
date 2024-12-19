@@ -23,6 +23,7 @@
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/MergeSource.h"
 #include "velox/exec/Split.h"
+#include "velox/exec/TableScan.h"
 #include "velox/exec/TaskStats.h"
 #include "velox/exec/TaskStructs.h"
 #include "velox/exec/TaskTraceWriter.h"
@@ -430,6 +431,12 @@ class Task : public std::enable_shared_from_this<Task> {
       int32_t maxPreloadSplits = 0,
       const ConnectorSplitPreloadFunc& preload = nullptr);
 
+  /// Returns the scaled scan controller for a given table scan node if the
+  /// query has configured.
+  std::shared_ptr<ScaledScanController> getScaledScanControllerLocked(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
+
   void splitFinished(bool fromTableScan, int64_t splitWeight);
 
   void multipleSplitsFinished(
@@ -778,6 +785,12 @@ class Task : public std::enable_shared_from_this<Task> {
 
   // Invoked to initialize the memory pool for this task on creation.
   void initTaskPool();
+
+  // Creates a scaled scan controller for a given table scan node.
+  void addScaledScanControllerLocked(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId,
+      uint32_t numDrivers);
 
   // Creates new instance of memory pool for a plan node, stores it in the task
   // to ensure lifetime and returns a raw pointer.

@@ -210,6 +210,10 @@ enum class BlockingReason {
   /// Operator is blocked waiting for its associated query memory arbitration to
   /// finish.
   kWaitForArbitration,
+  /// For a table scan operator, it is blocked waiting for the scan controller
+  /// to increase the number of table scan processing threads to start
+  /// processing.
+  kWaitForScanScaleUp,
 };
 
 std::string blockingReasonToString(BlockingReason reason);
@@ -697,6 +701,18 @@ struct DriverFactory {
             std::dynamic_pointer_cast<const core::LocalPartitionNode>(
                 planNodes.front())) {
       planNode = exchangeNode;
+      return true;
+    }
+    return false;
+  }
+
+  /// Returns true if the pipeline gets data from a table scan. The function
+  /// sets plan node id in 'planNodeId'.
+  bool needsTableScan(core::PlanNodeId& planNodeId) const {
+    VELOX_CHECK(!planNodes.empty());
+    if (auto scanNode = std::dynamic_pointer_cast<const core::TableScanNode>(
+            planNodes.front())) {
+      planNodeId = scanNode->id();
       return true;
     }
     return false;

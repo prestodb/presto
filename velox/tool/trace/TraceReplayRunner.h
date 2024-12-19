@@ -31,7 +31,6 @@ DECLARE_string(node_id);
 DECLARE_int32(driver_id);
 DECLARE_string(driver_ids);
 DECLARE_string(table_writer_output_dir);
-DECLARE_double(hiveConnectorExecutorHwMultiplier);
 DECLARE_int32(shuffle_serialization_format);
 
 namespace facebook::velox::tool::trace {

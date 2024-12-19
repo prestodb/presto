@@ -17,6 +17,7 @@
 
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Operator.h"
+#include "velox/exec/ScaledScanController.h"
 
 namespace facebook::velox::exec {
 
@@ -41,6 +42,8 @@ class TableScan : public SourceOperator {
 
   bool isFinished() override;
 
+  void close() override;
+
   bool canAddDynamicFilter() const override {
     return connector_->canAddDynamicFilter();
   }
@@ -49,6 +52,18 @@ class TableScan : public SourceOperator {
       const core::PlanNodeId& producer,
       column_index_t outputChannel,
       const std::shared_ptr<common::Filter>& filter) override;
+
+  /// The name of runtime stats specific to table scan.
+  /// The number of running table scan drivers.
+  ///
+  /// NOTE: we only report the number of running scan drivers at the point that
+  /// all the splits have been dispatched.
+  static inline const std::string kNumRunningScaleThreads{
+      "numRunningScaleThreads"};
+
+  std::shared_ptr<ScaledScanController> testingScaledController() const {
+    return scaledController_;
+  }
 
  private:
   // Checks if this table scan operator needs to yield before processing the
@@ -70,17 +85,37 @@ class TableScan : public SourceOperator {
   // done, it will be made when needed.
   void preload(const std::shared_ptr<connector::ConnectorSplit>& split);
 
+  // Invoked by scan operator to check if it needs to stop to wait for scale up.
+  bool shouldWaitForScaleUp();
+
+  // Invoked after scan operator finishes processing a non-empty split to update
+  // the scan driver memory usage and check to see if we need to scale up scan
+  // processing or not.
+  void tryScaleUp();
+
   const std::shared_ptr<connector::ConnectorTableHandle> tableHandle_;
   const std::
       unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
           columnHandles_;
   DriverCtx* const driverCtx_;
+  const int32_t maxSplitPreloadPerDriver_{0};
+  const vector_size_t maxReadBatchSize_;
   memory::MemoryPool* const connectorPool_;
+  const std::shared_ptr<connector::Connector> connector_;
+  // Exits getOutput() method after this many milliseconds. Zero means 'no
+  // limit'.
+  const size_t getOutputTimeLimitMs_{0};
+
+  // If set, used for scan scale processing. It is shared by all the scan
+  // operators instantiated from the same table scan node.
+  const std::shared_ptr<ScaledScanController> scaledController_;
+
+  vector_size_t readBatchSize_;
+
   ContinueFuture blockingFuture_{ContinueFuture::makeEmpty()};
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   int64_t currentSplitWeight_{0};
   bool needNewSplit_ = true;
-  std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::unique_ptr<connector::DataSource> dataSource_;
   bool noMoreSplits_ = false;
@@ -89,8 +124,6 @@ class TableScan : public SourceOperator {
       dynamicFilters_;
 
   int32_t maxPreloadedSplits_{0};
-
-  const int32_t maxSplitPreloadPerDriver_{0};
 
   // Callback passed to getSplitOrFuture() for triggering async preload. The
   // callback's lifetime is the lifetime of 'this'. This callback can schedule
@@ -105,13 +138,6 @@ class TableScan : public SourceOperator {
   // Count of splits that finished preloading before being read.
   int32_t numReadyPreloadedSplits_{0};
 
-  vector_size_t readBatchSize_;
-  vector_size_t maxReadBatchSize_;
-
-  // Exits getOutput() method after this many milliseconds. Zero means 'no
-  // limit'.
-  size_t getOutputTimeLimitMs_{0};
-
   double maxFilteringRatio_{0};
 
   // String shown in ExceptionContext inside DataSource and LazyVector loading.
@@ -120,5 +146,9 @@ class TableScan : public SourceOperator {
   // Holds the current status of the operator. Used when debugging to understand
   // what operator is doing.
   std::atomic<const char*> curStatus_{""};
+
+  // The total number of raw input rows read up till the last finished split.
+  // This is used to detect if a finished split is empty or not.
+  uint64_t rawInputRowsSinceLastSplit_{0};
 };
 } // namespace facebook::velox::exec

@@ -90,6 +90,21 @@ These stats are reported only by HashBuild and HashAggregation operators.
      - Time spent on building the hash table from rows collected by all the
        hash build operators. This stat is only reported by the HashBuild operator.
 
+TableScan
+---------
+These stats are reported only by TableScan operator
+
+.. list-table::
+   :widths: 50 25 50
+   :header-rows: 1
+
+   * - Stats
+     - Unit
+     - Description
+   * - numRunningScanThreads
+     -
+     - The number of running table scan drivers.
+
 TableWriter
 -----------
 These stats are reported only by TableWriter operator

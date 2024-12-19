@@ -74,6 +74,7 @@ velox_add_library(
   RowsStreamingWindowBuild.cpp
   RowContainer.cpp
   RowNumber.cpp
+  ScaledScanController.cpp
   ScaleWriterLocalPartition.cpp
   SortBuffer.cpp
   SortedAggregations.cpp

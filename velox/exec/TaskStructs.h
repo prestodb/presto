@@ -116,6 +116,10 @@ struct SplitGroupState {
   /// Map of local exchanges keyed on LocalPartition plan node ID.
   std::unordered_map<core::PlanNodeId, LocalExchangeState> localExchanges;
 
+  /// Map of scaled scan controllers keyed on TableScan plan node ID.
+  std::unordered_map<core::PlanNodeId, std::shared_ptr<ScaledScanController>>
+      scaledScanControllers;
+
   /// Drivers created and still running for this split group.
   /// The split group is finished when this numbers reaches zero.
   uint32_t numRunningDrivers{0};

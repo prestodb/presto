@@ -37,19 +37,22 @@ TableScan::TableScan(
       tableHandle_(tableScanNode->tableHandle()),
       columnHandles_(tableScanNode->assignments()),
       driverCtx_(driverCtx),
+      maxSplitPreloadPerDriver_(
+          driverCtx_->queryConfig().maxSplitPreloadPerDriver()),
+      maxReadBatchSize_(driverCtx_->queryConfig().maxOutputBatchRows()),
       connectorPool_(driverCtx_->task->addConnectorPoolLocked(
           planNodeId(),
           driverCtx_->pipelineId,
           driverCtx_->driverId,
           operatorType(),
           tableHandle_->connectorId())),
-      maxSplitPreloadPerDriver_(
-          driverCtx_->queryConfig().maxSplitPreloadPerDriver()),
-      readBatchSize_(driverCtx_->queryConfig().preferredOutputBatchRows()),
-      maxReadBatchSize_(driverCtx_->queryConfig().maxOutputBatchRows()),
+      connector_(connector::getConnector(tableHandle_->connectorId())),
       getOutputTimeLimitMs_(
-          driverCtx_->queryConfig().tableScanGetOutputTimeLimitMs()) {
-  connector_ = connector::getConnector(tableHandle_->connectorId());
+          driverCtx_->queryConfig().tableScanGetOutputTimeLimitMs()),
+      scaledController_(driverCtx_->task->getScaledScanControllerLocked(
+          driverCtx_->splitGroupId,
+          planNodeId())) {
+  readBatchSize_ = driverCtx_->queryConfig().preferredOutputBatchRows();
 }
 
 folly::dynamic TableScan::toJson() const {
@@ -76,7 +79,17 @@ bool TableScan::shouldStop(StopReason taskStopReason) const {
 RowVectorPtr TableScan::getOutput() {
   auto exitCurStatusGuard = folly::makeGuard([this]() { curStatus_ = ""; });
 
+  VELOX_CHECK(!blockingFuture_.valid());
+  blockingReason_ = BlockingReason::kNotBlocked;
+
   if (noMoreSplits_) {
+    return nullptr;
+  }
+
+  // Check if we need to wait for scale up. We expect only wait once on startup.
+  if (shouldWaitForScaleUp()) {
+    VELOX_CHECK(blockingFuture_.valid());
+    VELOX_CHECK_EQ(blockingReason_, BlockingReason::kWaitForScanScaleUp);
     return nullptr;
   }
 
@@ -259,6 +272,7 @@ RowVectorPtr TableScan::getOutput() {
       curStatus_ = "getOutput: updating stats_.rawInput";
       lockedStats->rawInputPositions = dataSource_->getCompletedRows();
       lockedStats->rawInputBytes = dataSource_->getCompletedBytes();
+
       RowVectorPtr data = std::move(dataOptional).value();
       if (data != nullptr) {
         if (data->size() > 0) {
@@ -274,6 +288,7 @@ RowVectorPtr TableScan::getOutput() {
       }
     }
 
+    uint64_t currNumRawInputRows{0};
     {
       curStatus_ = "getOutput: updating stats_.preloadedSplits";
       auto lockedStats = stats_.wlock();
@@ -287,12 +302,50 @@ RowVectorPtr TableScan::getOutput() {
             "readyPreloadedSplits", RuntimeCounter(numReadyPreloadedSplits_));
         numReadyPreloadedSplits_ = 0;
       }
+      currNumRawInputRows = lockedStats->rawInputPositions;
     }
+    VELOX_CHECK_LE(rawInputRowsSinceLastSplit_, currNumRawInputRows);
+    const bool emptySplit = currNumRawInputRows == rawInputRowsSinceLastSplit_;
+    rawInputRowsSinceLastSplit_ = currNumRawInputRows;
 
     curStatus_ = "getOutput: task->splitFinished";
     driverCtx_->task->splitFinished(true, currentSplitWeight_);
     needNewSplit_ = true;
+
+    // We only update scaled controller when we have finished a non-empty split.
+    // Otherwise, it can lead to the wrong scale up decisions if the first few
+    // splits are empty. Then we only report the memory usage for the file
+    // footer read which is much smaller the actual memory usage when read from
+    // a non-empty split. This can cause query OOM as we run too many scan
+    // drivers with each use non-trivial amount of memory.
+    if (!emptySplit) {
+      tryScaleUp();
+    }
   }
+}
+
+bool TableScan::shouldWaitForScaleUp() {
+  if (scaledController_ == nullptr) {
+    return false;
+  }
+
+  curStatus_ = "getOutput: shouldWaitForScaleUp";
+  if (!scaledController_->shouldStop(
+          operatorCtx_->driverCtx()->driverId, &blockingFuture_)) {
+    VELOX_CHECK(!blockingFuture_.valid());
+    return false;
+  }
+  blockingReason_ = BlockingReason::kWaitForScanScaleUp;
+  return true;
+}
+
+void TableScan::tryScaleUp() {
+  if (scaledController_ == nullptr) {
+    return;
+  }
+
+  scaledController_->updateAndTryScale(
+      operatorCtx_->driverCtx()->driverId, pool()->peakBytes());
 }
 
 void TableScan::preload(
@@ -380,4 +433,23 @@ void TableScan::addDynamicFilter(
   stats_.wlock()->dynamicFilterStats.producerNodeIds.emplace(producer);
 }
 
+void TableScan::close() {
+  Operator::close();
+
+  if (scaledController_ == nullptr) {
+    return;
+  }
+
+  // Report the scaled controller stats by the first finished scan operator at
+  // which point all the splits have been dispatched.
+  if (!scaledController_->close()) {
+    return;
+  }
+
+  const auto scaledStats = scaledController_->stats();
+  auto lockedStats = stats_.wlock();
+  lockedStats->addRuntimeStat(
+      TableScan::kNumRunningScaleThreads,
+      RuntimeCounter(scaledStats.numRunningDrivers));
+}
 } // namespace facebook::velox::exec

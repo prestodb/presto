@@ -74,6 +74,7 @@ add_executable(
   RoundRobinPartitionFunctionTest.cpp
   RowContainerTest.cpp
   RowNumberTest.cpp
+  ScaledScanControllerTest.cpp
   ScaleWriterLocalPartitionTest.cpp
   SortBufferTest.cpp
   SpillerTest.cpp
