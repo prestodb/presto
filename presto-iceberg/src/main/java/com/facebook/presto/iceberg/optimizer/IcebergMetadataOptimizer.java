@@ -356,7 +356,7 @@ public class IcebergMetadataOptimizer
                         throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "unsupported function: " + scalarFunctionName);
                     }
 
-                    Object reducedValue = rowExpressionService.getExpressionOptimizer().optimize(
+                    RowExpression reducedValue = rowExpressionService.getExpressionOptimizer().optimize(
                             new CallExpression(
                                     Optional.empty(),
                                     scalarFunctionName,
@@ -366,7 +366,8 @@ public class IcebergMetadataOptimizer
                             Level.EVALUATED,
                             connectorSession,
                             variableReferenceExpression -> null);
-                    reducedArguments.add(new ConstantExpression(reducedValue, returnType));
+                    checkArgument(reducedValue instanceof ConstantExpression, "unexpected expression type: %s", reducedValue.getClass().getSimpleName());
+                    reducedArguments.add(reducedValue);
                 }
                 arguments = reducedArguments;
             }

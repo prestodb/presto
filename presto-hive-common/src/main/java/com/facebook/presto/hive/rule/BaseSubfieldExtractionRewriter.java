@@ -436,7 +436,7 @@ public abstract class BaseSubfieldExtractionRewriter
 
             // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
             // spurious query failures for partitions that would otherwise be filtered out.
-            Object optimized = null;
+            RowExpression optimized;
             try {
                 optimized = evaluator.getExpressionOptimizer().optimize(expression, OPTIMIZED, session, variableResolver);
             }
@@ -446,8 +446,11 @@ public abstract class BaseSubfieldExtractionRewriter
             }
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            return !Boolean.FALSE.equals(optimized) && optimized != null
-                    && (!(optimized instanceof ConstantExpression) || !((ConstantExpression) optimized).isNull());
+            if (!(optimized instanceof ConstantExpression)) {
+                return true;
+            }
+            ConstantExpression constantExpression = (ConstantExpression) optimized;
+            return !Boolean.FALSE.equals(constantExpression.getValue()) && !constantExpression.isNull();
         }
 
         private static void propagateIfUnhandled(PrestoException e)
