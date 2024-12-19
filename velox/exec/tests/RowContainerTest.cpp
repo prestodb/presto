@@ -90,8 +90,10 @@ class RowContainerTestHelper {
         if (rowContainer_->types_[i]->isFixedWidth()) {
           continue;
         }
-        VELOX_CHECK_EQ(expectedStats.maxBytes(), storedStats.maxBytes());
-        VELOX_CHECK_EQ(expectedStats.minBytes(), storedStats.minBytes());
+        if (storedStats.minMaxColumnStatsValid()) {
+          VELOX_CHECK_EQ(expectedStats.maxBytes(), storedStats.maxBytes());
+          VELOX_CHECK_EQ(expectedStats.minBytes(), storedStats.minBytes());
+        }
         VELOX_CHECK_EQ(expectedStats.sumBytes(), storedStats.sumBytes());
         VELOX_CHECK_EQ(expectedStats.avgBytes(), storedStats.avgBytes());
         VELOX_CHECK_EQ(
@@ -1974,25 +1976,25 @@ TEST_F(RowContainerTest, extractSerializedRow) {
 
     auto rows = store(rowContainer, data);
 
+    for (int col = 0; col < rowType->size(); ++col) {
+      ASSERT_EQ(rowContainer.columnHasNulls(col), expectedColumnHasNulls[col]);
+    }
+
     // Extract serialized rows.
     auto serialized = BaseVector::create<FlatVector<StringView>>(
         VARBINARY(), data->size(), pool());
     rowContainer.extractSerializedRows(
         folly::Range(rows.data(), rows.size()), serialized);
+
     for (int col = 0; col < rowType->size(); ++col) {
       ASSERT_EQ(rowContainer.columnHasNulls(col), expectedColumnHasNulls[col]);
     }
 
     rowContainer.clear();
-    // TODO: fix these once we reset the column stats when clear the row
-    // container.
     for (int col = 0; col < rowType->size(); ++col) {
-      ASSERT_EQ(rowContainer.columnHasNulls(col), expectedColumnHasNulls[col]);
+      ASSERT_EQ(rowContainer.columnHasNulls(col), false);
     }
     rows.clear();
-    for (int col = 0; col < rowType->size(); ++col) {
-      ASSERT_EQ(rowContainer.columnHasNulls(col), expectedColumnHasNulls[col]);
-    }
 
     // Load serialized rows back.
     for (auto i = 0; i < data->size(); ++i) {
@@ -2171,7 +2173,7 @@ TEST_F(RowContainerTest, columnHasNulls) {
   auto rowContainer =
       makeRowContainer({BIGINT(), BIGINT()}, {BIGINT(), BIGINT()}, false);
   for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
-    ASSERT_TRUE(!rowContainer->columnHasNulls(i));
+    ASSERT_FALSE(rowContainer->columnHasNulls(i));
   }
 
   const uint64_t kNumRows = 1000;
@@ -2554,11 +2556,11 @@ TEST_F(RowContainerTest, invalidatedColumnStats) {
     invalidateFunc(rowContainer.get(), rows);
     RowContainerTestHelper(rowContainer.get()).checkConsistency();
 
-    ASSERT_FALSE(rowContainer->columnStats(0).has_value());
-    ASSERT_FALSE(rowContainer->columnStats(1).has_value());
-    ASSERT_FALSE(rowContainer->columnStats(2).has_value());
-    ASSERT_FALSE(rowContainer->columnStats(3).has_value());
-    ASSERT_FALSE(rowContainer->columnStats(4).has_value());
+    ASSERT_TRUE(rowContainer->columnStats(0).has_value());
+    ASSERT_TRUE(rowContainer->columnStats(1).has_value());
+    ASSERT_TRUE(rowContainer->columnStats(2).has_value());
+    ASSERT_TRUE(rowContainer->columnStats(3).has_value());
+    ASSERT_TRUE(rowContainer->columnStats(4).has_value());
   }
 }
 
@@ -2621,6 +2623,22 @@ TEST_F(RowContainerTest, rowColumnStats) {
   EXPECT_EQ(stats.nonNullCount(), 6);
   EXPECT_EQ(stats.nullCount(), 4);
   EXPECT_EQ(stats.numCells(), 10);
+
+  stats.removeOrUpdateCellStats(25, false, false);
+  EXPECT_EQ(stats.minMaxColumnStatsValid(), false);
+  EXPECT_EQ(stats.sumBytes(), 60);
+  EXPECT_EQ(stats.avgBytes(), 12);
+  EXPECT_EQ(stats.numCells(), 9);
+  EXPECT_EQ(stats.nonNullCount(), 5);
+  EXPECT_EQ(stats.nullCount(), 4);
+
+  stats.removeOrUpdateCellStats(0, true, false);
+  EXPECT_EQ(stats.minMaxColumnStatsValid(), false);
+  EXPECT_EQ(stats.sumBytes(), 60);
+  EXPECT_EQ(stats.avgBytes(), 12);
+  EXPECT_EQ(stats.numCells(), 8);
+  EXPECT_EQ(stats.nonNullCount(), 5);
+  EXPECT_EQ(stats.nullCount(), 3);
 }
 
 TEST_F(RowContainerTest, storeAndCollectColumnStats) {
@@ -2661,5 +2679,22 @@ TEST_F(RowContainerTest, storeAndCollectColumnStats) {
       EXPECT_EQ(stats.avgBytes(), 13);
     }
   }
+
+  rowContainer->eraseRows(folly::Range(rows.data(), 10)); // there are 2 nulls
+  for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
+    const auto stats = rowContainer->columnStats(i).value();
+    EXPECT_EQ(stats.nonNullCount(), 849);
+    EXPECT_EQ(stats.nullCount(), 141);
+    EXPECT_EQ(stats.numCells(), kNumRows - 10);
+    if (rowVector->childAt(i)->typeKind() == TypeKind::VARCHAR) {
+      EXPECT_EQ(stats.sumBytes(), 11809);
+      EXPECT_EQ(stats.avgBytes(), 13);
+    }
+  }
+  rowContainer->clear();
+  for (int i = 0; i < rowContainer->columnTypes().size(); ++i) {
+    EXPECT_EQ(rowContainer->columnStats(i).value().numCells(), 0);
+  }
 }
+
 } // namespace facebook::velox::exec::test

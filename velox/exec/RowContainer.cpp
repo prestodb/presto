@@ -188,7 +188,6 @@ RowContainer::RowContainer(
     if (nullableKeys_) {
       ++nullOffset;
     }
-    columnHasNulls_.push_back(false);
   }
   // Make offset at least sizeof pointer so that there is space for a
   // free list next pointer below the bit at 'freeFlagOffset_'.
@@ -217,7 +216,6 @@ RowContainer::RowContainer(
     nullOffsets_.push_back(nullOffset);
     ++nullOffset;
     isVariableWidth |= !type->isFixedWidth();
-    columnHasNulls_.push_back(false);
   }
   if (hasProbedFlag) {
     nullOffsets_.push_back(nullOffset);
@@ -336,16 +334,35 @@ char* RowContainer::initializeRow(char* row, bool reuse) {
   return row;
 }
 
+void RowContainer::removeOrUpdateRowColumnStats(
+    const char* row,
+    bool setToNull) {
+  // Update row column stats accordingly
+  for (auto i = 0; i < types_.size(); i++) {
+    if (isNullAt(row, columnAt(i))) {
+      rowColumnsStats_[i].removeOrUpdateCellStats(0, true, setToNull);
+    } else if (types_[i]->isFixedWidth()) {
+      rowColumnsStats_[i].removeOrUpdateCellStats(
+          fixedSizeAt(i), false, setToNull);
+    } else {
+      rowColumnsStats_[i].removeOrUpdateCellStats(
+          variableSizeAt(row, i), false, setToNull);
+    }
+  }
+  invalidateMinMaxColumnStats();
+}
+
 void RowContainer::eraseRows(folly::Range<char**> rows) {
   freeRowsExtraMemory(rows, /*freeNextRowVector=*/true);
   for (auto* row : rows) {
     VELOX_CHECK(!bits::isBitSet(row, freeFlagOffset_), "Double free of row");
+    removeOrUpdateRowColumnStats(row, /*setToNull=*/false);
+
     bits::setBit(row, freeFlagOffset_);
     nextFree(row) = firstFreeRow_;
     firstFreeRow_ = row;
   }
   numFreeRows_ += rows.size();
-  invalidateColumnStats();
 }
 
 int32_t RowContainer::findRows(folly::Range<char**> rows, char** result) const {
@@ -466,11 +483,26 @@ void RowContainer::freeRowsExtraMemory(
   numRows_ -= rows.size();
 }
 
-void RowContainer::invalidateColumnStats() {
-  if (rowColumnsStats_.empty()) {
-    return;
+void RowColumn::Stats::removeOrUpdateCellStats(
+    int32_t bytes,
+    bool wasNull,
+    bool setToNull) {
+  // we only update nullCount, nonNullCount, and numBytes
+  // when the cell is removed. Because min/max need the
+  // full column data and not recorded in stats.
+  if (wasNull) {
+    VELOX_DCHECK_EQ(bytes, 0);
+    if (!setToNull) {
+      --nullCount_;
+    }
+  } else {
+    --nonNullCount_;
+    sumBytes_ -= bytes;
+    if (setToNull) {
+      ++nullCount_;
+    }
   }
-  rowColumnsStats_.clear();
+  invalidateMinMaxColumnStats();
 }
 
 // static
@@ -522,12 +554,6 @@ void RowContainer::updateColumnStats(
 
 void RowContainer::updateColumnStats(char* row, int32_t columnIndex) {
   const bool nullColumn = isNullAt(row, rowColumns_[columnIndex]);
-  updateColumnHasNulls(columnIndex, nullColumn);
-
-  if (rowColumnsStats_.empty()) {
-    // Column stats have been invalidated.
-    return;
-  }
 
   auto& columnStats = rowColumnsStats_[columnIndex];
   if (nullColumn) {
@@ -589,7 +615,7 @@ void RowContainer::store(
         offsets_[column],
         column);
   } else {
-    const auto rowColumn = rowColumns_[column];
+    const auto& rowColumn = rowColumns_[column];
     VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
         storeWithNullsBatch,
         typeKinds_[column],
@@ -836,7 +862,6 @@ void RowContainer::storeComplexType(
   if (decoded.isNullAt(index)) {
     VELOX_DCHECK(nullMask);
     row[nullByte] |= nullMask;
-    updateColumnHasNulls(column, true);
     return;
   }
   RowSizeTracker tracker(row[rowSizeOffset_], *stringAllocator_);
@@ -1009,6 +1034,9 @@ void RowContainer::clear() {
   normalizedKeySize_ = originalNormalizedKeySize_;
   numFreeRows_ = 0;
   firstFreeRow_ = nullptr;
+
+  rowColumnsStats_.clear();
+  rowColumnsStats_.resize(types_.size());
 }
 
 void RowContainer::setProbedFlag(char** rows, int32_t numRows) {

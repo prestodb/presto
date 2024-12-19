@@ -302,8 +302,8 @@ std::optional<uint64_t> HashProbe::estimatedRowSize(
   std::vector<RowColumn::Stats> varSizeListColumnsStats;
   varSizeListColumnsStats.reserve(varSizedColumns.size());
   for (uint32_t i = 0; i < varSizedColumns.size(); ++i) {
-    auto statsOpt = columnStats(varSizedColumns[i]);
-    if (!statsOpt.has_value()) {
+    const auto statsOpt = columnStats(varSizedColumns[i]);
+    if (!statsOpt.has_value() || !statsOpt->minMaxColumnStatsValid()) {
       return std::nullopt;
     }
     varSizeListColumnsStats.push_back(statsOpt.value());

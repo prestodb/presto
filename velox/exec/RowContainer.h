@@ -187,6 +187,8 @@ class RowColumn {
       ++nullCount_;
     }
 
+    void removeOrUpdateCellStats(int32_t bytes, bool wasNull, bool setToNull);
+
     int32_t maxBytes() const {
       return maxBytes_;
     }
@@ -218,6 +220,14 @@ class RowColumn {
       return nullCount_ + nonNullCount_;
     }
 
+    void invalidateMinMaxColumnStats() {
+      minMaxStatsValid_ = false;
+    }
+
+    bool minMaxColumnStatsValid() const {
+      return minMaxStatsValid_;
+    }
+
     /// Merges multiple aggregated stats of the same column into a single one.
     static Stats merge(const std::vector<Stats>& statsList);
 
@@ -225,6 +235,7 @@ class RowColumn {
     // Aggregated stats for non-null rows of the column.
     int32_t minBytes_{0};
     int32_t maxBytes_{0};
+    bool minMaxStatsValid_{true};
     uint64_t sumBytes_{0};
 
     uint32_t nonNullCount_{0};
@@ -320,11 +331,11 @@ class RowContainer {
   /// a row with uninitialized keys for aggregates with no-op partial
   /// aggregation.
   void setAllNull(char* row) {
+    removeOrUpdateRowColumnStats(row, /*setToNull=*/true);
     if (!nullOffsets_.empty()) {
       memset(row + nullByte(nullOffsets_[0]), 0xff, initialNulls_.size());
       bits::clearBit(row, freeFlagOffset_);
     }
-    invalidateColumnStats();
   }
 
   /// The row size excluding any out-of-line stored variable length values.
@@ -817,13 +828,18 @@ class RowContainer {
   /// invalidated. Any row erase operations will invalidate column stats.
   std::optional<RowColumn::Stats> columnStats(int32_t columnIndex) const;
 
+  uint32_t columnNullCount(int32_t columnIndex) {
+    return rowColumnsStats_[columnIndex].nullCount();
+  }
+
   const auto& keyTypes() const {
     return keyTypes_;
   }
 
-  /// Returns true if specified column may have nulls, false otherwise.
+  /// Returns true if specified column has nulls, false otherwise.
   inline bool columnHasNulls(int32_t columnIndex) const {
-    return columnHasNulls_[columnIndex];
+    return columnStats(columnIndex)->numCells() > 0 &&
+        columnStats(columnIndex)->nullCount() > 0;
   }
 
   const std::vector<Accumulator>& accumulators() const {
@@ -990,6 +1006,13 @@ class RowContainer {
     }
   }
 
+  /// Removes or updates the column stats of a given row by updating each column
+  /// stats.
+  /// @param row - Points to the row to be removed or updated.
+  /// @param setToNull - If true, the row stats is set to a null row,
+  /// otherwise, the stats is erased from the columns stats.
+  void removeOrUpdateRowColumnStats(const char* row, bool setToNull);
+
   char*& nextFree(char* row) const {
     return *reinterpret_cast<char**>(row + kNextFreeOffset);
   }
@@ -1015,7 +1038,6 @@ class RowContainer {
       // Do not leave an uninitialized value in the case of a
       // null. This is an error with valgrind/asan.
       *reinterpret_cast<T*>(row + offset) = T();
-      updateColumnHasNulls(columnIndex, true);
       return;
     }
     if constexpr (std::is_same_v<T, StringView>) {
@@ -1469,14 +1491,12 @@ class RowContainer {
   // Updates column stats for serialized row.
   inline void updateColumnStats(char* row, int32_t columnIndex);
 
-  // Light weight aggregated column stats does not support row erasures. This
+  // Min/max column stats do not support row erasures. This
   // method is called whenever a row is erased.
-  void invalidateColumnStats();
-
-  // Updates the specific column's columnHasNulls_ flag, if 'hasNulls' is true.
-  // columnHasNulls_ flag is false by default.
-  inline void updateColumnHasNulls(int32_t columnIndex, bool hasNulls) {
-    columnHasNulls_[columnIndex] = columnHasNulls_[columnIndex] || hasNulls;
+  void invalidateMinMaxColumnStats() {
+    for (auto columnStats : rowColumnsStats_) {
+      columnStats.invalidateMinMaxColumnStats();
+    }
   }
 
   const std::vector<TypePtr> keyTypes_;
@@ -1486,8 +1506,6 @@ class RowContainer {
   const bool hasNormalizedKeys_;
 
   const std::unique_ptr<HashStringAllocator> stringAllocator_;
-
-  std::vector<bool> columnHasNulls_;
 
   // Indicates if we can add new row to this row container. It is set to false
   // after user calls 'getRowPartitions()' to create 'rowPartitions' object for
@@ -1513,7 +1531,7 @@ class RowContainer {
   // Offset and null indicator offset of non-aggregate fields as a single word.
   // Corresponds pairwise to 'types_'.
   std::vector<RowColumn> rowColumns_;
-  // Optional aggregated column stats(e.g. min/max size) for non-aggregate
+  // Aggregated column stats(e.g. min/max size) for non-aggregate
   // fields. Index aligns with 'rowColumns_'.
   std::vector<RowColumn::Stats> rowColumnsStats_;
   // Bit offset of the probed flag for a full or right outer join  payload. 0 if
@@ -1643,7 +1661,6 @@ inline void RowContainer::storeWithNulls<TypeKind::HUGEINT>(
   if (decoded.isNullAt(rowIndex)) {
     row[nullByte] |= nullMask;
     memset(row + offset, 0, sizeof(int128_t));
-    updateColumnHasNulls(columnIndex, true);
     return;
   }
   HugeInt::serialize(decoded.valueAt<int128_t>(rowIndex), row + offset);
