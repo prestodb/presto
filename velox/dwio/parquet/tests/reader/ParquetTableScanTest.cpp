@@ -827,6 +827,22 @@ TEST_F(ParquetTableScanTest, sessionTimezone) {
   assertSelectWithTimezone({"a"}, "SELECT a FROM tmp", "Asia/Shanghai");
 }
 
+TEST_F(ParquetTableScanTest, timestampInt64Dictionary) {
+  WriterOptions options;
+  options.writeInt96AsTimestamp = false;
+  options.enableDictionary = true;
+  options.parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
+  testTimestampRead(options);
+}
+
+TEST_F(ParquetTableScanTest, timestampInt64Plain) {
+  WriterOptions options;
+  options.writeInt96AsTimestamp = false;
+  options.enableDictionary = false;
+  options.parquetWriteTimestampUnit = TimestampPrecision::kMicroseconds;
+  testTimestampRead(options);
+}
+
 TEST_F(ParquetTableScanTest, timestampInt96Dictionary) {
   WriterOptions options;
   options.writeInt96AsTimestamp = true;
