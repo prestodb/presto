@@ -520,6 +520,25 @@ void RowContainer::updateColumnStats(
   }
 }
 
+void RowContainer::updateColumnStats(char* row, int32_t columnIndex) {
+  const bool nullColumn = isNullAt(row, rowColumns_[columnIndex]);
+  updateColumnHasNulls(columnIndex, nullColumn);
+
+  if (rowColumnsStats_.empty()) {
+    // Column stats have been invalidated.
+    return;
+  }
+
+  auto& columnStats = rowColumnsStats_[columnIndex];
+  if (nullColumn) {
+    columnStats.addNullCell();
+  } else if (types_[columnIndex]->isFixedWidth()) {
+    columnStats.addCellSize(fixedSizeAt(columnIndex));
+  } else {
+    columnStats.addCellSize(variableSizeAt(row, columnIndex));
+  }
+}
+
 void RowContainer::store(
     const DecodedVector& decoded,
     vector_size_t rowIndex,
@@ -596,7 +615,7 @@ std::unique_ptr<ByteInputStream> RowContainer::prepareRead(
 
 int32_t RowContainer::variableSizeAt(const char* row, column_index_t column)
     const {
-  const auto rowColumn = rowColumns_[column];
+  const auto& rowColumn = rowColumns_[column];
 
   if (isNullAt(row, rowColumn)) {
     return 0;
@@ -766,7 +785,7 @@ void RowContainer::storeSerializedRow(
     vector_size_t index,
     char* row) {
   VELOX_CHECK(!vector.isNullAt(index));
-  auto serialized = vector.valueAt(index);
+  const auto serialized = vector.valueAt(index);
   size_t offset = 0;
 
   ::memcpy(row + rowColumns_[0].nullByte(), serialized.data(), flagBytes_);
@@ -783,6 +802,7 @@ void RowContainer::storeSerializedRow(
       const auto size = storeVariableSizeAt(serialized.data() + offset, row, i);
       offset += size;
     }
+    updateColumnStats(row, i);
   }
 }
 

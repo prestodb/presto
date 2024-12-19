@@ -1953,6 +1953,20 @@ TEST_F(RowContainerTest, extractSerializedRow) {
 
     auto rowType = fuzzer.randRowType();
     auto data = fuzzer.fuzzInputRow(rowType);
+    std::vector<bool> expectedColumnHasNulls(data->size(), false);
+    for (int col = 0; col < rowType->size(); ++col) {
+      const auto child = data->childAt(col);
+      if (!child->mayHaveNulls()) {
+        expectedColumnHasNulls[col] = false;
+      } else {
+        for (auto row = 0; row < child->size(); ++row) {
+          if (child->isNullAt(row)) {
+            expectedColumnHasNulls[col] = true;
+            break;
+          }
+        }
+      }
+    }
 
     SCOPED_TRACE(data->toString());
 
@@ -1965,9 +1979,20 @@ TEST_F(RowContainerTest, extractSerializedRow) {
         VARBINARY(), data->size(), pool());
     rowContainer.extractSerializedRows(
         folly::Range(rows.data(), rows.size()), serialized);
+    for (int col = 0; col < rowType->size(); ++col) {
+      ASSERT_EQ(rowContainer.columnHasNulls(col), expectedColumnHasNulls[col]);
+    }
 
     rowContainer.clear();
+    // TODO: fix these once we reset the column stats when clear the row
+    // container.
+    for (int col = 0; col < rowType->size(); ++col) {
+      ASSERT_EQ(rowContainer.columnHasNulls(col), expectedColumnHasNulls[col]);
+    }
     rows.clear();
+    for (int col = 0; col < rowType->size(); ++col) {
+      ASSERT_EQ(rowContainer.columnHasNulls(col), expectedColumnHasNulls[col]);
+    }
 
     // Load serialized rows back.
     for (auto i = 0; i < data->size(); ++i) {

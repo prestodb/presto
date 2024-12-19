@@ -1466,6 +1466,9 @@ class RowContainer {
       char* row,
       int32_t columnIndex);
 
+  // Updates column stats for serialized row.
+  inline void updateColumnStats(char* row, int32_t columnIndex);
+
   // Light weight aggregated column stats does not support row erasures. This
   // method is called whenever a row is erased.
   void invalidateColumnStats();
