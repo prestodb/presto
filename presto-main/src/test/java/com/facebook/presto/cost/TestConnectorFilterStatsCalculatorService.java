@@ -24,6 +24,7 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
 import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
@@ -56,7 +57,12 @@ public class TestConnectorFilterStatsCalculatorService
     {
         session = testSessionBuilder().build();
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
-        FilterStatsCalculator statsCalculator = new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer());
+        FilterStatsCalculator statsCalculator = new FilterStatsCalculator(
+                metadata,
+                new ScalarStatsCalculator(
+                        metadata,
+                        new InMemoryExpressionOptimizerProvider(metadata)),
+                new StatsNormalizer());
         statsCalculatorService = new ConnectorFilterStatsCalculatorService(statsCalculator);
         xStats = ColumnStatistics.builder()
                 .setDistinctValuesCount(Estimate.of(40))

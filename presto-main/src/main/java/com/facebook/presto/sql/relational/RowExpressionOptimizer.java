@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -24,23 +26,30 @@ import java.util.function.Function;
 
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public final class RowExpressionOptimizer
         implements ExpressionOptimizer
 {
-    private final Metadata metadata;
+    private final FunctionAndTypeManager functionAndTypeManager;
 
     public RowExpressionOptimizer(Metadata metadata)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this(requireNonNull(metadata, "metadata is null").getFunctionAndTypeManager());
+    }
+
+    public RowExpressionOptimizer(FunctionMetadataManager functionMetadataManager)
+    {
+        checkArgument(functionMetadataManager instanceof FunctionAndTypeManager, "Expected functionMetadataManager to be instance of FunctionAndTypeManager");
+        this.functionAndTypeManager = (FunctionAndTypeManager) requireNonNull(functionMetadataManager, "functionMetadataManager is null");
     }
 
     @Override
     public RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
     {
         if (level.ordinal() <= OPTIMIZED.ordinal()) {
-            return toRowExpression(rowExpression.getSourceLocation(), new RowExpressionInterpreter(rowExpression, metadata.getFunctionAndTypeManager(), session, level).optimize(), rowExpression.getType());
+            return toRowExpression(rowExpression.getSourceLocation(), new RowExpressionInterpreter(rowExpression, functionAndTypeManager, session, level).optimize(), rowExpression.getType());
         }
         throw new IllegalArgumentException("Not supported optimization level: " + level);
     }
@@ -48,7 +57,7 @@ public final class RowExpressionOptimizer
     @Override
     public Object optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
     {
-        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), session, level);
+        RowExpressionInterpreter interpreter = new RowExpressionInterpreter(expression, functionAndTypeManager, session, level);
         return interpreter.optimize(variableResolver::apply);
     }
 }

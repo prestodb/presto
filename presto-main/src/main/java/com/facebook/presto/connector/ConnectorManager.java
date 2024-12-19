@@ -62,12 +62,12 @@ import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.RecordPageSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.ConnectorRowExpressionService;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -116,6 +116,7 @@ public class ConnectorManager
     private final PageIndexerFactory pageIndexerFactory;
     private final NodeInfo nodeInfo;
     private final TransactionManager transactionManager;
+    private final ExpressionOptimizerManager expressionOptimizerManager;
     private final DomainTranslator domainTranslator;
     private final PredicateCompiler predicateCompiler;
     private final DeterminismEvaluator determinismEvaluator;
@@ -151,6 +152,7 @@ public class ConnectorManager
             PageSorter pageSorter,
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
+            ExpressionOptimizerManager expressionOptimizerManager,
             DomainTranslator domainTranslator,
             PredicateCompiler predicateCompiler,
             DeterminismEvaluator determinismEvaluator,
@@ -176,6 +178,7 @@ public class ConnectorManager
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionOptimizerManager is null");
         this.domainTranslator = requireNonNull(domainTranslator, "domainTranslator is null");
         this.predicateCompiler = requireNonNull(predicateCompiler, "predicateCompiler is null");
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
@@ -382,7 +385,7 @@ public class ConnectorManager
                 pageIndexerFactory,
                 new ConnectorRowExpressionService(
                         domainTranslator,
-                        new RowExpressionOptimizer(metadataManager),
+                        expressionOptimizerManager,
                         predicateCompiler,
                         determinismEvaluator,
                         new RowExpressionFormatter(metadataManager.getFunctionAndTypeManager())),
