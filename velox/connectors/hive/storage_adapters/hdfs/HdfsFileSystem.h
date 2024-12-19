@@ -17,10 +17,6 @@
 
 namespace facebook::velox::filesystems {
 
-namespace arrow::io::internal {
-class LibHdfsShim;
-}
-
 struct HdfsServiceEndpoint {
   HdfsServiceEndpoint(
       const std::string& hdfsHost,
