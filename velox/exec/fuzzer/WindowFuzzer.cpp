@@ -256,7 +256,14 @@ std::vector<SortingKeyAndOrder> WindowFuzzer::generateSortingKeysAndOrders(
     std::vector<TypePtr>& types,
     bool isKRangeFrame,
     std::optional<uint32_t> numKeys) {
-  auto keys = generateSortingKeys(prefix, names, types, isKRangeFrame, numKeys);
+  VELOX_CHECK_NOT_NULL(referenceQueryRunner_);
+  auto keys = generateSortingKeys(
+      prefix,
+      names,
+      types,
+      isKRangeFrame,
+      referenceQueryRunner_->supportedScalarTypes(),
+      numKeys);
   std::vector<SortingKeyAndOrder> results;
   for (auto i = 0; i < keys.size(); ++i) {
     auto asc = vectorFuzzer_.coinToss(0.5);
@@ -455,8 +462,14 @@ void WindowFuzzer::go() {
 
     const uint32_t numKeys =
         boost::random::uniform_int_distribution<uint32_t>(1, 15)(rng_);
-    const auto partitionKeys =
-        generateSortingKeys("p", argNames, argTypes, false, numKeys);
+    VELOX_CHECK_NOT_NULL(referenceQueryRunner_);
+    const auto partitionKeys = generateSortingKeys(
+        "p",
+        argNames,
+        argTypes,
+        false,
+        referenceQueryRunner_->supportedScalarTypes(),
+        numKeys);
 
     std::vector<SortingKeyAndOrder> sortingKeysAndOrders;
     TypeKind orderByTypeKind;
@@ -479,7 +492,7 @@ void WindowFuzzer::go() {
     }
 
     auto input = generateInputDataWithRowNumber(
-        argNames, argTypes, partitionKeys, signature);
+        argNames, argTypes, partitionKeys, kBoundColumns, signature);
     // Offset column names used for k-RANGE frame bounds have fixed names: off0
     // and off1, representing the precomputed offset columns used as frame start
     // and frame end bound respectively.
@@ -547,6 +560,13 @@ void WindowFuzzer::go() {
   }
 
   stats_.print(iteration);
+  // Check that at least half of the iterations were verified, either against
+  // the reference DB or through custom result verifiers.
+  // stats_.numVerificationSkipped tracks the number of iterations verified
+  // through custom result verifiers.
+  VELOX_CHECK_GE(
+      (stats_.numVerified + stats_.numVerificationSkipped) / (double)iteration,
+      0.5);
   printSignatureStats();
 }
 

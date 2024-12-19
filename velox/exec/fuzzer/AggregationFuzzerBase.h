@@ -188,6 +188,7 @@ class AggregationFuzzerBase {
       std::vector<std::string>& names,
       std::vector<TypePtr>& types,
       bool rangeFrame = false,
+      const std::vector<TypePtr>& scalarTypes = defaultScalarTypes(),
       std::optional<uint32_t> numKeys = std::nullopt);
 
   std::pair<CallableSignature, SignatureStats&> pickSignature();
@@ -197,14 +198,17 @@ class AggregationFuzzerBase {
       std::vector<TypePtr> types,
       const std::optional<CallableSignature>& signature);
 
-  // Generate a RowVector of the given types of children with an additional
-  // child named "row_number" of BIGINT row numbers that differentiates every
-  // row. Row numbers start from 0. This additional input vector is needed for
-  // result verification of window aggregations.
+  /// Generate a RowVector of the given types of children with an additional
+  /// child named "row_number" of INTEGER row numbers that differentiates every
+  /// row. Row numbers start from 0. This additional input vector is needed for
+  /// result verification of window aggregations.
+  /// @param windowFrameBounds Names of frame bound columns of a window
+  /// operation. These columns are fuzzed without NULLs.
   std::vector<RowVectorPtr> generateInputDataWithRowNumber(
       std::vector<std::string> names,
       std::vector<TypePtr> types,
       const std::vector<std::string>& partitionKeys,
+      const std::vector<std::string>& windowFrameBounds,
       const CallableSignature& signature);
 
   velox::fuzzer::ResultOrError execute(

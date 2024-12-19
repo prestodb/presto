@@ -243,10 +243,11 @@ std::vector<std::string> AggregationFuzzerBase::generateSortingKeys(
     std::vector<std::string>& names,
     std::vector<TypePtr>& types,
     bool rangeFrame,
+    const std::vector<TypePtr>& scalarTypes,
     std::optional<uint32_t> numKeys) {
   std::vector<std::string> keys;
   vector_size_t maxDepth;
-  std::vector<TypePtr> sortingKeyTypes = defaultScalarTypes();
+  std::vector<TypePtr> sortingKeyTypes = scalarTypes;
 
   // If frame has k-RANGE bound, only one sorting key should be present, and it
   // should be a scalar type which supports '+', '-' arithmetic operations.
@@ -328,9 +329,10 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
     std::vector<std::string> names,
     std::vector<TypePtr> types,
     const std::vector<std::string>& partitionKeys,
+    const std::vector<std::string>& windowFrameBounds,
     const CallableSignature& signature) {
   names.push_back("row_number");
-  types.push_back(BIGINT());
+  types.push_back(INTEGER());
 
   auto generator = findInputGenerator(signature);
 
@@ -339,11 +341,10 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
   velox::test::VectorMaker vectorMaker{pool_.get()};
   int64_t rowNumber = 0;
 
-  std::unordered_set<std::string> partitionKeySet;
-  partitionKeySet.reserve(partitionKeys.size());
-  for (auto partitionKey : partitionKeys) {
-    partitionKeySet.insert(partitionKey);
-  }
+  std::unordered_set<std::string> partitionKeySet{
+      partitionKeys.begin(), partitionKeys.end()};
+  std::unordered_set<std::string> windowFrameBoundsSet{
+      windowFrameBounds.begin(), windowFrameBounds.end()};
 
   for (auto j = 0; j < FLAGS_num_batches; ++j) {
     std::vector<VectorPtr> children;
@@ -365,11 +366,15 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
         auto baseVector = vectorFuzzer_.fuzz(types[i], numPartitions);
         children.push_back(
             BaseVector::wrapInDictionary(nulls, indices, size, baseVector));
+      } else if (
+          windowFrameBoundsSet.find(names[i]) != windowFrameBoundsSet.end()) {
+        // Frame bound columns cannot have NULLs.
+        children.push_back(vectorFuzzer_.fuzzNotNull(types[i], size));
       } else {
         children.push_back(vectorFuzzer_.fuzz(types[i], size));
       }
     }
-    children.push_back(vectorMaker.flatVector<int64_t>(
+    children.push_back(vectorMaker.flatVector<int32_t>(
         size, [&](auto /*row*/) { return rowNumber++; }));
     input.push_back(vectorMaker.rowVector(names, children));
   }
