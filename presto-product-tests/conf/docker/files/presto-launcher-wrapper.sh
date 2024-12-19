@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euxo pipefail
 
 CONFIG="$1"
 
@@ -13,6 +13,15 @@ if [[ ! -f "${CONFIG_PROPERTIES_LOCATION}" ]]; then
    echo "${CONFIG_PROPERTIES_LOCATION} does not exist" >&2
    exit 1
 fi
+
+# If we have an updated JDK for Presto in a specific path, use it
+if [ -d /opt/java/openjdk ]; then
+  export JAVA_HOME=/opt/java/openjdk
+  export PATH=$JAVA_HOME/bin:$PATH
+fi
+
+echo "Starting Presto with java set to -"
+java -version
 
 /docker/volumes/presto-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \
