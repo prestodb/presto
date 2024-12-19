@@ -518,7 +518,9 @@ void CacheShard::updateStats(CacheStats& stats) {
     if (!entry || !entry->key_.fileNum.hasValue()) {
       ++stats.numEmptyEntries;
       continue;
-    } else if (entry->isExclusive()) {
+    }
+
+    if (entry->isExclusive()) {
       stats.exclusivePinnedBytes +=
           entry->data().byteSize() + entry->tinyData_.capacity();
       ++stats.numExclusive;
@@ -527,10 +529,12 @@ void CacheShard::updateStats(CacheStats& stats) {
           entry->data().byteSize() + entry->tinyData_.capacity();
       ++stats.numShared;
     }
+
     if (entry->isPrefetch_) {
       ++stats.numPrefetch;
       stats.prefetchBytes += entry->size();
     }
+
     ++stats.numEntries;
     stats.tinySize += entry->tinyData_.size();
     stats.tinyPadding += entry->tinyData_.capacity() - entry->tinyData_.size();
