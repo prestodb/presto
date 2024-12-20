@@ -1525,7 +1525,8 @@ struct FromIso8601Timestamp {
       return castResult.error();
     }
 
-    auto [ts, timeZone] = castResult.value();
+    auto [ts, timeZone, offsetMillis] = castResult.value();
+    VELOX_DCHECK(!offsetMillis.has_value());
     // Input string may not contain a timezone - if so, it is interpreted in
     // session timezone.
     if (!timeZone) {

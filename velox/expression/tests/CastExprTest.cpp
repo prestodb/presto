@@ -548,8 +548,40 @@ TEST_F(CastExprTest, stringToTimestamp) {
       "1970-01-01 00:00:00-02:00",
       "1970-01-01 00:00:00 +02",
       "1970-01-01 00:00:00 -0101",
+      // Fully specified offset.
+      "1970-01-02 00:00:00 +01:01:01.001",
+      "1970-01-01 00:00:00 -01:01:01.001",
+      // Offset with two digit milliseconds.
+      "1970-01-02 00:00:00 +01:01:01.01",
+      "1970-01-01 00:00:00 -01:01:01.01",
+      // Offset with one digit milliseconds.
+      "1970-01-02 00:00:00 +01:01:01.1",
+      "1970-01-01 00:00:00 -01:01:01.1",
+      // Offset without milliseconds.
+      "1970-01-02 00:00:00 +01:01:01",
+      "1970-01-01 00:00:00 -01:01:01",
+      // Offset without seconds.
+      "1970-01-02 00:00:00 +23:01",
+      "1970-01-01 00:00:00 -23:01",
+      // Offset without minutes.
+      "1970-01-02 00:00:00 +23",
+      "1970-01-01 00:00:00 -23",
+      // Upper and lower limits of offsets.
+      "2000-01-01 12:13:14.123+23:59:59.999",
+      "2000-01-01 12:13:14.123-23:59:59.999",
+      // Comma instead of period for decimal in offset.
+      "1970-01-01 00:00:00 -01:01:01,001",
+      // Trailing spaces after offset.
+      "1970-01-02 00:00:00 +01:01:01.001   ",
+      // Overflow of nanoseconds in offset.
+      "1970-01-01 00:00:00.999 -01:01:01.002",
+      // Underflow of nanoseconds in offset.
+      "1970-01-02 00:00:00.001 +01:01:01.002",
+      // No optional separators
+      "1970-01-01 00:00:00 -010101001",
       std::nullopt,
   };
+
   std::vector<std::optional<Timestamp>> expected{
       Timestamp(0, 0),
       Timestamp(10800, 0),
@@ -559,6 +591,25 @@ TEST_F(CastExprTest, stringToTimestamp) {
       Timestamp(7200, 0),
       Timestamp(-7200, 0),
       Timestamp(3660, 0),
+      Timestamp(82738, 999000000),
+      Timestamp(3661, 1000000),
+      Timestamp(82738, 990000000),
+      Timestamp(3661, 10000000),
+      Timestamp(82738, 900000000),
+      Timestamp(3661, 100000000),
+      Timestamp(82739, 0),
+      Timestamp(3661, 0),
+      Timestamp(3540, 0),
+      Timestamp(82860, 0),
+      Timestamp(3600, 0),
+      Timestamp(82800, 0),
+      Timestamp(946642394, 124000000),
+      Timestamp(946815194, 122000000),
+      Timestamp(3661, 1000000),
+      Timestamp(82738, 999000000),
+      Timestamp(3662, 1000000),
+      Timestamp(82738, 999000000),
+      Timestamp(3661, 1000000),
       std::nullopt,
   };
   testCast<std::string, Timestamp>("timestamp", input, expected);
@@ -571,6 +622,12 @@ TEST_F(CastExprTest, stringToTimestamp) {
       "1970-01-01 00:00 +01:00",
       "1970-01-01 00:00 America/Sao_Paulo",
       "2000-01-01 12:21:56Z",
+      "2000-01-01 12:21:56+01:01:01",
+      // Test going back and forth across DST boundaries.
+      "2024-03-10 09:59:59 -00:00:02",
+      "2024-03-10 10:00:01 +00:00:02",
+      "2024-11-03 08:59:59 -00:00:02",
+      "2024-11-03 09:00:01 +00:00:02",
   };
   expected = {
       Timestamp(28800, 0),
@@ -578,6 +635,11 @@ TEST_F(CastExprTest, stringToTimestamp) {
       Timestamp(-3600, 0),
       Timestamp(10800, 0),
       Timestamp(946729316, 0),
+      Timestamp(946725655, 0),
+      Timestamp(1710064801, 0),
+      Timestamp(1710064799, 0),
+      Timestamp(1730624401, 0),
+      Timestamp(1730624399, 0),
   };
   testCast<std::string, Timestamp>("timestamp", input, expected);
 
@@ -602,6 +664,31 @@ TEST_F(CastExprTest, stringToTimestamp) {
       (evaluateOnce<Timestamp, std::string>(
           "try_cast(c0 as timestamp)", "2045-12-31 18:00:00")),
       "Unable to convert timezone 'America/Los_Angeles' past 2037-11-01 09:00:00");
+  // Only one white space is allowed before the offset string.
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "cast(c0 as timestamp)", "2000-01-01 00:00:00  +01:01:01")),
+      "Cannot cast VARCHAR '2000-01-01 00:00:00  +01:01:01' to TIMESTAMP. Unknown timezone value: \"\"");
+  // Hour must be in the ragne [0, 23].
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "cast(c0 as timestamp)", "2000-01-01 00:00:00 +24")),
+      "Cannot cast VARCHAR '2000-01-01 00:00:00 +24' to TIMESTAMP. Unknown timezone value: \"+24\"");
+  // Minute must be in the range [0, 59].
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "cast(c0 as timestamp)", "2000-01-01 00:00:00 +01:60")),
+      "Cannot cast VARCHAR '2000-01-01 00:00:00 +01:60' to TIMESTAMP. Unknown timezone value: \"+01:60\"");
+  // Second must be in the range [0, 59].
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "cast(c0 as timestamp)", "2000-01-01 00:00:00 +01:01:60")),
+      "Cannot cast VARCHAR '2000-01-01 00:00:00 +01:01:60' to TIMESTAMP. Unknown timezone value: \"+01:01:60\"");
+  // Millisecond must be in the range [0, 999].
+  VELOX_ASSERT_THROW(
+      (evaluateOnce<Timestamp, std::string>(
+          "cast(c0 as timestamp)", "2000-01-01 00:00:00 +01:01:01.1000")),
+      "Cannot cast VARCHAR '2000-01-01 00:00:00 +01:01:01.1000' to TIMESTAMP. Unknown timezone value: \"+01:01:01.1000\"");
 
   setLegacyCast(true);
   input = {

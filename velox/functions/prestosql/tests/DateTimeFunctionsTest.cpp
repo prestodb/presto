@@ -4387,6 +4387,9 @@ TEST_F(DateTimeFunctionsTest, fromIso8601Timestamp) {
   VELOX_ASSERT_THROW(
       fromIso("1970-01-02T11:38:56.123 America/New_York"),
       R"(Unable to parse timestamp value: "1970-01-02T11:38:56.123 America/New_York")");
+  VELOX_ASSERT_THROW(
+      fromIso("1970-01-02T11:38:56+16:00:01"),
+      "Unknown timezone value: \"+16:00:01\"");
 
   VELOX_ASSERT_THROW(fromIso("T"), R"(Unable to parse timestamp value: "T")");
 

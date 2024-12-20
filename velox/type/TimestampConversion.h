@@ -31,6 +31,10 @@ constexpr const int32_t kMinsPerHour{60};
 constexpr const int32_t kSecsPerMinute{60};
 constexpr const int64_t kMsecsPerSec{1000};
 
+constexpr const int64_t kMillisPerSecond{1000};
+constexpr const int64_t kMillisPerMinute{kMillisPerSecond * kSecsPerMinute};
+constexpr const int64_t kMillisPerHour{kMillisPerMinute * kMinsPerHour};
+
 constexpr const int64_t kMicrosPerMsec{1000};
 constexpr const int64_t kMicrosPerSec{kMicrosPerMsec * kMsecsPerSec};
 constexpr const int64_t kMicrosPerMinute{kMicrosPerSec * kSecsPerMinute};
@@ -225,6 +229,18 @@ inline Expected<Timestamp> fromTimestampString(
   return fromTimestampString(str.data(), str.size(), parseMode);
 }
 
+struct ParsedTimestampWithTimeZone {
+  Timestamp timestamp;
+  const tz::TimeZone* timeZone;
+  std::optional<int64_t> offsetMillis;
+
+  // For ease of testing purposes.
+  bool operator==(const ParsedTimestampWithTimeZone& other) const {
+    return timestamp == other.timestamp && timeZone == other.timeZone &&
+        offsetMillis == other.offsetMillis;
+  }
+};
+
 /// Parses a timestamp string using specified TimestampParseMode.
 ///
 /// This is a timezone-aware version of the function above
@@ -237,16 +253,17 @@ inline Expected<Timestamp> fromTimestampString(
 /// "America/Los_Angeles", or a timezone offset, like "+06:00" or "-09:30". The
 /// white space between the hour definition and timestamp is optional.
 ///
-/// `nullptr` means no timezone information was found. Returns Unexpected with
-/// UserError status in case of parsing errors.
-Expected<std::pair<Timestamp, const tz::TimeZone*>>
-fromTimestampWithTimezoneString(
+/// `nullptr` means the timezone was not recognized as a valid time zone or
+/// was not present. In this case offsetMillis may be set with the milliseconds
+/// timezone offset if an offset was found but was not a valid timezone.
+///
+/// Returns Unexpected with UserError status in case of parsing errors.
+Expected<ParsedTimestampWithTimeZone> fromTimestampWithTimezoneString(
     const char* buf,
     size_t len,
     TimestampParseMode parseMode);
 
-inline Expected<std::pair<Timestamp, const tz::TimeZone*>>
-fromTimestampWithTimezoneString(
+inline Expected<ParsedTimestampWithTimeZone> fromTimestampWithTimezoneString(
     const StringView& str,
     TimestampParseMode parseMode) {
   return fromTimestampWithTimezoneString(str.data(), str.size(), parseMode);

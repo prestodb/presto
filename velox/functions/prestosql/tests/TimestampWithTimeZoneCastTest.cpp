@@ -175,6 +175,9 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarcharInvalidInput) {
   const auto invalidStringVector6 =
       makeNullableFlatVector<StringView>({"2012-10 America/Los_Angeles"});
 
+  const auto invalidStringVector7 =
+      makeNullableFlatVector<StringView>({"2012-10-01 +16:00"});
+
   auto millis = parseTimestamp("2012-10-31 07:00:47").toMillis();
   auto timestamps = std::vector<int64_t>{millis};
 
@@ -204,6 +207,9 @@ TEST_F(TimestampWithTimeZoneCastTest, fromVarcharInvalidInput) {
   VELOX_ASSERT_THROW(
       testCast(invalidStringVector6, expected),
       "Unable to parse timestamp value: \"2012-10 America/Los_Angeles\"");
+  VELOX_ASSERT_THROW(
+      testCast(invalidStringVector7, expected),
+      "Unknown timezone value in: \"2012-10-01 +16:00\"");
 }
 
 TEST_F(TimestampWithTimeZoneCastTest, toTimestamp) {

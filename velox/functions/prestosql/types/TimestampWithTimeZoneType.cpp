@@ -88,10 +88,18 @@ void castFromString(
     if (castResult.hasError()) {
       context.setStatus(row, castResult.error());
     } else {
-      auto [ts, timeZone] = castResult.value();
+      auto [ts, timeZone, millisOffset] = castResult.value();
       // Input string may not contain a timezone - if so, it is interpreted in
       // session timezone.
       if (timeZone == nullptr) {
+        if (millisOffset.has_value()) {
+          context.setStatus(
+              row,
+              Status::UserError(
+                  "Unknown timezone value in: \"{}\"",
+                  inputVector.valueAt(row)));
+          return;
+        }
         const auto& config = context.execCtx()->queryCtx()->queryConfig();
         timeZone = getTimeZoneFromConfig(config);
       }

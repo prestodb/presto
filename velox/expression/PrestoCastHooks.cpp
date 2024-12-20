@@ -54,17 +54,35 @@ Expected<Timestamp> PrestoCastHooks::castStringToTimestamp(
   // If the parsed string has timezone information, convert the timestamp at
   // GMT at that time. For example, "1970-01-01 00:00:00 -00:01" is 60 seconds
   // at GMT.
-  if (result.second != nullptr) {
-    result.first.toGMT(*result.second);
+  if (result.timeZone != nullptr) {
+    result.timestamp.toGMT(*result.timeZone);
+  } else if (result.offsetMillis.has_value()) {
+    auto seconds = result.timestamp.getSeconds();
+    // use int128_t to avoid overflow.
+    int128_t nanos = result.timestamp.getNanos();
 
+    seconds -= result.offsetMillis.value() / util::kMillisPerSecond;
+    nanos -= (result.offsetMillis.value() % util::kMillisPerSecond) *
+        util::kNanosPerMicro * util::kMicrosPerMsec;
+
+    if (nanos < 0) {
+      seconds -= 1;
+      nanos += Timestamp::kNanosInSecond;
+    } else if (nanos > Timestamp::kMaxNanos) {
+      seconds += 1;
+      nanos -= Timestamp::kNanosInSecond;
+    }
+
+    result.timestamp = Timestamp(seconds, nanos);
+  } else {
+    // If no timezone information is available in the input string, check if we
+    // should understand it as being at the session timezone, and if so, convert
+    // to GMT.
+    if (options_.timeZone != nullptr) {
+      result.timestamp.toGMT(*options_.timeZone);
+    }
   }
-  // If no timezone information is available in the input string, check if we
-  // should understand it as being at the session timezone, and if so, convert
-  // to GMT.
-  else if (options_.timeZone != nullptr) {
-    result.first.toGMT(*options_.timeZone);
-  }
-  return result.first;
+  return result.timestamp;
 }
 
 Expected<Timestamp> PrestoCastHooks::castIntToTimestamp(int64_t seconds) const {

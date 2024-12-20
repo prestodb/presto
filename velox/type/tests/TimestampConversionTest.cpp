@@ -40,7 +40,7 @@ int32_t parseDate(const StringView& str, ParseMode mode) {
       });
 }
 
-std::pair<Timestamp, const tz::TimeZone*> parseTimestampWithTimezone(
+ParsedTimestampWithTimeZone parseTimestampWithTimezone(
     const StringView& str,
     TimestampParseMode parseMode = TimestampParseMode::kPrestoCast) {
   return fromTimestampWithTimezoneString(str.data(), str.size(), parseMode)
@@ -345,9 +345,6 @@ TEST(DateTimeUtilTest, fromTimestampStringInvalid) {
       parseTimestampWithTimezone("1970-01-01 00:00:00-asd"), timezoneError);
   VELOX_ASSERT_THROW(
       parseTimestampWithTimezone("1970-01-01 00:00:00Z UTC"), parserError);
-  VELOX_ASSERT_THROW(
-      parseTimestampWithTimezone("1970-01-01 00:00:00+00:00:00"),
-      timezoneError);
 
   // Can't have multiple spaces.
   VELOX_ASSERT_THROW(
@@ -357,52 +354,119 @@ TEST(DateTimeUtilTest, fromTimestampStringInvalid) {
 TEST(DateTimeUtilTest, fromTimestampWithTimezoneString) {
   // -1 means no timezone information.
   auto expected =
-      std::make_pair<Timestamp, const tz::TimeZone*>(Timestamp(0, 0), nullptr);
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, std::nullopt});
   EXPECT_EQ(parseTimestampWithTimezone("1970-01-01 00:00:00"), expected);
 
   // Test timezone offsets.
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:00 -02:00"),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("-02:00")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("-02:00"), std::nullopt}));
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:00+13:36"),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("+13:36")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("+13:36"), std::nullopt}));
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:00 -11"),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("-11:00")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("-11:00"), std::nullopt}));
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:00 +0000"),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("+00:00")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("+00:00"), std::nullopt}));
+
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +01:01:01.001"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, 3661001}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 -01:01:01.001"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, -3661001}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +01:01:01.01"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, 3661010}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 -01:01:01.01"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, -3661010}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +01:01:01.1"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, 3661100}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 -01:01:01.1"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, -3661100}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +01:01:01"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, 3661000}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 -01:01:01"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, -3661000}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +23:01"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, 82860000}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 -23:01"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, -82860000}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +23"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, 82800000}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 -23"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, -82800000}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("2000-01-01 12:13:14.123+23:59:59.999"),
+      (ParsedTimestampWithTimeZone{
+          Timestamp(946728794, 123000000), nullptr, 86399999}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("2000-01-01 12:13:14.123-23:59:59.999"),
+      (ParsedTimestampWithTimeZone{
+          Timestamp(946728794, 123000000), nullptr, -86399999}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +01:01:01,001"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, 3661001}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 -01:01:01.001     "),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, -3661001}));
+  EXPECT_EQ(
+      parseTimestampWithTimezone("1970-01-01 00:00:00 +010101001"),
+      (ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, 3661001}));
 
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:00Z"),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("UTC")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("UTC"), std::nullopt}));
 
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:01:00 UTC"),
-      std::make_pair(Timestamp(60, 0), tz::locateZone("UTC")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(60, 0), tz::locateZone("UTC"), std::nullopt}));
 
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 00:00:01 America/Los_Angeles"),
-      std::make_pair(Timestamp(1, 0), tz::locateZone("America/Los_Angeles")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(1, 0),
+          tz::locateZone("America/Los_Angeles"),
+          std::nullopt}));
 
   EXPECT_EQ(
       parseTimestampWithTimezone("1970-01-01 Pacific/Fiji"),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("Pacific/Fiji")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("Pacific/Fiji"), std::nullopt}));
 
   EXPECT_EQ(
       parseTimestampWithTimezone(
           "1970-01-01T+01:00", TimestampParseMode::kIso8601),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("+01:00")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("+01:00"), std::nullopt}));
 
   EXPECT_EQ(
       parseTimestampWithTimezone(
           "1970-01T+14:00", TimestampParseMode::kIso8601),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("+14:00")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("+14:00"), std::nullopt}));
 
   EXPECT_EQ(
       parseTimestampWithTimezone("1970T-06:00", TimestampParseMode::kIso8601),
-      std::make_pair(Timestamp(0, 0), tz::locateZone("-06:00")));
+      (ParsedTimestampWithTimeZone{
+          Timestamp(0, 0), tz::locateZone("-06:00"), std::nullopt}));
 }
 
 TEST(DateTimeUtilTest, toGMT) {
