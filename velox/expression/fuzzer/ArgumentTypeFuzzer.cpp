@@ -21,7 +21,9 @@
 
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/ReverseSignatureBinder.h"
-#include "velox/expression/SignatureBinder.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/Type.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -32,6 +34,12 @@ using exec::test::sanitizeTryResolveType;
 std::string typeToBaseName(const TypePtr& type) {
   if (type->isDecimal()) {
     return "decimal";
+  } else if (isIPPrefixType(type)) {
+    return "ipprefix";
+  } else if (isIPAddressType(type)) {
+    return "ipaddress";
+  } else if (isJsonType(type)) {
+    return "json";
   }
   return boost::algorithm::to_lower_copy(std::string{type->kindName()});
 }

@@ -676,7 +676,6 @@ bool ExpressionFuzzer::isSupportedSignature(
   if (usesTypeName(signature, "opaque") ||
       usesTypeName(signature, "timestamp with time zone") ||
       usesTypeName(signature, "interval day to second") ||
-      usesTypeName(signature, "ipprefix") ||
       (!options_.enableDecimalType && usesTypeName(signature, "decimal")) ||
       (!options_.enableComplexTypes && useComplexType) ||
       (options_.enableComplexTypes && usesTypeName(signature, "unknown"))) {

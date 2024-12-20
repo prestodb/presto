@@ -20,6 +20,7 @@ target_link_libraries(
   velox_type
   velox_expression_functions
   velox_fuzzer_util
+  velox_presto_types
   GTest::gtest)
 
 add_library(

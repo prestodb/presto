@@ -22,6 +22,7 @@
 #include <locale>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/type/Timestamp.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/FlatVector.h"
@@ -605,8 +606,14 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
   opts_.allowLazyVector = false;
 
   switch (type->kind()) {
-    case TypeKind::ROW:
+    case TypeKind::ROW: {
+      if (isIPPrefixType(type)) {
+        ScopedOptions restorer(this);
+        opts_.containerHasNulls = false;
+        return fuzzRow(std::dynamic_pointer_cast<const RowType>(type), size);
+      }
       return fuzzRow(std::dynamic_pointer_cast<const RowType>(type), size);
+    }
 
     case TypeKind::ARRAY: {
       const auto& elementType = type->asArray().elementType();
