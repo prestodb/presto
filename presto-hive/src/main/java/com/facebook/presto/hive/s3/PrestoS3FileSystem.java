@@ -396,8 +396,7 @@ public class PrestoS3FileSystem
         }
 
         return mediaType.is(X_DIRECTORY_MEDIA_TYPE) ||
-                (mediaType.is(OCTET_STREAM_MEDIA_TYPE)
-                        && metadata.isKeyNeedsPathSeparator()
+                (metadata.isKeyNeedsPathSeparator()
                         && objectMetadata.getContentLength() == 0);
     }
 
@@ -546,8 +545,13 @@ public class PrestoS3FileSystem
     @Override
     public boolean mkdirs(Path f, FsPermission permission)
     {
-        // no need to do anything for S3
-        return true;
+        try {
+            s3.putObject(getBucketName(uri), keyFromPath(f) + PATH_SEPARATOR, "");
+            return true;
+        }
+        catch (AmazonClientException e) {
+            return false;
+        }
     }
 
     private enum ListingMode {
