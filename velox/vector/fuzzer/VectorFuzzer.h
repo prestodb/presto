@@ -276,6 +276,19 @@ class VectorFuzzer {
 
   TypePtr randType(const std::vector<TypePtr>& scalarTypes, int maxDepth = 5);
 
+  /// Generate a random RowType with random fields including maps, vectors, and
+  /// arrays. minWidth limits the minimum width of the RowType, i.e., the number
+  /// of streams involved when reading or writing data of this type.
+  TypePtr randRowTypeByWidth(int minWidth);
+
+  TypePtr randRowTypeByWidth(
+      const std::vector<TypePtr>& scalarTypes,
+      int minWidth);
+
+  /// Return the width of the given type. The width of a type is the number of
+  /// streams involved when reading or writing data of this type.
+  size_t typeWidth(const TypePtr& type) const;
+
   /// Same as the function above, but only generate orderable types.
   /// MAP types are not generated as they are not orderable.
   TypePtr randOrderableType(int maxDepth = 5);
@@ -440,6 +453,12 @@ RowTypePtr randRowType(
     FuzzerGenerator& rng,
     const std::vector<TypePtr>& scalarTypes,
     int maxDepth = 5);
+
+/// Generate a random RowType with a minimal width.
+TypePtr randRowTypeByWidth(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int minWidth);
 
 /// Default set of scalar types to be chosen from when generating random types.
 const std::vector<TypePtr>& defaultScalarTypes();

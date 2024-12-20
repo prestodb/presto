@@ -932,6 +932,38 @@ RowTypePtr VectorFuzzer::randRowType(
   return velox::randRowType(rng_, scalarTypes, maxDepth);
 }
 
+TypePtr VectorFuzzer::randRowTypeByWidth(
+    const std::vector<TypePtr>& scalarTypes,
+    int minWidth) {
+  return velox::randRowTypeByWidth(rng_, scalarTypes, minWidth);
+}
+
+TypePtr VectorFuzzer::randRowTypeByWidth(int minWidth) {
+  return velox::randRowTypeByWidth(rng_, defaultScalarTypes(), minWidth);
+}
+
+size_t VectorFuzzer::typeWidth(const TypePtr& type) const {
+  if (type->isPrimitiveType()) {
+    return 1;
+  }
+  switch (type->kind()) {
+    case TypeKind::ARRAY:
+      return 1 + typeWidth(type->asArray().elementType());
+    case TypeKind::MAP:
+      return 1 + typeWidth(type->asMap().keyType()) +
+          typeWidth(type->asMap().valueType());
+    case TypeKind::ROW: {
+      size_t fieldWidth = 0;
+      for (const auto& child : type->asRow().children()) {
+        fieldWidth += typeWidth(child);
+      }
+      return 1 + fieldWidth;
+    }
+    default:
+      VELOX_UNREACHABLE("Unsupported type: {}", type->toString());
+  }
+}
+
 size_t VectorFuzzer::randInRange(size_t min, size_t max) {
   return rand(rng_, min, max);
 }
@@ -1167,6 +1199,48 @@ TypePtr randMapType(
     int maxDepth) {
   return MAP(
       randType(rng, scalarTypes, 0), randType(rng, scalarTypes, maxDepth - 1));
+}
+
+TypePtr randTypeByWidth(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int minWidth) {
+  if (minWidth <= 1) {
+    const int numScalarTypes = scalarTypes.size();
+    return scalarTypes[rand<uint32_t>(rng) % numScalarTypes];
+  }
+
+  switch (rand<uint32_t>(rng) % 3) {
+    case 0:
+      return ARRAY(randTypeByWidth(rng, scalarTypes, minWidth - 1));
+    case 1: {
+      const auto keyWidth =
+          minWidth == 2 ? 1 : rand<uint32_t>(rng) % (minWidth - 2);
+      return MAP(
+          randTypeByWidth(rng, scalarTypes, keyWidth),
+          randTypeByWidth(rng, scalarTypes, minWidth - keyWidth - 1));
+    }
+    // case 2:
+    default:
+      return randRowTypeByWidth(rng, scalarTypes, minWidth);
+  }
+}
+
+TypePtr randRowTypeByWidth(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int minWidth) {
+  const auto numFields = 1 + rand<uint32_t>(rng) % 10;
+  std::vector<TypePtr> fields;
+  auto remainingWidth = minWidth - 1;
+  for (auto i = 0; i < numFields - 1; ++i) {
+    const auto fieldWidth =
+        remainingWidth > 0 ? rand<uint32_t>(rng) % remainingWidth : 0;
+    fields.push_back(randTypeByWidth(rng, scalarTypes, fieldWidth));
+    remainingWidth -= fieldWidth;
+  }
+  fields.push_back(randTypeByWidth(rng, scalarTypes, remainingWidth));
+  return ROW(std::move(fields));
 }
 
 TypePtr randOrderableType(FuzzerGenerator& rng, int maxDepth) {

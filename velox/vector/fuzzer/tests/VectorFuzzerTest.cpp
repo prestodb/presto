@@ -950,4 +950,37 @@ TEST_F(VectorFuzzerTest, randMapType) {
     ASSERT_TRUE(fuzzer.randMapType()->isMap());
   }
 }
+
+TEST_F(VectorFuzzerTest, randTypeByWidth) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  // Test typeWidth.
+  TypePtr type = BIGINT();
+  EXPECT_EQ(fuzzer.typeWidth(type), 1);
+  type = ARRAY(BIGINT());
+  EXPECT_EQ(fuzzer.typeWidth(type), 2);
+  type = MAP(BIGINT(), ARRAY(VARCHAR()));
+  EXPECT_EQ(fuzzer.typeWidth(type), 4);
+  type = ROW(
+      {INTEGER(), ARRAY(BIGINT()), MAP(VARCHAR(), DOUBLE()), ROW({TINYINT()})});
+  EXPECT_EQ(fuzzer.typeWidth(type), 9);
+
+  // Test randType by width. Results should be at least a RowType with one
+  // field, so the minimal type width is 2.
+  type = fuzzer.randRowTypeByWidth(-1);
+  EXPECT_GE(fuzzer.typeWidth(type), 2);
+  type = fuzzer.randRowTypeByWidth(0);
+  EXPECT_GE(fuzzer.typeWidth(type), 2);
+  type = fuzzer.randRowTypeByWidth(1);
+  EXPECT_GE(fuzzer.typeWidth(type), 2);
+
+  folly::Random::DefaultGenerator rng;
+  rng.seed(0);
+  for (auto i = 0; i < 1000; ++i) {
+    const auto width = folly::Random::rand32(rng) % 128;
+    type = fuzzer.randRowTypeByWidth(width);
+    EXPECT_GE(fuzzer.typeWidth(type), width > 2 ? width : 2);
+  }
+}
 } // namespace
