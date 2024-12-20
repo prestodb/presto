@@ -287,6 +287,15 @@ class SessionProperties {
   static constexpr const char* kShuffleCompressionEnabled =
       "exchange_compression";
 
+  /// If set to true, enables scaled processing for table scans.
+  static constexpr const char* kTableScanScaledProcessingEnabled =
+      "native_table_scan_scaled_processing_enabled";
+
+  /// Controls the ratio of available memory that can be used for scaling up
+  /// table scans. The value is in the range of (0, 1].
+  static constexpr const char* kTableScanScaleUpMemoryUsageRatio =
+      "native_table_scan_scale_up_memory_usage_ratio";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
