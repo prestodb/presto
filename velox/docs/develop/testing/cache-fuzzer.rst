@@ -61,4 +61,6 @@ Here is a full list of supported command line arguments.
   to 64MB will be used, inclusively. Checkpoint after every written into each
   file. 0 means no checkpointing.
 
+* ``–-num_restarts``: Number of cache restarts in one iteration.
+
 If running from CLion IDE, add ``--logtostderr=1`` to see the full output.
