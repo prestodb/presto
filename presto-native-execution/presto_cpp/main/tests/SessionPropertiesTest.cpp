@@ -31,7 +31,9 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       SessionProperties::kScaleWriterMaxPartitionsPerWriter,
       SessionProperties::
           kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
-      SessionProperties::kScaleWriterMinProcessedBytesRebalanceThreshold};
+      SessionProperties::kScaleWriterMinProcessedBytesRebalanceThreshold,
+      SessionProperties::kTableScanScaledProcessingEnabled,
+      SessionProperties::kTableScanScaleUpMemoryUsageRatio};
   const std::vector<std::string> veloxConfigNames = {
       core::QueryConfig::kAdjustTimestampToTimezone,
       core::QueryConfig::kDriverCpuTimeSliceLimitMs,
@@ -40,7 +42,9 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       core::QueryConfig::kScaleWriterMaxPartitionsPerWriter,
       core::QueryConfig::
           kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
-      core::QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold};
+      core::QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold,
+      core::QueryConfig::kTableScanScaledProcessingEnabled,
+      core::QueryConfig::kTableScanScaleUpMemoryUsageRatio};
   auto sessionProperties = SessionProperties().getSessionProperties();
   const auto len = names.size();
   for (auto i = 0; i < len; i++) {
