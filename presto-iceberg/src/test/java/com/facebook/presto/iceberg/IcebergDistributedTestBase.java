@@ -2273,13 +2273,13 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("UPDATE " + tableName + " SET email = 'abc@gmail.com' WHERE id in(1, 2, 3)", 3);
         assertQuery("SELECT id, full_name, email FROM " + tableName, "VALUES (1, 'aaaa', 'abc@gmail.com'), (2, 'ssss', 'abc@gmail.com'), (3, 'ssss', 'abc@gmail.com'), (4, 'dddd', 'ddd@gmail.com') ");
 
-        // set values to null
+        // set all values to null
         assertUpdate("UPDATE " + tableName + " SET email = NULL", 4);
-        assertQuery("SELECT email FROM " + tableName + " WHERE email is NULL", "VALUES NULL");
+        assertQuery("SELECT email FROM " + tableName + " WHERE email is NULL", "VALUES NULL, NULL, NULL, NULL");
 
         // update nulls to non-null
-        assertUpdate("UPDATE " + tableName + " SET email = 'test@gmail.com' WHERE full_name is NULL", 1);
-        assertQuery("SELECT email FROM " + tableName + "WHERE email is NULL", "VALUES 'test@gmail.com'");
+        assertUpdate("UPDATE " + tableName + " SET email = 'test@gmail.com' WHERE email is NULL", 4);
+        assertQuery("SELECT count(*) FROM " + tableName + " WHERE email is not NULL", "VALUES 4");
     }
 
     @Test
