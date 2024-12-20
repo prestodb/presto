@@ -32,6 +32,8 @@ public class SplitSchedulerStats
     private final CounterStat splitQueuesFull = new CounterStat();
     private final CounterStat mixedSplitQueuesFullAndWaitingForSource = new CounterStat();
     private final CounterStat noActiveDriverGroup = new CounterStat();
+
+    private final CounterStat waitingForCTEMaterialization = new CounterStat();
     private final DistributionStat splitsPerIteration = new DistributionStat();
 
     @Managed
@@ -60,6 +62,13 @@ public class SplitSchedulerStats
     public CounterStat getWaitingForSource()
     {
         return waitingForSource;
+    }
+
+    @Managed
+    @Nested
+    public CounterStat getWaitingForCTEMaterialization()
+    {
+        return waitingForCTEMaterialization;
     }
 
     @Managed

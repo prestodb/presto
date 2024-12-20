@@ -79,6 +79,7 @@ import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.presto.SystemSessionProperties.getMaxConcurrentMaterializations;
 import static com.facebook.presto.SystemSessionProperties.getPartialResultsCompletionRatioThreshold;
 import static com.facebook.presto.SystemSessionProperties.getPartialResultsMaxExecutionTimeMultiplier;
+import static com.facebook.presto.SystemSessionProperties.isEnhancedCTESchedulingEnabled;
 import static com.facebook.presto.SystemSessionProperties.isPartialResultsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRuntimeOptimizerEnabled;
 import static com.facebook.presto.execution.BasicStageExecutionStats.aggregateBasicStageStats;
@@ -149,6 +150,7 @@ public class SqlQueryScheduler
     private final AtomicBoolean scheduling = new AtomicBoolean();
 
     private final PartialResultQueryTaskTracker partialResultQueryTaskTracker;
+    private final CTEMaterializationTracker cteMaterializationTracker = new CTEMaterializationTracker();
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
@@ -278,6 +280,17 @@ public class SqlQueryScheduler
 
         for (StageExecutionAndScheduler stageExecutionInfo : stageExecutions.values()) {
             SqlStageExecution stageExecution = stageExecutionInfo.getStageExecution();
+            // Add a listener for state changes
+            if (stageExecution.isCTETableFinishStage()) {
+                stageExecution.addStateChangeListener(state -> {
+                    if (state == StageExecutionState.FINISHED) {
+                        String cteName = stageExecution.getCTEWriterId();
+                        log.debug("CTE write completed for: " + cteName);
+                        // Notify the materialization tracker
+                        cteMaterializationTracker.markCTEAsMaterialized(cteName);
+                    }
+                });
+            }
             stageExecution.addStateChangeListener(state -> {
                 if (queryStateMachine.isDone()) {
                     return;
@@ -363,7 +376,8 @@ public class SqlQueryScheduler
                         summarizeTaskInfo,
                         remoteTaskFactory,
                         splitSourceFactory,
-                        0).getSectionStages();
+                        0,
+                        cteMaterializationTracker).getSectionStages();
         stages.addAll(sectionStages);
 
         return stages.build();
@@ -460,7 +474,9 @@ public class SqlQueryScheduler
                             ScheduleResult.BlockedReason blockedReason = result.getBlockedReason().get();
                             switch (blockedReason) {
                                 case WRITER_SCALING:
-                                    // no-op
+                                    break;
+                                case WAITING_FOR_CTE_MATERIALIZATION:
+                                    schedulerStats.getWaitingForCTEMaterialization().update(1);
                                     break;
                                 case WAITING_FOR_SOURCE:
                                     schedulerStats.getWaitingForSource().update(1);
@@ -568,10 +584,12 @@ public class SqlQueryScheduler
                         .map(section -> getStageExecution(section.getPlan().getFragment().getId()).getState())
                         .filter(state -> !state.isDone() && state != PLANNED)
                         .count();
+
         return stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
                 // get all sections ready for execution
                 .filter(this::isReadyForExecution)
-                .limit(maxConcurrentMaterializations - runningPlanSections)
+                // for enhanced cte blocking we do not need a limit on the sections
+                .limit(isEnhancedCTESchedulingEnabled(session) ? Long.MAX_VALUE : maxConcurrentMaterializations - runningPlanSections)
                 .map(this::tryCostBasedOptimize)
                 .collect(toImmutableList());
     }
@@ -678,7 +696,8 @@ public class SqlQueryScheduler
                 summarizeTaskInfo,
                 remoteTaskFactory,
                 splitSourceFactory,
-                0);
+                0,
+                cteMaterializationTracker);
         addStateChangeListeners(sectionExecution);
         Map<StageId, StageExecutionAndScheduler> updatedStageExecutions = sectionExecution.getSectionStages().stream()
                 .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
@@ -774,10 +793,13 @@ public class SqlQueryScheduler
             // already scheduled
             return false;
         }
-        for (StreamingPlanSection child : section.getChildren()) {
-            SqlStageExecution rootStageExecution = getStageExecution(child.getPlan().getFragment().getId());
-            if (rootStageExecution.getState() != FINISHED) {
-                return false;
+        if (!isEnhancedCTESchedulingEnabled(session)) {
+            // Enhanced cte blocking is not enabled so block till child sections are complete
+            for (StreamingPlanSection child : section.getChildren()) {
+                SqlStageExecution rootStageExecution = getStageExecution(child.getPlan().getFragment().getId());
+                if (rootStageExecution.getState() != FINISHED) {
+                    return false;
+                }
             }
         }
         return true;
