@@ -21,6 +21,7 @@ namespace facebook::presto {
 // Creates and returns exec::Split (with connector::ConnectorSplit inside) based
 // on the given protocol split.
 velox::exec::Split toVeloxSplit(
-    const presto::protocol::ScheduledSplit& scheduledSplit);
+    const presto::protocol::ScheduledSplit& scheduledSplit,
+    const std::map<std::string, std::string>& extraCredentials = {});
 
 } // namespace facebook::presto
