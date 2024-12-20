@@ -560,14 +560,17 @@ void WindowFuzzer::go() {
   }
 
   stats_.print(iteration);
-  // Check that at least half of the iterations were verified, either against
-  // the reference DB or through custom result verifiers.
-  // stats_.numVerificationSkipped tracks the number of iterations verified
-  // through custom result verifiers.
-  VELOX_CHECK_GE(
-      (stats_.numVerified + stats_.numVerificationSkipped) / (double)iteration,
-      0.5);
   printSignatureStats();
+  if (FLAGS_enable_window_reference_verification) {
+    // Check that at least half of the iterations were verified, either against
+    // the reference DB or through custom result verifiers.
+    // stats_.numVerificationSkipped tracks the number of iterations verified
+    // through custom result verifiers.
+    VELOX_CHECK_GE(
+        (stats_.numVerified + stats_.numVerificationSkipped) /
+            (double)iteration,
+        0.5);
+  }
 }
 
 void WindowFuzzer::go(const std::string& /*planPath*/) {
