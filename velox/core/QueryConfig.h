@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/compression/Compression.h"
 #include "velox/common/config/Config.h"
 #include "velox/vector/TypeAliases.h"
 
@@ -490,6 +491,11 @@ class QueryConfig {
   static constexpr const char* kTableScanScaleUpMemoryUsageRatio =
       "table_scan_scale_up_memory_usage_ratio";
 
+  /// Specifies the shuffle compression kind which is defined by
+  /// CompressionKind. If it is CompressionKind_NONE, then no compression.
+  static constexpr const char* kShuffleCompressionKind =
+      "shuffle_compression_codec";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -904,6 +910,10 @@ class QueryConfig {
 
   double tableScanScaleUpMemoryUsageRatio() const {
     return get<double>(kTableScanScaleUpMemoryUsageRatio, 0.7);
+  }
+
+  std::string shuffleCompressionKind() const {
+    return get<std::string>(kShuffleCompressionKind, "none");
   }
 
   template <typename T>

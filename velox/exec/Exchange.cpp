@@ -21,13 +21,14 @@ namespace facebook::velox::exec {
 
 namespace {
 std::unique_ptr<VectorSerde::Options> getVectorSerdeOptions(
+    const core::QueryConfig& queryConfig,
     VectorSerde::Kind kind) {
   std::unique_ptr<VectorSerde::Options> options =
       kind == VectorSerde::Kind::kPresto
       ? std::make_unique<serializer::presto::PrestoVectorSerde::PrestoOptions>()
       : std::make_unique<VectorSerde::Options>();
   options->compressionKind =
-      OutputBufferManager::getInstance().lock()->compressionKind();
+      common::stringToCompressionKind(queryConfig.shuffleCompressionKind());
   return options;
 }
 } // namespace
@@ -46,8 +47,10 @@ Exchange::Exchange(
           operatorType),
       preferredOutputBatchBytes_{
           driverCtx->queryConfig().preferredOutputBatchBytes()},
-      serdeKind_(exchangeNode->serdeKind()),
-      options_{getVectorSerdeOptions(serdeKind_)},
+      serdeKind_{exchangeNode->serdeKind()},
+      serdeOptions_{getVectorSerdeOptions(
+          operatorCtx_->driverCtx()->queryConfig(),
+          serdeKind_)},
       processSplits_{operatorCtx_->driverCtx()->driverId == 0},
       exchangeClient_{std::move(exchangeClient)} {}
 
@@ -159,7 +162,7 @@ RowVectorPtr Exchange::getOutput() {
             outputType_,
             &result_,
             resultOffset,
-            options_.get());
+            serdeOptions_.get());
         resultOffset = result_->size();
       }
     }
@@ -186,7 +189,7 @@ RowVectorPtr Exchange::getOutput() {
         outputType_,
         &result_,
         resultOffset,
-        options_.get());
+        serdeOptions_.get());
     // We expect the row-wise deserialization to consume all the input into one
     // output vector.
     VELOX_CHECK(inputStream->atEnd());
@@ -212,9 +215,15 @@ void Exchange::close() {
     exchangeClient_->close();
   }
   exchangeClient_ = nullptr;
-  stats_.wlock()->addRuntimeStat(
-      Operator::kShuffleSerdeKind,
-      RuntimeCounter(static_cast<int64_t>(serdeKind_)));
+  {
+    auto lockedStats = stats_.wlock();
+    lockedStats->addRuntimeStat(
+        Operator::kShuffleSerdeKind,
+        RuntimeCounter(static_cast<int64_t>(serdeKind_)));
+    lockedStats->addRuntimeStat(
+        Operator::kShuffleCompressionKind,
+        RuntimeCounter(static_cast<int64_t>(serdeOptions_->compressionKind)));
+  }
 }
 
 void Exchange::recordExchangeClientStats() {

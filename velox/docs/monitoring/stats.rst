@@ -205,6 +205,11 @@ These stats are reported by shuffle operators.
      - Indicates the vector serde kind used by an operator for shuffle with 1
        for Presto, 2 for CompactRow, 3 for UnsafeRow. It is reported by Exchange,
        MergeExchange and PartitionedOutput operators for now.
+   * - shuffleCompressionKind
+     -
+     - Indicates the compression kind used by an operator for shuffle. The
+       reported value is set to the corresponding CompressionKind enum with 0
+       (CompressionKind_NONE) as no compression.
 
 PrefixSort
 ----------

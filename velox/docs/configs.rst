@@ -148,6 +148,12 @@ Generic Configuration
      - integer
      - 16
      - Byte length of the string prefix stored in the prefix-sort buffer. This doesn't include the null byte.
+   * - shuffle_compression_codec
+     - string
+     - none
+     - Specifies the compression algorithm type to compress the shuffle data to
+       trade CPU for network IO efficiency. The supported compression codecs
+       are: zlib, snappy, lzo, zstd, lz4 and gzip. none means no compression.
 
 .. _expression-evaluation-conf:
 
@@ -355,8 +361,8 @@ Spilling
      - string
      - none
      - Specifies the compression algorithm type to compress the spilled data before write to disk to trade CPU for IO
-       efficiency. The supported compression codecs are: ZLIB, SNAPPY, LZO, ZSTD, LZ4 and GZIP.
-       NONE means no compression.
+       efficiency. The supported compression codecs are: zlib, snappy, lzo, zstd, lz4 and gzip.
+       none means no compression.
    * - spill_prefixsort_enabled
      - bool
      - false

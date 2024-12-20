@@ -419,7 +419,7 @@ class VectorStreamGroup : public StreamArena {
       RowTypePtr type,
       VectorSerde* serde,
       RowVectorPtr* result,
-      const VectorSerde::Options* options = nullptr);
+      const VectorSerde::Options* options);
 
   void clear() override {
     StreamArena::clear();

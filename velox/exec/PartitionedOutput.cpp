@@ -21,13 +21,14 @@
 namespace facebook::velox::exec {
 namespace {
 std::unique_ptr<VectorSerde::Options> getVectorSerdeOptions(
+    const core::QueryConfig& queryConfig,
     VectorSerde::Kind kind) {
   std::unique_ptr<VectorSerde::Options> options =
       kind == VectorSerde::Kind::kPresto
       ? std::make_unique<serializer::presto::PrestoVectorSerde::PrestoOptions>()
       : std::make_unique<VectorSerde::Options>();
   options->compressionKind =
-      OutputBufferManager::getInstance().lock()->compressionKind();
+      common::stringToCompressionKind(queryConfig.shuffleCompressionKind());
   options->minCompressionRatio = PartitionedOutput::minCompressionRatio();
   return options;
 }
@@ -38,14 +39,14 @@ Destination::Destination(
     const std::string& taskId,
     int destination,
     VectorSerde* serde,
-    VectorSerde::Options* options,
+    VectorSerde::Options* serdeOptions,
     memory::MemoryPool* pool,
     bool eagerFlush,
     std::function<void(uint64_t bytes, uint64_t rows)> recordEnqueued)
     : taskId_(taskId),
       destination_(destination),
       serde_(serde),
-      options_(options),
+      serdeOptions_(serdeOptions),
       pool_(pool),
       eagerFlush_(eagerFlush),
       recordEnqueued_(std::move(recordEnqueued)) {
@@ -89,7 +90,7 @@ BlockingReason Destination::advance(
   if (current_ == nullptr) {
     current_ = std::make_unique<VectorStreamGroup>(pool_, serde_);
     const auto rowType = asRowType(output->type());
-    current_->createStreamTree(rowType, rowsInCurrent_, options_);
+    current_->createStreamTree(rowType, rowsInCurrent_, serdeOptions_);
   }
 
   const auto rows = folly::Range(&rows_[firstRow], rowIdx_ - firstRow);
@@ -200,7 +201,9 @@ PartitionedOutput::PartitionedOutput(
                             .maxPartitionedOutputBufferSize()),
       eagerFlush_(eagerFlush),
       serde_(getNamedVectorSerde(planNode->serdeKind())),
-      options_(getVectorSerdeOptions(planNode->serdeKind())) {
+      serdeOptions_(getVectorSerdeOptions(
+          operatorCtx_->driverCtx()->queryConfig(),
+          planNode->serdeKind())) {
   if (!planNode->isPartitioned()) {
     VELOX_USER_CHECK_EQ(numDestinations_, 1);
   }
@@ -256,7 +259,7 @@ void PartitionedOutput::initializeDestinations() {
           taskId,
           i,
           serde_,
-          options_.get(),
+          serdeOptions_.get(),
           pool(),
           eagerFlush_,
           [&](uint64_t bytes, uint64_t rows) {
@@ -473,9 +476,15 @@ bool PartitionedOutput::isFinished() {
 
 void PartitionedOutput::close() {
   Operator::close();
-  stats_.wlock()->addRuntimeStat(
-      Operator::kShuffleSerdeKind,
-      RuntimeCounter(static_cast<int64_t>(serde_->kind())));
+  {
+    auto lockedStats = stats_.wlock();
+    lockedStats->addRuntimeStat(
+        Operator::kShuffleSerdeKind,
+        RuntimeCounter(static_cast<int64_t>(serde_->kind())));
+    lockedStats->addRuntimeStat(
+        Operator::kShuffleCompressionKind,
+        RuntimeCounter(static_cast<int64_t>(serdeOptions_->compressionKind)));
+  }
   destinations_.clear();
 }
 

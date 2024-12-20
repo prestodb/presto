@@ -24,13 +24,13 @@ namespace facebook::velox::serializer {
 using TRowSize = uint32_t;
 
 namespace detail {
-struct RowHeader {
+struct RowGroupHeader {
   int32_t uncompressedSize;
   int32_t compressedSize;
   bool compressed;
 
-  static RowHeader read(ByteInputStream* source) {
-    RowHeader header;
+  static RowGroupHeader read(ByteInputStream* source) {
+    RowGroupHeader header;
     header.uncompressedSize = source->read<int32_t>();
     header.compressedSize = source->read<int32_t>();
     header.compressed = source->read<char>();
@@ -46,6 +46,19 @@ struct RowHeader {
     out->write(reinterpret_cast<char*>(&compressedSize), sizeof(int32_t));
     const char writeValue = compressed ? 1 : 0;
     out->write(reinterpret_cast<const char*>(&writeValue), sizeof(char));
+  }
+
+  void write(char* out) {
+    ::memcpy(out, reinterpret_cast<char*>(&uncompressedSize), sizeof(int32_t));
+    ::memcpy(
+        out + sizeof(int32_t),
+        reinterpret_cast<char*>(&compressedSize),
+        sizeof(int32_t));
+    const char writeValue = compressed ? 1 : 0;
+    ::memcpy(
+        out + sizeof(int32_t) * 2,
+        reinterpret_cast<const char*>(&writeValue),
+        sizeof(char));
   }
 
   static size_t size() {
@@ -143,13 +156,13 @@ class RowSerializer : public IterativeVectorSerializer {
   size_t maxSerializedSize() const override {
     const auto size = uncompressedSize();
     if (!needCompression()) {
-      return detail::RowHeader::size() + size;
+      return detail::RowGroupHeader::size() + size;
     }
     VELOX_CHECK_LE(
         size,
         codec_->maxUncompressedLength(),
         "UncompressedSize exceeds limit");
-    return detail::RowHeader::size() + codec_->maxCompressedLength(size);
+    return detail::RowGroupHeader::size() + codec_->maxCompressedLength(size);
   }
 
   /// The serialization format is | uncompressedSize | compressedSize |
@@ -178,7 +191,7 @@ class RowSerializer : public IterativeVectorSerializer {
         flushUncompressed(size, stream);
       } else {
         // Do the compression.
-        detail::RowHeader header = {size, compressedSize, true};
+        detail::RowGroupHeader header = {size, compressedSize, true};
         header.write(stream);
         for (auto range : *compressedBuffer) {
           stream->write(
@@ -257,7 +270,7 @@ class RowSerializer : public IterativeVectorSerializer {
   }
 
   void flushUncompressed(int32_t size, OutputStream* stream) {
-    detail::RowHeader header = {size, size, false};
+    detail::RowGroupHeader header = {size, size, false};
     header.write(stream);
     for (const auto& buffer : buffers_) {
       stream->write(buffer->template asMutable<char>(), buffer->size());
@@ -284,7 +297,7 @@ class RowDeserializer {
         : options->compressionKind;
     while (!source->atEnd()) {
       std::unique_ptr<folly::IOBuf> uncompressedBuf;
-      const auto header = detail::RowHeader::read(source);
+      const auto header = detail::RowGroupHeader::read(source);
       if (header.compressed) {
         VELOX_DCHECK_NE(
             compressionKind, common::CompressionKind::CompressionKind_NONE);

@@ -878,7 +878,7 @@ class VectorTest : public testing::Test, public velox::test::VectorTestBase {
 
     RowVectorPtr resultRow;
     VectorStreamGroup::read(
-        evenInput.get(), pool(), sourceRowType, nullptr, &resultRow);
+        evenInput.get(), pool(), sourceRowType, nullptr, &resultRow, nullptr);
     VectorPtr result = resultRow->childAt(0);
     switch (source->encoding()) {
       case VectorEncoding::Simple::FLAT:
@@ -908,7 +908,7 @@ class VectorTest : public testing::Test, public velox::test::VectorTestBase {
     auto oddInput = prepareInput(oddString);
 
     VectorStreamGroup::read(
-        oddInput.get(), pool(), sourceRowType, nullptr, &resultRow);
+        oddInput.get(), pool(), sourceRowType, nullptr, &resultRow, nullptr);
     result = resultRow->childAt(0);
     for (int32_t i = 0; i < oddIndices.size(); ++i) {
       EXPECT_TRUE(result->equalValueAt(source.get(), i, oddIndices[i].begin))

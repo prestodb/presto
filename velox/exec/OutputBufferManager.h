@@ -23,15 +23,11 @@ class OutputBufferManager {
  public:
   /// Options for shuffle. This is initialized once and affects both
   /// PartitionedOutput and Exchange. This can be used for controlling
-  /// compression, protocol version and other matters where shuffle sides should
+  /// protocol version and other matters where shuffle sides should
   /// agree.
-  struct Options {
-    common::CompressionKind compressionKind{
-        common::CompressionKind::CompressionKind_NONE};
-  };
+  struct Options {};
 
-  OutputBufferManager(Options options)
-      : compressionKind_(options.compressionKind) {}
+  explicit OutputBufferManager(Options /*unused*/) {}
 
   void initializeTask(
       std::shared_ptr<Task> task,
@@ -135,20 +131,10 @@ class OutputBufferManager {
   // Returns NULL if task not found.
   std::shared_ptr<OutputBuffer> getBufferIfExists(const std::string& taskId);
 
-  void testingSetCompression(common::CompressionKind kind) {
-    *const_cast<common::CompressionKind*>(&compressionKind_) = kind;
-  }
-
-  common::CompressionKind compressionKind() const {
-    return compressionKind_;
-  }
-
  private:
   // Retrieves the set of buffers for a query.
   // Throws an exception if buffer doesn't exist.
   std::shared_ptr<OutputBuffer> getBuffer(const std::string& taskId);
-
-  const common::CompressionKind compressionKind_;
 
   folly::Synchronized<
       std::unordered_map<std::string, std::shared_ptr<OutputBuffer>>,

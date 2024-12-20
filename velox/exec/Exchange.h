@@ -83,7 +83,7 @@ class Exchange : public SourceOperator {
 
   const VectorSerde::Kind serdeKind_;
 
-  const std::unique_ptr<VectorSerde::Options> options_;
+  const std::unique_ptr<VectorSerde::Options> serdeOptions_;
 
   /// True if this operator is responsible for fetching splits from the Task
   /// and passing these to ExchangeClient.

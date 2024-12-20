@@ -168,7 +168,8 @@ class MergeExchangeSource : public MergeSource {
           mergeExchange_->pool(),
           mergeExchange_->outputType(),
           mergeExchange_->serde(),
-          &data);
+          &data,
+          mergeExchange_->serdeOptions());
 
       auto lockedStats = mergeExchange_->stats().wlock();
       lockedStats->addInputVector(data->estimateFlatSize(), data->size());
