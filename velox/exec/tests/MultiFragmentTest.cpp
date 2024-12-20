@@ -40,6 +40,11 @@ namespace {
 struct TestParam {
   VectorSerde::Kind serdeKind;
   common::CompressionKind compressionKind;
+
+  TestParam(
+      VectorSerde::Kind _serdeKind,
+      common::CompressionKind _compressionKind)
+      : serdeKind(_serdeKind), compressionKind(_compressionKind) {}
 };
 
 class MultiFragmentTest : public HiveConnectorTestBase,
