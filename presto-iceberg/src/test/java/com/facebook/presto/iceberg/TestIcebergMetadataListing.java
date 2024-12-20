@@ -157,16 +157,18 @@ public class TestIcebergMetadataListing
     @Test
     public void testRenameView()
     {
-        assertQuerySucceeds("CREATE TABLE iceberg.test_schema.iceberg_test_table (_string VARCHAR, _integer INTEGER)");
-        assertUpdate("CREATE VIEW iceberg.test_schema.test_view_to_be_renamed AS SELECT * FROM iceberg.test_schema.iceberg_test_table");
-        assertUpdate("ALTER VIEW IF EXISTS iceberg.test_schema.test_view_to_be_renamed RENAME TO iceberg.test_schema.test_view_renamed");
-        assertUpdate("CREATE VIEW iceberg.test_schema.test_view2_to_be_renamed AS SELECT * FROM iceberg.test_schema.iceberg_test_table");
-        assertUpdate("ALTER VIEW iceberg.test_schema.test_view2_to_be_renamed RENAME TO iceberg.test_schema.test_view2_renamed");
-        assertQuerySucceeds("SELECT * FROM iceberg.test_schema.test_view_renamed");
-        assertQuerySucceeds("SELECT * FROM iceberg.test_schema.test_view2_renamed");
-        assertUpdate("DROP VIEW iceberg.test_schema.test_view_renamed");
-        assertUpdate("DROP VIEW iceberg.test_schema.test_view2_renamed");
-        assertUpdate("DROP TABLE iceberg.test_schema.iceberg_test_table");
+        assertQuerySucceeds("CREATE SCHEMA iceberg.test_rename_view_schema");
+        assertQuerySucceeds("CREATE TABLE iceberg.test_rename_view_schema.iceberg_test_table (_string VARCHAR, _integer INTEGER)");
+        assertUpdate("CREATE VIEW iceberg.test_rename_view_schema.test_view_to_be_renamed AS SELECT * FROM iceberg.test_rename_view_schema.iceberg_test_table");
+        assertUpdate("ALTER VIEW IF EXISTS iceberg.test_rename_view_schema.test_view_to_be_renamed RENAME TO iceberg.test_rename_view_schema.test_view_renamed");
+        assertUpdate("CREATE VIEW iceberg.test_rename_view_schema.test_view2_to_be_renamed AS SELECT * FROM iceberg.test_rename_view_schema.iceberg_test_table");
+        assertUpdate("ALTER VIEW iceberg.test_rename_view_schema.test_view2_to_be_renamed RENAME TO iceberg.test_rename_view_schema.test_view2_renamed");
+        assertQuerySucceeds("SELECT * FROM iceberg.test_rename_view_schema.test_view_renamed");
+        assertQuerySucceeds("SELECT * FROM iceberg.test_rename_view_schema.test_view2_renamed");
+        assertUpdate("DROP VIEW iceberg.test_rename_view_schema.test_view_renamed");
+        assertUpdate("DROP VIEW iceberg.test_rename_view_schema.test_view2_renamed");
+        assertUpdate("DROP TABLE iceberg.test_rename_view_schema.iceberg_test_table");
+        assertQuerySucceeds("DROP SCHEMA IF EXISTS iceberg.test_rename_view_schema");
     }
     @Test
     public void testRenameViewIfNotExists()
