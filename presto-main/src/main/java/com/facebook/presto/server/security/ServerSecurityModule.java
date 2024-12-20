@@ -40,7 +40,7 @@ public class ServerSecurityModule
     protected void setup(Binder binder)
     {
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
-        binder.bind(PrestoAuthenticatorManager.class).in(Scopes.SINGLETON);
+        binder.bind(IscustomAuthenticatorRequested.class).in(Scopes.SINGLETON);
 
         List<AuthenticationType> authTypes = buildConfigObject(SecurityConfig.class).getAuthenticationTypes();
         Multibinder<Authenticator> authBinder = newSetBinder(binder, Authenticator.class);

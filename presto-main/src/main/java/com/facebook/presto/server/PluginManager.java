@@ -26,8 +26,9 @@ import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
+import com.facebook.presto.server.security.IscustomAuthenticatorRequested;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.server.security.PrestoAuthenticatorManager;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
@@ -118,7 +119,7 @@ public class PluginManager
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
-    private final PrestoAuthenticatorManager prestoAuthenticatorManager;
+    private final IscustomAuthenticatorRequested prestoAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
     private final TempStorageManager tempStorageManager;
@@ -150,7 +151,8 @@ public class PluginManager
             QueryPreparerProviderManager queryPreparerProviderManager,
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
-            PrestoAuthenticatorManager prestoAuthenticatorManager,
+            SecurityConfig securityConfig,
+            IscustomAuthenticatorRequested prestoAuthenticatorManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
             TempStorageManager tempStorageManager,

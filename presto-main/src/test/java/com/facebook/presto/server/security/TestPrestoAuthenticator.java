@@ -19,6 +19,7 @@ import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.PrestoAuthenticator;
 import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.facebook.presto.spi.security.ReadOnlyHttpServletRequest;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -47,9 +48,9 @@ public class TestPrestoAuthenticator
     @Test
     public void testPrestoAuthenticator()
     {
-        PrestoAuthenticatorManager prestoAuthenticatorManager = new PrestoAuthenticatorManager();
-        prestoAuthenticatorManager.setRequired();
-
+        SecurityConfig mockSecurityConfig = new SecurityConfig();
+        mockSecurityConfig.setAuthenticationTypes(ImmutableList.of(SecurityConfig.AuthenticationType.CUSTOM));
+        IscustomAuthenticatorRequested prestoAuthenticatorManager = new IscustomAuthenticatorRequested(mockSecurityConfig);
         // Add Test Presto Authenticator Factory
         prestoAuthenticatorManager.addPrestoAuthenticatorFactory(
                 new TestingPrestoAuthenticatorFactory(

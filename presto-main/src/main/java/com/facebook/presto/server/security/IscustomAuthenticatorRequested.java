@@ -19,6 +19,8 @@ import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
+import javax.inject.Inject;
+
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,9 +34,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoAuthenticatorManager
+public class IscustomAuthenticatorRequested
 {
-    private static final Logger log = Logger.get(PrestoAuthenticatorManager.class);
+    private static final Logger log = Logger.get(IscustomAuthenticatorRequested.class);
 
     private static final File CONFIG_FILE = new File("etc/presto-authenticator.properties");
     private static final String NAME_PROPERTY = "presto-authenticator.name";
@@ -42,10 +44,12 @@ public class PrestoAuthenticatorManager
     private final AtomicBoolean required = new AtomicBoolean();
     private final Map<String, PrestoAuthenticatorFactory> factories = new ConcurrentHashMap<>();
     private final AtomicReference<PrestoAuthenticator> authenticator = new AtomicReference<>();
+    private final boolean customAuthenticatorRequested;
 
-    public void setRequired()
+    @Inject
+    public IscustomAuthenticatorRequested(SecurityConfig securityConfig)
     {
-        required.set(true);
+        this.customAuthenticatorRequested = securityConfig.getAuthenticationTypes().contains(SecurityConfig.AuthenticationType.CUSTOM);
     }
 
     public void addPrestoAuthenticatorFactory(PrestoAuthenticatorFactory factory)

@@ -27,13 +27,12 @@ import static java.util.Objects.requireNonNull;
 public class CustomPrestoAuthenticator
         implements Authenticator
 {
-    private PrestoAuthenticatorManager authenticatorManager;
+    private IscustomAuthenticatorRequested authenticatorManager;
 
     @Inject
-    public CustomPrestoAuthenticator(PrestoAuthenticatorManager authenticatorManager)
+    public CustomPrestoAuthenticator(IscustomAuthenticatorRequested authenticatorManager)
     {
         this.authenticatorManager = requireNonNull(authenticatorManager, "authenticatorManager is null");
-        authenticatorManager.setRequired();
     }
 
     @Override

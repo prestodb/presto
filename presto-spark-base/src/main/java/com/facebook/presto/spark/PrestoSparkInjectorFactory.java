@@ -26,8 +26,8 @@ import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.SessionPropertyDefaults;
+import com.facebook.presto.server.security.IscustomAuthenticatorRequested;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
-import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkBootstrapTimer;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
 import com.facebook.presto.spi.security.AccessControl;
@@ -183,7 +183,7 @@ public class PrestoSparkInjectorFactory
             injector.getInstance(StaticCatalogStore.class).loadCatalogs(catalogProperties);
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
-            injector.getInstance(PrestoAuthenticatorManager.class).loadPrestoAuthenticator();
+            injector.getInstance(IscustomAuthenticatorRequested.class).loadPrestoAuthenticator();
             eventListenerProperties.ifPresent(properties -> injector.getInstance(EventListenerManager.class).loadConfiguredEventListener(properties));
             bootstrapTimer.endSharedModulesLoading();
 
