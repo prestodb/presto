@@ -216,7 +216,8 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         pool(),
         dataType,
         velox::getNamedVectorSerde(velox::VectorSerde::Kind::kPresto),
-        &result);
+        &result,
+        nullptr);
     return result;
   }
 };
