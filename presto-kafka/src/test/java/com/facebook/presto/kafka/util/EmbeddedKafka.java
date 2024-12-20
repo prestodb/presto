@@ -16,19 +16,22 @@ package com.facebook.presto.kafka.util;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
-import kafka.admin.AdminUtils;
-import kafka.admin.RackAwareMode;
 import kafka.server.KafkaConfig;
-import kafka.server.KafkaServerStartable;
-import kafka.utils.ZkUtils;
+import kafka.server.KafkaServer;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.common.serialization.LongSerializer;
+import org.apache.kafka.common.utils.Time;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.kafka.util.TestUtils.findUnusedPort;
@@ -45,27 +48,28 @@ import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_
 public class EmbeddedKafka
         implements Closeable
 {
-    private final EmbeddedZookeeper zookeeper;
+    private final ZooKeeperEmbedded zookeeper;
     private final int port;
     private final File kafkaDataDir;
-    private final KafkaServerStartable kafka;
+    private final KafkaServer kafka;
+    private final AdminClient adminClient;
 
     private final AtomicBoolean started = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
 
     public static EmbeddedKafka createEmbeddedKafka()
-            throws IOException
+            throws Exception
     {
-        return new EmbeddedKafka(new EmbeddedZookeeper(), new Properties());
+        return new EmbeddedKafka(new ZooKeeperEmbedded(findUnusedPort()), new Properties());
     }
 
     public static EmbeddedKafka createEmbeddedKafka(Properties overrideProperties)
-            throws IOException
+            throws Exception
     {
-        return new EmbeddedKafka(new EmbeddedZookeeper(), overrideProperties);
+        return new EmbeddedKafka(new ZooKeeperEmbedded(findUnusedPort()), overrideProperties);
     }
 
-    EmbeddedKafka(EmbeddedZookeeper zookeeper, Properties overrideProperties)
+    EmbeddedKafka(ZooKeeperEmbedded zookeeper, Properties overrideProperties)
             throws IOException
     {
         this.zookeeper = requireNonNull(zookeeper, "zookeeper is null");
@@ -77,6 +81,7 @@ public class EmbeddedKafka
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("broker.id", "0")
                 .put("host.name", "localhost")
+                .put("listeners", "PLAINTEXT://localhost:" + getPort())
                 .put("num.partitions", "2")
                 .put("log.flush.interval.messages", "10000")
                 .put("log.flush.interval.ms", "1000")
@@ -85,20 +90,24 @@ public class EmbeddedKafka
                 .put("zookeeper.connection.timeout.ms", "1000000")
                 .put("port", Integer.toString(port))
                 .put("log.dirs", kafkaDataDir.getAbsolutePath())
-                .put("zookeeper.connect", zookeeper.getConnectString())
+                .put("zookeeper.connect", zookeeper.connectString())
                 .put("offsets.topic.replication.factor", "1")
                 .putAll(Maps.fromProperties(overrideProperties))
                 .build();
 
         KafkaConfig config = new KafkaConfig(toProperties(properties));
-        this.kafka = new KafkaServerStartable(config);
+        Time time = Time.SYSTEM;
+        this.kafka = new KafkaServer(config, time, scala.Option.empty(), false);
+        Properties adminProps = new Properties();
+        adminProps.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, getConnectString());
+        adminProps.put("log.level", "DEBUG");
+        this.adminClient = AdminClient.create(adminProps);
     }
 
     public void start()
             throws InterruptedException, IOException
     {
         if (!started.getAndSet(true)) {
-            zookeeper.start();
             kafka.startup();
         }
     }
@@ -110,8 +119,9 @@ public class EmbeddedKafka
         if (started.get() && !stopped.getAndSet(true)) {
             kafka.shutdown();
             kafka.awaitShutdown();
-            zookeeper.close();
+            zookeeper.stop();
             deleteRecursively(kafkaDataDir.toPath(), ALLOW_INSECURE);
+            adminClient.close();
         }
     }
 
@@ -123,15 +133,15 @@ public class EmbeddedKafka
     public void createTopics(int partitions, int replication, Properties topicProperties, String... topics)
     {
         checkState(started.get() && !stopped.get(), "not started!");
-
-        ZkUtils zkUtils = ZkUtils.apply(getZookeeperConnectString(), 30_000, 30_000, false);
         try {
             for (String topic : topics) {
-                AdminUtils.createTopic(zkUtils, topic, partitions, replication, topicProperties, RackAwareMode.Disabled$.MODULE$);
+                NewTopic newTopic = new NewTopic(topic, partitions, (short) replication);
+                newTopic.configs(Maps.fromProperties(topicProperties));
+                adminClient.createTopics(Collections.singleton(newTopic)).all().get();
             }
         }
-        finally {
-            zkUtils.close();
+        catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("Failed to create topics", e);
         }
     }
 
@@ -146,11 +156,6 @@ public class EmbeddedKafka
         return new KafkaProducer<>(properties);
     }
 
-    public int getZookeeperPort()
-    {
-        return zookeeper.getPort();
-    }
-
     public int getPort()
     {
         return port;
@@ -163,6 +168,6 @@ public class EmbeddedKafka
 
     public String getZookeeperConnectString()
     {
-        return zookeeper.getConnectString();
+        return zookeeper.connectString();
     }
 }
