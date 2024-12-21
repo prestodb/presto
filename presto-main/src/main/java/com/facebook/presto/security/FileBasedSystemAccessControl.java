@@ -15,6 +15,7 @@ package com.facebook.presto.security;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
 import com.facebook.presto.plugin.base.security.SchemaAccessControlRule;
 import com.facebook.presto.security.CatalogAccessControlRule.AccessMode;
@@ -28,6 +29,7 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.security.ViewExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
@@ -448,6 +450,18 @@ public class FileBasedSystemAccessControl
         if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
             denyAddConstraint(table.toString());
         }
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 
     private boolean isSchemaOwner(Identity identity, CatalogSchemaName schema)
