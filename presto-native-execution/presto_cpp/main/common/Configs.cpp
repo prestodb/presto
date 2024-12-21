@@ -240,6 +240,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
+          STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
       };
 }
 
@@ -761,6 +762,10 @@ int32_t SystemConfig::largestSizeClassPages() const {
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {
   return optionalProperty<bool>(kEnableRuntimeMetricsCollection).value();
+}
+
+std::string SystemConfig::prestoDefaultNamespacePrefix() const {
+  return optionalProperty(kPrestoDefaultNamespacePrefix).value().append(".");
 }
 
 NodeConfig::NodeConfig() {
