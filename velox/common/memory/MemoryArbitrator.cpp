@@ -257,7 +257,8 @@ uint64_t MemoryReclaimer::reclaim(
       auto child = entry.second.lock();
       if (child != nullptr) {
         const auto reclaimableBytesOpt = child->reclaimableBytes();
-        if (!reclaimableBytesOpt.has_value()) {
+        if (!reclaimableBytesOpt.has_value() ||
+            reclaimableBytesOpt.value() == 0) {
           nonReclaimableCandidates.push_back(Candidate{std::move(child), 0});
           continue;
         }
@@ -282,9 +283,7 @@ uint64_t MemoryReclaimer::reclaim(
 
   uint64_t reclaimedBytes{0};
   for (const auto& candidate : candidates) {
-    if (candidate.reclaimableBytes == 0) {
-      break;
-    }
+    VELOX_CHECK_GT(candidate.reclaimableBytes, 0);
     const auto bytes = candidate.pool->reclaim(targetBytes, maxWaitMs, stats);
     reclaimedBytes += bytes;
     if (targetBytes != 0) {

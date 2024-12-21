@@ -359,6 +359,40 @@ TEST_F(MemoryReclaimerTest, reclaimerPriorities) {
   }
 }
 
+TEST_F(MemoryReclaimerTest, reclaimerPrioritiesWithZeroUsage) {
+  // This test makes sure the reclaim continues to lower priority reclaimers
+  // even if the higher priority ones have nothing to reclaim.
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "reclaimerPriorities", kMaxMemory, exec::MemoryReclaimer::create());
+  std::vector<std::shared_ptr<MemoryPool>> leafPools;
+
+  const uint32_t kNumChildren = 10;
+  const uint64_t kPoolMemoryBytes = 1024;
+  std::vector<int32_t> priorityOrder;
+  priorityOrder.reserve(kNumChildren);
+  ReclaimCallback reclaimerCb = [&](MemoryPool* pool) {
+    auto* mockReclaimer = dynamic_cast<MockMemoryReclaimer*>(pool->reclaimer());
+    ASSERT_TRUE(mockReclaimer != nullptr);
+    priorityOrder.push_back(mockReclaimer->priority());
+  };
+
+  for (uint32_t i = 0; i < kNumChildren; ++i) {
+    auto reclaimer = MockMemoryReclaimer::create(
+        kPoolMemoryBytes,
+        i % 5 == 0 ? kPoolMemoryBytes : 0,
+        reclaimerCb,
+        i / 5);
+    leafPools.push_back(rootPool->addLeafChild(
+        fmt::format("leaf-{}", i), true, std::move(reclaimer)));
+  }
+
+  memory::ScopedMemoryArbitrationContext context(rootPool.get());
+  memory::MemoryReclaimer::Stats stats;
+  rootPool->reclaim(2 * kPoolMemoryBytes, 0, stats);
+
+  ASSERT_EQ(priorityOrder.size(), 2);
+}
+
 TEST_F(MemoryReclaimerTest, multiLevelReclaimerPriorities) {
   // Following tree structure is built with priorities
   //  rootPool
