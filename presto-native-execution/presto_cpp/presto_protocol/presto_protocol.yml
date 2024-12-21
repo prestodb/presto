@@ -123,11 +123,17 @@ AbstractClasses:
         - { name: InsertHandle,            key: InsertHandle }
         - { name: DeleteHandle,            key: DeleteHandle }
 
+    InputDistribution:
+      super: JsonEncodedSubclass
+      subclasses:
+        - { name: BaseInputDistribution,   key: BaseInputDistribution }
+
     PlanNode:
       super: JsonEncodedSubclass
       subclasses:
         - { name: AggregationNode,          key: .AggregationNode }
         - { name: GroupIdNode,              key: com.facebook.presto.sql.planner.plan.GroupIdNode }
+        - { name: DeleteNode,               key: .DeleteNode }
         - { name: DistinctLimitNode,        key: .DistinctLimitNode }
         - { name: EnforceSingleRowNode,     key: com.facebook.presto.sql.planner.plan.EnforceSingleRowNode }
         - { name: ExchangeNode,             key: com.facebook.presto.sql.planner.plan.ExchangeNode }
@@ -365,3 +371,5 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
   - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/json/JsonBasedUdfFunctionMetadata.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/DeleteNode.java
+  - presto-spi/src/main/java/com/facebook/presto/spi/plan/BaseInputDistribution.java
