@@ -50,6 +50,9 @@ public class IcebergColumnHandle
     public static final IcebergColumnHandle DATA_SEQUENCE_NUMBER_COLUMN_HANDLE = getIcebergColumnHandle(DATA_SEQUENCE_NUMBER);
     public static final ColumnMetadata DATA_SEQUENCE_NUMBER_COLUMN_METADATA = getColumnMetadata(DATA_SEQUENCE_NUMBER);
 
+    // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
+    public static final int PRESTO_UPDATE_ROW_ID_COLUMN_ID = Integer.MIN_VALUE;
+    public static final String PRESTO_UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
     private final ColumnIdentity columnIdentity;
     private final Type type;
 
@@ -94,6 +97,12 @@ public class IcebergColumnHandle
     public boolean isRowPositionColumn()
     {
         return columnIdentity.getId() == ROW_POSITION.fieldId();
+    }
+
+    @JsonIgnore
+    public boolean isUpdateRowIdColumn()
+    {
+        return getId() == PRESTO_UPDATE_ROW_ID_COLUMN_ID;
     }
 
     @Override
