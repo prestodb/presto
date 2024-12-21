@@ -443,6 +443,23 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold,
       std::to_string(c.scaleWriterMinProcessedBytesRebalanceThreshold()));
+
+  addSessionProperty(
+      kTableScanScaledProcessingEnabled,
+      "If set to true, enables scaled processing for table scans.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kTableScanScaledProcessingEnabled,
+      std::to_string(c.tableScanScaledProcessingEnabled()));
+
+  addSessionProperty(
+      kTableScanScaleUpMemoryUsageRatio,
+      "Controls the ratio of available memory that can be used for scaling up table scans. "
+      "The value is in the range of (0, 1].",
+      DOUBLE(),
+      false,
+      QueryConfig::kTableScanScaleUpMemoryUsageRatio,
+      std::to_string(c.tableScanScaleUpMemoryUsageRatio()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
