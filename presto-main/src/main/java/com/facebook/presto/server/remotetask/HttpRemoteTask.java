@@ -77,6 +77,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.sun.management.ThreadMXBean;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.netty.channel.EventLoop;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.joda.time.DateTime;
 
@@ -94,10 +95,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -134,7 +133,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.addCallback;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.addExact;
 import static java.lang.String.format;
@@ -200,8 +198,6 @@ public final class HttpRemoteTask
     private final boolean summarizeTaskInfo;
 
     private final HttpClient httpClient;
-    private final Executor executor;
-    private final ScheduledExecutorService errorScheduledExecutor;
 
     private final Codec<TaskInfo> taskInfoCodec;
     //Json codec required for TaskUpdateRequest endpoint which uses JSON and returns a TaskInfo
@@ -234,6 +230,8 @@ public final class HttpRemoteTask
     private final DecayCounter taskUpdateRequestSize;
     private final SchedulerStatsTracker schedulerStatsTracker;
 
+    private final EventLoop taskEventLoop;
+
     public HttpRemoteTask(
             Session session,
             TaskId taskId,
@@ -244,9 +242,6 @@ public final class HttpRemoteTask
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
             HttpClient httpClient,
-            Executor executor,
-            ScheduledExecutorService updateScheduledExecutor,
-            ScheduledExecutorService errorScheduledExecutor,
             Duration maxErrorDuration,
             Duration taskStatusRefreshMaxWait,
             Duration taskInfoRefreshMaxWait,
@@ -271,7 +266,8 @@ public final class HttpRemoteTask
             DecayCounter taskUpdateRequestSize,
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
-            SchedulerStatsTracker schedulerStatsTracker)
+            SchedulerStatsTracker schedulerStatsTracker,
+            EventLoop taskEventLoop)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -281,7 +277,6 @@ public final class HttpRemoteTask
         requireNonNull(planFragment, "planFragment is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         requireNonNull(httpClient, "httpClient is null");
-        requireNonNull(executor, "executor is null");
         requireNonNull(taskStatusCodec, "taskStatusCodec is null");
         requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
@@ -298,6 +293,7 @@ public final class HttpRemoteTask
         requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
         requireNonNull(taskUpdateRequestSize, "taskUpdateRequestSize cannot be null");
         requireNonNull(schedulerStatsTracker, "schedulerStatsTracker is null");
+        requireNonNull(taskEventLoop, "taskEventLoop is null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
@@ -308,14 +304,12 @@ public final class HttpRemoteTask
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
-            this.executor = executor;
-            this.errorScheduledExecutor = errorScheduledExecutor;
             this.summarizeTaskInfo = summarizeTaskInfo;
             this.taskInfoCodec = taskInfoCodec;
             this.taskInfoJsonCodec = taskInfoJsonCodec;
             this.taskUpdateRequestCodec = taskUpdateRequestCodec;
             this.planFragmentCodec = planFragmentCodec;
-            this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
+            this.updateErrorTracker = taskRequestErrorTracker(taskId, location, maxErrorDuration, taskEventLoop, "updating task");
             this.nodeStatsTracker = requireNonNull(nodeStatsTracker, "nodeStatsTracker is null");
             this.maxErrorDuration = maxErrorDuration;
             this.stats = stats;
@@ -367,10 +361,10 @@ public final class HttpRemoteTask
                     initialTask.getTaskStatus(),
                     taskStatusRefreshMaxWait,
                     taskStatusCodec,
-                    executor,
+                    taskEventLoop,
                     httpClient,
                     maxErrorDuration,
-                    errorScheduledExecutor,
+                    taskEventLoop,
                     stats,
                     binaryTransportEnabled,
                     thriftTransportEnabled,
@@ -386,9 +380,9 @@ public final class HttpRemoteTask
                     metadataUpdatesCodec,
                     maxErrorDuration,
                     summarizeTaskInfo,
-                    executor,
-                    updateScheduledExecutor,
-                    errorScheduledExecutor,
+                    taskEventLoop,
+                    taskEventLoop,
+                    taskEventLoop,
                     stats,
                     binaryTransportEnabled,
                     taskInfoThriftTransportEnabled,
@@ -406,12 +400,13 @@ public final class HttpRemoteTask
                 }
                 else {
                     updateTaskStats();
-                    updateSplitQueueSpace();
+                    taskEventLoop.execute(this::updateSplitQueueSpace);
                 }
             });
 
+            this.taskEventLoop = taskEventLoop;
             updateTaskStats();
-            updateSplitQueueSpace();
+            taskEventLoop.execute(this::updateSplitQueueSpace);
         }
     }
 
@@ -453,18 +448,20 @@ public final class HttpRemoteTask
     @Override
     public void start()
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            // to start we just need to trigger an update
-            started.set(true);
-            scheduleUpdate();
+        taskEventLoop.execute(() -> {
+            try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+                // to start we just need to trigger an update
+                started.set(true);
+                scheduleUpdate();
 
-            taskStatusFetcher.start();
-            taskInfoFetcher.start();
-        }
+                taskStatusFetcher.start();
+                taskInfoFetcher.start();
+            }
+        });
     }
 
     @Override
-    public synchronized void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
+    public void addSplits(Multimap<PlanNodeId, Split> splitsBySource)
     {
         requireNonNull(splitsBySource, "splitsBySource is null");
 
@@ -473,71 +470,79 @@ public final class HttpRemoteTask
             return;
         }
 
-        boolean needsUpdate = false;
-        for (Entry<PlanNodeId, Collection<Split>> entry : splitsBySource.asMap().entrySet()) {
-            PlanNodeId sourceId = entry.getKey();
-            Collection<Split> splits = entry.getValue();
-            boolean isTableScanSource = tableScanPlanNodeIds.contains(sourceId);
+        taskEventLoop.execute(() -> {
+            boolean needsUpdate = false;
+            for (Entry<PlanNodeId, Collection<Split>> entry : splitsBySource.asMap().entrySet()) {
+                PlanNodeId sourceId = entry.getKey();
+                Collection<Split> splits = entry.getValue();
+                boolean isTableScanSource = tableScanPlanNodeIds.contains(sourceId);
 
-            checkState(!noMoreSplits.containsKey(sourceId), "noMoreSplits has already been set for %s", sourceId);
-            int added = 0;
-            long addedWeight = 0;
-            for (Split split : splits) {
-                if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split))) {
-                    if (isTableScanSource) {
-                        added++;
-                        addedWeight = addExact(addedWeight, split.getSplitWeight().getRawValue());
+                checkState(!noMoreSplits.containsKey(sourceId), "noMoreSplits has already been set for %s", sourceId);
+                int added = 0;
+                long addedWeight = 0;
+                for (Split split : splits) {
+                    if (pendingSplits.put(sourceId, new ScheduledSplit(nextSplitId.getAndIncrement(), sourceId, split))) {
+                        if (isTableScanSource) {
+                            added++;
+                            addedWeight = addExact(addedWeight, split.getSplitWeight().getRawValue());
+                        }
                     }
                 }
+                if (isTableScanSource) {
+                    pendingSourceSplitCount += added;
+                    pendingSourceSplitsWeight = addExact(pendingSourceSplitsWeight, addedWeight);
+                    updateTaskStats();
+                }
+                needsUpdate = true;
             }
-            if (isTableScanSource) {
-                pendingSourceSplitCount += added;
-                pendingSourceSplitsWeight = addExact(pendingSourceSplitsWeight, addedWeight);
-                updateTaskStats();
-            }
-            needsUpdate = true;
-        }
-        updateSplitQueueSpace();
+            updateSplitQueueSpace();
 
-        if (needsUpdate) {
-            this.needsUpdate.set(true);
-            scheduleUpdate();
-        }
+            if (needsUpdate) {
+                this.needsUpdate.set(true);
+                scheduleUpdate();
+            }
+        });
     }
 
     @Override
-    public synchronized void noMoreSplits(PlanNodeId sourceId)
+    public void noMoreSplits(PlanNodeId sourceId)
     {
-        if (noMoreSplits.containsKey(sourceId)) {
-            return;
-        }
+        taskEventLoop.execute(() -> {
+            if (noMoreSplits.containsKey(sourceId)) {
+                return;
+            }
 
-        noMoreSplits.put(sourceId, true);
-        needsUpdate.set(true);
-        scheduleUpdate();
-    }
-
-    @Override
-    public synchronized void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
-    {
-        if (pendingNoMoreSplitsForLifespan.put(sourceId, lifespan)) {
+            noMoreSplits.put(sourceId, true);
             needsUpdate.set(true);
             scheduleUpdate();
-        }
+        });
     }
 
     @Override
-    public synchronized void setOutputBuffers(OutputBuffers newOutputBuffers)
+    public void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
+    {
+        taskEventLoop.execute(() -> {
+            if (pendingNoMoreSplitsForLifespan.put(sourceId, lifespan)) {
+                needsUpdate.set(true);
+                scheduleUpdate();
+            }
+        });
+    }
+
+    @Override
+    public void setOutputBuffers(OutputBuffers newOutputBuffers)
     {
         if (getTaskStatus().getState().isDone()) {
             return;
         }
 
-        if (newOutputBuffers.getVersion() > outputBuffers.get().getVersion()) {
-            outputBuffers.set(newOutputBuffers);
-            needsUpdate.set(true);
-            scheduleUpdate();
-        }
+        taskEventLoop.execute(() -> {
+            if (newOutputBuffers.getVersion() > outputBuffers.get().getVersion()) {
+                outputBuffers.set(newOutputBuffers);
+                needsUpdate.set(true);
+                scheduleUpdate();
+            }
+        });
     }
 
     @Override
@@ -555,7 +560,7 @@ public final class HttpRemoteTask
                 taskId,
                 remoteSourceUri,
                 maxErrorDuration,
-                errorScheduledExecutor,
+                taskEventLoop,
                 "Remove exchange remote source");
 
         SettableFuture<?> future = SettableFuture.create();
@@ -604,7 +609,7 @@ public final class HttpRemoteTask
                     doRemoveRemoteSource(errorTracker, request, future);
                 }
                 else {
-                    errorRateLimit.addListener(() -> doRemoveRemoteSource(errorTracker, request, future), errorScheduledExecutor);
+                    errorRateLimit.addListener(() -> doRemoveRemoteSource(errorTracker, request, future), taskEventLoop);
                 }
             }
         };
@@ -688,29 +693,33 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized ListenableFuture<?> whenSplitQueueHasSpace(long weightThreshold)
+    public ListenableFuture<?> whenSplitQueueHasSpace(long weightThreshold)
     {
-        if (whenSplitQueueHasSpaceThreshold.isPresent()) {
-            checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.getAsLong(), "Multiple split queue space notification thresholds not supported");
-        }
-        else {
-            whenSplitQueueHasSpaceThreshold = OptionalLong.of(weightThreshold);
-            updateSplitQueueSpace();
-        }
-        if (splitQueueHasSpace) {
-            return immediateFuture(null);
-        }
-        return whenSplitQueueHasSpace.createNewListener();
+        SettableFuture<?> future = SettableFuture.create();
+        taskEventLoop.execute(() -> {
+            if (whenSplitQueueHasSpaceThreshold.isPresent()) {
+                checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.getAsLong(), "Multiple split queue space notification thresholds not supported");
+            }
+            else {
+                whenSplitQueueHasSpaceThreshold = OptionalLong.of(weightThreshold);
+                updateSplitQueueSpace();
+            }
+            if (splitQueueHasSpace) {
+                future.set(null);
+            }
+            whenSplitQueueHasSpace.createNewListener().addListener(() -> future.set(null), directExecutor());
+        });
+        return future;
     }
 
-    private synchronized void updateSplitQueueSpace()
+    private void updateSplitQueueSpace()
     {
         // Must check whether the unacknowledged split count threshold is reached even without listeners registered yet
         splitQueueHasSpace = getUnacknowledgedPartitionedSplitCount() < maxUnacknowledgedSplits &&
                 (!whenSplitQueueHasSpaceThreshold.isPresent() || getQueuedPartitionedSplitsWeight() < whenSplitQueueHasSpaceThreshold.getAsLong());
         // Only trigger notifications if a listener might be registered
         if (splitQueueHasSpace && whenSplitQueueHasSpaceThreshold.isPresent()) {
-            whenSplitQueueHasSpace.complete(null, executor);
+            whenSplitQueueHasSpace.complete(null, taskEventLoop);
         }
     }
 
@@ -729,40 +738,42 @@ public final class HttpRemoteTask
         }
     }
 
-    private synchronized void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)
+    private void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)
     {
-        //Setting the flag as false since TaskUpdateRequest is not on thrift yet.
-        //Once it is converted to thrift we can use the isThrift enabled flag here.
-        updateTaskInfo(newValue, false);
+        taskEventLoop.execute(() -> {
+            //Setting the flag as false since TaskUpdateRequest is not on thrift yet.
+            //Once it is converted to thrift we can use the isThrift enabled flag here.
+            updateTaskInfo(newValue, false);
 
-        // remove acknowledged splits, which frees memory
-        for (TaskSource source : sources) {
-            PlanNodeId planNodeId = source.getPlanNodeId();
-            boolean isTableScanSource = tableScanPlanNodeIds.contains(planNodeId);
-            int removed = 0;
-            long removedWeight = 0;
-            for (ScheduledSplit split : source.getSplits()) {
-                if (pendingSplits.remove(planNodeId, split)) {
-                    if (isTableScanSource) {
-                        removed++;
-                        removedWeight = addExact(removedWeight, split.getSplit().getSplitWeight().getRawValue());
+            // remove acknowledged splits, which frees memory
+            for (TaskSource source : sources) {
+                PlanNodeId planNodeId = source.getPlanNodeId();
+                boolean isTableScanSource = tableScanPlanNodeIds.contains(planNodeId);
+                int removed = 0;
+                long removedWeight = 0;
+                for (ScheduledSplit split : source.getSplits()) {
+                    if (pendingSplits.remove(planNodeId, split)) {
+                        if (isTableScanSource) {
+                            removed++;
+                            removedWeight = addExact(removedWeight, split.getSplit().getSplitWeight().getRawValue());
+                        }
                     }
                 }
+                if (source.isNoMoreSplits()) {
+                    noMoreSplits.put(planNodeId, false);
+                }
+                for (Lifespan lifespan : source.getNoMoreSplitsForLifespan()) {
+                    pendingNoMoreSplitsForLifespan.remove(planNodeId, lifespan);
+                }
+                if (isTableScanSource) {
+                    pendingSourceSplitCount -= removed;
+                    pendingSourceSplitsWeight -= removedWeight;
+                }
             }
-            if (source.isNoMoreSplits()) {
-                noMoreSplits.put(planNodeId, false);
-            }
-            for (Lifespan lifespan : source.getNoMoreSplitsForLifespan()) {
-                pendingNoMoreSplitsForLifespan.remove(planNodeId, lifespan);
-            }
-            if (isTableScanSource) {
-                pendingSourceSplitCount -= removed;
-                pendingSourceSplitsWeight -= removedWeight;
-            }
-        }
-        // Update stats before split queue space to ensure node stats are up to date before waking up the scheduler
-        updateTaskStats();
-        updateSplitQueueSpace();
+            // Update stats before split queue space to ensure node stats are up to date before waking up the scheduler
+            updateTaskStats();
+            updateSplitQueueSpace();
+        });
     }
 
     private void onSuccessTaskInfo(TaskInfo result)
@@ -832,103 +843,105 @@ public final class HttpRemoteTask
             doScheduleAsyncCleanupRequest(cleanupBackoff, request, action);
         }
         else {
-            errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
+            taskEventLoop.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
         }
     }
 
-    private synchronized void scheduleUpdate()
+    private void scheduleUpdate()
     {
         taskUpdateTimeline.add(System.nanoTime());
-        executor.execute(this::sendUpdate);
+        taskEventLoop.execute(this::sendUpdate);
     }
 
-    private synchronized void sendUpdate()
+    private void sendUpdate()
     {
-        TaskStatus taskStatus = getTaskStatus();
-        // don't update if the task hasn't been started yet or if it is already finished
-        if (!started.get() || !needsUpdate.get() || taskStatus.getState().isDone()) {
-            return;
-        }
-
-        // if there is a request already running, wait for it to complete
-        if (this.currentRequest != null && !this.currentRequest.isDone()) {
-            return;
-        }
-
-        // if throttled due to error, asynchronously wait for timeout and try again
-        ListenableFuture<?> errorRateLimit = updateErrorTracker.acquireRequestPermit();
-        if (!errorRateLimit.isDone()) {
-            errorRateLimit.addListener(this::sendUpdate, executor);
-            return;
-        }
-
-        List<TaskSource> sources = getSources();
-
-        Optional<byte[]> fragment = Optional.empty();
-        if (sendPlan.get()) {
-            long start = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-            fragment = Optional.of(planFragment.bytesForTaskSerialization(planFragmentCodec));
-            schedulerStatsTracker.recordTaskPlanSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - start);
-        }
-        Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
-        TaskUpdateRequest updateRequest = new TaskUpdateRequest(
-                session.toSessionRepresentation(),
-                session.getIdentity().getExtraCredentials(),
-                fragment,
-                sources,
-                outputBuffers.get(),
-                writeInfo);
-        long serializeStartCpuTimeNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-        byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
-        schedulerStatsTracker.recordTaskUpdateSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - serializeStartCpuTimeNanos);
-
-        taskUpdateRequestSize.add(taskUpdateRequestJson.length);
-
-        if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
-            failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, getExceededTaskUpdateSizeMessage(taskUpdateRequestJson)));
-        }
-
-        if (fragment.isPresent()) {
-            stats.updateWithPlanSize(taskUpdateRequestJson.length);
-        }
-        else {
-            if (ThreadLocalRandom.current().nextDouble() < UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE) {
-                // This is to keep track of the task update size even when the plan fragment is NOT present
-                stats.updateWithoutPlanSize(taskUpdateRequestJson.length);
+        taskEventLoop.execute(() -> {
+            TaskStatus taskStatus = getTaskStatus();
+            // don't update if the task hasn't been started yet or if it is already finished
+            if (!started.get() || !needsUpdate.get() || taskStatus.getState().isDone()) {
+                return;
             }
-        }
 
-        HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
-        Request request = setContentTypeHeaders(binaryTransportEnabled, preparePost())
-                .setUri(uriBuilder.build())
-                .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
-                .build();
+            // if there is a request already running, wait for it to complete
+            if (this.currentRequest != null && !this.currentRequest.isDone()) {
+                return;
+            }
 
-        ResponseHandler responseHandler;
-        if (binaryTransportEnabled) {
-            responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
-        }
-        else {
-            responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoJsonCodec);
-        }
+            // if throttled due to error, asynchronously wait for timeout and try again
+            ListenableFuture<?> errorRateLimit = updateErrorTracker.acquireRequestPermit();
+            if (!errorRateLimit.isDone()) {
+                errorRateLimit.addListener(this::sendUpdate, taskEventLoop);
+                return;
+            }
 
-        updateErrorTracker.startRequest();
+            List<TaskSource> sources = getSources();
 
-        ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
-        currentRequest = future;
-        currentRequestStartNanos = System.nanoTime();
-        if (!taskUpdateTimeline.isEmpty()) {
-            currentRequestLastTaskUpdate = taskUpdateTimeline.getLong(taskUpdateTimeline.size() - 1);
-        }
+            Optional<byte[]> fragment = Optional.empty();
+            if (sendPlan.get()) {
+                long start = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+                fragment = Optional.of(planFragment.bytesForTaskSerialization(planFragmentCodec));
+                schedulerStatsTracker.recordTaskPlanSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - start);
+            }
+            Optional<TableWriteInfo> writeInfo = sendPlan.get() ? Optional.of(tableWriteInfo) : Optional.empty();
+            TaskUpdateRequest updateRequest = new TaskUpdateRequest(
+                    session.toSessionRepresentation(),
+                    session.getIdentity().getExtraCredentials(),
+                    fragment,
+                    sources,
+                    outputBuffers.get(),
+                    writeInfo);
+            long serializeStartCpuTimeNanos = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+            byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
+            schedulerStatsTracker.recordTaskUpdateSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - serializeStartCpuTimeNanos);
 
-        // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
-        // and does so without grabbing the instance lock.
-        needsUpdate.set(false);
+            taskUpdateRequestSize.add(taskUpdateRequestJson.length);
 
-        Futures.addCallback(
-                future,
-                new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
-                executor);
+            if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
+                failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, getExceededTaskUpdateSizeMessage(taskUpdateRequestJson)));
+            }
+
+            if (fragment.isPresent()) {
+                stats.updateWithPlanSize(taskUpdateRequestJson.length);
+            }
+            else {
+                if (ThreadLocalRandom.current().nextDouble() < UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE) {
+                    // This is to keep track of the task update size even when the plan fragment is NOT present
+                    stats.updateWithoutPlanSize(taskUpdateRequestJson.length);
+                }
+            }
+
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
+            Request request = setContentTypeHeaders(binaryTransportEnabled, preparePost())
+                    .setUri(uriBuilder.build())
+                    .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
+                    .build();
+
+            ResponseHandler responseHandler;
+            if (binaryTransportEnabled) {
+                responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
+            }
+            else {
+                responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoJsonCodec);
+            }
+
+            updateErrorTracker.startRequest();
+
+            ListenableFuture<BaseResponse<TaskInfo>> future = httpClient.executeAsync(request, responseHandler);
+            currentRequest = future;
+            currentRequestStartNanos = System.nanoTime();
+            if (!taskUpdateTimeline.isEmpty()) {
+                currentRequestLastTaskUpdate = taskUpdateTimeline.getLong(taskUpdateTimeline.size() - 1);
+            }
+
+            // The needsUpdate flag needs to be set to false BEFORE adding the Future callback since callback might change the flag value
+            // and does so without grabbing the instance lock.
+            needsUpdate.set(false);
+
+            Futures.addCallback(
+                    future,
+                    new SimpleHttpResponseHandler<>(new UpdateResponseHandler(sources), request.getUri(), stats.getHttpResponseStats(), REMOTE_TASK_ERROR),
+                    taskEventLoop);
+        });
     }
 
     private String getExceededTaskUpdateSizeMessage(byte[] taskUpdateRequestJson)
@@ -937,7 +950,7 @@ public final class HttpRemoteTask
         return format("TaskUpdate size of %s has exceeded the limit of %s", taskUpdateSize.toString(), this.maxTaskUpdateDataSize.toString());
     }
 
-    private synchronized List<TaskSource> getSources()
+    private List<TaskSource> getSources()
     {
         return Stream.concat(tableScanPlanNodeIds.stream(), remoteSourcePlanNodeIds.stream())
                 .map(this::getSource)
@@ -945,7 +958,7 @@ public final class HttpRemoteTask
                 .collect(toImmutableList());
     }
 
-    private synchronized TaskSource getSource(PlanNodeId planNodeId)
+    private TaskSource getSource(PlanNodeId planNodeId)
     {
         Set<ScheduledSplit> splits = pendingSplits.get(planNodeId);
         boolean pendingNoMoreSplits = Boolean.TRUE.equals(this.noMoreSplits.get(planNodeId));
@@ -960,64 +973,68 @@ public final class HttpRemoteTask
     }
 
     @Override
-    public synchronized void cancel()
+    public void cancel()
     {
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            TaskStatus taskStatus = getTaskStatus();
-            if (taskStatus.getState().isDone()) {
-                return;
-            }
+        taskEventLoop.execute(() -> {
+            try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+                TaskStatus taskStatus = getTaskStatus();
+                if (taskStatus.getState().isDone()) {
+                    return;
+                }
 
-            // send cancel to task and ignore response
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
-            Request.Builder builder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
-            if (taskInfoThriftTransportEnabled) {
-                builder = ThriftRequestUtils.prepareThriftDelete(thriftProtocol);
+                // send cancel to task and ignore response
+                HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
+                Request.Builder builder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
+                if (taskInfoThriftTransportEnabled) {
+                    builder = ThriftRequestUtils.prepareThriftDelete(thriftProtocol);
+                }
+                Request request = builder.setUri(uriBuilder.build())
+                        .build();
+                scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
             }
-            Request request = builder.setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cancel");
-        }
+        });
     }
 
-    private synchronized void cleanUpTask()
+    private void cleanUpTask()
     {
-        checkState(getTaskStatus().getState().isDone(), "attempt to clean up a task that is not done yet");
+        taskEventLoop.execute(() -> {
+            checkState(getTaskStatus().getState().isDone(), "attempt to clean up a task that is not done yet");
 
-        // clear pending splits to free memory
-        pendingSplits.clear();
-        pendingSourceSplitCount = 0;
-        pendingSourceSplitsWeight = 0;
-        updateTaskStats();
-        splitQueueHasSpace = true;
-        whenSplitQueueHasSpace.complete(null, executor);
+            // clear pending splits to free memory
+            pendingSplits.clear();
+            pendingSourceSplitCount = 0;
+            pendingSourceSplitsWeight = 0;
+            updateTaskStats();
+            splitQueueHasSpace = true;
+            whenSplitQueueHasSpace.complete(null, taskEventLoop);
 
-        // cancel pending request
-        if (currentRequest != null) {
-            // do not terminate if the request is already running to avoid closing pooled connections
-            currentRequest.cancel(false);
-            currentRequest = null;
-            currentRequestStartNanos = 0;
-        }
+            // cancel pending request
+            if (currentRequest != null) {
+                // do not terminate if the request is already running to avoid closing pooled connections
+                currentRequest.cancel(false);
+                currentRequest = null;
+                currentRequestStartNanos = 0;
+            }
 
-        taskStatusFetcher.stop();
+            taskStatusFetcher.stop();
 
-        // The remote task is likely to get a delete from the PageBufferClient first.
-        // We send an additional delete anyway to get the final TaskInfo
-        HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-        Request.Builder requestBuilder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
-        if (taskInfoThriftTransportEnabled) {
-            requestBuilder = ThriftRequestUtils.prepareThriftDelete(Protocol.BINARY);
-        }
-        Request request = requestBuilder
-                .setUri(uriBuilder.build())
-                .build();
+            // The remote task is likely to get a delete from the PageBufferClient first.
+            // We send an additional delete anyway to get the final TaskInfo
+            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
+            Request.Builder requestBuilder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
+            if (taskInfoThriftTransportEnabled) {
+                requestBuilder = ThriftRequestUtils.prepareThriftDelete(Protocol.BINARY);
+            }
+            Request request = requestBuilder
+                    .setUri(uriBuilder.build())
+                    .build();
 
-        scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
+            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "cleanup");
+        });
     }
 
     @Override
-    public synchronized void abort()
+    public void abort()
     {
         if (getTaskStatus().getState().isDone()) {
             return;
@@ -1026,24 +1043,26 @@ public final class HttpRemoteTask
         abort(failWith(getTaskStatus(), ABORTED, ImmutableList.of()));
     }
 
-    private synchronized void abort(TaskStatus status)
+    private void abort(TaskStatus status)
     {
-        checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
+        taskEventLoop.execute(() -> {
+            checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
 
-        try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
-            taskStatusFetcher.updateTaskStatus(status);
+            try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+                taskStatusFetcher.updateTaskStatus(status);
 
-            // send abort to task
-            HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
-            Request.Builder builder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
-            if (taskInfoThriftTransportEnabled) {
-                builder = ThriftRequestUtils.prepareThriftDelete(thriftProtocol);
+                // send abort to task
+                HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus());
+                Request.Builder builder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
+                if (taskInfoThriftTransportEnabled) {
+                    builder = ThriftRequestUtils.prepareThriftDelete(thriftProtocol);
+                }
+
+                Request request = builder.setUri(uriBuilder.build())
+                        .build();
+                scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
             }
-
-            Request request = builder.setUri(uriBuilder.build())
-                    .build();
-            scheduleAsyncCleanupRequest(createCleanupBackoff(), request, "abort");
-        }
+        });
     }
 
     private void scheduleAsyncCleanupRequest(Backoff cleanupBackoff, Request request, String action)
@@ -1063,19 +1082,19 @@ public final class HttpRemoteTask
             responseHandler = new ThriftResponseHandler(unwrapThriftCodec(taskInfoCodec));
             Futures.addCallback(httpClient.executeAsync(request, responseHandler),
                     new ThriftResponseFutureCallback(action, request, cleanupBackoff),
-                    executor);
+                    taskEventLoop);
         }
         else if (binaryTransportEnabled) {
             responseHandler = createFullSmileResponseHandler((SmileCodec<TaskInfo>) taskInfoCodec);
             Futures.addCallback(httpClient.executeAsync(request, responseHandler),
                     new BaseResponseFutureCallback(action, request, cleanupBackoff),
-                    executor);
+                    taskEventLoop);
         }
         else {
             responseHandler = createAdaptingJsonResponseHandler((JsonCodec<TaskInfo>) taskInfoCodec);
             Futures.addCallback(httpClient.executeAsync(request, responseHandler),
                     new BaseResponseFutureCallback(action, request, cleanupBackoff),
-                    executor);
+                    taskEventLoop);
         }
     }
 
@@ -1144,20 +1163,17 @@ public final class HttpRemoteTask
             try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
                 try {
                     long oldestTaskUpdateTime = 0;
-                    long currentRequestStartNanos;
-                    synchronized (HttpRemoteTask.this) {
-                        currentRequest = null;
-                        sendPlan.set(value.isNeedsPlan());
-                        currentRequestStartNanos = HttpRemoteTask.this.currentRequestStartNanos;
-                        if (!taskUpdateTimeline.isEmpty()) {
-                            oldestTaskUpdateTime = taskUpdateTimeline.getLong(0);
-                        }
-                        int deliveredUpdates = taskUpdateTimeline.size();
-                        while (deliveredUpdates > 0 && taskUpdateTimeline.getLong(deliveredUpdates - 1) > currentRequestLastTaskUpdate) {
-                            deliveredUpdates--;
-                        }
-                        taskUpdateTimeline.removeElements(0, deliveredUpdates);
+                    currentRequest = null;
+                    sendPlan.set(value.isNeedsPlan());
+                    if (!taskUpdateTimeline.isEmpty()) {
+                        oldestTaskUpdateTime = taskUpdateTimeline.getLong(0);
                     }
+                    int deliveredUpdates = taskUpdateTimeline.size();
+                    while (deliveredUpdates > 0 && taskUpdateTimeline.getLong(deliveredUpdates - 1) > currentRequestLastTaskUpdate) {
+                        deliveredUpdates--;
+                    }
+                    taskUpdateTimeline.removeElements(0, deliveredUpdates);
+
                     updateStats(currentRequestStartNanos);
                     processTaskUpdate(value, sources);
                     updateErrorTracker.requestSucceeded();
