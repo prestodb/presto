@@ -15,7 +15,8 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
-import com.facebook.presto.spi.security.ReadOnlyHttpServletRequest;
+import com.facebook.presto.spi.security.HttpServletRequestHeaders;
+import com.facebook.presto.spi.security.RequestHeaders;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -40,7 +41,7 @@ public class CustomPrestoAuthenticator
             throws AuthenticationException
     {
         try {
-            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(new ReadOnlyHttpServletRequest(request));
+            return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(new HttpServletRequestHeaders((RequestHeaders) request));
         }
         catch (RuntimeException e) {
             throw new RuntimeException("Authentication error", e);

@@ -13,15 +13,12 @@
  */
 package com.facebook.presto.spi.security;
 
-import java.security.Principal;
+import java.util.Enumeration;
+import java.util.Map;
 
-public interface PrestoAuthenticator
+public interface RequestHeaders
 {
-    /**
-     * Authenticate the provided token.
-     *
-     * @return the authenticated Principal
-     * @throws AccessDeniedException if not allowed
-     */
-    Principal createAuthenticatedPrincipal(RequestHeaders headers) throws AccessDeniedException;
+    String getHeader(String name);
+    Map<String, String> getHeaders();
+    Enumeration<String> getHeaderNames();
 }
