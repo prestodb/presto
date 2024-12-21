@@ -15,6 +15,7 @@ package com.facebook.presto.server.security;
 
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.HttpServletRequestHeaders;
 import com.facebook.presto.spi.security.RequestHeaders;
 
@@ -43,8 +44,11 @@ public class CustomPrestoAuthenticator
         try {
             return authenticatorManager.getAuthenticator().createAuthenticatedPrincipal(new HttpServletRequestHeaders((RequestHeaders) request));
         }
+        catch (AccessDeniedException e) {
+            throw e;
+        }
         catch (RuntimeException e) {
-            throw new RuntimeException("Authentication error", e);
+            throw new AuthenticationException("Authentication failed due to an unexpected runtime error.");
         }
     }
 }
