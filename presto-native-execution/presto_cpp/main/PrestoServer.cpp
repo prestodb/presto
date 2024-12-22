@@ -277,6 +277,7 @@ void PrestoServer::run() {
   registerPrestoToVeloxConnector(
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
 
+  velox::exec::OutputBufferManager::initialize({});
   initializeVeloxMemory();
   initializeThreadPools();
 
