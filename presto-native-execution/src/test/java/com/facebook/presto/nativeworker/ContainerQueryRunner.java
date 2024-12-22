@@ -270,7 +270,7 @@ public class ContainerQueryRunner
     }
 
     @Override
-    public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
+    public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties, boolean isDefaultNamespace)
     {
         throw new UnsupportedOperationException();
     }

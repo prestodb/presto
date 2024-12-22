@@ -16,4 +16,9 @@ package com.facebook.presto.spi.function;
 public interface FunctionMetadataManager
 {
     FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
+
+    /**
+     * Extends the ability to retrieve specializedFunctionKeys using existing code from BuiltInTypeAndFunctionNamespaceManager.
+     */
+    SqlFunctionSupplier getSpecializedFunctionKey(Signature signature);
 }
