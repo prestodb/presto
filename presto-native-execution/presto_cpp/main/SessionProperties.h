@@ -283,6 +283,10 @@ class SessionProperties {
   static constexpr const char* kPrefixSortMinRows =
       "native_prefixsort_min_rows";
 
+  /// If true, enable the shuffle compression.
+  static constexpr const char* kShuffleCompressionEnabled =
+      "exchange_compression";
+
   SessionProperties();
 
   const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&
