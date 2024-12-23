@@ -22,3 +22,21 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   GTest::gmock)
+
+add_executable(velox_fuzzer_constrained_input_generators_test
+               ConstrainedGeneratorsTest.cpp)
+
+add_test(
+  NAME velox_fuzzer_constrained_input_generators_test
+  COMMAND velox_fuzzer_constrained_input_generators_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  velox_fuzzer_constrained_input_generators_test
+  velox_fuzzer_constrained_input_generators
+  velox_presto_types
+  velox_type
+  velox_vector_test_lib
+  GTest::gtest
+  GTest::gtest_main
+  GTest::gmock)

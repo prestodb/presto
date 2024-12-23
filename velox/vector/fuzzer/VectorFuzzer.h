@@ -26,18 +26,6 @@
 
 namespace facebook::velox {
 
-enum UTF8CharList {
-  ASCII = 0, // Ascii character set.
-  UNICODE_CASE_SENSITIVE = 1, // Unicode scripts that support case.
-  EXTENDED_UNICODE = 2, // Extended Unicode: Arabic, Devanagiri etc
-  MATHEMATICAL_SYMBOLS = 3 // Mathematical Symbols.
-};
-
-struct DataSpec {
-  bool includeNaN;
-  bool includeInfinity;
-};
-
 const std::vector<TypePtr>& defaultScalarTypes();
 
 /// VectorFuzzer is a helper class that generates randomized vectors and their

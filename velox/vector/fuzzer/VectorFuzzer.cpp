@@ -28,14 +28,11 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/NullsBuilder.h"
 #include "velox/vector/VectorTypeUtils.h"
+#include "velox/vector/fuzzer/Utils.h"
 
 namespace facebook::velox {
 
 namespace {
-
-// DWRF requires nano to be in a certain range. Hardcode the value here to avoid
-// the dependency on DWRF.
-constexpr int64_t MAX_NANOS = 1'000'000'000;
 
 // Structure to help temporary changes to Options. This objects saves the
 // current state of the Options object, and restores it when it's destructed.
@@ -63,116 +60,6 @@ struct ScopedOptions {
   VectorFuzzer::Options savedOpts;
 };
 
-// Generate random values for the different supported types.
-template <typename T>
-T rand(FuzzerGenerator& rng, DataSpec dataSpec = {false, false}) {
-  VELOX_NYI();
-}
-
-template <>
-int8_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
-  return boost::random::uniform_int_distribution<int8_t>()(rng);
-}
-
-template <>
-int16_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
-  return boost::random::uniform_int_distribution<int16_t>()(rng);
-}
-
-template <>
-int32_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
-  return boost::random::uniform_int_distribution<int32_t>()(rng);
-}
-
-template <>
-int64_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
-  return boost::random::uniform_int_distribution<int64_t>()(rng);
-}
-
-template <>
-double rand(FuzzerGenerator& rng, DataSpec dataSpec) {
-  if (dataSpec.includeNaN && coinToss(rng, 0.05)) {
-    return std::nan("");
-  }
-
-  if (dataSpec.includeInfinity && coinToss(rng, 0.05)) {
-    return std::numeric_limits<double>::infinity();
-  }
-
-  return boost::random::uniform_01<double>()(rng);
-}
-
-template <>
-float rand(FuzzerGenerator& rng, DataSpec dataSpec) {
-  if (dataSpec.includeNaN && coinToss(rng, 0.05)) {
-    return std::nanf("");
-  }
-
-  if (dataSpec.includeInfinity && coinToss(rng, 0.05)) {
-    return std::numeric_limits<float>::infinity();
-  }
-
-  return boost::random::uniform_01<float>()(rng);
-}
-
-template <>
-bool rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
-  return boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng);
-}
-
-template <>
-uint32_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
-  return boost::random::uniform_int_distribution<uint32_t>()(rng);
-}
-
-template <>
-uint64_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
-  return boost::random::uniform_int_distribution<uint64_t>()(rng);
-}
-
-template <>
-int128_t rand(FuzzerGenerator& rng, DataSpec /*dataSpec*/) {
-  return HugeInt::build(rand<int64_t>(rng), rand<uint64_t>(rng));
-}
-
-template <typename T, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
-T rand(FuzzerGenerator& rng, T min, T max) {
-  return boost::random::uniform_int_distribution<T>(min, max)(rng);
-}
-
-Timestamp randTimestamp(FuzzerGenerator& rng, VectorFuzzer::Options opts) {
-  // Generate timestamps only in the valid range to avoid datetime functions,
-  // such as try_cast(varchar as timestamp), throwing VeloxRuntimeError in
-  // fuzzers.
-  constexpr int64_t min = -2'140'671'600;
-  constexpr int64_t max = 2'140'671'600;
-  constexpr int64_t microInSecond = 1'000'000;
-  constexpr int64_t millisInSecond = 1'000;
-
-  switch (opts.timestampPrecision) {
-    case VectorFuzzer::Options::TimestampPrecision::kNanoSeconds:
-      return Timestamp(
-          rand<int64_t>(rng, min, max), (rand<int64_t>(rng) % MAX_NANOS));
-    case VectorFuzzer::Options::TimestampPrecision::kMicroSeconds:
-      return Timestamp::fromMicros(
-          rand<int64_t>(rng, min, max) * microInSecond +
-          rand<int64_t>(rng, -microInSecond, microInSecond));
-    case VectorFuzzer::Options::TimestampPrecision::kMilliSeconds:
-      return Timestamp::fromMillis(
-          rand<int64_t>(rng, min, max) * millisInSecond +
-          rand<int64_t>(rng, -millisInSecond, millisInSecond));
-    case VectorFuzzer::Options::TimestampPrecision::kSeconds:
-      return Timestamp(rand<int64_t>(rng, min, max), 0);
-  }
-  return {}; // no-op.
-}
-
-int32_t randDate(FuzzerGenerator& rng) {
-  constexpr int64_t min = -24'450;
-  constexpr int64_t max = 24'450;
-  return rand<int32_t>(rng, min, max);
-}
-
 size_t getElementsVectorLength(
     const VectorFuzzer::Options& opts,
     vector_size_t size) {
@@ -197,43 +84,7 @@ int128_t randLongDecimal(const TypePtr& type, FuzzerGenerator& rng) {
   return rand<int128_t>(rng) % DecimalUtil::kPowersOfTen[precision];
 }
 
-/// Unicode character ranges. Ensure the vector indexes match the UTF8CharList
-/// enum values.
-///
-/// Source: https://jrgraphix.net/research/unicode_blocks.php
-const std::vector<std::vector<std::pair<char16_t, char16_t>>> kUTFChatSets{
-    // UTF8CharList::ASCII
-    {
-        {33, 127}, // All ASCII printable chars.
-    },
-    // UTF8CharList::UNICODE_CASE_SENSITIVE
-    {
-        {u'\u0020', u'\u007F'}, // Basic Latin.
-        {u'\u0400', u'\u04FF'}, // Cyrillic.
-    },
-    // UTF8CharList::EXTENDED_UNICODE
-    {
-        {u'\u03F0', u'\u03FF'}, // Greek.
-        {u'\u0100', u'\u017F'}, // Latin Extended A.
-        {u'\u0600', u'\u06FF'}, // Arabic.
-        {u'\u0900', u'\u097F'}, // Devanagari.
-        {u'\u0600', u'\u06FF'}, // Hebrew.
-        {u'\u3040', u'\u309F'}, // Hiragana.
-        {u'\u2000', u'\u206F'}, // Punctuation.
-        {u'\u2070', u'\u209F'}, // Sub/Super Script.
-        {u'\u20A0', u'\u20CF'}, // Currency.
-    },
-    // UTF8CharList::MATHEMATICAL_SYMBOLS
-    {
-        {u'\u2200', u'\u22FF'}, // Math Operators.
-        {u'\u2150', u'\u218F'}, // Number Forms.
-        {u'\u25A0', u'\u25FF'}, // Geometric Shapes.
-        {u'\u27C0', u'\u27EF'}, // Math Symbols.
-        {u'\u2A00', u'\u2AFF'}, // Supplemental.
-    },
-};
-
-FOLLY_ALWAYS_INLINE char16_t getRandomChar(
+/*FOLLY_ALWAYS_INLINE char16_t getRandomChar(
     FuzzerGenerator& rng,
     const std::vector<std::pair<char16_t, char16_t>>& charSet) {
   const auto& chars = charSet.size() == 1
@@ -243,7 +94,7 @@ FOLLY_ALWAYS_INLINE char16_t getRandomChar(
   auto inc = (rand<uint32_t>(rng) % size);
   char16_t res = chars.first + inc;
   return res;
-}
+}*/
 
 /// Generates a random string (string size and encoding are passed through
 /// Options). Returns a StringView which uses `buf` as the underlying buffer.
@@ -252,24 +103,11 @@ StringView randString(
     const VectorFuzzer::Options& opts,
     std::string& buf,
     std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t>& converter) {
-  buf.clear();
-  std::u16string wbuf;
   const size_t stringLength = opts.stringVariableLength
       ? rand<uint32_t>(rng) % opts.stringLength
       : opts.stringLength;
-  wbuf.resize(stringLength);
 
-  for (size_t i = 0; i < stringLength; ++i) {
-    // First choose a random encoding from the list of input acceptable
-    // encodings.
-    const auto& encoding = (opts.charEncodings.size() == 1)
-        ? opts.charEncodings.front()
-        : opts.charEncodings[rand<uint32_t>(rng) % opts.charEncodings.size()];
-
-    wbuf[i] = getRandomChar(rng, kUTFChatSets[encoding]);
-  }
-
-  buf.append(converter.to_bytes(wbuf));
+  randString(rng, stringLength, opts.charEncodings, buf, converter);
   return StringView(buf);
 }
 
@@ -291,7 +129,7 @@ VectorPtr fuzzConstantPrimitiveImpl(
   }
   if constexpr (std::is_same_v<TCpp, Timestamp>) {
     return std::make_shared<ConstantVector<TCpp>>(
-        pool, size, false, type, randTimestamp(rng, opts));
+        pool, size, false, type, randTimestamp(rng, opts.timestampPrecision));
   } else if (type->isDate()) {
     return std::make_shared<ConstantVector<int32_t>>(
         pool, size, false, type, randDate(rng));
@@ -323,7 +161,7 @@ void fuzzFlatPrimitiveImpl(
     if constexpr (std::is_same_v<TCpp, StringView>) {
       flatVector->set(i, randString(rng, opts, strBuf, converter));
     } else if constexpr (std::is_same_v<TCpp, Timestamp>) {
-      flatVector->set(i, randTimestamp(rng, opts));
+      flatVector->set(i, randTimestamp(rng, opts.timestampPrecision));
     } else if constexpr (std::is_same_v<TCpp, int64_t>) {
       if (vector->type()->isShortDecimal()) {
         flatVector->set(i, randShortDecimal(vector->type(), rng));
