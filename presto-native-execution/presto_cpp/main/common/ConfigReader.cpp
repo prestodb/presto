@@ -13,6 +13,8 @@
  */
 
 #include "presto_cpp/main/common/ConfigReader.h"
+#include <algorithm>
+#include <cctype>
 #include <fmt/format.h>
 #include <fstream>
 #include "velox/common/base/Exceptions.h"
@@ -52,7 +54,7 @@ std::unordered_map<std::string, std::string> readConfig(
   std::unordered_map<std::string, std::string> properties;
   std::string line;
   while (getline(configFile, line)) {
-    line.erase(std::remove_if(line.begin(), line.end(), isspace), line.end());
+    line.erase(remove_if(line.begin(), line.end(), isspace), line.end());
     if (line.empty() || line[0] == '#') {
       continue;
     }
