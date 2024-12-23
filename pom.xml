@@ -85,6 +85,7 @@
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
         <dep.netty.version>4.1.115.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
+        <dep.jetty.version>9.4.56.v20240826</dep.jetty.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -209,6 +210,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-bom</artifactId>
+                <version>${dep.jetty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
