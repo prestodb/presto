@@ -85,7 +85,8 @@ void RleBpDecoder::readBits(
 void RleBpDecoder::readHeader() {
   bitOffset_ = 0;
   auto maxVarIntLen = std::min<uint64_t>(
-      (uint64_t)folly::kMaxVarintLength64, bufferEnd_ - bufferStart_);
+      static_cast<uint64_t>(folly::kMaxVarintLength64),
+      bufferEnd_ - bufferStart_);
   folly::ByteRange headerRange(
       reinterpret_cast<const unsigned char*>(bufferStart_),
       reinterpret_cast<const unsigned char*>(bufferStart_ + maxVarIntLen));

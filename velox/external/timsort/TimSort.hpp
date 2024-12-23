@@ -53,13 +53,13 @@
 #ifdef GFX_TIMSORT_ENABLE_ASSERT
 #define GFX_TIMSORT_ASSERT(expr) assert(expr)
 #else
-#define GFX_TIMSORT_ASSERT(expr) ((void)0)
+#define GFX_TIMSORT_ASSERT(expr) (static_cast<void>(0))
 #endif
 
 #ifdef GFX_TIMSORT_ENABLE_AUDIT
 #define GFX_TIMSORT_AUDIT(expr) assert(expr)
 #else
-#define GFX_TIMSORT_AUDIT(expr) ((void)0)
+#define GFX_TIMSORT_AUDIT(expr) (static_cast<void>(0))
 #endif
 
 #ifdef GFX_TIMSORT_ENABLE_LOG
@@ -67,7 +67,7 @@
 #define GFX_TIMSORT_LOG(expr) \
   (std::clog << "# " << __func__ << ": " << expr << std::endl)
 #else
-#define GFX_TIMSORT_LOG(expr) ((void)0)
+#define GFX_TIMSORT_LOG(expr) (static_cast<void>(0))
 #endif
 
 namespace gfx {

@@ -30,7 +30,7 @@ constexpr vector_size_t kVectorSize = 10000;
 vector_size_t kNumIterations = 1000;
 
 float genData(float pos) {
-  return float(pos * (float)3.14);
+  return float(pos * static_cast<float>(3.14));
 }
 
 bool isNotNull(int32_t pos, int32_t nullEvery) {

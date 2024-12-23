@@ -88,7 +88,7 @@ TEST_F(ColumnStatisticsTest, stringEmptyStats) {
   proto.set_numberofvalues(0);
   auto columnStatisticsWrapper = ColumnStatisticsWrapper(&proto);
   testStringEmptyStats(
-      columnStatisticsWrapper, (void*)&proto, DwrfFormat::kOrc);
+      columnStatisticsWrapper, static_cast<void*>(&proto), DwrfFormat::kOrc);
 }
 
 TEST_F(ColumnStatisticsTest, stringLengthThreshold) {

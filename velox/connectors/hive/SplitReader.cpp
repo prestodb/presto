@@ -42,7 +42,7 @@ VectorPtr newConstantFromString(
   }
 
   if (type->isDate()) {
-    auto days = DATE()->toDays((folly::StringPiece)value.value());
+    auto days = DATE()->toDays(static_cast<folly::StringPiece>(value.value()));
     return std::make_shared<ConstantVector<int32_t>>(
         pool, size, false, type, std::move(days));
   }

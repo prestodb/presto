@@ -78,7 +78,8 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
   /// Fills 'info' and returns the mode for interpreting levels.
   LevelMode makeLevelInfo(LevelInfo& info) const;
 
-  std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>> moveChildren() &&;
+  std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>> moveChildren()
+      const&&;
 
   const std::string name_;
   const std::optional<thrift::Type::type> parquetType_;

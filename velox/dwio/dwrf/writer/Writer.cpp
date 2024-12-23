@@ -239,7 +239,7 @@ void Writer::ensureWriteFits(size_t appendBytes, size_t appendRows) {
   const size_t estimatedAppendMemoryBytes =
       std::max(appendBytes, context.estimateNextWriteSize(appendRows));
   const double estimatedMemoryGrowthRatio =
-      (double)estimatedAppendMemoryBytes / totalMemoryUsage;
+      static_cast<double>(estimatedAppendMemoryBytes) / totalMemoryUsage;
   if (!maybeReserveMemory(
           MemoryUsageCategory::GENERAL, estimatedMemoryGrowthRatio)) {
     return;
@@ -281,7 +281,7 @@ void Writer::ensureStripeFlushFits() {
         .maybeReserve(outputMemoryToReserve);
   } else {
     const double estimatedMemoryGrowthRatio =
-        (double)estimateFlushMemoryBytes / outputMemoryUsage;
+        static_cast<double>(estimateFlushMemoryBytes) / outputMemoryUsage;
     maybeReserveMemory(
         MemoryUsageCategory::OUTPUT_STREAM, estimatedMemoryGrowthRatio);
   }

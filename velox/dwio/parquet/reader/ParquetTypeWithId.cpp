@@ -34,14 +34,14 @@ bool containsList(const ParquetTypeWithId& type) {
 } // namespace
 
 std::vector<std::unique_ptr<ParquetTypeWithId::TypeWithId>>
-ParquetTypeWithId::moveChildren() && {
+ParquetTypeWithId::moveChildren() const&& {
   std::vector<std::unique_ptr<TypeWithId>> children;
   for (auto& child : getChildren()) {
     auto type = child->type();
     auto id = child->id();
     auto maxId = child->maxId();
     auto column = child->column();
-    auto* parquetChild = (ParquetTypeWithId*)child.get();
+    auto* parquetChild = dynamic_cast<const ParquetTypeWithId*>(child.get());
     auto name = parquetChild->name_;
     auto parquetType = parquetChild->parquetType_;
     auto logicalType = parquetChild->logicalType_;

@@ -973,7 +973,7 @@ uint64_t DwrfReader::getMemoryUse(
   uint64_t memoryBytes = hasStringColumn
       ? 2 * maxDataLength
       : std::min(
-            uint64_t(maxDataLength),
+            static_cast<uint64_t>(maxDataLength),
             numSelectedStreams *
                 readerBase.bufferedInput().getReadFile()->getNaturalReadSize());
 

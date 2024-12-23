@@ -347,7 +347,8 @@ TEST_F(TestIntegerDictionaryEncoder, ShortIntegerDictionary) {
     intDictEncoder.addKey(key);
   }
 
-  int32_t dictSize = (int32_t)2 + std::numeric_limits<int16_t>::max();
+  int32_t dictSize =
+      static_cast<int32_t>(2) + std::numeric_limits<int16_t>::max();
   std::vector<int16_t> dictValues;
 
   auto actualSize =

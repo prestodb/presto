@@ -864,16 +864,17 @@ uint32_t crc32(uint32_t prev, const void* data, size_t length) {
   const uint8_t* current_char;
   const uint32_t* current;
 
-  unaligned = ALIGNOF_UINT32_T - ((uintptr_t)data % ALIGNOF_UINT32_T);
+  unaligned =
+      ALIGNOF_UINT32_T - (reinterpret_cast<uintptr_t>(data) % ALIGNOF_UINT32_T);
   if (unaligned == ALIGNOF_UINT32_T)
     unaligned = 0;
 
   /* process a byte at a time until we hit an alignment boundary (max 3) */
-  current_char = (const uint8_t*)data;
+  current_char = reinterpret_cast<const uint8_t*>(data);
   for (; unaligned && length; unaligned--, length--)
     crc = (crc >> 8) ^ crc32_lookup[0][(crc & 0xFF) ^ *current_char++];
 
-  current = (const uint32_t*)current_char;
+  current = reinterpret_cast<const uint32_t*>(current_char);
 
   /* process 64 bytes at once (Slicing-by-16) */
 
@@ -969,7 +970,7 @@ uint32_t crc32(uint32_t prev, const void* data, size_t length) {
 
   /* Finish with any remaining bytes one by one */
 
-  current_char = (const uint8_t*)current;
+  current_char = reinterpret_cast<const uint8_t*>(current);
   /* remaining 1 to 3 bytes (standard algorithm) */
   while (length-- != 0)
     crc = (crc >> 8) ^ crc32_lookup[0][(crc & 0xFF) ^ *current_char++];

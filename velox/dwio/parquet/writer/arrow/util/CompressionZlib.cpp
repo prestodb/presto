@@ -368,7 +368,7 @@ class GZipCodec : public Codec {
 
   void EndCompressor() {
     if (compressor_initialized_) {
-      (void)deflateEnd(&stream_);
+      static_cast<void>(deflateEnd(&stream_));
     }
     compressor_initialized_ = false;
   }
@@ -389,7 +389,7 @@ class GZipCodec : public Codec {
 
   void EndDecompressor() {
     if (decompressor_initialized_) {
-      (void)inflateEnd(&stream_);
+      static_cast<void>(inflateEnd(&stream_));
     }
     decompressor_initialized_ = false;
   }

@@ -2833,8 +2833,8 @@ static
 std::unique_ptr<CURL, curl_deleter>
 curl_init()
 {
-    static const auto curl_is_now_initiailized = curl_global();
-    (void)curl_is_now_initiailized;
+    static const auto curl_is_now_initialized = curl_global();
+    static_cast<void>(curl_is_now_initialized);
     return std::unique_ptr<CURL, curl_deleter>{::curl_easy_init()};
 }
 

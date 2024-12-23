@@ -78,7 +78,7 @@ std::vector<TypePtr> implicitCastTargets(const TypePtr& type) {
       break;
     }
     default: // make compilers happy
-      (void)0; // Statement to avoid empty semicolon warning
+      break;
   }
   return targetTypes;
 }
