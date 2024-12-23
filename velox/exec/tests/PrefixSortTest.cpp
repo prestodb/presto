@@ -280,14 +280,21 @@ TEST_F(PrefixSortTest, fuzz) {
       TIMESTAMP(),
       VARCHAR(),
       VARBINARY()};
-  for (const auto& type : keyTypes) {
-    SCOPED_TRACE(fmt::format("{}", type->toString()));
-    VectorFuzzer fuzzer({.vectorSize = 10'240, .nullRatio = 0.1}, pool());
-    RowVectorPtr data = fuzzer.fuzzRow(ROW({type}));
 
-    testPrefixSort({kAsc}, data);
-    testPrefixSort({kDesc}, data);
-  }
+  auto runFuzzTest = [&](double nullRatio) {
+    for (const auto& type : keyTypes) {
+      SCOPED_TRACE(fmt::format("{}", type->toString()));
+      VectorFuzzer fuzzer(
+          {.vectorSize = 10'240, .nullRatio = nullRatio}, pool());
+      RowVectorPtr data = fuzzer.fuzzRow(ROW({type}));
+
+      testPrefixSort({kAsc}, data);
+      testPrefixSort({kDesc}, data);
+    }
+  };
+
+  runFuzzTest(0.1);
+  runFuzzTest(0.0);
 }
 
 TEST_F(PrefixSortTest, fuzzMulti) {
@@ -304,19 +311,23 @@ TEST_F(PrefixSortTest, fuzzMulti) {
       TIMESTAMP(),
       VARCHAR(),
       VARBINARY()};
+  auto runFuzzTest = [&](double nullRatio) {
+    VectorFuzzer fuzzer({.vectorSize = 10'240, .nullRatio = nullRatio}, pool());
 
-  VectorFuzzer fuzzer({.vectorSize = 10'240, .nullRatio = 0.1}, pool());
+    for (auto i = 0; i < 20; ++i) {
+      auto type1 = fuzzer.randType(keyTypes, 0);
+      auto type2 = fuzzer.randType(keyTypes, 0);
 
-  for (auto i = 0; i < 20; ++i) {
-    auto type1 = fuzzer.randType(keyTypes, 0);
-    auto type2 = fuzzer.randType(keyTypes, 0);
+      SCOPED_TRACE(fmt::format("{}, {}", type1->toString(), type2->toString()));
+      auto data = fuzzer.fuzzRow(ROW({type1, type2, VARCHAR()}));
 
-    SCOPED_TRACE(fmt::format("{}, {}", type1->toString(), type2->toString()));
-    auto data = fuzzer.fuzzRow(ROW({type1, type2, VARCHAR()}));
+      testPrefixSort({kAsc, kAsc}, data);
+      testPrefixSort({kDesc, kDesc}, data);
+    }
+  };
 
-    testPrefixSort({kAsc, kAsc}, data);
-    testPrefixSort({kDesc, kDesc}, data);
-  }
+  runFuzzTest(0.1);
+  runFuzzTest(0.0);
 }
 
 TEST_F(PrefixSortTest, checkMaxNormalizedKeySizeForMultipleKeys) {
@@ -326,26 +337,27 @@ TEST_F(PrefixSortTest, checkMaxNormalizedKeySizeForMultipleKeys) {
   std::vector<CompareFlags> compareFlags = {kAsc, kDesc};
   std::vector<std::optional<uint32_t>> maxStringLengths = {
       std::nullopt, std::nullopt};
+  std::vector<bool> columnHasNulls = {true, true};
   auto sortLayout = PrefixSortLayout::generate(
-      keyTypes, compareFlags, 8, 9, maxStringLengths);
+      keyTypes, columnHasNulls, compareFlags, 8, 9, maxStringLengths);
   ASSERT_FALSE(sortLayout.hasNormalizedKeys);
 
   auto sortLayoutOneKey = PrefixSortLayout::generate(
-      keyTypes, compareFlags, 9, 9, maxStringLengths);
+      keyTypes, columnHasNulls, compareFlags, 9, 9, maxStringLengths);
   ASSERT_TRUE(sortLayoutOneKey.hasNormalizedKeys);
   ASSERT_TRUE(sortLayoutOneKey.hasNonNormalizedKey);
   ASSERT_EQ(sortLayoutOneKey.prefixOffsets.size(), 1);
   ASSERT_EQ(sortLayoutOneKey.prefixOffsets[0], 0);
 
   auto sortLayoutOneKey1 = PrefixSortLayout::generate(
-      keyTypes, compareFlags, 17, 12, maxStringLengths);
+      keyTypes, columnHasNulls, compareFlags, 17, 12, maxStringLengths);
   ASSERT_TRUE(sortLayoutOneKey1.hasNormalizedKeys);
   ASSERT_TRUE(sortLayoutOneKey1.hasNonNormalizedKey);
   ASSERT_EQ(sortLayoutOneKey1.prefixOffsets.size(), 1);
   ASSERT_EQ(sortLayoutOneKey1.prefixOffsets[0], 0);
 
   auto sortLayoutTwoKeys = PrefixSortLayout::generate(
-      keyTypes, compareFlags, 18, 12, maxStringLengths);
+      keyTypes, columnHasNulls, compareFlags, 18, 12, maxStringLengths);
   ASSERT_TRUE(sortLayoutTwoKeys.hasNormalizedKeys);
   ASSERT_FALSE(sortLayoutTwoKeys.hasNonNormalizedKey);
   ASSERT_FALSE(
@@ -354,6 +366,19 @@ TEST_F(PrefixSortTest, checkMaxNormalizedKeySizeForMultipleKeys) {
   ASSERT_EQ(sortLayoutTwoKeys.prefixOffsets.size(), 2);
   ASSERT_EQ(sortLayoutTwoKeys.prefixOffsets[0], 0);
   ASSERT_EQ(sortLayoutTwoKeys.prefixOffsets[1], 9);
+  ASSERT_TRUE(sortLayoutTwoKeys.normalizedKeyHasNullByte[0]);
+  ASSERT_TRUE(sortLayoutTwoKeys.normalizedKeyHasNullByte[1]);
+
+  columnHasNulls = {false, false};
+  auto sortLayoutTwoKeysNoNulls = PrefixSortLayout::generate(
+      keyTypes, columnHasNulls, compareFlags, 18, 12, maxStringLengths);
+  ASSERT_TRUE(sortLayoutTwoKeysNoNulls.hasNormalizedKeys);
+  ASSERT_FALSE(sortLayoutTwoKeysNoNulls.hasNonNormalizedKey);
+  ASSERT_EQ(sortLayoutTwoKeysNoNulls.prefixOffsets.size(), 2);
+  ASSERT_EQ(sortLayoutTwoKeysNoNulls.prefixOffsets[0], 0);
+  ASSERT_EQ(sortLayoutTwoKeysNoNulls.prefixOffsets[1], 8);
+  ASSERT_FALSE(sortLayoutTwoKeysNoNulls.normalizedKeyHasNullByte[0]);
+  ASSERT_FALSE(sortLayoutTwoKeysNoNulls.normalizedKeyHasNullByte[1]);
 }
 
 TEST_F(PrefixSortTest, optimizeSortKeysOrder) {
@@ -406,9 +431,10 @@ TEST_F(PrefixSortTest, makeSortLayoutForString) {
   std::vector<TypePtr> keyTypes = {VARCHAR(), BIGINT()};
   std::vector<CompareFlags> compareFlags = {kAsc, kDesc};
   std::vector<std::optional<uint32_t>> maxStringLengths = {9, std::nullopt};
+  std::vector<bool> columnHasNulls = {true, true};
 
   auto sortLayoutOneKey = PrefixSortLayout::generate(
-      keyTypes, compareFlags, 24, 8, maxStringLengths);
+      keyTypes, columnHasNulls, compareFlags, 24, 8, maxStringLengths);
   ASSERT_TRUE(sortLayoutOneKey.hasNormalizedKeys);
   ASSERT_TRUE(sortLayoutOneKey.hasNonNormalizedKey);
   ASSERT_TRUE(
@@ -418,7 +444,7 @@ TEST_F(PrefixSortTest, makeSortLayoutForString) {
   ASSERT_EQ(sortLayoutOneKey.encodeSizes[0], 9);
 
   auto sortLayoutTwoCompleteKeys = PrefixSortLayout::generate(
-      keyTypes, compareFlags, 26, 9, maxStringLengths);
+      keyTypes, columnHasNulls, compareFlags, 26, 9, maxStringLengths);
   ASSERT_TRUE(sortLayoutTwoCompleteKeys.hasNormalizedKeys);
   ASSERT_FALSE(sortLayoutTwoCompleteKeys.hasNonNormalizedKey);
   ASSERT_TRUE(
@@ -433,7 +459,7 @@ TEST_F(PrefixSortTest, makeSortLayoutForString) {
   std::vector<TypePtr> keyTypes1 = {BIGINT(), VARBINARY()};
   maxStringLengths = {std::nullopt, 9};
   auto sortLayoutTwoKeys = PrefixSortLayout::generate(
-      keyTypes1, compareFlags, 26, 8, maxStringLengths);
+      keyTypes1, columnHasNulls, compareFlags, 26, 8, maxStringLengths);
   ASSERT_TRUE(sortLayoutTwoKeys.hasNormalizedKeys);
   ASSERT_FALSE(sortLayoutTwoKeys.hasNonNormalizedKey);
   ASSERT_TRUE(

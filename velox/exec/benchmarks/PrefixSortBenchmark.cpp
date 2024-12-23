@@ -20,6 +20,8 @@
 #include "velox/exec/PrefixSort.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
+DEFINE_double(data_null_ratio, 0.7, "Data null ratio");
+
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
@@ -92,7 +94,7 @@ class TestCase {
   RowVectorPtr fuzzRows(size_t numRows, int numKeys) {
     VectorFuzzer fuzzer({.vectorSize = numRows}, pool_);
     VectorFuzzer fuzzerWithNulls(
-        {.vectorSize = numRows, .nullRatio = 0.7}, pool_);
+        {.vectorSize = numRows, .nullRatio = FLAGS_data_null_ratio}, pool_);
     std::vector<VectorPtr> children;
 
     // Fuzz keys: for front keys (column 0 to numKeys -2) use high

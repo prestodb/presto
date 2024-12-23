@@ -60,6 +60,9 @@ struct PrefixSortLayout {
   /// numNormalizedKeys - 1. Otherwise, start from numNormalizedKeys.
   const uint32_t nonPrefixSortStartIndex;
 
+  /// A vector indicating whether each normalized key contains a null byte.
+  const std::vector<bool> normalizedKeyHasNullByte;
+
   /// Offsets of normalized keys, used to find write locations when
   /// extracting columns
   const std::vector<uint32_t> prefixOffsets;
@@ -76,6 +79,7 @@ struct PrefixSortLayout {
 
   static PrefixSortLayout generate(
       const std::vector<TypePtr>& types,
+      const std::vector<bool>& columnHasNulls,
       const std::vector<CompareFlags>& compareFlags,
       uint32_t maxNormalizedKeySize,
       uint32_t maxStringPrefixLength,
@@ -176,6 +180,8 @@ class PrefixSort {
     VELOX_CHECK_EQ(keyTypes.size(), compareFlags.size());
     std::vector<std::optional<uint32_t>> maxStringLengths;
     maxStringLengths.reserve(keyTypes.size());
+    std::vector<bool> columnHasNulls;
+    columnHasNulls.reserve(keyTypes.size());
     for (int i = 0; i < keyTypes.size(); ++i) {
       std::optional<uint32_t> maxStringLength = std::nullopt;
       if (keyTypes[i]->kind() == TypeKind::VARBINARY ||
@@ -186,9 +192,11 @@ class PrefixSort {
         }
       }
       maxStringLengths.emplace_back(maxStringLength);
+      columnHasNulls.emplace_back(rowContainer->columnHasNulls(i));
     }
     return PrefixSortLayout::generate(
         keyTypes,
+        columnHasNulls,
         compareFlags,
         config.maxNormalizedKeyBytes,
         config.maxStringPrefixLength,
