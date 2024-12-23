@@ -61,7 +61,7 @@ class HiveColumnHandle : public ColumnHandle {
         hiveType_->toString());
   }
 
-  const std::string& name() const {
+  const std::string& name() const override {
     return name_;
   }
 
@@ -133,6 +133,10 @@ class HiveTableHandle : public ConnectorTableHandle {
 
   const std::string& tableName() const {
     return tableName_;
+  }
+
+  const std::string& name() const override {
+    return tableName();
   }
 
   bool isFilterPushdownEnabled() const {

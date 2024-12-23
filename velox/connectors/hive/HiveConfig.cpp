@@ -289,4 +289,12 @@ bool HiveConfig::cacheNoRetention(const config::ConfigBase* session) const {
       config_->get<bool>(kCacheNoRetention, /*defaultValue=*/false));
 }
 
+std::string HiveConfig::hiveLocalDataPath() const {
+  return config_->get<std::string>(kLocalDataPath, "");
+}
+
+std::string HiveConfig::hiveLocalFileFormat() const {
+  return config_->get<std::string>(kLocalFileFormat, "");
+}
+
 } // namespace facebook::velox::connector::hive

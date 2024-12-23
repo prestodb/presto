@@ -39,6 +39,24 @@ RowVectorPtr LocalRunner::next() {
   return cursor_->current();
 }
 
+namespace {
+std::vector<exec::Split> listAllSplits(std::shared_ptr<SplitSource> source) {
+  std::vector<exec::Split> result;
+  for (;;) {
+    auto splits = source->getSplits(std::numeric_limits<uint64_t>::max());
+    VELOX_CHECK(!splits.empty());
+    for (auto& split : splits) {
+      if (split.split == nullptr) {
+        return result;
+        break;
+      }
+      result.push_back(exec::Split(std::move(split.split)));
+    }
+  }
+  VELOX_UNREACHABLE();
+}
+} // namespace
+
 void LocalRunner::start() {
   VELOX_CHECK_EQ(state_, State::kInitialized);
   auto lastStage = makeStages();
@@ -47,12 +65,8 @@ void LocalRunner::start() {
   stages_.push_back({cursor->task()});
   // Add table scan splits to the final gathere stage.
   for (auto& scan : fragments_.back().scans) {
-    auto source = splitSourceFactory_->splitSourceForScan(*scan);
-    for (;;) {
-      auto split = source->next(0);
-      if (!split.hasConnectorSplit()) {
-        break;
-      }
+    auto splits = listAllSplits(splitSourceForScan(*scan));
+    for (auto& split : splits) {
       cursor->task()->addSplit(scan->id(), std::move(split));
     }
     cursor->task()->noMoreSplits(scan->id());
@@ -80,6 +94,11 @@ void LocalRunner::start() {
     abort();
     std::rethrow_exception(error_);
   }
+}
+
+std::shared_ptr<SplitSource> LocalRunner::splitSourceForScan(
+    const core::TableScanNode& scan) {
+  return splitSourceFactory_->splitSourceForScan(scan);
 }
 
 void LocalRunner::abort() {
@@ -181,11 +200,22 @@ LocalRunner::makeStages() {
        ++fragmentIndex) {
     auto& fragment = fragments_[fragmentIndex];
     for (auto& scan : fragment.scans) {
-      auto source = splitSourceFactory_->splitSourceForScan(*scan);
+      auto source = splitSourceForScan(*scan);
+      std::vector<SplitSource::SplitAndGroup> splits;
+      int32_t splitIdx = 0;
+      auto getNextSplit = [&]() {
+        if (splitIdx < splits.size()) {
+          return exec::Split(std::move(splits[splitIdx++].split));
+        }
+        splits = source->getSplits(std::numeric_limits<int64_t>::max());
+        splitIdx = 1;
+        return exec::Split(std::move(splits[0].split));
+      };
+
       bool allDone = false;
       do {
         for (auto i = 0; i < stages_[fragmentIndex].size(); ++i) {
-          auto split = source->next(i);
+          auto split = getNextSplit();
           if (!split.hasConnectorSplit()) {
             allDone = true;
             break;
@@ -224,47 +254,6 @@ LocalRunner::makeStages() {
   return lastStage;
 }
 
-exec::Split LocalSplitSource::next(int32_t /*worker*/) {
-  if (currentFile_ >= static_cast<int32_t>(table_->files().size())) {
-    return exec::Split();
-  }
-
-  if (currentSplit_ >= fileSplits_.size()) {
-    fileSplits_.clear();
-    ++currentFile_;
-    if (currentFile_ >= table_->files().size()) {
-      return exec::Split();
-    }
-
-    currentSplit_ = 0;
-    auto filePath = table_->files()[currentFile_];
-    const auto fileSize = fs::file_size(filePath);
-    // Take the upper bound.
-    const int splitSize = std::ceil((fileSize) / splitsPerFile_);
-    for (int i = 0; i < splitsPerFile_; ++i) {
-      fileSplits_.push_back(
-          connector::hive::HiveConnectorSplitBuilder(filePath)
-              .connectorId(table_->schema()->connector()->connectorId())
-              .fileFormat(table_->format())
-              .start(i * splitSize)
-              .length(splitSize)
-              .build());
-    }
-  }
-  return exec::Split(std::move(fileSplits_[currentSplit_++]));
-}
-
-std::unique_ptr<SplitSource> LocalSplitSourceFactory::splitSourceForScan(
-    const core::TableScanNode& tableScan) {
-  auto* tableHandle = dynamic_cast<const connector::hive::HiveTableHandle*>(
-      tableScan.tableHandle().get());
-  VELOX_CHECK_NOT_NULL(tableHandle);
-  auto* table = reinterpret_cast<LocalTable*>(
-      schema_->findTable(tableHandle->tableName()));
-
-  return std::make_unique<LocalSplitSource>(table, splitsPerFile_);
-}
-
 std::vector<exec::TaskStats> LocalRunner::stats() const {
   std::vector<exec::TaskStats> result;
   std::lock_guard<std::mutex> l(mutex_);
@@ -287,6 +276,23 @@ std::vector<exec::TaskStats> LocalRunner::stats() const {
     result.push_back(std::move(stats));
   }
   return result;
+}
+
+std::vector<SplitSource::SplitAndGroup> SimpleSplitSource::getSplits(
+    uint64_t /*targetBytes*/) {
+  if (splitIdx_ >= splits_.size()) {
+    return {{nullptr, 0}};
+  }
+  return {SplitAndGroup{std::move(splits_[splitIdx_++]), 0}};
+}
+
+std::shared_ptr<SplitSource> SimpleSplitSourceFactory::splitSourceForScan(
+    const core::TableScanNode& scan) {
+  auto it = nodeSplitMap_.find(scan.id());
+  if (it == nodeSplitMap_.end()) {
+    VELOX_FAIL("Splits aare not provided for scan {}", scan.id());
+  }
+  return std::make_shared<SimpleSplitSource>(it->second);
 }
 
 } // namespace facebook::velox::runner

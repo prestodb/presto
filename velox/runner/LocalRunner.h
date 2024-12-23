@@ -18,11 +18,45 @@
 #include "velox/connectors/Connector.h"
 #include "velox/exec/Cursor.h"
 #include "velox/exec/Exchange.h"
-#include "velox/runner/LocalSchema.h"
 #include "velox/runner/MultiFragmentPlan.h"
 #include "velox/runner/Runner.h"
 
 namespace facebook::velox::runner {
+
+/// Testing proxy for a split source managed by a system with full metadata
+/// access.
+class SimpleSplitSource : public SplitSource {
+ public:
+  explicit SimpleSplitSource(
+      std::vector<std::shared_ptr<connector::ConnectorSplit>> splits)
+      : splits_(std::move(splits)) {}
+
+  virtual std::vector<SplitAndGroup> getSplits(uint64_t targetBytes) override;
+
+ private:
+  std::vector<std::shared_ptr<connector::ConnectorSplit>> splits_;
+  int32_t splitIdx_{0};
+};
+
+/// Testing proxy for a split source factory that uses connector metadata to
+/// enumerate splits. This takes a precomputed split list for each scan.
+class SimpleSplitSourceFactory : public SplitSourceFactory {
+ public:
+  explicit SimpleSplitSourceFactory(
+      std::unordered_map<
+          core::PlanNodeId,
+          std::vector<std::shared_ptr<connector::ConnectorSplit>>> nodeSplitMap)
+      : nodeSplitMap_(std::move(nodeSplitMap)) {}
+
+  std::shared_ptr<SplitSource> splitSourceForScan(
+      const core::TableScanNode& scan) override;
+
+ private:
+  std::unordered_map<
+      core::PlanNodeId,
+      std::vector<std::shared_ptr<connector::ConnectorSplit>>>
+      nodeSplitMap_;
+};
 
 /// Runner for in-process execution of a distributed plan.
 class LocalRunner : public Runner,
@@ -56,6 +90,8 @@ class LocalRunner : public Runner,
 
   // Creates all stages except for the single worker final consumer stage.
   std::vector<std::shared_ptr<exec::RemoteConnectorSplit>> makeStages();
+  std::shared_ptr<SplitSource> splitSourceForScan(
+      const core::TableScanNode& scan);
 
   // Serializes 'cursor_' and 'error_'.
   mutable std::mutex mutex_;
@@ -63,7 +99,6 @@ class LocalRunner : public Runner,
   const MultiFragmentPlanPtr plan_;
   const std::vector<ExecutableFragment> fragments_;
   const MultiFragmentPlan::Options& options_;
-  const std::shared_ptr<SplitSourceFactory> splitSourceFactory_;
 
   exec::test::CursorParameters params_;
 
@@ -72,38 +107,7 @@ class LocalRunner : public Runner,
   std::unique_ptr<exec::test::TaskCursor> cursor_;
   std::vector<std::vector<std::shared_ptr<exec::Task>>> stages_;
   std::exception_ptr error_;
-};
-
-/// Split source that produces splits from a LocalSchema.
-class LocalSplitSource : public SplitSource {
- public:
-  LocalSplitSource(const LocalTable* table, int32_t splitsPerFile)
-      : table_(table), splitsPerFile_(splitsPerFile) {}
-
-  exec::Split next(int32_t worker) override;
-
- private:
-  const LocalTable* const table_;
-  const int32_t splitsPerFile_;
-
-  std::vector<std::shared_ptr<connector::ConnectorSplit>> fileSplits_;
-  int32_t currentFile_{-1};
-  int32_t currentSplit_{0};
-};
-
-class LocalSplitSourceFactory : public SplitSourceFactory {
- public:
-  LocalSplitSourceFactory(
-      std::shared_ptr<LocalSchema> schema,
-      int32_t splitsPerFile)
-      : schema_(std::move(schema)), splitsPerFile_(splitsPerFile) {}
-
-  std::unique_ptr<SplitSource> splitSourceForScan(
-      const core::TableScanNode& scan) override;
-
- private:
-  const std::shared_ptr<LocalSchema> schema_;
-  const int32_t splitsPerFile_;
+  std::shared_ptr<SplitSourceFactory> splitSourceFactory_;
 };
 
 } // namespace facebook::velox::runner

@@ -208,6 +208,8 @@ class HiveConfig {
 
   static constexpr const char* kCacheNoRetention = "cache.no_retention";
   static constexpr const char* kCacheNoRetentionSession = "cache.no_retention";
+  static constexpr const char* kLocalDataPath = "hive_local_data_path";
+  static constexpr const char* kLocalFileFormat = "hive_local_file_format";
 
   InsertExistingPartitionsBehavior insertExistingPartitionsBehavior(
       const config::ConfigBase* session) const;
@@ -298,6 +300,15 @@ class HiveConfig {
   /// batch query when mixed running with interactive query which has high data
   /// locality.
   bool cacheNoRetention(const config::ConfigBase* session) const;
+
+  /// Returns the file system path containing local data. If non-empty,
+  /// initializes LocalHiveConnectorMetadata to provide metadata for the tables
+  /// in the directory.
+  std::string hiveLocalDataPath() const;
+
+  /// Returns the name of the file format to use in interpreting the contents of
+  /// hiveLocalDataPath().
+  std::string hiveLocalFileFormat() const;
 
   HiveConfig(std::shared_ptr<const config::ConfigBase> config) {
     VELOX_CHECK_NOT_NULL(

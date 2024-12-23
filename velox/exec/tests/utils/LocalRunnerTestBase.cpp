@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/tests/utils/LocalRunnerTestBase.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/exec/tests/utils/LocalExchangeSource.h"
 
 namespace facebook::velox::exec::test {
@@ -29,13 +30,12 @@ void LocalRunnerTestBase::SetUp() {
 std::shared_ptr<core::QueryCtx> LocalRunnerTestBase::makeQueryCtx(
     const std::string& queryId,
     memory::MemoryPool* rootPool) {
-  auto config = config_;
+  auto& config = config_;
   auto hiveConfig = hiveConfig_;
   std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
       connectorConfigs;
-  auto copy = hiveConfig_;
   connectorConfigs[kHiveConnectorId] =
-      std::make_shared<config::ConfigBase>(std::move(copy));
+      std::make_shared<config::ConfigBase>(std::move(hiveConfig));
 
   return core::QueryCtx::create(
       schemaExecutor_.get(),
@@ -51,36 +51,25 @@ void LocalRunnerTestBase::ensureTestData() {
   if (!files_) {
     makeTables(testTables_, files_);
   }
-  makeSchema();
-  splitSourceFactory_ =
-      std::make_shared<runner::LocalSplitSourceFactory>(schema_, 2);
+  // Destroy and rebuild the testing connector. The connector will
+  // show the metadata if the connector is wired for metadata.
+  setupConnector();
 }
 
-void LocalRunnerTestBase::makeSchema() {
-  auto schemaQueryCtx = makeQueryCtx("schema", rootPool_.get());
-  common::SpillConfig spillConfig;
-  common::PrefixSortConfig prefixSortConfig(100, 130, 12);
-  auto leafPool = schemaQueryCtx->pool()->addLeafChild("schemaReader");
-  auto connectorQueryCtx = std::make_shared<connector::ConnectorQueryCtx>(
-      leafPool.get(),
-      schemaQueryCtx->pool(),
-      schemaQueryCtx->connectorSessionProperties(kHiveConnectorId),
-      &spillConfig,
-      prefixSortConfig,
-      std::make_unique<exec::SimpleExpressionEvaluator>(
-          schemaQueryCtx.get(), schemaPool_.get()),
-      schemaQueryCtx->cache(),
-      "scan_for_schema",
-      "schema",
-      "N/a",
-      0,
-      schemaQueryCtx->queryConfig().sessionTimezone());
-  auto connector = connector::getConnector(kHiveConnectorId);
-  schema_ = std::make_shared<runner::LocalSchema>(
-      files_->getPath(),
-      dwio::common::FileFormat::DWRF,
-      reinterpret_cast<velox::connector::hive::HiveConnector*>(connector.get()),
-      connectorQueryCtx);
+void LocalRunnerTestBase::setupConnector() {
+  connector::unregisterConnector(kHiveConnectorId);
+
+  std::unordered_map<std::string, std::string> configs;
+  configs[connector::hive::HiveConfig::kLocalDataPath] = files_->getPath();
+  configs[connector::hive::HiveConfig::kLocalFileFormat] = "dwrf";
+  auto hiveConnector =
+      connector::getConnectorFactory(
+          connector::hive::HiveConnectorFactory::kHiveConnectorName)
+          ->newConnector(
+              kHiveConnectorId,
+              std::make_shared<config::ConfigBase>(std::move(configs)),
+              ioExecutor_.get());
+  connector::registerConnector(hiveConnector);
 }
 
 void LocalRunnerTestBase::makeTables(
@@ -99,9 +88,37 @@ void LocalRunnerTestBase::makeTables(
           spec.customizeData(vector);
         }
       }
-      writeToFile(fmt::format("{}/f{}", tablePath, i), vectors);
+      auto filePath = fmt::format("{}/f{}", tablePath, i);
+      tableFilePaths_[spec.name].push_back(filePath);
+      writeToFile(filePath, vectors);
     }
   }
+}
+
+std::shared_ptr<runner::SimpleSplitSourceFactory>
+LocalRunnerTestBase::makeSimpleSplitSourceFactory(
+    const runner::MultiFragmentPlanPtr& plan) {
+  std::unordered_map<
+      core::PlanNodeId,
+      std::vector<std::shared_ptr<connector::ConnectorSplit>>>
+      nodeSplitMap;
+  for (auto& fragment : plan->fragments()) {
+    for (auto& scan : fragment.scans) {
+      auto& name = scan->tableHandle()->name();
+      auto files = tableFilePaths_[name];
+      VELOX_CHECK(!files.empty(), "No splits known for {}", name);
+      std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+      for (auto& file : files) {
+        splits.push_back(connector::hive::HiveConnectorSplitBuilder(file)
+                             .connectorId(kHiveConnectorId)
+                             .fileFormat(dwio::common::FileFormat::DWRF)
+                             .build());
+      }
+      nodeSplitMap[scan->id()] = std::move(splits);
+    }
+  };
+  return std::make_shared<runner::SimpleSplitSourceFactory>(
+      std::move(nodeSplitMap));
 }
 
 std::vector<RowVectorPtr> readCursor(

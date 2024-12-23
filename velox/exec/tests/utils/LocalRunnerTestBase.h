@@ -35,9 +35,10 @@ struct TableSpec {
   std::function<void(const RowVectorPtr& vector)> customizeData;
 };
 
-/// Test helper class that manages a TestCase with a set of generated tables and
-/// a LocalSchema and LocalSplitSource covering the test data. The lifetime of
-/// the test data is the test case consisting of multiple TEST_F's.
+/// Test helper class that manages a TestCase with a set of generated
+/// tables and a HiveConnector that exposes the files and their
+/// metadata. The lifetime the test data is the test case consisting
+/// of multiple google unit test cases.
 class LocalRunnerTestBase : public HiveConnectorTestBase {
  protected:
   static void SetUpTestCase() {
@@ -53,14 +54,21 @@ class LocalRunnerTestBase : public HiveConnectorTestBase {
   void SetUp() override;
 
   void ensureTestData();
-  void makeSchema();
+
+  /// Re-creates the connector with kHiveConnectorId with a config
+  /// that points to the temp directory created by 'this'. If the
+  /// connector factory is wired to capture metadata then the metadata
+  /// will be available through the connector.
+  void setupConnector();
+
+  /// Returns a split source factory that contains splits for the table scans in
+  /// 'plan'. 'plan' should refer to testing tables created by 'this'.
+  std::shared_ptr<runner::SimpleSplitSourceFactory>
+  makeSimpleSplitSourceFactory(const runner::MultiFragmentPlanPtr& plan);
 
   void makeTables(
       std::vector<TableSpec> specs,
       std::shared_ptr<TempDirectoryPath>& directory);
-
-  std::shared_ptr<runner::SplitSourceFactory> splitSourceFactory(
-      const runner::LocalSchema& schema);
 
   // Creates a QueryCtx with 'pool'. 'pool' must be a root pool.
   static std::shared_ptr<core::QueryCtx> makeQueryCtx(
@@ -77,17 +85,10 @@ class LocalRunnerTestBase : public HiveConnectorTestBase {
 
   // The top level directory with the test data.
   inline static std::shared_ptr<TempDirectoryPath> files_;
+  /// Map from table name to list of file system paths.
+  inline static std::unordered_map<std::string, std::vector<std::string>>
+      tableFilePaths_;
   inline static std::unique_ptr<folly::CPUThreadPoolExecutor> schemaExecutor_;
-
-  // The schema built from the data in 'files_'.
-  std::shared_ptr<runner::LocalSchema> schema_;
-
-  // Split source factory for making SplitSources that range over tables inside
-  // 'files_'.
-  std::shared_ptr<runner::SplitSourceFactory> splitSourceFactory_;
-
-  // Leaf pool for schema.
-  std::shared_ptr<memory::MemoryPool> schemaPool_;
 };
 
 /// Reads all results from 'runner'.
