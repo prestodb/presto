@@ -1202,7 +1202,7 @@ public class TestPrestoSparkQueryRunner
     public void testCreateDropView()
     {
         // create table with default format orc
-        String createViewSql = "CREATE VIEW hive.hive_test.hive_view AS\n" +
+        String createViewSql = "CREATE VIEW hive.hive_test.hive_view SECURITY DEFINER AS\n" +
                 "SELECT *\n" +
                 "FROM\n" +
                 "  orders";
