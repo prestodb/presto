@@ -14,6 +14,7 @@ add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
+add_subdirectory(connectors)
 
 add_library(
   presto_server_lib
@@ -48,6 +49,7 @@ target_link_libraries(
   presto_common
   presto_exception
   presto_function_metadata
+  presto_connector
   presto_http
   presto_operators
   presto_velox_conversion
