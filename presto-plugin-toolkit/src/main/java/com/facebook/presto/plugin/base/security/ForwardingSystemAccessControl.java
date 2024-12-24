@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
@@ -252,5 +254,17 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanAddConstraint(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanAddConstraint(identity, context, table);
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    {
+        return delegate().getRowFilter(identity, context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return delegate().getColumnMask(identity, context, tableName, columnName, type);
     }
 }
