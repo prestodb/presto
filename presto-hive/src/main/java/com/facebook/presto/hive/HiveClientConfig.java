@@ -279,6 +279,21 @@ public class HiveClientConfig
         return this;
     }
 
+    @Min(2)
+    @Max(1000)
+    public int getMaxOpenSortFiles()
+    {
+        return maxOpenSortFiles;
+    }
+
+    @Config("hive.max-open-sort-files")
+    @ConfigDescription("Maximum number of writer temporary files to read in one pass")
+    public HiveClientConfig setMaxOpenSortFiles(int maxOpenSortFiles)
+    {
+        this.maxOpenSortFiles = maxOpenSortFiles;
+        return this;
+    }
+
     @MinDataSize("1MB")
     @MaxDataSize("1GB")
     public DataSize getWriterSortBufferSize()
@@ -695,22 +710,6 @@ public class HiveClientConfig
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
     }
-
-    @Min(2)
-    @Max(1000)
-    public int getMaxOpenSortFiles()
-    {
-        return maxOpenSortFiles;
-    }
-
-    @Config("hive.max-open-sort-files")
-    @ConfigDescription("Maximum number of writer temporary files to read in one pass")
-    public HiveClientConfig setMaxOpenSortFiles(int maxOpenSortFiles)
-    {
-        this.maxOpenSortFiles = maxOpenSortFiles;
-        return this;
-    }
-
     public int getWriteValidationThreads()
     {
         return writeValidationThreads;
