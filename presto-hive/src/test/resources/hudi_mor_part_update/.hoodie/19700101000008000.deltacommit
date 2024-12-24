@@ -1,0 +1,45 @@
+{
+  "partitionToWriteStats" : {
+    "p2" : [ {
+      "fileId" : "7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0",
+      "path" : "p2/.7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0_19700101000006000.log.2_0-275-512",
+      "cdcStats" : null,
+      "prevCommit" : "19700101000006000",
+      "numWrites" : 0,
+      "numDeletes" : 1,
+      "numUpdateWrites" : 0,
+      "numInserts" : 0,
+      "totalWriteBytes" : 1008,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "p2",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 1008,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 89,
+        "totalCreateTime" : 0
+      },
+      "logVersion" : 2,
+      "logOffset" : 0,
+      "baseFile" : "7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0_1-149-341_19700101000006000.parquet",
+      "logFiles" : [ ".7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0_19700101000006000.log.1_0-212-431", ".7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0_19700101000006000.log.2_0-275-512" ],
+      "recordsStats" : {
+        "val" : null
+      }
+    } ]
+  },
+  "compacted" : false,
+  "extraMetadata" : {
+    "schema" : "{\"type\":\"record\",\"name\":\"PayloadAdaptableRecord\",\"namespace\":\"hoodie\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"pt\",\"type\":\"string\"},{\"name\":\"ts\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"Op\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"_change_operation_type\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"_hoodie_is_deleted\",\"type\":[\"null\",\"boolean\"],\"default\":null},{\"name\":\"_event_seq\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"_event_lsn\",\"type\":[\"null\",\"long\"],\"default\":null}]}"
+  },
+  "operationType" : "UPSERT"
+}
