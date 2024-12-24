@@ -1,0 +1,144 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.facebook.presto.server.security;
+
+import com.facebook.airlift.http.server.BasicPrincipal;
+import com.facebook.presto.server.MockHttpServletRequest;
+import com.facebook.presto.spi.security.AccessDeniedException;
+import com.facebook.presto.spi.security.HttpServletRequestHeaders;
+import com.facebook.presto.spi.security.PrestoAuthenticator;
+import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
+import com.facebook.presto.spi.security.RequestHeaders;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
+
+import javax.servlet.http.HttpServletRequest;
+
+import java.security.Principal;
+import java.util.Map;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+
+public class TestPrestoAuthenticator
+{
+    private static final String TEST_HEADER = "test_header";
+    private static final String TEST_HEADER_VALID_VALUE = "VALID";
+    private static final String TEST_HEADER_INVALID_VALUE = "INVALID";
+    private static final String TEST_FACTORY = "test_factory";
+    private static final String TEST_USER = "TEST_USER";
+    private static final String TEST_REMOTE_ADDRESS = "remoteAddress";
+
+    @Test
+    public void testPrestoAuthenticator()
+    {
+        SecurityConfig mockSecurityConfig = new SecurityConfig();
+        mockSecurityConfig.setAuthenticationTypes(ImmutableList.of(SecurityConfig.AuthenticationType.CUSTOM));
+        IscustomAuthenticatorRequested prestoAuthenticatorManager = new IscustomAuthenticatorRequested(mockSecurityConfig);
+        // Add Test Presto Authenticator Factory
+        prestoAuthenticatorManager.addPrestoAuthenticatorFactory(
+                new TestingPrestoAuthenticatorFactory(
+                        TEST_FACTORY,
+                        TEST_HEADER_VALID_VALUE));
+
+        prestoAuthenticatorManager.loadAuthenticator(TEST_FACTORY);
+
+        // Test successful authentication
+        HttpServletRequest request = new MockHttpServletRequest(
+                ImmutableListMultimap.of(TEST_HEADER, TEST_HEADER_VALID_VALUE + ":" + TEST_USER),
+                TEST_REMOTE_ADDRESS,
+                ImmutableMap.of());
+
+        // Wrap the request in RestrictedHttpServletRequest
+        HttpServletRequestHeaders requestHeaders = new HttpServletRequestHeaders((RequestHeaders) request);
+
+        Optional<Principal> principal = checkAuthentication(prestoAuthenticatorManager.getAuthenticator(), requestHeaders);
+        assertTrue(principal.isPresent());
+        assertEquals(principal.get().getName(), TEST_USER);
+
+        // Test failed authentication
+        request = new MockHttpServletRequest(
+                ImmutableListMultimap.of(TEST_HEADER, TEST_HEADER_INVALID_VALUE + ":" + TEST_USER),
+                TEST_REMOTE_ADDRESS,
+                ImmutableMap.of());
+
+        requestHeaders = new HttpServletRequestHeaders((RequestHeaders) request);
+
+        principal = checkAuthentication(prestoAuthenticatorManager.getAuthenticator(), requestHeaders);
+        assertFalse(principal.isPresent());
+    }
+
+//    @Test(expectedExceptions = UnsupportedOperationException.class)
+//    public void testRestrictedHttpServletRequestDisallowedMethods() throws IOException
+//    {
+//        HttpServletRequest mockRequest = new MockHttpServletRequest(
+//                ImmutableListMultimap.of(TEST_HEADER, TEST_HEADER_VALID_VALUE + ":" + TEST_USER),
+//                TEST_REMOTE_ADDRESS,
+//                ImmutableMap.of());
+//
+//        ReadOnlyHttpServletRequest restrictedRequest = new ReadOnlyHttpServletRequest(mockRequest);
+//
+//        // Attempt to call a disallowed method
+//        restrictedRequest.getInputStream(); // Should throw UnsupportedOperationException
+//    }
+
+    private Optional<Principal> checkAuthentication(PrestoAuthenticator authenticator, RequestHeaders request)
+    {
+        try {
+            return Optional.of(authenticator.createAuthenticatedPrincipal(request));
+        }
+        catch (AccessDeniedException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static class TestingPrestoAuthenticatorFactory
+            implements PrestoAuthenticatorFactory
+    {
+        private final String name;
+        private final String validHeaderValue;
+
+        TestingPrestoAuthenticatorFactory(String name, String validHeaderValue)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.validHeaderValue = requireNonNull(validHeaderValue, "validHeaderValue is null");
+        }
+
+        @Override
+        public String getName()
+        {
+            return this.name;
+        }
+
+        @Override
+        public PrestoAuthenticator create(Map<String, String> config)
+        {
+            return (httpRequest) -> {
+                // TEST_HEADER will have value of the form PART1:PART2
+                String[] header = httpRequest.getHeader(TEST_HEADER).split(":");
+
+                if (header[0].equals(this.validHeaderValue)) {
+                    return new BasicPrincipal(header[1]);
+                }
+
+                throw new AccessDeniedException("Authentication Failed!");
+            };
+        }
+    }
+}

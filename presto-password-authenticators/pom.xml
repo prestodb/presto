@@ -63,6 +63,11 @@
             <version>0.9.0</version>
         </dependency>
 
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+        </dependency>
+
         <!-- Presto SPI -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
@@ -142,6 +147,15 @@
                     <ignorePackages>
                         <ignorePackage>com.facebook.presto.password.jndi</ignorePackage>
                     </ignorePackages>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>javax.servlet:javax.servlet-api:jar:3.1.0</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
                 </configuration>
             </plugin>
         </plugins>
