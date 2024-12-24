@@ -49,7 +49,6 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -169,7 +168,7 @@ public abstract class ParquetDereferencePushDown
                 Collections.reverse(elements);
                 String name = ((VariableReferenceExpression) currentRowExpression).getName();
                 ColumnHandle handle = baseColumnHandles.get(name);
-                checkArgument(handle != null, "Missing Column handle: " + name);
+                requireNonNull(handle, "Missing Column handle: " + name);
                 String originalColumnName = getColumnName(handle);
                 return new Subfield(originalColumnName, unmodifiableList(elements));
             }
