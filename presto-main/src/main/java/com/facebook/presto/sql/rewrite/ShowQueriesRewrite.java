@@ -470,7 +470,7 @@ final class ShowQueriesRewrite
                     }
                     throw new SemanticException(MISSING_TABLE, node, "View '%s' does not exist", objectName);
                 }
-s
+
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
                 CreateView.Security security = (viewDefinition.get().isRunAsInvoker()) ? CreateView.Security.INVOKER : CreateView.Security.DEFINER;
                 String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.of(security)), Optional.of(parameters)).trim();
