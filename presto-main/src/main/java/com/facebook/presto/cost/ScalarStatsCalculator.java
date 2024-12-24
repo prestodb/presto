@@ -239,7 +239,7 @@ public class ScalarStatsCalculator
         {
             requireNonNull(call, "call is null");
             List<VariableStatsEstimate> sourceStatsList =
-                    IntStream.range(0, call.getArguments().size()).mapToObj(argumentIndex -> getSourceStats(call, context, argumentIndex)).collect(toImmutableList());
+call.getArguments().stream().map(argument -> argument.accept(this, context)).collect(toImmutableList());
             VariableStatsEstimate result =
                     ScalarStatsAnnotationProcessor.process(input.getOutputRowCount(), call, sourceStatsList, scalarStatsHeader);
             return result;

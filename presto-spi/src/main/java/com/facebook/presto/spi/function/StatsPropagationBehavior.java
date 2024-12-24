@@ -41,7 +41,7 @@ public enum StatsPropagationBehavior
     /** Stats are unknown and thus no action is performed. */
     UNKNOWN;
     /*
-     * Stats are multi argument when their value is calculated by operating on stats from source stats or other properties of the all the arguments.
+These behavior's utilize stats from more than one argument of the scalar function to compute new output stats
      */
     private static final Set<StatsPropagationBehavior> MULTI_ARGUMENT_STATS =
             unmodifiableSet(new HashSet<>(Arrays.asList(MAX_TYPE_WIDTH_VARCHAR, USE_MAX_ARGUMENT, USE_MIN_ARGUMENT, SUM_ARGUMENTS)));
