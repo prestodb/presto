@@ -32,6 +32,8 @@ import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.presto.ClientRequestFilterManager;
+import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
@@ -60,6 +62,7 @@ import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.NodeManager;
@@ -178,6 +181,7 @@ public class TestingPrestoServer
     private final ResourceManagerClusterStateProvider clusterStateProvider;
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final NodeManager pluginNodeManager;
+    private final ClientRequestFilterManager clientRequestFilterManager;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -311,6 +315,7 @@ public class TestingPrestoServer
                 .add(new QueryPrerequisitesManagerModule())
                 .add(new NodeTtlFetcherManagerModule())
                 .add(new ClusterTtlProviderManagerModule())
+                .add(new ClientRequestFilterModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
@@ -444,6 +449,7 @@ public class TestingPrestoServer
         requestBlocker = injector.getInstance(RequestBlocker.class);
         serverInfoResource = injector.getInstance(ServerInfoResource.class);
         pluginNodeManager = injector.getInstance(PluginNodeManager.class);
+        clientRequestFilterManager = injector.getInstance(ClientRequestFilterManager.class);
 
         // Announce Thrift server address
         DriftServer driftServer = injector.getInstance(DriftServer.class);
@@ -860,5 +866,12 @@ public class TestingPrestoServer
     private static int driftServerPort(DriftServer server)
     {
         return ((DriftNettyServerTransport) server.getServerTransport()).getPort();
+    }
+
+    public ClientRequestFilterManager getClientRequestFilterManager(List<ClientRequestFilterFactory> requestFilterFactory)
+    {
+        requestFilterFactory.forEach(clientRequestFilterManager::registerClientRequestFilterFactory);
+        clientRequestFilterManager.loadClientRequestFilters();
+        return clientRequestFilterManager;
     }
 }
