@@ -223,6 +223,7 @@ public class HiveClientConfig
     private int quickStatsMaxConcurrentCalls = 100;
     private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
     private boolean legacyTimestampBucketing;
+    private boolean invalidateMetastoreCacheProcedureEnabled;
 
     @Min(0)
     public int getMaxInitialSplits()
@@ -1860,6 +1861,19 @@ public class HiveClientConfig
     public HiveClientConfig setLegacyTimestampBucketing(boolean legacyTimestampBucketing)
     {
         this.legacyTimestampBucketing = legacyTimestampBucketing;
+        return this;
+    }
+
+    public boolean isInvalidateMetastoreCacheProcedureEnabled()
+    {
+        return invalidateMetastoreCacheProcedureEnabled;
+    }
+
+    @Config("hive.invalidate-metastore-cache-procedure-enabled")
+    @ConfigDescription("When enabled, users will be able to invalidate metastore cache on demand")
+    public HiveClientConfig setInvalidateMetastoreCacheProcedureEnabled(boolean invalidateMetastoreCacheProcedureEnabled)
+    {
+        this.invalidateMetastoreCacheProcedureEnabled = invalidateMetastoreCacheProcedureEnabled;
         return this;
     }
 }
