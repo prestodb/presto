@@ -81,7 +81,7 @@ public class PrestoSparkRowOutputOperator
                 Optional<OutputPartitioning> outputPartitioning,
                 PagesSerdeFactory serdeFactory)
         {
-            OutputPartitioning partitioning = outputPartitioning.orElse(preDeterminedPartition.orElse(SINGLE_PARTITION));
+            OutputPartitioning partitioning = outputPartitioning.orElseGet(() -> preDeterminedPartition.orElse(SINGLE_PARTITION));
             return new PrestoSparkRowOutputOperatorFactory(
                     operatorId,
                     planNodeId,

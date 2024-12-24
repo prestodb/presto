@@ -165,7 +165,8 @@ class Cursor {
     std::vector<RowVectorPtr> vectors;
     while (!input->atEnd()) {
       RowVectorPtr vector;
-      VectorStreamGroup::read(input.get(), pool_, rowType_, serde, &vector);
+      VectorStreamGroup::read(
+          input.get(), pool_, rowType_, serde, &vector, nullptr);
       vectors.emplace_back(vector);
     }
     return vectors;

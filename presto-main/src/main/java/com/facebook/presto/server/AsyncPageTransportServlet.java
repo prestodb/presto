@@ -43,6 +43,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -127,6 +128,20 @@ public class AsyncPageTransportServlet
         TaskId taskId = null;
         OutputBufferId bufferId = null;
         long token = 0;
+
+        if (request != null) {
+            Enumeration<String> headerNames = request.getHeaderNames();
+            while (headerNames.hasMoreElements()) {
+                String headerName = headerNames.nextElement();
+                String headerValue = request.getHeader(headerName);
+                if (headerName.contains("\r") || headerName.contains("\n")) {
+                    throw new IllegalArgumentException(format("Invalid header name: %s", headerName));
+                }
+                if (headerValue.contains("\r") || headerValue.contains("\n")) {
+                    throw new IllegalArgumentException(format("Invalid header value: %s", headerValue));
+                }
+            }
+        }
 
         int previousIndex = -1;
         for (int part = 0; part < 8; part++) {

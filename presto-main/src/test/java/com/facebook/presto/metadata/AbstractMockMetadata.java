@@ -465,6 +465,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void renameView(Session session, QualifiedObjectName source, QualifiedObjectName target)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();

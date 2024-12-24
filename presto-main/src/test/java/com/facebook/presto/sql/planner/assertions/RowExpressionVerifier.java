@@ -210,7 +210,7 @@ public final class RowExpressionVerifier
         }
         return process(expected.getCondition(), ((SpecialFormExpression) actual).getArguments().get(0)) &&
                 process(expected.getTrueValue(), ((SpecialFormExpression) actual).getArguments().get(1)) &&
-                process(expected.getFalseValue().orElse(new NullLiteral()), ((SpecialFormExpression) actual).getArguments().get(2));
+                process(expected.getFalseValue().orElseGet(() -> new NullLiteral()), ((SpecialFormExpression) actual).getArguments().get(2));
     }
 
     @Override

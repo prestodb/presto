@@ -12,36 +12,33 @@
  * limitations under the License.
  */
 
-package com.facebook.presto.cost;
+package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.statistics.ConnectorHistogram;
-import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.common.predicate.Marker;
+import com.facebook.presto.common.predicate.Range;
+import com.facebook.presto.common.predicate.SortedRangeSet;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.BoundType;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
-import com.google.common.collect.TreeRangeSet;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import static com.facebook.presto.cost.HistogramCalculator.calculateFilterFactor;
-import static com.facebook.presto.util.MoreMath.max;
-import static com.facebook.presto.util.MoreMath.min;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.common.Utils.memoizedSupplier;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static java.lang.Double.NEGATIVE_INFINITY;
+import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNull;
 
@@ -75,31 +72,27 @@ public class DisjointRangeDomainHistogram
     private final ConnectorHistogram source;
     // use RangeSet as the internal representation of the ranges, but the constructor arguments
     // use StatisticRange to support serialization and deserialization.
-    private final Supplier<RangeSet<Double>> rangeSet;
-    private final Set<Range<Double>> ranges;
+    private final Supplier<SortedRangeSet> rangeSet;
+    private final Set<Range> ranges;
 
     @JsonCreator
-    public DisjointRangeDomainHistogram(@JsonProperty("source") ConnectorHistogram source, @JsonProperty("ranges") Collection<StatisticRange> ranges)
-    {
-        this(source, ranges.stream().map(StatisticRange::toRange).collect(toImmutableSet()));
-    }
-
-    public DisjointRangeDomainHistogram(ConnectorHistogram source, Set<Range<Double>> ranges)
+    public DisjointRangeDomainHistogram(ConnectorHistogram source, Set<Range> ranges)
     {
         this.source = requireNonNull(source, "source is null");
         this.ranges = requireNonNull(ranges, "ranges is null");
-        this.rangeSet = Suppliers.memoize(() -> {
-            RangeSet<Double> rangeSet = TreeRangeSet.create();
-            rangeSet.addAll(ranges);
+        this.rangeSet = memoizedSupplier(() -> {
+            SortedRangeSet rangeSet = SortedRangeSet.copyOf(DOUBLE, new ArrayList<>(ranges));
             return rangeSet.subRangeSet(getSourceSpan(this.source));
         });
     }
 
-    private static Range<Double> getSourceSpan(ConnectorHistogram source)
+    private static Range getSourceSpan(ConnectorHistogram source)
     {
-        return Range.closed(
+        return Range.range(DOUBLE,
                 source.inverseCumulativeProbability(0.0).orElse(() -> NEGATIVE_INFINITY),
-                source.inverseCumulativeProbability(1.0).orElse(() -> POSITIVE_INFINITY));
+                true,
+                source.inverseCumulativeProbability(1.0).orElse(() -> POSITIVE_INFINITY),
+                true);
     }
 
     @JsonProperty
@@ -109,14 +102,14 @@ public class DisjointRangeDomainHistogram
     }
 
     @JsonProperty
-    public Set<StatisticRange> getRanges()
+    public SortedRangeSet getRanges()
     {
-        return rangeSet.get().asRanges().stream().map(StatisticRange::fromRange).collect(toImmutableSet());
+        return rangeSet.get();
     }
 
     public DisjointRangeDomainHistogram(ConnectorHistogram source)
     {
-        this(source, ImmutableSet.<Range<Double>>of());
+        this(source, Collections.emptySet());
     }
 
     @Override
@@ -130,17 +123,22 @@ public class DisjointRangeDomainHistogram
         if (Double.isNaN(value)) {
             return Estimate.unknown();
         }
-        Optional<Range<Double>> optionalSpan = getSpan();
+        Optional<Range> optionalSpan = getSpan();
         if (!optionalSpan.isPresent()) {
             return Estimate.of(0.0);
         }
-        Range<Double> span = optionalSpan.get();
-        if (value <= span.lowerEndpoint()) {
+        Range span = optionalSpan.get();
+        if (value <= span.getLowValue().map(Double.class::cast)
+                .orElse(NEGATIVE_INFINITY)) {
             return Estimate.of(0.0);
         }
-        Range<Double> input = Range.range(span.lowerEndpoint(), span.lowerBoundType(), value, inclusive ? BoundType.CLOSED : BoundType.OPEN);
+        Range input = Range.range(DOUBLE,
+                span.getLowValue().map(Double.class::cast).orElse(NEGATIVE_INFINITY),
+                span.getLow().getBound() == Marker.Bound.EXACTLY,
+                value,
+                inclusive);
         Estimate fullSetOverlap = calculateRangeSetOverlap(rangeSet.get());
-        RangeSet<Double> spanned = rangeSet.get().subRangeSet(input);
+        SortedRangeSet spanned = rangeSet.get().subRangeSet(input);
         Estimate spannedOverlap = calculateRangeSetOverlap(spanned);
 
         return spannedOverlap.flatMap(spannedProbability ->
@@ -152,11 +150,11 @@ public class DisjointRangeDomainHistogram
                 }));
     }
 
-    private Estimate calculateRangeSetOverlap(RangeSet<Double> ranges)
+    private Estimate calculateRangeSetOverlap(SortedRangeSet ranges)
     {
         // we require knowing bounds on all ranges
         double cumulativeTotal = 0.0;
-        for (Range<Double> range : ranges.asRanges()) {
+        for (Range range : ranges.getOrderedRanges()) {
             Estimate rangeProbability = getRangeProbability(range);
             if (rangeProbability.isUnknown()) {
                 return Estimate.unknown();
@@ -173,9 +171,9 @@ public class DisjointRangeDomainHistogram
      * @param range the range over the source domain
      * @return estimate of the total probability the range covers in the source
      */
-    private Estimate getRangeProbability(Range<Double> range)
+    private Estimate getRangeProbability(Range range)
     {
-        return calculateFilterFactor(StatisticRange.fromRange(range), source, Estimate.unknown(), false);
+        return HistogramCalculator.calculateFilterFactor(range, NaN, source, Estimate.unknown(), false);
     }
 
     @Override
@@ -189,17 +187,19 @@ public class DisjointRangeDomainHistogram
         //    rangedPercentile = percentile - percentileLow
         //
         // percentileLow + (rangedPercentile * rangePercentileLength)
-        Optional<Range<Double>> optionalSpan = getSpan();
+        Optional<Range> optionalSpan = getSpan();
         if (!optionalSpan.isPresent()) {
             return Estimate.unknown();
         }
-        Range<Double> span = optionalSpan.get();
-        if (percentile == 0.0 && isFinite(span.lowerEndpoint())) {
-            return source.inverseCumulativeProbability(0.0).map(sourceMin -> max(span.lowerEndpoint(), sourceMin));
+        Range span = optionalSpan.get();
+        double lower = span.getLowValue().map(Double.class::cast).orElse(NEGATIVE_INFINITY);
+        double upper = span.getHighValue().map(Double.class::cast).orElse(POSITIVE_INFINITY);
+        if (percentile == 0.0 && isFinite(lower)) {
+            return source.inverseCumulativeProbability(0.0).map(sourceMin -> max(lower, sourceMin));
         }
 
-        if (percentile == 1.0 && isFinite(span.upperEndpoint())) {
-            return source.inverseCumulativeProbability(1.0).map(sourceMax -> min(span.upperEndpoint(), sourceMax));
+        if (percentile == 1.0 && isFinite(upper)) {
+            return source.inverseCumulativeProbability(1.0).map(sourceMax -> min(upper, sourceMax));
         }
 
         Estimate totalCumulativeEstimate = calculateRangeSetOverlap(rangeSet.get());
@@ -213,9 +213,9 @@ public class DisjointRangeDomainHistogram
         }
         double cumulativeProbabilityNewDomain = 0.0;
         double lastRangeEstimateSourceDomain = 0.0;
-        Range<Double> currentRange = null;
+        Range currentRange = null;
         // find the range where the percentile falls
-        for (Range<Double> range : rangeSet.get().asRanges()) {
+        for (Range range : rangeSet.get().getOrderedRanges()) {
             Estimate rangeEstimate = getRangeProbability(range);
             if (rangeEstimate.isUnknown()) {
                 return Estimate.unknown();
@@ -231,7 +231,8 @@ public class DisjointRangeDomainHistogram
             // no ranges to iterate over. Did a constraint cut the entire domain of values?
             return Estimate.unknown();
         }
-        Estimate rangeLeftSourceEstimate = source.cumulativeProbability(currentRange.lowerEndpoint(), currentRange.lowerBoundType() == BoundType.OPEN);
+        Double currentLow = currentRange.getLowValue().map(Double.class::cast).orElse(NEGATIVE_INFINITY);
+        Estimate rangeLeftSourceEstimate = source.cumulativeProbability(currentLow, !currentRange.isLowInclusive());
         if (rangeLeftSourceEstimate.isUnknown()) {
             return Estimate.unknown();
         }
@@ -250,12 +251,10 @@ public class DisjointRangeDomainHistogram
      * @param other the new range to add to the set.
      * @return a new {@link DisjointRangeDomainHistogram}
      */
-    public DisjointRangeDomainHistogram addDisjunction(StatisticRange other)
+    public DisjointRangeDomainHistogram addDisjunction(Range other)
     {
-        Set<Range<Double>> ranges = ImmutableSet.<Range<Double>>builder()
-                .addAll(this.ranges)
-                .add(other.toRange())
-                .build();
+        Set<Range> ranges = new HashSet<>(this.ranges);
+        ranges.add(other);
         return new DisjointRangeDomainHistogram(source, ranges);
     }
 
@@ -266,9 +265,9 @@ public class DisjointRangeDomainHistogram
      * @param other the range that should enclose the set.
      * @return a new {@link DisjointRangeDomainHistogram} where
      */
-    public DisjointRangeDomainHistogram addConjunction(StatisticRange other)
+    public DisjointRangeDomainHistogram addConjunction(Range other)
     {
-        return new DisjointRangeDomainHistogram(source, rangeSet.get().subRangeSet(other.toRange()).asRanges());
+        return new DisjointRangeDomainHistogram(source, new HashSet<>(rangeSet.get().subRangeSet(other).getOrderedRanges()));
     }
 
     /**
@@ -287,17 +286,17 @@ public class DisjointRangeDomainHistogram
      * @param range the range representing the conjunction to add
      * @return a new histogram with the conjunction applied.
      */
-    public static ConnectorHistogram addDisjunction(ConnectorHistogram histogram, StatisticRange range)
+    public static ConnectorHistogram addDisjunction(ConnectorHistogram histogram, Range range)
     {
         if (histogram instanceof DisjointRangeDomainHistogram) {
             return ((DisjointRangeDomainHistogram) histogram).addDisjunction(range);
         }
 
-        return new DisjointRangeDomainHistogram(histogram, ImmutableSet.of(range.toRange()));
+        return new DisjointRangeDomainHistogram(histogram, Collections.singleton(range));
     }
 
     /**
-     * Similar to {@link #addDisjunction(ConnectorHistogram, StatisticRange)} this method constrains
+     * Similar to {@link #addDisjunction(ConnectorHistogram, Range)} this method constrains
      * the entire domain such that <em>all ranges</em> in the set intersect with the given range
      * argument to this method.
      * <br>
@@ -308,22 +307,24 @@ public class DisjointRangeDomainHistogram
      * @param range the range of values that the entire histogram's domain must fall within
      * @return a histogram with the new range constraint
      */
-    public static ConnectorHistogram addConjunction(ConnectorHistogram histogram, StatisticRange range)
+    public static ConnectorHistogram addConjunction(ConnectorHistogram histogram, Range range)
     {
         if (histogram instanceof DisjointRangeDomainHistogram) {
             return ((DisjointRangeDomainHistogram) histogram).addConjunction(range);
         }
 
-        return new DisjointRangeDomainHistogram(histogram, ImmutableSet.of(range.toRange()));
+        return new DisjointRangeDomainHistogram(histogram, Collections.singleton(range));
     }
 
     /**
      * @return the span if it exists, empty otherwise
      */
-    private Optional<Range<Double>> getSpan()
+    private Optional<Range> getSpan()
     {
         try {
-            return Optional.of(rangeSet.get().span());
+            return Optional.of(rangeSet.get())
+                    .filter(set -> !set.isNone()) // prevent exception
+                    .map(SortedRangeSet::getSpan);
         }
         catch (NoSuchElementException e) {
             return Optional.empty();
@@ -333,10 +334,10 @@ public class DisjointRangeDomainHistogram
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("source", this.source)
-                .add("rangeSet", this.rangeSet)
-                .toString();
+        return "DisjointRangeDomainHistogram{" +
+                "source=" + this.source + ", " +
+                ", rangeSet" + this.rangeSet.get() +
+                "}";
     }
 
     @Override

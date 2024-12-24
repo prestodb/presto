@@ -22,6 +22,7 @@ import com.google.inject.Inject;
 import java.util.List;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
@@ -33,6 +34,7 @@ public class NativeWorkerSessionPropertyProvider
 {
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "native_simplified_expression_evaluation_enabled";
     public static final String NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE = "native_expression_max_array_size_in_reduce";
+    public static final String NATIVE_EXPRESSION_MAX_COMPILED_REGEXES = "native_expression_max_compiled_regexes";
     public static final String NATIVE_MAX_SPILL_LEVEL = "native_max_spill_level";
     public static final String NATIVE_MAX_SPILL_FILE_SIZE = "native_max_spill_file_size";
     public static final String NATIVE_SPILL_COMPRESSION_CODEC = "native_spill_compression_codec";
@@ -60,7 +62,6 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_QUERY_TRACE_DIR = "native_query_trace_dir";
     public static final String NATIVE_QUERY_TRACE_NODE_IDS = "native_query_trace_node_ids";
     public static final String NATIVE_QUERY_TRACE_MAX_BYTES = "native_query_trace_max_bytes";
-    public static final String NATIVE_QUERY_TRACE_REG_EXP = "native_query_trace_task_reg_exp";
     public static final String NATIVE_QUERY_TRACE_FRAGMENT_ID = "native_query_trace_fragment_id";
     public static final String NATIVE_QUERY_TRACE_SHARD_ID = "native_query_trace_shard_id";
     public static final String NATIVE_MAX_LOCAL_EXCHANGE_PARTITION_COUNT = "native_max_local_exchange_partition_count";
@@ -68,6 +69,10 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_PREFIXSORT_NORMALIZED_KEY_MAX_BYTES = "native_prefixsort_normalized_key_max_bytes";
     public static final String NATIVE_PREFIXSORT_MIN_ROWS = "native_prefixsort_min_rows";
     public static final String NATIVE_OP_TRACE_DIR_CREATE_CONFIG = "native_op_trace_directory_create_config";
+    public static final String NATIVE_SCALED_WRITER_REBALANCE_MAX_MEMORY_USAGE_RATIO = "native_scaled_writer_rebalance_max_memory_usage_ratio";
+    public static final String NATIVE_SCALED_WRITER_MAX_PARTITIONS_PER_WRITER = "native_scaled_writer_max_partitions_per_writer";
+    public static final String NATIVE_SCALED_WRITER_MIN_PARTITION_PROCESSED_BYTES_REBALANCE_THRESHOLD = "native_scaled_writer_min_partition_processed_bytes_rebalance_threshold";
+    public static final String NATIVE_SCALED_WRITER_MIN_PROCESSED_BYTES_REBALANCE_THRESHOLD = "native_scaled_writer_min_processed_bytes_rebalance_threshold";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -84,6 +89,12 @@ public class NativeWorkerSessionPropertyProvider
                         NATIVE_EXPRESSION_MAX_ARRAY_SIZE_IN_REDUCE,
                         "Native Execution only. Reduce() function will throw an error if it encounters an array of size greater than this value.",
                         100000,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_EXPRESSION_MAX_COMPILED_REGEXES,
+                        "Native Execution only. Controls maximum number of compiled regular expression patterns " +
+                                "per regular expression function instance per thread of execution.",
+                        100,
                         !nativeExecution),
                 integerProperty(
                         NATIVE_MAX_SPILL_LEVEL,
@@ -133,7 +144,7 @@ public class NativeWorkerSessionPropertyProvider
                 longProperty(
                         NATIVE_WRITER_FLUSH_THRESHOLD_BYTES,
                         "Native Execution only. Minimum memory footprint size required to reclaim memory from a file " +
-                                "writer by flushing its buffered data to disk.",
+                        "writer by flushing its buffered data to disk.",
                         96L << 20,
                         false),
                 booleanProperty(
@@ -225,10 +236,6 @@ public class NativeWorkerSessionPropertyProvider
                         "The max trace bytes limit. Tracing is disabled if zero.",
                         0L,
                         !nativeExecution),
-                stringProperty(NATIVE_QUERY_TRACE_REG_EXP,
-                        "The regexp of traced task id. We only enable trace on a task if its id matches.",
-                        "",
-                        !nativeExecution),
                 stringProperty(NATIVE_OP_TRACE_DIR_CREATE_CONFIG,
                         "Config used to create operator trace directory. This config is provided to underlying file system and the config is free form. The form should be defined by the underlying file system.",
                         "",
@@ -276,6 +283,34 @@ public class NativeWorkerSessionPropertyProvider
                         "Minimum number of rows to use prefix-sort. " +
                                 "The default value (130) has been derived using micro-benchmarking.",
                         130,
+                        !nativeExecution),
+                doubleProperty(
+                        NATIVE_SCALED_WRITER_REBALANCE_MAX_MEMORY_USAGE_RATIO,
+                        "The max ratio of a query used memory to its max capacity, " +
+                                "and the scale writer exchange stops scaling writer processing if the query's current " +
+                                "memory usage exceeds this ratio. The value is in the range of (0, 1].",
+                        0.7,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_SCALED_WRITER_MAX_PARTITIONS_PER_WRITER,
+                        "The max number of logical table partitions that can be assigned to a " +
+                                "single table writer thread. The logical table partition is used by local " +
+                                "exchange writer for writer scaling, and multiple physical table " +
+                                "partitions can be mapped to the same logical table partition based on the " +
+                                "hash value of calculated partitioned ids",
+                        128,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_SCALED_WRITER_MIN_PARTITION_PROCESSED_BYTES_REBALANCE_THRESHOLD,
+                        "Minimum amount of data processed by a logical table partition " +
+                                "to trigger writer scaling if it is detected as overloaded by scale writer exchange.",
+                        128L << 20,
+                        !nativeExecution),
+                longProperty(
+                        NATIVE_SCALED_WRITER_MIN_PROCESSED_BYTES_REBALANCE_THRESHOLD,
+                        "Minimum amount of data processed by all the logical table partitions " +
+                                "to trigger skewed partition rebalancing by scale writer exchange.",
+                        256L << 20,
                         !nativeExecution));
     }
 

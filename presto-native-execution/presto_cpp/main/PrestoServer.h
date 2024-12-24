@@ -235,6 +235,9 @@ class PrestoServer {
   // Executor for background writing into SSD cache.
   std::unique_ptr<folly::CPUThreadPoolExecutor> cacheExecutor_;
 
+  // Executor for async execution for connectors.
+  std::unique_ptr<folly::CPUThreadPoolExecutor> connectorCpuExecutor_;
+
   // Executor for async IO for connectors.
   std::unique_ptr<folly::IOThreadPoolExecutor> connectorIoExecutor_;
 

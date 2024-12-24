@@ -78,6 +78,6 @@ public class PruneJoinChildrenColumns
 
         return restrictChildOutputs(context.getIdAllocator(), joinNode, leftUsableInputs, rightUsableInputs)
                 .map(Result::ofPlanNode)
-                .orElse(Result.empty());
+                .orElseGet(Result::empty);
     }
 }

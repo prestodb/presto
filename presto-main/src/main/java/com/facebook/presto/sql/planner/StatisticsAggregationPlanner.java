@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -58,6 +59,7 @@ public class StatisticsAggregationPlanner
 {
     private final VariableAllocator variableAllocator;
     private final FunctionAndTypeResolver functionAndTypeResolver;
+    private final boolean useHistograms;
     private final Session session;
     private final FunctionAndTypeManager functionAndTypeManager;
 
@@ -67,6 +69,7 @@ public class StatisticsAggregationPlanner
         this.session = requireNonNull(session, "session is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+        this.useHistograms = shouldOptimizerUseHistograms(session);
     }
 
     public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap)
@@ -105,6 +108,9 @@ public class StatisticsAggregationPlanner
         }
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
+            if (!useHistograms && columnStatisticMetadata.getStatisticType() == ColumnStatisticType.HISTOGRAM) {
+                continue;
+            }
             String columnName = columnStatisticMetadata.getColumnName();
             ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
             VariableReferenceExpression inputVariable = columnToVariableMap.get(columnName);

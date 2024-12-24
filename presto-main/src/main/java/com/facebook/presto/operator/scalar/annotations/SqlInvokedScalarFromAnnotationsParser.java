@@ -122,8 +122,8 @@ public final class SqlInvokedScalarFromAnnotationsParser
 
     private static List<SqlInvokedFunction> createSqlInvokedFunctions(Method method, Optional<SqlInvokedScalarFunction> header, Optional<String> description)
     {
-        SqlInvokedScalarFunction functionHeader = header.orElse(method.getAnnotation(SqlInvokedScalarFunction.class));
-        String functionDescription = description.orElse(method.isAnnotationPresent(Description.class) ? method.getAnnotation(Description.class).value() : "");
+        SqlInvokedScalarFunction functionHeader = header.orElseGet(() -> method.getAnnotation(SqlInvokedScalarFunction.class));
+        String functionDescription = description.orElseGet(() -> method.isAnnotationPresent(Description.class) ? method.getAnnotation(Description.class).value() : "");
         TypeSignature returnType = parseTypeSignature(method.getAnnotation(SqlType.class).value());
 
         // Parameter

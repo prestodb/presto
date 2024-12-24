@@ -304,6 +304,7 @@ public class SymbolMapper
                 mapAndDistinctVariable(source.getOutputVariables()),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
+                scheme.isScaleWriters(),
                 scheme.getEncoding(),
                 scheme.getBucketToPartition());
     }
