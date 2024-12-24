@@ -95,6 +95,7 @@ import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.util.PrestoDataDefBindingHelper;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HttpHeaders;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -141,8 +142,12 @@ public class CoordinatorModule
     @Override
     protected void setup(Binder binder)
     {
-        httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
-        httpServerBinder(binder).bindResource("/tableau", "webapp/tableau");
+        httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html")
+                .withExtraHeader(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
+                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'");
+        httpServerBinder(binder).bindResource("/tableau", "webapp/tableau")
+                .withExtraHeader(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
+                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'");
 
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
