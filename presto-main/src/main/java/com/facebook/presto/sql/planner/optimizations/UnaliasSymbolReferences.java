@@ -334,6 +334,7 @@ public class UnaliasSymbolReferences
                     outputs.build(),
                     canonicalize(node.getPartitioningScheme().getHashColumn()),
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
+                    node.getPartitioningScheme().isScaleWriters(),
                     node.getPartitioningScheme().getEncoding(),
                     node.getPartitioningScheme().getBucketToPartition());
 

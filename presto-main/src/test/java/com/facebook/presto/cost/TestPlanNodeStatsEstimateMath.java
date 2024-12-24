@@ -15,6 +15,8 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.statistics.ConnectorHistogram;
+import com.facebook.presto.spi.statistics.DisjointRangeDomainHistogram;
+import com.facebook.presto.spi.statistics.UniformDistributionHistogram;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -374,31 +376,31 @@ public class TestPlanNodeStatsEstimateMath
         assertEquals(calculator.addStatsAndCollapseDistinctValues(unknownRowCount, unknownRowCount).getVariableStatistics(VARIABLE).getHistogram(), Optional.empty());
 
         // check when rows are available histograms are added properly.
-        ConnectorHistogram addedSameRange = DisjointRangeDomainHistogram.addDisjunction(unknownNullsFraction.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToTen);
+        ConnectorHistogram addedSameRange = DisjointRangeDomainHistogram.addDisjunction(unknownNullsFraction.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToTen.toPrestoRange());
         assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndSumDistinctValues, addedSameRange);
         assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndCollapseDistinctValues, addedSameRange);
         assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndMaxDistinctValues, addedSameRange);
         assertAddStatsHistogram(unknownNullsFraction, unknownNullsFraction, calculator::addStatsAndIntersect, addedSameRange);
 
         // check when only a sub-range is added, that the histogram still represents the full range
-        ConnectorHistogram fullRangeFirst = DisjointRangeDomainHistogram.addDisjunction(first.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToTen);
-        ConnectorHistogram intersectedRangeSecond = DisjointRangeDomainHistogram.addConjunction(first.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToFive);
+        ConnectorHistogram fullRangeFirst = DisjointRangeDomainHistogram.addDisjunction(first.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToTen.toPrestoRange());
+        ConnectorHistogram intersectedRangeSecond = DisjointRangeDomainHistogram.addConjunction(first.getVariableStatistics(VARIABLE).getHistogram().get(), zeroToFive.toPrestoRange());
         assertAddStatsHistogram(first, second, calculator::addStatsAndSumDistinctValues, fullRangeFirst);
         assertAddStatsHistogram(first, second, calculator::addStatsAndCollapseDistinctValues, fullRangeFirst);
         assertAddStatsHistogram(first, second, calculator::addStatsAndMaxDistinctValues, fullRangeFirst);
         assertAddStatsHistogram(first, second, calculator::addStatsAndIntersect, intersectedRangeSecond);
 
         // check when two ranges overlap, the new stats span both ranges
-        ConnectorHistogram fullRangeSecondThird = DisjointRangeDomainHistogram.addDisjunction(second.getVariableStatistics(VARIABLE).getHistogram().get(), fiveToTen);
-        ConnectorHistogram intersectedRangeSecondThird = DisjointRangeDomainHistogram.addConjunction(second.getVariableStatistics(VARIABLE).getHistogram().get(), fiveToTen);
+        ConnectorHistogram fullRangeSecondThird = DisjointRangeDomainHistogram.addDisjunction(second.getVariableStatistics(VARIABLE).getHistogram().get(), fiveToTen.toPrestoRange());
+        ConnectorHistogram intersectedRangeSecondThird = DisjointRangeDomainHistogram.addConjunction(second.getVariableStatistics(VARIABLE).getHistogram().get(), fiveToTen.toPrestoRange());
         assertAddStatsHistogram(second, third, calculator::addStatsAndSumDistinctValues, fullRangeSecondThird);
         assertAddStatsHistogram(second, third, calculator::addStatsAndCollapseDistinctValues, fullRangeSecondThird);
         assertAddStatsHistogram(second, third, calculator::addStatsAndMaxDistinctValues, fullRangeSecondThird);
         assertAddStatsHistogram(second, third, calculator::addStatsAndIntersect, intersectedRangeSecondThird);
 
         // check when two ranges partially overlap, the addition/intersection is applied correctly
-        ConnectorHistogram fullRangeThirdFourth = DisjointRangeDomainHistogram.addDisjunction(third.getVariableStatistics(VARIABLE).getHistogram().get(), threeToSeven);
-        ConnectorHistogram intersectedRangeThirdFourth = DisjointRangeDomainHistogram.addConjunction(third.getVariableStatistics(VARIABLE).getHistogram().get(), threeToSeven);
+        ConnectorHistogram fullRangeThirdFourth = DisjointRangeDomainHistogram.addDisjunction(third.getVariableStatistics(VARIABLE).getHistogram().get(), threeToSeven.toPrestoRange());
+        ConnectorHistogram intersectedRangeThirdFourth = DisjointRangeDomainHistogram.addConjunction(third.getVariableStatistics(VARIABLE).getHistogram().get(), threeToSeven.toPrestoRange());
         assertAddStatsHistogram(third, fourth, calculator::addStatsAndSumDistinctValues, fullRangeThirdFourth);
         assertAddStatsHistogram(third, fourth, calculator::addStatsAndCollapseDistinctValues, fullRangeThirdFourth);
         assertAddStatsHistogram(third, fourth, calculator::addStatsAndMaxDistinctValues, fullRangeThirdFourth);
@@ -419,7 +421,7 @@ public class TestPlanNodeStatsEstimateMath
                         .setNullsFraction(nullsFraction)
                         .setAverageRowSize(averageRowSize)
                         .setStatisticsRange(range)
-                        .setHistogram(Optional.of(DisjointRangeDomainHistogram.addConjunction(new UniformDistributionHistogram(range.getLow(), range.getHigh()), range)))
+                        .setHistogram(Optional.of(DisjointRangeDomainHistogram.addConjunction(new UniformDistributionHistogram(range.getLow(), range.getHigh()), range.toPrestoRange())))
                         .build())
                 .build();
     }

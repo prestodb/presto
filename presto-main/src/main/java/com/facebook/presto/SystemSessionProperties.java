@@ -334,6 +334,8 @@ public final class SystemSessionProperties
     private static final String NATIVE_EXECUTION_PROGRAM_ARGUMENTS = "native_execution_program_arguments";
     public static final String NATIVE_EXECUTION_PROCESS_REUSE_ENABLED = "native_execution_process_reuse_enabled";
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
+    public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
+    public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1544,6 +1546,11 @@ public final class SystemSessionProperties
                         true,
                         false),
                 booleanProperty(
+                        NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION,
+                        "Enforce that the join build input is partitioned on join key",
+                        featuresConfig.isNativeEnforceJoinBuildInputPartition(),
+                        false),
+                booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "(Deprecated) Randomize null join key for outer join",
                         false,
@@ -1835,7 +1842,11 @@ public final class SystemSessionProperties
                         SINGLE_NODE_EXECUTION_ENABLED,
                         "Enable single node execution",
                         featuresConfig.isSingleNodeExecutionEnabled(),
-                        false));
+                        false),
+                booleanProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED,
+                        "Enable automatic scaling of writer threads",
+                        featuresConfig.isNativeExecutionScaleWritersThreadsEnabled(),
+                        !featuresConfig.isNativeExecutionEnabled()));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -2888,6 +2899,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(NATIVE_EXECUTION_PROCESS_REUSE_ENABLED, Boolean.class);
     }
 
+    public static boolean isNativeJoinBuildPartitionEnforced(Session session)
+    {
+        return session.getSystemProperty(NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION, Boolean.class);
+    }
+
     public static RandomizeOuterJoinNullKeyStrategy getRandomizeOuterJoinNullKeyStrategy(Session session)
     {
         // If RANDOMIZE_OUTER_JOIN_NULL_KEY is set to true, return always enabled, otherwise get strategy from RANDOMIZE_OUTER_JOIN_NULL_KEY_STRATEGY
@@ -3120,5 +3136,10 @@ public final class SystemSessionProperties
     public static int getMinColumnarEncodingChannelsToPreferRowWiseEncoding(Session session)
     {
         return session.getSystemProperty(NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING, Integer.class);
+    }
+
+    public static boolean isNativeExecutionScaleWritersThreadsEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, Boolean.class);
     }
 }

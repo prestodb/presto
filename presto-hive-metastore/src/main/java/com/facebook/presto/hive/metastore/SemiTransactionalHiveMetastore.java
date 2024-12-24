@@ -1179,7 +1179,7 @@ public class SemiTransactionalHiveMetastore
                         hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
                         columnConverterProvider,
                         hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP),
-                        hdfsContext.getSession().map(ConnectorSession::getRuntimeStats).orElse(new RuntimeStats()));
+                        hdfsContext.getSession().map(ConnectorSession::getRuntimeStats).orElseGet(RuntimeStats::new));
                 switch (action.getType()) {
                     case DROP:
                         committer.prepareDropTable(metastoreContext, schemaTableName);
@@ -1213,7 +1213,7 @@ public class SemiTransactionalHiveMetastore
                             hdfsContext.getSession().map(MetastoreUtil::isUserDefinedTypeEncodingEnabled).orElse(false),
                             columnConverterProvider,
                             hdfsContext.getSession().map(ConnectorSession::getWarningCollector).orElse(NOOP),
-                            hdfsContext.getSession().map(ConnectorSession::getRuntimeStats).orElse(new RuntimeStats()));
+                            hdfsContext.getSession().map(ConnectorSession::getRuntimeStats).orElseGet(RuntimeStats::new));
                     switch (action.getType()) {
                         case DROP:
                             committer.prepareDropPartition(metastoreContext, schemaTableName, partitionValues);

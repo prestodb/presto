@@ -98,7 +98,7 @@ public class HivePageSource
             }
             else if (isRowIdColumnHandle(columnMapping.getHiveColumnHandle())) {
                 // If there's no row ID partition component, then path + row numbers will be supplied for $row_id
-                byte[] component = rowIdPartitionComponent.orElse(new byte[0]);
+                byte[] component = rowIdPartitionComponent.orElseGet(() -> new byte[0]);
                 String rowGroupId = Paths.get(path).getFileName().toString();
                 coercers[columnIndex] = new RowIDCoercer(component, rowGroupId);
             }

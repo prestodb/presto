@@ -634,14 +634,23 @@ public class PropertyDerivations
                             .local(localProperties.build())
                             .constants(constants)
                             .build();
-                case REPARTITION:
+                case REPARTITION: {
+                    Global globalPartitioning;
+                    if (node.getPartitioningScheme().isScaleWriters()) {
+                        // no strict partitioning guarantees when multiple writers per partitions allowed (scaled writers)
+                        globalPartitioning = arbitraryPartition();
+                    }
+                    else {
+                        globalPartitioning = partitionedOn(
+                                node.getPartitioningScheme().getPartitioning(),
+                                Optional.of(node.getPartitioningScheme().getPartitioning()))
+                                .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny());
+                    }
                     return ActualProperties.builder()
-                            .global(partitionedOn(
-                                    node.getPartitioningScheme().getPartitioning(),
-                                    Optional.of(node.getPartitioningScheme().getPartitioning()))
-                                    .withReplicatedNulls(node.getPartitioningScheme().isReplicateNullsAndAny()))
+                            .global(globalPartitioning)
                             .constants(constants)
                             .build();
+                }
                 case REPLICATE:
                     // TODO: this should have the same global properties as the stream taking the replicated data
                     return ActualProperties.builder()

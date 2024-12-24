@@ -74,6 +74,8 @@ statement
         | type)                                                        #createType
     | CREATE (OR REPLACE)? VIEW qualifiedName
             (SECURITY (DEFINER | INVOKER))? AS query                   #createView
+    | ALTER VIEW (IF EXISTS)? from=qualifiedName
+        RENAME TO to=qualifiedName                                     #renameView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CREATE MATERIALIZED VIEW (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?

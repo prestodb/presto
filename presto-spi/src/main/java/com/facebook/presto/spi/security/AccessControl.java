@@ -194,6 +194,13 @@ public interface AccessControl
     void checkCanCreateView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName);
 
     /**
+     * Check if identity is allowed to rename the specified view.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanRenameView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
+
+    /**
      * Check if identity is allowed to drop the specified view.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

@@ -25,6 +25,7 @@ import com.facebook.presto.spi.security.Privilege;
 import java.util.Set;
 
 import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 
@@ -69,6 +70,12 @@ public class ReadOnlyAccessControl
     public void checkCanCreateViewWithSelectFromColumns(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         // allow
+    }
+
+    @Override
+    public void checkCanRenameView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        denyRenameView(viewName.toString(), newViewName.toString());
     }
 
     @Override

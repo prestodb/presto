@@ -30,6 +30,7 @@
         }
       ],
       "replicateNullsAndAny": false,
+      "scaleWriters": false,
       "encoding":"COLUMNAR"
     },
     "sources": [],

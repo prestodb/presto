@@ -1026,6 +1026,11 @@ public class MetastoreUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
     }
 
+    public static boolean isIcebergView(Table table)
+    {
+        return "true".equalsIgnoreCase(table.getParameters().get(PRESTO_VIEW_FLAG));
+    }
+
     public static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
     {
         PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);

@@ -70,7 +70,7 @@ public abstract class ProjectOffPushDownRule<N extends PlanNode>
                 .flatMap(prunedOutputs -> this.pushDownProjectOff(context.getIdAllocator(), context.getVariableAllocator(), targetNode, prunedOutputs))
                 .map(newChild -> parent.replaceChildren(ImmutableList.of(newChild)))
                 .map(Result::ofPlanNode)
-                .orElse(Result.empty());
+                .orElseGet(Result::empty);
     }
 
     protected abstract Optional<PlanNode> pushDownProjectOff(PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, N targetNode, Set<VariableReferenceExpression> referencedOutputs);
