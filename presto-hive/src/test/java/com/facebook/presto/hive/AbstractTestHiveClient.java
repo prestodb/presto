@@ -524,7 +524,7 @@ public abstract class AbstractTestHiveClient
                             }).collect(toList()))
                     .build();
 
-    private static final SubfieldExtractor SUBFIELD_EXTRACTOR = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(), SESSION);
+    private static final SubfieldExtractor SUBFIELD_EXTRACTOR = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(SESSION), SESSION);
 
     private static final TypeProvider TYPE_PROVIDER_AFTER = TypeProvider.copyOf(MISMATCH_SCHEMA_TABLE_AFTER.stream()
             .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType)));
