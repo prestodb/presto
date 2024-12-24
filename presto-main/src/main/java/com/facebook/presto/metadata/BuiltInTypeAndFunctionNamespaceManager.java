@@ -184,6 +184,7 @@ import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions.LegacyLogFunction;
 import com.facebook.presto.operator.scalar.MultimapFromEntriesFunction;
+import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.QuantileDigestFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpReplaceLambdaFunction;
@@ -1180,6 +1181,19 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     function.isCalledOnNullInput(),
                     sqlFunction.getVersion(),
                     sqlFunction.getComplexTypeFunctionDescriptor());
+        }
+        else if (function instanceof ParametricScalar) {
+            ParametricScalar sqlFunction = (ParametricScalar) function;
+            return new FunctionMetadata(
+                    signature.getName(),
+                    signature.getArgumentTypes(),
+                    signature.getReturnType(),
+                    signature.getKind(),
+                    JAVA,
+                    function.isDeterministic(),
+                    function.isCalledOnNullInput(),
+                    sqlFunction.getComplexTypeFunctionDescriptor(),
+                    sqlFunction.getScalarHeader().getSignatureToScalarStatsHeadersMap());
         }
         else {
             return new FunctionMetadata(
