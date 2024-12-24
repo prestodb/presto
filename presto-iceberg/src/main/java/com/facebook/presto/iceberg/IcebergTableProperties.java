@@ -41,6 +41,7 @@ public class IcebergTableProperties
     public static final String FORMAT_VERSION = "format_version";
     public static final String COMMIT_RETRIES = "commit_retries";
     public static final String DELETE_MODE = "delete_mode";
+    public static final String UPDATE_MODE = "update_mode";
     public static final String METADATA_PREVIOUS_VERSIONS_MAX = "metadata_previous_versions_max";
     public static final String METADATA_DELETE_AFTER_COMMIT = "metadata_delete_after_commit";
     public static final String METRICS_MAX_INFERRED_COLUMN = "metrics_max_inferred_column";
@@ -112,6 +113,15 @@ public class IcebergTableProperties
                         "The maximum number of columns for which metrics are collected",
                         icebergConfig.getMetricsMaxInferredColumn(),
                         false))
+                .add(new PropertyMetadata<>(
+                        UPDATE_MODE,
+                        "Update mode for the table",
+                        createUnboundedVarcharType(),
+                        RowLevelOperationMode.class,
+                        RowLevelOperationMode.MERGE_ON_READ,
+                        false,
+                        value -> RowLevelOperationMode.fromName((String) value),
+                        RowLevelOperationMode::modeName))
                 .build();
 
         columnProperties = ImmutableList.of(stringProperty(
@@ -176,5 +186,10 @@ public class IcebergTableProperties
     public static Integer getMetricsMaxInferredColumn(Map<String, Object> tableProperties)
     {
         return (Integer) tableProperties.get(METRICS_MAX_INFERRED_COLUMN);
+    }
+
+    public static RowLevelOperationMode getUpdateMode(Map<String, Object> tableProperties)
+    {
+        return (RowLevelOperationMode) tableProperties.get(UPDATE_MODE);
     }
 }
