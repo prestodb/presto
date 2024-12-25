@@ -223,7 +223,7 @@ void TraceReplayRunner::init() {
   VELOX_USER_CHECK(!FLAGS_query_id.empty(), "--query_id must be provided");
   VELOX_USER_CHECK(!FLAGS_node_id.empty(), "--node_id must be provided");
 
-  if (memory::memoryManager() == nullptr) {
+  if (!memory::MemoryManager::testInstance()) {
     memory::initializeMemoryManager({});
   }
   filesystems::registerLocalFileSystem();
