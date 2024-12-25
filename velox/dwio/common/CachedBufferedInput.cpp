@@ -19,10 +19,7 @@
 #include "velox/common/process/TraceContext.h"
 #include "velox/dwio/common/CacheInputStream.h"
 
-DEFINE_int32(
-    cache_prefetch_min_pct,
-    80,
-    "Minimum percentage of actual uses over references to a column for prefetching. No prefetch if > 100");
+DECLARE_int32(cache_prefetch_min_pct);
 
 using ::facebook::velox::common::Region;
 
@@ -189,6 +186,7 @@ void CachedBufferedInput::load(const LogType /*unused*/) {
       storageLoad[loadIndex].push_back(part);
     }
   }
+
   makeLoads(std::move(storageLoad[1]), true);
   makeLoads(std::move(ssdLoad[1]), true);
   makeLoads(std::move(storageLoad[0]), false);

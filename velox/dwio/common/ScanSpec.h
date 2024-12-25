@@ -370,14 +370,28 @@ class ScanSpec {
     isFlatMapAsStruct_ = value;
   }
 
+  /// Disable stats based filter reordering.
+  void disableStatsBasedFilterReorder() {
+    disableStatsBasedFilterReorder_ = true;
+    for (auto& child : children_) {
+      child->disableStatsBasedFilterReorder();
+    }
+  }
+
+  bool statsBasedFilterReorderDisabled() const {
+    return disableStatsBasedFilterReorder_;
+  }
+
  private:
   void reorder();
 
   void enableFilterInSubTree(bool value);
 
-  static bool compareTimeToDropValue(
+  bool compareTimeToDropValue(
       const std::shared_ptr<ScanSpec>& x,
       const std::shared_ptr<ScanSpec>& y);
+
+  bool disableStatsBasedFilterReorder_{false};
 
   // Serializes stableChildren().
   std::mutex mutex_;

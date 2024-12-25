@@ -130,8 +130,11 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   performConfigure();
   EXPECT_EQ(readerOptions.fileFormat(), fileFormat);
   EXPECT_TRUE(compareSerDeOptions(readerOptions.serDeOptions(), expectedSerDe));
-  EXPECT_EQ(readerOptions.loadQuantum(), hiveConfig->loadQuantum());
-  EXPECT_EQ(readerOptions.maxCoalesceBytes(), hiveConfig->maxCoalescedBytes());
+  EXPECT_EQ(
+      readerOptions.loadQuantum(), hiveConfig->loadQuantum(&sessionProperties));
+  EXPECT_EQ(
+      readerOptions.maxCoalesceBytes(),
+      hiveConfig->maxCoalescedBytes(&sessionProperties));
   EXPECT_EQ(
       readerOptions.maxCoalesceDistance(),
       hiveConfig->maxCoalescedDistanceBytes(&sessionProperties));
@@ -237,8 +240,11 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   hiveConfig = std::make_shared<hive::HiveConfig>(
       std::make_shared<config::ConfigBase>(std::move(customHiveConfigProps)));
   performConfigure();
-  EXPECT_EQ(readerOptions.loadQuantum(), hiveConfig->loadQuantum());
-  EXPECT_EQ(readerOptions.maxCoalesceBytes(), hiveConfig->maxCoalescedBytes());
+  EXPECT_EQ(
+      readerOptions.loadQuantum(), hiveConfig->loadQuantum(&sessionProperties));
+  EXPECT_EQ(
+      readerOptions.maxCoalesceBytes(),
+      hiveConfig->maxCoalescedBytes(&sessionProperties));
   EXPECT_EQ(
       readerOptions.maxCoalesceDistance(),
       hiveConfig->maxCoalescedDistanceBytes(&sessionProperties));

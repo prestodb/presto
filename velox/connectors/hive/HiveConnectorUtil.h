@@ -60,6 +60,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
     const std::unordered_map<std::string, std::shared_ptr<HiveColumnHandle>>&
         infoColumns,
     const SpecialColumnNames& specialColumns,
+    bool disableStatsBasedFilterReorder,
     memory::MemoryPool* pool);
 
 void configureReaderOptions(

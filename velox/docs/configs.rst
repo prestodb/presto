@@ -526,7 +526,7 @@ Each query can override the config by setting corresponding query session proper
      - 512KB
      - Maximum distance in capacity units between chunks to be fetched that may be coalesced into a single request.
    * - load-quantum
-     -
+     - load-quantum
      - integer
      - 8MB
      - Define the size of each coalesce load request. E.g. in Parquet scan, if it's bigger than rowgroup size then the whole row group can be fetched together. Otherwise, the row group will be fetched column chunk by column chunk
@@ -613,7 +613,14 @@ Each query can override the config by setting corresponding query session proper
        and also skip staging to the ssd cache. This helps to prevent the cache space pollution
        from the one-time table scan by large batch query when mixed running with interactive
        query which has high data locality.
-
+   * - hive.reader.stats_based_filter_reorder_disabaled
+     - hive.reader.stats_based_filter_reorder_disabaled
+     - bool
+     - false
+     - If true, disable the stats based filter reordering during the read processing, and the
+       filter execution order is totally determined by the filter type. Otherwise, the file
+       reader will dynamically adjust the filter execution order based on the past filter
+       execution stats.
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

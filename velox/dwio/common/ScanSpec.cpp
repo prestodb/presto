@@ -48,13 +48,17 @@ bool ScanSpec::compareTimeToDropValue(
     const std::shared_ptr<ScanSpec>& left,
     const std::shared_ptr<ScanSpec>& right) {
   if (left->hasFilter() && right->hasFilter()) {
-    if (left->selectivity_.numIn() || right->selectivity_.numIn()) {
+    if (!disableStatsBasedFilterReorder_ &&
+        (left->selectivity_.numIn() || right->selectivity_.numIn())) {
       return left->selectivity_.timeToDropValue() <
           right->selectivity_.timeToDropValue();
     }
     // Integer filters are before other filters if there is no
     // history data.
     if (left->filter_ && right->filter_) {
+      if (left->filter_->kind() == right->filter_->kind()) {
+        return left->fieldName_ < right->fieldName_;
+      }
       return left->filter_->kind() < right->filter_->kind();
     }
     // If hasFilter() is true but 'filter_' is nullptr, we have a filter
@@ -67,6 +71,7 @@ bool ScanSpec::compareTimeToDropValue(
     }
     return left->fieldName_ < right->fieldName_;
   }
+
   if (left->hasFilter()) {
     return true;
   }
@@ -77,9 +82,20 @@ bool ScanSpec::compareTimeToDropValue(
 }
 
 uint64_t ScanSpec::newRead() {
+  // NOTE: in case of split preload, a new split might see zero reads but
+  // non-empty filter stats. Hence we need to avoid stats triggered filter
+  // reordering even on the first read if 'disableStatsBasedFilterReorder_' is
+  // set.
   if (numReads_ == 0 ||
-      !std::is_sorted(
-          children_.begin(), children_.end(), compareTimeToDropValue)) {
+      (!disableStatsBasedFilterReorder_ &&
+       !std::is_sorted(
+           children_.begin(),
+           children_.end(),
+           [this](
+               const std::shared_ptr<ScanSpec>& left,
+               const std::shared_ptr<ScanSpec>& right) {
+             return compareTimeToDropValue(left, right);
+           }))) {
     reorder();
   }
   return ++numReads_;
@@ -91,7 +107,14 @@ void ScanSpec::reorder() {
   }
   // Make sure 'stableChildren_' is initialized.
   stableChildren();
-  std::sort(children_.begin(), children_.end(), compareTimeToDropValue);
+  std::sort(
+      children_.begin(),
+      children_.end(),
+      [this](
+          const std::shared_ptr<ScanSpec>& left,
+          const std::shared_ptr<ScanSpec>& right) {
+        return compareTimeToDropValue(left, right);
+      });
 }
 
 void ScanSpec::enableFilterInSubTree(bool value) {

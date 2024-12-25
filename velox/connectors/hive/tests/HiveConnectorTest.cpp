@@ -83,7 +83,7 @@ TEST_F(HiveConnectorTest, hiveConfig) {
       "UNKNOWN BEHAVIOR 100");
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_multilevel) {
+TEST_F(HiveConnectorTest, makeScanSpecRequiredSubfieldsMultilevel) {
   auto columnType = ROW(
       {{"c0c0", BIGINT()},
        {"c0c1",
@@ -91,27 +91,44 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_multilevel) {
             VARCHAR(), ROW({{"c0c1c0", BIGINT()}, {"c0c1c1", BIGINT()}})))}});
   auto rowType = ROW({{"c0", columnType}});
   auto subfields = makeSubfields({"c0.c0c1[3][\"foo\"].c0c1c0"});
-  auto scanSpec = makeScanSpec(
-      rowType, groupSubfields(subfields), {}, nullptr, {}, {}, {}, pool_.get());
-  auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
-  validateNullConstant(*c0c0, *BIGINT());
-  auto* c0c1 = scanSpec->childByName("c0")->childByName("c0c1");
-  ASSERT_EQ(c0c1->maxArrayElementsCount(), 3);
-  auto* elements = c0c1->childByName(ScanSpec::kArrayElementsFieldName);
-  auto* keysFilter =
-      elements->childByName(ScanSpec::kMapKeysFieldName)->filter();
-  ASSERT_TRUE(keysFilter);
-  ASSERT_TRUE(applyFilter(*keysFilter, "foo"_sv));
-  ASSERT_FALSE(applyFilter(*keysFilter, "bar"_sv));
-  ASSERT_FALSE(keysFilter->testNull());
-  auto* values = elements->childByName(ScanSpec::kMapValuesFieldName);
-  auto* c0c1c0 = values->childByName("c0c1c0");
-  ASSERT_FALSE(c0c1c0->isConstant());
-  ASSERT_FALSE(c0c1c0->filter());
-  validateNullConstant(*values->childByName("c0c1c1"), *BIGINT());
+  for (bool statsBasedFilterReorderDisabled : {false, true}) {
+    SCOPED_TRACE(fmt::format(
+        "statsBasedFilterReorderDisabled {}", statsBasedFilterReorderDisabled));
+
+    auto scanSpec = makeScanSpec(
+        rowType,
+        groupSubfields(subfields),
+        {},
+        nullptr,
+        {},
+        {},
+        {},
+        statsBasedFilterReorderDisabled,
+        pool_.get());
+    ASSERT_EQ(
+        scanSpec->statsBasedFilterReorderDisabled(),
+        statsBasedFilterReorderDisabled);
+
+    auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
+    validateNullConstant(*c0c0, *BIGINT());
+    auto* c0c1 = scanSpec->childByName("c0")->childByName("c0c1");
+    ASSERT_EQ(c0c1->maxArrayElementsCount(), 3);
+    auto* elements = c0c1->childByName(ScanSpec::kArrayElementsFieldName);
+    auto* keysFilter =
+        elements->childByName(ScanSpec::kMapKeysFieldName)->filter();
+    ASSERT_TRUE(keysFilter);
+    ASSERT_TRUE(applyFilter(*keysFilter, "foo"_sv));
+    ASSERT_FALSE(applyFilter(*keysFilter, "bar"_sv));
+    ASSERT_FALSE(keysFilter->testNull());
+    auto* values = elements->childByName(ScanSpec::kMapValuesFieldName);
+    auto* c0c1c0 = values->childByName("c0c1c0");
+    ASSERT_FALSE(c0c1c0->isConstant());
+    ASSERT_FALSE(c0c1c0->filter());
+    validateNullConstant(*values->childByName("c0c1c1"), *BIGINT());
+  }
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeFields) {
+TEST_F(HiveConnectorTest, makeScanSpecRequiredSubfieldsMergeFields) {
   auto columnType = ROW(
       {{"c0c0",
         ROW(
@@ -129,6 +146,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeFields) {
       {},
       {},
       {},
+      false,
       pool_.get());
   auto* c0c0 = scanSpec->childByName("c0")->childByName("c0c0");
   ASSERT_FALSE(c0c0->childByName("c0c0c0")->isConstant());
@@ -141,7 +159,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeFields) {
   ASSERT_FALSE(c0c1->childByName("c0c1c1")->isConstant());
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArray) {
+TEST_F(HiveConnectorTest, makeScanSpecRequiredSubfieldsMergeArray) {
   auto columnType =
       ARRAY(ROW({{"c0c0", BIGINT()}, {"c0c1", BIGINT()}, {"c0c2", BIGINT()}}));
   auto rowType = ROW({{"c0", columnType}});
@@ -153,6 +171,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArray) {
       {},
       {},
       {},
+      false,
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_EQ(c0->maxArrayElementsCount(), 2);
@@ -163,7 +182,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArray) {
   validateNullConstant(*elements->childByName("c0c1"), *BIGINT());
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArrayNegative) {
+TEST_F(HiveConnectorTest, makeScanSpecRequiredSubfieldsMergeArrayNegative) {
   auto columnType =
       ARRAY(ROW({{"c0c0", BIGINT()}, {"c0c1", BIGINT()}, {"c0c2", BIGINT()}}));
   auto rowType = ROW({{"c0", columnType}});
@@ -171,11 +190,19 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeArrayNegative) {
   auto groupedSubfields = groupSubfields(subfields);
   VELOX_ASSERT_USER_THROW(
       makeScanSpec(
-          rowType, groupedSubfields, {}, nullptr, {}, {}, {}, pool_.get()),
+          rowType,
+          groupedSubfields,
+          {},
+          nullptr,
+          {},
+          {},
+          {},
+          false,
+          pool_.get()),
       "Non-positive array subscript cannot be push down");
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
+TEST_F(HiveConnectorTest, makeScanSpecRequiredSubfieldsMergeMap) {
   auto columnType =
       MAP(BIGINT(),
           ROW({{"c0c0", BIGINT()}, {"c0c1", BIGINT()}, {"c0c2", BIGINT()}}));
@@ -188,6 +215,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
       {},
       {},
       {},
+      false,
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_EQ(
@@ -208,7 +236,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_mergeMap) {
 
 TEST_F(
     HiveConnectorTest,
-    makeScanSpec_requiredSubfields_flatMapFeatureSelectionStringKeys) {
+    makeScanSpecRequiredSubfieldsFlatMapFeatureSelectionStringKeys) {
   auto rowType = ROW({{"c0", MAP(VARCHAR(), BIGINT())}});
   auto scanSpec = makeScanSpec(
       rowType,
@@ -218,6 +246,7 @@ TEST_F(
       {},
       {},
       {},
+      false,
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_EQ(c0->flatMapFeatureSelection(), std::vector<std::string>({"foo"}));
@@ -225,7 +254,7 @@ TEST_F(
   ASSERT_EQ(cs->findNode("c0")->getNode().expression, "[\"foo\"]");
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
+TEST_F(HiveConnectorTest, makeScanSpecRequiredSubfieldsAllSubscripts) {
   auto columnType =
       MAP(BIGINT(), ARRAY(ROW({{"c0c0", BIGINT()}, {"c0c1", BIGINT()}})));
   auto rowType = ROW({{"c0", columnType}});
@@ -239,6 +268,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
         {},
         {},
         {},
+        false,
         pool_.get());
     auto* c0 = scanSpec->childByName("c0");
     ASSERT_TRUE(c0->flatMapFeatureSelection().empty());
@@ -260,6 +290,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
       {},
       {},
       {},
+      false,
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_TRUE(mapKeyIsNotNull(*c0));
@@ -273,7 +304,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_allSubscripts) {
   validateNullConstant(*elements->childByName("c0c1"), *BIGINT());
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
+TEST_F(HiveConnectorTest, makeScanSpecRequiredSubfieldsDoubleMapKey) {
   auto rowType =
       ROW({{"c0", MAP(REAL(), BIGINT())}, {"c1", MAP(DOUBLE(), BIGINT())}});
   auto scanSpec = makeScanSpec(
@@ -284,6 +315,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
       {},
       {},
       {},
+      false,
       pool_.get());
   auto* keysFilter = scanSpec->childByName("c0")
                          ->childByName(ScanSpec::kMapKeysFieldName)
@@ -313,6 +345,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
       {},
       {},
       {},
+      false,
       pool_.get());
   keysFilter = scanSpec->childByName("c0")
                    ->childByName(ScanSpec::kMapKeysFieldName)
@@ -333,6 +366,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
       {},
       {},
       {},
+      false,
       pool_.get());
   keysFilter = scanSpec->childByName("c0")
                    ->childByName(ScanSpec::kMapKeysFieldName)
@@ -350,6 +384,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
       {},
       {},
       {},
+      false,
       pool_.get());
   keysFilter = scanSpec->childByName("c0")
                    ->childByName(ScanSpec::kMapKeysFieldName)
@@ -361,7 +396,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_doubleMapKey) {
   ASSERT_FALSE(applyFilter(*keysFilter, 100000008.0f));
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_onlyInFilters) {
+TEST_F(HiveConnectorTest, makeScanSpecRequiredSubfieldsOnlyInFilters) {
   auto c0Type = ROW({
       {"c0c0", BIGINT()},
       {"c0c1", VARCHAR()},
@@ -391,6 +426,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_onlyInFilters) {
       {},
       {},
       {},
+      false,
       pool_.get());
 
   auto c0 = scanSpec->childByName("c0");
@@ -459,7 +495,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_requiredSubfields_onlyInFilters) {
   validateNullConstant(*c1c1, *c1c1Type);
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_duplicateSubfields) {
+TEST_F(HiveConnectorTest, makeScanSpecDuplicateSubfields) {
   auto c0Type = MAP(BIGINT(), MAP(BIGINT(), BIGINT()));
   auto c1Type = MAP(VARCHAR(), MAP(BIGINT(), BIGINT()));
   auto rowType = ROW({{"c0", c0Type}, {"c1", c1Type}});
@@ -472,6 +508,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_duplicateSubfields) {
       {},
       {},
       {},
+      false,
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_EQ(c0->children().size(), 2);
@@ -480,17 +517,25 @@ TEST_F(HiveConnectorTest, makeScanSpec_duplicateSubfields) {
 }
 
 // For TEXTFILE, partition key is not included in data columns.
-TEST_F(HiveConnectorTest, makeScanSpec_filterPartitionKey) {
+TEST_F(HiveConnectorTest, makeScanSpecFilterPartitionKey) {
   auto rowType = ROW({{"c0", BIGINT()}});
   SubfieldFilters filters;
   filters.emplace(Subfield("ds"), exec::equal("2023-10-13"));
   auto scanSpec = makeScanSpec(
-      rowType, {}, filters, rowType, {{"ds", nullptr}}, {}, {}, pool_.get());
+      rowType,
+      {},
+      filters,
+      rowType,
+      {{"ds", nullptr}},
+      {},
+      {},
+      false,
+      pool_.get());
   ASSERT_TRUE(scanSpec->childByName("c0")->projectOut());
   ASSERT_FALSE(scanSpec->childByName("ds")->projectOut());
 }
 
-TEST_F(HiveConnectorTest, makeScanSpec_prunedMapNonNullMapKey) {
+TEST_F(HiveConnectorTest, makeScanSpecPrunedMapNonNullMapKey) {
   auto rowType =
       ROW({"c0"},
           {ROW(
@@ -504,6 +549,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_prunedMapNonNullMapKey) {
       {},
       {},
       {},
+      false,
       pool_.get());
   auto* c0 = scanSpec->childByName("c0");
   ASSERT_EQ(c0->children().size(), 2);
@@ -519,6 +565,7 @@ TEST_F(HiveConnectorTest, makeScanSpec_prunedMapNonNullMapKey) {
       {},
       {},
       {},
+      false,
       pool_.get());
   c0 = scanSpec->childByName("c0");
   ASSERT_EQ(c0->children().size(), 2);

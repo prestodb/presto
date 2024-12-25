@@ -123,8 +123,10 @@ bool HiveConfig::ignoreMissingFiles(const config::ConfigBase* session) const {
   return session->get<bool>(kIgnoreMissingFilesSession, false);
 }
 
-int64_t HiveConfig::maxCoalescedBytes() const {
-  return config_->get<int64_t>(kMaxCoalescedBytes, 128 << 20); // 128MB
+int64_t HiveConfig::maxCoalescedBytes(const config::ConfigBase* session) const {
+  return session->get<int64_t>(
+      kMaxCoalescedBytesSession,
+      config_->get<int64_t>(kMaxCoalescedBytes, 128 << 20)); // 128MB
 }
 
 int32_t HiveConfig::maxCoalescedDistanceBytes(
@@ -147,8 +149,9 @@ int32_t HiveConfig::prefetchRowGroups() const {
   return config_->get<int32_t>(kPrefetchRowGroups, 1);
 }
 
-int32_t HiveConfig::loadQuantum() const {
-  return config_->get<int32_t>(kLoadQuantum, 8 << 20);
+int32_t HiveConfig::loadQuantum(const config::ConfigBase* session) const {
+  return session->get<int32_t>(
+      kLoadQuantumSession, config_->get<int32_t>(kLoadQuantum, 8 << 20));
 }
 
 int32_t HiveConfig::numCacheFileHandles() const {
@@ -281,6 +284,13 @@ uint8_t HiveConfig::readTimestampUnit(const config::ConfigBase* session) const {
       unit == 3 || unit == 6 /*micro*/ || unit == 9 /*nano*/,
       "Invalid timestamp unit.");
   return unit;
+}
+
+bool HiveConfig::readStatsBasedFilterReorderDisabled(
+    const config::ConfigBase* session) const {
+  return session->get<bool>(
+      kReadStatsBasedFilterReorderDisabledSession,
+      config_->get<bool>(kReadStatsBasedFilterReorderDisabled, false));
 }
 
 bool HiveConfig::cacheNoRetention(const config::ConfigBase* session) const {

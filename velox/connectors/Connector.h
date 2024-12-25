@@ -403,7 +403,7 @@ class ConnectorQueryCtx {
   const config::ConfigBase* const sessionProperties_;
   const common::SpillConfig* const spillConfig_;
   const common::PrefixSortConfig prefixSortConfig_;
-  std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator_;
+  const std::unique_ptr<core::ExpressionEvaluator> expressionEvaluator_;
   cache::AsyncDataCache* cache_;
   const std::string scanId_;
   const std::string queryId_;

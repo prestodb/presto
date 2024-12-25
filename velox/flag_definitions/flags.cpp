@@ -100,3 +100,8 @@ DEFINE_bool(
     "exception. This is only used by test to control the test error output size");
 
 DEFINE_bool(velox_memory_use_hugepages, true, "Use explicit huge pages");
+
+DEFINE_int32(
+    cache_prefetch_min_pct,
+    80,
+    "Minimum percentage of actual uses over references to a column for prefetching. No prefetch if > 100");

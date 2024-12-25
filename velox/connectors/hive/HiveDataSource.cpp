@@ -195,6 +195,8 @@ HiveDataSource::HiveDataSource(
       partitionKeys_,
       infoColumns_,
       specialColumns_,
+      hiveConfig_->readStatsBasedFilterReorderDisabled(
+          connectorQueryCtx_->sessionProperties()),
       pool_);
   if (remainingFilter) {
     metadataFilter_ = std::make_shared<common::MetadataFilter>(
@@ -260,6 +262,8 @@ std::unique_ptr<HivePartitionFunction> HiveDataSource::setupBucketConversion() {
         partitionKeys_,
         infoColumns_,
         specialColumns_,
+        hiveConfig_->readStatsBasedFilterReorderDisabled(
+            connectorQueryCtx_->sessionProperties()),
         pool_);
     newScanSpec->moveAdaptationFrom(*scanSpec_);
     scanSpec_ = std::move(newScanSpec);
