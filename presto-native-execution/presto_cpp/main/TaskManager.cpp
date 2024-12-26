@@ -176,7 +176,7 @@ void getData(
               bytes += next->length();
               iobuf->prev()->appendChain(std::move(next));
             }
-            nextSequence++;
+            ++nextSequence;
           } else {
             complete = true;
           }
