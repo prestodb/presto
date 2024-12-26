@@ -170,37 +170,27 @@ VectorPtr BaseVector::wrapInDictionary(
   return result;
 }
 
-template <TypeKind kind>
-static VectorPtr
-addSequence(BufferPtr lengths, vector_size_t size, VectorPtr vector) {
-  auto base = vector.get();
-  auto pool = base->pool();
-  auto lsize = lengths->size();
-  return std::make_shared<
-      SequenceVector<typename KindToFlatVector<kind>::WrapperType>>(
-      pool,
-      size,
-      std::move(vector),
-      std::move(lengths),
-      SimpleVectorStats<typename KindToFlatVector<kind>::WrapperType>{},
-      std::nullopt /*distinctCount*/,
-      std::nullopt,
-      false /*sorted*/,
-      base->representedBytes().has_value()
-          ? std::optional<ByteCount>(
-                base->representedBytes().value() * size /
-                (1 + (lsize / sizeof(vector_size_t))))
-          : std::nullopt);
-}
-
 // static
 VectorPtr BaseVector::wrapInSequence(
     BufferPtr lengths,
     vector_size_t size,
     VectorPtr vector) {
-  auto kind = vector->typeKind();
-  return VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
-      addSequence, kind, std::move(lengths), size, std::move(vector));
+  const auto numLengths = lengths->size() / sizeof(vector_size_t);
+  int64_t numIndices = 0;
+  auto* rawLengths = lengths->as<vector_size_t>();
+  for (auto i = 0; i < numLengths; ++i) {
+    numIndices += rawLengths[i];
+  }
+  VELOX_CHECK_LT(numIndices, std::numeric_limits<int32_t>::max());
+  BufferPtr indices =
+      AlignedBuffer::allocate<vector_size_t>(numIndices, vector->pool());
+  auto* rawIndices = indices->asMutable<vector_size_t>();
+  int32_t fill = 0;
+  for (auto i = 0; i < numLengths; ++i) {
+    std::fill(rawIndices + fill, rawIndices + fill + rawLengths[i], i);
+    fill += rawLengths[i];
+  }
+  return wrapInDictionary(nullptr, indices, numIndices, vector);
 }
 
 template <TypeKind kind>
@@ -1005,6 +995,102 @@ std::string printIndices(
   }
 
   return out.str();
+}
+
+// static
+void BaseVector::transposeIndices(
+    const vector_size_t* baseIndices,
+    vector_size_t wrapSize,
+    const vector_size_t* wrapIndices,
+    vector_size_t* resultIndices) {
+  constexpr int32_t kBatch = xsimd::batch<int32_t>::size;
+  static_assert(kBatch == 8);
+  static_assert(sizeof(vector_size_t) == sizeof(int32_t));
+  int32_t i = 0;
+  for (; i + kBatch <= wrapSize; i += kBatch) {
+    auto indexBatch = xsimd::load_unaligned(wrapIndices + i);
+    simd::gather(baseIndices, indexBatch).store_unaligned(resultIndices + i);
+  }
+  if (i < wrapSize) {
+    auto indexBatch = xsimd::load_unaligned(wrapIndices + i);
+    auto mask = simd::leadingMask<int32_t>(wrapSize - i);
+    simd::maskGather(
+        xsimd::batch<int32_t>::broadcast(0), mask, baseIndices, indexBatch)
+        .store_unaligned(resultIndices + i);
+  }
+}
+
+// static
+void BaseVector::transposeIndicesWithNulls(
+    const vector_size_t* baseIndices,
+    const uint64_t* baseNulls,
+    vector_size_t wrapSize,
+    const vector_size_t* wrapIndices,
+    const uint64_t* wrapNulls,
+    vector_size_t* resultIndices,
+    uint64_t* resultNulls) {
+  constexpr int32_t kBatch = xsimd::batch<int32_t>::size;
+  static_assert(kBatch == 8);
+  static_assert(sizeof(vector_size_t) == sizeof(int32_t));
+  for (auto i = 0; i < wrapSize; i += kBatch) {
+    auto indexBatch = xsimd::load_unaligned(wrapIndices + i);
+    uint8_t wrapNullsByte =
+        i + kBatch > wrapSize ? bits::lowMask(wrapSize - i) : 0xff;
+
+    if (wrapNulls) {
+      wrapNullsByte &= reinterpret_cast<const uint8_t*>(wrapNulls)[i / 8];
+    }
+    if (wrapNullsByte != 0xff) {
+      // Zero out indices at null positions.
+      auto mask = simd::fromBitMask<int32_t>(wrapNullsByte);
+      indexBatch = indexBatch &
+          xsimd::load_unaligned(reinterpret_cast<const vector_size_t*>(&mask));
+    }
+    if (baseNulls) {
+      uint8_t baseNullBits = simd::gather8Bits(baseNulls, indexBatch, 8);
+      wrapNullsByte &= baseNullBits;
+    }
+    reinterpret_cast<uint8_t*>(resultNulls)[i / 8] = wrapNullsByte;
+    simd::gather<int32_t>(baseIndices, indexBatch)
+        .store_unaligned(resultIndices + i);
+  }
+}
+
+// static
+void BaseVector::transposeDictionaryValues(
+    vector_size_t wrapSize,
+    BufferPtr& wrapNulls,
+    BufferPtr& wrapIndices,
+    std::shared_ptr<BaseVector>& dictionaryValues) {
+  if (!wrapIndices->unique()) {
+    wrapIndices = AlignedBuffer::copy(dictionaryValues->pool(), wrapIndices);
+  }
+  auto* rawBaseNulls = dictionaryValues->rawNulls();
+  auto baseIndices = dictionaryValues->wrapInfo();
+  if (!rawBaseNulls && !wrapNulls) {
+    transposeIndices(
+        baseIndices->as<vector_size_t>(),
+        wrapSize,
+        wrapIndices->as<vector_size_t>(),
+        wrapIndices->asMutable<vector_size_t>());
+  } else {
+    BufferPtr newNulls;
+    if (!wrapNulls || !wrapNulls->unique()) {
+      newNulls = AlignedBuffer::allocate<bool>(
+          wrapSize, dictionaryValues->pool(), bits::kNull);
+    } else {
+      newNulls = wrapNulls;
+    }
+    transposeIndicesWithNulls(
+        baseIndices->as<vector_size_t>(),
+        rawBaseNulls,
+        wrapSize,
+        wrapIndices->as<vector_size_t>(),
+        wrapNulls ? wrapNulls->as<uint64_t>() : nullptr,
+        wrapIndices->asMutable<vector_size_t>(),
+        newNulls->asMutable<uint64_t>());
+  }
+  dictionaryValues = dictionaryValues->valueVector();
 }
 
 template <TypeKind Kind>

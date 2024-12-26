@@ -531,3 +531,131 @@ TEST_F(OperatorUtilsTest, outputBatchRows) {
     ASSERT_EQ(1000, mockOp.outputRows(3'000'000'000));
   }
 }
+
+TEST_F(OperatorUtilsTest, wrapMany) {
+  // Creates a RowVector with nullable and non-null vectors sharing
+  // different dictionary wraps. Rewraps these with a new wrap with
+  // and without nulls. Checks that the outcome has a single level of
+  // wrapping that combines the dictionaries and nulls and keeps the
+  // new wraps deduplicated where possible.
+  constexpr int32_t kSize = 1001;
+  auto indices1 = makeIndices(kSize, [](vector_size_t i) { return i; });
+  auto indices2 = makeIndicesInReverse(kSize);
+  auto indices3 = makeIndicesInReverse(kSize);
+  auto wrapNulls = AlignedBuffer::allocate<uint64_t>(
+      bits::nwords(kSize), pool_.get(), bits::kNotNull64);
+  for (auto i = 0; i < kSize; i += 5) {
+    bits::setNull(wrapNulls->asMutable<uint64_t>(), i);
+  }
+  // Test dataset: *_a has no nulls, *_b has nulls. plain* is not wrapped.
+  // wrapped1* is wrapped in one dict, wrapped2* is wrapped in another,
+  // wrapped3* is wrapped in a dictionary that adds nulls.
+  auto row = makeRowVector(
+      {"plain_a",
+       "plain_b",
+       "wrapped1_a",
+       "wrapped1_b",
+       "wrapped2_a",
+       "wrapped2_b",
+       "wrapped3_a",
+       "wrapped3_b"},
+
+      {// plain_a
+       makeFlatVector<int32_t>(kSize, [](auto i) { return i; }),
+       // plain_b
+       makeFlatVector<int32_t>(
+           kSize, [](auto i) { return i; }, [](auto i) { return i % 4 == 0; }),
+
+       // wrapped1-a
+       BaseVector::wrapInDictionary(
+           nullptr,
+           indices1,
+           kSize,
+           makeFlatVector<int32_t>(kSize, [](auto i) { return i; })),
+       // wrapped1_b
+       BaseVector::wrapInDictionary(
+           nullptr,
+           indices1,
+           kSize,
+           makeFlatVector<int32_t>(
+               kSize,
+               [](auto i) { return i; },
+               [](auto i) { return i % 4 == 0; })),
+
+       // wrapped2-a
+       BaseVector::wrapInDictionary(
+           nullptr,
+           indices2,
+           kSize,
+           makeFlatVector<int32_t>(kSize, [](auto i) { return i; })),
+       // wrapped2_b
+       BaseVector::wrapInDictionary(
+           nullptr,
+           indices2,
+           kSize,
+           makeFlatVector<int32_t>(
+               kSize,
+               [](auto i) { return i; },
+               [](auto i) { return i % 4 == 0; })),
+       // wrapped3-a
+       BaseVector::wrapInDictionary(
+           wrapNulls,
+           indices3,
+           kSize,
+           makeFlatVector<int32_t>(kSize, [](auto i) { return i; })),
+       // wrapped3_b
+       BaseVector::wrapInDictionary(
+           wrapNulls,
+           indices3,
+           kSize,
+           makeFlatVector<int32_t>(
+               kSize,
+               [](auto i) { return i; },
+               [](auto i) { return i % 4 == 0; }))
+
+      });
+  auto rowType = row->type();
+  std::vector<IdentityProjection> identicalProjections{};
+  for (auto i = 0; i < rowType->size(); ++i) {
+    identicalProjections.emplace_back(i, i);
+  }
+
+  // Now wrap 'row' in 'newIndices' keeping wraps to one level and deduplicating
+  // dictionary transposes.
+  auto newIndices = makeIndicesInReverse(kSize);
+  WrapState state;
+  std::vector<VectorPtr> projected(rowType->size());
+  projectChildren(
+      projected, row, identicalProjections, kSize, newIndices, &state);
+  auto result = makeRowVector(projected);
+  for (auto i = 0; i < kSize; ++i) {
+    EXPECT_TRUE(
+        row->equalValueAt(result.get(), i, newIndices->as<int32_t>()[i]));
+  }
+
+  // The two unwrapped columns get 'newIndices' directly.
+  EXPECT_EQ(projected[0]->wrapInfo(), newIndices);
+  EXPECT_EQ(projected[1]->wrapInfo(), newIndices);
+
+  // The next two have the same wrapper and this is now combined with newIndices
+  // and used twice.
+  EXPECT_NE(projected[2]->wrapInfo(), newIndices);
+  EXPECT_NE(projected[2]->wrapInfo(), indices2);
+  EXPECT_EQ(projected[2]->wrapInfo(), projected[3]->wrapInfo());
+
+  // The next two share a different wrapper.
+  EXPECT_NE(projected[3]->wrapInfo(), projected[4]->wrapInfo());
+  EXPECT_EQ(projected[4]->wrapInfo(), projected[5]->wrapInfo());
+
+  // The next two columns have nulls from their wrapper and thus they each get
+  // their own wrappers.
+  EXPECT_NE(projected[6]->wrapInfo(), projected[7]->wrapInfo());
+
+  // All columns have one level of wrapping.
+  EXPECT_EQ(
+      projected[2]->valueVector()->encoding(), VectorEncoding::Simple::FLAT);
+  EXPECT_EQ(
+      projected[4]->valueVector()->encoding(), VectorEncoding::Simple::FLAT);
+  EXPECT_EQ(
+      projected[6]->valueVector()->encoding(), VectorEncoding::Simple::FLAT);
+}
