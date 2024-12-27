@@ -33,6 +33,8 @@
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/Options.h"
+#include "velox/dwio/dwrf/RegisterDwrfReader.h"
+#include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Split.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
