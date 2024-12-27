@@ -533,6 +533,10 @@ TEST_F(OperatorUtilsTest, outputBatchRows) {
 }
 
 TEST_F(OperatorUtilsTest, wrapMany) {
+#if !XSIMD_WITH_AVX2
+  GTEST_SKIP();
+#endif
+
   // Creates a RowVector with nullable and non-null vectors sharing
   // different dictionary wraps. Rewraps these with a new wrap with
   // and without nulls. Checks that the outcome has a single level of
