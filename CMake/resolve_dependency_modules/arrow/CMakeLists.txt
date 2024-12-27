@@ -57,9 +57,9 @@ if(VELOX_ENABLE_ARROW)
 
   set(VELOX_ARROW_BUILD_VERSION 15.0.0)
   set(VELOX_ARROW_BUILD_SHA256_CHECKSUM
-      01dd3f70e85d9b5b933ec92c0db8a4ef504a5105f78d2d8622e84279fb45c25d)
+      ab74c60c46938505c8cd7599b1d2826c68450645d5860d0ff40f67e371a5d0b5)
   set(VELOX_ARROW_SOURCE_URL
-      "https://archive.apache.org/dist/arrow/arrow-${VELOX_ARROW_BUILD_VERSION}/apache-arrow-${VELOX_ARROW_BUILD_VERSION}.tar.gz"
+      "https://github.com/apache/arrow/archive/refs/tags/apache-arrow-${VELOX_ARROW_BUILD_VERSION}.tar.gz"
   )
 
   velox_resolve_dependency_url(ARROW)
