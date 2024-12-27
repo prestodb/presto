@@ -77,6 +77,7 @@ import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysis
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITING;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -260,7 +261,7 @@ public class Analysis
     public Type getType(Expression expression)
     {
         Type type = types.get(NodeRef.of(expression));
-        checkArgument(type != null, "Expression not analyzed: %s", expression);
+        checkNotNull(type, "Expression not analyzed: %s", expression);
         return type;
     }
 

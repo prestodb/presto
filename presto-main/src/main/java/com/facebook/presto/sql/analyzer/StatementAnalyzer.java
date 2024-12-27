@@ -294,6 +294,7 @@ import static com.facebook.presto.util.MetadataUtils.getMaterializedViewDefiniti
 import static com.facebook.presto.util.MetadataUtils.getTableColumnsMetadata;
 import static com.facebook.presto.util.MetadataUtils.getViewDefinition;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -1360,7 +1361,7 @@ class StatementAnalyzer
                         false);
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
-                checkArgument(columnHandle != null, "Unknown field %s", field);
+                checkNotNull(columnHandle, "Unknown field %s", field);
                 analysis.setColumn(field, columnHandle);
             }
 
