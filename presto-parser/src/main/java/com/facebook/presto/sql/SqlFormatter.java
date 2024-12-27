@@ -67,6 +67,10 @@ import com.facebook.presto.sql.tree.JoinOn;
 import com.facebook.presto.sql.tree.JoinUsing;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.LikeClause;
+import com.facebook.presto.sql.tree.Merge;
+import com.facebook.presto.sql.tree.MergeCase;
+import com.facebook.presto.sql.tree.MergeInsert;
+import com.facebook.presto.sql.tree.MergeUpdate;
 import com.facebook.presto.sql.tree.NaturalJoin;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.Offset;
@@ -569,6 +573,78 @@ public final class SqlFormatter
             }
 
             return null;
+        }
+
+        @Override
+        protected Void visitMerge(Merge node, Integer indent)
+        {
+            builder.append("MERGE INTO ")
+                    .append(node.getTargetTable().getName());
+
+            node.getTargetAlias().ifPresent(value -> builder
+                    .append(' ')
+                    .append(value));
+            builder.append("\n");
+
+            append(indent + 1, "USING ");
+
+            processRelation(node.getSource(), indent + 2);
+
+            builder.append("\n");
+            append(indent + 1, "ON ");
+            builder.append(formatExpression(node.getPredicate(), parameters));
+
+            for (MergeCase mergeCase : node.getMergeCases()) {
+                builder.append("\n");
+                process(mergeCase, indent);
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitMergeInsert(MergeInsert node, Integer indent)
+        {
+            appendMergeCaseWhen(false);
+            append(indent + 1, "INSERT ");
+
+            if (!node.getColumns().isEmpty()) {
+                builder.append(node.getColumns().stream()
+                        .map((Identifier expression) -> ExpressionFormatter.formatExpression(expression, parameters))
+                        .collect(joining(", ", "(", ")")));
+            }
+
+            builder.append("\n");
+            append(indent + 1, "VALUES ");
+            builder.append(node.getValues().stream()
+                    .map((Expression expression) -> ExpressionFormatter.formatExpression(expression, parameters))
+                    .collect(joining(", ", "(", ")")));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitMergeUpdate(MergeUpdate node, Integer indent)
+        {
+            appendMergeCaseWhen(true);
+            append(indent + 1, "UPDATE SET");
+
+            boolean first = true;
+            for (MergeUpdate.Assignment assignment : node.getAssignments()) {
+                builder.append("\n");
+                append(indent + 2, first ? "  " : ", ");
+                builder.append(assignment.getTarget())
+                        .append(" = ")
+                        .append(formatExpression(assignment.getValue(), parameters));
+                first = false;
+            }
+
+            return null;
+        }
+
+        private void appendMergeCaseWhen(boolean matched)
+        {
+            builder.append(matched ? "WHEN MATCHED" : "WHEN NOT MATCHED").append(" THEN\n");
         }
 
         @Override
