@@ -31,8 +31,11 @@ namespace facebook::velox::test {
 ///                supported)
 class ExpressionRunner {
  public:
-  /// @param inputPath The path to the on-disk vector that will be used as input
-  ///        to feed to the expression.
+  /// @param inputPaths A comma separated list of paths to the on-disk vectors
+  ///         that will be used as inputs to be fed to the expression.
+  /// @param inputSelectivityVectorPath A comma separated list of paths to the
+  ///        on-disk selectivity vectors that correspond 1-to-1 with the inputs
+  ///        to be fed to the expression.
   /// @param sql Comma-separated SQL expressions.
   /// @param complexConstantsPath The path to on-disk vector that stores complex
   ///        subexpressions that aren't expressable in SQL (if any), used with
@@ -63,7 +66,8 @@ class ExpressionRunner {
   /// User can refer to 'VectorSaver' class to see how to serialize/preserve
   /// vectors to disk.
   static void run(
-      const std::string& inputPath,
+      const std::string& inputPaths,
+      const std::string& inputSelectivityVectorPath,
       const std::string& sql,
       const std::string& complexConstantsPath,
       const std::string& resultPath,

@@ -43,6 +43,11 @@ struct SignatureTemplate {
   std::unordered_set<std::string> typeVariables;
 };
 
+struct InputTestCase {
+  RowVectorPtr inputVector;
+  SelectivityVector activeRows;
+};
+
 struct ResultOrError {
   RowVectorPtr result;
   std::exception_ptr exceptionPtr;
@@ -123,11 +128,6 @@ struct InputRowMetadata {
   // increasing order)
   std::vector<int> columnsToWrapInCommonDictionary;
 
-  // Dictionary indices and nulls for the common dictionary layer. Buffers are
-  // null if no columns are specified in `columnsToWrapInCommonDictionary`.
-  BufferPtr commonDictionaryIndices;
-  BufferPtr commonDictionaryNulls;
-
   bool empty() const {
     return columnsToWrapInLazy.empty() &&
         columnsToWrapInCommonDictionary.empty();
@@ -138,11 +138,4 @@ struct InputRowMetadata {
       const char* filePath,
       memory::MemoryPool* pool);
 };
-
-// Wraps the columns in the row vector with a common dictionary layer. The
-// column indices to wrap and the wrap itself is specified in
-// `inputRowMetadata`.
-RowVectorPtr applyCommonDictionaryLayer(
-    const RowVectorPtr& rowVector,
-    const InputRowMetadata& inputRowMetadata);
 } // namespace facebook::velox::fuzzer

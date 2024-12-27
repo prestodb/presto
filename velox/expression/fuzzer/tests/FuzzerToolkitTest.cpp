@@ -41,10 +41,7 @@ class FuzzerToolKitTest : public testing::Test,
   bool equals(const InputRowMetadata& lhs, const InputRowMetadata& rhs) {
     return lhs.columnsToWrapInLazy == rhs.columnsToWrapInLazy &&
         lhs.columnsToWrapInCommonDictionary ==
-        rhs.columnsToWrapInCommonDictionary &&
-        compareBuffers(
-               lhs.commonDictionaryIndices, rhs.commonDictionaryIndices) &&
-        compareBuffers(lhs.commonDictionaryNulls, rhs.commonDictionaryNulls);
+        rhs.columnsToWrapInCommonDictionary;
   }
 };
 
@@ -52,38 +49,7 @@ TEST_F(FuzzerToolKitTest, inputRowMetadataRoundTrip) {
   InputRowMetadata metadata;
   metadata.columnsToWrapInLazy = {1, -2, 3, -4, 5};
   metadata.columnsToWrapInCommonDictionary = {1, 2, 3, 4, 5};
-  metadata.commonDictionaryIndices = makeIndicesInReverse(5);
-  metadata.commonDictionaryNulls = makeNulls({true, false, true, false, true});
 
-  {
-    auto path = exec::test::TempFilePath::create();
-    metadata.saveToFile(path->getPath().c_str());
-    auto copy =
-        InputRowMetadata::restoreFromFile(path->getPath().c_str(), pool());
-    ASSERT_TRUE(equals(metadata, copy));
-  }
-
-  metadata.commonDictionaryNulls = nullptr;
-  {
-    auto path = exec::test::TempFilePath::create();
-    metadata.saveToFile(path->getPath().c_str());
-    auto copy =
-        InputRowMetadata::restoreFromFile(path->getPath().c_str(), pool());
-    ASSERT_TRUE(equals(metadata, copy));
-  }
-
-  metadata.columnsToWrapInCommonDictionary.clear();
-  metadata.commonDictionaryIndices = nullptr;
-  {
-    auto path = exec::test::TempFilePath::create();
-    metadata.saveToFile(path->getPath().c_str());
-    auto copy =
-        InputRowMetadata::restoreFromFile(path->getPath().c_str(), pool());
-    ASSERT_TRUE(equals(metadata, copy));
-  }
-
-  metadata.columnsToWrapInLazy.clear();
-  metadata.commonDictionaryIndices = nullptr;
   {
     auto path = exec::test::TempFilePath::create();
     metadata.saveToFile(path->getPath().c_str());

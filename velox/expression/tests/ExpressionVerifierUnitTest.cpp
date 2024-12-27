@@ -113,7 +113,9 @@ TEST_F(ExpressionVerifierUnitTest, persistReproInfo) {
 
     removeDirecrtoryIfExist(localFs, reproPath);
     VELOX_ASSERT_THROW(
-        verifier.verify({plan}, data, std::nullopt, nullptr, false), "");
+        verifier.verify(
+            {plan}, {{data, SelectivityVector(data->size())}}, nullptr, false),
+        "");
     EXPECT_TRUE(localFs->exists(reproPath));
     EXPECT_FALSE(localFs->list(reproPath).empty());
     removeDirecrtoryIfExist(localFs, reproPath);
@@ -144,12 +146,14 @@ TEST_F(ExpressionVerifierUnitTest, subsetOfRowsToVerify) {
     auto data = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
     auto plan = parseExpression("always_throws(c0)", asRowType(data->type()));
     VELOX_ASSERT_THROW(
-        verifier.verify({plan}, data, std::nullopt, nullptr, false), "");
+        verifier.verify(
+            {plan}, {{data, SelectivityVector(data->size())}}, nullptr, false),
+        "");
 
     SelectivityVector rows(data->size());
     rows.setValid(1, false);
     rows.updateBounds();
-    verifier.verify({plan}, data, rows, nullptr, false);
+    verifier.verify({plan}, {{data, rows}}, nullptr, false);
   }
 }
 

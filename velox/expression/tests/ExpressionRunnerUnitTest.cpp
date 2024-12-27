@@ -47,12 +47,11 @@ class ExpressionRunnerUnitTest : public testing::Test, public VectorTestBase {
 
 TEST_F(ExpressionRunnerUnitTest, run) {
   auto inputFile = exec::test::TempFilePath::create();
-  auto sqlFile = exec::test::TempFilePath::create();
+  auto selectivityVectorFile = exec::test::TempFilePath::create();
   auto resultFile = exec::test::TempFilePath::create();
   const auto inputPathStr = inputFile->getPath();
-  const char* inputPath = inputPathStr.data();
   const auto resultPathStr = resultFile->getPath();
-  const char* resultPath = resultPathStr.data();
+  const auto selectivityVectorPathStr = selectivityVectorFile->getPath();
   const int vectorSize = 100;
 
   VectorMaker vectorMaker(pool_.get());
@@ -60,18 +59,23 @@ TEST_F(ExpressionRunnerUnitTest, run) {
       {"c0"}, {vectorMaker.flatVector<StringView>(vectorSize, [](auto) {
         return "abc";
       })});
-  auto resultVector = vectorMaker.flatVector<int64_t>(
-      vectorSize, [](auto row) { return row * 100; });
-  saveVectorToFile(inputVector.get(), inputPath);
-  saveVectorToFile(resultVector.get(), resultPath);
+  SelectivityVector rows(vectorSize);
+  auto resultVector = vectorMaker.rowVector(
+      {"output0"}, {vectorMaker.flatVector<int64_t>(vectorSize, [](auto row) {
+        return row * 100;
+      })});
+  saveVectorToFile(inputVector.get(), inputPathStr.data());
+  saveVectorToFile(resultVector.get(), resultPathStr.data());
+  saveSelectivityVectorToFile(rows, selectivityVectorPathStr.data());
 
   for (bool useSeperatePoolForInput : {true, false}) {
     LOG(INFO) << "Using useSeperatePoolForInput: " << useSeperatePoolForInput;
     EXPECT_NO_THROW(ExpressionRunner::run(
-        inputPath,
+        inputPathStr.data(),
+        selectivityVectorPathStr.data(),
         "length(c0)",
         "",
-        resultPath,
+        resultPathStr.data(),
         "verify",
         0,
         "",

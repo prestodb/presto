@@ -507,6 +507,8 @@ void Expr::evalSimplifiedImpl(
         inputValue->encoding() == VectorEncoding::Simple::ROW ||
         inputValue->encoding() == VectorEncoding::Simple::FUNCTION);
   };
+  auto releaseInputsGuard =
+      folly::makeGuard([&]() { releaseInputValues(context); });
 
   if (defaultNulls) {
     if (!evalArgsDefaultNulls(remainingRows, evalArg, context, result)) {
@@ -530,7 +532,6 @@ void Expr::evalSimplifiedImpl(
 
   // Make sure the returned vector has its null bitmap properly set.
   addNulls(rows, remainingRows.rows().asRange().bits(), context, result);
-  releaseInputValues(context);
 }
 
 namespace {
@@ -736,7 +737,8 @@ void Expr::evalFlatNoNullsImpl(
       {.messageFunc = parentExprSet ? onTopLevelException : onException,
        .arg = parentExprSet ? (void*)&exprExceptionContext : this,
        .isEssential = parentExprSet != nullptr});
-
+  auto releaseInputsGuard =
+      folly::makeGuard([&]() { releaseInputValues(context); });
   if (!rows.hasSelections()) {
     checkOrSetEmptyResult(type(), context.pool(), result);
     return;
@@ -768,7 +770,6 @@ void Expr::evalFlatNoNullsImpl(
       VELOX_CHECK_NULL(inputValues_[i]);
     }
   }
-  releaseInputValues(context);
 }
 
 void Expr::eval(
@@ -1413,7 +1414,8 @@ void Expr::evalAllImpl(
     EvalCtx& context,
     VectorPtr& result) {
   VELOX_DCHECK(rows.hasSelections());
-
+  auto releaseInputsGuard =
+      folly::makeGuard([&]() { releaseInputValues(context); });
   if (isSpecialForm()) {
     evalSpecialFormWithStats(rows, context, result);
     return;
@@ -1460,7 +1462,6 @@ void Expr::evalAllImpl(
   if (remainingRows.hasChanged()) {
     addNulls(rows, remainingRows.rows().asRange().bits(), context, result);
   }
-  releaseInputValues(context);
 }
 
 bool Expr::applyFunctionWithPeeling(

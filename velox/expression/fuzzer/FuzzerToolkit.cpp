@@ -19,13 +19,12 @@
 namespace facebook::velox::fuzzer {
 
 namespace {
-template <typename T>
-void saveStdVector(const std::vector<T>& list, std::ostream& out) {
+void saveStdVector(const std::vector<int>& list, std::ostream& out) {
   // Size of the vector
   size_t size = list.size();
   out.write((char*)&(size), sizeof(size));
   out.write(
-      reinterpret_cast<const char*>(list.data()), list.size() * sizeof(T));
+      reinterpret_cast<const char*>(list.data()), list.size() * sizeof(int));
 }
 
 template <typename T>
@@ -158,43 +157,10 @@ void compareVectors(
   LOG(INFO) << "Two vectors match.";
 }
 
-RowVectorPtr applyCommonDictionaryLayer(
-    const RowVectorPtr& rowVector,
-    const InputRowMetadata& inputRowMetadata) {
-  if (inputRowMetadata.columnsToWrapInCommonDictionary.empty()) {
-    return rowVector;
-  }
-  auto size = rowVector->size();
-  auto& nulls = inputRowMetadata.commonDictionaryNulls;
-  auto& indices = inputRowMetadata.commonDictionaryIndices;
-  if (nulls) {
-    VELOX_CHECK_LE(bits::nbytes(size), nulls->size());
-  }
-  VELOX_CHECK_LE(size, indices->size() / sizeof(vector_size_t));
-  std::vector<VectorPtr> newInputs;
-  int listIndex = 0;
-  auto& columnsToWrap = inputRowMetadata.columnsToWrapInCommonDictionary;
-  for (int idx = 0; idx < rowVector->childrenSize(); idx++) {
-    auto& child = rowVector->childAt(idx);
-    VELOX_CHECK_NOT_NULL(child);
-    if (listIndex < columnsToWrap.size() && idx == columnsToWrap[listIndex]) {
-      newInputs.push_back(
-          BaseVector::wrapInDictionary(nulls, indices, size, child));
-      listIndex++;
-    } else {
-      newInputs.push_back(child);
-    }
-  }
-  return std::make_shared<RowVector>(
-      rowVector->pool(), rowVector->type(), nullptr, size, newInputs);
-}
-
 void InputRowMetadata::saveToFile(const char* filePath) const {
   std::ofstream outputFile(filePath, std::ofstream::binary);
   saveStdVector(columnsToWrapInLazy, outputFile);
   saveStdVector(columnsToWrapInCommonDictionary, outputFile);
-  writeOptionalBuffer(commonDictionaryIndices, outputFile);
-  writeOptionalBuffer(commonDictionaryNulls, outputFile);
   outputFile.close();
 }
 
@@ -205,10 +171,8 @@ InputRowMetadata InputRowMetadata::restoreFromFile(
   std::ifstream in(filePath, std::ifstream::binary);
   ret.columnsToWrapInLazy = restoreStdVector<int>(in);
   if (in.peek() != EOF) {
-    // this allows reading old files that only saved columnsToWrapInLazy.
+    // this check allows reading old files that only saved columnsToWrapInLazy.
     ret.columnsToWrapInCommonDictionary = restoreStdVector<int>(in);
-    ret.commonDictionaryIndices = readOptionalBuffer(in, pool);
-    ret.commonDictionaryNulls = readOptionalBuffer(in, pool);
   }
   in.close();
   return ret;

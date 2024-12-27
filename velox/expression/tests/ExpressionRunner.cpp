@@ -72,14 +72,29 @@ RowVectorPtr evaluateAndPrintResults(
   return rowResult;
 }
 
-vector_size_t adjustNumRows(vector_size_t numRows, vector_size_t size) {
-  return numRows > 0 && numRows < size ? numRows : size;
+// Adjusts the number of rows to be evaluated to be at most numRows.
+SelectivityVector adjustRows(
+    vector_size_t numRows,
+    const SelectivityVector& rows) {
+  if (numRows == 0 || numRows >= rows.countSelected()) {
+    return rows;
+  }
+  SelectivityVector adjustedRows(rows.end(), false);
+  for (int i = 0; i < rows.end() && numRows > 0; i++) {
+    if (rows.isValid(i)) {
+      adjustedRows.setValid(i, true);
+      numRows--;
+    }
+  }
+  return adjustedRows;
 }
 
 void saveResults(
     const RowVectorPtr& results,
-    const std::string& directoryPath) {
-  auto path = common::generateTempFilePath(directoryPath.c_str(), "vector");
+    const std::string& directoryPath,
+    const std::string& fileName) {
+  auto path =
+      common::generateTempFilePath(directoryPath.c_str(), fileName.c_str());
   VELOX_CHECK(
       path.has_value(),
       "Failed to create file for saving result vector in {} directory.",
@@ -107,8 +122,70 @@ std::vector<core::TypedExprPtr> ExpressionRunner::parseSql(
   return typedExprs;
 }
 
+// splits up strings into a vector of strings from a comma separated string
+// e.g. "a,b,c" -> ["a", "b", "c"]
+std::vector<std::string> split(const std::string& s) {
+  std::vector<std::string> result;
+  std::stringstream ss(s);
+  while (ss.good()) {
+    std::string substr;
+    getline(ss, substr, ',');
+    result.push_back(substr);
+  }
+  return result;
+}
+
+// Make all children of the input row vector at 'indices' wrapped in the same
+// dictionary Buffers. These children are assumed to have already been wrapped
+// in the same dictionary but through separate Buffers. Making them wrapped in
+// the same Buffers is necessary to trigger peeling.
+RowVectorPtr replicateCommonDictionaryLayer(
+    RowVectorPtr inputVector,
+    std::vector<int> indices) {
+  if (inputVector == nullptr || indices.size() < 2) {
+    return inputVector;
+  }
+  std::vector<VectorPtr> children = inputVector->children();
+  auto firstEncodedChild = children[indices[0]];
+  VELOX_CHECK_EQ(
+      firstEncodedChild->encoding(), VectorEncoding::Simple::DICTIONARY);
+  auto commonDictionaryIndices = firstEncodedChild->wrapInfo();
+  auto commonNulls = firstEncodedChild->nulls();
+  for (auto i = 1; i < indices.size(); i++) {
+    auto& child = children[indices[i]];
+    VELOX_CHECK_EQ(child->encoding(), VectorEncoding::Simple::DICTIONARY);
+    child = BaseVector::wrapInDictionary(
+        commonNulls,
+        commonDictionaryIndices,
+        child->size(),
+        child->valueVector());
+  }
+  return std::make_shared<RowVector>(
+      inputVector->pool(),
+      inputVector->type(),
+      inputVector->nulls(),
+      inputVector->size(),
+      children);
+}
+
+// Applies modifications to the input test cases based on the input row
+// metadata, which includes making sure specific columns are wrapped in common
+// dictionary and/or wrapped in a lazy shim layer.
+void applyModificationsToInput(
+    std::vector<fuzzer::InputTestCase>& inputTestCases,
+    const InputRowMetadata& inputRowMetadata) {
+  for (auto& testCase : inputTestCases) {
+    auto& inputVector = testCase.inputVector;
+    inputVector = replicateCommonDictionaryLayer(
+        inputVector, inputRowMetadata.columnsToWrapInCommonDictionary);
+    inputVector = VectorFuzzer::fuzzRowChildrenToLazy(
+        inputVector, inputRowMetadata.columnsToWrapInLazy);
+  }
+}
+
 void ExpressionRunner::run(
-    const std::string& inputPath,
+    const std::string& inputPaths,
+    const std::string& inputSelectivityVectorPaths,
     const std::string& sql,
     const std::string& complexConstantsPath,
     const std::string& resultPath,
@@ -129,36 +206,63 @@ void ExpressionRunner::run(
       : deserializerPool;
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
-  RowVectorPtr inputVector;
-
-  if (inputPath.empty()) {
-    inputVector = std::make_shared<RowVector>(
-        deserializerPool.get(), ROW({}), nullptr, 1, std::vector<VectorPtr>{});
-  } else {
-    inputVector = std::dynamic_pointer_cast<RowVector>(
-        restoreVectorFromFile(inputPath.c_str(), deserializerPool.get()));
-    VELOX_CHECK_NOT_NULL(
-        inputVector,
-        "Input vector is not a RowVector: {}",
-        inputVector->toString());
-    VELOX_CHECK_GT(inputVector->size(), 0, "Input vector must not be empty.");
-  }
-
   fuzzer::InputRowMetadata inputRowMetadata;
   if (!inputRowMetadataPath.empty()) {
     inputRowMetadata = fuzzer::InputRowMetadata::restoreFromFile(
         inputRowMetadataPath.c_str(), pool.get());
   }
 
+  std::vector<fuzzer::InputTestCase> inputTestCases;
+  if (inputPaths.empty()) {
+    inputTestCases.push_back(
+        {std::make_shared<RowVector>(
+             deserializerPool.get(),
+             ROW({}),
+             nullptr,
+             1,
+             std::vector<VectorPtr>{}),
+         SelectivityVector(1)});
+  } else {
+    std::vector<std::string> inputPathsList = split(inputPaths);
+    std::vector<std::string> inputSelectivityPaths =
+        split(inputSelectivityVectorPaths);
+    for (int i = 0; i < inputPathsList.size(); i++) {
+      auto inputVector =
+          std::dynamic_pointer_cast<RowVector>(restoreVectorFromFile(
+              inputPathsList[i].c_str(), deserializerPool.get()));
+      VELOX_CHECK_NOT_NULL(
+          inputVector,
+          "Input vector is not a RowVector: {}",
+          inputVector->toString());
+      VELOX_CHECK_GT(inputVector->size(), 0, "Input vector must not be empty.");
+      if (inputSelectivityPaths.size() > i) {
+        inputTestCases.push_back(
+            {inputVector,
+             restoreSelectivityVectorFromFile(
+                 inputSelectivityPaths[i].c_str())});
+      } else {
+        inputTestCases.push_back(
+            {inputVector, SelectivityVector(inputVector->size(), true)});
+      }
+    }
+    applyModificationsToInput(inputTestCases, inputRowMetadata);
+  }
+
+  VELOX_CHECK(inputTestCases.size() > 0);
+  auto inputRowType = inputTestCases[0].inputVector->type();
+
   parse::registerTypeResolver();
 
   if (mode == "query") {
     core::DuckDbQueryPlanner planner{pool.get()};
-
-    if (inputVector->type()->size()) {
+    std::vector<RowVectorPtr> inputVectors;
+    for (auto& testCase : inputTestCases) {
+      inputVectors.push_back(testCase.inputVector);
+    }
+    if (inputRowType->size()) {
       LOG(INFO) << "Registering input vector as table t: "
-                << inputVector->type()->toString();
-      planner.registerTable("t", {inputVector});
+                << inputRowType->toString();
+      planner.registerTable("t", inputVectors);
     }
 
     auto plan = planner.plan(sql);
@@ -169,7 +273,7 @@ void ExpressionRunner::run(
     exec::test::printResults(results, std::cout);
 
     if (!storeResultPath.empty()) {
-      saveResults(results, storeResultPath);
+      saveResults(results, storeResultPath, "resultVector");
     }
     return;
   }
@@ -179,15 +283,12 @@ void ExpressionRunner::run(
     complexConstants =
         restoreVectorFromFile(complexConstantsPath.c_str(), pool.get());
   }
-  auto typedExprs =
-      parseSql(sql, inputVector->type(), pool.get(), complexConstants);
+  auto typedExprs = parseSql(sql, inputRowType, pool.get(), complexConstants);
 
   VectorPtr resultVector;
   if (!resultPath.empty()) {
     resultVector = restoreVectorFromFile(resultPath.c_str(), pool.get());
   }
-
-  SelectivityVector rows(adjustNumRows(numRows, inputVector->size()));
 
   LOG(INFO) << "Evaluating SQL expression(s): " << sql;
 
@@ -197,8 +298,7 @@ void ExpressionRunner::run(
     try {
       verifier.verify(
           typedExprs,
-          inputVector,
-          std::nullopt,
+          inputTestCases,
           std::move(resultVector),
           true,
           inputRowMetadata);
@@ -210,27 +310,26 @@ void ExpressionRunner::run(
             std::move(verifier),
             fuzzer,
             typedExprs,
-            inputVector,
-            std::nullopt,
+            inputTestCases,
             inputRowMetadata);
       }
       throw;
     }
 
-  } else if (mode == "common") {
-    inputVector = VectorFuzzer::fuzzRowChildrenToLazy(
-        inputVector, inputRowMetadata.columnsToWrapInLazy);
-    inputVector = applyCommonDictionaryLayer(inputVector, inputRowMetadata);
-    exec::ExprSet exprSet(typedExprs, &execCtx);
-    auto results = evaluateAndPrintResults(exprSet, inputVector, rows, execCtx);
-    if (!storeResultPath.empty()) {
-      saveResults(results, storeResultPath);
-    }
-  } else if (mode == "simplified") {
-    exec::ExprSetSimplified exprSet(typedExprs, &execCtx);
-    auto results = evaluateAndPrintResults(exprSet, inputVector, rows, execCtx);
-    if (!storeResultPath.empty()) {
-      saveResults(results, storeResultPath);
+  } else if (mode == "common" || mode == "simplified") {
+    std::shared_ptr<exec::ExprSet> exprSet = mode == "common"
+        ? std::make_shared<exec::ExprSet>(typedExprs, &execCtx)
+        : std::make_shared<exec::ExprSetSimplified>(typedExprs, &execCtx);
+    for (int i = 0; i < inputTestCases.size(); ++i) {
+      auto& testCase = inputTestCases[i];
+      SelectivityVector rows = adjustRows(numRows, testCase.activeRows);
+      std::cout << "Executing Input " << i << std::endl;
+      auto results = evaluateAndPrintResults(
+          *exprSet, testCase.inputVector, rows, execCtx);
+      if (!storeResultPath.empty()) {
+        auto fileName = fmt::format("resultVector_{}", i);
+        saveResults(results, storeResultPath, fileName);
+      }
     }
   } else {
     VELOX_FAIL("Unknown expression runner mode: [{}].", mode);

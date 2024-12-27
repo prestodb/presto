@@ -20,11 +20,6 @@
 
 namespace facebook::velox {
 
-void writeBuffer(const BufferPtr& buffer, std::ostream& out);
-void writeOptionalBuffer(const BufferPtr& buffer, std::ostream& out);
-BufferPtr readBuffer(std::istream& in, memory::MemoryPool* pool);
-BufferPtr readOptionalBuffer(std::istream& in, memory::MemoryPool* pool);
-
 namespace {
 
 enum class Encoding : int8_t {
@@ -105,6 +100,45 @@ Encoding readEncoding(std::istream& in) {
     default:
       VELOX_UNSUPPORTED("Unsupported encoding: {}", encoding);
   }
+}
+
+/// Serializes a BufferPtr into binary format and writes it to the
+/// provided output stream. 'buffer' must be non-null.
+void writeBuffer(const BufferPtr& buffer, std::ostream& out) {
+  write<int32_t>(buffer->size(), out);
+  out.write(buffer->as<char>(), buffer->size());
+}
+
+/// Serializes a optional BufferPtr into binary format and writes it to the
+/// provided output stream.
+void writeOptionalBuffer(const BufferPtr& buffer, std::ostream& out) {
+  if (buffer) {
+    write<bool>(true, out);
+    writeBuffer(buffer, out);
+  } else {
+    write<bool>(false, out);
+  }
+}
+
+/// Deserializes a BufferPtr serialized by 'writeBuffer' from the provided
+/// input stream.
+BufferPtr readBuffer(std::istream& in, memory::MemoryPool* pool) {
+  auto numBytes = read<int32_t>(in);
+  auto buffer = AlignedBuffer::allocate<char>(numBytes, pool);
+  auto rawBuffer = buffer->asMutable<char>();
+  in.read(rawBuffer, numBytes);
+  return buffer;
+}
+
+/// Deserializes a optional BufferPtr serialized by 'writeOptionalBuffer' from
+/// the provided input stream.
+BufferPtr readOptionalBuffer(std::istream& in, memory::MemoryPool* pool) {
+  bool hasBuffer = read<bool>(in);
+  if (hasBuffer) {
+    return readBuffer(in, pool);
+  }
+
+  return nullptr;
 }
 
 template <TypeKind kind>
@@ -548,38 +582,6 @@ VectorPtr readLazyVector(
 }
 } // namespace
 
-void writeBuffer(const BufferPtr& buffer, std::ostream& out) {
-  VELOX_CHECK_NOT_NULL(buffer);
-  write<int32_t>(buffer->size(), out);
-  out.write(buffer->as<char>(), buffer->size());
-}
-
-void writeOptionalBuffer(const BufferPtr& buffer, std::ostream& out) {
-  if (buffer) {
-    write<bool>(true, out);
-    writeBuffer(buffer, out);
-  } else {
-    write<bool>(false, out);
-  }
-}
-
-BufferPtr readBuffer(std::istream& in, memory::MemoryPool* pool) {
-  auto numBytes = read<int32_t>(in);
-  auto buffer = AlignedBuffer::allocate<char>(numBytes, pool);
-  auto rawBuffer = buffer->asMutable<char>();
-  in.read(rawBuffer, numBytes);
-  return buffer;
-}
-
-BufferPtr readOptionalBuffer(std::istream& in, memory::MemoryPool* pool) {
-  bool hasBuffer = read<bool>(in);
-  if (hasBuffer) {
-    return readBuffer(in, pool);
-  }
-
-  return nullptr;
-}
-
 void saveType(const TypePtr& type, std::ostream& out) {
   auto serialized = toJson(type->serialize());
   write(serialized, out);
@@ -744,6 +746,22 @@ SelectivityVector restoreSelectivityVector(std::istream& in) {
   SelectivityVector rows(size);
   rows.setFromBits(reinterpret_cast<uint64_t*>(bits.data()), size);
   return rows;
+}
+
+void saveSelectivityVectorToFile(
+    const SelectivityVector& rows,
+    const char* filePath) {
+  std::ofstream outputFile(filePath, std::ofstream::binary);
+  saveSelectivityVector(rows, outputFile);
+  outputFile.close();
+}
+
+SelectivityVector restoreSelectivityVectorFromFile(const char* filePath) {
+  std::ifstream inputFile(filePath, std::ifstream::binary);
+  VELOX_CHECK(!inputFile.fail(), "Cannot open file: {}", filePath);
+  auto result = restoreSelectivityVector(inputFile);
+  inputFile.close();
+  return result;
 }
 } // namespace facebook::velox
 

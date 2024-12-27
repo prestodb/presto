@@ -35,11 +35,19 @@ using facebook::velox::exec::test::PrestoQueryRunner;
 using facebook::velox::test::ReferenceQueryRunner;
 
 DEFINE_string(
-    input_path,
+    input_paths,
     "",
-    "Path for vector to be restored from disk. This will enable single run "
-    "of the fuzzer with the on-disk persisted repro information. This has to "
-    "be set with sql_path and optionally result_path.");
+    "Comma separated list of paths for vectors to be restored from disk. This "
+    "will enable single run of the fuzzer with the on-disk persisted repro "
+    "information. This has to be set with sql_path and optionally "
+    "result_path.");
+
+DEFINE_string(
+    input_selectivity_vector_paths,
+    "",
+    "Comma separated list of paths for selectivity vectors to be restored "
+    "from disk. The list needs to match 1-to-1 with the files specified in "
+    "input_paths. If not specified, all rows will be selected.");
 
 DEFINE_string(
     sql_path,
@@ -83,8 +91,8 @@ DEFINE_string(
     "simplified: evaluate the expression using simplified path and print out "
     "results.\n"
     "query: evaluate SQL query specified in --sql or --sql_path and print out "
-    "results. If --input_path is specified, the query may reference it as "
-    "table 't'.");
+    "results. If --input_paths is specified, the query may reference it as "
+    "table 't'. Note: --input_selectivity_vector_paths is ignored in this mode");
 
 DEFINE_string(
     input_row_metadata_path,
@@ -189,14 +197,49 @@ static std::string checkAndReturnFilePath(
   return "";
 }
 
+static std::string getFilesWithPrefix(
+    const char* dirPath,
+    const std::string_view& prefix,
+    const std::string& flagName) {
+  std::vector<std::string> filesPaths;
+  std::stringstream ss;
+  int numFilesFound = 0;
+  if (!std::filesystem::exists(dirPath)) {
+    LOG(ERROR) << "Directory does not exist: " << dirPath << std::endl;
+    return "";
+  }
+  for (const auto& entry : std::filesystem::directory_iterator(dirPath)) {
+    if (entry.is_regular_file()) {
+      std::string filename = entry.path().filename();
+      if (filename.find(prefix) == 0) {
+        if (++numFilesFound > 1) {
+          ss << ",";
+        }
+        ss << entry.path().string();
+      }
+    }
+  }
+  LOG(INFO) << "Using " << flagName << " = " << ss.str();
+  return ss.str();
+}
+
 static void checkDirForExpectedFiles() {
   LOG(INFO) << "Searching input directory for expected files at "
             << FLAGS_fuzzer_repro_path;
 
-  FLAGS_input_path = FLAGS_input_path.empty()
-      ? checkAndReturnFilePath(
-            test::ExpressionVerifier::kInputVectorFileName, "input_path")
-      : FLAGS_input_path;
+  FLAGS_input_paths = FLAGS_input_paths.empty()
+      ? getFilesWithPrefix(
+            FLAGS_fuzzer_repro_path.c_str(),
+            test::ExpressionVerifier::kInputVectorFileNamePrefix,
+            "input_paths")
+      : FLAGS_input_paths;
+  FLAGS_input_selectivity_vector_paths =
+      FLAGS_input_selectivity_vector_paths.empty()
+      ? getFilesWithPrefix(
+            FLAGS_fuzzer_repro_path.c_str(),
+            test::ExpressionVerifier::kInputSelectivityVectorFileNamePrefix,
+            "input_selectivity_vector_paths")
+      : FLAGS_input_selectivity_vector_paths;
   FLAGS_result_path = FLAGS_result_path.empty()
       ? checkAndReturnFilePath(
             test::ExpressionVerifier::kResultVectorFileName, "result_path")
@@ -260,7 +303,8 @@ int main(int argc, char** argv) {
   }
 
   test::ExpressionRunner::run(
-      FLAGS_input_path,
+      FLAGS_input_paths,
+      FLAGS_input_selectivity_vector_paths,
       sql,
       FLAGS_complex_constant_path,
       FLAGS_result_path,

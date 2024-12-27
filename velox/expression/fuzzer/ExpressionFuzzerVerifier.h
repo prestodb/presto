@@ -158,6 +158,23 @@ class ExpressionFuzzerVerifier {
     std::unordered_map<std::string, ExprUsageStats>& exprNameToStats_;
   };
 
+  // Performs the following operations:
+  // 1. Randomly picks whether to generate either 1 or 2 input test cases.
+  // 2. Generates InputRowMetadata which contains the following:
+  // 2a. Randomly picked columns from the input row vector to wrap
+  // in lazy. Negative column indices represent lazy vectors that have been
+  // preloaded before feeding them to the evaluator.
+  // 2b. Randomly picked columns (2 or more) from the input row vector to
+  // wrap in a common dictionary layer. Only columns not already dictionary
+  // encoded are picked.
+  // Note: These lists are sorted on the absolute value of the entries.
+  // 3. Generates a Fuzzed input row vector and ensures that the columns picked
+  // in 2b are wrapped with the same dictionary.
+  // 4. Appends a row number column to the input row vector.
+  std::pair<std::vector<InputTestCase>, InputRowMetadata> generateInput(
+      const RowTypePtr& rowType,
+      VectorFuzzer& vectorFuzzer);
+
   /// Randomize initial result vector data to test for correct null and data
   /// setting in functions.
   RowVectorPtr generateResultVectors(std::vector<core::TypedExprPtr>& plans);
@@ -171,7 +188,7 @@ class ExpressionFuzzerVerifier {
   /// Throws in case any of these steps fail.
   void retryWithTry(
       std::vector<core::TypedExprPtr> plans,
-      const RowVectorPtr& rowVector,
+      std::vector<fuzzer::InputTestCase> inputsToRetry,
       const VectorPtr& resultVectors,
       const InputRowMetadata& columnsToWrapInLazy);
 
@@ -188,18 +205,6 @@ class ExpressionFuzzerVerifier {
   /// spreadsheet for further analysis: functionName numTimesSelected
   /// proportionOfTimesSelected numProcessedRows.
   void logStats();
-
-  // Generates InputRowMetadata which contains the following:
-  // 1. Randomly picked columns from the input row vector to wrap
-  // in lazy. Negative column indices represent lazy vectors that have been
-  // preloaded before feeding them to the evaluator.
-  // 2. Randomly picked columns (2 or more) from the input row vector to
-  // wrap in a common dictionary layer. Only columns not already dictionary
-  // encoded are picked.
-  // Note: These lists are sorted on the absolute value of the entries.
-  InputRowMetadata generateInputRowMetadata(
-      const RowVectorPtr& rowVector,
-      VectorFuzzer& vectorFuzzer);
 
   // Appends an additional row number column called 'row_number' at the end of
   // the 'inputRow'. This column is then used to line up rows when comparing

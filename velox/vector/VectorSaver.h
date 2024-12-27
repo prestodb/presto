@@ -61,20 +61,10 @@ void saveSelectivityVector(const SelectivityVector& rows, std::ostream& out);
 /// the provided input stream.
 SelectivityVector restoreSelectivityVector(std::istream& in);
 
-/// Serializes a BufferPtr into binary format and writes it to the
-/// provided output stream. 'buffer' must be non-null.
-void writeBuffer(const BufferPtr& buffer, std::ostream& out);
+void saveSelectivityVectorToFile(
+    const SelectivityVector& rows,
+    const char* filePath);
 
-/// Serializes a optional BufferPtr into binary format and writes it to the
-/// provided output stream.
-void writeOptionalBuffer(const BufferPtr& buffer, std::ostream& out);
-
-/// Deserializes a BufferPtr serialized by 'writeBuffer' from the provided
-/// input stream.
-BufferPtr readBuffer(std::istream& in, memory::MemoryPool* pool);
-
-/// Deserializes a optional BufferPtr serialized by 'writeOptionalBuffer' from
-/// the provided input stream.
-BufferPtr readOptionalBuffer(std::istream& in, memory::MemoryPool* pool);
+SelectivityVector restoreSelectivityVectorFromFile(const char* filePath);
 
 } // namespace facebook::velox
