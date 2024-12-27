@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/exec/TraceConfig.h"
-
 #include <utility>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/TraceConfig.h"
 
 namespace facebook::velox::exec::trace {
 

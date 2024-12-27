@@ -461,7 +461,7 @@ TEST_F(OperatorTraceTest, error) {
             .copyResults(pool()),
         "Query trace enabled but the trace dir is not set");
   }
-  // Duplicate trace plan node ids.
+  // No trace task regexp.
   {
     const auto queryConfigs = std::unordered_map<std::string, std::string>{
         {core::QueryConfig::kQueryTraceEnabled, "true"},

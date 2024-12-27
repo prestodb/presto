@@ -23,6 +23,15 @@
 
 namespace facebook::velox::exec::trace {
 
+#define VELOX_TRACE_LIMIT_EXCEEDED(errorMessage)                    \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kTraceLimitExceeded.c_str(),   \
+      /* isRetriable */ true,                                       \
+      "{}",                                                         \
+      errorMessage);
+
 /// The callback used to update and aggregate the trace bytes of a query. If the
 /// query trace limit is set, the callback return true if the aggregate traced
 /// bytes exceed the set limit otherwise return false.

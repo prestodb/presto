@@ -38,7 +38,8 @@ velox_add_library(
   SpillConfig.cpp
   SpillStats.cpp
   StatsReporter.cpp
-  SuccinctPrinter.cpp)
+  SuccinctPrinter.cpp
+  TraceConfig.cpp)
 
 velox_link_libraries(
   velox_common_base

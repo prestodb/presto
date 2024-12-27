@@ -62,12 +62,4 @@ struct OperatorTraceSummary {
   std::string toString() const;
 };
 
-#define VELOX_TRACE_LIMIT_EXCEEDED(errorMessage)                    \
-  _VELOX_THROW(                                                     \
-      ::facebook::velox::VeloxRuntimeError,                         \
-      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
-      ::facebook::velox::error_code::kTraceLimitExceeded.c_str(),   \
-      /* isRetriable */ true,                                       \
-      "{}",                                                         \
-      errorMessage);
 } // namespace facebook::velox::exec::trace

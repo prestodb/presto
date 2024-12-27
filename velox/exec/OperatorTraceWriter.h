@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "TraceConfig.h"
+#include "velox/common/base/TraceConfig.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/Split.h"

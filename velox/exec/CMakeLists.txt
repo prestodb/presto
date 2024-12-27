@@ -63,7 +63,6 @@ velox_add_library(
   TaskTraceReader.cpp
   TaskTraceWriter.cpp
   Trace.cpp
-  TraceConfig.cpp
   TraceUtil.cpp
   PartitionedOutput.cpp
   PartitionFunction.cpp

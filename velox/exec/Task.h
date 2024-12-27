@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/common/base/SkewedPartitionBalancer.h"
+#include "velox/common/base/TraceConfig.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/Driver.h"
@@ -27,7 +28,6 @@
 #include "velox/exec/TaskStats.h"
 #include "velox/exec/TaskStructs.h"
 #include "velox/exec/TaskTraceWriter.h"
-#include "velox/exec/TraceConfig.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::exec {
