@@ -28,6 +28,7 @@ velox_add_library(
 
 velox_link_libraries(
   velox_dwio_dwrf_writer
+  velox_common_hyperloglog
   velox_dwio_common
   velox_dwio_dwrf_common
   velox_dwio_dwrf_utils

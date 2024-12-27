@@ -93,6 +93,12 @@ void StatisticsBuilder::merge(
     // Merge size
     mergeCount(size_, other.getSize());
   }
+  if (hll_) {
+    auto* otherBuilder = dynamic_cast<const StatisticsBuilder*>(&other);
+    VELOX_CHECK_NOT_NULL(otherBuilder);
+    VELOX_CHECK_NOT_NULL(otherBuilder->hll_);
+    hll_->mergeWith(*otherBuilder->hll_);
+  }
 }
 
 void StatisticsBuilder::toProto(proto::ColumnStatistics& stats) const {
@@ -115,8 +121,15 @@ std::unique_ptr<dwio::common::ColumnStatistics> StatisticsBuilder::build()
   proto::ColumnStatistics stats;
   toProto(stats);
   StatsContext context{WriterVersion_CURRENT};
-  return buildColumnStatisticsFromProto(
-      ColumnStatisticsWrapper(&stats), context);
+  auto result =
+      buildColumnStatisticsFromProto(ColumnStatisticsWrapper(&stats), context);
+  // We do not alter the proto since this is part of the file format
+  // and the file format. The distinct count does not exist in the
+  // file format but is added here for use in on demand sampling.
+  if (hll_) {
+    result->setNumDistinct(hll_->cardinality());
+  }
+  return result;
 }
 
 std::unique_ptr<StatisticsBuilder> StatisticsBuilder::create(

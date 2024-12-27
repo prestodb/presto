@@ -19,14 +19,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <velox/common/memory/HashStringAllocator.h>
 #include <velox/common/memory/Memory.h>
 #include <cmath>
 
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::dwrf;
-
-StatisticsBuilderOptions options{16};
 
 template <typename T>
 std::shared_ptr<FlatVector<T>> makeFlatVector(
@@ -58,8 +57,15 @@ class TestStatisticsBuilderUtils : public testing::Test {
     memory::MemoryManager::testingSetInstance({});
   }
 
+  void SetUp() override {
+    StatisticsBuilderOptions options{16};
+  }
+
   const std::shared_ptr<memory::MemoryPool> pool_ =
       memory::memoryManager()->addLeafPool();
+  std::unique_ptr<HashStringAllocator> allocator_ =
+      std::make_unique<HashStringAllocator>(pool_.get());
+  StatisticsBuilderOptions options{16, 100, true, allocator_.get()};
 };
 
 TEST_F(TestStatisticsBuilderUtils, addIntegerValues) {
@@ -85,6 +91,7 @@ TEST_F(TestStatisticsBuilderUtils, addIntegerValues) {
     EXPECT_EQ(10, intStats->getMaximum().value());
     EXPECT_EQ(1, intStats->getMinimum().value());
     EXPECT_EQ(55, intStats->getSum());
+    EXPECT_EQ(10, intStats->numDistinct());
   }
 
   // add values with null
@@ -103,6 +110,7 @@ TEST_F(TestStatisticsBuilderUtils, addIntegerValues) {
     EXPECT_EQ(10, intStats->getMaximum().value());
     EXPECT_EQ(1, intStats->getMinimum().value());
     EXPECT_EQ(106, intStats->getSum().value());
+    EXPECT_EQ(10, intStats->numDistinct());
   }
 }
 
@@ -129,6 +137,7 @@ TEST_F(TestStatisticsBuilderUtils, addDoubleValues) {
     EXPECT_EQ(10, doubleStats->getMaximum().value());
     EXPECT_EQ(1, doubleStats->getMinimum().value());
     EXPECT_EQ(55, doubleStats->getSum());
+    EXPECT_EQ(10, doubleStats->numDistinct().value());
   }
 
   // add values with null
@@ -147,6 +156,7 @@ TEST_F(TestStatisticsBuilderUtils, addDoubleValues) {
     EXPECT_EQ(10, doubleStats->getMaximum().value());
     EXPECT_EQ(1, doubleStats->getMinimum().value());
     EXPECT_EQ(106, doubleStats->getSum());
+    EXPECT_EQ(10, doubleStats->numDistinct().value());
   }
 }
 
@@ -174,6 +184,7 @@ TEST_F(TestStatisticsBuilderUtils, addStringValues) {
     EXPECT_EQ("j", strStats->getMaximum().value());
     EXPECT_EQ("a", strStats->getMinimum().value());
     EXPECT_EQ(10, strStats->getTotalLength());
+    EXPECT_EQ(10, strStats->numDistinct());
   }
 
   // add values with null
@@ -191,6 +202,7 @@ TEST_F(TestStatisticsBuilderUtils, addStringValues) {
     EXPECT_EQ("j", strStats->getMaximum().value());
     EXPECT_EQ("a", strStats->getMinimum().value());
     EXPECT_EQ(19, strStats->getTotalLength().value());
+    EXPECT_EQ(10, strStats->numDistinct());
   }
 }
 

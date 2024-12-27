@@ -81,11 +81,13 @@ class ColumnStatistics {
       std::optional<uint64_t> valueCount,
       std::optional<bool> hasNull,
       std::optional<uint64_t> rawSize,
-      std::optional<uint64_t> size)
+      std::optional<uint64_t> size,
+      std::optional<int64_t> numDistinct = std::nullopt)
       : valueCount_(valueCount),
         hasNull_(hasNull),
         rawSize_(rawSize),
-        size_(size) {}
+        size_(size),
+        numDistinct_(numDistinct) {}
 
   virtual ~ColumnStatistics() = default;
 
@@ -123,6 +125,16 @@ class ColumnStatistics {
     return size_;
   }
 
+  std::optional<uint64_t> numDistinct() const {
+    return numDistinct_;
+  }
+
+  void setNumDistinct(int64_t count) {
+    VELOX_CHECK(
+        !numDistinct_.has_value(), "numDistinct_ can be set only once.");
+    numDistinct_ = count;
+  }
+
   /**
    * return string representation of this stats object
    */
@@ -145,6 +157,7 @@ class ColumnStatistics {
   std::optional<bool> hasNull_;
   std::optional<uint64_t> rawSize_;
   std::optional<uint64_t> size_;
+  std::optional<uint64_t> numDistinct_;
 };
 
 /**
