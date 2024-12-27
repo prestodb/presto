@@ -512,9 +512,11 @@ TEST_P(MultiFragmentTest, abortMergeExchange) {
   // Ensure that the threads in the executor can gracefully join
   executor.join();
 
-  /* sleep override */
-  // Wait till all the terminations, closures and destructions are done.
-  std::this_thread::sleep_for(std::chrono::seconds(1));
+  // Wait till all the terminations, closures and destructions so that
+  // the reference count drops to 2.
+  while (mergeTask.use_count() > 2) {
+    std::this_thread::yield();
+  }
 
   // The references to mergeTask should be two, one for the local variable
   // itself and one reference inside tasks variable.
