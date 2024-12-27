@@ -429,6 +429,7 @@ public class HiveMetadata
     private final HivePartitionStats hivePartitionStats;
     private final HiveFileRenamer hiveFileRenamer;
     private final TableWritabilityChecker tableWritabilityChecker;
+    private final String catalogName;
 
     public HiveMetadata(
             SemiTransactionalHiveMetastore metastore,
@@ -455,7 +456,8 @@ public class HiveMetadata
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
             HiveFileRenamer hiveFileRenamer,
-            TableWritabilityChecker tableWritabilityChecker)
+            TableWritabilityChecker tableWritabilityChecker,
+            String catalogName)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
 
@@ -483,6 +485,7 @@ public class HiveMetadata
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
         this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
         this.tableWritabilityChecker = requireNonNull(tableWritabilityChecker, "tableWritabilityChecker is null");
+        this.catalogName = catalogName;
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -947,6 +950,7 @@ public class HiveMetadata
                 .setLocation(location)
                 .setOwnerType(USER)
                 .setOwnerName(session.getUser())
+                .setCatalogName(Optional.ofNullable(catalogName))
                 .build();
 
         metastore.createDatabase(getMetastoreContext(session), database);
