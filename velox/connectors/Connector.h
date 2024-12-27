@@ -52,13 +52,17 @@ class DataSource;
 struct ConnectorSplit : public ISerializable {
   const std::string connectorId;
   const int64_t splitWeight{0};
+  const bool cacheable{true};
 
   std::unique_ptr<AsyncSource<DataSource>> dataSource;
 
   explicit ConnectorSplit(
       const std::string& _connectorId,
-      int64_t _splitWeight = 0)
-      : connectorId(_connectorId), splitWeight(_splitWeight) {}
+      int64_t _splitWeight = 0,
+      bool _cacheable = true)
+      : connectorId(_connectorId),
+        splitWeight(_splitWeight),
+        cacheable(_cacheable) {}
 
   folly::dynamic serialize() const override {
     VELOX_UNSUPPORTED();
@@ -68,7 +72,11 @@ struct ConnectorSplit : public ISerializable {
   virtual ~ConnectorSplit() {}
 
   virtual std::string toString() const {
-    return fmt::format("[split: {}]", connectorId);
+    return fmt::format(
+        "[split: connector id {}, weight {}, cacheable {}]",
+        connectorId,
+        splitWeight,
+        cacheable ? "true" : "false");
   }
 };
 
