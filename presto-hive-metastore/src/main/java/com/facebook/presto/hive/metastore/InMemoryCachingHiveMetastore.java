@@ -373,7 +373,16 @@ public class InMemoryCachingHiveMetastore
     @Override
     public Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle)
     {
-        return get(tableCache, getCachingKey(metastoreContext, hiveTableHandle));
+        KeyAndContext<HiveTableHandle> key = getCachingKey(metastoreContext, hiveTableHandle);
+        Optional<Table> table = get(tableCache, key);
+        // If the table is non-existent, we store [Key=Table, Value=Optional.Empty] cache entry. If someone outside
+        // Presto creates the table, Presto keeps throwing "Table does not exist" until refresh time is reached. So,
+        // forcing a refresh for non-existent table once here.
+        if (!table.isPresent()) {
+            tableCache.refresh(key);
+            table = get(tableCache, key);
+        }
+        return table;
     }
 
     @Override
