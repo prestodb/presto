@@ -112,6 +112,8 @@ PartitionedOutputReplayer::PartitionedOutputReplayer(
     VectorSerde::Kind serdeKind,
     const std::string& operatorType,
     const std::string& driverIds,
+    uint64_t queryCapacity,
+    folly::Executor* executor,
     const ConsumerCallBack& consumerCb)
     : OperatorReplayerBase(
           traceDir,
@@ -119,7 +121,9 @@ PartitionedOutputReplayer::PartitionedOutputReplayer(
           taskId,
           nodeId,
           operatorType,
-          driverIds),
+          driverIds,
+          queryCapacity,
+          executor),
       originalNode_(dynamic_cast<const core::PartitionedOutputNode*>(
           core::PlanNode::findFirstNode(
               planFragment_.get(),

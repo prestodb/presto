@@ -79,10 +79,22 @@ DEFINE_double(
     hive_connector_executor_hw_multiplier,
     2.0,
     "Hardware multipler for hive connector.");
+DEFINE_double(
+    driver_cpu_executor_hw_multiplier,
+    2.0,
+    "Hardware multipler for driver cpu executor.");
 DEFINE_int32(
     shuffle_serialization_format,
     0,
     "Specify the shuffle serialization format, 0: presto columnar, 1: compact row, 2: spark unsafe row.");
+DEFINE_string(
+    memory_arbitrator_type,
+    "shared",
+    "Specify the memory arbitrator type.");
+DEFINE_uint64(
+    query_memory_capacity_gb,
+    0,
+    "Specify the query memory capacity limit in GB. If it is zero, then there is no limit.");
 
 namespace facebook::velox::tool::trace {
 namespace {
@@ -212,7 +224,12 @@ void printSummary(
 } // namespace
 
 TraceReplayRunner::TraceReplayRunner()
-    : ioExecutor_(std::make_unique<folly::IOThreadPoolExecutor>(
+    : cpuExecutor_(std::make_unique<folly::CPUThreadPoolExecutor>(
+          std::thread::hardware_concurrency() *
+              FLAGS_driver_cpu_executor_hw_multiplier,
+          std::make_shared<folly::NamedThreadFactory>(
+              "TraceReplayCpuConnector"))),
+      ioExecutor_(std::make_unique<folly::IOThreadPoolExecutor>(
           std::thread::hardware_concurrency() *
               FLAGS_hive_connector_executor_hw_multiplier,
           std::make_shared<folly::NamedThreadFactory>(
@@ -224,6 +241,8 @@ void TraceReplayRunner::init() {
   VELOX_USER_CHECK(!FLAGS_node_id.empty(), "--node_id must be provided");
 
   if (!memory::MemoryManager::testInstance()) {
+    memory::MemoryManagerOptions options;
+    options.arbitratorKind = FLAGS_memory_arbitrator_type;
     memory::initializeMemoryManager({});
   }
   filesystems::registerLocalFileSystem();
@@ -292,7 +311,7 @@ TraceReplayRunner::createReplayer() const {
       exec::trace::getTaskTraceMetaFilePath(taskTraceDir),
       fs_,
       memory::MemoryManager::getInstance()->tracePool());
-  if (traceNodeName == "TableWriter") {
+  if (traceNodeName == "TableWrite") {
     VELOX_USER_CHECK(
         !FLAGS_table_writer_output_dir.empty(),
         "--table_writer_output_dir is required");
@@ -303,6 +322,8 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_node_id,
         traceNodeName,
         FLAGS_driver_ids,
+        (1ULL * FLAGS_query_memory_capacity_gb) << 30,
+        cpuExecutor_.get(),
         FLAGS_table_writer_output_dir);
   } else if (traceNodeName == "Aggregation") {
     replayer = std::make_unique<tool::trace::AggregationReplayer>(
@@ -311,7 +332,9 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_task_id,
         FLAGS_node_id,
         traceNodeName,
-        FLAGS_driver_ids);
+        FLAGS_driver_ids,
+        (1ULL * FLAGS_query_memory_capacity_gb) << 30,
+        cpuExecutor_.get());
   } else if (traceNodeName == "PartitionedOutput") {
     replayer = std::make_unique<tool::trace::PartitionedOutputReplayer>(
         FLAGS_root_dir,
@@ -320,7 +343,9 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_node_id,
         getVectorSerdeKind(),
         traceNodeName,
-        FLAGS_driver_ids);
+        FLAGS_driver_ids,
+        (1ULL * FLAGS_query_memory_capacity_gb) << 30,
+        cpuExecutor_.get());
   } else if (traceNodeName == "TableScan") {
     replayer = std::make_unique<tool::trace::TableScanReplayer>(
         FLAGS_root_dir,
@@ -328,7 +353,9 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_task_id,
         FLAGS_node_id,
         traceNodeName,
-        FLAGS_driver_ids);
+        FLAGS_driver_ids,
+        (1ULL * FLAGS_query_memory_capacity_gb) << 30,
+        cpuExecutor_.get());
   } else if (traceNodeName == "Filter" || traceNodeName == "Project") {
     replayer = std::make_unique<tool::trace::FilterProjectReplayer>(
         FLAGS_root_dir,
@@ -336,7 +363,9 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_task_id,
         FLAGS_node_id,
         traceNodeName,
-        FLAGS_driver_ids);
+        FLAGS_driver_ids,
+        (1ULL * FLAGS_query_memory_capacity_gb) << 30,
+        cpuExecutor_.get());
   } else if (traceNodeName == "HashJoin") {
     replayer = std::make_unique<tool::trace::HashJoinReplayer>(
         FLAGS_root_dir,
@@ -344,7 +373,9 @@ TraceReplayRunner::createReplayer() const {
         FLAGS_task_id,
         FLAGS_node_id,
         traceNodeName,
-        FLAGS_driver_ids);
+        FLAGS_driver_ids,
+        (1ULL * FLAGS_query_memory_capacity_gb) << 30,
+        cpuExecutor_.get());
   } else {
     VELOX_UNSUPPORTED("Unsupported operator type: {}", traceNodeName);
   }

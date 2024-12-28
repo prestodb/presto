@@ -18,6 +18,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/CppToType.h"
 #include "velox/type/SimpleFunctionApi.h"
+#include "velox/type/TypeEncodingUtil.h"
 #include "velox/type/tests/utils/CustomTypesForTesting.h"
 
 using namespace facebook;
@@ -58,50 +59,54 @@ TEST(TypeTest, constructorThrow) {
 }
 
 TEST(TypeTest, array) {
-  auto arrayType = ARRAY(ARRAY(ARRAY(INTEGER())));
-  EXPECT_EQ("ARRAY<ARRAY<ARRAY<INTEGER>>>", arrayType->toString());
-  EXPECT_EQ(arrayType->size(), 1);
+  const auto arrayType = ARRAY(ARRAY(ARRAY(INTEGER())));
+  ASSERT_EQ("ARRAY<ARRAY<ARRAY<INTEGER>>>", arrayType->toString());
+  ASSERT_EQ(arrayType->size(), 1);
   EXPECT_STREQ(arrayType->kindName(), "ARRAY");
-  EXPECT_EQ(arrayType->isPrimitiveType(), false);
+  ASSERT_EQ(arrayType->isPrimitiveType(), false);
   EXPECT_STREQ(arrayType->elementType()->kindName(), "ARRAY");
-  EXPECT_EQ(arrayType->childAt(0)->toString(), "ARRAY<ARRAY<INTEGER>>");
-  EXPECT_THROW(arrayType->childAt(1), VeloxUserError);
+  ASSERT_EQ(arrayType->childAt(0)->toString(), "ARRAY<ARRAY<INTEGER>>");
+  VELOX_ASSERT_USER_THROW(
+      arrayType->childAt(1), "Array type should have only one child");
 
   EXPECT_STREQ(arrayType->name(), "ARRAY");
-  EXPECT_EQ(arrayType->parameters().size(), 1);
-  EXPECT_TRUE(arrayType->parameters()[0].kind == TypeParameterKind::kType);
-  EXPECT_EQ(*arrayType->parameters()[0].type, *arrayType->childAt(0));
+  ASSERT_EQ(arrayType->parameters().size(), 1);
+  ASSERT_TRUE(arrayType->parameters()[0].kind == TypeParameterKind::kType);
+  ASSERT_EQ(*arrayType->parameters()[0].type, *arrayType->childAt(0));
+  ASSERT_EQ(approximateTypeEncodingwidth(arrayType), 4);
 
-  EXPECT_EQ(
+  ASSERT_EQ(
       *arrayType, *getType("ARRAY", {TypeParameter(ARRAY(ARRAY(INTEGER())))}));
 
   testTypeSerde(arrayType);
 }
 
 TEST(TypeTest, integer) {
-  auto int0 = INTEGER();
-  EXPECT_EQ(int0->toString(), "INTEGER");
-  EXPECT_EQ(int0->size(), 0);
-  EXPECT_THROW(int0->childAt(0), std::invalid_argument);
-  EXPECT_EQ(int0->kind(), TypeKind::INTEGER);
+  const auto int0 = INTEGER();
+  ASSERT_EQ(int0->toString(), "INTEGER");
+  ASSERT_EQ(int0->size(), 0);
+  VELOX_ASSERT_THROW(int0->childAt(0), "scalar type has no children");
+  ASSERT_EQ(int0->kind(), TypeKind::INTEGER);
   EXPECT_STREQ(int0->kindName(), "INTEGER");
-  EXPECT_EQ(int0->begin(), int0->end());
+  ASSERT_EQ(int0->begin(), int0->end());
+  ASSERT_EQ(approximateTypeEncodingwidth(int0), 1);
 
   testTypeSerde(int0);
 }
 
 TEST(TypeTest, hugeint) {
-  EXPECT_EQ(getType("HUGEINT", {}), HUGEINT());
+  ASSERT_EQ(getType("HUGEINT", {}), HUGEINT());
 }
 
 TEST(TypeTest, timestamp) {
-  auto t0 = TIMESTAMP();
-  EXPECT_EQ(t0->toString(), "TIMESTAMP");
-  EXPECT_EQ(t0->size(), 0);
-  EXPECT_THROW(t0->childAt(0), std::invalid_argument);
-  EXPECT_EQ(t0->kind(), TypeKind::TIMESTAMP);
+  const auto t0 = TIMESTAMP();
+  ASSERT_EQ(t0->toString(), "TIMESTAMP");
+  ASSERT_EQ(t0->size(), 0);
+  VELOX_ASSERT_THROW(t0->childAt(0), "scalar type has no children");
+  ASSERT_EQ(t0->kind(), TypeKind::TIMESTAMP);
   EXPECT_STREQ(t0->kindName(), "TIMESTAMP");
-  EXPECT_EQ(t0->begin(), t0->end());
+  ASSERT_EQ(t0->begin(), t0->end());
+  ASSERT_EQ(approximateTypeEncodingwidth(t0), 1);
 
   testTypeSerde(t0);
 }
@@ -152,64 +157,67 @@ TEST(TypeTest, timestampComparison) {
 }
 
 TEST(TypeTest, date) {
-  auto date = DATE();
-  EXPECT_EQ(date->toString(), "DATE");
-  EXPECT_EQ(date->size(), 0);
-  EXPECT_THROW(date->childAt(0), std::invalid_argument);
-  EXPECT_EQ(date->kind(), TypeKind::INTEGER);
+  const auto date = DATE();
+  ASSERT_EQ(date->toString(), "DATE");
+  ASSERT_EQ(date->size(), 0);
+  VELOX_ASSERT_THROW(date->childAt(0), "scalar type has no children");
+  ASSERT_EQ(date->kind(), TypeKind::INTEGER);
   EXPECT_STREQ(date->kindName(), "INTEGER");
-  EXPECT_EQ(date->begin(), date->end());
+  ASSERT_EQ(date->begin(), date->end());
 
-  EXPECT_TRUE(date->kindEquals(INTEGER()));
-  EXPECT_NE(*date, *INTEGER());
-  EXPECT_FALSE(date->equivalent(*INTEGER()));
-  EXPECT_FALSE(INTEGER()->equivalent(*date));
+  ASSERT_TRUE(date->kindEquals(INTEGER()));
+  ASSERT_NE(*date, *INTEGER());
+  ASSERT_FALSE(date->equivalent(*INTEGER()));
+  ASSERT_FALSE(INTEGER()->equivalent(*date));
+  ASSERT_EQ(approximateTypeEncodingwidth(date), 1);
 
   testTypeSerde(date);
 }
 
 TEST(TypeTest, intervalDayTime) {
-  auto interval = INTERVAL_DAY_TIME();
-  EXPECT_EQ(interval->toString(), "INTERVAL DAY TO SECOND");
-  EXPECT_EQ(interval->size(), 0);
-  EXPECT_THROW(interval->childAt(0), std::invalid_argument);
-  EXPECT_EQ(interval->kind(), TypeKind::BIGINT);
+  const auto interval = INTERVAL_DAY_TIME();
+  ASSERT_EQ(interval->toString(), "INTERVAL DAY TO SECOND");
+  ASSERT_EQ(interval->size(), 0);
+  VELOX_ASSERT_THROW(interval->childAt(0), "scalar type has no children");
+  ASSERT_EQ(interval->kind(), TypeKind::BIGINT);
   EXPECT_STREQ(interval->kindName(), "BIGINT");
-  EXPECT_EQ(interval->begin(), interval->end());
+  ASSERT_EQ(interval->begin(), interval->end());
+  ASSERT_EQ(approximateTypeEncodingwidth(interval), 1);
 
   EXPECT_TRUE(interval->kindEquals(BIGINT()));
-  EXPECT_NE(*interval, *BIGINT());
-  EXPECT_FALSE(interval->equivalent(*BIGINT()));
-  EXPECT_FALSE(BIGINT()->equivalent(*interval));
+  ASSERT_NE(*interval, *BIGINT());
+  ASSERT_FALSE(interval->equivalent(*BIGINT()));
+  ASSERT_FALSE(BIGINT()->equivalent(*interval));
 
-  int64_t millis = kMillisInDay * 5 + kMillisInHour * 4 + kMillisInMinute * 6 +
-      kMillisInSecond * 7 + 98;
-  EXPECT_EQ("5 04:06:07.098", INTERVAL_DAY_TIME()->valueToString(millis));
+  const int64_t millis = kMillisInDay * 5 + kMillisInHour * 4 +
+      kMillisInMinute * 6 + kMillisInSecond * 7 + 98;
+  ASSERT_EQ("5 04:06:07.098", INTERVAL_DAY_TIME()->valueToString(millis));
 
   testTypeSerde(interval);
 }
 
 TEST(TypeTest, intervalYearMonth) {
-  auto interval = INTERVAL_YEAR_MONTH();
-  EXPECT_EQ(interval->toString(), "INTERVAL YEAR TO MONTH");
-  EXPECT_EQ(interval->size(), 0);
-  EXPECT_THROW(interval->childAt(0), std::invalid_argument);
-  EXPECT_EQ(interval->kind(), TypeKind::INTEGER);
+  const auto interval = INTERVAL_YEAR_MONTH();
+  ASSERT_EQ(interval->toString(), "INTERVAL YEAR TO MONTH");
+  ASSERT_EQ(interval->size(), 0);
+  VELOX_ASSERT_THROW(interval->childAt(0), "scalar type has no children");
+  ASSERT_EQ(interval->kind(), TypeKind::INTEGER);
   EXPECT_STREQ(interval->kindName(), "INTEGER");
-  EXPECT_EQ(interval->begin(), interval->end());
+  ASSERT_EQ(interval->begin(), interval->end());
+  ASSERT_EQ(approximateTypeEncodingwidth(interval), 1);
 
   EXPECT_TRUE(interval->kindEquals(INTEGER()));
-  EXPECT_NE(*interval, *INTEGER());
-  EXPECT_FALSE(interval->equivalent(*INTEGER()));
+  ASSERT_NE(*interval, *INTEGER());
+  ASSERT_FALSE(interval->equivalent(*INTEGER()));
   EXPECT_FALSE(INTEGER()->equivalent(*interval));
 
   int32_t month = kMonthInYear * 2 + 1;
-  EXPECT_EQ("2-1", INTERVAL_YEAR_MONTH()->valueToString(month));
+  ASSERT_EQ("2-1", INTERVAL_YEAR_MONTH()->valueToString(month));
 
   month = kMonthInYear * -2 + -1;
-  EXPECT_EQ("-2-1", INTERVAL_YEAR_MONTH()->valueToString(month));
+  ASSERT_EQ("-2-1", INTERVAL_YEAR_MONTH()->valueToString(month));
 
-  EXPECT_EQ(
+  ASSERT_EQ(
       "-178956970-8",
       INTERVAL_YEAR_MONTH()->valueToString(
           std::numeric_limits<int32_t>::min()));
@@ -218,44 +226,46 @@ TEST(TypeTest, intervalYearMonth) {
 }
 
 TEST(TypeTest, unknown) {
-  auto type = UNKNOWN();
-  EXPECT_EQ(type->toString(), "UNKNOWN");
-  EXPECT_EQ(type->size(), 0);
+  const auto type = UNKNOWN();
+  ASSERT_EQ(type->toString(), "UNKNOWN");
+  ASSERT_EQ(type->size(), 0);
   EXPECT_THROW(type->childAt(0), std::invalid_argument);
-  EXPECT_EQ(type->kind(), TypeKind::UNKNOWN);
+  ASSERT_EQ(type->kind(), TypeKind::UNKNOWN);
   EXPECT_STREQ(type->kindName(), "UNKNOWN");
-  EXPECT_EQ(type->begin(), type->end());
-  EXPECT_TRUE(type->isComparable());
-  EXPECT_TRUE(type->isOrderable());
+  ASSERT_EQ(type->begin(), type->end());
+  ASSERT_TRUE(type->isComparable());
+  ASSERT_TRUE(type->isOrderable());
+  ASSERT_EQ(approximateTypeEncodingwidth(type), 1);
 
   testTypeSerde(type);
 }
 
 TEST(TypeTest, shortDecimal) {
-  auto shortDecimal = DECIMAL(10, 5);
-  EXPECT_EQ(shortDecimal->toString(), "DECIMAL(10, 5)");
-  EXPECT_EQ(shortDecimal->size(), 0);
-  EXPECT_THROW(shortDecimal->childAt(0), std::invalid_argument);
-  EXPECT_EQ(shortDecimal->kind(), TypeKind::BIGINT);
-  EXPECT_EQ(shortDecimal->begin(), shortDecimal->end());
+  const auto shortDecimal = DECIMAL(10, 5);
+  ASSERT_EQ(shortDecimal->toString(), "DECIMAL(10, 5)");
+  ASSERT_EQ(shortDecimal->size(), 0);
+  VELOX_ASSERT_THROW(shortDecimal->childAt(0), "scalar type has no children");
+  ASSERT_EQ(shortDecimal->kind(), TypeKind::BIGINT);
+  ASSERT_EQ(shortDecimal->begin(), shortDecimal->end());
+  ASSERT_EQ(approximateTypeEncodingwidth(shortDecimal), 1);
 
-  EXPECT_EQ(*DECIMAL(10, 5), *shortDecimal);
-  EXPECT_NE(*DECIMAL(9, 5), *shortDecimal);
-  EXPECT_NE(*DECIMAL(10, 4), *shortDecimal);
+  ASSERT_EQ(*DECIMAL(10, 5), *shortDecimal);
+  ASSERT_NE(*DECIMAL(9, 5), *shortDecimal);
+  ASSERT_NE(*DECIMAL(10, 4), *shortDecimal);
 
   VELOX_ASSERT_THROW(
       DECIMAL(0, 0), "Precision of decimal type must be at least 1");
 
   EXPECT_STREQ(shortDecimal->name(), "DECIMAL");
-  EXPECT_EQ(shortDecimal->parameters().size(), 2);
-  EXPECT_TRUE(
+  ASSERT_EQ(shortDecimal->parameters().size(), 2);
+  ASSERT_TRUE(
       shortDecimal->parameters()[0].kind == TypeParameterKind::kLongLiteral);
-  EXPECT_EQ(shortDecimal->parameters()[0].longLiteral.value(), 10);
-  EXPECT_TRUE(
+  ASSERT_EQ(shortDecimal->parameters()[0].longLiteral.value(), 10);
+  ASSERT_TRUE(
       shortDecimal->parameters()[1].kind == TypeParameterKind::kLongLiteral);
-  EXPECT_EQ(shortDecimal->parameters()[1].longLiteral.value(), 5);
+  ASSERT_EQ(shortDecimal->parameters()[1].longLiteral.value(), 5);
 
-  EXPECT_EQ(
+  ASSERT_EQ(
       *shortDecimal,
       *getType(
           "DECIMAL",
@@ -268,30 +278,31 @@ TEST(TypeTest, shortDecimal) {
 }
 
 TEST(TypeTest, longDecimal) {
-  auto longDecimal = DECIMAL(30, 5);
-  EXPECT_EQ(longDecimal->toString(), "DECIMAL(30, 5)");
-  EXPECT_EQ(longDecimal->size(), 0);
-  EXPECT_THROW(longDecimal->childAt(0), std::invalid_argument);
-  EXPECT_EQ(longDecimal->kind(), TypeKind::HUGEINT);
-  EXPECT_EQ(longDecimal->begin(), longDecimal->end());
-  EXPECT_EQ(*DECIMAL(30, 5), *longDecimal);
-  EXPECT_NE(*DECIMAL(9, 5), *longDecimal);
-  EXPECT_NE(*DECIMAL(30, 3), *longDecimal);
+  const auto longDecimal = DECIMAL(30, 5);
+  ASSERT_EQ(longDecimal->toString(), "DECIMAL(30, 5)");
+  ASSERT_EQ(longDecimal->size(), 0);
+  VELOX_ASSERT_THROW(longDecimal->childAt(0), "scalar type has no children");
+  ASSERT_EQ(longDecimal->kind(), TypeKind::HUGEINT);
+  ASSERT_EQ(longDecimal->begin(), longDecimal->end());
+  ASSERT_EQ(*DECIMAL(30, 5), *longDecimal);
+  ASSERT_NE(*DECIMAL(9, 5), *longDecimal);
+  ASSERT_NE(*DECIMAL(30, 3), *longDecimal);
   VELOX_ASSERT_THROW(
       DECIMAL(39, 5), "Precision of decimal type must not exceed 38");
   VELOX_ASSERT_THROW(
       DECIMAL(25, 26), "Scale of decimal type must not exceed its precision");
 
+  ASSERT_EQ(approximateTypeEncodingwidth(longDecimal), 1);
   EXPECT_STREQ(longDecimal->name(), "DECIMAL");
-  EXPECT_EQ(longDecimal->parameters().size(), 2);
+  ASSERT_EQ(longDecimal->parameters().size(), 2);
   EXPECT_TRUE(
       longDecimal->parameters()[0].kind == TypeParameterKind::kLongLiteral);
-  EXPECT_EQ(longDecimal->parameters()[0].longLiteral.value(), 30);
-  EXPECT_TRUE(
+  ASSERT_EQ(longDecimal->parameters()[0].longLiteral.value(), 30);
+  ASSERT_TRUE(
       longDecimal->parameters()[1].kind == TypeParameterKind::kLongLiteral);
-  EXPECT_EQ(longDecimal->parameters()[1].longLiteral.value(), 5);
+  ASSERT_EQ(longDecimal->parameters()[1].longLiteral.value(), 5);
 
-  EXPECT_EQ(
+  ASSERT_EQ(
       *longDecimal,
       *getType(
           "DECIMAL",
@@ -362,35 +373,36 @@ TEST(TypeTest, dateFormat) {
 }
 
 TEST(TypeTest, map) {
-  auto mapType = MAP(INTEGER(), ARRAY(BIGINT()));
-  EXPECT_EQ(mapType->toString(), "MAP<INTEGER,ARRAY<BIGINT>>");
-  EXPECT_EQ(mapType->size(), 2);
-  EXPECT_EQ(mapType->childAt(0)->toString(), "INTEGER");
-  EXPECT_EQ(mapType->childAt(1)->toString(), "ARRAY<BIGINT>");
-  EXPECT_THROW(mapType->childAt(2), VeloxUserError);
-  EXPECT_EQ(mapType->kind(), TypeKind::MAP);
+  const auto mapType = MAP(INTEGER(), ARRAY(BIGINT()));
+  ASSERT_EQ(mapType->toString(), "MAP<INTEGER,ARRAY<BIGINT>>");
+  ASSERT_EQ(mapType->size(), 2);
+  ASSERT_EQ(mapType->childAt(0)->toString(), "INTEGER");
+  ASSERT_EQ(mapType->childAt(1)->toString(), "ARRAY<BIGINT>");
+  VELOX_ASSERT_USER_THROW(
+      mapType->childAt(2), "Map type should have only two children");
+  ASSERT_EQ(mapType->kind(), TypeKind::MAP);
   EXPECT_STREQ(mapType->kindName(), "MAP");
   int32_t num = 0;
   for (auto& i : *mapType) {
     if (num == 0) {
-      EXPECT_EQ(i->toString(), "INTEGER");
+      ASSERT_EQ(i->toString(), "INTEGER");
     } else if (num == 1) {
-      EXPECT_EQ(i->toString(), "ARRAY<BIGINT>");
+      ASSERT_EQ(i->toString(), "ARRAY<BIGINT>");
     } else {
       FAIL();
     }
     ++num;
   }
-  CHECK_EQ(num, 2);
+  ASSERT_EQ(num, 2);
 
   EXPECT_STREQ(mapType->name(), "MAP");
-  EXPECT_EQ(mapType->parameters().size(), 2);
+  ASSERT_EQ(mapType->parameters().size(), 2);
   for (auto i = 0; i < 2; ++i) {
-    EXPECT_TRUE(mapType->parameters()[i].kind == TypeParameterKind::kType);
-    EXPECT_EQ(*mapType->parameters()[i].type, *mapType->childAt(i));
+    ASSERT_TRUE(mapType->parameters()[i].kind == TypeParameterKind::kType);
+    ASSERT_EQ(*mapType->parameters()[i].type, *mapType->childAt(i));
   }
 
-  EXPECT_EQ(
+  ASSERT_EQ(
       *mapType,
       *getType(
           "MAP",
@@ -399,6 +411,8 @@ TEST(TypeTest, map) {
               TypeParameter(ARRAY(BIGINT())),
           }));
 
+  ASSERT_EQ(approximateTypeEncodingwidth(mapType), 4);
+
   testTypeSerde(mapType);
 }
 
@@ -406,24 +420,24 @@ TEST(TypeTest, row) {
   VELOX_ASSERT_THROW(ROW({{"a", nullptr}}), "Child types cannot be null");
   auto row0 = ROW({{"a", INTEGER()}, {"b", ROW({{"a", BIGINT()}})}});
   auto rowInner = row0->childAt(1);
-  EXPECT_EQ(row0->toString(), "ROW<a:INTEGER,b:ROW<a:BIGINT>>");
-  EXPECT_EQ(row0->size(), 2);
-  EXPECT_EQ(rowInner->size(), 1);
+  ASSERT_EQ(row0->toString(), "ROW<a:INTEGER,b:ROW<a:BIGINT>>");
+  ASSERT_EQ(row0->size(), 2);
+  ASSERT_EQ(rowInner->size(), 1);
   EXPECT_STREQ(row0->childAt(0)->kindName(), "INTEGER");
   EXPECT_STREQ(row0->findChild("a")->kindName(), "INTEGER");
-  EXPECT_EQ(row0->nameOf(0), "a");
-  EXPECT_EQ(row0->nameOf(1), "b");
-  EXPECT_THROW(row0->nameOf(4), VeloxRuntimeError);
-  EXPECT_THROW(row0->findChild("not_exist"), VeloxUserError);
-  // todo: expected case behavior?:
+  ASSERT_EQ(row0->nameOf(0), "a");
+  ASSERT_EQ(row0->nameOf(1), "b");
+  VELOX_ASSERT_THROW(row0->nameOf(4), "");
+  VELOX_ASSERT_USER_THROW(row0->findChild("not_exist"), "Field not found");
+  // TODO: expected case behavior?:
   VELOX_ASSERT_THROW(
       row0->findChild("A"), "Field not found: A. Available fields are: a, b.");
-  EXPECT_EQ(row0->childAt(1)->toString(), "ROW<a:BIGINT>");
-  EXPECT_EQ(row0->findChild("b")->toString(), "ROW<a:BIGINT>");
-  EXPECT_EQ(row0->findChild("b")->asRow().findChild("a")->toString(), "BIGINT");
-  EXPECT_TRUE(row0->containsChild("a"));
-  EXPECT_TRUE(row0->containsChild("b"));
-  EXPECT_FALSE(row0->containsChild("c"));
+  ASSERT_EQ(row0->childAt(1)->toString(), "ROW<a:BIGINT>");
+  ASSERT_EQ(row0->findChild("b")->toString(), "ROW<a:BIGINT>");
+  ASSERT_EQ(row0->findChild("b")->asRow().findChild("a")->toString(), "BIGINT");
+  ASSERT_TRUE(row0->containsChild("a"));
+  ASSERT_TRUE(row0->containsChild("b"));
+  ASSERT_FALSE(row0->containsChild("c"));
   int32_t seen = 0;
   for (auto& i : *row0) {
     if (seen == 0) {
@@ -432,34 +446,37 @@ TEST(TypeTest, row) {
       EXPECT_EQ("ROW<a:BIGINT>", i->toString());
       int32_t seen2 = 0;
       for (auto& j : *i) {
-        EXPECT_EQ(j->toString(), "BIGINT");
+        ASSERT_EQ(j->toString(), "BIGINT");
         seen2++;
       }
-      EXPECT_EQ(seen2, 1);
+      ASSERT_EQ(seen2, 1);
     }
     seen++;
   }
-  CHECK_EQ(seen, 2);
+  ASSERT_EQ(seen, 2);
+  ASSERT_EQ(approximateTypeEncodingwidth(row0), 2);
 
   EXPECT_STREQ(row0->name(), "ROW");
-  EXPECT_EQ(row0->parameters().size(), 2);
+  ASSERT_EQ(row0->parameters().size(), 2);
   for (auto i = 0; i < 2; ++i) {
-    EXPECT_TRUE(row0->parameters()[i].kind == TypeParameterKind::kType);
-    EXPECT_EQ(*row0->parameters()[i].type, *row0->childAt(i));
+    ASSERT_TRUE(row0->parameters()[i].kind == TypeParameterKind::kType);
+    ASSERT_EQ(*row0->parameters()[i].type, *row0->childAt(i));
   }
 
-  auto row1 =
+  const auto row1 =
       ROW({{"a,b", INTEGER()}, {R"(my "column")", ROW({{"#1", BIGINT()}})}});
-  EXPECT_EQ(
+  ASSERT_EQ(
       row1->toString(),
       R"(ROW<"a,b":INTEGER,"my ""column""":ROW<"#1":BIGINT>>)");
-  EXPECT_EQ(row1->nameOf(0), "a,b");
-  EXPECT_EQ(row1->nameOf(1), R"(my "column")");
-  EXPECT_EQ(row1->childAt(1)->toString(), R"(ROW<"#1":BIGINT>)");
+  ASSERT_EQ(row1->nameOf(0), "a,b");
+  ASSERT_EQ(row1->nameOf(1), R"(my "column")");
+  ASSERT_EQ(row1->childAt(1)->toString(), R"(ROW<"#1":BIGINT>)");
+  ASSERT_EQ(approximateTypeEncodingwidth(row1), 2);
 
-  auto row2 = ROW({{"", INTEGER()}});
-  EXPECT_EQ(row2->toString(), R"(ROW<"":INTEGER>)");
-  EXPECT_EQ(row2->nameOf(0), "");
+  const auto row2 = ROW({{"", INTEGER()}});
+  ASSERT_EQ(row2->toString(), R"(ROW<"":INTEGER>)");
+  ASSERT_EQ(row2->nameOf(0), "");
+  ASSERT_EQ(approximateTypeEncodingwidth(row2), 1);
 
   VELOX_ASSERT_THROW(createScalarType(TypeKind::ROW), "not a scalar type");
   VELOX_ASSERT_THROW(
@@ -507,32 +524,44 @@ class Foo {};
 class Bar {};
 
 TEST(TypeTest, opaque) {
-  auto foo = OpaqueType::create<Foo>();
-  auto bar = OpaqueType::create<Bar>();
+  const auto foo = OpaqueType::create<Foo>();
+  VELOX_ASSERT_THROW(
+      approximateTypeEncodingwidth(foo), "Unsupported type: OPAQUE<Foo>");
+  const auto bar = OpaqueType::create<Bar>();
   // Names currently use typeid which is not stable across platforms. We'd need
   // to change it later if we start serializing opaque types, e.g. we can ask
   // user to "register" the name for the type explicitly.
-  EXPECT_NE(std::string::npos, foo->toString().find("OPAQUE<"));
-  EXPECT_NE(std::string::npos, foo->toString().find("Foo"));
-  EXPECT_EQ(foo->size(), 0);
-  EXPECT_THROW(foo->childAt(0), std::invalid_argument);
+  ASSERT_NE(std::string::npos, foo->toString().find("OPAQUE<"));
+  ASSERT_NE(std::string::npos, foo->toString().find("Foo"));
+  ASSERT_EQ(foo->size(), 0);
+  VELOX_ASSERT_THROW(foo->childAt(0), "OpaqueType type has no children");
   EXPECT_STREQ(foo->kindName(), "OPAQUE");
-  EXPECT_EQ(foo->isPrimitiveType(), false);
+  ASSERT_EQ(foo->isPrimitiveType(), false);
 
   auto foo2 = OpaqueType::create<Foo>();
-  EXPECT_NE(*foo, *bar);
-  EXPECT_EQ(*foo, *foo2);
+  ASSERT_NE(*foo, *bar);
+  ASSERT_EQ(*foo, *foo2);
 
   OpaqueType::registerSerialization<Foo>("id_of_foo");
-  EXPECT_EQ(foo->serialize()["opaque"], "id_of_foo");
-  EXPECT_THROW(foo->getSerializeFunc(), VeloxException);
-  EXPECT_THROW(foo->getDeserializeFunc(), VeloxException);
-  EXPECT_THROW(bar->serialize(), VeloxException);
-  EXPECT_THROW(bar->getSerializeFunc(), VeloxException);
-  EXPECT_THROW(bar->getDeserializeFunc(), VeloxException);
+  ASSERT_EQ(foo->serialize()["opaque"], "id_of_foo");
+  VELOX_ASSERT_THROW(
+      foo->getSerializeFunc(),
+      "No serialization function registered for OPAQUE<Foo>");
+  VELOX_ASSERT_THROW(
+      foo->getDeserializeFunc(),
+      "No deserialization function registered for OPAQUE<Foo>");
+  VELOX_ASSERT_THROW(
+      bar->serialize(),
+      "No serialization persistent name registered for OPAQUE<Bar>");
+  VELOX_ASSERT_THROW(
+      bar->getSerializeFunc(),
+      "No serialization function registered for OPAQUE<Bar>");
+  VELOX_ASSERT_THROW(
+      bar->getDeserializeFunc(),
+      "No deserialization function registered for OPAQUE<Bar>");
 
   auto foo3 = Type::create(foo->serialize());
-  EXPECT_EQ(*foo, *foo3);
+  ASSERT_EQ(*foo, *foo3);
 
   OpaqueType::registerSerialization<Bar>(
       "id_of_bar",
@@ -836,8 +865,9 @@ TEST(TypeTest, follySformat) {
 }
 
 TEST(TypeTest, unknownArray) {
-  auto unknownArray = ARRAY(UNKNOWN());
-  EXPECT_TRUE(unknownArray->containsUnknown());
+  const auto unknownArray = ARRAY(UNKNOWN());
+  ASSERT_EQ(approximateTypeEncodingwidth(unknownArray), 2);
+  ASSERT_TRUE(unknownArray->containsUnknown());
 
   testTypeSerde(unknownArray);
 

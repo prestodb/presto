@@ -870,8 +870,8 @@ void HiveDataSink::splitInputRowsAndEnsureWriters() {
   const auto numRows =
       isPartitioned() ? partitionIds_.size() : bucketIds_.size();
   for (auto row = 0; row < numRows; ++row) {
-    auto id = getWriterId(row);
-    uint32_t index = ensureWriter(id);
+    const auto id = getWriterId(row);
+    const uint32_t index = ensureWriter(id);
 
     VELOX_DCHECK_LT(index, partitionSizes_.size());
     VELOX_DCHECK_EQ(partitionSizes_.size(), partitionRows_.size());

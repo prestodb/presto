@@ -234,7 +234,9 @@ TEST_F(HashJoinReplayerTest, basic) {
                                    task->taskId(),
                                    traceNodeId_,
                                    "HashJoin",
-                                   "")
+                                   "",
+                                   0,
+                                   executor_.get())
                                    .run();
   assertEqualResults({result}, {replayingResult});
 }
@@ -304,7 +306,9 @@ TEST_F(HashJoinReplayerTest, partialDriverIds) {
             task->taskId(),
             traceNodeId_,
             "HashJoin",
-            "0")
+            "0",
+            0,
+            executor_.get())
             .run(),
         "Read wrong data file");
   }
@@ -314,7 +318,9 @@ TEST_F(HashJoinReplayerTest, partialDriverIds) {
       task->taskId(),
       traceNodeId_,
       "HashJoin",
-      "1,3")
+      "1,3",
+      0,
+      executor_.get())
       .run();
   faultyFs->clearFileFaultInjections();
 }
@@ -390,7 +396,9 @@ DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashBuildSpill) {
                                    task->taskId(),
                                    traceNodeId_,
                                    "HashJoin",
-                                   "")
+                                   "",
+                                   0,
+                                   executor_.get())
                                    .run();
   assertEqualResults({result}, {replayingResult});
 }
@@ -470,7 +478,9 @@ DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashProbeSpill) {
                                    task->taskId(),
                                    traceNodeId_,
                                    "HashJoin",
-                                   "")
+                                   "",
+                                   0,
+                                   executor_.get())
                                    .run();
   assertEqualResults({result}, {replayingResult});
 }

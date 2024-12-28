@@ -30,13 +30,13 @@ void WriterSink::addBuffer(dwio::common::DataBuffer<char> buffer) {
       } else {
         // capture input to the cache
         auto remainingSize = length;
-        auto src = buffer.data();
+        auto* src = buffer.data();
         auto capacity = cacheBuffer_.capacity();
         auto size = cacheBuffer_.size();
         // resize the buffer assuming we need to use all of it
         cacheBuffer_.resize(capacity);
         while (remainingSize > 0) {
-          DWIO_ENSURE_LT(size, capacity);
+          VELOX_CHECK_LT(size, capacity);
           const auto toWriteSize = std::min(capacity - size, remainingSize);
           std::memcpy(cacheBuffer_.data() + size, src, toWriteSize);
           size += toWriteSize;

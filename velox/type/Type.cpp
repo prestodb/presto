@@ -1260,5 +1260,4 @@ std::string getOpaqueAliasForTypeId(std::type_index typeIndex) {
       typeIndex.name());
   return it->second;
 }
-
 } // namespace facebook::velox

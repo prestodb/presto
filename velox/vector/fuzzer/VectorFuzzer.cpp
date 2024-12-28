@@ -787,28 +787,6 @@ TypePtr VectorFuzzer::randRowTypeByWidth(int minWidth) {
   return velox::randRowTypeByWidth(rng_, defaultScalarTypes(), minWidth);
 }
 
-size_t VectorFuzzer::typeWidth(const TypePtr& type) const {
-  if (type->isPrimitiveType()) {
-    return 1;
-  }
-  switch (type->kind()) {
-    case TypeKind::ARRAY:
-      return 1 + typeWidth(type->asArray().elementType());
-    case TypeKind::MAP:
-      return 1 + typeWidth(type->asMap().keyType()) +
-          typeWidth(type->asMap().valueType());
-    case TypeKind::ROW: {
-      size_t fieldWidth = 0;
-      for (const auto& child : type->asRow().children()) {
-        fieldWidth += typeWidth(child);
-      }
-      return 1 + fieldWidth;
-    }
-    default:
-      VELOX_UNREACHABLE("Unsupported type: {}", type->toString());
-  }
-}
-
 size_t VectorFuzzer::randInRange(size_t min, size_t max) {
   return rand(rng_, min, max);
 }
@@ -1077,7 +1055,7 @@ TypePtr randRowTypeByWidth(
     int minWidth) {
   const auto numFields = 1 + rand<uint32_t>(rng) % 10;
   std::vector<TypePtr> fields;
-  auto remainingWidth = minWidth - 1;
+  auto remainingWidth = minWidth;
   for (auto i = 0; i < numFields - 1; ++i) {
     const auto fieldWidth =
         remainingWidth > 0 ? rand<uint32_t>(rng) % remainingWidth : 0;

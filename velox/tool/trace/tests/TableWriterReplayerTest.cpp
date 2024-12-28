@@ -34,6 +34,7 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/tool/trace/TableWriterReplayer.h"
+#include "velox/tool/trace/TraceReplayRunner.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -264,6 +265,76 @@ class TableWriterReplayerTest : public HiveConnectorTestBase {
   FileFormat fileFormat_{FileFormat::DWRF};
 };
 
+TEST_F(TableWriterReplayerTest, runner) {
+  vector_size_t size = 1'000;
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(
+          size, [](auto row) { return row * 2; }, nullEvery(7)),
+  });
+  auto sourceFilePath = TempFilePath::create();
+  writeToFile(sourceFilePath->getPath(), data);
+
+  std::string traceNodeId;
+  auto targetDirectoryPath = TempDirectoryPath::create();
+  auto rowType = asRowType(data->type());
+  auto plan = PlanBuilder()
+                  .tableScan(rowType)
+                  .tableWrite(targetDirectoryPath->getPath())
+                  .capturePlanNodeId(traceNodeId)
+                  .planNode();
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  std::shared_ptr<Task> task;
+  auto results =
+      AssertQueryBuilder(plan)
+          .config(core::QueryConfig::kQueryTraceEnabled, true)
+          .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+          .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+          .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId)
+          .split(makeHiveConnectorSplit(sourceFilePath->getPath()))
+          .copyResults(pool(), task);
+
+  const auto taskTraceDir =
+      exec::trace::getTaskTraceDirectory(traceRoot, *task);
+  const auto opTraceDir = exec::trace::getOpTraceDirectory(
+      taskTraceDir,
+      traceNodeId,
+      /*pipelineId=*/0,
+      /*driverId=*/0);
+  const auto summary =
+      exec::trace::OperatorTraceSummaryReader(opTraceDir, pool()).read();
+  ASSERT_EQ(summary.opType, "TableWrite");
+  ASSERT_GT(summary.peakMemory, 0);
+  ASSERT_GT(summary.inputRows, 0);
+  // NOTE: the input bytes is 0 because of the lazy materialization.
+  ASSERT_EQ(summary.inputBytes, 0);
+  ASSERT_EQ(summary.rawInputRows, 0);
+  ASSERT_EQ(summary.rawInputBytes, 0);
+
+  FLAGS_root_dir = traceRoot;
+  FLAGS_query_id = task->queryCtx()->queryId();
+  FLAGS_node_id = traceNodeId;
+  FLAGS_summary = true;
+  {
+    TraceReplayRunner runner;
+    runner.init();
+    runner.run();
+  }
+
+  const auto traceOutputDir = TempDirectoryPath::create();
+  FLAGS_task_id = task->taskId();
+  FLAGS_driver_ids = "";
+  FLAGS_table_writer_output_dir = traceOutputDir->getPath();
+  FLAGS_summary = false;
+  {
+    TraceReplayRunner runner;
+    runner.init();
+    runner.run();
+  }
+}
+
 TEST_F(TableWriterReplayerTest, basic) {
   vector_size_t size = 1'000;
   auto data = makeRowVector({
@@ -302,6 +373,8 @@ TEST_F(TableWriterReplayerTest, basic) {
                           "1",
                           "TableWriter",
                           "",
+                          0,
+                          executor_.get(),
                           traceOutputDir->getPath())
                           .run();
 
@@ -428,6 +501,8 @@ TEST_F(TableWriterReplayerTest, partitionWrite) {
       tableWriteNodeId,
       "TableWriter",
       "",
+      0,
+      executor_.get(),
       traceOutputDir->getPath())
       .run();
   actualPartitionDirectories = getLeafSubdirectories(traceOutputDir->getPath());

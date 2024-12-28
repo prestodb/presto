@@ -685,7 +685,7 @@ class ScalarType : public CanProvideCustomComparisonType<KIND> {
   }
 
   const std::shared_ptr<const Type>& childAt(uint32_t) const override {
-    throw std::invalid_argument{"scalar type has no children"};
+    VELOX_FAIL("scalar type has no children");
   }
 
   std::string toString() const override {
@@ -1150,7 +1150,7 @@ class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
   }
 
   const std::shared_ptr<const Type>& childAt(uint32_t) const override {
-    throw std::invalid_argument{"OpaqueType type has no children"};
+    VELOX_FAIL("OpaqueType type has no children");
   }
 
   std::string toString() const override;
@@ -2001,7 +2001,6 @@ namespace exec {
 class CastOperator;
 
 using CastOperatorPtr = std::shared_ptr<const CastOperator>;
-
 } // namespace exec
 
 /// Associates custom types with their custom operators to be the payload in

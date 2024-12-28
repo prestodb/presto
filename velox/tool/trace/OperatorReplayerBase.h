@@ -33,7 +33,9 @@ class OperatorReplayerBase {
       std::string taskId,
       std::string nodeId,
       std::string operatorType,
-      const std::string& driverIds);
+      const std::string& driverIds,
+      uint64_t queryCapacity,
+      folly::Executor* executor);
   virtual ~OperatorReplayerBase() = default;
 
   OperatorReplayerBase(const OperatorReplayerBase& other) = delete;
@@ -61,8 +63,10 @@ class OperatorReplayerBase {
   const std::shared_ptr<filesystems::FileSystem> fs_;
   const std::vector<uint32_t> pipelineIds_;
   const std::vector<uint32_t> driverIds_;
+  const uint64_t queryCapacity_;
   const std::shared_ptr<core::PlanNodeIdGenerator> planNodeIdGenerator_{
       std::make_shared<core::PlanNodeIdGenerator>()};
+  folly::Executor* const executor_;
 
   std::unordered_map<std::string, std::string> queryConfigs_;
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>>

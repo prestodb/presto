@@ -402,15 +402,13 @@ TEST_P(SupportedCompressionTest, ValidateStreamSizeConfigEnabled) {
   validateStreamSize(std::numeric_limits<int32_t>::max());
 
   uint32_t int32Max = std::numeric_limits<int32_t>::max();
-  EXPECT_THROW(validateStreamSize(int32Max + 1), exception::LoggedException);
+  VELOX_ASSERT_THROW(validateStreamSize(int32Max + 1), "");
 
-  EXPECT_THROW(
-      validateStreamSize(std::numeric_limits<uint64_t>::max()),
-      exception::LoggedException);
+  VELOX_ASSERT_THROW(
+      validateStreamSize(std::numeric_limits<uint64_t>::max()), "");
 
-  EXPECT_THROW(
-      validateStreamSize(std::numeric_limits<uint32_t>::max()),
-      exception::LoggedException);
+  VELOX_ASSERT_THROW(
+      validateStreamSize(std::numeric_limits<uint32_t>::max()), "");
   writer.close();
 }
 

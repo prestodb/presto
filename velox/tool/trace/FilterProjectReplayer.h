@@ -34,14 +34,18 @@ class FilterProjectReplayer : public OperatorReplayerBase {
       const std::string& taskId,
       const std::string& nodeId,
       const std::string& operatorType,
-      const std::string& driverIds)
+      const std::string& driverIds,
+      uint64_t queryCapacity,
+      folly::Executor* executor)
       : OperatorReplayerBase(
             rootDir,
             queryId,
             taskId,
             nodeId,
             operatorType,
-            driverIds) {}
+            driverIds,
+            queryCapacity,
+            executor) {}
 
  private:
   // Create either a standalone FilterNode, a standalone ProjectNode, or a

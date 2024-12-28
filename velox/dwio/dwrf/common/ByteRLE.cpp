@@ -24,13 +24,13 @@ namespace facebook::velox::dwrf {
 class ByteRleEncoderImpl : public ByteRleEncoder {
  public:
   explicit ByteRleEncoderImpl(std::unique_ptr<BufferedOutputStream> output)
-      : outputStream{std::move(output)},
-        numLiterals{0},
-        repeat{false},
-        tailRunLength{0},
-        bufferPosition{0},
-        bufferLength{0},
-        buffer{nullptr} {}
+      : outputStream_{std::move(output)},
+        numLiterals_{0},
+        repeat_{false},
+        tailRunLength_{0},
+        bufferPosition_{0},
+        bufferLength_{0},
+        buffer_{nullptr} {}
 
   uint64_t add(
       const char* data,
@@ -59,7 +59,7 @@ class ByteRleEncoderImpl : public ByteRleEncoder {
   }
 
   uint64_t getBufferSize() const override {
-    return outputStream->size();
+    return outputStream_->size();
   }
 
   uint64_t flush() override;
@@ -68,30 +68,30 @@ class ByteRleEncoderImpl : public ByteRleEncoder {
       const override;
 
  protected:
-  std::unique_ptr<BufferedOutputStream> outputStream;
-  std::array<char, RLE_MAX_LITERAL_SIZE> literals;
-  int32_t numLiterals;
-  bool repeat;
-  int32_t tailRunLength;
-  int32_t bufferPosition;
-  int32_t bufferLength;
-  char* buffer;
-
   void writeByte(char c);
   void writeValues();
   void write(char c);
+
+  std::unique_ptr<BufferedOutputStream> outputStream_;
+  std::array<char, RLE_MAX_LITERAL_SIZE> literals_;
+  int32_t numLiterals_;
+  bool repeat_;
+  int32_t tailRunLength_;
+  int32_t bufferPosition_;
+  int32_t bufferLength_;
+  char* buffer_;
 };
 
 void ByteRleEncoderImpl::writeByte(char c) {
-  if (UNLIKELY(bufferPosition == bufferLength)) {
+  if (UNLIKELY(bufferPosition_ == bufferLength_)) {
     int32_t addedSize = 0;
     DWIO_ENSURE(
-        outputStream->Next(reinterpret_cast<void**>(&buffer), &addedSize),
+        outputStream_->Next(reinterpret_cast<void**>(&buffer_), &addedSize),
         "Allocation failure");
-    bufferPosition = 0;
-    bufferLength = addedSize;
+    bufferPosition_ = 0;
+    bufferLength_ = addedSize;
   }
-  buffer[bufferPosition++] = c;
+  buffer_[bufferPosition_++] = c;
 }
 
 uint64_t ByteRleEncoderImpl::add(
@@ -137,61 +137,62 @@ uint64_t ByteRleEncoderImpl::add(
 }
 
 void ByteRleEncoderImpl::writeValues() {
-  if (numLiterals != 0) {
-    if (repeat) {
-      writeByte(static_cast<char>(numLiterals - RLE_MINIMUM_REPEAT));
-      writeByte(literals[0]);
-    } else {
-      writeByte(static_cast<char>(-numLiterals));
-      for (int32_t i = 0; i < numLiterals; ++i) {
-        writeByte(literals[i]);
-      }
-    }
-    repeat = false;
-    tailRunLength = 0;
-    numLiterals = 0;
+  if (numLiterals_ == 0) {
+    return;
   }
+  if (repeat_) {
+    writeByte(static_cast<char>(numLiterals_ - RLE_MINIMUM_REPEAT));
+    writeByte(literals_[0]);
+  } else {
+    writeByte(static_cast<char>(-numLiterals_));
+    for (int32_t i = 0; i < numLiterals_; ++i) {
+      writeByte(literals_[i]);
+    }
+  }
+  repeat_ = false;
+  tailRunLength_ = 0;
+  numLiterals_ = 0;
 }
 
 uint64_t ByteRleEncoderImpl::flush() {
   writeValues();
-  outputStream->BackUp(bufferLength - bufferPosition);
-  uint64_t dataSize = outputStream->flush();
-  bufferLength = bufferPosition = 0;
+  outputStream_->BackUp(bufferLength_ - bufferPosition_);
+  uint64_t dataSize = outputStream_->flush();
+  bufferLength_ = bufferPosition_ = 0;
   return dataSize;
 }
 
 void ByteRleEncoderImpl::write(char value) {
-  if (numLiterals == 0) {
-    literals[numLiterals++] = value;
-    tailRunLength = 1;
-  } else if (repeat) {
-    if (value == literals[0]) {
-      if (++numLiterals == RLE_MAXIMUM_REPEAT) {
+  if (numLiterals_ == 0) {
+    literals_[numLiterals_++] = value;
+    tailRunLength_ = 1;
+  } else if (repeat_) {
+    if (value == literals_[0]) {
+      if (++numLiterals_ == RLE_MAXIMUM_REPEAT) {
         writeValues();
       }
     } else {
       writeValues();
-      literals[numLiterals++] = value;
-      tailRunLength = 1;
+      literals_[numLiterals_++] = value;
+      tailRunLength_ = 1;
     }
   } else {
-    if (value == literals[numLiterals - 1]) {
-      tailRunLength += 1;
+    if (value == literals_[numLiterals_ - 1]) {
+      tailRunLength_ += 1;
     } else {
-      tailRunLength = 1;
+      tailRunLength_ = 1;
     }
-    if (tailRunLength == RLE_MINIMUM_REPEAT) {
-      if (numLiterals + 1 > RLE_MINIMUM_REPEAT) {
-        numLiterals -= (RLE_MINIMUM_REPEAT - 1);
+    if (tailRunLength_ == RLE_MINIMUM_REPEAT) {
+      if (numLiterals_ + 1 > RLE_MINIMUM_REPEAT) {
+        numLiterals_ -= (RLE_MINIMUM_REPEAT - 1);
         writeValues();
-        literals[0] = value;
+        literals_[0] = value;
       }
-      repeat = true;
-      numLiterals = RLE_MINIMUM_REPEAT;
+      repeat_ = true;
+      numLiterals_ = RLE_MINIMUM_REPEAT;
     } else {
-      literals[numLiterals++] = value;
-      if (numLiterals == RLE_MAX_LITERAL_SIZE) {
+      literals_[numLiterals_++] = value;
+      if (numLiterals_ == RLE_MAX_LITERAL_SIZE) {
         writeValues();
       }
     }
@@ -201,9 +202,9 @@ void ByteRleEncoderImpl::write(char value) {
 void ByteRleEncoderImpl::recordPosition(
     PositionRecorder& recorder,
     int32_t strideIndex) const {
-  outputStream->recordPosition(
-      recorder, bufferLength, bufferPosition, strideIndex);
-  recorder.add(static_cast<uint64_t>(numLiterals), strideIndex);
+  outputStream_->recordPosition(
+      recorder, bufferLength_, bufferPosition_, strideIndex);
+  recorder.add(static_cast<uint64_t>(numLiterals_), strideIndex);
 }
 
 std::unique_ptr<ByteRleEncoder> createByteRleEncoder(

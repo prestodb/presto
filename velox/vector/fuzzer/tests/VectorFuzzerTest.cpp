@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/memory/Memory.h"
+#include "velox/type/TypeEncodingUtil.h"
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -957,30 +958,30 @@ TEST_F(VectorFuzzerTest, randTypeByWidth) {
 
   // Test typeWidth.
   TypePtr type = BIGINT();
-  EXPECT_EQ(fuzzer.typeWidth(type), 1);
+  ASSERT_EQ(approximateTypeEncodingwidth(type), 1);
   type = ARRAY(BIGINT());
-  EXPECT_EQ(fuzzer.typeWidth(type), 2);
+  ASSERT_EQ(approximateTypeEncodingwidth(type), 2);
   type = MAP(BIGINT(), ARRAY(VARCHAR()));
-  EXPECT_EQ(fuzzer.typeWidth(type), 4);
+  ASSERT_EQ(approximateTypeEncodingwidth(type), 4);
   type = ROW(
       {INTEGER(), ARRAY(BIGINT()), MAP(VARCHAR(), DOUBLE()), ROW({TINYINT()})});
-  EXPECT_EQ(fuzzer.typeWidth(type), 9);
+  ASSERT_EQ(approximateTypeEncodingwidth(type), 7);
 
   // Test randType by width. Results should be at least a RowType with one
   // field, so the minimal type width is 2.
   type = fuzzer.randRowTypeByWidth(-1);
-  EXPECT_GE(fuzzer.typeWidth(type), 2);
+  ASSERT_GE(approximateTypeEncodingwidth(type), 2);
   type = fuzzer.randRowTypeByWidth(0);
-  EXPECT_GE(fuzzer.typeWidth(type), 2);
+  ASSERT_GE(approximateTypeEncodingwidth(type), 2);
   type = fuzzer.randRowTypeByWidth(1);
-  EXPECT_GE(fuzzer.typeWidth(type), 2);
+  ASSERT_GE(approximateTypeEncodingwidth(type), 2);
 
   folly::Random::DefaultGenerator rng;
   rng.seed(0);
   for (auto i = 0; i < 1000; ++i) {
     const auto width = folly::Random::rand32(rng) % 128;
     type = fuzzer.randRowTypeByWidth(width);
-    EXPECT_GE(fuzzer.typeWidth(type), width > 2 ? width : 2);
+    ASSERT_GE(approximateTypeEncodingwidth(type), width);
   }
 }
 } // namespace

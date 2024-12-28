@@ -193,7 +193,9 @@ TEST_F(FilterProjectReplayerTest, filterProject) {
                                task->taskId(),
                                projectNodeId_,
                                "FilterProject",
-                               "")
+                               "",
+                               0,
+                               executor_.get())
                                .run();
     assertEqualResults({result}, {replayingResult});
   }
@@ -228,7 +230,9 @@ TEST_F(FilterProjectReplayerTest, filterOnly) {
                              task->taskId(),
                              filterNodeId_,
                              "FilterProject",
-                             "")
+                             "",
+                             0,
+                             executor_.get())
                              .run();
   assertEqualResults({result}, {replayingResult});
 }
@@ -262,7 +266,9 @@ TEST_F(FilterProjectReplayerTest, projectOnly) {
                              task->taskId(),
                              projectNodeId_,
                              "FilterProject",
-                             "")
+                             "",
+                             0,
+                             executor_.get())
                              .run();
   assertEqualResults({result}, {replayingResult});
 
@@ -272,7 +278,9 @@ TEST_F(FilterProjectReplayerTest, projectOnly) {
                               task->taskId(),
                               projectNodeId_,
                               "FilterProject",
-                              "0,2")
+                              "0,2",
+                              0,
+                              executor_.get())
                               .run();
   auto replayingResult2 = FilterProjectReplayer(
                               traceRoot,
@@ -280,7 +288,9 @@ TEST_F(FilterProjectReplayerTest, projectOnly) {
                               task->taskId(),
                               projectNodeId_,
                               "FilterProject",
-                              "1,3")
+                              "1,3",
+                              0,
+                              executor_.get())
                               .run();
   assertEqualResults({result}, {replayingResult1, replayingResult2});
 }

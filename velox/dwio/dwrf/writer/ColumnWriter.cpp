@@ -91,8 +91,8 @@ uint64_t ByteRleColumnWriter<int8_t>::write(
   static_assert(NULL_SIZE == 1, "unexpected raw data size");
   if (slice->encoding() == VectorEncoding::Simple::FLAT) {
     // Optimized path for flat vectors
-    auto flatVector = slice->as<FlatVector<int8_t>>();
-    DWIO_ENSURE(flatVector, "unexpected vector type");
+    auto* flatVector = slice->as<FlatVector<int8_t>>();
+    VELOX_CHECK_NOT_NULL(flatVector, "unexpected vector type");
     writeNulls(slice, ranges);
     const auto* nulls = slice->rawNulls();
     const auto* vals = flatVector->template rawValues<char>();
@@ -141,8 +141,8 @@ uint64_t ByteRleColumnWriter<bool>::write(
   static_assert(NULL_SIZE == 1, "unexpected raw data size");
   if (slice->encoding() == VectorEncoding::Simple::FLAT) {
     // Optimized path for flat vectors
-    auto flatVector = slice->as<FlatVector<bool>>();
-    DWIO_ENSURE(flatVector, "unexpected vector type");
+    auto* flatVector = slice->as<FlatVector<bool>>();
+    VELOX_CHECK_NOT_NULL(flatVector, "unexpected vector type");
     writeNulls(slice, ranges);
     const auto* nulls = slice->rawNulls();
     const auto* vals = flatVector->template rawValues<uint64_t>();
@@ -213,9 +213,9 @@ class IntegerColumnWriter : public BaseColumnWriter {
         sort_{getConfig(Config::DICTIONARY_SORT_KEYS)},
         useDictionaryEncoding_{useDictionaryEncoding()},
         strideOffsets_{getMemoryPool(MemoryUsageCategory::GENERAL)} {
-    DWIO_ENSURE_GE(dictionaryKeySizeThreshold_, 0.0);
-    DWIO_ENSURE_LE(dictionaryKeySizeThreshold_, 1.0);
-    DWIO_ENSURE(firstStripe_);
+    VELOX_CHECK_GE(dictionaryKeySizeThreshold_, 0.0);
+    VELOX_CHECK_LE(dictionaryKeySizeThreshold_, 1.0);
+    VELOX_CHECK(firstStripe_);
     if (!useDictionaryEncoding_) {
       // Suppress the stream used to initialize dictionary encoder.
       // TODO: passing factory method into the dict encoder also works
@@ -372,7 +372,7 @@ class IntegerColumnWriter : public BaseColumnWriter {
 
   void ensureValidStreamWriters(bool dictEncoding) {
     // Ensure we have valid streams for exactly one encoding.
-    DWIO_ENSURE(
+    VELOX_CHECK(
         (dictEncoding && data_ && inDictionary_ && !dataDirect_) ||
             (!dictEncoding && !data_ && !inDictionary_ && dataDirect_),
         fmt::format(
@@ -427,7 +427,7 @@ class IntegerColumnWriter : public BaseColumnWriter {
     for (size_t i = 1; i <= numStrides; ++i) {
       const auto& start = strideOffsets_[i - 1];
       const auto& end = strideOffsets_[i];
-      DWIO_ENSURE_GE(end, start);
+      VELOX_CHECK_GE(end, start);
       if (end > start) {
         populateData(start, end);
       }
@@ -548,8 +548,8 @@ uint64_t IntegerColumnWriter<T>::writeDirect(
     const VectorPtr& slice,
     const common::Ranges& ranges) {
   ensureValidStreamWriters(false);
-  auto flatVector = slice->asFlatVector<T>();
-  DWIO_ENSURE(flatVector, "unexpected vector type");
+  auto* flatVector = slice->asFlatVector<T>();
+  VELOX_CHECK_NOT_NULL(flatVector, "unexpected vector type");
   writeNulls(slice, ranges);
   auto nulls = slice->rawNulls();
   auto vals = flatVector->rawValues();
@@ -621,8 +621,9 @@ void IntegerColumnWriter<T>::populateDictionaryEncodingStreams() {
   };
 
   // The writer always calls createIndexEntry before flush.
-  size_t lastIndexStrideOffset = strideOffsets_[strideOffsets_.size() - 1];
-  DWIO_ENSURE_EQ(lastIndexStrideOffset, rows_.size());
+  const size_t lastIndexStrideOffset =
+      strideOffsets_[strideOffsets_.size() - 1];
+  VELOX_CHECK_EQ(lastIndexStrideOffset, rows_.size());
   populateStrides(
       populateDictionaryStreams,
       std::bind(
@@ -699,7 +700,7 @@ class TimestampColumnWriter : public BaseColumnWriter {
 
 namespace {
 FOLLY_ALWAYS_INLINE int64_t formatTime(int64_t seconds, uint64_t nanos) {
-  DWIO_ENSURE(seconds >= MIN_SECONDS);
+  VELOX_CHECK_GE(seconds, MIN_SECONDS);
 
   if (seconds < 0 && nanos != 0) {
     // Adding 1 for neagive seconds is there to imitate the Java ORC writer.
@@ -722,7 +723,7 @@ FOLLY_ALWAYS_INLINE int64_t formatNanos(uint64_t nanos) {
   if (nanos == 0) {
     return 0;
   }
-  DWIO_ENSURE(nanos <= MAX_NANOS);
+  VELOX_CHECK_LE(nanos, MAX_NANOS);
 
   if (nanos % 100 != 0) {
     return nanos << 3;
@@ -815,7 +816,7 @@ class StringColumnWriter : public BaseColumnWriter {
         sort_{getConfig(Config::DICTIONARY_SORT_KEYS)},
         useDictionaryEncoding_{useDictionaryEncoding()},
         strideOffsets_{getMemoryPool(MemoryUsageCategory::GENERAL)} {
-    DWIO_ENSURE(firstStripe_);
+    VELOX_CHECK(firstStripe_);
     if (!useDictionaryEncoding_) {
       initStreamWriters(useDictionaryEncoding_);
     }
@@ -971,7 +972,7 @@ class StringColumnWriter : public BaseColumnWriter {
 
   void ensureValidStreamWriters(bool dictEncoding) {
     // Ensure we have exactly one valid data stream.
-    DWIO_ENSURE(
+    VELOX_CHECK(
         (dictEncoding && data_ && dictionaryData_ && dictionaryDataLength_ &&
          strideDictionaryData_ && strideDictionaryDataLength_ &&
          inDictionary_ && !dataDirect_ && !dataDirectLength_) ||
@@ -1034,7 +1035,7 @@ class StringColumnWriter : public BaseColumnWriter {
     for (size_t i = 1; i <= numStrides; ++i) {
       const auto& start = strideOffsets_[i - 1];
       const auto& end = strideOffsets_[i];
-      DWIO_ENSURE_GE(end, start);
+      VELOX_CHECK_GE(end, start);
       if (end > start) {
         populateData(start, end, i - 1);
       }
@@ -1310,7 +1311,7 @@ void StringColumnWriter::populateDictionaryEncodingStreams() {
 
   // The writer always calls createIndexEntry before flush.
   size_t lastIndexStrideOffset = strideOffsets_[strideOffsets_.size() - 1];
-  DWIO_ENSURE_EQ(lastIndexStrideOffset, rows_.size());
+  VELOX_CHECK_EQ(lastIndexStrideOffset, rows_.size());
   populateStrides(
       populateDictionaryStreams,
       std::bind(
@@ -1531,8 +1532,8 @@ uint64_t BinaryColumnWriter::write(
   lengths.reserve(ranges.size());
 
   if (slice->encoding() == VectorEncoding::Simple::FLAT) {
-    auto binarySlice = slice->asFlatVector<StringView>();
-    DWIO_ENSURE(binarySlice, "unexpected vector type");
+    auto* binarySlice = slice->asFlatVector<StringView>();
+    VELOX_CHECK_NOT_NULL(binarySlice, "unexpected vector type");
     writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
     auto data = binarySlice->rawValues();
@@ -1661,7 +1662,7 @@ uint64_t StructColumnWriter::write(
       auto localDecoded = decode(slice, ranges);
       auto& decodedVector = localDecoded.get();
       rowSlice = decodedVector.base()->as<RowVector>();
-      DWIO_ENSURE(rowSlice, "unexpected vector type");
+      VELOX_CHECK_NOT_NULL(rowSlice, "unexpected vector type");
       childRangesPtr = &childRanges;
 
       // For every index in wrapped indices we will add a 1-entry size range.
@@ -1670,7 +1671,7 @@ uint64_t StructColumnWriter::write(
       }
     } else {
       rowSlice = slice->as<RowVector>();
-      DWIO_ENSURE(rowSlice, "unexpected vector type");
+      VELOX_CHECK_NOT_NULL(rowSlice, "unexpected vector type");
       childRangesPtr = &ranges;
     }
     auto rawSize = writeChildrenAndStats(rowSlice, *childRangesPtr, 0);
@@ -1687,7 +1688,7 @@ uint64_t StructColumnWriter::write(
     auto localDecoded = decode(slice, ranges);
     auto& decodedVector = localDecoded.get();
     rowSlice = decodedVector.base()->as<RowVector>();
-    DWIO_ENSURE(rowSlice, "unexpected vector type");
+    VELOX_CHECK_NOT_NULL(rowSlice, "unexpected vector type");
     childRangesPtr = &childRanges;
     writeNulls(decodedVector, ranges);
 
@@ -1709,7 +1710,7 @@ uint64_t StructColumnWriter::write(
     }
   } else {
     rowSlice = slice->as<RowVector>();
-    DWIO_ENSURE(rowSlice, "unexpected vector type");
+    VELOX_CHECK_NOT_NULL(rowSlice, "unexpected vector type");
     childRangesPtr = &ranges;
     writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
@@ -1785,7 +1786,7 @@ uint64_t ListColumnWriter::write(
     auto localDecoded = decode(slice, ranges);
     auto& decodedVector = localDecoded.get();
     arraySlice = decodedVector.base()->as<ArrayVector>();
-    DWIO_ENSURE(arraySlice, "unexpected vector type");
+    VELOX_CHECK_NOT_NULL(arraySlice, "unexpected vector type");
 
     writeNulls(decodedVector, ranges);
     offsets = arraySlice->rawOffsets();
@@ -1806,7 +1807,7 @@ uint64_t ListColumnWriter::write(
     }
   } else {
     arraySlice = slice->as<ArrayVector>();
-    DWIO_ENSURE(arraySlice, "unexpected vector type");
+    VELOX_CHECK_NOT_NULL(arraySlice, "unexpected vector type");
 
     writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
@@ -1904,8 +1905,8 @@ uint64_t MapColumnWriter::write(
     auto begin = offsets[pos];
     auto end = begin + lengths[pos];
     if (end > begin) {
-      DWIO_ENSURE_LE(end, mapSlice->mapKeys()->size());
-      DWIO_ENSURE_LE(end, mapSlice->mapValues()->size());
+      VELOX_CHECK_LE(end, mapSlice->mapKeys()->size());
+      VELOX_CHECK_LE(end, mapSlice->mapValues()->size());
       childRanges.add(begin, end);
     }
     nonNullLengths.unsafeAppend(end - begin);
@@ -1915,7 +1916,7 @@ uint64_t MapColumnWriter::write(
     auto localDecoded = decode(slice, ranges);
     auto& decodedVector = localDecoded.get();
     mapSlice = decodedVector.base()->as<MapVector>();
-    DWIO_ENSURE(mapSlice, "unexpected vector type");
+    VELOX_CHECK_NOT_NULL(mapSlice, "unexpected vector type");
 
     writeNulls(decodedVector, ranges);
     offsets = mapSlice->rawOffsets();
@@ -1936,7 +1937,7 @@ uint64_t MapColumnWriter::write(
     }
   } else {
     mapSlice = slice->as<MapVector>();
-    DWIO_ENSURE(mapSlice, "unexpected vector type");
+    VELOX_CHECK_NOT_NULL(mapSlice, "unexpected vector type");
 
     writeNulls(slice, ranges);
     auto nulls = slice->rawNulls();
@@ -2002,21 +2003,21 @@ std::unique_ptr<BaseColumnWriter> BaseColumnWriter::create(
   // direct children of the root node).
   if (flatMapEnabled) {
     if (isFlatMapColumn && type.type()->kind() != TypeKind::MAP) {
-      DWIO_RAISE(fmt::format(
+      VELOX_FAIL(
           "MAP_FLAT_COLS contains column {}, but the root type of this column is {}."
           " Column root types must be of type MAP",
           type.column(),
-          mapTypeKindToName(type.type()->kind())));
+          mapTypeKindToName(type.type()->kind()));
     }
     const auto structColumnKeys =
         context.getConfig(Config::MAP_FLAT_COLS_STRUCT_KEYS);
     if (!structColumnKeys.empty()) {
-      DWIO_ENSURE_EQ(
+      VELOX_CHECK_EQ(
           type.parent()->size(),
           structColumnKeys.size(),
           "MAP_FLAT_COLS_STRUCT_KEYS size must match number of columns.");
       if (!structColumnKeys[type.column()].empty()) {
-        DWIO_ENSURE(
+        VELOX_CHECK(
             isFlatMapColumn,
             "Struct input found in MAP_FLAT_COLS_STRUCT_KEYS. Column must also be in MAP_FLAT_COLS.");
       }
@@ -2064,12 +2065,12 @@ std::unique_ptr<BaseColumnWriter> BaseColumnWriter::create(
       return ret;
     }
     case TypeKind::MAP: {
-      DWIO_ENSURE_EQ(type.size(), 2, "Map should have exactly two children");
+      VELOX_CHECK_EQ(type.size(), 2, "Map should have exactly two children");
 
       // We only flatten maps which are direct children of the root node.
       // All other (nested) maps are treated as regular maps.
       if (isFlatMapColumn) {
-        DWIO_ENSURE(onRecordPosition == nullptr, "unexpected flat map nesting");
+        VELOX_CHECK_NULL(onRecordPosition, "unexpected flat map nesting");
         return FlatMapColumnWriter<TypeKind::INVALID>::create(
             context, type, sequence);
       }
@@ -2080,14 +2081,15 @@ std::unique_ptr<BaseColumnWriter> BaseColumnWriter::create(
       return ret;
     }
     case TypeKind::ARRAY: {
-      DWIO_ENSURE_EQ(type.size(), 1, "Array should have exactly one child");
+      VELOX_CHECK_EQ(type.size(), 1, "Array should have exactly one child");
       auto ret = std::make_unique<ListColumnWriter>(
           context, type, sequence, onRecordPosition);
       ret->children_.push_back(create(context, *type.childAt(0), sequence));
       return ret;
     }
     default:
-      DWIO_RAISE("not supported yet ", mapTypeKindToName(type.type()->kind()));
+      VELOX_FAIL(
+          "not supported yet: {}", mapTypeKindToName(type.type()->kind()));
   }
 }
 } // namespace facebook::velox::dwrf

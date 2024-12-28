@@ -67,6 +67,14 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
     /// one page, and the consumer can choose to fetch a prefix of them
     /// according to the memory restriction.
     const std::vector<int64_t> remainingBytes;
+
+    std::string toString() const {
+      return fmt::format(
+          "bytes {}, atEnd {}, remainingBytes {}",
+          succinctBytes(bytes),
+          atEnd ? "true" : "false",
+          remainingBytes.empty() ? "NULL" : folly::join(",", remainingBytes));
+    }
   };
 
   /// Requests the producer to generate up to 'maxBytes' more data and reply

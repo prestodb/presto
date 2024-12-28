@@ -96,6 +96,7 @@ class DataBufferHolder {
       offset += buf.size();
     }
   }
+
   void reset() {
     buffers_.clear();
     size_ = 0;

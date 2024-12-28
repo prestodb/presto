@@ -160,7 +160,9 @@ TEST_P(PartitionedOutputReplayerTest, defaultConsumer) {
                       planNodeId,
                       GetParam(),
                       "PartitionedOutput",
-                      "")
+                      "",
+                      0,
+                      executor_.get())
                       .run());
 }
 
@@ -253,6 +255,8 @@ TEST_P(PartitionedOutputReplayerTest, basic) {
           GetParam(),
           "PartitionedOutput",
           "",
+          0,
+          executor_.get(),
           [&](auto partition, auto page) {
             replayedPartitionedResults[partition].push_back(std::move(page));
           })
