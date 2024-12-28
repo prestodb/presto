@@ -16,6 +16,7 @@
 
 #include "velox/exec/HashJoinBridge.h"
 #include "velox/common/memory/MemoryArbitrator.h"
+#include "velox/exec/HashBuild.h"
 
 namespace facebook::velox::exec {
 namespace {
@@ -91,15 +92,14 @@ namespace {
 // 'table' to parallelize the table spilling. The function spills all the rows
 // from the row container and returns the spiller for the caller to collect the
 // spilled partitions and stats.
-std::unique_ptr<Spiller> createSpiller(
+std::unique_ptr<HashBuildSpiller> createSpiller(
     RowContainer* subTableRows,
     core::JoinType joinType,
     const RowTypePtr& tableType,
     const HashBitRange& hashBitRange,
     const common::SpillConfig* spillConfig,
     folly::Synchronized<common::SpillStats>* stats) {
-  return std::make_unique<Spiller>(
-      Spiller::Type::kHashJoinBuild,
+  return std::make_unique<HashBuildSpiller>(
       joinType,
       subTableRows,
       hashJoinTableSpillType(tableType, joinType),
@@ -110,7 +110,7 @@ std::unique_ptr<Spiller> createSpiller(
 } // namespace
 
 std::vector<std::unique_ptr<HashJoinTableSpillResult>> spillHashJoinTable(
-    const std::vector<Spiller*>& spillers,
+    const std::vector<HashBuildSpiller*>& spillers,
     const common::SpillConfig* spillConfig) {
   VELOX_CHECK_NOT_NULL(spillConfig);
   auto spillExecutor = spillConfig->executor;
@@ -172,8 +172,8 @@ SpillPartitionSet spillHashJoinTable(
     return {};
   }
 
-  std::vector<std::unique_ptr<Spiller>> spillersHolder;
-  std::vector<Spiller*> spillers;
+  std::vector<std::unique_ptr<HashBuildSpiller>> spillersHolder;
+  std::vector<HashBuildSpiller*> spillers;
   const auto rowContainers = table->allRows();
   const auto tableType = hashJoinTableType(joinNode);
   for (auto* rowContainer : rowContainers) {

@@ -250,8 +250,7 @@ void HashProbe::maybeSetupInputSpiller(
 
   // If 'spillInputPartitionIds_' is not empty, then we set up a spiller to
   // spill the incoming probe inputs.
-  inputSpiller_ = std::make_unique<Spiller>(
-      Spiller::Type::kHashJoinProbe,
+  inputSpiller_ = std::make_unique<NoRowContainerSpiller>(
       probeType_,
       HashBitRange(
           spillInputPartitionIds_.begin()->partitionBitOffset(),
@@ -536,7 +535,7 @@ void HashProbe::spillInput(RowVectorPtr& input) {
   for (auto row = 0; row < numInput; ++row) {
     const auto partition = singlePartition.has_value() ? singlePartition.value()
                                                        : spillPartitions_[row];
-    if (!inputSpiller_->isSpilled(partition)) {
+    if (!inputSpiller_->state().isPartitionSpilled(partition)) {
       rawNonSpillInputIndicesBuffer_[numNonSpillingInput++] = row;
       continue;
     }
@@ -556,7 +555,7 @@ void HashProbe::spillInput(RowVectorPtr& input) {
     if (numSpillInputs == 0) {
       continue;
     }
-    VELOX_CHECK(inputSpiller_->isSpilled(partition));
+    VELOX_CHECK(inputSpiller_->state().isPartitionSpilled(partition));
     inputSpiller_->spill(
         partition,
         wrap(numSpillInputs, spillInputIndicesBuffers_[partition], input));
@@ -1630,7 +1629,7 @@ void HashProbe::noMoreInputInternal() {
     VELOX_CHECK_NOT_NULL(inputSpiller_);
     VELOX_CHECK_EQ(
         spillInputPartitionIds_.size(),
-        inputSpiller_->spilledPartitionSet().size());
+        inputSpiller_->state().spilledPartitionSet().size());
     inputSpiller_->finishSpill(inputSpillPartitionSet_);
     VELOX_CHECK_EQ(spillStats_.rlock()->spillSortTimeNanos, 0);
   }
@@ -1889,12 +1888,8 @@ void HashProbe::spillOutput() {
     return;
   }
   // We spill all the outputs produced from 'input_' into a single partition.
-  auto outputSpiller = std::make_unique<Spiller>(
-      Spiller::Type::kHashJoinProbe,
-      outputType_,
-      HashBitRange{},
-      spillConfig(),
-      &spillStats_);
+  auto outputSpiller = std::make_unique<NoRowContainerSpiller>(
+      outputType_, HashBitRange{}, spillConfig(), &spillStats_);
   outputSpiller->setPartitionsSpilled({0});
 
   RowVectorPtr output{nullptr};
@@ -1918,7 +1913,7 @@ void HashProbe::spillOutput() {
         isRightSemiFilterJoin(joinType_) || isRightSemiProjectJoin(joinType_));
     VELOX_CHECK((output == nullptr) && (input_ != nullptr));
   }
-  VELOX_CHECK_LE(outputSpiller->spilledPartitionSet().size(), 1);
+  VELOX_CHECK_LE(outputSpiller->state().spilledPartitionSet().size(), 1);
 
   VELOX_CHECK(spillOutputPartitionSet_.empty());
   outputSpiller->finishSpill(spillOutputPartitionSet_);

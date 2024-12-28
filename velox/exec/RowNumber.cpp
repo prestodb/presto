@@ -394,15 +394,13 @@ void RowNumber::reclaim(
 }
 
 SpillPartitionNumSet RowNumber::spillHashTable() {
-  // TODO Replace joinPartitionBits and Spiller::Type::kHashJoinBuild.
   VELOX_CHECK_NOT_NULL(table_);
 
   auto columnTypes = table_->rows()->columnTypes();
   auto tableType = ROW(std::move(columnTypes));
   const auto& spillConfig = spillConfig_.value();
 
-  auto hashTableSpiller = std::make_unique<Spiller>(
-      Spiller::Type::kRowNumber,
+  auto hashTableSpiller = std::make_unique<RowNumberHashTableSpiller>(
       table_->rows(),
       tableType,
       spillPartitionBits_,
@@ -423,13 +421,8 @@ void RowNumber::setupInputSpiller(
 
   const auto& spillConfig = spillConfig_.value();
 
-  // TODO Replace Spiller::Type::kHashJoinProbe.
-  inputSpiller_ = std::make_unique<Spiller>(
-      Spiller::Type::kHashJoinProbe,
-      inputType_,
-      spillPartitionBits_,
-      &spillConfig,
-      &spillStats_);
+  inputSpiller_ = std::make_unique<NoRowContainerSpiller>(
+      inputType_, spillPartitionBits_, &spillConfig, &spillStats_);
   inputSpiller_->setPartitionsSpilled(spillPartitionSet);
 
   const auto& hashers = table_->hashers();
@@ -535,4 +528,24 @@ void RowNumber::setSpillPartitionBits(
       startPartitionBitOffset + spillConfig_->numPartitionBits);
 }
 
+RowNumberHashTableSpiller::RowNumberHashTableSpiller(
+    RowContainer* container,
+    RowTypePtr rowType,
+    HashBitRange bits,
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
+    : SpillerBase(
+          container,
+          std::move(rowType),
+          bits,
+          0,
+          {},
+          spillConfig->maxFileSize,
+          spillConfig->maxSpillRunRows,
+          spillConfig,
+          spillStats) {}
+
+void RowNumberHashTableSpiller::spill() {
+  SpillerBase::spill(nullptr);
+}
 } // namespace facebook::velox::exec

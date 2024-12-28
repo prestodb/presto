@@ -32,7 +32,7 @@
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
-// A source of sorted spilled RowVectors coming either from a file or memory.
+/// A source of sorted spilled RowVectors coming either from a file or memory.
 class SpillMergeStream : public MergeStream {
  public:
   SpillMergeStream() = default;
@@ -135,7 +135,7 @@ class SpillMergeStream : public MergeStream {
   SelectivityVector rows_;
 };
 
-// A source of spilled RowVectors coming from a file.
+/// A source of spilled RowVectors coming from a file.
 class FileSpillMergeStream : public SpillMergeStream {
  public:
   static std::unique_ptr<SpillMergeStream> create(
@@ -448,7 +448,7 @@ class SpillState {
   // the max spill bytes limit.
   common::UpdateAndCheckSpillLimitCB updateAndCheckSpillLimitCb_;
 
-  /// Prefix for spill files.
+  // Prefix for spill files.
   const std::string fileNamePrefix_;
   const int32_t maxPartitions_;
   const int32_t numSortKeys_;

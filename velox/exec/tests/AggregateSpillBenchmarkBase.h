@@ -19,7 +19,7 @@
 namespace facebook::velox::exec::test {
 class AggregateSpillBenchmarkBase : public SpillerBenchmarkBase {
  public:
-  explicit AggregateSpillBenchmarkBase(Spiller::Type spillerType)
+  explicit AggregateSpillBenchmarkBase(std::string spillerType)
       : spillerType_(spillerType){};
 
   /// Sets up the test.
@@ -32,9 +32,9 @@ class AggregateSpillBenchmarkBase : public SpillerBenchmarkBase {
 
  private:
   void writeSpillData();
-  std::unique_ptr<Spiller> makeSpiller();
+  std::unique_ptr<SpillerBase> makeSpiller();
 
-  const Spiller::Type spillerType_;
+  const std::string spillerType_;
   std::unique_ptr<RowContainer> rowContainer_;
   std::shared_ptr<velox::memory::MemoryPool> spillerPool_;
 };

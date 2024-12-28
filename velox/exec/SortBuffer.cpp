@@ -16,6 +16,7 @@
 
 #include "SortBuffer.h"
 #include "velox/exec/MemoryReclaimer.h"
+#include "velox/exec/Spiller.h"
 
 namespace facebook::velox::exec {
 
@@ -110,6 +111,8 @@ void SortBuffer::noMoreInput() {
   velox::common::testutil::TestValue::adjust(
       "facebook::velox::exec::SortBuffer::noMoreInput", this);
   VELOX_CHECK(!noMoreInput_);
+  VELOX_CHECK_NULL(outputSpiller_);
+
   // It may trigger spill, make sure it's triggered before noMoreInput_ is set.
   ensureSortFits();
 
@@ -120,7 +123,7 @@ void SortBuffer::noMoreInput() {
     return;
   }
 
-  if (spiller_ == nullptr) {
+  if (inputSpiller_ == nullptr) {
     VELOX_CHECK_EQ(numInputRows_, data_->numRows());
     updateEstimatedOutputRowSize();
     // Sort the pointers to the rows in RowContainer (data_) instead of sorting
@@ -160,12 +163,20 @@ RowVectorPtr SortBuffer::getOutput(vector_size_t maxOutputRows) {
       std::min<uint64_t>(numInputRows_ - numOutputRows_, maxOutputRows);
   ensureOutputFits(batchSize);
   prepareOutput(batchSize);
-  if (spiller_ != nullptr) {
+  if (hasSpilled()) {
     getOutputWithSpill();
   } else {
     getOutputWithoutSpill();
   }
   return output_;
+}
+
+bool SortBuffer::hasSpilled() const {
+  if (inputSpiller_ != nullptr) {
+    VELOX_CHECK_NULL(outputSpiller_);
+    return true;
+  }
+  return outputSpiller_ != nullptr;
 }
 
 void SortBuffer::spill() {
@@ -263,7 +274,7 @@ void SortBuffer::ensureOutputFits(vector_size_t batchSize) {
     return;
   }
 
-  if (!estimatedOutputRowSize_.has_value() || spiller_ != nullptr) {
+  if (!estimatedOutputRowSize_.has_value() || hasSpilled()) {
     return;
   }
 
@@ -294,7 +305,7 @@ void SortBuffer::ensureSortFits() {
     return;
   }
 
-  if (numInputRows_ == 0 || spiller_ != nullptr) {
+  if (numInputRows_ == 0 || inputSpiller_ != nullptr) {
     return;
   }
 
@@ -333,10 +344,9 @@ void SortBuffer::updateEstimatedOutputRowSize() {
 }
 
 void SortBuffer::spillInput() {
-  if (spiller_ == nullptr) {
+  if (inputSpiller_ == nullptr) {
     VELOX_CHECK(!noMoreInput_);
-    spiller_ = std::make_unique<Spiller>(
-        Spiller::Type::kOrderByInput,
+    inputSpiller_ = std::make_unique<SortInputSpiller>(
         data_.get(),
         spillerStoreType_,
         data_->keyTypes().size(),
@@ -344,12 +354,12 @@ void SortBuffer::spillInput() {
         spillConfig_,
         spillStats_);
   }
-  spiller_->spill();
+  inputSpiller_->spill();
   data_->clear();
 }
 
 void SortBuffer::spillOutput() {
-  if (spiller_ != nullptr) {
+  if (hasSpilled()) {
     // Already spilled.
     return;
   }
@@ -358,17 +368,13 @@ void SortBuffer::spillOutput() {
     return;
   }
 
-  spiller_ = std::make_unique<Spiller>(
-      Spiller::Type::kOrderByOutput,
-      data_.get(),
-      spillerStoreType_,
-      spillConfig_,
-      spillStats_);
-  auto spillRows = Spiller::SpillRows(
+  outputSpiller_ = std::make_unique<SortOutputSpiller>(
+      data_.get(), spillerStoreType_, spillConfig_, spillStats_);
+  auto spillRows = SpillerBase::SpillRows(
       sortedRows_.begin() + numOutputRows_,
       sortedRows_.end(),
       *memory::spillMemoryPool());
-  spiller_->spill(spillRows);
+  outputSpiller_->spill(spillRows);
   data_->clear();
   sortedRows_.clear();
   sortedRows_.shrink_to_fit();
@@ -391,7 +397,7 @@ void SortBuffer::prepareOutput(vector_size_t batchSize) {
     child->resize(batchSize);
   }
 
-  if (spiller_ != nullptr) {
+  if (hasSpilled()) {
     spillSources_.resize(batchSize);
     spillSourceRows_.resize(batchSize);
     prepareOutputWithSpill();
@@ -461,12 +467,24 @@ void SortBuffer::getOutputWithSpill() {
 void SortBuffer::finishSpill() {
   VELOX_CHECK_NULL(spillMerger_);
   VELOX_CHECK(spillPartitionSet_.empty());
-  spiller_->finishSpill(spillPartitionSet_);
+  VELOX_CHECK_EQ(
+      !!(outputSpiller_ != nullptr) + !!(inputSpiller_ != nullptr),
+      1,
+      "inputSpiller_ {}, outputSpiller_ {}",
+      inputSpiller_ == nullptr ? "set" : "null",
+      outputSpiller_ == nullptr ? "set" : "null");
+  if (inputSpiller_ != nullptr) {
+    VELOX_CHECK(!inputSpiller_->finalized());
+    inputSpiller_->finishSpill(spillPartitionSet_);
+  } else {
+    VELOX_CHECK(!outputSpiller_->finalized());
+    outputSpiller_->finishSpill(spillPartitionSet_);
+  }
   VELOX_CHECK_EQ(spillPartitionSet_.size(), 1);
 }
 
 void SortBuffer::prepareOutputWithSpill() {
-  VELOX_CHECK_NOT_NULL(spiller_);
+  VELOX_CHECK(hasSpilled());
   if (spillMerger_ != nullptr) {
     VELOX_CHECK(spillPartitionSet_.empty());
     return;
@@ -477,5 +495,4 @@ void SortBuffer::prepareOutputWithSpill() {
       spillConfig_->readBufferSize, pool(), spillStats_);
   spillPartitionSet_.clear();
 }
-
 } // namespace facebook::velox::exec

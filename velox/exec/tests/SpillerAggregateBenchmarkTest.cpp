@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/exec/GroupingSet.h"
 #include "velox/exec/tests/AggregateSpillBenchmarkBase.h"
 #include "velox/serializers/PrestoSerializer.h"
 
@@ -28,22 +29,13 @@ int main(int argc, char* argv[]) {
   serializer::presto::PrestoVectorSerde::registerVectorSerde();
   filesystems::registerLocalFileSystem();
 
-  auto spillerTypeName = FLAGS_spiller_benchmark_spiller_type;
-  std::transform(
-      spillerTypeName.begin(),
-      spillerTypeName.end(),
-      spillerTypeName.begin(),
-      [](unsigned char c) { return std::toupper(c); });
-  Spiller::Type spillerType;
-  if (spillerTypeName == Spiller::typeName(Spiller::Type::kAggregateInput)) {
-    spillerType = Spiller::Type::kAggregateInput;
-  } else if (
-      spillerTypeName == Spiller::typeName(Spiller::Type::kAggregateOutput)) {
-    spillerType = Spiller::Type::kAggregateOutput;
-  } else {
+  auto spillerType = FLAGS_spiller_benchmark_spiller_type;
+  if (spillerType != AggregationInputSpiller::kType &&
+      spillerType != AggregationOutputSpiller::kType) {
     VELOX_UNSUPPORTED(
-        "The spiller type {} is not one of [AGGREGATE_INPUT, AGGREGATE_OUTPUT], the aggregate spiller dose not support it.",
-        spillerTypeName);
+        "The spiller type {} is not one of [AggregationInputSpiller, "
+        "AggregationOutputSpiller], the aggregate spiller dose not support it.",
+        spillerType);
   }
   auto test = std::make_unique<test::AggregateSpillBenchmarkBase>(spillerType);
   test->setUp();

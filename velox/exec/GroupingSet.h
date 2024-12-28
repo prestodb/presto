@@ -25,6 +25,8 @@
 #include "velox/exec/VectorHasher.h"
 
 namespace facebook::velox::exec {
+class AggregationInputSpiller;
+class AggregationOutputSpiller;
 
 class GroupingSet {
  public:
@@ -46,7 +48,7 @@ class GroupingSet {
 
   ~GroupingSet();
 
-  // Used by MarkDistinct operator to identify rows with unique values.
+  /// Used by MarkDistinct operator to identify rows with unique values.
   static std::unique_ptr<GroupingSet> createForMarkDistinct(
       const RowTypePtr& inputType,
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
@@ -110,16 +112,12 @@ class GroupingSet {
   void spill();
 
   /// Spills all the rows in container starting from the offset specified by
-  /// 'rowIterator'.
+  /// 'rowIterator'. This should be only called during output processing and
+  /// when no spill has occurred previously.
   void spill(const RowContainerIterator& rowIterator);
 
   /// Returns the spiller stats including total bytes and rows spilled so far.
-  std::optional<common::SpillStats> spilledStats() const {
-    if (spiller_ == nullptr) {
-      return std::nullopt;
-    }
-    return spiller_->stats();
-  }
+  std::optional<common::SpillStats> spilledStats() const;
 
   /// Returns true if spilling has triggered on this grouping set.
   bool hasSpilled() const;
@@ -134,8 +132,8 @@ class GroupingSet {
     return table_ ? table_->rows()->numRows() : 0;
   }
 
-  // Frees hash tables and other state when giving up partial aggregation as
-  // non-productive. Must be called before toIntermediate() is used.
+  /// Frees hash tables and other state when giving up partial aggregation as
+  /// non-productive. Must be called before toIntermediate() is used.
   void abandonPartialAggregation();
 
   /// Translates the raw input in input to accumulators initialized from a
@@ -342,7 +340,9 @@ class GroupingSet {
   // 'remainingInput_'.
   bool remainingMayPushdown_;
 
-  std::unique_ptr<Spiller> spiller_;
+  std::unique_ptr<AggregationInputSpiller> inputSpiller_;
+
+  std::unique_ptr<AggregationOutputSpiller> outputSpiller_;
 
   // The current spill partition in producing spill output. If it is -1, then we
   // haven't started yet.
@@ -391,4 +391,52 @@ class GroupingSet {
   folly::Synchronized<common::SpillStats>* const spillStats_;
 };
 
+class AggregationInputSpiller : public SpillerBase {
+ public:
+  static constexpr std::string_view kType = "AggregationInputSpiller";
+
+  AggregationInputSpiller(
+      RowContainer* container,
+      RowTypePtr rowType,
+      const HashBitRange& hashBitRange,
+      int32_t numSortingKeys,
+      const std::vector<CompareFlags>& sortCompareFlags,
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
+
+  void spill();
+
+ private:
+  std::string type() const override {
+    return std::string(kType);
+  }
+
+  bool needSort() const override {
+    return true;
+  }
+};
+
+class AggregationOutputSpiller : public SpillerBase {
+ public:
+  static constexpr std::string_view kType = "AggregationOutputSpiller";
+
+  AggregationOutputSpiller(
+      RowContainer* container,
+      RowTypePtr rowType,
+      const common::SpillConfig* spillConfig,
+      folly::Synchronized<common::SpillStats>* spillStats);
+
+  void spill(const RowContainerIterator& startRowIter);
+
+ private:
+  std::string type() const override {
+    return std::string(kType);
+  }
+
+  void runSpill(bool lastRun) override;
+
+  bool needSort() const override {
+    return false;
+  }
+};
 } // namespace facebook::velox::exec

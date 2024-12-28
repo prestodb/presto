@@ -758,9 +758,7 @@ void TopNRowNumber::setupSpiller() {
   VELOX_CHECK_NULL(spiller_);
   VELOX_CHECK(spillConfig_.has_value());
 
-  spiller_ = std::make_unique<Spiller>(
-      // TODO Replace Spiller::Type::kOrderBy.
-      Spiller::Type::kOrderByInput,
+  spiller_ = std::make_unique<SortInputSpiller>(
       data_.get(),
       inputType_,
       spillCompareFlags_.size(),

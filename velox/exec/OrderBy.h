@@ -22,7 +22,6 @@
 #include "velox/exec/Spiller.h"
 
 namespace facebook::velox::exec {
-
 /// OrderBy operator implementation: OrderBy stores all its inputs in a
 /// RowContainer as the inputs are added. Until all inputs are available,
 /// it blocks the pipeline. Once all inputs are available, it sorts pointers

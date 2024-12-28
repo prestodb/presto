@@ -15,9 +15,9 @@
  */
 
 #include "velox/exec/tests/AggregateSpillBenchmarkBase.h"
+#include "velox/exec/GroupingSet.h"
 
 #include <gflags/gflags.h>
-#include <deque>
 
 using namespace facebook::velox;
 using namespace facebook::velox::common;
@@ -69,16 +69,22 @@ void AggregateSpillBenchmarkBase::setUp() {
 
 void AggregateSpillBenchmarkBase::run() {
   MicrosecondTimer timer(&executionTimeUs_);
-  if (spillerType_ == Spiller::Type::kAggregateInput) {
-    spiller_->spill();
+  if (spillerType_ == std::string(AggregationInputSpiller::kType)) {
+    auto aggregationInputSpiller =
+        dynamic_cast<AggregationInputSpiller*>(spiller_.get());
+    VELOX_CHECK_NOT_NULL(aggregationInputSpiller);
+    aggregationInputSpiller->spill();
   } else {
-    spiller_->spill(RowContainerIterator{});
+    auto aggregationOutputSpiller =
+        dynamic_cast<AggregationOutputSpiller*>(spiller_.get());
+    VELOX_CHECK_NOT_NULL(aggregationOutputSpiller);
+    aggregationOutputSpiller->spill(RowContainerIterator{});
   }
   rowContainer_->clear();
 }
 
 void AggregateSpillBenchmarkBase::printStats() const {
-  LOG(INFO) << "======Aggregate " << Spiller::typeName(spillerType_)
+  LOG(INFO) << "======Aggregate " << spillerType_
             << " spilling statistics======";
   LOG(INFO) << "total execution time: " << succinctMicros(executionTimeUs_);
   LOG(INFO) << numInputVectors_ << " vectors each with " << inputVectorSize_
@@ -123,7 +129,7 @@ void AggregateSpillBenchmarkBase::writeSpillData() {
   }
 }
 
-std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() {
+std::unique_ptr<SpillerBase> AggregateSpillBenchmarkBase::makeSpiller() {
   common::SpillConfig spillConfig;
   spillConfig.getSpillDirPathCb = [&]() -> std::string_view {
     return spillDir_;
@@ -141,9 +147,8 @@ std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() {
   // The default value of QueryConfig spillNumPartitionBits.
   spillConfig.numPartitionBits = 3;
 
-  if (spillerType_ == Spiller::Type::kAggregateInput) {
-    return std::make_unique<Spiller>(
-        spillerType_,
+  if (spillerType_ == AggregationInputSpiller::kType) {
+    return std::make_unique<AggregationInputSpiller>(
         rowContainer_.get(),
         rowType_,
         HashBitRange{
@@ -155,13 +160,10 @@ std::unique_ptr<Spiller> AggregateSpillBenchmarkBase::makeSpiller() {
         &spillConfig,
         &spillStats_);
   } else {
+    VELOX_CHECK_EQ(spillerType_, AggregationOutputSpiller::kType);
     // TODO: Add config flag to control the max spill rows.
-    return std::make_unique<Spiller>(
-        spillerType_,
-        rowContainer_.get(),
-        rowType_,
-        &spillConfig,
-        &spillStats_);
+    return std::make_unique<AggregationOutputSpiller>(
+        rowContainer_.get(), rowType_, &spillConfig, &spillStats_);
   }
 }
 } // namespace facebook::velox::exec::test

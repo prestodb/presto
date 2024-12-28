@@ -21,7 +21,6 @@
 #include "velox/exec/WindowBuild.h"
 
 namespace facebook::velox::exec {
-
 // Sorts input data of the Window by {partition keys, sort keys}
 // to identify window partitions. This sort fully orders
 // rows as needed for window function computation.
@@ -48,12 +47,7 @@ class SortWindowBuild : public WindowBuild {
 
   void spill() override;
 
-  std::optional<common::SpillStats> spilledStats() const override {
-    if (spiller_ == nullptr) {
-      return std::nullopt;
-    }
-    return spiller_->stats();
-  }
+  std::optional<common::SpillStats> spilledStats() const override;
 
   void noMoreInput() override;
 
@@ -123,10 +117,9 @@ class SortWindowBuild : public WindowBuild {
   vector_size_t currentPartition_ = -1;
 
   // Spiller for contents of the 'data_'.
-  std::unique_ptr<Spiller> spiller_;
+  std::unique_ptr<SortInputSpiller> spiller_;
 
   // Used to sort-merge spilled data.
   std::unique_ptr<TreeOfLosers<SpillMergeStream>> merge_;
 };
-
 } // namespace facebook::velox::exec

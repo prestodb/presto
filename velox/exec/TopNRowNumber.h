@@ -19,6 +19,7 @@
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {
+class TopNRowNumberSpiller;
 
 /// Partitions the input using specified partitioning keys, sorts rows within
 /// partitions using specified sorting keys, assigns row numbers and returns up
@@ -154,7 +155,9 @@ class TopNRowNumber : public Operator {
   bool abandonPartialEarly() const;
 
   const int32_t limit_;
+
   const bool generateRowNumber_;
+
   const size_t numPartitionKeys_;
 
   // Input columns in the order of: partition keys, sorting keys, the rest.
@@ -171,6 +174,7 @@ class TopNRowNumber : public Operator {
   const std::vector<CompareFlags> spillCompareFlags_;
 
   const vector_size_t abandonPartialMinRows_;
+
   const int32_t abandonPartialMinPct_;
 
   // True if this operator runs a 'partial' stage without sufficient reduction
@@ -181,12 +185,15 @@ class TopNRowNumber : public Operator {
   // partitioning keys. For each partition, stores an instance of TopRows
   // struct.
   std::unique_ptr<BaseHashTable> table_;
+
   std::unique_ptr<HashLookup> lookup_;
+
   int32_t partitionOffset_;
 
   // TopRows struct to keep track of top rows for a single partition, when
   // there are no partitioning keys.
   std::unique_ptr<HashStringAllocator> allocator_;
+
   std::unique_ptr<TopRows> singlePartition_;
 
   // Stores input data. For each partition, only up to 'limit_' rows are stored.
@@ -211,6 +218,7 @@ class TopNRowNumber : public Operator {
 
   // Maximum number of rows in the output batch.
   vector_size_t outputBatchSize_;
+
   std::vector<char*> outputRows_;
 
   // Number of partitions to fetch from a HashTable in a single listAllRows
@@ -218,13 +226,17 @@ class TopNRowNumber : public Operator {
   static const size_t kPartitionBatchSize = 100;
 
   BaseHashTable::RowsIterator partitionIt_;
+
   std::vector<char*> partitions_{kPartitionBatchSize};
+
   size_t numPartitions_{0};
+
   std::optional<int32_t> currentPartition_;
+
   vector_size_t remainingRowsInPartition_{0};
 
   // Spiller for contents of the 'data_'.
-  std::unique_ptr<Spiller> spiller_;
+  std::unique_ptr<SortInputSpiller> spiller_;
 
   // Used to sort-merge spilled data.
   std::unique_ptr<TreeOfLosers<SpillMergeStream>> merge_;

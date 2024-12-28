@@ -2299,9 +2299,9 @@ DEBUG_ONLY_TEST_F(TaskTest, taskReclaimFailure) {
 
   const std::string spillTableError{"spillTableError"};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::Spiller",
-      std::function<void(Spiller*)>(
-          [&](Spiller* /*unused*/) { VELOX_FAIL(spillTableError); }));
+      "facebook::velox::exec::SpillerBase",
+      std::function<void(SpillerBase*)>(
+          [&](SpillerBase* /*unused*/) { VELOX_FAIL(spillTableError); }));
 
   TestScopedSpillInjection injection(100);
   const auto spillDirectory = exec::test::TempDirectoryPath::create();

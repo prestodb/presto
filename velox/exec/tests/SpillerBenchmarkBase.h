@@ -37,7 +37,7 @@ DECLARE_uint64(spiller_benchmark_min_spill_run_size);
 DECLARE_uint64(spiller_benchmark_write_buffer_size);
 
 namespace facebook::velox::exec::test {
-// This test measures the spill input overhead in spill join & probe.
+/// This test measures the spill input overhead in spill join & probe.
 class SpillerBenchmarkBase {
  public:
   SpillerBenchmarkBase() = default;
@@ -68,7 +68,7 @@ class SpillerBenchmarkBase {
   std::shared_ptr<exec::test::TempDirectoryPath> tempDir_;
   std::string spillDir_;
   std::shared_ptr<filesystems::FileSystem> fs_;
-  std::unique_ptr<Spiller> spiller_;
+  std::unique_ptr<SpillerBase> spiller_;
   // Stats.
   uint64_t executionTimeUs_{0};
   folly::Synchronized<common::SpillStats> spillStats_;

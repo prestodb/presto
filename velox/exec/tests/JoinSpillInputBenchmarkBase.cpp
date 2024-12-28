@@ -45,19 +45,19 @@ void JoinSpillInputBenchmarkBase::setUp() {
   spillConfig.maxSpillRunRows = 0;
   spillConfig.fileCreateConfig = {};
 
-  spiller_ = std::make_unique<Spiller>(
-      exec::Spiller::Type::kHashJoinProbe,
-      rowType_,
-      HashBitRange{29, 29},
-      &spillConfig,
-      &spillStats_);
-  spiller_->setPartitionsSpilled({0});
+  spiller_ = std::make_unique<NoRowContainerSpiller>(
+      rowType_, HashBitRange{29, 29}, &spillConfig, &spillStats_);
+  dynamic_cast<NoRowContainerSpiller*>(spiller_.get())
+      ->setPartitionsSpilled({0});
 }
 
 void JoinSpillInputBenchmarkBase::run() {
   MicrosecondTimer timer(&executionTimeUs_);
+  auto noRowContainerSpiller =
+      dynamic_cast<NoRowContainerSpiller*>(spiller_.get());
+  VELOX_CHECK_NOT_NULL(noRowContainerSpiller);
   for (auto i = 0; i < numInputVectors_; ++i) {
-    spiller_->spill(0, rowVectors_[i % numSampleVectors]);
+    noRowContainerSpiller->spill(0, rowVectors_[i % numSampleVectors]);
   }
 }
 

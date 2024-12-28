@@ -180,9 +180,7 @@ void SortWindowBuild::ensureSortFits() {
 void SortWindowBuild::setupSpiller() {
   VELOX_CHECK_NULL(spiller_);
 
-  spiller_ = std::make_unique<Spiller>(
-      // TODO Replace Spiller::Type::kOrderBy.
-      Spiller::Type::kOrderByInput,
+  spiller_ = std::make_unique<SortInputSpiller>(
       data_.get(),
       inputType_,
       compareFlags_.size(),
@@ -199,6 +197,13 @@ void SortWindowBuild::spill() {
   spiller_->spill();
   data_->clear();
   data_->pool()->release();
+}
+
+std::optional<common::SpillStats> SortWindowBuild::spilledStats() const {
+  if (spiller_ == nullptr) {
+    return std::nullopt;
+  }
+  return spiller_->stats();
 }
 
 // Use double front and back search algorithm to find next partition start row.
@@ -371,5 +376,4 @@ bool SortWindowBuild::hasNextPartition() {
   return partitionStartRows_.size() > 0 &&
       currentPartition_ < static_cast<int>(partitionStartRows_.size() - 2);
 }
-
 } // namespace facebook::velox::exec

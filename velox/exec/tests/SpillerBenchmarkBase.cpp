@@ -44,7 +44,7 @@ DEFINE_string(
     "The compression kind to compress spill rows before write to disk");
 DEFINE_string(
     spiller_benchmark_spiller_type,
-    "AGGREGATE_INPUT",
+    "AggregationInputSpiller",
     "The spiller type name.");
 DEFINE_uint32(
     spiller_benchmark_num_spill_vectors,

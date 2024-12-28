@@ -649,7 +649,7 @@ class HashProbe : public Operator {
   // 'inputSpiller_' is created if some part of build-side rows have been
   // spilled. It is used to spill probe-side rows if the corresponding
   // build-side rows have been spilled.
-  std::unique_ptr<Spiller> inputSpiller_;
+  std::unique_ptr<NoRowContainerSpiller> inputSpiller_;
 
   // If not empty, the probe inputs with partition id set in
   // 'spillInputPartitionIds_' needs to spill. It is set along with 'spiller_'

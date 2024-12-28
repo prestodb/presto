@@ -220,8 +220,7 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
     exceededMaxSpillLevelLimit_ = false;
   }
 
-  spiller_ = std::make_unique<Spiller>(
-      Spiller::Type::kHashJoinBuild,
+  spiller_ = std::make_unique<HashBuildSpiller>(
       joinType_,
       table_->rows(),
       spillType_,
@@ -418,7 +417,8 @@ void HashBuild::addInput(RowVectorPtr input) {
 void HashBuild::ensureInputFits(RowVectorPtr& input) {
   // NOTE: we don't need memory reservation if all the partitions are spilling
   // as we spill all the input rows to disk directly.
-  if (!canSpill() || spiller_ == nullptr || spiller_->isAllSpilled()) {
+  if (!canSpill() || spiller_ == nullptr ||
+      spiller_->state().isAllPartitionSpilled()) {
     return;
   }
 
@@ -488,7 +488,7 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
       // itself, we will no longer need the reserved memory for building hash
       // table as the table is spilled, and the input will be directly spilled,
       // too.
-      if (spiller_->isAllSpilled()) {
+      if (spiller_->state().isAllPartitionSpilled()) {
         pool()->release();
       }
       return;
@@ -503,13 +503,14 @@ void HashBuild::ensureInputFits(RowVectorPtr& input) {
 void HashBuild::spillInput(const RowVectorPtr& input) {
   VELOX_CHECK_EQ(input->size(), activeRows_.size());
 
-  if (!canSpill() || spiller_ == nullptr || !spiller_->isAnySpilled() ||
+  if (!canSpill() || spiller_ == nullptr ||
+      !spiller_->state().isAnyPartitionSpilled() ||
       !activeRows_.hasSelections()) {
     return;
   }
 
   const auto numInput = input->size();
-  prepareInputIndicesBuffers(numInput, spiller_->spilledPartitionSet());
+  prepareInputIndicesBuffers(numInput, spiller_->state().spilledPartitionSet());
   computeSpillPartitions(input);
 
   vector_size_t numSpillInputs = 0;
@@ -518,7 +519,7 @@ void HashBuild::spillInput(const RowVectorPtr& input) {
     if (FOLLY_UNLIKELY(!activeRows_.isValid(row))) {
       continue;
     }
-    if (!spiller_->isSpilled(partition)) {
+    if (!spiller_->state().isPartitionSpilled(partition)) {
       continue;
     }
     activeRows_.setValid(row, false);
@@ -537,7 +538,7 @@ void HashBuild::spillInput(const RowVectorPtr& input) {
     if (numInputs == 0) {
       continue;
     }
-    VELOX_CHECK(spiller_->isSpilled(partition));
+    VELOX_CHECK(spiller_->state().isPartitionSpilled(partition));
     spillPartition(
         partition, numInputs, spillInputIndicesBuffers_[partition], input);
   }
@@ -705,7 +706,7 @@ bool HashBuild::finishHashBuild() {
   otherTables.reserve(peers.size());
   SpillPartitionSet spillPartitions;
   for (auto* build : otherBuilds) {
-    std::unique_ptr<Spiller> spiller;
+    std::unique_ptr<HashBuildSpiller> spiller;
     {
       std::lock_guard<std::mutex> l(build->mutex_);
       VELOX_CHECK(
@@ -785,8 +786,8 @@ bool HashBuild::finishHashBuild() {
 void HashBuild::ensureTableFits(uint64_t numRows) {
   // NOTE: we don't need memory reservation if all the partitions have been
   // spilled as nothing need to be built.
-  if (!canSpill() || spiller_ == nullptr || spiller_->isAllSpilled() ||
-      numRows == 0) {
+  if (!canSpill() || spiller_ == nullptr ||
+      spiller_->state().isAllPartitionSpilled() || numRows == 0) {
     return;
   }
 
@@ -811,7 +812,7 @@ void HashBuild::ensureTableFits(uint64_t numRows) {
       // If reservation triggers the spilling of 'HashBuild' operator itself, we
       // will no longer need the reserved memory for building hash table as the
       // table is spilled.
-      if (spiller_->isAllSpilled()) {
+      if (spiller_->state().isAllPartitionSpilled()) {
         pool()->release();
       }
       return;
@@ -920,7 +921,7 @@ void HashBuild::addRuntimeStats() {
   }
 
   // Add max spilling level stats if spilling has been triggered.
-  if (spiller_ != nullptr && spiller_->isAnySpilled()) {
+  if (spiller_ != nullptr && spiller_->state().isAnyPartitionSpilled()) {
     lockedStats->addRuntimeStat(
         "maxSpillLevel",
         RuntimeCounter(
@@ -1094,7 +1095,7 @@ void HashBuild::reclaim(
     }
   }
 
-  std::vector<Spiller*> spillers;
+  std::vector<HashBuildSpiller*> spillers;
   for (auto* op : operators) {
     HashBuild* buildOp = static_cast<HashBuild*>(op);
     spillers.push_back(buildOp->spiller_.get());
@@ -1134,6 +1135,72 @@ void HashBuild::close() {
     joinBridge_.reset();
     spiller_.reset();
     table_.reset();
+  }
+}
+
+HashBuildSpiller::HashBuildSpiller(
+    core::JoinType joinType,
+    RowContainer* container,
+    RowTypePtr rowType,
+    HashBitRange bits,
+    const common::SpillConfig* spillConfig,
+    folly::Synchronized<common::SpillStats>* spillStats)
+    : SpillerBase(
+          container,
+          std::move(rowType),
+          bits,
+          0,
+          {},
+          spillConfig->maxFileSize,
+          spillConfig->maxSpillRunRows,
+          spillConfig,
+          spillStats),
+      spillProbeFlag_(needRightSideJoin(joinType)) {
+  VELOX_CHECK(container_->accumulators().empty());
+}
+
+void HashBuildSpiller::spill() {
+  SpillerBase::spill(nullptr);
+}
+
+void HashBuildSpiller::spill(
+    uint32_t partition,
+    const RowVectorPtr& spillVector) {
+  VELOX_CHECK(!finalized_);
+  if (FOLLY_UNLIKELY(!state_.isPartitionSpilled(partition))) {
+    VELOX_FAIL(
+        "Can't spill vector to a non-spilling partition: {}, {}",
+        partition,
+        toString());
+  }
+  VELOX_DCHECK(spillRuns_[partition].rows.empty());
+
+  if (FOLLY_UNLIKELY(spillVector == nullptr)) {
+    return;
+  }
+
+  state_.appendToPartition(partition, spillVector);
+}
+
+void HashBuildSpiller::extractSpill(
+    folly::Range<char**> rows,
+    facebook::velox::RowVectorPtr& resultPtr) {
+  if (resultPtr == nullptr) {
+    resultPtr = BaseVector::create<RowVector>(
+        rowType_, rows.size(), memory::spillMemoryPool());
+  } else {
+    resultPtr->prepareForReuse();
+    resultPtr->resize(rows.size());
+  }
+
+  auto* result = resultPtr.get();
+  const auto& types = container_->columnTypes();
+  for (auto i = 0; i < types.size(); ++i) {
+    container_->extractColumn(rows.data(), rows.size(), i, result->childAt(i));
+  }
+  if (spillProbeFlag_) {
+    container_->extractProbedFlags(
+        rows.data(), rows.size(), false, false, result->childAt(types.size()));
   }
 }
 } // namespace facebook::velox::exec
