@@ -113,9 +113,9 @@ class SkewedPartitionRebalancer {
   uint64_t calculateTaskDataSizeSinceLastRebalance(
       const IndexedPriorityQueue<uint32_t, MaxQueue>& maxPartitions) {
     uint64_t estimatedDataBytesSinceLastRebalance{0};
-    for (uint32_t partition : maxPartitions) {
+    for (int i = 0; i < maxPartitions.size(); ++i) {
       estimatedDataBytesSinceLastRebalance +=
-          partitionBytesSinceLastRebalancePerTask_[partition];
+          partitionBytesSinceLastRebalancePerTask_[maxPartitions.values()[i]];
     }
     return estimatedDataBytesSinceLastRebalance;
   }
@@ -132,7 +132,7 @@ class SkewedPartitionRebalancer {
   // 'maxTaskId'.
   std::vector<uint32_t> findSkewedMinTasks(
       uint32_t maxTaskId,
-      const IndexedPriorityQueue<uint32_t, false>& minTasks) const;
+      IndexedPriorityQueue<uint32_t, false>& minTasks) const;
 
   // Tries to assign 'targetTaskId' to 'rebalancePartition' for rebalancing.
   // Returns true if rebalanced, otherwise false.

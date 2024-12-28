@@ -30,22 +30,8 @@ class IndexedPriorityQueueTest : public testing::Test {
   void verify(
       const IndexedPriorityQueue<T, MaxQueue>& queue,
       const std::vector<T>& expectedValues) {
-    int i{0};
-    for (auto value : queue) {
-      ASSERT_EQ(value, expectedValues[i++]);
-    }
-  }
-
-  template <typename T, bool MaxQueue>
-  void verifyWithIterate(
-      const IndexedPriorityQueue<T, MaxQueue>& queue,
-      const std::vector<T>& expectedValues) {
-    int i{0};
-    auto it = queue.begin();
-    while (it != queue.end()) {
-      ASSERT_EQ(*it, expectedValues[i++]);
-      ++it;
-    }
+    auto clone = queue;
+    verifyAndRemove(expectedValues, clone);
   }
 
   template <typename T, bool MaxQueue>
@@ -55,7 +41,7 @@ class IndexedPriorityQueueTest : public testing::Test {
     ASSERT_EQ(expectedValues.size(), queue.size());
     int i{0};
     while (!queue.empty()) {
-      ASSERT_EQ(queue.pop().value(), expectedValues[i++]);
+      ASSERT_EQ(queue.pop(), expectedValues[i++]);
     }
     ASSERT_TRUE(queue.empty());
   }
@@ -74,9 +60,11 @@ class IndexedPriorityQueueTest : public testing::Test {
       queue.addOrUpdate(value, priority);
     }
     ASSERT_EQ(queue.size(), valuePriorities.size());
+    auto size = queue.size();
     std::unordered_set<uint32_t> queuedValues;
     uint64_t prev = MaxQueue ? std::numeric_limits<uint64_t>::max() : 0;
-    for (auto value : queue) {
+    while (!queue.empty()) {
+      auto value = queue.pop();
       queuedValues.insert(value);
       ASSERT_TRUE(valuePriorities.find(value) != valuePriorities.end());
       if (MaxQueue) {
@@ -87,8 +75,8 @@ class IndexedPriorityQueueTest : public testing::Test {
         prev = valuePriorities[value];
       }
     }
-    ASSERT_EQ(queuedValues.size(), queue.size());
-    ASSERT_EQ(queue.size(), valuePriorities.size());
+    ASSERT_EQ(queuedValues.size(), size);
+    ASSERT_EQ(size, valuePriorities.size());
   }
 };
 
@@ -104,8 +92,6 @@ TEST_F(IndexedPriorityQueueTest, insertOnly) {
   ASSERT_EQ(minQueue.size(), 0);
   ASSERT_TRUE(maxQueue.empty());
   ASSERT_TRUE(minQueue.empty());
-  ASSERT_FALSE(maxQueue.pop().has_value());
-  ASSERT_FALSE(minQueue.pop().has_value());
 
   for (int value = 0; value < numValues; ++value) {
     maxQueue.addOrUpdate(value, priorities[value]);
@@ -113,15 +99,6 @@ TEST_F(IndexedPriorityQueueTest, insertOnly) {
   }
   ASSERT_EQ(maxQueue.size(), numValues);
   ASSERT_EQ(minQueue.size(), numValues);
-  verify(maxQueue, expectedMaxValues);
-  verify(minQueue, expectedMinValues);
-
-  ASSERT_EQ(maxQueue.size(), numValues);
-  ASSERT_EQ(minQueue.size(), numValues);
-
-  verifyWithIterate(maxQueue, expectedMaxValues);
-  verifyWithIterate(minQueue, expectedMinValues);
-
   verifyAndRemove(expectedMaxValues, maxQueue);
   verifyAndRemove(expectedMinValues, minQueue);
 }
@@ -209,12 +186,12 @@ TEST_F(IndexedPriorityQueueTest, remove) {
   maxQueue.addOrUpdate(value2, /*priority=*/2);
   maxQueue.addOrUpdate(value3, /*priority=*/3);
   verify(maxQueue, {33, 32, 31});
-  ASSERT_EQ(maxQueue.pop().value(), 33);
+  ASSERT_EQ(maxQueue.pop(), 33);
   verify(maxQueue, {32, 31});
   maxQueue.addOrUpdate(value2, 0);
-  ASSERT_EQ(maxQueue.pop().value(), 31);
+  ASSERT_EQ(maxQueue.pop(), 31);
   verify(maxQueue, {32});
-  ASSERT_EQ(maxQueue.pop().value(), 32);
+  ASSERT_EQ(maxQueue.pop(), 32);
   ASSERT_TRUE(maxQueue.empty());
 
   IndexedPriorityQueue<uint32_t, false> minQueue;
@@ -222,12 +199,12 @@ TEST_F(IndexedPriorityQueueTest, remove) {
   minQueue.addOrUpdate(value2, /*priority=*/2);
   minQueue.addOrUpdate(value3, /*priority=*/3);
   verify(minQueue, {31, 32, 33});
-  ASSERT_EQ(minQueue.pop().value(), 31);
+  ASSERT_EQ(minQueue.pop(), 31);
   verify(minQueue, {32, 33});
   minQueue.addOrUpdate(value2, 20);
-  ASSERT_EQ(minQueue.pop().value(), 33);
+  ASSERT_EQ(minQueue.pop(), 33);
   verify(minQueue, {32});
-  ASSERT_EQ(minQueue.pop().value(), 32);
+  ASSERT_EQ(minQueue.pop(), 32);
   ASSERT_TRUE(minQueue.empty());
 }
 

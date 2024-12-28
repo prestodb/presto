@@ -16,12 +16,12 @@
 
 #pragma once
 
-#include <numeric>
-
-#include <folly/container/F14Map.h>
-
+#include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/IndexedPriorityQueue.h"
 #include "velox/type/StringView.h"
+
+#include <folly/Bits.h>
 
 namespace facebook::velox::functions {
 
@@ -70,58 +70,27 @@ struct ApproxMostFrequentStreamSummary {
 
   /// Return the pointer to values data.  The number of values equals to size().
   const T* values() const {
-    return values_.data();
+    return queue_.values();
   }
 
   /// Return the pointer to counts data.  The number of counts equals to size().
   const int64_t* counts() const {
-    return counts_.data();
+    return queue_.priorities();
   }
 
   bool contains(T value) const {
-    return indices_.count(value) > 0;
+    return queue_.getValueIndex(value).has_value();
   }
 
  private:
-  template <typename U>
-  using RebindAlloc =
-      typename std::allocator_traits<Allocator>::template rebind_alloc<U>;
-
-  int heapCompare(int i, int j) const;
-  void percolateUp(int position);
-  void percolateDown(int position);
-
-  int capacity() const {
-    return capacity_;
-  }
-
   int capacity_ = 0;
-  int64_t currentGeneration_ = 0;
-  std::vector<T, Allocator> values_;
-  std::vector<int64_t, RebindAlloc<int64_t>> counts_;
-  std::vector<int64_t, RebindAlloc<int64_t>> generations_;
-  std::vector<int32_t, RebindAlloc<int32_t>> heap_;
-
-  folly::F14FastMap<
-      T,
-      int32_t,
-      std::hash<T>,
-      std::equal_to<T>,
-      RebindAlloc<std::pair<const T, int32_t>>>
-      indices_;
-
-  std::vector<int32_t, RebindAlloc<int32_t>> heapIndices_;
+  IndexedPriorityQueue<T, false, Allocator> queue_;
 };
 
 template <typename T, typename A>
 ApproxMostFrequentStreamSummary<T, A>::ApproxMostFrequentStreamSummary(
     const A& allocator)
-    : values_(allocator),
-      counts_(RebindAlloc<int64_t>(allocator)),
-      generations_(RebindAlloc<int64_t>(allocator)),
-      heap_(RebindAlloc<int32_t>(allocator)),
-      indices_(RebindAlloc<std::pair<const T, int32_t>>(allocator)),
-      heapIndices_(RebindAlloc<int32_t>(allocator)) {}
+    : queue_(allocator) {}
 
 template <typename T, typename A>
 void ApproxMostFrequentStreamSummary<T, A>::setCapacity(int capacity) {
@@ -135,92 +104,21 @@ void ApproxMostFrequentStreamSummary<T, A>::setCapacity(int capacity) {
 
 template <typename T, typename A>
 int ApproxMostFrequentStreamSummary<T, A>::size() const {
-  VELOX_DCHECK_EQ(values_.size(), counts_.size());
-  VELOX_DCHECK_EQ(values_.size(), generations_.size());
-  VELOX_DCHECK_EQ(values_.size(), heap_.size());
-  VELOX_DCHECK_EQ(values_.size(), heapIndices_.size());
-  return values_.size();
-}
-
-template <typename T, typename A>
-int ApproxMostFrequentStreamSummary<T, A>::heapCompare(int i, int j) const {
-  if (int ans = counts_[i] - counts_[j]; ans != 0) {
-    return ans;
-  }
-  // When the counts are same, we want to consider the previously generated
-  // value as minimum to prefer it over newly generated value with same count
-  // when we need to remove min.
-  return generations_[i] - generations_[j];
+  return queue_.size();
 }
 
 template <typename T, typename A>
 void ApproxMostFrequentStreamSummary<T, A>::insert(T value, int64_t count) {
-  if (auto it = indices_.find(value); it != indices_.end()) {
-    // The value to be counted is currently being tracked, we just need to
-    // increase the counter.
-    int i = it->second;
-    counts_[i] += count;
-    generations_[i] = ++currentGeneration_;
-    percolateDown(heapIndices_[i]);
-    return;
+  auto index = queue_.getValueIndex(value);
+  if (index.has_value()) {
+    auto oldCount = queue_.priorities()[*index];
+    queue_.updatePriority(*index, oldCount + count);
+  } else if (size() < capacity_) {
+    queue_.addNewValue(value, count);
+  } else {
+    auto oldCount = queue_.topPriority();
+    queue_.replaceTop(value, oldCount + count);
   }
-  if (size() < capacity()) {
-    // There is still room available, just insert the value.
-    int i = size();
-    values_.push_back(value);
-    counts_.push_back(count);
-    generations_.push_back(++currentGeneration_);
-    indices_.emplace(value, i);
-    heapIndices_.push_back(i);
-    heap_.push_back(i);
-    percolateUp(i);
-    return;
-  }
-  // Replace the element with least hits.
-  VELOX_DCHECK(!heap_.empty());
-  int i = heap_[0];
-  indices_.erase(values_[i]);
-  values_[i] = value;
-  counts_[i] += count;
-  generations_[i] = ++currentGeneration_;
-  indices_.emplace(value, i);
-  percolateDown(0);
-}
-
-template <typename T, typename A>
-void ApproxMostFrequentStreamSummary<T, A>::percolateUp(int pos) {
-  while (pos > 0) {
-    int parent = (pos - 1) / 2;
-    if (heapCompare(heap_[pos], heap_[parent]) >= 0) {
-      break;
-    }
-    std::swap(heap_[pos], heap_[parent]);
-    heapIndices_[heap_[pos]] = pos;
-    pos = parent;
-  }
-  heapIndices_[heap_[pos]] = pos;
-}
-
-template <typename T, typename A>
-void ApproxMostFrequentStreamSummary<T, A>::percolateDown(int pos) {
-  for (;;) {
-    int left = 2 * pos + 1;
-    if (left >= size()) {
-      break;
-    }
-    int child = left;
-    if (int right = left + 1;
-        right < size() && heapCompare(heap_[right], heap_[left]) < 0) {
-      child = right;
-    }
-    if (heapCompare(heap_[pos], heap_[child]) <= 0) {
-      break;
-    }
-    std::swap(heap_[pos], heap_[child]);
-    heapIndices_[heap_[pos]] = pos;
-    pos = child;
-  }
-  heapIndices_[heap_[pos]] = pos;
 }
 
 template <typename T, typename A>
@@ -237,12 +135,12 @@ void ApproxMostFrequentStreamSummary<T, A>::topK(
   // elements.
   auto posEnd = reinterpret_cast<int32_t*>(counts + k);
   auto posBeg = posEnd - k;
-  auto gt = [&](auto i, auto j) { return heapCompare(i, j) > 0; };
+  auto gt = [&](auto i, auto j) { return queue_.compare(i, j) > 0; };
   for (int i = 0; i < size(); ++i) {
     if (i < k) {
       posBeg[i] = i;
       std::push_heap(posBeg, posBeg + i + 1, gt);
-    } else if (heapCompare(i, *posBeg) > 0) {
+    } else if (queue_.compare(i, *posBeg) > 0) {
       std::pop_heap(posBeg, posEnd, gt);
       posBeg[k - 1] = i;
       std::push_heap(posBeg, posEnd, gt);
@@ -251,8 +149,8 @@ void ApproxMostFrequentStreamSummary<T, A>::topK(
   std::sort(posBeg, posEnd, gt);
   for (auto it = posBeg; it != posEnd; ++it) {
     auto i = *it;
-    *values++ = values_[i];
-    *counts++ = counts_[i];
+    *values++ = queue_.values()[i];
+    *counts++ = queue_.priorities()[i];
   }
 }
 
@@ -275,7 +173,8 @@ template <typename T, typename A>
 size_t ApproxMostFrequentStreamSummary<T, A>::serializedByteSize() const {
   size_t ans = sizeof(int32_t) + sizeof(T) * size() + sizeof(int64_t) * size();
   if constexpr (std::is_same_v<T, StringView>) {
-    for (auto& v : values_) {
+    for (int i = 0; i < size(); ++i) {
+      auto& v = queue_.values()[i];
       if (!v.isInline()) {
         ans += v.size();
       }
@@ -291,17 +190,18 @@ size_t ApproxMostFrequentStreamSummary<T, A>::serializedByteSize() const {
 //   4. If the value type is StringView, the actual non-inlined string data
 template <typename T, typename A>
 void ApproxMostFrequentStreamSummary<T, A>::serialize(char* out) const {
-  auto cur = out;
-  *reinterpret_cast<int32_t*>(cur) = size();
+  auto* cur = out;
+  folly::storeUnaligned<int32_t>(cur, size());
   cur += sizeof(int32_t);
   auto byteSize = sizeof(T) * size();
-  memcpy(cur, values_.data(), byteSize);
+  memcpy(cur, queue_.values(), byteSize);
   cur += byteSize;
   byteSize = sizeof(int64_t) * size();
-  memcpy(cur, counts_.data(), byteSize);
+  memcpy(cur, queue_.priorities(), byteSize);
   cur += byteSize;
   if constexpr (std::is_same_v<T, StringView>) {
-    for (auto& v : values_) {
+    for (int i = 0; i < size(); ++i) {
+      auto& v = queue_.values()[i];
       if (!v.isInline()) {
         memcpy(cur, v.data(), v.size());
         cur += v.size();
@@ -313,23 +213,24 @@ void ApproxMostFrequentStreamSummary<T, A>::serialize(char* out) const {
 
 template <typename T, typename A>
 void ApproxMostFrequentStreamSummary<T, A>::mergeSerialized(const char* other) {
-  auto size = *reinterpret_cast<const int32_t*>(other);
+  auto size = folly::loadUnaligned<int32_t>(other);
   other += sizeof size;
-  auto values = reinterpret_cast<const T*>(other);
+  auto* values = other;
   other += sizeof(T) * size;
-  auto counts = reinterpret_cast<const int64_t*>(other);
+  auto* counts = other;
   if constexpr (std::is_same_v<T, StringView>) {
     other += sizeof(int64_t) * size;
   }
+  T v;
   for (int i = 0; i < size; ++i) {
-    auto v = values[i];
+    FOLLY_BUILTIN_MEMCPY(&v, values + i * sizeof(T), sizeof(T));
     if constexpr (std::is_same_v<T, StringView>) {
       if (!v.isInline()) {
         v = {other, static_cast<int32_t>(v.size())};
         other += v.size();
       }
     }
-    insert(v, counts[i]);
+    insert(v, folly::loadUnaligned<int64_t>(counts + i * sizeof(int64_t)));
   }
 }
 

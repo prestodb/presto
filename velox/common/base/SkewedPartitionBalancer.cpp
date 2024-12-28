@@ -149,12 +149,8 @@ void SkewedPartitionRebalancer::rebalanceBasedOnTaskSkewness(
     std::vector<IndexedPriorityQueue<uint32_t, true>>& taskMaxPartitions) {
   std::unordered_set<uint32_t> scaledPartitions;
 
-  while (true) {
-    const auto maxTaskIdOpt = maxTasks.pop();
-    if (!maxTaskIdOpt.has_value()) {
-      break;
-    }
-    const uint32_t maxTaskId = maxTaskIdOpt.value();
+  while (!maxTasks.empty()) {
+    const auto maxTaskId = maxTasks.pop();
 
     auto& maxPartitions = taskMaxPartitions[maxTaskId];
     if (maxPartitions.empty()) {
@@ -167,12 +163,8 @@ void SkewedPartitionRebalancer::rebalanceBasedOnTaskSkewness(
       break;
     }
 
-    while (true) {
-      const auto maxPartitionOpt = maxPartitions.pop();
-      if (!maxPartitionOpt.has_value()) {
-        break;
-      }
-      const uint32_t maxPartition = maxPartitionOpt.value();
+    while (!maxPartitions.empty()) {
+      const auto maxPartition = maxPartitions.pop();
 
       // Rebalance partition only once in a single cycle to avoid aggressive
       // rebalancing.
@@ -267,9 +259,10 @@ void SkewedPartitionRebalancer::calculatePartitionProcessedBytes() {
 
 std::vector<uint32_t> SkewedPartitionRebalancer::findSkewedMinTasks(
     uint32_t maxTaskId,
-    const IndexedPriorityQueue<uint32_t, false>& minTasks) const {
-  std::vector<uint32_t> minSkewdTaskIds;
-  for (uint32_t minTaskId : minTasks) {
+    IndexedPriorityQueue<uint32_t, false>& minTasks) const {
+  std::vector<uint32_t> minSkewedTaskIds;
+  while (!minTasks.empty()) {
+    const auto minTaskId = minTasks.top();
     if (minTaskId == maxTaskId) {
       break;
     }
@@ -280,9 +273,15 @@ std::vector<uint32_t> SkewedPartitionRebalancer::findSkewedMinTasks(
     if (skewness <= kTaskSkewnessThreshod_ || std::isnan(skewness)) {
       break;
     }
-    minSkewdTaskIds.push_back(minTaskId);
+
+    minTasks.pop();
+    minSkewedTaskIds.push_back(minTaskId);
   }
-  return minSkewdTaskIds;
+
+  for (auto taskId : minSkewedTaskIds) {
+    minTasks.addOrUpdate(taskId, estimatedTaskBytesSinceLastRebalance_[taskId]);
+  }
+  return minSkewedTaskIds;
 }
 
 std::string SkewedPartitionRebalancer::Stats::toString() const {

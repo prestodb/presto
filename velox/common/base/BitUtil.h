@@ -18,6 +18,8 @@
 
 #include "velox/common/base/Exceptions.h"
 
+#include <folly/CPortability.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -26,6 +28,20 @@
 
 #ifdef __BMI2__
 #include <x86intrin.h>
+#endif
+
+// Remove once we upgrade folly.
+#ifndef FOLLY_BUILTIN_MEMCPY
+#if FOLLY_HAS_BUILTIN(__builtin_memcpy_inline)
+#define FOLLY_BUILTIN_MEMCPY(dest, src, size) \
+  void(__builtin_memcpy_inline((dest), (src), (size)))
+#elif FOLLY_HAS_BUILTIN(__builtin_memcpy)
+#define FOLLY_BUILTIN_MEMCPY(dest, src, size) \
+  void(__builtin_memcpy((dest), (src), (size)))
+#else
+#define FOLLY_BUILTIN_MEMCPY(dest, src, size) \
+  void(::std::memcpy((dest), (src), (size)))
+#endif
 #endif
 
 namespace facebook {
