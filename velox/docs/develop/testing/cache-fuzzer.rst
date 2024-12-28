@@ -63,4 +63,8 @@ Here is a full list of supported command line arguments.
 
 * ``–-num_restarts``: Number of cache restarts in one iteration.
 
+* ``–-enable_file_faulty_injection``: Enable fault injection on read and write
+  operations for cache-related files. When enabled, the file read and write
+  operations will fail 5 out of 100 times.
+
 If running from CLion IDE, add ``--logtostderr=1`` to see the full output.

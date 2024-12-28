@@ -36,7 +36,7 @@ SsdCache::SsdCache(const Config& config)
   // Make sure the given path of Ssd files has the prefix for local file system.
   // Local file system would be derived based on the prefix.
   VELOX_CHECK(
-      filePrefix_.find('/') == 0,
+      filePrefix_.find('/') == 0 || filePrefix_.find("faulty:/") == 0,
       "Ssd path '{}' does not start with '/' that points to local file system.",
       filePrefix_);
   VELOX_CHECK_NOT_NULL(executor_);
