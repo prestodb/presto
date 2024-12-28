@@ -115,6 +115,7 @@ IcebergSplitReaderBenchmark::makeIcebergSplit(
       std::nullopt,
       customSplitInfo,
       nullptr,
+      /*cacheable=*/true,
       deleteFiles);
 }
 

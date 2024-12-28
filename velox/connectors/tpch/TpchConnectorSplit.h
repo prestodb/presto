@@ -23,9 +23,16 @@ namespace facebook::velox::connector::tpch {
 struct TpchConnectorSplit : public connector::ConnectorSplit {
   explicit TpchConnectorSplit(
       const std::string& connectorId,
-      size_t totalParts = 1,
-      size_t partNumber = 0)
-      : ConnectorSplit(connectorId),
+      size_t totalParts,
+      size_t partNumber)
+      : TpchConnectorSplit(connectorId, true, totalParts, partNumber) {}
+
+  TpchConnectorSplit(
+      const std::string& connectorId,
+      bool cacheable,
+      size_t totalParts,
+      size_t partNumber)
+      : ConnectorSplit(connectorId, /*splitWeight=*/0, cacheable),
         totalParts(totalParts),
         partNumber(partNumber) {
     VELOX_CHECK_GE(totalParts, 1, "totalParts must be >= 1");

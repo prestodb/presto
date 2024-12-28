@@ -222,6 +222,7 @@ TEST_F(HiveConnectorSerDeTest, hiveInsertTableHandle) {
 TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
   const auto connectorId = "testSerde";
   constexpr auto splitWeight = 1;
+  constexpr bool cacheable = false;
   constexpr auto filePath = "/testSerde/p";
   constexpr auto fileFormat = dwio::common::FileFormat::DWRF;
   constexpr auto start = 0;
@@ -253,10 +254,12 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
       extraFileInfo,
       serdeParameters,
       splitWeight,
+      cacheable,
       infoColumns,
       properties,
       rowIdProperties);
   testSerde(split1);
+  ASSERT_EQ(split1.cacheable, cacheable);
 
   const auto split2 = HiveConnectorSplit(
       connectorId,
@@ -270,9 +273,11 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
       nullptr,
       {},
       splitWeight,
+      !cacheable,
       {},
       std::nullopt,
       std::nullopt);
+  ASSERT_EQ(split2.cacheable, !cacheable);
   testSerde(split2);
 }
 

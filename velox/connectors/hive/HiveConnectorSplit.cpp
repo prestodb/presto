@@ -40,6 +40,7 @@ folly::dynamic HiveConnectorSplit::serialize() const {
   obj["name"] = "HiveConnectorSplit";
   obj["connectorId"] = connectorId;
   obj["splitWeight"] = splitWeight;
+  obj["cacheable"] = cacheable;
   obj["filePath"] = filePath;
   obj["fileFormat"] = dwio::common::toString(fileFormat);
   obj["start"] = start;
@@ -103,6 +104,7 @@ std::shared_ptr<HiveConnectorSplit> HiveConnectorSplit::create(
     const folly::dynamic& obj) {
   const auto connectorId = obj["connectorId"].asString();
   const auto splitWeight = obj["splitWeight"].asInt();
+  const bool cacheable = obj["cacheable"].asBool();
   const auto filePath = obj["filePath"].asString();
   const auto fileFormat =
       dwio::common::toFileFormat(obj["fileFormat"].asString());
@@ -171,6 +173,7 @@ std::shared_ptr<HiveConnectorSplit> HiveConnectorSplit::create(
       extraFileInfo,
       serdeParameters,
       splitWeight,
+      cacheable,
       infoColumns,
       properties,
       rowIdProperties);

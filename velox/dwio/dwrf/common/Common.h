@@ -78,6 +78,13 @@ inline bool isIndexStream(StreamKind kind) {
  */
 std::string streamKindToString(StreamKind kind);
 
+FOLLY_ALWAYS_INLINE std::ostream& operator<<(
+    std::ostream& os,
+    const StreamKind& kind) {
+  os << streamKindToString(kind);
+  return os;
+}
+
 class StreamInformation {
  public:
   virtual ~StreamInformation() = default;
@@ -283,3 +290,13 @@ constexpr int32_t RLE_MAXIMUM_REPEAT = 127 + RLE_MINIMUM_REPEAT;
 constexpr int32_t RLE_MAX_LITERAL_SIZE = 128;
 
 } // namespace facebook::velox::dwrf
+
+template <>
+struct fmt::formatter<facebook::velox::dwrf::StreamKind>
+    : fmt::formatter<std::string> {
+  auto format(
+      const facebook::velox::dwrf::StreamKind& kind,
+      format_context& ctx) const {
+    return formatter<std::string>::format(streamKindToString(kind), ctx);
+  }
+};

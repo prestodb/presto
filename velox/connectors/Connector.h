@@ -76,7 +76,7 @@ struct ConnectorSplit : public ISerializable {
         "[split: connector id {}, weight {}, cacheable {}]",
         connectorId,
         splitWeight,
-        cacheable ? "true" : "false");
+        folly::to<bool>(cacheable));
   }
 };
 

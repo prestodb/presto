@@ -100,7 +100,7 @@ class VeloxIn10MinDemo : public VectorTestBase {
   /// Make TPC-H split to add to TableScan node.
   exec::Split makeTpchSplit() const {
     return exec::Split(std::make_shared<connector::tpch::TpchConnectorSplit>(
-        kTpchConnectorId));
+        kTpchConnectorId, /*cacheable=*/true, 1, 0));
   }
 
   /// Run the demo.
