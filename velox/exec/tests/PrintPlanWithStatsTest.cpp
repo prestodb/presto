@@ -51,9 +51,11 @@ void compareOutputs(
     while (!RE2::FullMatch(line, expectedLine.line)) {
       potentialLines.push_back(expectedLine.line);
       if (!expectedLine.optional) {
-        ASSERT_FALSE(true) << "Output did not match " << "Source:" << testName
-                           << ", Line number:" << lineCount
-                           << ", Line: " << line << ", Expected Line one of: "
+        ASSERT_FALSE(true) << "Output did not match."
+                           << "\n  Source: " << testName
+                           << "\n  Line number: " << lineCount
+                           << "\n  Line: " << line
+                           << "\n  Expected Line one of: "
                            << folly::join(",", potentialLines);
       }
       expectedLine = expectedRegex.at(expectedLineIndex++);

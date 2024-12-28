@@ -110,6 +110,10 @@ class PlanBuilder {
   static constexpr const std::string_view kHiveDefaultConnectorId{"test-hive"};
   static constexpr const std::string_view kTpchDefaultConnectorId{"test-tpch"};
 
+  ///
+  /// TableScan
+  ///
+
   /// Add a TableScanNode to scan a Hive table.
   ///
   /// @param outputType List of column names and types to read from the table.
@@ -300,6 +304,144 @@ class PlanBuilder {
   TableScanBuilder& startTableScan() {
     tableScanBuilder_.reset(new TableScanBuilder(*this));
     return *tableScanBuilder_;
+  }
+
+  ///
+  /// TableWriter
+  ///
+
+  /// Helper class to build a custom TableWriteNode.
+  /// Uses a planBuilder instance to get the next plan id, memory pool, and
+  /// upstream node (the node that will produce the data).
+  ///
+  /// Uses the Hive connector by default.
+  class TableWriterBuilder {
+   public:
+    explicit TableWriterBuilder(PlanBuilder& builder) : planBuilder_(builder) {}
+
+    /// @param outputType The schema that will be written to the output file. It
+    /// may reference a subset or change the order of columns from the input
+    /// (upstream operator output).
+    TableWriterBuilder& outputType(RowTypePtr outputType) {
+      outputType_ = std::move(outputType);
+      return *this;
+    }
+
+    /// @param outputDirectoryPath Path in which output files will be created.
+    TableWriterBuilder& outputDirectoryPath(std::string outputDirectoryPath) {
+      outputDirectoryPath_ = std::move(outputDirectoryPath);
+      return *this;
+    }
+
+    /// @param outputFileName File name of the output (optional). If specified
+    /// (non-empty), use it instead of generating the file name in Velox. Should
+    /// only be specified in non-bucketing write.
+    TableWriterBuilder& outputFileName(std::string outputFileName) {
+      outputFileName_ = std::move(outputFileName);
+      return *this;
+    }
+
+    /// @param connectorId The id of the connector to write to.
+    TableWriterBuilder& connectorId(std::string_view connectorId) {
+      connectorId_ = connectorId;
+      return *this;
+    }
+
+    /// @param partitionBy Specifies the partition key columns.
+    TableWriterBuilder& partitionBy(std::vector<std::string> partitionBy) {
+      partitionBy_ = std::move(partitionBy);
+      return *this;
+    }
+
+    /// @param bucketCount Specifies the bucket count.
+    TableWriterBuilder& bucketCount(int32_t count) {
+      bucketCount_ = count;
+      return *this;
+    }
+
+    /// @param bucketedBy Specifies the bucket by columns.
+    TableWriterBuilder& bucketedBy(std::vector<std::string> bucketedBy) {
+      bucketedBy_ = std::move(bucketedBy);
+      return *this;
+    }
+
+    /// @param aggregates Aggregations for column statistics collection during
+    /// write.
+    TableWriterBuilder& aggregates(std::vector<std::string> aggregates) {
+      aggregates_ = std::move(aggregates);
+      return *this;
+    }
+
+    /// @param sortBy Specifies the sort by columns.
+    TableWriterBuilder& sortBy(
+        std::vector<std::shared_ptr<const connector::hive::HiveSortingColumn>>
+            sortBy) {
+      sortBy_ = std::move(sortBy);
+      return *this;
+    }
+
+    /// @param serdeParameters Additional parameters passed to the writer.
+    TableWriterBuilder& serdeParameters(
+        std::unordered_map<std::string, std::string> serdeParameters) {
+      serdeParameters_ = std::move(serdeParameters);
+      return *this;
+    }
+
+    /// @param Option objects passed to the writer.
+    TableWriterBuilder& options(
+        std::shared_ptr<dwio::common::WriterOptions> options) {
+      options_ = std::move(options);
+      return *this;
+    }
+
+    /// @param fileFormat File format to use for the written data.
+    TableWriterBuilder& fileFormat(dwio::common::FileFormat fileFormat) {
+      fileFormat_ = fileFormat;
+      return *this;
+    }
+
+    /// @param compressionKind Compression scheme to use for writing the
+    /// output data files.
+    TableWriterBuilder& compressionKind(
+        common::CompressionKind compressionKind) {
+      compressionKind_ = compressionKind;
+      return *this;
+    }
+
+    /// Stop the TableWriterBuilder.
+    PlanBuilder& endTableWriter() {
+      planBuilder_.planNode_ = build(planBuilder_.nextPlanNodeId());
+      return planBuilder_;
+    }
+
+   private:
+    /// Build the plan node TableWriteNode.
+    core::PlanNodePtr build(core::PlanNodeId id);
+
+    PlanBuilder& planBuilder_;
+    RowTypePtr outputType_;
+    std::string outputDirectoryPath_;
+    std::string outputFileName_;
+    std::string connectorId_{kHiveDefaultConnectorId};
+
+    std::vector<std::string> partitionBy_;
+    int32_t bucketCount_{0};
+    std::vector<std::string> bucketedBy_;
+    std::vector<std::string> aggregates_;
+    std::vector<std::shared_ptr<const connector::hive::HiveSortingColumn>>
+        sortBy_;
+
+    std::unordered_map<std::string, std::string> serdeParameters_;
+    std::shared_ptr<dwio::common::WriterOptions> options_;
+
+    dwio::common::FileFormat fileFormat_{dwio::common::FileFormat::DWRF};
+    common::CompressionKind compressionKind_{common::CompressionKind_NONE};
+  };
+
+  /// Start a TableWriterBuilder.
+  TableWriterBuilder& startTableWriter() {
+    tableWriterBuilder_.reset(new TableWriterBuilder(*this));
+    return *tableWriterBuilder_;
   }
 
   /// Add a ValuesNode using specified data.
@@ -1181,6 +1323,7 @@ class PlanBuilder {
   core::PlanNodePtr planNode_;
   parse::ParseOptions options_;
   std::shared_ptr<TableScanBuilder> tableScanBuilder_;
+  std::shared_ptr<TableWriterBuilder> tableWriterBuilder_;
 
  private:
   std::shared_ptr<core::PlanNodeIdGenerator> planNodeIdGenerator_;
