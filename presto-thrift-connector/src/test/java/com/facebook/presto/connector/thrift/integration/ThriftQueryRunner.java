@@ -291,9 +291,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
+        public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties, boolean isDefaultNamespace)
         {
-            source.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+            source.loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, isDefaultNamespace);
         }
 
         @Override
