@@ -54,6 +54,10 @@ struct FaultFileOperation : public BaseFaultOperation {
         return "READV";
       case FaultFileOperation::Type::kRead:
         return "READ";
+      case FaultFileOperation::Type::kWrite:
+        return "WRITE";
+      case FaultFileOperation::Type::kAppend:
+        return "APPEND";
       default:
         VELOX_UNSUPPORTED(
             "Unknown file operation type: {}", static_cast<int>(type));
