@@ -147,6 +147,7 @@ TEST_F(TableScanReplayerTest, runner) {
 
   FLAGS_root_dir = traceRoot;
   FLAGS_query_id = task->queryCtx()->queryId();
+  FLAGS_task_id = task->taskId();
   FLAGS_node_id = traceNodeId_;
   FLAGS_summary = true;
   {
