@@ -21,8 +21,9 @@ struct SystemSplit : public velox::connector::ConnectorSplit {
   explicit SystemSplit(
       const std::string& connectorId,
       const std::string& schemaName,
-      const std::string& tableName)
-      : ConnectorSplit(connectorId),
+      const std::string& tableName,
+      bool cacheable)
+      : ConnectorSplit(connectorId, /*splitWeight=*/0, cacheable),
         schemaName_(schemaName),
         tableName_(tableName) {}
 
