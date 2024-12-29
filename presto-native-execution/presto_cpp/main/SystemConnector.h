@@ -184,7 +184,8 @@ class SystemPrestoToVeloxConnector final : public PrestoToVeloxConnector {
 
   std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
       const protocol::ConnectorId& catalogId,
-      const protocol::ConnectorSplit* connectorSplit) const final;
+      const protocol::ConnectorSplit* connectorSplit,
+      const protocol::SplitContext* splitContext) const final;
 
   std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
       const protocol::ColumnHandle* column,
