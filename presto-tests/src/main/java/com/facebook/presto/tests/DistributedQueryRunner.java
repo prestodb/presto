@@ -729,10 +729,10 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
+    public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties, boolean isDefaultNamespace)
     {
         for (TestingPrestoServer server : servers) {
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager(), isDefaultNamespace);
         }
     }
 
@@ -929,7 +929,7 @@ public class DistributedQueryRunner
                 .build();
         installPlugin(new H2FunctionNamespaceManagerPlugin(), coordinatorOnly);
         for (String catalogName : catalogNames) {
-            loadFunctionNamespaceManager("h2", catalogName, properties, coordinatorOnly);
+            loadFunctionNamespaceManager("h2", catalogName, properties, coordinatorOnly, false);
         }
 
         Handle handle = Jdbi.open(H2ConnectionModule.getJdbcUrl(databaseName));
@@ -941,13 +941,14 @@ public class DistributedQueryRunner
             String functionNamespaceManagerName,
             String catalogName,
             Map<String, String> properties,
-            boolean coordinatorOnly)
+            boolean coordinatorOnly,
+            boolean isDefaultNamespace)
     {
         for (TestingPrestoServer server : servers) {
             if (coordinatorOnly && !server.isCoordinator()) {
                 continue;
             }
-            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+            server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager(), isDefaultNamespace);
         }
     }
 

@@ -95,7 +95,7 @@ public interface QueryRunner
 
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
-    void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties);
+    void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties, boolean isDefaultNamespace);
 
     default void loadSessionPropertyProvider(String sessionPropertyProviderName)
     {
