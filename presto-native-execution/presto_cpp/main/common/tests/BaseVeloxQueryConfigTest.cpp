@@ -11,8 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
 #include "presto_cpp/main/common/Configs.h"
+#include <gtest/gtest.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
