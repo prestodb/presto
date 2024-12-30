@@ -103,7 +103,7 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
     auto tableHandle = createTableHandle();
     auto split = createSplit();
     configureReaderOptions(
-        readerOptions, hiveConfig, connectorQueryCtx.get(), tableHandle, split);
+        hiveConfig, connectorQueryCtx.get(), tableHandle, split, readerOptions);
   };
 
   auto clearDynamicParameters = [&](FileFormat newFileFormat) {
@@ -262,6 +262,87 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
   clearDynamicParameters(FileFormat::PARQUET);
   performConfigure();
   checkUseColumnNamesForColumnMapping();
+}
+
+TEST_F(HiveConnectorUtilTest, cacheRetention) {
+  struct {
+    bool sessionNoCacheRetention;
+    bool splitCacheable;
+    bool expectedNoCacheRetention;
+
+    std::string debugString() const {
+      return fmt::format(
+          "sessionNoCacheRetention {}, splitCacheable {}, expectedNoCacheRetention {}",
+          sessionNoCacheRetention,
+          splitCacheable,
+          expectedNoCacheRetention);
+    }
+  } testSettings[] = {
+      {false, false, true},
+      {true, false, true},
+      {false, true, false},
+      {true, true, true}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    std::unordered_map<std::string, std::string> sessionConfigs;
+    sessionConfigs[hive::HiveConfig::kCacheNoRetentionSession] =
+        testData.sessionNoCacheRetention ? "true" : "false";
+    config::ConfigBase sessionProperties(std::move(sessionConfigs));
+    auto hiveConfig =
+        std::make_shared<hive::HiveConfig>(std::make_shared<config::ConfigBase>(
+            std::unordered_map<std::string, std::string>()));
+
+    auto connectorQueryCtx = std::make_unique<connector::ConnectorQueryCtx>(
+        pool_.get(),
+        pool_.get(),
+        &sessionProperties,
+        nullptr,
+        common::PrefixSortConfig(),
+        nullptr,
+        nullptr,
+        "query.HiveConnectorUtilTest",
+        "task.HiveConnectorUtilTest",
+        "planNodeId.HiveConnectorUtilTest",
+        0,
+        "");
+
+    dwio::common::ReaderOptions readerOptions(pool_.get());
+
+    auto tableHandle = std::make_shared<hive::HiveTableHandle>(
+        "testConnectorId",
+        "testTable",
+        false,
+        hive::SubfieldFilters{},
+        nullptr,
+        nullptr,
+        std::unordered_map<std::string, std::string>{});
+
+    auto hiveSplit = std::make_shared<hive::HiveConnectorSplit>(
+        "testConnectorId",
+        "/tmp/",
+        FileFormat::DWRF,
+        0UL,
+        std::numeric_limits<uint64_t>::max(),
+        std::unordered_map<std::string, std::optional<std::string>>{},
+        std::nullopt,
+        std::unordered_map<std::string, std::string>{},
+        std::shared_ptr<std::string>{},
+        std::unordered_map<std::string, std::string>{},
+        0,
+        testData.splitCacheable);
+
+    configureReaderOptions(
+        hiveConfig,
+        connectorQueryCtx.get(),
+        tableHandle,
+        hiveSplit,
+        readerOptions);
+
+    ASSERT_EQ(
+        readerOptions.noCacheRetention(), testData.expectedNoCacheRetention);
+  }
 }
 
 TEST_F(HiveConnectorUtilTest, configureRowReaderOptions) {

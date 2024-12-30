@@ -484,7 +484,10 @@ void Writer::flushStripe(bool close) {
   auto result = layoutPlanner_->plan(encodingManager, getStreamList(context));
   result.iterateIndexStreams(
       [&](const DwrfStreamIdentifier& streamId, DataBufferHolder& content) {
-        VELOX_CHECK(isIndexStream(streamId.kind()), "unexpected stream kind");
+        VELOX_CHECK(
+            isIndexStream(streamId.kind()),
+            "unexpected stream kind {}",
+            streamId.kind());
         indexLength += content.size();
         addStream(streamId, content);
         sink.addBuffers(content);
@@ -494,7 +497,10 @@ void Writer::flushStripe(bool close) {
   sink.setMode(WriterSink::Mode::Data);
   result.iterateDataStreams(
       [&](const DwrfStreamIdentifier& streamId, DataBufferHolder& content) {
-        VELOX_CHECK(!isIndexStream(streamId.kind()), "unexpected stream kind");
+        VELOX_CHECK(
+            !isIndexStream(streamId.kind()),
+            "unexpected stream kind {}",
+            streamId.kind());
         dataLength += content.size();
         addStream(streamId, content);
         sink.addBuffers(content);

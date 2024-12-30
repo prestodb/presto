@@ -26,35 +26,6 @@ struct IcebergDeleteFile;
 struct HiveIcebergSplit : public connector::hive::HiveConnectorSplit {
   std::vector<IcebergDeleteFile> deleteFiles;
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  HiveIcebergSplit(
-      const std::string& connectorId,
-      const std::string& filePath,
-      dwio::common::FileFormat fileFormat,
-      uint64_t start = 0,
-      uint64_t length = std::numeric_limits<uint64_t>::max(),
-      const std::unordered_map<std::string, std::optional<std::string>>&
-          partitionKeys = {},
-      std::optional<int32_t> tableBucketNumber = std::nullopt,
-      const std::unordered_map<std::string, std::string>& customSplitInfo = {},
-      const std::shared_ptr<std::string>& extraFileInfo = {},
-      const std::unordered_map<std::string, std::string>& infoColumns = {},
-      std::optional<FileProperties> fileProperties = std::nullopt)
-      : HiveIcebergSplit(
-            connectorId,
-            filePath,
-            fileFormat,
-            start,
-            length,
-            partitionKeys,
-            tableBucketNumber,
-            customSplitInfo,
-            extraFileInfo,
-            true,
-            infoColumns,
-            fileProperties) {}
-#endif
-
   HiveIcebergSplit(
       const std::string& connectorId,
       const std::string& filePath,
@@ -70,38 +41,7 @@ struct HiveIcebergSplit : public connector::hive::HiveConnectorSplit {
       const std::unordered_map<std::string, std::string>& infoColumns = {},
       std::optional<FileProperties> fileProperties = std::nullopt);
 
-// For tests only
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  HiveIcebergSplit(
-      const std::string& connectorId,
-      const std::string& filePath,
-      dwio::common::FileFormat fileFormat,
-      uint64_t start = 0,
-      uint64_t length = std::numeric_limits<uint64_t>::max(),
-      const std::unordered_map<std::string, std::optional<std::string>>&
-          partitionKeys = {},
-      std::optional<int32_t> tableBucketNumber = std::nullopt,
-      const std::unordered_map<std::string, std::string>& customSplitInfo = {},
-      const std::shared_ptr<std::string>& extraFileInfo = {},
-      std::vector<IcebergDeleteFile> deletes = {},
-      const std::unordered_map<std::string, std::string>& infoColumns = {},
-      std::optional<FileProperties> fileProperties = std::nullopt)
-      : HiveIcebergSplit(
-            connectorId,
-            filePath,
-            fileFormat,
-            start,
-            length,
-            partitionKeys,
-            tableBucketNumber,
-            customSplitInfo,
-            extraFileInfo,
-            true,
-            deletes,
-            infoColumns,
-            fileProperties) {}
-#endif
-
+  // For tests only
   HiveIcebergSplit(
       const std::string& connectorId,
       const std::string& filePath,

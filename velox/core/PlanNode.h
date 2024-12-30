@@ -1245,20 +1245,6 @@ class LocalPartitionNode : public PlanNode {
 
   static Type typeFromName(const std::string& name);
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  LocalPartitionNode(
-      const PlanNodeId& id,
-      Type type,
-      PartitionFunctionSpecPtr partitionFunctionSpec,
-      std::vector<PlanNodePtr> sources)
-      : LocalPartitionNode(
-            id,
-            std::move(type),
-            /*scaleWriter=*/false,
-            std::move(partitionFunctionSpec),
-            std::move(sources)) {}
-#endif
-
   /// If 'scaleWriter' is true, the local partition is used to scale the table
   /// writer prcessing.
   LocalPartitionNode(

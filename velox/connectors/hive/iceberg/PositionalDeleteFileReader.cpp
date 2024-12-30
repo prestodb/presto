@@ -82,11 +82,12 @@ PositionalDeleteFileReader::PositionalDeleteFileReader(
 
   dwio::common::ReaderOptions deleteReaderOpts(pool_);
   configureReaderOptions(
-      deleteReaderOpts,
       hiveConfig_,
       connectorQueryCtx,
       deleteFileSchema,
-      deleteSplit_);
+      deleteSplit_,
+      /*tableParameters=*/{},
+      deleteReaderOpts);
 
   auto deleteFileHandleCachePtr =
       fileHandleFactory_->generate(deleteFile_.filePath);

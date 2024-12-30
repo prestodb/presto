@@ -5163,16 +5163,38 @@ TEST_F(TableScanTest, noCacheRetention) {
   writeToFile(filePath->getPath(), vectors);
   createDuckDbTable(vectors);
 
-  for (const bool noCacheRetention : {true}) {
-    SCOPED_TRACE(fmt::format("noCacheRetention: {}", noCacheRetention));
+  struct {
+    bool sessionNoCacheRetention;
+    bool splitCacheable;
+    bool expectedNoCacheRetention;
+
+    std::string debugString() const {
+      return fmt::format(
+          "sessionNoCacheRetention {}, splitCacheable {}, expectedNoCacheRetention {}",
+          sessionNoCacheRetention,
+          splitCacheable,
+          expectedNoCacheRetention);
+    }
+  } testSettings[] = {
+      {false, false, true},
+      {true, false, true},
+      {false, true, false},
+      {true, true, true}};
+
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
 
     auto split = makeHiveConnectorSplit(
-        filePath->getPath(), 0, fs::file_size(filePath->getPath()));
+        filePath->getPath(),
+        0,
+        fs::file_size(filePath->getPath()),
+        0,
+        testData.splitCacheable);
     AssertQueryBuilder(tableScanNode(), duckDbQueryRunner_)
         .connectorSessionProperty(
             kHiveConnectorId,
             connector::hive::HiveConfig::kCacheNoRetentionSession,
-            noCacheRetention ? "true" : "false")
+            testData.sessionNoCacheRetention ? "true" : "false")
         .split(std::move(split))
         .assertResults("SELECT * FROM tmp");
     waitForAllTasksToBeDeleted();
@@ -5184,7 +5206,7 @@ TEST_F(TableScanTest, noCacheRetention) {
     for (const auto& cacheEntry : cacheEntries) {
       const auto cacheEntryHelper =
           cache::test::AsyncDataCacheEntryTestHelper(cacheEntry);
-      if (noCacheRetention) {
+      if (testData.expectedNoCacheRetention) {
         if (!cacheEntryHelper.firstUse()) {
           ASSERT_EQ(cacheEntryHelper.accessStats().lastUse, 0)
               << cacheEntry->toString();

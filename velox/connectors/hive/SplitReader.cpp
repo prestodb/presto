@@ -134,13 +134,14 @@ SplitReader::SplitReader(
 void SplitReader::configureReaderOptions(
     std::shared_ptr<velox::random::RandomSkipTracker> randomSkip) {
   hive::configureReaderOptions(
-      baseReaderOpts_,
       hiveConfig_,
       connectorQueryCtx_,
       hiveTableHandle_,
-      hiveSplit_);
+      hiveSplit_,
+      baseReaderOpts_);
   baseReaderOpts_.setRandomSkip(std::move(randomSkip));
   baseReaderOpts_.setScanSpec(scanSpec_);
+  baseReaderOpts_.setFileFormat(hiveSplit_->fileFormat);
 }
 
 void SplitReader::prepareSplit(

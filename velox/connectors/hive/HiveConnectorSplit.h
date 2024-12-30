@@ -70,41 +70,6 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
 
   std::optional<RowIdProperties> rowIdProperties;
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  HiveConnectorSplit(
-      const std::string& connectorId,
-      const std::string& _filePath,
-      dwio::common::FileFormat _fileFormat,
-      uint64_t _start = 0,
-      uint64_t _length = std::numeric_limits<uint64_t>::max(),
-      const std::unordered_map<std::string, std::optional<std::string>>&
-          _partitionKeys = {},
-      std::optional<int32_t> _tableBucketNumber = std::nullopt,
-      const std::unordered_map<std::string, std::string>& _customSplitInfo = {},
-      const std::shared_ptr<std::string>& _extraFileInfo = {},
-      const std::unordered_map<std::string, std::string>& _serdeParameters = {},
-      int64_t _splitWeight = 0,
-      const std::unordered_map<std::string, std::string>& _infoColumns = {},
-      std::optional<FileProperties> _properties = std::nullopt,
-      std::optional<RowIdProperties> _rowIdProperties = std::nullopt)
-      : HiveConnectorSplit(
-            connectorId,
-            _filePath,
-            _fileFormat,
-            _start,
-            _length,
-            _partitionKeys,
-            _tableBucketNumber,
-            _customSplitInfo,
-            _extraFileInfo,
-            _serdeParameters,
-            _splitWeight,
-            true,
-            _infoColumns,
-            _properties,
-            _rowIdProperties) {}
-#endif
-
   HiveConnectorSplit(
       const std::string& connectorId,
       const std::string& _filePath,
