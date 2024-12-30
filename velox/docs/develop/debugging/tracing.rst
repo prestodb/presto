@@ -366,3 +366,7 @@ Here is a full list of supported command line arguments.
 * ``--shuffle_serialization_format``: Specify the shuffle serialization format.
 * ``--table_writer_output_dir``: Specify the output directory of TableWriter.
 * ``--hiveConnectorExecutorHwMultiplier``: Hardware multiplier for hive connector.
+* ``--driver_cpu_executor_hw_multiplier``: Hardware multipler for driver cpu executor.
+* ``--memory_arbitrator_type``: Specify the memory arbitrator type.
+* ``--query_memory_capacity_gb``: Specify the query memory capacity limit in GB. If it is zero, then there is no limit.
+* ``--copy_results``: If true, copy the replaying result.

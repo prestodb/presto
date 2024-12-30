@@ -27,6 +27,7 @@
 #include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/OperatorTraceReader.h"
 #include "velox/exec/PartitionFunction.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/TableWriter.h"
@@ -38,6 +39,7 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/tool/trace/HashJoinReplayer.h"
+#include "velox/tool/trace/TraceReplayRunner.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -323,6 +325,89 @@ TEST_F(HashJoinReplayerTest, partialDriverIds) {
       executor_.get())
       .run();
   faultyFs->clearFileFaultInjections();
+}
+
+TEST_F(HashJoinReplayerTest, runner) {
+  const auto planWithSplits = createPlan(
+      tableDir_,
+      core::JoinType::kInner,
+      probeKeys_,
+      buildKeys_,
+      probeInput_,
+      buildInput_);
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  std::shared_ptr<Task> task;
+  auto tracePlanWithSplits = createPlan(
+      tableDir_,
+      core::JoinType::kInner,
+      probeKeys_,
+      buildKeys_,
+      probeInput_,
+      buildInput_);
+  AssertQueryBuilder traceBuilder(tracePlanWithSplits.plan);
+  traceBuilder.config(core::QueryConfig::kQueryTraceEnabled, true)
+      .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+      .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+      .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+      .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_);
+  for (const auto& [planNodeId, nodeSplits] : tracePlanWithSplits.splits) {
+    traceBuilder.splits(planNodeId, nodeSplits);
+  }
+  auto traceResult = traceBuilder.copyResults(pool(), task);
+
+  const auto taskTraceDir =
+      exec::trace::getTaskTraceDirectory(traceRoot, *task);
+  const auto probeOperatorTraceDir = exec::trace::getOpTraceDirectory(
+      taskTraceDir,
+      traceNodeId_,
+      /*pipelineId=*/0,
+      /*driverId=*/0);
+  const auto probeSummary =
+      exec::trace::OperatorTraceSummaryReader(probeOperatorTraceDir, pool())
+          .read();
+  ASSERT_EQ(probeSummary.opType, "HashProbe");
+  ASSERT_GT(probeSummary.peakMemory, 0);
+  ASSERT_GT(probeSummary.inputRows, 0);
+  ASSERT_GT(probeSummary.inputBytes, 0);
+  ASSERT_EQ(probeSummary.rawInputRows, 0);
+  ASSERT_EQ(probeSummary.rawInputBytes, 0);
+
+  const auto buildOperatorTraceDir = exec::trace::getOpTraceDirectory(
+      taskTraceDir,
+      traceNodeId_,
+      /*pipelineId=*/1,
+      /*driverId=*/0);
+  const auto buildSummary =
+      exec::trace::OperatorTraceSummaryReader(buildOperatorTraceDir, pool())
+          .read();
+  ASSERT_EQ(buildSummary.opType, "HashBuild");
+  ASSERT_GT(buildSummary.peakMemory, 0);
+  ASSERT_GT(buildSummary.inputRows, 0);
+  // NOTE: the input bytes is 0 because of the lazy materialization.
+  ASSERT_EQ(buildSummary.inputBytes, 0);
+  ASSERT_EQ(buildSummary.rawInputRows, 0);
+  ASSERT_EQ(buildSummary.rawInputBytes, 0);
+
+  FLAGS_root_dir = traceRoot;
+  FLAGS_query_id = task->queryCtx()->queryId();
+  FLAGS_task_id = task->taskId();
+  FLAGS_node_id = traceNodeId_;
+  FLAGS_summary = true;
+  {
+    TraceReplayRunner runner;
+    runner.init();
+    runner.run();
+  }
+
+  FLAGS_task_id = task->taskId();
+  FLAGS_driver_ids = "";
+  FLAGS_summary = false;
+  {
+    TraceReplayRunner runner;
+    runner.init();
+    runner.run();
+  }
 }
 
 DEBUG_ONLY_TEST_F(HashJoinReplayerTest, hashBuildSpill) {

@@ -95,6 +95,7 @@ DEFINE_uint64(
     query_memory_capacity_gb,
     0,
     "Specify the query memory capacity limit in GB. If it is zero, then there is no limit.");
+DEFINE_bool(copy_results, false, "Copy the replaying results.");
 
 namespace facebook::velox::tool::trace {
 namespace {
@@ -395,6 +396,6 @@ void TraceReplayRunner::run() {
     return;
   }
   VELOX_USER_CHECK(!FLAGS_task_id.empty(), "--task_id must be provided");
-  createReplayer()->run();
+  createReplayer()->run(FLAGS_copy_results);
 }
 } // namespace facebook::velox::tool::trace

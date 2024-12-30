@@ -26,6 +26,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/tool/trace/OperatorReplayerBase.h"
+#include "velox/tool/trace/TraceReplayTaskRunner.h"
 
 using namespace facebook::velox;
 
@@ -72,36 +73,18 @@ OperatorReplayerBase::OperatorReplayerBase(
   queryConfigs_[core::QueryConfig::kQueryTraceEnabled] = "false";
 }
 
-RowVectorPtr OperatorReplayerBase::run() {
-  std::shared_ptr<exec::Task> task;
-  const auto restoredPlanNode = createPlan();
-  auto queryPool = memory::memoryManager()->addRootPool(
-      "OperatorReplayerBase", queryCapacity_);
-  std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
-      connectorConfigs;
-  for (auto& [connectorId, configs] : connectorConfigs_) {
-    connectorConfigs.emplace(
-        connectorId, std::make_shared<config::ConfigBase>(std::move(configs)));
-  }
-  auto queryCtx = core::QueryCtx::create(
-      executor_,
-      core::QueryConfig{queryConfigs_},
-      std::move(connectorConfigs),
-      nullptr,
-      std::move(queryPool),
-      executor_);
-
+RowVectorPtr OperatorReplayerBase::run(bool copyResults) {
+  auto queryCtx = createQueryCtx();
   std::shared_ptr<exec::test::TempDirectoryPath> spillDirectory;
   if (queryCtx->queryConfig().spillEnabled()) {
     spillDirectory = exec::test::TempDirectoryPath::create();
   }
 
-  const auto result =
-      exec::test::AssertQueryBuilder(restoredPlanNode)
-          .maxDrivers(driverIds_.size())
-          .queryCtx(std::move(queryCtx))
+  TraceReplayTaskRunner traceTaskRunner(createPlan(), std::move(queryCtx));
+  auto [task, result] =
+      traceTaskRunner.maxDrivers(driverIds_.size())
           .spillDirectory(spillDirectory ? spillDirectory->getPath() : "")
-          .copyResults(memory::MemoryManager::getInstance()->tracePool(), task);
+          .run(copyResults);
   printStats(task);
   return result;
 }
@@ -127,6 +110,24 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() {
       .addNode(replayNodeFactory(replayNode))
       .capturePlanNodeId(replayPlanNodeId_)
       .planNode();
+}
+
+std::shared_ptr<core::QueryCtx> OperatorReplayerBase::createQueryCtx() {
+  auto queryPool = memory::memoryManager()->addRootPool(
+      fmt::format("{}_replayer", operatorType_), queryCapacity_);
+  std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
+      connectorConfigs;
+  for (auto& [connectorId, configs] : connectorConfigs_) {
+    connectorConfigs.emplace(
+        connectorId, std::make_shared<config::ConfigBase>(std::move(configs)));
+  }
+  return core::QueryCtx::create(
+      executor_,
+      core::QueryConfig{queryConfigs_},
+      std::move(connectorConfigs),
+      nullptr,
+      std::move(queryPool),
+      executor_);
 }
 
 std::function<core::PlanNodePtr(std::string, core::PlanNodePtr)>

@@ -138,7 +138,7 @@ PartitionedOutputReplayer::PartitionedOutputReplayer(
       std::make_shared<folly::NamedThreadFactory>("Consumer"));
 }
 
-RowVectorPtr PartitionedOutputReplayer::run() {
+RowVectorPtr PartitionedOutputReplayer::run(bool /*unused*/) {
   const auto task = Task::create(
       "local://partitioned-output-replayer",
       core::PlanFragment{createPlan()},

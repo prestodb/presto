@@ -18,6 +18,7 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/core/PlanNode.h"
+#include "velox/core/QueryCtx.h"
 #include "velox/parse/PlanNodeIdGenerator.h"
 
 namespace facebook::velox::exec {
@@ -44,7 +45,7 @@ class OperatorReplayerBase {
   OperatorReplayerBase& operator=(OperatorReplayerBase&& other) noexcept =
       delete;
 
-  virtual RowVectorPtr run();
+  virtual RowVectorPtr run(bool copyResults = true);
 
  protected:
   virtual core::PlanNodePtr createPlanNode(
@@ -53,6 +54,8 @@ class OperatorReplayerBase {
       const core::PlanNodePtr& source) const = 0;
 
   core::PlanNodePtr createPlan();
+
+  std::shared_ptr<core::QueryCtx> createQueryCtx();
 
   const std::string queryId_;
   const std::string taskId_;

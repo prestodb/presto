@@ -46,7 +46,7 @@ class TableScanReplayer final : public OperatorReplayerBase {
             queryCapacity,
             executor) {}
 
-  RowVectorPtr run() override;
+  RowVectorPtr run(bool copyResults = true) override;
 
  private:
   core::PlanNodePtr createPlanNode(

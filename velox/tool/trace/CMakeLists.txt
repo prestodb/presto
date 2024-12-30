@@ -21,7 +21,8 @@ add_library(
   PartitionedOutputReplayer.cpp
   TableScanReplayer.cpp
   TableWriterReplayer.cpp
-  TraceReplayRunner.cpp)
+  TraceReplayRunner.cpp
+  TraceReplayTaskRunner.cpp)
 
 target_link_libraries(
   velox_query_trace_replayer_base
