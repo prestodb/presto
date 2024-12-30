@@ -46,8 +46,8 @@ class BitSet {
     bits::setBit(bits_.data(), bit, true);
   }
 
-  bool contains(uint32_t index) const {
-    uint64_t bit = index - min_;
+  bool contains(int64_t index) const {
+    auto bit = index - min_;
     if (bit >= bits_.size() * 64) {
       // If index was < min_, bit will have wrapped around and will be >
       // size * 64.

@@ -49,7 +49,7 @@ namespace velox {
 namespace bits {
 
 template <typename T>
-inline bool isBitSet(const T* bits, int32_t idx) {
+inline bool isBitSet(const T* bits, uint64_t idx) {
   return bits[idx / (sizeof(bits[0]) * 8)] &
       (static_cast<T>(1) << (idx & ((sizeof(bits[0]) * 8) - 1)));
 }
@@ -76,19 +76,19 @@ static constexpr uint8_t kZeroBitmasks[] = {
 };
 
 template <typename T>
-inline void setBit(T* bits, uint32_t idx) {
+inline void setBit(T* bits, uint64_t idx) {
   auto bitsAs8Bit = reinterpret_cast<uint8_t*>(bits);
   bitsAs8Bit[idx / 8] |= (1 << (idx % 8));
 }
 
 template <typename T>
-inline void clearBit(T* bits, uint32_t idx) {
+inline void clearBit(T* bits, uint64_t idx) {
   auto bitsAs8Bit = reinterpret_cast<uint8_t*>(bits);
   bitsAs8Bit[idx / 8] &= kZeroBitmasks[idx % 8];
 }
 
 template <typename T>
-inline void setBit(T* bits, uint32_t idx, bool value) {
+inline void setBit(T* bits, uint64_t idx, bool value) {
   value ? setBit(bits, idx) : clearBit(bits, idx);
 }
 
@@ -124,11 +124,11 @@ constexpr inline uint64_t highMask(int32_t bits) {
   return lowMask(bits) << (64 - bits);
 }
 
-constexpr inline uint64_t nbytes(int32_t bits) {
+constexpr inline uint64_t nbytes(uint64_t bits) {
   return roundUp(bits, 8) / 8;
 }
 
-constexpr inline uint64_t nwords(int32_t bits) {
+constexpr inline uint64_t nwords(uint64_t bits) {
   return roundUp(bits, 64) / 64;
 }
 
