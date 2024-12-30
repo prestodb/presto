@@ -859,6 +859,37 @@ TEST_F(ParquetTableScanTest, timestampInt96Plain) {
   testTimestampRead(options);
 }
 
+TEST_F(ParquetTableScanTest, timestampConvertedType) {
+  auto stringToTimestamp = [](std::string_view view) {
+    return util::fromTimestampString(
+               view.data(), view.size(), util::TimestampParseMode::kPrestoCast)
+        .thenOrThrow(folly::identity, [&](const Status& status) {
+          VELOX_USER_FAIL("{}", status.message());
+        });
+  };
+  std::vector<std::string_view> expected = {
+      "1970-01-01 00:00:00.010",
+      "1970-01-01 00:00:00.010",
+      "1970-01-01 00:00:00.010",
+  };
+  std::vector<Timestamp> values;
+  values.reserve(expected.size());
+  for (auto view : expected) {
+    values.emplace_back(stringToTimestamp(view));
+  }
+
+  const auto vector = makeRowVector(
+      {"time"},
+      {
+          makeFlatVector<Timestamp>(values),
+      });
+  const auto schema = asRowType(vector->type());
+  const auto path = getExampleFilePath("tmmillis_i64.parquet");
+  loadData(path, schema, vector);
+
+  assertSelectWithFilter({"time"}, {}, "", "SELECT time from tmp");
+}
+
 TEST_F(ParquetTableScanTest, timestampPrecisionMicrosecond) {
   // Write timestamp data into parquet.
   constexpr int kSize = 10;

@@ -23,17 +23,17 @@
 namespace facebook::velox::parquet {
 namespace {
 
-Timestamp toInt64Timestamp(int64_t value, const thrift::TimeUnit& unit) {
-  if (unit.__isset.MILLIS) {
-    return Timestamp::fromMillis(value);
+Timestamp toInt64Timestamp(int64_t value, TimestampPrecision filePrecision) {
+  switch (filePrecision) {
+    case TimestampPrecision::kMilliseconds:
+      return Timestamp::fromMillis(value);
+    case TimestampPrecision::kMicroseconds:
+      return Timestamp::fromMicros(value);
+    case TimestampPrecision::kNanoseconds:
+      return Timestamp::fromNanos(value);
+    default:
+      VELOX_UNREACHABLE();
   }
-  if (unit.__isset.MICROS) {
-    return Timestamp::fromMicros(value);
-  }
-  if (unit.__isset.NANOS) {
-    return Timestamp::fromNanos(value);
-  }
-  VELOX_UNREACHABLE();
 }
 
 Timestamp toInt96Timestamp(const int128_t& value) {
@@ -58,14 +58,14 @@ class ParquetTimestampRange final : public common::TimestampRange {
       const Timestamp& lower,
       const Timestamp& upper,
       bool nullAllowed,
-      const thrift::TimeUnit& timestampUnit)
+      TimestampPrecision filePrecision)
       : TimestampRange(lower, upper, nullAllowed),
-        timestampUnit_(timestampUnit) {}
+        filePrecision_(filePrecision) {}
 
   bool testInt128(const int128_t& value) const final {
     Timestamp ts;
     if constexpr (std::is_same_v<T, int64_t>) {
-      ts = toInt64Timestamp(value, timestampUnit_);
+      ts = toInt64Timestamp(value, filePrecision_);
     } else if constexpr (std::is_same_v<T, int128_t>) {
       ts = toInt96Timestamp(value);
     }
@@ -74,7 +74,7 @@ class ParquetTimestampRange final : public common::TimestampRange {
 
  private:
   // Only used when T is int64_t.
-  const thrift::TimeUnit timestampUnit_;
+  const TimestampPrecision filePrecision_;
 };
 
 } // namespace
@@ -91,26 +91,33 @@ class TimestampColumnReader : public IntegerColumnReader {
       ParquetParams& params,
       common::ScanSpec& scanSpec)
       : IntegerColumnReader(requestedType, fileType, params, scanSpec),
-        timestampPrecision_(params.timestampPrecision()) {
+        requestedPrecision_(params.timestampPrecision()) {
     if constexpr (std::is_same_v<T, int64_t>) {
-      const auto logicalType =
-          std::static_pointer_cast<const ParquetTypeWithId>(fileType_)
-              ->logicalType_;
-      VELOX_CHECK(logicalType);
-      VELOX_CHECK(logicalType->__isset.TIMESTAMP);
-      timestampUnit_ = logicalType->TIMESTAMP.unit;
-
-      if (timestampUnit_.__isset.MILLIS) {
-        needsConversion_ =
-            timestampPrecision_ != TimestampPrecision::kMilliseconds;
-      } else if (timestampUnit_.__isset.MICROS) {
-        needsConversion_ =
-            timestampPrecision_ != TimestampPrecision::kMicroseconds;
-      } else if (timestampUnit_.__isset.NANOS) {
-        needsConversion_ =
-            timestampPrecision_ != TimestampPrecision::kNanoseconds;
+      const auto typeWithId =
+          std::static_pointer_cast<const ParquetTypeWithId>(fileType_);
+      if (auto logicalType = typeWithId->logicalType_) {
+        VELOX_CHECK(logicalType->__isset.TIMESTAMP);
+        const auto unit = logicalType->TIMESTAMP.unit;
+        if (unit.__isset.MILLIS) {
+          filePrecision_ = TimestampPrecision::kMilliseconds;
+        } else if (unit.__isset.MICROS) {
+          filePrecision_ = TimestampPrecision::kMicroseconds;
+        } else if (unit.__isset.NANOS) {
+          filePrecision_ = TimestampPrecision::kNanoseconds;
+        } else {
+          VELOX_UNREACHABLE();
+        }
+      } else if (auto convertedType = typeWithId->convertedType_) {
+        if (convertedType == thrift::ConvertedType::type::TIMESTAMP_MILLIS) {
+          filePrecision_ = TimestampPrecision::kMilliseconds;
+        } else if (
+            convertedType == thrift::ConvertedType::type::TIMESTAMP_MICROS) {
+          filePrecision_ = TimestampPrecision::kMicroseconds;
+        } else {
+          VELOX_UNREACHABLE();
+        }
       } else {
-        VELOX_UNREACHABLE();
+        VELOX_NYI("Logical type and converted type are not provided.");
       }
     }
   }
@@ -136,13 +143,13 @@ class TimestampColumnReader : public IntegerColumnReader {
 
       const int128_t encoded = reinterpret_cast<int128_t&>(rawValues[i]);
       if constexpr (std::is_same_v<T, int64_t>) {
-        rawValues[i] = toInt64Timestamp(encoded, timestampUnit_);
+        rawValues[i] = toInt64Timestamp(encoded, filePrecision_);
         if (needsConversion_) {
-          rawValues[i] = rawValues[i].toPrecision(timestampPrecision_);
+          rawValues[i] = rawValues[i].toPrecision(requestedPrecision_);
         }
       } else if constexpr (std::is_same_v<T, int128_t>) {
         rawValues[i] =
-            toInt96Timestamp(encoded).toPrecision(timestampPrecision_);
+            toInt96Timestamp(encoded).toPrecision(requestedPrecision_);
       }
     }
   }
@@ -158,7 +165,7 @@ class TimestampColumnReader : public IntegerColumnReader {
       ExtractValues extractValues) {
     if (auto* range = dynamic_cast<common::TimestampRange*>(filter)) {
       ParquetTimestampRange<T> newRange{
-          range->lower(), range->upper(), range->nullAllowed(), timestampUnit_};
+          range->lower(), range->upper(), range->nullAllowed(), filePrecision_};
       this->readWithVisitor(
           rows,
           dwio::common::ColumnVisitor<
@@ -191,10 +198,11 @@ class TimestampColumnReader : public IntegerColumnReader {
  private:
   // The requested precision can be specified from HiveConfig to read timestamp
   // from Parquet.
-  const TimestampPrecision timestampPrecision_;
+  const TimestampPrecision requestedPrecision_;
 
-  // Only set when T is int64_t.
-  thrift::TimeUnit timestampUnit_;
+  // The precision of int64_t timestamp in Parquet. Only set when T is int64_t.
+  TimestampPrecision filePrecision_;
+
   // Whether Int64 Timestamp needs to be converted to the requested precision.
   bool needsConversion_ = false;
 };

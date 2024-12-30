@@ -45,6 +45,7 @@ ParquetTypeWithId::moveChildren() const&& {
     auto name = parquetChild->name_;
     auto parquetType = parquetChild->parquetType_;
     auto logicalType = parquetChild->logicalType_;
+    auto convertedType = parquetChild->convertedType_;
     auto maxRepeat = parquetChild->maxRepeat_;
     auto maxDefine = parquetChild->maxDefine_;
     auto isOptional = parquetChild->isOptional_;
@@ -61,6 +62,7 @@ ParquetTypeWithId::moveChildren() const&& {
         std::move(name),
         parquetType,
         std::move(logicalType),
+        std::move(convertedType),
         maxRepeat,
         maxDefine,
         isOptional,

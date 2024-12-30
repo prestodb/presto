@@ -403,6 +403,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
                 std::move(name),
                 std::nullopt,
                 std::nullopt,
+                std::nullopt,
                 maxRepeat + 1,
                 maxDefine,
                 isOptional,
@@ -438,6 +439,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
                 std::move(name),
                 std::nullopt,
                 std::nullopt,
+                std::nullopt,
                 maxRepeat,
                 maxDefine,
                 isOptional,
@@ -466,6 +468,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
               std::move(name),
+              std::nullopt,
               std::nullopt,
               std::nullopt,
               maxRepeat + 1,
@@ -504,6 +507,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
                 std::move(name),
                 std::nullopt,
                 std::nullopt,
+                std::nullopt,
                 maxRepeat,
                 maxDefine,
                 isOptional,
@@ -534,6 +538,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
                 "dummy",
                 std::nullopt,
                 std::nullopt,
+                std::nullopt,
                 maxRepeat,
                 maxDefine,
                 isOptional,
@@ -545,6 +550,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
                 maxSchemaElementIdx,
                 ParquetTypeWithId::kNonLeaf, // columnIdx,
                 std::move(name),
+                std::nullopt,
                 std::nullopt,
                 std::nullopt,
                 maxRepeat,
@@ -571,6 +577,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               std::move(name),
               std::nullopt,
               std::nullopt,
+              std::nullopt,
               maxRepeat,
               maxDefine,
               isOptional,
@@ -595,6 +602,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               "dummy",
               std::nullopt,
               std::nullopt,
+              std::nullopt,
               maxRepeat,
               maxDefine,
               isOptional,
@@ -606,6 +614,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               maxSchemaElementIdx,
               ParquetTypeWithId::kNonLeaf, // columnIdx,
               std::move(name),
+              std::nullopt,
               std::nullopt,
               std::nullopt,
               maxRepeat,
@@ -623,6 +632,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
             maxSchemaElementIdx,
             ParquetTypeWithId::kNonLeaf, // columnIdx,
             std::move(name),
+            std::nullopt,
             std::nullopt,
             std::nullopt,
             maxRepeat,
@@ -644,6 +654,12 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
         schemaElement.__isset.logicalType
         ? std::optional<thrift::LogicalType>(schemaElement.logicalType)
         : std::nullopt;
+    const std::optional<thrift::ConvertedType::type> convertedType =
+        schemaElement.__isset.converted_type
+        ? std::optional<thrift::ConvertedType::type>(
+              schemaElement.converted_type)
+        : std::nullopt;
+
     auto leafTypePtr = std::make_unique<ParquetTypeWithId>(
         veloxType,
         std::move(children),
@@ -653,6 +669,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
         name,
         schemaElement.type,
         logicalType_,
+        convertedType,
         maxRepeat,
         maxDefine,
         isOptional,
@@ -674,6 +691,7 @@ std::unique_ptr<ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
           maxSchemaElementIdx,
           columnIdx - 1, // was already incremented for leafTypePtr
           std::move(name),
+          std::nullopt,
           std::nullopt,
           std::nullopt,
           maxRepeat,
