@@ -42,7 +42,7 @@ class TestingH2JdbcModule
     public static Map<String, String> createProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1", System.nanoTime()))
+                .put("connection-url", format("jdbc:h2:mem:test%s;DB_CLOSE_DELAY=-1;NON_KEYWORDS=KEY,VALUE", System.nanoTime())) // key and value are reserved keywords in H2 2.x
                 .build();
     }
 }
