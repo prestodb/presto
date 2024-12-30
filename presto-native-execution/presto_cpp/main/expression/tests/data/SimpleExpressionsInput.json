@@ -1,0 +1,278 @@
+[
+  {
+    "@type": "call",
+    "arguments": [
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+      }
+    ],
+    "displayName": "ADD",
+    "functionHandle": {
+      "@type": "$static",
+      "signature": {
+        "argumentTypes": [
+          "integer",
+          "integer"
+        ],
+        "kind": "SCALAR",
+        "longVariableConstraints": [],
+        "name": "presto.default.$operator$add",
+        "returnType": "integer",
+        "typeVariableConstraints": [],
+        "variableArity": false
+      }
+    },
+    "returnType": "integer"
+  },
+  {
+    "@type": "call",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "call",
+                    "arguments": [
+                      {
+                        "@type": "constant",
+                        "type": "integer",
+                        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAACwAAAA=="
+                      }
+                    ],
+                    "displayName": "NEGATION",
+                    "functionHandle": {
+                      "@type": "$static",
+                      "signature": {
+                        "argumentTypes": [
+                          "integer"
+                        ],
+                        "kind": "SCALAR",
+                        "longVariableConstraints": [],
+                        "name": "presto.default.$operator$negation",
+                        "returnType": "integer",
+                        "typeVariableConstraints": [],
+                        "variableArity": false
+                      }
+                    },
+                    "returnType": "integer"
+                  }
+                ],
+                "displayName": "abs",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "integer"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.abs",
+                    "returnType": "integer",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "integer"
+              }
+            ],
+            "displayName": "CAST",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "integer"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$cast",
+                "returnType": "double",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "double"
+          },
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "call",
+                "arguments": [
+                  {
+                    "@type": "constant",
+                    "type": "decimal(2,1)",
+                    "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAACIAAAAAAAAA"
+                  }
+                ],
+                "displayName": "CAST",
+                "functionHandle": {
+                  "@type": "$static",
+                  "signature": {
+                    "argumentTypes": [
+                      "decimal(2,1)"
+                    ],
+                    "kind": "SCALAR",
+                    "longVariableConstraints": [],
+                    "name": "presto.default.$operator$cast",
+                    "returnType": "double",
+                    "typeVariableConstraints": [],
+                    "variableArity": false
+                  }
+                },
+                "returnType": "double"
+              }
+            ],
+            "displayName": "ceil",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "double"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.ceil",
+                "returnType": "double",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "double"
+          }
+        ],
+        "displayName": "ADD",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "double",
+              "double"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$add",
+            "returnType": "double",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "double"
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "call",
+            "arguments": [
+              {
+                "@type": "constant",
+                "type": "decimal(2,1)",
+                "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAADgAAAAAAAAA"
+              }
+            ],
+            "displayName": "CAST",
+            "functionHandle": {
+              "@type": "$static",
+              "signature": {
+                "argumentTypes": [
+                  "decimal(2,1)"
+                ],
+                "kind": "SCALAR",
+                "longVariableConstraints": [],
+                "name": "presto.default.$operator$cast",
+                "returnType": "double",
+                "typeVariableConstraints": [],
+                "variableArity": false
+              }
+            },
+            "returnType": "double"
+          }
+        ],
+        "displayName": "floor",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "double"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.floor",
+            "returnType": "double",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "double"
+      }
+    ],
+    "displayName": "ADD",
+    "functionHandle": {
+      "@type": "$static",
+      "signature": {
+        "argumentTypes": [
+          "double",
+          "double"
+        ],
+        "kind": "SCALAR",
+        "longVariableConstraints": [],
+        "name": "presto.default.$operator$add",
+        "returnType": "double",
+        "typeVariableConstraints": [],
+        "variableArity": false
+      }
+    },
+    "returnType": "double"
+  },
+  {
+    "@type": "call",
+    "arguments": [
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+      }
+    ],
+    "displayName": "BETWEEN",
+    "functionHandle": {
+      "@type": "$static",
+      "signature": {
+        "argumentTypes": [
+          "integer",
+          "integer",
+          "integer"
+        ],
+        "kind": "SCALAR",
+        "longVariableConstraints": [],
+        "name": "presto.default.$operator$between",
+        "returnType": "boolean",
+        "typeVariableConstraints": [],
+        "variableArity": false
+      }
+    },
+    "returnType": "boolean"
+  }
+]
