@@ -38,7 +38,7 @@ class DataBuffer {
             pool_->allocateZeroFilled(1, sizeInBytes(size)))),
         size_(size),
         capacity_(size) {
-    DWIO_ENSURE(buf_ != nullptr || size_ == 0);
+    VELOX_CHECK(buf_ != nullptr || size_ == 0);
   }
 
   DataBuffer(DataBuffer&& other) noexcept
@@ -87,7 +87,7 @@ class DataBuffer {
   // Get with range check introduces significant overhead. Use index operator[]
   // when possible
   const T& at(uint64_t i) const {
-    DWIO_ENSURE_LT(i, size_, "Accessing index out of range");
+    VELOX_CHECK_LT(i, size_, "Accessing index out of range");
     return data()[i];
   }
 
@@ -136,7 +136,7 @@ class DataBuffer {
       uint64_t srcOffset,
       uint64_t items) {
     // Does src have insufficient data
-    DWIO_ENSURE_GE(src.size(), srcOffset + items);
+    VELOX_CHECK_GE(src.size(), srcOffset + items);
     append(offset, src.data() + srcOffset, items);
   }
 

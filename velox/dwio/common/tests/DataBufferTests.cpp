@@ -17,6 +17,7 @@
 #include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/DataBuffer.h"
 
@@ -81,7 +82,7 @@ TEST_F(DataBufferTest, At) {
     EXPECT_EQ(i, buffer.at(i));
   }
   for (auto i = 8; i != 42; ++i) {
-    EXPECT_THROW(buffer.at(i), exception::LoggedException);
+    VELOX_ASSERT_THROW(buffer.at(i), "Accessing index out of range");
   }
 }
 

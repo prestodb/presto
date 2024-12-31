@@ -46,10 +46,9 @@ class ChainedBuffer {
         maxPageCapacity_{maxPageBytes / static_cast<uint32_t>(sizeof(T))},
         bits_{trailingZeros(maxPageCapacity_)},
         mask_{~(~0ull << bits_)} {
-    DWIO_ENSURE_GT(initialCapacity, 0);
-    DWIO_ENSURE_EQ(
-        bitCount(maxPageBytes), 1, "must be power of 2: ", maxPageBytes);
-    DWIO_ENSURE_EQ(bitCount(sizeof(T)), 1, "must be power of 2: ", sizeof(T));
+    VELOX_CHECK_EQ(
+        bitCount(maxPageBytes), 1, "must be power of 2: {}", maxPageBytes);
+    VELOX_CHECK_EQ(bitCount(sizeof(T)), 1, "must be power of 2: {}", sizeof(T));
 
     while (capacity_ < initialCapacity_) {
       addPage(std::min(initialCapacity_, maxPageCapacity_));
@@ -65,21 +64,23 @@ class ChainedBuffer {
   }
 
   void reserve(uint32_t capacity) {
-    if (UNLIKELY(capacity > capacity_)) {
-      // capacity grow rules
-      // 1. if capacity < pageCapacity (only first page is needed), grow to next
-      // power of 2
-      // 2. if capacity > pageCapacity, allocate pages until it fits
-      auto pageCount = ((capacity - 1) / maxPageCapacity_) + 1;
+    if (FOLLY_LIKELY(capacity <= capacity_)) {
+      return;
+    }
+    // capacity grow rules
+    // 1. if capacity < pageCapacity (only first page is needed), grow to next
+    // power of 2
+    // 2. if capacity > pageCapacity, allocate pages until it fits
+    const auto pageCount = ((capacity - 1) / maxPageCapacity_) + 1;
 
-      if (pages_[0].capacity() < maxPageCapacity_) {
-        resizeFirstPage(
-            pageCount == 1 ? nextPowOf2(capacity) : maxPageCapacity_);
-      }
+    if (pages_.empty()) {
+      addPage(pageCount == 1 ? nextPowOf2(capacity) : maxPageCapacity_);
+    } else if (pages_[0].capacity() < maxPageCapacity_) {
+      resizeFirstPage(pageCount == 1 ? nextPowOf2(capacity) : maxPageCapacity_);
+    }
 
-      while (pages_.size() < pageCount) {
-        addPage(maxPageCapacity_);
-      }
+    while (pages_.size() < pageCount) {
+      addPage(maxPageCapacity_);
     }
   }
 
@@ -100,11 +101,24 @@ class ChainedBuffer {
     return size_;
   }
 
-  void clear() {
-    while (pages_.size() > 1) {
-      pages_.pop_back();
+  /// If 'all' is true, clear all pages. Otherwise, clear all the pages except
+  /// the first one.
+  void clear(bool all = false) {
+    if (pages_.empty()) {
+      VELOX_CHECK_EQ(capacity_, 0);
+      VELOX_CHECK_EQ(size_, 0);
+      return;
     }
-    capacity_ = pages_.back().capacity();
+
+    if (all) {
+      pages_.clear();
+      capacity_ = 0;
+    } else {
+      while (pages_.size() > 1) {
+        pages_.pop_back();
+      }
+      capacity_ = pages_.back().capacity();
+    }
     size_ = 0;
   }
 
@@ -112,8 +126,8 @@ class ChainedBuffer {
       uint64_t begin,
       uint64_t end,
       std::function<void(const T*, uint64_t, uint64_t)> fn) {
-    DWIO_ENSURE_LE(begin, end);
-    DWIO_ENSURE_LE(end, size_);
+    VELOX_CHECK_LE(begin, end);
+    VELOX_CHECK_LE(end, size_);
     auto pageBegin = getPageIndex(begin);
     auto indexBegin = getPageOffset(begin);
     auto pageEnd = getPageIndex(end);
@@ -129,20 +143,10 @@ class ChainedBuffer {
   }
 
  private:
-  velox::memory::MemoryPool& pool_;
-  std::vector<DataBuffer<T>> pages_;
-  uint64_t size_;
-  uint64_t capacity_;
-
-  const uint32_t initialCapacity_;
-  const uint32_t maxPageCapacity_;
-  const uint8_t bits_;
-  const uint64_t mask_;
-
   void addPage(uint32_t capacity) {
-    DWIO_ENSURE_LE(capacity, maxPageCapacity_);
+    VELOX_CHECK_LE(capacity, maxPageCapacity_);
     // Either there is no page or the first page is at its max capacity
-    DWIO_ENSURE(
+    VELOX_CHECK(
         pages_.empty() ||
         (pages_[0].capacity() == maxPageCapacity_ &&
          capacity == maxPageCapacity_));
@@ -153,7 +157,7 @@ class ChainedBuffer {
   }
 
   void resizeFirstPage(uint32_t capacity) {
-    DWIO_ENSURE(
+    VELOX_CHECK(
         pages_.size() == 1 && capacity <= maxPageCapacity_ &&
         capacity_ < capacity);
 
@@ -182,7 +186,7 @@ class ChainedBuffer {
   }
 
   static uint8_t trailingZeros(uint32_t val) {
-    DWIO_ENSURE(val);
+    VELOX_CHECK_GT(val, 0);
     uint8_t ret = 0;
     val = (val ^ (val - 1)) >> 1;
     while (val) {
@@ -202,6 +206,16 @@ class ChainedBuffer {
     return val + 1;
   }
 
+  velox::memory::MemoryPool& pool_;
+  std::vector<DataBuffer<T>> pages_;
+  uint64_t size_;
+  uint64_t capacity_;
+
+  const uint32_t initialCapacity_;
+  const uint32_t maxPageCapacity_;
+  const uint8_t bits_;
+  const uint64_t mask_;
+
   VELOX_FRIEND_TEST(ChainedBufferTests, testCreate);
   VELOX_FRIEND_TEST(ChainedBufferTests, testReserve);
   VELOX_FRIEND_TEST(ChainedBufferTests, testAppend);
@@ -211,7 +225,7 @@ class ChainedBuffer {
   VELOX_FRIEND_TEST(ChainedBufferTests, testGetPageOffset);
   VELOX_FRIEND_TEST(ChainedBufferTests, testBitCount);
   VELOX_FRIEND_TEST(ChainedBufferTests, testTrailingZeros);
-  VELOX_FRIEND_TEST(ChainedBufferTests, testPowerOf2);
+  VELOX_FRIEND_TEST(ChainedBufferTests, testClearAll);
 };
 
 } // namespace common

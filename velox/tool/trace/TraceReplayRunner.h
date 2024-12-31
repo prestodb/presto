@@ -33,7 +33,7 @@ DECLARE_string(driver_ids);
 DECLARE_string(table_writer_output_dir);
 DECLARE_double(hive_connector_executor_hw_multiplier);
 DECLARE_int32(shuffle_serialization_format);
-DECLARE_uint64(query_memory_capacity_gb);
+DECLARE_uint64(query_memory_capacity_mb);
 DECLARE_double(driver_cpu_executor_hw_multiplier);
 DECLARE_string(memory_arbitrator_type);
 DECLARE_bool(copy_results);

@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryPool.h"
 #include "velox/dwio/common/ChainedBuffer.h"
@@ -40,33 +41,48 @@ class ChainedBufferTests : public Test {
 TEST_F(ChainedBufferTests, testCreate) {
   ChainedBuffer<int32_t> buf{*pool_, 128, 1024};
   ASSERT_EQ(buf.capacity(), 128);
+  ASSERT_EQ(buf.size(), 0);
   ASSERT_EQ(buf.pages_.size(), 1);
   ChainedBuffer<int32_t> buf2{*pool_, 256, 1024};
   ASSERT_EQ(buf2.capacity(), 256);
   ASSERT_EQ(buf2.pages_.size(), 1);
+  ASSERT_EQ(buf2.size(), 0);
   ChainedBuffer<int32_t> buf3{*pool_, 257, 1024};
   ASSERT_EQ(buf3.capacity(), 512);
   ASSERT_EQ(buf3.pages_.size(), 2);
+  ASSERT_EQ(buf3.size(), 0);
 
-  ASSERT_THROW(
-      (ChainedBuffer<int32_t>{*pool_, 256, 257}), exception::LoggedException);
+  VELOX_ASSERT_THROW(
+      (ChainedBuffer<int32_t>{*pool_, 256, 257}),
+      "(2 vs. 1) must be power of 2: 257");
+
+  ChainedBuffer<int32_t> buf0{*pool_, 0, 1024};
+  ASSERT_EQ(buf0.capacity(), 0);
+  ASSERT_EQ(buf0.pages_.size(), 0);
+  ASSERT_EQ(buf0.size(), 0);
 }
 
 TEST_F(ChainedBufferTests, testReserve) {
-  ChainedBuffer<int32_t> buf{*pool_, 16, 1024};
-  buf.reserve(16);
-  buf.reserve(17);
-  ASSERT_EQ(buf.capacity(), 32);
-  ASSERT_EQ(buf.pages_.size(), 1);
-  buf.reserve(112);
-  ASSERT_EQ(buf.capacity(), 128);
-  ASSERT_EQ(buf.pages_.size(), 1);
-  buf.reserve(257);
-  ASSERT_EQ(buf.capacity(), 512);
-  ASSERT_EQ(buf.pages_.size(), 2);
-  buf.reserve(1025);
-  ASSERT_EQ(buf.capacity(), 1024 + 256);
-  ASSERT_EQ(buf.pages_.size(), 5);
+  for (const uint32_t initialCapacityBytes : {0, 16}) {
+    SCOPED_TRACE(fmt::format(
+        "initialCapacityBytes ", succinctBytes(initialCapacityBytes)));
+    ChainedBuffer<int32_t> buf{*pool_, initialCapacityBytes, 1024};
+    ASSERT_EQ(buf.capacity(), initialCapacityBytes);
+    ASSERT_EQ(buf.size(), 0);
+    buf.reserve(16);
+    buf.reserve(17);
+    ASSERT_EQ(buf.capacity(), 32);
+    ASSERT_EQ(buf.pages_.size(), 1);
+    buf.reserve(112);
+    ASSERT_EQ(buf.capacity(), 128);
+    ASSERT_EQ(buf.pages_.size(), 1);
+    buf.reserve(257);
+    ASSERT_EQ(buf.capacity(), 512);
+    ASSERT_EQ(buf.pages_.size(), 2);
+    buf.reserve(1025);
+    ASSERT_EQ(buf.capacity(), 1024 + 256);
+    ASSERT_EQ(buf.pages_.size(), 5);
+  }
 }
 
 TEST_F(ChainedBufferTests, testAppend) {
@@ -101,7 +117,7 @@ TEST_F(ChainedBufferTests, testClear) {
   ASSERT_EQ(buf.pages_.size(), 1);
 
   ChainedBuffer<int32_t> buf2{*pool_, 1024, 1024};
-  buf2.clear();
+  buf2.clear(false);
   ASSERT_EQ(buf2.capacity(), 256);
   ASSERT_EQ(buf2.size(), 0);
   ASSERT_EQ(buf2.pages_.size(), 1);
@@ -119,8 +135,8 @@ TEST_F(ChainedBufferTests, testApplyRange) {
       buf.unsafeAppend(i);
     }
   }
-  ASSERT_THROW(buf.applyRange(2, 1, fn), exception::LoggedException);
-  ASSERT_THROW(buf.applyRange(1, 65, fn), exception::LoggedException);
+  VELOX_ASSERT_THROW(buf.applyRange(2, 1, fn), "(2 vs. 1)");
+  VELOX_ASSERT_THROW(buf.applyRange(1, 65, fn), "(65 vs. 64)");
 
   result.clear();
   buf.applyRange(1, 5, fn);
@@ -231,18 +247,80 @@ TEST_F(ChainedBufferTests, testTrailingZeros) {
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(1), 0);
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(12), 2);
   ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(1u << 31), 31);
-  ASSERT_THROW(
-      ChainedBuffer<int32_t>::trailingZeros(0), exception::LoggedException);
+  VELOX_ASSERT_THROW(ChainedBuffer<int32_t>::trailingZeros(0), "(0 vs. 0)");
 }
 
-TEST_F(ChainedBufferTests, testPowerOf2) {
-  ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(1), 0);
-  ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(12), 2);
-  ASSERT_EQ(ChainedBuffer<int32_t>::trailingZeros(1u << 31), 31);
-  ASSERT_THROW(
-      ChainedBuffer<int32_t>::trailingZeros(0), exception::LoggedException);
-}
+TEST_F(ChainedBufferTests, testClearAll) {
+  for (const uint32_t initialCapacityBytes : {0, 128}) {
+    SCOPED_TRACE(fmt::format(
+        "initialCapacityBytes ", succinctBytes(initialCapacityBytes)));
+    ChainedBuffer<int32_t> buf{*pool_, initialCapacityBytes, 1024};
+    ASSERT_EQ(buf.capacity(), initialCapacityBytes);
+    ASSERT_EQ(buf.size(), 0);
 
+    buf.clear(false);
+    ASSERT_EQ(buf.capacity(), initialCapacityBytes);
+    ASSERT_EQ(buf.size(), 0);
+    ASSERT_EQ(buf.pages_.size(), initialCapacityBytes == 0 ? 0 : 1);
+    buf.clear(true);
+    ASSERT_EQ(buf.capacity(), 0);
+    ASSERT_EQ(buf.size(), 0);
+    ASSERT_EQ(buf.pages_.size(), 0);
+
+    buf.reserve(256);
+    ASSERT_EQ(buf.capacity(), 256);
+    ASSERT_EQ(buf.size(), 0);
+
+    buf.unsafeAppend(32);
+    ASSERT_EQ(buf.size(), 1);
+    for (int i = 1; i < 256; ++i) {
+      buf.unsafeAppend(32);
+    }
+    ASSERT_EQ(buf.capacity(), 256);
+    ASSERT_EQ(buf.size(), 256);
+    ASSERT_EQ(buf.pages_.size(), 1);
+    buf.append(32);
+    ASSERT_EQ(buf.capacity(), 512);
+    ASSERT_EQ(buf.size(), 257);
+    ASSERT_EQ(buf.pages_.size(), 2);
+
+    buf.clear(true);
+    ASSERT_EQ(buf.capacity(), 0);
+    ASSERT_EQ(buf.size(), 0);
+    ASSERT_EQ(buf.pages_.size(), 0);
+
+    for (int i = 0; i <= 256; ++i) {
+      buf.append(32);
+    }
+    ASSERT_EQ(buf.capacity(), 512);
+    ASSERT_EQ(buf.size(), 257);
+    ASSERT_EQ(buf.pages_.size(), 2);
+    buf.clear(true);
+
+    ASSERT_EQ(buf.capacity(), 0);
+    ASSERT_EQ(buf.size(), 0);
+    ASSERT_EQ(buf.pages_.size(), 0);
+
+    for (int i = 0; i <= 2048; ++i) {
+      buf.append(32);
+    }
+    ASSERT_EQ(buf.capacity(), 2304);
+    ASSERT_EQ(buf.size(), 2049);
+    ASSERT_EQ(buf.pages_.size(), 9);
+
+    buf.clear(true);
+    ASSERT_EQ(buf.capacity(), 0);
+    ASSERT_EQ(buf.size(), 0);
+    ASSERT_EQ(buf.pages_.size(), 0);
+
+    for (int i = 0; i <= 2048; ++i) {
+      buf.append(32);
+    }
+    ASSERT_EQ(buf.capacity(), 2304);
+    ASSERT_EQ(buf.size(), 2049);
+    ASSERT_EQ(buf.pages_.size(), 9);
+  }
+}
 } // namespace common
 } // namespace dwio
 } // namespace velox

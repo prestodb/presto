@@ -258,7 +258,7 @@ class IntegerColumnWriter : public BaseColumnWriter {
       finalDictionarySize_ = dictEncoder_.flush();
       populateDictionaryEncodingStreams();
       dictEncoder_.clear();
-      rows_.clear();
+      rows_.clear(memory::underMemoryArbitration());
     }
 
     // NOTE: Flushes index. All index entries need to have been backfilled.
@@ -358,7 +358,7 @@ class IntegerColumnWriter : public BaseColumnWriter {
         StreamKind::StreamKind_DICTIONARY_DATA,
         context_.shareFlatMapDictionaries() ? 0 : sequence_);
     dictEncoder_.clear();
-    rows_.clear();
+    rows_.clear(true);
     strideOffsets_.clear();
     return true;
   }
@@ -375,12 +375,11 @@ class IntegerColumnWriter : public BaseColumnWriter {
     VELOX_CHECK(
         (dictEncoding && data_ && inDictionary_ && !dataDirect_) ||
             (!dictEncoding && !data_ && !inDictionary_ && dataDirect_),
-        fmt::format(
-            "dictEncoding = {}, data_ = {}, inDictionary_ = {}, dataDirect_ = {}",
-            dictEncoding,
-            data_ != nullptr,
-            inDictionary_ != nullptr,
-            dataDirect_ != nullptr));
+        "dictEncoding = {}, data_ = {}, inDictionary_ = {}, dataDirect_ = {}",
+        dictEncoding,
+        data_ != nullptr,
+        inDictionary_ != nullptr,
+        dataDirect_ != nullptr);
   }
 
   void initStreamWriters(bool dictEncoding) {
@@ -486,22 +485,22 @@ uint64_t IntegerColumnWriter<T>::write(
     auto localDecoded = decode(slice, ranges);
     auto& decodedVector = localDecoded.get();
     return writeDict(decodedVector, ranges);
-  } else {
-    // If the input is not a flat vector we make a complete copy and convert
-    // it to flat vector
-    if (slice->encoding() != VectorEncoding::Simple::FLAT) {
-      auto newBase = BaseVector::create(
-          slice->type(),
-          slice->size(),
-          &getMemoryPool(MemoryUsageCategory::GENERAL));
-      auto newVector = std::dynamic_pointer_cast<FlatVector<T>>(newBase);
-      newVector->copy(slice.get(), 0, 0, slice->size());
-      return writeDirect(newVector, ranges);
-    } else {
-      // Directly write the flat vector
-      return writeDirect(slice, ranges);
-    }
   }
+
+  // If the input is not a flat vector we make a complete copy and convert
+  // it to flat vector
+  if (slice->encoding() != VectorEncoding::Simple::FLAT) {
+    auto newBase = BaseVector::create(
+        slice->type(),
+        slice->size(),
+        &getMemoryPool(MemoryUsageCategory::GENERAL));
+    auto newVector = std::dynamic_pointer_cast<FlatVector<T>>(newBase);
+    newVector->copy(slice.get(), 0, 0, slice->size());
+    return writeDirect(newVector, ranges);
+  }
+
+  // Directly write the flat vector
+  return writeDirect(slice, ranges);
 }
 
 template <typename T>
@@ -852,7 +851,7 @@ class StringColumnWriter : public BaseColumnWriter {
     if (useDictionaryEncoding_) {
       populateDictionaryEncodingStreams();
       dictEncoder_.clear();
-      rows_.clear();
+      rows_.clear(memory::underMemoryArbitration());
     }
 
     // NOTE: Flushes index. All index entries need to have been backfilled.
@@ -956,7 +955,7 @@ class StringColumnWriter : public BaseColumnWriter {
     recordDirectEncodingStreamPositions(0);
     convertToDirectEncoding();
     dictEncoder_.clear();
-    rows_.clear();
+    rows_.clear(true);
     strideOffsets_.clear();
     return true;
   }
