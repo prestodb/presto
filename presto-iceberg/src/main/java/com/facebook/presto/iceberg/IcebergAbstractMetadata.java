@@ -113,6 +113,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
+import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_ID;
 import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
@@ -123,12 +124,11 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMB
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADATA;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.PRESTO_UPDATE_ROW_ID_COLUMN_ID;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.PRESTO_UPDATE_ROW_ID_COLUMN_NAME;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBEG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergPartitionType.ALL;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
@@ -1162,11 +1162,8 @@ public abstract class IcebergAbstractMetadata
                 unmodifiedColumns.add(column);
             }
         }
-        Types.NestedField field = Types.NestedField.required(PRESTO_UPDATE_ROW_ID_COLUMN_ID, PRESTO_UPDATE_ROW_ID_COLUMN_NAME, Types.StructType.of(unmodifiedColumns));
-        return new IcebergColumnHandle(ColumnIdentity.createColumnIdentity(field),
-                toPrestoType(field.type(), typeManager),
-                Optional.ofNullable(field.doc()),
-                REGULAR);
+        Types.NestedField field = Types.NestedField.required(UPDATE_ROW_DATA.getId(), UPDATE_ROW_DATA.getColumnName(), Types.StructType.of(unmodifiedColumns));
+        return IcebergColumnHandle.create(field, typeManager, SYNTHESIZED);
     }
 
     @Override
