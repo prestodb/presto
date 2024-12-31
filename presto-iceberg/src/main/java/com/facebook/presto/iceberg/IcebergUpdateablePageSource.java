@@ -17,8 +17,6 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.RowBlock;
-import com.facebook.presto.common.block.RunLengthEncodedBlock;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HivePartitionKey;
 import com.facebook.presto.iceberg.delete.IcebergDeletePageSink;
 import com.facebook.presto.iceberg.delete.RowPredicate;
@@ -34,136 +32,122 @@ import org.apache.iceberg.types.Types;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 
-import static com.facebook.presto.common.Utils.nativeValueToBlock;
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
-import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
-import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumnId;
-import static com.facebook.presto.iceberg.IcebergUtil.deserializePartitionValue;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.UnaryOperator.identity;
 
-public class IcebergUpdatablePageSource
+/**
+ * Generates pages for an iceberg table while applying delete filters to rows
+ * _and_ by modifying the output format of the output pages for update
+ * operators if required.
+ */
+public class IcebergUpdateablePageSource
         implements UpdatablePageSource
 {
-    private final Block[] prefilledBlocks;
-    private final int[] delegateIndexes;
     private final ConnectorPageSource delegate;
     private final Supplier<IcebergDeletePageSink> deleteSinkSupplier;
     private IcebergDeletePageSink positionDeleteSink;
     private final Supplier<Optional<RowPredicate>> deletePredicate;
 
     private final List<IcebergColumnHandle> columns;
+    private final Optional<IcebergColumnHandle> updateRowIdColumn;
+    /**
+     * Columns actually updated in the query
+     */
     private final List<IcebergColumnHandle> updatedColumns;
     private final Schema tableSchema;
     private final Supplier<IcebergPageSink> updatedRowPageSinkSupplier;
     private IcebergPageSink updatedRowPageSink;
     // An array with one element per field in the $row_id column. The value in the array points to the
     // channel where the data can be read from.
-    private int[] updateRowIdChildColumnIndexes = new int[0];
+    private final int[] updateRowIdChildColumnIndexes;
     // The $row_id's index in 'expectedColumns', or -1 if there isn't one
-    private int updateRowIdColumnIndex = -1;
+    private final int updateRowIdColumnIndex;
     // Maps the Iceberg field ids of unmodified columns to their indexes in updateRowIdChildColumnIndexes
-    private Map<Integer, Integer> icebergIdToRowIdColumnIndex = ImmutableMap.of();
-    // Maps the Iceberg field ids of modified columns to their indexes in the updateColumns columnValueAndRowIdChannels array
-    private Map<Integer, Integer> icebergIdToUpdatedColumnIndex = ImmutableMap.of();
-    private final int[] expectedColumnIndexes;
+    private final Map<Integer, Integer> icebergIdToRowIdColumnIndex = new HashMap<>();
+    // Maps the Iceberg field ids of modified columns to their indexes in the updatedColumns columnValueAndRowIdChannels array
+    private final Map<Integer, Integer> icebergIdToUpdatedColumnIndex = new HashMap<>();
+    private final int[] outputColumnToDelegateMapping;
 
-    public IcebergUpdatablePageSource(
+    public IcebergUpdateablePageSource(
             Schema tableSchema,
-            List<IcebergColumnHandle> columns,
+            // represents the columns which need to be output from `getNextPage`
+            List<IcebergColumnHandle> outputColumns,
             Map<Integer, Object> metadataValues,
             Map<Integer, HivePartitionKey> partitionKeys,
             ConnectorPageSource delegate,
+            // represents the columns output by the delegate page source
+            List<IcebergColumnHandle> delegateColumns,
             Supplier<IcebergDeletePageSink> deleteSinkSupplier,
             Supplier<Optional<RowPredicate>> deletePredicate,
             Supplier<IcebergPageSink> updatedRowPageSinkSupplier,
+            // the columns that this page source is supposed to update
             List<IcebergColumnHandle> updatedColumns,
-            List<IcebergColumnHandle> requiredColumns)
+            Optional<IcebergColumnHandle> updateRowIdColumn)
     {
-        this.tableSchema = requireNonNull(tableSchema, "tableSchema is null");
-        this.columns = requireNonNull(columns, "columns is null");
-        int size = this.columns.size();
         requireNonNull(partitionKeys, "partitionKeys is null");
+        this.tableSchema = requireNonNull(tableSchema, "tableSchema is null");
+        this.columns = requireNonNull(outputColumns, "columns is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
+        // information for deletes
         this.deleteSinkSupplier = deleteSinkSupplier;
-
         this.deletePredicate = requireNonNull(deletePredicate, "deletePredicate is null");
-
-        prefilledBlocks = new Block[size];
-        delegateIndexes = new int[size];
+        // information for updates
         this.updatedRowPageSinkSupplier = requireNonNull(updatedRowPageSinkSupplier, "updatedRowPageSinkSupplier is null");
-        this.updatedColumns = ImmutableList.copyOf(requireNonNull(updatedColumns, "updatedColumns is null"));
-
-        int outputIndex = 0;
-        int delegateIndex = 0;
-        for (IcebergColumnHandle column : columns) {
-            if (partitionKeys.containsKey(column.getId())) {
-                HivePartitionKey icebergPartition = partitionKeys.get(column.getId());
-                Type type = column.getType();
-                Object prefilledValue = deserializePartitionValue(type, icebergPartition.getValue().orElse(null), column.getName());
-                prefilledBlocks[outputIndex] = nativeValueToBlock(type, prefilledValue);
-                delegateIndexes[outputIndex] = -1;
+        this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
+        this.updateRowIdColumn = requireNonNull(updateRowIdColumn, "updateRowIdColumn is null");
+        this.outputColumnToDelegateMapping = new int[columns.size()];
+        this.updateRowIdColumnIndex = updateRowIdColumn.map(columns::indexOf).orElse(-1);
+        this.updateRowIdChildColumnIndexes = updateRowIdColumn
+                .map(column -> new int[column.getColumnIdentity().getChildren().size()])
+                .orElse(new int[0]);
+        updateRowIdColumn.ifPresent(column -> {
+            Iterable<Integer> columnIds = () -> column.getColumnIdentity().getChildren().stream().map(ColumnIdentity::getId).iterator();
+            Map<Integer, Integer> fieldIdToColumnIndex = mapFieldIdsToIndex(columnIds);
+            List<ColumnIdentity> rowIdFields = column.getColumnIdentity().getChildren();
+            for (int i = 0; i < rowIdFields.size(); i++) {
+                int fieldId = rowIdFields.get(i).getId();
+                updateRowIdChildColumnIndexes[i] = requireNonNull(fieldIdToColumnIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
+                icebergIdToRowIdColumnIndex.put(fieldId, i);
             }
-            else if (column.getColumnType() == PARTITION_KEY) {
-                // Partition key with no value. This can happen after partition evolution
-                Type type = column.getType();
-                prefilledBlocks[outputIndex] = nativeValueToBlock(type, null);
-                delegateIndexes[outputIndex] = -1;
-            }
-            else if (isMetadataColumnId(column.getId())) {
-                prefilledBlocks[outputIndex] = nativeValueToBlock(column.getType(), metadataValues.get(column.getColumnIdentity().getId()));
-                delegateIndexes[outputIndex] = -1;
-            }
-            else {
-                delegateIndexes[outputIndex] = delegateIndex;
-                delegateIndex++;
-            }
-            outputIndex++;
-        }
-
-        this.expectedColumnIndexes = new int[requiredColumns.size()];
-        if (!requiredColumns.isEmpty()) {
-            for (int columnIndex = 0; columnIndex < requiredColumns.size(); columnIndex++) {
-                expectedColumnIndexes[columnIndex] = columnIndex;
-            }
-        }
-
-        if (!columns.isEmpty()) {
-            for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-                IcebergColumnHandle expectedColumn = columns.get(columnIndex);
-                if (expectedColumn.isUpdateRowIdColumn()) {
-                    this.updateRowIdColumnIndex = columnIndex;
-                    Map<Integer, Integer> fieldIdToColumnIndex = mapFieldIdsToIndex(requiredColumns);
-                    List<ColumnIdentity> rowIdFields = expectedColumn.getColumnIdentity().getChildren();
-                    ImmutableMap.Builder<Integer, Integer> fieldIdToRowIdIndex = ImmutableMap.builder();
-                    this.updateRowIdChildColumnIndexes = new int[rowIdFields.size()];
-                    for (int i = 0; i < rowIdFields.size(); i++) {
-                        int fieldId = rowIdFields.get(i).getId();
-                        updateRowIdChildColumnIndexes[i] = requireNonNull(fieldIdToColumnIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
-                        fieldIdToRowIdIndex.put(fieldId, i);
-                    }
-                    this.icebergIdToRowIdColumnIndex = fieldIdToRowIdIndex.buildOrThrow();
-                }
-            }
-        }
+        });
 
         if (!updatedColumns.isEmpty()) {
-            ImmutableMap.Builder<Integer, Integer> icebergIdToUpdatedColumnIndex = ImmutableMap.builder();
             for (int columnIndex = 0; columnIndex < updatedColumns.size(); columnIndex++) {
                 IcebergColumnHandle updatedColumn = updatedColumns.get(columnIndex);
                 icebergIdToUpdatedColumnIndex.put(updatedColumn.getId(), columnIndex);
             }
-            this.icebergIdToUpdatedColumnIndex = icebergIdToUpdatedColumnIndex.buildOrThrow();
+        }
+        Map<Integer, Integer> fieldIdToIndex = IntStream.range(0, delegateColumns.size())
+                .boxed()
+                .collect(toImmutableMap(
+                        idx -> delegateColumns.get(idx).getId(),
+                        identity()));
+        for (int i = 0; i < outputColumnToDelegateMapping.length; i++) {
+            if (outputColumns.get(i).isUpdateRowIdColumn()) {
+                continue;
+            }
+
+            if (!fieldIdToIndex.containsKey(outputColumns.get(i).getId())) {
+                throw new IllegalArgumentException(format("column %s does not exist in delegate column map", outputColumns.get(i)));
+            }
+            else {
+                outputColumnToDelegateMapping[i] = fieldIdToIndex.get(outputColumns.get(i).getId());
+            }
         }
     }
 
@@ -194,6 +178,10 @@ public class IcebergUpdatablePageSource
     @Override
     public Page getNextPage()
     {
+        // strategy
+        // 1. retrieve rows from delegate
+        // 2. apply delete filter to page
+        // 4. transform page for update (turn flat blocks into nested update row)
         try {
             Page dataPage = delegate.getNextPage();
             if (dataPage == null) {
@@ -207,21 +195,16 @@ public class IcebergUpdatablePageSource
 
             if (!updatedColumns.isEmpty()) {
                 dataPage = setUpdateRowIdBlock(dataPage);
-                dataPage = dataPage.extractChannels(expectedColumnIndexes);
-                return dataPage;
+            }
+            else {
+                Block[] fullPage = new Block[columns.size()];
+                for (int channel = 0; channel < columns.size(); channel++) {
+                    fullPage[channel] = dataPage.getBlock(outputColumnToDelegateMapping[channel]);
+                }
+                dataPage = new Page(dataPage.getPositionCount(), fullPage);
             }
 
-            int batchSize = dataPage.getPositionCount();
-            Block[] blocks = new Block[prefilledBlocks.length];
-            for (int i = 0; i < prefilledBlocks.length; i++) {
-                if (prefilledBlocks[i] != null) {
-                    blocks[i] = new RunLengthEncodedBlock(prefilledBlocks[i], batchSize);
-                }
-                else {
-                    blocks[i] = dataPage.getBlock(delegateIndexes[i]);
-                }
-            }
-            return new Page(batchSize, blocks);
+            return dataPage;
         }
         catch (RuntimeException e) {
             closeWithSuppression(e);
@@ -318,13 +301,13 @@ public class IcebergUpdatablePageSource
             rowIdFields[childIndex] = page.getBlock(updateRowIdChildColumnIndexes[childIndex]);
         }
 
-        Block[] fullPage = new Block[page.getChannelCount()];
-        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+        Block[] fullPage = new Block[columns.size()];
+        for (int channel = 0; channel < columns.size(); channel++) {
             if (channel == updateRowIdColumnIndex) {
                 fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), rowIdFields);
                 continue;
             }
-            fullPage[channel] = page.getBlock(channel);
+            fullPage[channel] = page.getBlock(outputColumnToDelegateMapping[channel]);
         }
 
         return new Page(page.getPositionCount(), fullPage);
@@ -376,11 +359,13 @@ public class IcebergUpdatablePageSource
         }
     }
 
-    private static Map<Integer, Integer> mapFieldIdsToIndex(List<IcebergColumnHandle> columns)
+    private static Map<Integer, Integer> mapFieldIdsToIndex(Iterable<Integer> columns)
     {
         ImmutableMap.Builder<Integer, Integer> fieldIdsToIndex = ImmutableMap.builder();
-        for (int i = 0; i < columns.size(); i++) {
-            fieldIdsToIndex.put(columns.get(i).getId(), i);
+        int idx = 0;
+        for (Integer columnId : columns) {
+            fieldIdsToIndex.put(columnId, idx);
+            idx++;
         }
         return fieldIdsToIndex.buildOrThrow();
     }

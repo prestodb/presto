@@ -35,6 +35,7 @@ import static com.facebook.presto.iceberg.ColumnIdentity.createColumnIdentity;
 import static com.facebook.presto.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.DATA_SEQUENCE_NUMBER;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -50,9 +51,8 @@ public class IcebergColumnHandle
     public static final IcebergColumnHandle DATA_SEQUENCE_NUMBER_COLUMN_HANDLE = getIcebergColumnHandle(DATA_SEQUENCE_NUMBER);
     public static final ColumnMetadata DATA_SEQUENCE_NUMBER_COLUMN_METADATA = getColumnMetadata(DATA_SEQUENCE_NUMBER);
 
-    // Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
-    public static final int PRESTO_UPDATE_ROW_ID_COLUMN_ID = Integer.MIN_VALUE;
-    public static final String PRESTO_UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
+    //    public static final int PRESTO_UPDATE_ROW_ID_COLUMN_ID = Integer.MIN_VALUE;
+//    public static final String PRESTO_UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
     private final ColumnIdentity columnIdentity;
     private final Type type;
 
@@ -102,7 +102,7 @@ public class IcebergColumnHandle
     @JsonIgnore
     public boolean isUpdateRowIdColumn()
     {
-        return getId() == PRESTO_UPDATE_ROW_ID_COLUMN_ID;
+        return columnIdentity.getId() == UPDATE_ROW_DATA.getId();
     }
 
     @Override

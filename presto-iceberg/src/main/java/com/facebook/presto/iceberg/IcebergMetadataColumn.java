@@ -13,21 +13,30 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.MetadataColumns;
 
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
+import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public enum IcebergMetadataColumn
 {
     FILE_PATH(MetadataColumns.FILE_PATH.fieldId(), "$path", VARCHAR, PRIMITIVE),
     DATA_SEQUENCE_NUMBER(Integer.MAX_VALUE - 1001, "$data_sequence_number", BIGINT, PRIMITIVE),
+    /**
+     * Iceberg reserved row ids begin at INTEGER.MAX_VALUE and count down. Starting with MIN_VALUE here to avoid conflicts.
+     * Inner type for row is not known until runtime.
+     */
+    UPDATE_ROW_DATA(Integer.MIN_VALUE, "$row_id", RowType.anonymous(ImmutableList.of(UNKNOWN)), STRUCT)
     /**/;
 
     private static final Set<Integer> COLUMN_IDS = Stream.of(values())
