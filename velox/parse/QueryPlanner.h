@@ -22,6 +22,14 @@
 
 namespace facebook::velox::core {
 
+/// Hook to allow plugging different connectors for table scan to
+/// DuckDbQueryPlanner.
+using MakeTableScan = std::function<PlanNodePtr(
+    const std::string& id,
+    const std::string& name,
+    const RowTypePtr& rowType,
+    const std::vector<std::string>& columnNames)>;
+
 class DuckDbQueryPlanner {
  public:
   DuckDbQueryPlanner(memory::MemoryPool* pool) : pool_{pool} {}
@@ -29,6 +37,8 @@ class DuckDbQueryPlanner {
   void registerTable(
       const std::string& name,
       const std::vector<RowVectorPtr>& data);
+
+  void registerTable(const std::string& name, const RowTypePtr& type);
 
   void registerScalarFunction(
       const std::string& name,
@@ -43,6 +53,10 @@ class DuckDbQueryPlanner {
       const std::vector<TypePtr>& argTypes,
       const TypePtr& returnType);
 
+  void registerTableScan(MakeTableScan func) {
+    makeTableScan_ = std::move(func);
+  }
+
   PlanNodePtr plan(const std::string& sql);
 
  private:
@@ -50,6 +64,7 @@ class DuckDbQueryPlanner {
   ::duckdb::Connection conn_{db_};
   memory::MemoryPool* pool_;
   std::unordered_map<std::string, std::vector<RowVectorPtr>> tables_;
+  MakeTableScan makeTableScan_{nullptr};
 };
 
 PlanNodePtr parseQuery(

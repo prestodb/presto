@@ -43,6 +43,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <duckdb.hpp> // @manual
 
+/// Extract from DuckDB headers describing resolved logical
+/// plans. This is a verbatic extract and naming conventions are those
+/// of DuckDB.
 namespace duckdb {
 
 //! LogicalDummyScan represents a dummy scan returning a single row
@@ -195,4 +198,180 @@ class LogicalCrossProduct : public LogicalOperator {
  protected:
   void ResolveTypes() override;
 };
+
+/// LogicalLimit represents a LIMIT clause
+class LogicalLimit : public LogicalOperator {
+ public:
+  LogicalLimit(
+      int64_t limit_val,
+      int64_t offset_val,
+      unique_ptr<Expression> limit,
+      unique_ptr<Expression> offset);
+
+  /// Limit and offset values in case they are constants, used in optimizations.
+  int64_t limit_val;
+  int64_t offset_val;
+  /// The maximum amount of elements to emit
+  unique_ptr<Expression> limit;
+  /// The offset from the start to begin emitting elements
+  unique_ptr<Expression> offset;
+
+ public:
+  vector<ColumnBinding> GetColumnBindings() override;
+
+  idx_t EstimateCardinality(ClientContext& context) override;
+
+ protected:
+  void ResolveTypes() override;
+};
+
+class LogicalOrder : public LogicalOperator {
+ public:
+  explicit LogicalOrder(vector<BoundOrderByNode> orders)
+      : LogicalOperator(LogicalOperatorType::LOGICAL_ORDER_BY),
+        orders(std::move(orders)) {}
+
+  vector<BoundOrderByNode> orders;
+
+  string ParamsToString() const override {
+    string result;
+    for (idx_t i = 0; i < orders.size(); i++) {
+      if (i > 0) {
+        result += "\n";
+      }
+      result += orders[i].expression->GetName();
+    }
+    return result;
+  }
+
+ public:
+  vector<ColumnBinding> GetColumnBindings() override {
+    return children[0]->GetColumnBindings();
+  }
+
+ protected:
+  void ResolveTypes() override {
+    types = children[0]->types;
+  }
+};
+
+//! LogicalJoin represents a join between two relations
+class LogicalJoin : public LogicalOperator {
+ public:
+  explicit LogicalJoin(
+      JoinType type,
+      LogicalOperatorType logical_type = LogicalOperatorType::LOGICAL_JOIN);
+
+  // Gets the set of table references that are reachable from this node
+  static void GetTableReferences(
+      LogicalOperator& op,
+      unordered_set<idx_t>& bindings);
+
+  static void GetExpressionBindings(
+      Expression& expr,
+      unordered_set<idx_t>& bindings);
+
+  /// The type of the join (INNER, OUTER, etc...)
+  JoinType join_type;
+  /// Table index used to refer to the MARK column (in case of a MARK join)
+  idx_t mark_index;
+  /// The columns of the LHS that are output by the join
+  vector<idx_t> left_projection_map;
+  /// The columns of the RHS that are output by the join
+  vector<idx_t> right_projection_map;
+  /// Join Keys statistics (optional)
+  vector<unique_ptr<BaseStatistics>> join_stats;
+
+ public:
+  vector<ColumnBinding> GetColumnBindings() override;
+
+ protected:
+  void ResolveTypes() override;
+};
+
+//! JoinCondition represents a left-right comparison join condition
+struct JoinCondition {
+ public:
+  JoinCondition() {}
+
+  //! Turns the JoinCondition into an expression; note that this destroys the
+  //! JoinCondition as the expression inherits the left/right expressions
+  static unique_ptr<Expression> CreateExpression(JoinCondition cond);
+  static unique_ptr<Expression> CreateExpression(
+      vector<JoinCondition> conditions);
+
+ public:
+  unique_ptr<Expression> left;
+  unique_ptr<Expression> right;
+  ExpressionType comparison;
+};
+
+//! LogicalComparisonJoin represents a join that involves comparisons between
+//! the LHS and RHS
+class LogicalComparisonJoin : public LogicalJoin {
+ public:
+  explicit LogicalComparisonJoin(
+      JoinType type,
+      LogicalOperatorType logical_type =
+          LogicalOperatorType::LOGICAL_COMPARISON_JOIN);
+
+  //! The conditions of the join
+  vector<JoinCondition> conditions;
+  //! Used for duplicate-eliminated joins
+  vector<LogicalType> delim_types;
+
+ public:
+  string ParamsToString() const override;
+
+ public:
+  static unique_ptr<LogicalOperator> CreateJoin(
+      JoinType type,
+      unique_ptr<LogicalOperator> left_child,
+      unique_ptr<LogicalOperator> right_child,
+      unordered_set<idx_t>& left_bindings,
+      unordered_set<idx_t>& right_bindings,
+      vector<unique_ptr<Expression>>& expressions);
+};
+
+//! LogicalDelimGet represents a duplicate eliminated scan belonging to a
+//! DelimJoin
+class LogicalDelimGet : public LogicalOperator {
+ public:
+  LogicalDelimGet(idx_t table_index, vector<LogicalType> types)
+      : LogicalOperator(LogicalOperatorType::LOGICAL_DELIM_GET),
+        table_index(table_index) {
+    D_ASSERT(types.size() > 0);
+    chunk_types = types;
+  }
+
+  //! The table index in the current bind context
+  idx_t table_index;
+  //! The types of the chunk
+  vector<LogicalType> chunk_types;
+
+ public:
+  vector<ColumnBinding> GetColumnBindings() override {
+    return GenerateColumnBindings(table_index, chunk_types.size());
+  }
+
+ protected:
+  void ResolveTypes() override {
+    // types are resolved in the constructor
+    this->types = chunk_types;
+  }
+};
+
+//! LogicalDelimJoin represents a special "duplicate eliminated" join. This join
+//! type is only used for subquery flattening, and involves performing duplicate
+//! elimination on the LEFT side which is then pushed into the RIGHT side.
+class LogicalDelimJoin : public LogicalComparisonJoin {
+ public:
+  explicit LogicalDelimJoin(JoinType type)
+      : LogicalComparisonJoin(type, LogicalOperatorType::LOGICAL_DELIM_JOIN) {}
+
+  //! The set of columns that will be duplicate eliminated from the LHS and
+  //! pushed into the RHS
+  vector<unique_ptr<Expression>> duplicate_eliminated_columns;
+};
+
 } // namespace duckdb
