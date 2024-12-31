@@ -76,11 +76,11 @@ void ScaledScanController::updateAndTryScale(
   };
   {
     std::lock_guard<std::mutex> l(lock_);
-    VELOX_CHECK_LT(driverIdx, numRunningDrivers_);
-
     if (closed_) {
       return;
     }
+
+    VELOX_CHECK_LT(driverIdx, numRunningDrivers_);
 
     updateDriverScanUsageLocked(driverIdx, memoryUsage);
 
