@@ -6225,7 +6225,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, reclaimDuringOutputProcessing) {
           }
           testWaitFlag = false;
           testWait.notifyAll();
-          driverWait.await([&]() { return !testWaitFlag.load(); });
+          driverWait.await([&]() { return !driverWaitFlag.load(); });
         })));
 
     std::thread taskThread([&]() {
