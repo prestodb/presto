@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/presto_protocol/core/Duration.h"
+#include <fmt/format.h>
 
 namespace facebook::presto::protocol {
 
@@ -27,14 +28,7 @@ Duration::Duration(const std::string& duration) {
 }
 
 std::string Duration::toString() const {
-  char buffer[32];
-  snprintf(
-      buffer,
-      sizeof(buffer),
-      "%.2f%s",
-      value_,
-      timeUnitToString(timeUnit_).c_str());
-  return std::string(buffer);
+  return fmt::format("{:.2f}{}", value_, timeUnitToString(timeUnit_));
 }
 
 double Duration::toMillisPerTimeUnit(TimeUnit timeUnit) {

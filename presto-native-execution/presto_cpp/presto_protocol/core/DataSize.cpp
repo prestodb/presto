@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/presto_protocol/core/DataSize.h"
+#include <fmt/format.h>
 #include <math.h>
 
 namespace facebook::presto::protocol {
@@ -29,16 +30,9 @@ DataSize::DataSize(const std::string& string) {
 }
 
 std::string DataSize::toString() const {
-  char buffer[32];
-  snprintf(
-      buffer,
-      sizeof(buffer),
-      "%f%s",
-      round(value_ * 100.0) / 100.0,
-      dataUnitToString(dataUnit_).c_str());
-  return std::string(buffer);
+  return fmt::format(
+      "{:f}{}", round(value_ * 100.0) / 100.0, dataUnitToString(dataUnit_));
 }
-
 double DataSize::toBytesPerDataUnit(DataUnit dataUnit) {
   switch (dataUnit) {
     case DataUnit::BYTE:
