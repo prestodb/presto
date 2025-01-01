@@ -44,6 +44,7 @@ velox_link_libraries(
     velox_dwio_orc_reader
     velox_dwio_parquet_reader
     velox_dwio_parquet_writer
+    velox_dwio_text_writer_register
     velox_file
     velox_hive_partition_function
     velox_type_tz

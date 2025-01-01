@@ -1049,8 +1049,11 @@ void updateWriterOptionsFromHiveConfig(
     case dwio::common::FileFormat::NIMBLE:
       // No-op for now.
       break;
+    case dwio::common::FileFormat::TEXT:
+      // No-op for now.
+      break;
     default:
-      VELOX_UNSUPPORTED("{}", fileFormat);
+      VELOX_UNSUPPORTED("Unsupported file format: {}", fileFormat);
   }
 }
 
