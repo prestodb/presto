@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,6 +41,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -73,7 +75,7 @@ public class IcebergUpdateablePageSource
     private final Supplier<IcebergPageSink> updatedRowPageSinkSupplier;
     private IcebergPageSink updatedRowPageSink;
     // An array with one element per field in the $row_id column. The value in the array points to the
-    // channel where the data can be read from.
+    // channel where the data can be read from within the input page
     private final int[] updateRowIdChildColumnIndexes;
     // The $row_id's index in 'expectedColumns', or -1 if there isn't one
     private final int updateRowIdColumnIndex;
@@ -115,13 +117,16 @@ public class IcebergUpdateablePageSource
         this.updateRowIdChildColumnIndexes = updateRowIdColumn
                 .map(column -> new int[column.getColumnIdentity().getChildren().size()])
                 .orElse(new int[0]);
+        Map<Integer, Integer> fieldIdToIndex = IntStream.range(0, delegateColumns.size())
+                .boxed()
+                .collect(toImmutableMap(
+                        idx -> delegateColumns.get(idx).getId(),
+                        identity()));
         updateRowIdColumn.ifPresent(column -> {
-            Iterable<Integer> columnIds = () -> column.getColumnIdentity().getChildren().stream().map(ColumnIdentity::getId).iterator();
-            Map<Integer, Integer> fieldIdToColumnIndex = mapFieldIdsToIndex(columnIds);
             List<ColumnIdentity> rowIdFields = column.getColumnIdentity().getChildren();
             for (int i = 0; i < rowIdFields.size(); i++) {
                 int fieldId = rowIdFields.get(i).getId();
-                updateRowIdChildColumnIndexes[i] = requireNonNull(fieldIdToColumnIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
+                updateRowIdChildColumnIndexes[i] = requireNonNull(fieldIdToIndex.get(fieldId), () -> format("Column %s not found in requiredColumns", fieldId));
                 icebergIdToRowIdColumnIndex.put(fieldId, i);
             }
         });
@@ -132,11 +137,6 @@ public class IcebergUpdateablePageSource
                 icebergIdToUpdatedColumnIndex.put(updatedColumn.getId(), columnIndex);
             }
         }
-        Map<Integer, Integer> fieldIdToIndex = IntStream.range(0, delegateColumns.size())
-                .boxed()
-                .collect(toImmutableMap(
-                        idx -> delegateColumns.get(idx).getId(),
-                        identity()));
         for (int i = 0; i < outputColumnToDelegateMapping.length; i++) {
             if (outputColumns.get(i).isUpdateRowIdColumn()) {
                 continue;
@@ -359,11 +359,13 @@ public class IcebergUpdateablePageSource
         }
     }
 
-    private static Map<Integer, Integer> mapFieldIdsToIndex(Iterable<Integer> columns)
+    private static Map<Integer, Integer> mapFieldIdsToIndex(Stream<Integer> columns)
     {
         ImmutableMap.Builder<Integer, Integer> fieldIdsToIndex = ImmutableMap.builder();
         int idx = 0;
-        for (Integer columnId : columns) {
+        Iterator<Integer> iter = columns.iterator();
+        while (iter.hasNext()) {
+            Integer columnId = iter.next();
             fieldIdsToIndex.put(columnId, idx);
             idx++;
         }

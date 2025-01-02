@@ -90,6 +90,7 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -153,6 +154,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_S
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
@@ -758,6 +760,22 @@ public class IcebergPageSourceProvider
                 .map(IcebergColumnHandle.class::cast)
                 .collect(toImmutableList());
 
+        Optional<String> tableSchemaJson = table.getTableSchemaJson();
+        verify(tableSchemaJson.isPresent(), "tableSchemaJson is null");
+        Schema tableSchema = SchemaParser.fromJson(tableSchemaJson.get());
+        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.getPartitionSpecAsJson());
+
+        // In the case of updates on partitioned tables, all partition columns must be read in order
+        // to re-write the records in an update. Add missing partition columns to the split
+        if (!table.getUpdatedColumns().isEmpty()) {
+            Set<Integer> icebergColumnIds = icebergColumns.stream()
+                    .map(IcebergColumnHandle::getId)
+                    .collect(toImmutableSet());
+            partitionSpec.fields().stream()
+                    .map(PartitionField::sourceId)
+                    .filter(id -> !icebergColumnIds.contains(id));
+        }
+
         Map<Integer, HivePartitionKey> partitionKeys = split.getPartitionKeys();
 
         // first, create the metadata for the page source which reads from storage.
@@ -770,11 +788,8 @@ public class IcebergPageSourceProvider
 
         // add any additional columns which may need to be read from storage
         // by delete filters
-        Optional<String> tableSchemaJson = table.getTableSchemaJson();
-        verify(tableSchemaJson.isPresent(), "tableSchemaJson is null");
-        Schema tableSchema = SchemaParser.fromJson(tableSchemaJson.get());
         boolean equalityDeletesRequired = table.getIcebergTableName().getTableType() == IcebergTableType.DATA;
-        requiredColumnsForDeletes(tableSchema, split.getDeletes(), equalityDeletesRequired)
+        requiredColumnsForDeletes(tableSchema, partitionSpec, split.getDeletes(), equalityDeletesRequired)
                 .stream()
                 .filter(not(icebergColumns::contains))
                 .forEach(columnsToReadFromStorage::add);
@@ -871,7 +886,6 @@ public class IcebergPageSourceProvider
                     .map(filter -> filter.createPredicate(delegateColumns))
                     .reduce(RowPredicate::and);
         });
-        PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.getPartitionSpecAsJson());
         Table icebergTable = getShallowWrappedIcebergTable(
                 tableSchema,
                 partitionSpec,
@@ -884,7 +898,7 @@ public class IcebergPageSourceProvider
                 pageIndexerFactory,
                 hdfsEnvironment,
                 hdfsContext,
-                icebergColumns,
+                getColumns(tableSchema, partitionSpec, typeManager),
                 jsonCodec,
                 session,
                 split.getFileFormat(),
@@ -909,7 +923,10 @@ public class IcebergPageSourceProvider
         return dataSource;
     }
 
-    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes, boolean equalityDeletesRequired)
+    private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema,
+            PartitionSpec partitionSpec,
+            List<DeleteFile> deletes,
+            boolean equalityDeletesRequired)
     {
         ImmutableSet.Builder<IcebergColumnHandle> requiredColumns = ImmutableSet.builder();
         for (DeleteFile deleteFile : deletes) {
@@ -917,8 +934,7 @@ public class IcebergPageSourceProvider
                 requiredColumns.add(IcebergColumnHandle.create(ROW_POSITION, typeManager, IcebergColumnHandle.ColumnType.REGULAR));
             }
             else if (deleteFile.content() == EQUALITY_DELETES && equalityDeletesRequired) {
-                deleteFile.equalityFieldIds().stream()
-                        .map(id -> IcebergColumnHandle.create(schema.findField(id), typeManager, IcebergColumnHandle.ColumnType.REGULAR))
+                getColumns(deleteFile.equalityFieldIds().stream(), schema, partitionSpec, typeManager)
                         .forEach(requiredColumns::add);
             }
         }
