@@ -119,7 +119,6 @@ void FlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
     loc = defaultLocation_.value();
   }
 
-  clientOpts_ ? *clientOpts_ : FlightClientOptions{};
   AFC_ASSIGN_OR_RAISE(
       auto client,
       FlightClient::Connect(
