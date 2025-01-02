@@ -552,9 +552,9 @@ PlanNodePtr toVeloxPlan(
 }
 
 namespace {
-std::vector<size_t> columnIndices(std::vector<idx_t> map, int32_t size) {
+std::vector<idx_t> columnIndices(std::vector<idx_t> map, int32_t size) {
   if (size > 0 && map.empty()) {
-    std::vector<size_t> result(size);
+    std::vector<idx_t> result(size);
     std::iota(result.begin(), result.end(), 0);
     return result;
   }
