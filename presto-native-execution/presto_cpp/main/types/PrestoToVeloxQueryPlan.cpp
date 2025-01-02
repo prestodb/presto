@@ -79,7 +79,7 @@ RowTypePtr toRowType(
 
 template <typename T>
 std::string toJsonString(const T& value) {
-  return ((json)value).dump();
+  return (static_cast<json>(value)).dump();
 }
 
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
@@ -1744,7 +1744,8 @@ core::ExecutionStrategy toStrategy(protocol::StageExecutionStrategy strategy) {
           "RECOVERABLE_GROUPED_EXECUTION "
           "Stage Execution Strategy is not supported");
   }
-  VELOX_UNSUPPORTED("Unknown Stage Execution Strategy type {}", (int)strategy);
+  VELOX_UNSUPPORTED(
+      "Unknown Stage Execution Strategy type {}", static_cast<int>(strategy));
 }
 
 // Presto doesn't have PartitionedOutputNode and assigns its source node's plan
