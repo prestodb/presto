@@ -430,7 +430,7 @@ Enables scaled processing for table scans.
 When enabled, Presto will attempt to scale up table scans to improve performance.
 
 ``native_table_scan_scale_up_memory_usage_ratio``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``double``
 * **Minimum value:** ``0``
