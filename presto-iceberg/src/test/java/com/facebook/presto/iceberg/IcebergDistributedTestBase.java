@@ -1784,6 +1784,26 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testMetadataLogTable()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_table_metadatalog (id1 BIGINT, id2 BIGINT)");
+            assertQuery("SELECT count(*) FROM \"test_table_metadatalog$metadata_log_entries\"", "VALUES 1");
+            //metadata file created at table creation
+            assertQuery("SELECT latest_snapshot_id FROM \"test_table_metadatalog$metadata_log_entries\"", "VALUES NULL");
+
+            assertUpdate("INSERT INTO test_table_metadatalog VALUES (0, 00), (1, 10), (2, 20)", 3);
+            Table icebergTable = loadTable("test_table_metadatalog");
+            Snapshot latestSnapshot = icebergTable.currentSnapshot();
+            assertQuery("SELECT count(*) FROM \"test_table_metadatalog$metadata_log_entries\"", "VALUES 2");
+            assertQuery("SELECT latest_snapshot_id FROM \"test_table_metadatalog$metadata_log_entries\" order by timestamp DESC limit 1", "values " + latestSnapshot.snapshotId());
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_table_metadatalog");
+        }
+    }
+
+    @Test
     public void testAllIcebergType()
     {
         String tmpTableName = "test_vector_reader_all_type";
