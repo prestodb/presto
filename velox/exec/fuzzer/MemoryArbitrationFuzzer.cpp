@@ -840,9 +840,10 @@ void MemoryArbitrationFuzzer::verify() {
   }
 
   // Inject global arbitration.
+  auto shrinkRng = FuzzerGenerator(rng_());
   std::thread globalShrinkThread([&]() {
     while (!stop) {
-      if (getRandomIndex(rng_, 99) < FLAGS_global_arbitration_pct) {
+      if (getRandomIndex(shrinkRng, 99) < FLAGS_global_arbitration_pct) {
         memory::memoryManager()->shrinkPools();
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -851,6 +852,7 @@ void MemoryArbitrationFuzzer::verify() {
 
   // Create a thread that randomly abort one worker thread
   // every task_abort_interval_ms milliseconds.
+  auto abortRng = FuzzerGenerator(rng_());
   std::thread abortControlThread([&]() {
     if (FLAGS_task_abort_interval_ms == 0) {
       return;
@@ -860,7 +862,7 @@ void MemoryArbitrationFuzzer::verify() {
         std::this_thread::sleep_for(
             std::chrono::milliseconds(FLAGS_task_abort_interval_ms));
         auto tasksList = Task::getRunningTasks();
-        auto index = getRandomIndex(rng_, tasksList.size() - 1);
+        vector_size_t index = getRandomIndex(abortRng, tasksList.size() - 1);
         ++taskAbortRequestCount;
         tasksList[index]->requestAbort();
       } catch (const VeloxException& e) {
