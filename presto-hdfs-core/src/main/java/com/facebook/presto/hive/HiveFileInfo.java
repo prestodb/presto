@@ -18,7 +18,6 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -69,7 +68,7 @@ public class HiveFileInfo
 
     @ThriftConstructor
     public HiveFileInfo(
-            String pathString,
+            String path,
             boolean directory,
             List<BlockLocation> blockLocations,
             long length,
@@ -77,7 +76,7 @@ public class HiveFileInfo
             Optional<byte[]> extraFileInfo,
             Map<String, String> customSplitInfo)
     {
-        this.path = requireNonNull(pathString, "pathString is null");
+        this.path = requireNonNull(path, "path is null");
         this.isDirectory = directory;
         this.blockLocations = requireNonNull(blockLocations, "blockLocations is null");
         this.length = length;
@@ -87,9 +86,9 @@ public class HiveFileInfo
     }
 
     @ThriftField(1)
-    public String getPathString()
+    public String getPath()
     {
-        return path.toString();
+        return path;
     }
 
     @ThriftField(2)
@@ -128,17 +127,22 @@ public class HiveFileInfo
         return customSplitInfo;
     }
 
-    public Path getPath()
-    {
-        return new Path(path);
-    }
-
     public long getRetainedSizeInBytes()
     {
         long blockLocationsSizeInBytes = blockLocations.stream().map(BlockLocation::getRetainedSizeInBytes).reduce(0L, Long::sum);
         long extraFileInfoSizeInBytes = extraFileInfo.map(bytes -> bytes.length).orElse(0);
         long customSplitInfoSizeInBytes = customSplitInfo.entrySet().stream().mapToLong(e -> e.getKey().length() + e.getValue().length()).reduce(0, Long::sum);
         return INSTANCE_SIZE + path.length() + blockLocationsSizeInBytes + extraFileInfoSizeInBytes + customSplitInfoSizeInBytes;
+    }
+
+    public String getParent()
+    {
+        return path.substring(0, path.lastIndexOf('/'));
+    }
+
+    public String getFileName()
+    {
+        return path.substring(path.lastIndexOf('/') + 1);
     }
 
     @Override
