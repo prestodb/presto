@@ -1097,7 +1097,8 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
 std::unique_ptr<velox::connector::ConnectorSplit>
 HivePrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
-    const protocol::ConnectorSplit* const connectorSplit) const {
+    const protocol::ConnectorSplit* connectorSplit,
+    const protocol::SplitContext* splitContext) const {
   auto hiveSplit =
       dynamic_cast<const protocol::hive::HiveSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
@@ -1147,6 +1148,7 @@ HivePrestoToVeloxConnector::toVeloxSplit(
           extraFileInfo,
           serdeParameters,
           hiveSplit->splitWeight,
+          splitContext->cacheable,
           infoColumns);
   if (hiveSplit->bucketConversion) {
     VELOX_CHECK_NOT_NULL(hiveSplit->tableBucketNumber);
@@ -1331,7 +1333,8 @@ HivePrestoToVeloxConnector::createConnectorProtocol() const {
 std::unique_ptr<velox::connector::ConnectorSplit>
 IcebergPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
-    const protocol::ConnectorSplit* const connectorSplit) const {
+    const protocol::ConnectorSplit* connectorSplit,
+    const protocol::SplitContext* splitContext) const {
   auto icebergSplit =
       dynamic_cast<const protocol::iceberg::IcebergSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
@@ -1386,6 +1389,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       std::nullopt,
       customSplitInfo,
       nullptr,
+      splitContext->cacheable,
       deletes,
       infoColumns);
 }
@@ -1482,13 +1486,17 @@ IcebergPrestoToVeloxConnector::createConnectorProtocol() const {
 std::unique_ptr<velox::connector::ConnectorSplit>
 TpchPrestoToVeloxConnector::toVeloxSplit(
     const protocol::ConnectorId& catalogId,
-    const protocol::ConnectorSplit* const connectorSplit) const {
+    const protocol::ConnectorSplit* connectorSplit,
+    const protocol::SplitContext* splitContext) const {
   auto tpchSplit =
       dynamic_cast<const protocol::tpch::TpchSplit*>(connectorSplit);
   VELOX_CHECK_NOT_NULL(
       tpchSplit, "Unexpected split type {}", connectorSplit->_type);
   return std::make_unique<connector::tpch::TpchConnectorSplit>(
-      catalogId, tpchSplit->totalParts, tpchSplit->partNumber);
+      catalogId,
+      splitContext->cacheable,
+      tpchSplit->totalParts,
+      tpchSplit->partNumber);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>

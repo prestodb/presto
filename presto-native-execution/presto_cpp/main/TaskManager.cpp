@@ -176,7 +176,7 @@ void getData(
               bytes += next->length();
               iobuf->prev()->appendChain(std::move(next));
             }
-            nextSequence++;
+            ++nextSequence;
           } else {
             complete = true;
           }
@@ -589,7 +589,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
   if (outputBuffers.type != protocol::BufferType::PARTITIONED &&
       !execTask->updateOutputBuffers(
           outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds)) {
-    LOG(WARNING) << "Failed to update output buffers for task: " << taskId;
+    VLOG(1) << "Failed to update output buffers for task: " << taskId;
   }
 
   for (const auto& source : sources) {

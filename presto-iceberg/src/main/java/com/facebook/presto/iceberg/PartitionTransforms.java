@@ -249,7 +249,7 @@ public final class PartitionTransforms
 
     private static int bucketValueInteger(Block block, int position, int count)
     {
-        return bucketValue(block, count, position, pos -> bucketHash(INTEGER.getLong(block, pos)));
+        return bucketValue(block, position, count, pos -> bucketHash(INTEGER.getLong(block, pos)));
     }
 
     private static Block bucketBigint(Block block, int count)
@@ -259,7 +259,7 @@ public final class PartitionTransforms
 
     private static int bucketValueBigint(Block block, int position, int count)
     {
-        return bucketValue(block, count, position, pos -> bucketHash(BIGINT.getLong(block, pos)));
+        return bucketValue(block, position, count, pos -> bucketHash(BIGINT.getLong(block, pos)));
     }
 
     private static Block bucketShortDecimal(DecimalType decimal, Block block, int count)
@@ -273,7 +273,7 @@ public final class PartitionTransforms
 
     private static int bucketValueShortDecimal(DecimalType decimal, Block block, int position, int count)
     {
-        return bucketValue(block, count, position, pos -> {
+        return bucketValue(block, position, count, pos -> {
             // TODO: write optimized implementation
             BigDecimal value = readBigDecimal(decimal, block, pos);
             return bucketHash(Slices.wrappedBuffer(value.unscaledValue().toByteArray()));
@@ -291,7 +291,7 @@ public final class PartitionTransforms
 
     private static int bucketValueLongDecimal(DecimalType decimal, Block block, int position, int count)
     {
-        return bucketValue(block, count, position, pos -> {
+        return bucketValue(block, position, count, pos -> {
             // TODO: write optimized implementation
             BigDecimal value = readBigDecimal(decimal, block, pos);
             return bucketHash(Slices.wrappedBuffer(value.unscaledValue().toByteArray()));
