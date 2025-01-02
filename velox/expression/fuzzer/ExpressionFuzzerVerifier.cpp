@@ -354,6 +354,11 @@ void ExpressionFuzzerVerifier::go() {
       0,
       "--max_expression_trees_per_step needs to be greater than zero.");
 
+  if (expressionFuzzer_.supportedFunctions().empty()) {
+    LOG(WARNING) << "No functions to fuzz.";
+    return;
+  }
+
   auto startTime = std::chrono::system_clock::now();
   size_t i = 0;
   size_t numFailed = 0;
