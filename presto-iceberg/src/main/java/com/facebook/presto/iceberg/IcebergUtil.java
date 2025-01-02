@@ -338,10 +338,18 @@ public final class IcebergUtil
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
     {
+        return getColumns(schema.columns().stream().map(NestedField::fieldId), schema, partitionSpec, typeManager);
+    }
+
+    public static List<IcebergColumnHandle> getColumns(Stream<Integer> fields, Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)
+    {
         Set<String> partitionFieldNames = getPartitionFields(partitionSpec, IDENTITY).keySet();
 
-        return schema.columns().stream()
-                .map(column -> partitionFieldNames.contains(column.name()) ? IcebergColumnHandle.create(column, typeManager, PARTITION_KEY) : IcebergColumnHandle.create(column, typeManager, REGULAR))
+        return fields
+                .map(schema::findField)
+                .map(column -> partitionFieldNames.contains(column.name()) ?
+                        IcebergColumnHandle.create(column, typeManager, PARTITION_KEY) :
+                        IcebergColumnHandle.create(column, typeManager, REGULAR))
                 .collect(toImmutableList());
     }
 
@@ -864,10 +872,10 @@ public final class IcebergUtil
      * @param requestedSchema If provided, only delete files with this schema will be provided
      */
     public static CloseableIterable<DeleteFile> getDeleteFiles(Table table,
-                                                               long snapshot,
-                                                               TupleDomain<IcebergColumnHandle> filter,
-                                                               Optional<Set<Integer>> requestedPartitionSpec,
-                                                               Optional<Set<Integer>> requestedSchema)
+            long snapshot,
+            TupleDomain<IcebergColumnHandle> filter,
+            Optional<Set<Integer>> requestedPartitionSpec,
+            Optional<Set<Integer>> requestedSchema)
     {
         Expression filterExpression = toIcebergExpression(filter);
         CloseableIterable<FileScanTask> fileTasks = table.newScan().useSnapshot(snapshot).filter(filterExpression).planFiles();
@@ -1043,9 +1051,9 @@ public final class IcebergUtil
         private DeleteFile currentFile;
 
         private DeleteFilesIterator(Map<Integer, PartitionSpec> partitionSpecsById,
-                                    CloseableIterator<FileScanTask> fileTasks,
-                                    Optional<Set<Integer>> requestedPartitionSpec,
-                                    Optional<Set<Integer>> requestedSchema)
+                CloseableIterator<FileScanTask> fileTasks,
+                Optional<Set<Integer>> requestedPartitionSpec,
+                Optional<Set<Integer>> requestedSchema)
         {
             this.partitionSpecsById = partitionSpecsById;
             this.fileTasks = fileTasks;
@@ -1239,8 +1247,8 @@ public final class IcebergUtil
 
     /**
      * Get the metadata location for target {@link Table},
-     *  considering iceberg table properties {@code WRITE_METADATA_LOCATION}
-     * */
+     * considering iceberg table properties {@code WRITE_METADATA_LOCATION}
+     */
     public static String metadataLocation(Table icebergTable)
     {
         String metadataLocation = icebergTable.properties().get(TableProperties.WRITE_METADATA_LOCATION);
@@ -1255,8 +1263,8 @@ public final class IcebergUtil
 
     /**
      * Get the data location for target {@link Table},
-     *  considering iceberg table properties {@code WRITE_DATA_LOCATION}, {@code OBJECT_STORE_PATH} and {@code WRITE_FOLDER_STORAGE_LOCATION}
-     * */
+     * considering iceberg table properties {@code WRITE_DATA_LOCATION}, {@code OBJECT_STORE_PATH} and {@code WRITE_FOLDER_STORAGE_LOCATION}
+     */
     public static String dataLocation(Table icebergTable)
     {
         Map<String, String> properties = icebergTable.properties();

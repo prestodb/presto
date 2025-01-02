@@ -2328,11 +2328,11 @@ public abstract class IcebergDistributedTestBase
 
         // update non-partition column on a partitioned table without a predicate
         assertUpdate("UPDATE " + tableName + " SET a = a + 1 WHERE b = 'second'", 1);
-        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (3,'second'), (3,'third')");
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (4,'second'), (3,'third')");
 
         // update non-partition column on a partitioned table with a predicate
-        assertUpdate("UPDATE " + tableName + " SET b = CAST(a as varchar) + CASE a WHEN 1 THEN 'st' WHEN 2 THEN 'nd' WHEN 3 THEN 'rd' ELSE 'th' (1 ) WHERE b = 'second'", 1);
-        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (3,'2nd'), (3,'third')");
+        assertUpdate("UPDATE " + tableName + " SET b = CONCAT(CAST(a as varchar), CASE a WHEN 1 THEN 'st' WHEN 2 THEN 'nd' WHEN 3 THEN 'rd' ELSE 'th' END) WHERE b = 'second'", 1);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (4,'4th'), (3,'third')");
     }
 
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
