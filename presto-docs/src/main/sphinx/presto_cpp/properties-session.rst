@@ -426,8 +426,7 @@ trigger skewed partition rebalancing by scale writer exchange.
 * **Type:** ``boolean``
 * **Default value:** ``false``
 
-Enables scaled processing for table scans.
-When enabled, Presto will attempt to scale up table scans to improve performance.
+If set to ``true``, enables scaling the table scan concurrency on each worker.
 
 ``native_table_scan_scale_up_memory_usage_ratio``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

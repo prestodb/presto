@@ -316,7 +316,7 @@ public class NativeWorkerSessionPropertyProvider
                         !nativeExecution),
                 booleanProperty(
                         NATIVE_TABLE_SCAN_SCALED_PROCESSING_ENABLED,
-                        "If set to true, enables the scaled table scan processing.",
+                        "If set to true, enables scaling the table scan concurrency on each worker.",
                         false,
                         !nativeExecution),
                 doubleProperty(
