@@ -128,7 +128,7 @@ public class TestHudiDirectoryLister
                     new RuntimeStats()));
             assertTrue(fileInfoIterator.hasNext());
             HiveFileInfo fileInfo = fileInfoIterator.next();
-            assertEquals(fileInfo.getPath().getName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
+            assertEquals(fileInfo.getFileName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
         }
         finally {
             hadoopConf = null;
@@ -156,7 +156,7 @@ public class TestHudiDirectoryLister
                     new RuntimeStats()));
             assertTrue(fileInfoIterator.hasNext());
             HiveFileInfo fileInfo = fileInfoIterator.next();
-            assertEquals(fileInfo.getPath().getName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
+            assertEquals(fileInfo.getFileName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
         }
         finally {
             hadoopConf = null;
