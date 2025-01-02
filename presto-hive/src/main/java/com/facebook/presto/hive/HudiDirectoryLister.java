@@ -36,6 +36,7 @@ import org.apache.hudi.common.model.HoodieBaseFile;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
+import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.Option;
@@ -65,7 +66,6 @@ public class HudiDirectoryLister
     public HudiDirectoryLister(Configuration conf, ConnectorSession session, Table table)
     {
         log.info("Using Hudi Directory Lister.");
-        // TODO: Just hardcoding for testing. Need to prepare connector session in the test.
         this.metadataEnabled = isHudiMetadataEnabled(session);
         this.shouldUseMergedView = SPLITTER.splitToList(getHudiTablesUseMergedView(session)).contains(table.getSchemaTableName().toString());
         Configuration actualConfig = ((CachingJobConf) conf).getConfig();
@@ -81,8 +81,9 @@ public class HudiDirectoryLister
                 .setBasePath(table.getStorage().getLocation())
                 .build();
         this.latestInstant = metaClient.getActiveTimeline()
-                .getCommitsTimeline()
+                .getCommitsAndCompactionTimeline()
                 .filterCompletedInstants()
+                .filter(instant -> !HoodieTableType.MERGE_ON_READ.equals(metaClient.getTableType()) || instant.getAction().equals(HoodieTimeline.COMMIT_ACTION))
                 .lastInstant()
                 .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found"));
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(actualConfig);
