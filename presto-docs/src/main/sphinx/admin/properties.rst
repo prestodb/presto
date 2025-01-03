@@ -892,6 +892,16 @@ Enable treating ``LOW`` confidence, zero estimations as ``UNKNOWN`` during joins
 
 The corresponding session property is :ref:`admin/properties-session:\`\`treat-low-confidence-zero-estimation-as-unknown\`\``. 
 
+``optimizer.scalar-function-stats-propagation-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``false`` no statistics are propagated, and the planner uses ``UNKNOWN`` as the stats estimate for this plan node. This can negatively impact query planning
+This can also be specified on a per-query basis using the ``scalar_function_stats_propagation_enabled`` session property.
+
 ``optimizer.retry-query-with-history-based-optimization``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
