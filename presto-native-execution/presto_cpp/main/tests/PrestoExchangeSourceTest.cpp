@@ -525,7 +525,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   }
 
   std::shared_ptr<exec::ExchangeQueue> makeSingleSourceQueue() {
-    auto queue = std::make_shared<exec::ExchangeQueue>();
+    auto queue = std::make_shared<exec::ExchangeQueue>(1);
     queue->addSourceLocked();
     queue->noMoreSources();
     return queue;
