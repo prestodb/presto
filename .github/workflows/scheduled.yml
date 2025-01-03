@@ -92,7 +92,7 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:centos9
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache"
+      CCACHE_DIR: "${{ github.workspace }}/ccache"
       LINUX_DISTRO: "ubuntu"
       MAKEFLAGS: "NUM_THREADS=${{ inputs.numThreads || 16 }} MAX_HIGH_MEM_JOBS=${{ inputs.maxHighMemJobs || 8 }} MAX_LINK_JOBS=${{ inputs.maxLinkJobs || 4 }}"
 
@@ -590,7 +590,7 @@ jobs:
     needs: compile
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       LINUX_DISTRO: "centos"
     steps:
 
@@ -755,7 +755,7 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       LINUX_DISTRO: "centos"
     steps:
 
@@ -819,7 +819,7 @@ jobs:
     timeout-minutes: 120
     if: ${{ needs.compile.outputs.presto_bias  == 'true' }}
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       LINUX_DISTRO: "centos"
     steps:
 
@@ -907,7 +907,7 @@ jobs:
     timeout-minutes: 120
     if: ${{ needs.compile.outputs.presto_aggregate_bias  == 'true' }}
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       LINUX_DISTRO: "centos"
     steps:
 
@@ -1004,7 +1004,7 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       LINUX_DISTRO: "centos"
     steps:
 
@@ -1067,7 +1067,7 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       LINUX_DISTRO: "centos"
     steps:
 

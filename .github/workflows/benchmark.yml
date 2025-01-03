@@ -43,7 +43,7 @@ jobs:
     if: github.repository == 'facebookincubator/velox'
     runs-on: 8-core-ubuntu
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       CCACHE_BASEDIR: "${{ github.workspace }}"
       BINARY_DIR: "${{ github.workspace }}/benchmarks/"
       LINUX_DISTRO: "ubuntu"
@@ -56,7 +56,7 @@ jobs:
         uses: actions/cache/restore@v3
         id: restore-cache
         with:
-          path: ".ccache"
+          path: "ccache"
           key: ccache-benchmark-${{ github.sha }}
           restore-keys: |
             ccache-benchmark-
@@ -132,7 +132,7 @@ jobs:
         uses: actions/cache/save@v3
         id: cache
         with:
-          path: ".ccache"
+          path: "ccache"
           key: ccache-benchmark-${{ github.sha }}
 
       - name: "Install benchmark dependencies"

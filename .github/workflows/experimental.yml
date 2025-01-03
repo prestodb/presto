@@ -50,7 +50,7 @@ jobs:
     runs-on: 16-core-ubuntu
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       LINUX_DISTRO: "ubuntu"
     steps:
 
@@ -114,7 +114,7 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:presto-java
     timeout-minutes: 120
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache/"
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
       LINUX_DISTRO: "centos"
     steps:
 

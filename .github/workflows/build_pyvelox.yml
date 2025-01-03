@@ -90,12 +90,12 @@ jobs:
           # NEXT_VERSION=$(echo $VERSION | awk -F. -v OFS=. '{$NF++ ; print}')
           echo "build_version=${VERSION}a${COMMITS_SINCE_TAG}" >> $GITHUB_OUTPUT
 
-      - run: mkdir -p .ccache
+      - run: mkdir -p ccache
       - name: "Restore ccache"
         uses: actions/cache/restore@v3
         id: restore-cache
         with:
-          path: ".ccache"
+          path: "ccache"
           key: ccache-wheels-${{ matrix.os }}-${{ github.sha }}
           restore-keys: |
             ccache-wheels-${{ matrix.os }}-
@@ -126,28 +126,28 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: "ghcr.io/facebookincubator/velox-dev:torcharrow-avx"
           CIBW_BEFORE_ALL_LINUX: >
             mkdir -p /output &&
-            cp -R /host${{ github.workspace }}/.ccache /output/.ccache &&
+            cp -R /host${{ github.workspace }}/ccache /output/ccache &&
             ccache -s
           CIBW_ENVIRONMENT_PASS_LINUX: CCACHE_DIR BUILD_VERSION
           CIBW_TEST_EXTRAS: "tests"
           CIBW_TEST_COMMAND: "cd {project}/pyvelox && python -m unittest -v"
           CIBW_TEST_SKIP: "*macos*"
-          CCACHE_DIR: "${{ matrix.os != 'macos-11' && '/output' || github.workspace }}/.ccache"
+          CCACHE_DIR: "${{ matrix.os != 'macos-11' && '/output' || github.workspace }}/ccache"
           BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
         with:
           output-dir: wheelhouse
 
-      - name: "Move .ccache to workspace"
+      - name: "Move ccache to workspace"
         if: matrix.os != 'macos-11'
         run: |
-          mkdir -p .ccache
-          cp -R ./wheelhouse/.ccache/* .ccache
+          mkdir -p ccache
+          cp -R ./wheelhouse/ccache/* ccache
 
       - name: "Save ccache"
         uses: actions/cache/save@v3
         id: cache
         with:
-          path: ".ccache"
+          path: "ccache"
           key: ccache-wheels-${{ matrix.os }}-${{ github.sha }}
 
       - name: "Rename wheel compatibility tag"

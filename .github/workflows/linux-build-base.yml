@@ -34,7 +34,7 @@ jobs:
       run:
         shell: bash
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache"
+      CCACHE_DIR: "${{ github.workspace }}/ccache"
       VELOX_DEPENDENCY_SOURCE: SYSTEM
       GTest_SOURCE: BUNDLED
       simdjson_SOURCE: BUNDLED
@@ -124,7 +124,7 @@ jobs:
     if: ${{ github.repository == 'facebookincubator/velox' }}
     name: "Ubuntu debug with resolve_dependency"
     env:
-      CCACHE_DIR: "${{ github.workspace }}/.ccache"
+      CCACHE_DIR: "${{ github.workspace }}/ccache"
       USE_CLANG: "${{ inputs.use-clang && 'true' || 'false' }}"
     defaults:
       run:
