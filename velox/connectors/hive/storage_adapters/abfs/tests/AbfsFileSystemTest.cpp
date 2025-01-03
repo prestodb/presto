@@ -20,14 +20,17 @@
 #include <random>
 
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/FileHandle.h"
+#include "velox/connectors/hive/storage_adapters/abfs/AbfsConfig.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsFileSystem.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsReadFile.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsWriteFile.h"
 #include "velox/connectors/hive/storage_adapters/abfs/tests/AzuriteServer.h"
 #include "velox/connectors/hive/storage_adapters/abfs/tests/MockDataLakeFileClient.h"
+#include "velox/dwio/common/FileSink.h"
 #include "velox/exec/tests/utils/PortUtil.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 
@@ -44,6 +47,12 @@ class AbfsFileSystemTest : public testing::Test {
 
   static void SetUpTestCase() {
     registerAbfsFileSystem();
+    AbfsConfig::setUpTestWriteClient(
+        []() { return std::make_unique<MockDataLakeFileClient>(); });
+  }
+
+  static void TearDownTestSuite() {
+    AbfsConfig::tearDownTestWriteClient();
   }
 
   void SetUp() override {
@@ -263,4 +272,22 @@ TEST_F(AbfsFileSystemTest, credNotFOund) {
   VELOX_ASSERT_THROW(
       abfs_->openFileForRead(abfsFile),
       "Config fs.azure.account.key.test1.dfs.core.windows.net not found");
+}
+
+TEST_F(AbfsFileSystemTest, registerAbfsFileSink) {
+  static const std::vector<std::string> paths = {
+      "abfs://test@test.dfs.core.windows.net/test",
+      "abfss://test@test.dfs.core.windows.net/test"};
+  std::unordered_map<std::string, std::string> config(
+      {{"fs.azure.account.key.test.dfs.core.windows.net", "NDU2"}});
+  auto hiveConfig =
+      std::make_shared<const config::ConfigBase>(std::move(config));
+  for (const auto& path : paths) {
+    auto sink = dwio::common::FileSink::create(
+        path, {.connectorProperties = hiveConfig});
+    auto writeFileSink = dynamic_cast<dwio::common::WriteFileSink*>(sink.get());
+    auto writeFile =
+        dynamic_cast<AbfsWriteFile*>(writeFileSink->toWriteFile().get());
+    ASSERT_TRUE(writeFile != nullptr);
+  }
 }

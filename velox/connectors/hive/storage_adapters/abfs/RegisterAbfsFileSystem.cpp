@@ -18,6 +18,7 @@
 #include "velox/common/config/Config.h"
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsFileSystem.h" // @manual
 #include "velox/connectors/hive/storage_adapters/abfs/AbfsUtil.h" // @manual
+#include "velox/dwio/common/FileSink.h"
 #endif
 
 namespace facebook::velox::filesystems {
@@ -34,12 +35,28 @@ std::shared_ptr<FileSystem> abfsFileSystemGenerator(
   });
   return filesystem;
 }
+
+std::unique_ptr<velox::dwio::common::FileSink> abfsWriteFileSinkGenerator(
+    const std::string& fileURI,
+    const velox::dwio::common::FileSink::Options& options) {
+  if (isAbfsFile(fileURI)) {
+    auto fileSystem =
+        filesystems::getFileSystem(fileURI, options.connectorProperties);
+    return std::make_unique<dwio::common::WriteFileSink>(
+        fileSystem->openFileForWrite(fileURI),
+        fileURI,
+        options.metricLogger,
+        options.stats);
+  }
+  return nullptr;
+}
 #endif
 
 void registerAbfsFileSystem() {
 #ifdef VELOX_ENABLE_ABFS
-  LOG(INFO) << "Register ABFS";
   registerFileSystem(isAbfsFile, std::function(abfsFileSystemGenerator));
+  dwio::common::FileSink::registerFactory(
+      std::function(abfsWriteFileSinkGenerator));
 #endif
 }
 

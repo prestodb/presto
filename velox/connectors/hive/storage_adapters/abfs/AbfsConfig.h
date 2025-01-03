@@ -21,6 +21,7 @@
 #include <azure/storage/files/datalake.hpp>
 #include <folly/hash/Hash.h>
 #include <string>
+#include "velox/connectors/hive/storage_adapters/abfs/AzureDataLakeFileClient.h"
 
 using namespace Azure::Storage::Blobs;
 using namespace Azure::Storage::Files::DataLake;
@@ -66,7 +67,7 @@ class AbfsConfig {
 
   std::unique_ptr<BlobClient> getReadFileClient();
 
-  std::unique_ptr<DataLakeFileClient> getWriteFileClient();
+  std::unique_ptr<AzureDataLakeFileClient> getWriteFileClient();
 
   std::string filePath() const {
     return filePath_;
@@ -92,6 +93,17 @@ class AbfsConfig {
     return authorityHost_;
   }
 
+  /// Test only.
+  static void setUpTestWriteClient(
+      std::function<std::unique_ptr<AzureDataLakeFileClient>()> testClientFn) {
+    testWriteClientFn_ = testClientFn;
+  }
+
+  /// Test only.
+  static void tearDownTestWriteClient() {
+    testWriteClientFn_ = nullptr;
+  }
+
  private:
   std::string getUrl(bool withblobSuffix);
 
@@ -110,6 +122,9 @@ class AbfsConfig {
   std::string tenentId_;
   std::string authorityHost_;
   std::shared_ptr<Azure::Core::Credentials::TokenCredential> tokenCredential_;
+
+  static std::function<std::unique_ptr<AzureDataLakeFileClient>()>
+      testWriteClientFn_;
 };
 
 } // namespace facebook::velox::filesystems

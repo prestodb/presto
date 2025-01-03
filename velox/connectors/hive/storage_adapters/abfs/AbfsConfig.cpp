@@ -23,6 +23,44 @@
 
 namespace facebook::velox::filesystems {
 
+std::function<std::unique_ptr<AzureDataLakeFileClient>()>
+    AbfsConfig::testWriteClientFn_;
+
+class DataLakeFileClientWrapper final : public AzureDataLakeFileClient {
+ public:
+  DataLakeFileClientWrapper(std::unique_ptr<DataLakeFileClient> client)
+      : client_(std::move(client)) {}
+
+  void create() override {
+    client_->Create();
+  }
+
+  Azure::Storage::Files::DataLake::Models::PathProperties getProperties()
+      override {
+    return client_->GetProperties().Value;
+  }
+
+  void append(const uint8_t* buffer, size_t size, uint64_t offset) override {
+    auto bodyStream = Azure::Core::IO::MemoryBodyStream(buffer, size);
+    client_->Append(bodyStream, offset);
+  }
+
+  void flush(uint64_t position) override {
+    client_->Flush(position);
+  }
+
+  void close() override {
+    // do nothing.
+  }
+
+  std::string getUrl() const override {
+    return client_->GetUrl();
+  }
+
+ private:
+  const std::unique_ptr<DataLakeFileClient> client_;
+};
+
 AbfsConfig::AbfsConfig(
     std::string_view path,
     const config::ConfigBase& config) {
@@ -123,19 +161,24 @@ std::unique_ptr<BlobClient> AbfsConfig::getReadFileClient() {
   }
 }
 
-std::unique_ptr<DataLakeFileClient> AbfsConfig::getWriteFileClient() {
+std::unique_ptr<AzureDataLakeFileClient> AbfsConfig::getWriteFileClient() {
+  if (testWriteClientFn_) {
+    return testWriteClientFn_();
+  }
+  std::unique_ptr<DataLakeFileClient> client;
   if (authType_ == kAzureSASAuthType) {
     auto url = getUrl(false);
-    return std::make_unique<DataLakeFileClient>(
-        fmt::format("{}?{}", url, sas_));
+    client =
+        std::make_unique<DataLakeFileClient>(fmt::format("{}?{}", url, sas_));
   } else if (authType_ == kAzureOAuthAuthType) {
     auto url = getUrl(false);
-    return std::make_unique<DataLakeFileClient>(url, tokenCredential_);
+    client = std::make_unique<DataLakeFileClient>(url, tokenCredential_);
   } else {
-    return std::make_unique<DataLakeFileClient>(
+    client = std::make_unique<DataLakeFileClient>(
         DataLakeFileClient::CreateFromConnectionString(
             connectionString_, fileSystem_, filePath_));
   }
+  return std::make_unique<DataLakeFileClientWrapper>(std::move(client));
 }
 
 std::string AbfsConfig::getUrl(bool withblobSuffix) {

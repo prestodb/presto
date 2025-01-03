@@ -46,6 +46,10 @@ class MockDataLakeFileClient : public AzureDataLakeFileClient {
 
   void close() override;
 
+  std::string getUrl() const override {
+    return "testUrl";
+  }
+
   // for testing purpose to verify the written content if correct.
   std::string readContent() {
     std::ifstream inputFile(filePath_);

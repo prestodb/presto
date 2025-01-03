@@ -84,7 +84,7 @@ TEST(AbfsConfigTest, clientSecretOAuth) {
   // GetUrl retrieves the value from the internal blob client, which represents
   // the blob's path as well.
   EXPECT_EQ(
-      writeClient->GetUrl(),
+      writeClient->getUrl(),
       "https://efg.blob.core.windows.net/abc/file/test.txt");
 }
 
@@ -108,7 +108,7 @@ TEST(AbfsConfigTest, sasToken) {
   // GetUrl retrieves the value from the internal blob client, which represents
   // the blob's path as well.
   EXPECT_EQ(
-      writeClient->GetUrl(),
+      writeClient->getUrl(),
       "http://bar.blob.core.windows.net/abc/file?sas=test");
 }
 
