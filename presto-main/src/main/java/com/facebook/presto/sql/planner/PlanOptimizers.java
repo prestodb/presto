@@ -77,6 +77,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneUpdateSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
@@ -283,6 +284,7 @@ public class PlanOptimizers
                 new PruneIndexSourceColumns(),
                 new PruneJoinChildrenColumns(),
                 new PruneJoinColumns(),
+                new PruneUpdateSourceColumns(),
                 new PruneMarkDistinctColumns(),
                 new PruneOutputColumns(),
                 new PruneProjectColumns(),
