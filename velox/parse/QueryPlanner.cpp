@@ -15,7 +15,6 @@
  */
 
 #include "velox/parse/QueryPlanner.h"
-#include <duckdb.hpp> // @manual
 #include "velox/duckdb/conversion/DuckConversion.h"
 #include "velox/expression/ScopedVarSetter.h"
 #include "velox/parse/DuckLogicalOperator.h"
@@ -28,8 +27,6 @@
 #include <duckdb/planner/expression/bound_constant_expression.hpp> // @manual
 #include <duckdb/planner/expression/bound_function_expression.hpp> // @manual
 #include <duckdb/planner/expression/bound_reference_expression.hpp> // @manual
-
-#include <iostream>
 
 namespace facebook::velox::core {
 

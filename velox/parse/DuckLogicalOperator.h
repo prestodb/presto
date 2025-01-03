@@ -227,14 +227,38 @@ class LogicalLimit : public LogicalOperator {
 
 class LogicalOrder : public LogicalOperator {
  public:
+  static constexpr const LogicalOperatorType TYPE =
+      LogicalOperatorType::LOGICAL_ORDER_BY;
+
+ public:
   explicit LogicalOrder(vector<BoundOrderByNode> orders)
       : LogicalOperator(LogicalOperatorType::LOGICAL_ORDER_BY),
         orders(std::move(orders)) {}
 
   vector<BoundOrderByNode> orders;
+  vector<idx_t> projections;
+
+ public:
+  vector<ColumnBinding> GetColumnBindings() override {
+    auto child_bindings = children[0]->GetColumnBindings();
+    if (projections.empty()) {
+      return child_bindings;
+    }
+
+    vector<ColumnBinding> result;
+    for (auto& col_idx : projections) {
+      result.push_back(child_bindings[col_idx]);
+    }
+    return result;
+  }
+
+  void Serialize(FieldWriter& writer) const override;
+  static unique_ptr<LogicalOperator> Deserialize(
+      LogicalDeserializationState& state,
+      FieldReader& reader);
 
   string ParamsToString() const override {
-    string result;
+    string result = "ORDERS:\n";
     for (idx_t i = 0; i < orders.size(); i++) {
       if (i > 0) {
         result += "\n";
@@ -244,14 +268,16 @@ class LogicalOrder : public LogicalOperator {
     return result;
   }
 
- public:
-  vector<ColumnBinding> GetColumnBindings() override {
-    return children[0]->GetColumnBindings();
-  }
-
  protected:
   void ResolveTypes() override {
-    types = children[0]->types;
+    const auto child_types = children[0]->types;
+    if (projections.empty()) {
+      types = child_types;
+    } else {
+      for (auto& col_idx : projections) {
+        types.push_back(child_types[col_idx]);
+      }
+    }
   }
 };
 
