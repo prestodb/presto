@@ -173,26 +173,6 @@ tryGetUtf8CharLength(const char* input, int64_t size, int32_t& codePoint) {
   return -1;
 }
 
-bool hasInvalidUTF8(const char* input, int32_t len) {
-  for (size_t inputIndex = 0; inputIndex < len;) {
-    if (IS_ASCII(input[inputIndex])) {
-      // Ascii
-      inputIndex++;
-    } else {
-      // Unicode
-      int32_t codePoint;
-      auto charLength =
-          tryGetUtf8CharLength(input + inputIndex, len - inputIndex, codePoint);
-      if (charLength < 0) {
-        return true;
-      }
-      inputIndex += charLength;
-    }
-  }
-
-  return false;
-}
-
 size_t replaceInvalidUTF8Characters(
     char* outputBuffer,
     const char* input,
@@ -213,12 +193,9 @@ size_t replaceInvalidUTF8Characters(
         outputIndex += charLength;
         inputIndex += charLength;
       } else {
-        size_t replaceCharactersToWriteOut = inputIndex < len - 1 &&
-                isMultipleInvalidSequences(input, inputIndex)
-            ? -charLength
-            : 1;
         const auto& replacementCharacterString =
-            kReplacementCharacterStrings[replaceCharactersToWriteOut - 1];
+            getInvalidUTF8ReplacementString(
+                input + inputIndex, len - inputIndex, -charLength);
         std::memcpy(
             outputBuffer + outputIndex,
             replacementCharacterString.data(),

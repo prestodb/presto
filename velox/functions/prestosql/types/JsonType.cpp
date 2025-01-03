@@ -50,10 +50,10 @@ void generateJsonTyped(
   auto value = input.valueAt(row);
 
   if constexpr (std::is_same_v<T, StringView>) {
-    size_t resultSize = escapedStringSize(value.data(), value.size());
+    size_t resultSize = normalizedSizeForJsonCast(value.data(), value.size());
     result.resize(resultSize + 2);
     result.data()[0] = '"';
-    escapeString(value.data(), value.size(), result.data() + 1);
+    normalizeForJsonCast(value.data(), value.size(), result.data() + 1);
     result.data()[resultSize + 1] = '"';
   } else if constexpr (std::is_same_v<T, UnknownValue>) {
     VELOX_FAIL(

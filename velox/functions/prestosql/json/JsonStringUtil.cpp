@@ -123,7 +123,7 @@ void testingEncodeUtf16Hex(char32_t codePoint, char*& out) {
   encodeUtf16Hex(codePoint, out);
 }
 
-void escapeString(const char* input, size_t length, char* output) {
+void normalizeForJsonCast(const char* input, size_t length, char* output) {
   char* pos = output;
 
   auto* start = reinterpret_cast<const unsigned char*>(input);
@@ -165,7 +165,7 @@ void escapeString(const char* input, size_t length, char* output) {
   }
 }
 
-size_t escapedStringSize(const char* input, size_t length) {
+size_t normalizedSizeForJsonCast(const char* input, size_t length) {
   // 6 chars that is returned by `writeHex`.
   constexpr size_t kEncodedHexSize = 6;
 
@@ -310,7 +310,9 @@ int32_t compareChars(
 }
 } // namespace
 
-bool lessThan(const std::string_view& first, const std::string_view& second) {
+bool lessThanForJsonParse(
+    const std::string_view& first,
+    const std::string_view& second) {
   size_t firstLength = first.size();
   size_t secondLength = second.size();
   size_t minLength = std::min(firstLength, secondLength);
@@ -325,70 +327,65 @@ bool lessThan(const std::string_view& first, const std::string_view& second) {
   return firstLength < secondLength;
 }
 
-size_t prestoJavaEscapeString(const char* input, size_t length, char* output) {
+size_t normalizeForJsonParse(const char* input, size_t length, char* output) {
   char* pos = output;
-
-  auto* start = reinterpret_cast<const unsigned char*>(input);
-  auto* end = reinterpret_cast<const unsigned char*>(input + length);
+  auto* start = input;
+  auto* end = input + length;
   while (start < end) {
-    int count = validateAndGetNextUtf8Length(start, end);
-    switch (count) {
-      case 1: {
-        // Unescape characters that are escaped by \ character.
-        if (FOLLY_UNLIKELY(*start == '\\')) {
-          if (start + 1 == end) {
-            VELOX_USER_FAIL("Invalid escape sequence at the end of string");
-          }
-          // Presto java implementation only unescapes the / character.
-          switch (*(start + 1)) {
-            case '/':
-              *pos++ = '/';
-              start += 2;
-              continue;
-            case 'u': {
-              if (start + 5 > end) {
-                VELOX_USER_FAIL("Invalid escape sequence at the end of string");
-              }
+    // Unescape characters that are escaped by \ character.
+    if (FOLLY_UNLIKELY(*start == '\\')) {
+      VELOX_USER_CHECK_NE(
+          start + 1, end, "Invalid escape sequence at the end of string");
+      // Presto java implementation only unescapes the / character.
+      switch (*(start + 1)) {
+        case '/':
+          *pos++ = '/';
+          start += 2;
+          continue;
+        case 'u': {
+          VELOX_USER_CHECK_LE(
+              start + 5, end, "Invalid escape sequence at the end of string");
 
-              // Read 4 hex digits.
-              auto codePoint = parseHex(std::string_view(
-                  reinterpret_cast<const char*>(start) + 2, 4));
+          // Read 4 hex digits.
+          auto codePoint = parseHex(std::string_view(start + 2, 4));
 
-              // Presto java implementation doesnt unescape surrogate pairs.
-              // Thus we just write it out in the same way as it is.
-              if (isHighSurrogate(codePoint) || isLowSurrogate(codePoint) ||
-                  isSpecialCode(codePoint)) {
-                *pos++ = '\\';
-                *pos++ = 'u';
-                start += 2;
-                // java upper cases the code points
-                for (auto k = 0; k < 4; k++) {
-                  *pos++ = std::toupper(start[k]);
-                }
-
-                start += 4;
-                continue;
-              }
-
-              // Otherwise write it as a single code point.
-              auto increment = utf8proc_encode_char(
-                  codePoint, reinterpret_cast<unsigned char*>(pos));
-              pos += increment;
-              start += 6;
-              continue;
+          // Presto java implementation doesnt unescape surrogate pairs.
+          // Thus we just write it out in the same way as it is.
+          if (isHighSurrogate(codePoint) || isLowSurrogate(codePoint) ||
+              isSpecialCode(codePoint)) {
+            *pos++ = '\\';
+            *pos++ = 'u';
+            start += 2;
+            // java upper cases the code points
+            for (auto k = 0; k < 4; k++) {
+              *pos++ = std::toupper(start[k]);
             }
-            default:
-              *pos++ = *start;
-              *pos++ = *(start + 1);
-              start += 2;
-              continue;
+
+            start += 4;
+            continue;
           }
-        } else {
-          *pos++ = *start;
-          start++;
+
+          // Otherwise write it as a single code point.
+          auto increment = utf8proc_encode_char(
+              codePoint, reinterpret_cast<unsigned char*>(pos));
+          pos += increment;
+          start += 6;
           continue;
         }
+        default:
+          *pos++ = *start;
+          *pos++ = *(start + 1);
+          start += 2;
+          continue;
       }
+    }
+    if (FOLLY_LIKELY(IS_ASCII(*start))) {
+      *pos++ = *start++;
+      continue;
+    }
+    int32_t codePoint;
+    int count = tryGetUtf8CharLength(start, end - start, codePoint);
+    switch (count) {
       case 2: {
         memcpy(pos, reinterpret_cast<const char*>(start), 2);
         pos += 2;
@@ -402,22 +399,98 @@ size_t prestoJavaEscapeString(const char* input, size_t length, char* output) {
         continue;
       }
       case 4: {
-        char32_t codePoint = folly::utf8ToCodePoint(start, end, true);
         if (codePoint == U'\ufffd') {
           writeHex(0xFFFDu, pos);
-          continue;
+        } else {
+          encodeUtf16Hex(codePoint, pos);
         }
-        encodeUtf16Hex(codePoint, pos);
+        start += 4;
         continue;
       }
       default: {
-        writeHex(0xFFFDu, pos);
-        start++;
+        // Invalid character.
+        VELOX_DCHECK_LT(count, 0);
+        count = -count;
+        const auto& replacement =
+            getInvalidUTF8ReplacementString(start, end - start, count);
+        std::memcpy(pos, replacement.data(), replacement.size());
+        pos += replacement.size();
+        start += count;
       }
     }
   }
+  return pos - output;
+}
 
-  return (pos - output);
+size_t normalizedSizeForJsonParse(const char* input, size_t length) {
+  auto* start = input;
+  auto* end = input + length;
+  size_t outSize = 0;
+  while (start < end) {
+    if (FOLLY_UNLIKELY(*start == '\\')) {
+      VELOX_USER_CHECK_NE(
+          start + 1, end, "Invalid escape sequence at the end of string");
+      switch (*(start + 1)) {
+        case '/':
+          ++outSize;
+          start += 2;
+          continue;
+        case 'u': {
+          VELOX_USER_CHECK_LE(
+              start + 5, end, "Invalid escape sequence at the end of string");
+          auto codePoint = parseHex(std::string_view(start + 2, 4));
+          if (isHighSurrogate(codePoint) || isLowSurrogate(codePoint) ||
+              isSpecialCode(codePoint)) {
+            outSize += 6;
+          } else {
+            unsigned char buf[4];
+            auto increment = utf8proc_encode_char(codePoint, buf);
+            outSize += increment;
+          }
+          start += 6;
+          continue;
+        }
+        default:
+          outSize += 2;
+          start += 2;
+          continue;
+      }
+    }
+    if (FOLLY_LIKELY(IS_ASCII(*start))) {
+      ++outSize;
+      ++start;
+      continue;
+    }
+    int32_t codePoint;
+    auto count = tryGetUtf8CharLength(start, end - start, codePoint);
+    switch (count) {
+      case 2:
+      case 3:
+        outSize += count;
+        start += count;
+        continue;
+      case 4: {
+        if (codePoint >= 0x10000u) {
+          // Need to write out 2 \u escape sequences.
+          outSize += 12;
+        } else {
+          outSize += 6;
+        }
+        start += 4;
+        continue;
+      }
+      default: {
+        // Invalid character.
+        VELOX_DCHECK_LT(count, 0);
+        count = -count;
+        const auto& replacement =
+            getInvalidUTF8ReplacementString(start, end - start, count);
+        outSize += replacement.size();
+        start += count;
+      }
+    }
+  }
+  return outSize;
 }
 
 } // namespace facebook::velox

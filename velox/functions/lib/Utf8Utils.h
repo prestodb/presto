@@ -121,8 +121,12 @@ FOLLY_ALWAYS_INLINE bool isMultipleInvalidSequences(
       inputBuffer[inputIndex] == '\xc0' || inputBuffer[inputIndex] == '\xc1';
 }
 
-/// Returns true only if invalid UTF-8 is present in the input string.
-bool hasInvalidUTF8(const char* input, int32_t len);
+inline const std::string_view&
+getInvalidUTF8ReplacementString(const char* input, int len, int codePointSize) {
+  auto index =
+      len >= 2 && isMultipleInvalidSequences(input, 0) ? codePointSize - 1 : 0;
+  return kReplacementCharacterStrings[index];
+}
 
 /// Replaces invalid UTF-8 characters with replacement characters similar to
 /// that produced by Presto java. The function requires that output have

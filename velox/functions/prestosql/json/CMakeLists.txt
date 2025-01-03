@@ -19,7 +19,7 @@ velox_add_library(
   SIMDJsonExtractor.cpp
   SIMDJsonUtil.cpp)
 
-velox_link_libraries(velox_functions_json velox_exception Folly::folly
+velox_link_libraries(velox_functions_json velox_functions_lib
                      simdjson::simdjson)
 
 if(${VELOX_BUILD_TESTING})

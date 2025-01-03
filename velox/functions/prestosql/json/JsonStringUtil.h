@@ -15,7 +15,10 @@
  */
 #pragma once
 
+#include "velox/common/base/SimdUtil.h"
+
 namespace facebook::velox {
+
 /// Escape the unicode characters of `input` to make it canonical for JSON
 /// and legal to print in JSON text. It is assumed that the input is UTF-8
 /// encoded.
@@ -38,7 +41,15 @@ namespace facebook::velox {
 /// @param length: Length of the input string.
 /// @param output: Output string to write the escaped input to. The caller is
 ///                responsible to allocate enough space for output.
-void escapeString(const char* input, size_t length, char* output);
+void normalizeForJsonCast(const char* input, size_t length, char* output);
+
+/// Return the size of string after the unicode characters of `input` are
+/// escaped using the method as in`escapeString`. The function will iterate
+/// over `input` once.
+/// @param input: Input string to escape that is UTF-8 encoded.
+/// @param length: Length of the input string.
+/// @return The size of the string after escaping.
+size_t normalizedSizeForJsonCast(const char* input, size_t length);
 
 /// Unescape the unicode characters of `input` to make it canonical for JSON
 /// The behavior is compatible with Presto Java's json_parse.
@@ -50,25 +61,43 @@ void escapeString(const char* input, size_t length, char* output);
 /// @param output: Output string to write the escaped input to. The caller is
 ///                responsible to allocate enough space for output.
 /// @return The number of bytes written to the output.
-size_t prestoJavaEscapeString(const char* input, size_t length, char* output);
+size_t normalizeForJsonParse(const char* input, size_t length, char* output);
 
-/// Return the size of string after the unicode characters of `input` are
-/// escaped using the method as in`escapeString`. The function will iterate
-/// over `input` once.
-/// @param input: Input string to escape that is UTF-8 encoded.
-/// @param length: Length of the input string.
-/// @return The size of the string after escaping.
-size_t escapedStringSize(const char* input, size_t length);
+size_t normalizedSizeForJsonParse(const char* input, size_t length);
+
+/// Return whether the string need normalize or special treatment for sort
+/// object string keys (i.e. lessThanForJsonParse below).
+inline bool needNormalizeForJsonParse(const char* input, size_t length) {
+  const auto unicodeMask = xsimd::broadcast<uint8_t>(0x80);
+  const auto escape = xsimd::broadcast<uint8_t>('\\');
+  size_t i = 0;
+  for (; i + unicodeMask.size <= length; i += unicodeMask.size) {
+    auto batch =
+        xsimd::load_unaligned(reinterpret_cast<const uint8_t*>(input) + i);
+    if (xsimd::any(batch >= unicodeMask || batch == escape)) {
+      return true;
+    }
+  }
+  for (; i < length; ++i) {
+    if ((input[i] & 0x80) || (input[i] == '\\')) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /// Compares two string views. The comparison takes into account
 /// escape sequences and also unicode characters.
 /// Returns true if first is less than second else false.
 /// @param first: First string to compare.
 /// @param second: Second string to compare.
-bool lessThan(const std::string_view& first, const std::string_view& second);
+bool lessThanForJsonParse(
+    const std::string_view& first,
+    const std::string_view& second);
 
 /// For test only. Encode `codePoint` value by UTF-16 and write the one or two
 /// prefixed hexadecimals to `out`. Move `out` forward by 6 or 12 chars
 /// accordingly. The caller shall ensure there is enough space in `out`.
 void testingEncodeUtf16Hex(char32_t codePoint, char*& out);
+
 } // namespace facebook::velox

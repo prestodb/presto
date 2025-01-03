@@ -32,3 +32,11 @@ target_link_libraries(
   velox_common_indexed_priority_queue_benchmark
   PUBLIC Folly::follybenchmark
   PRIVATE velox_common_base Folly::folly)
+
+add_executable(velox_common_sorting_network_benchmark
+               SortingNetworkBenchmark.cpp)
+
+target_link_libraries(
+  velox_common_sorting_network_benchmark
+  PUBLIC Folly::follybenchmark
+  PRIVATE velox_common_base Folly::folly)

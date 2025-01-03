@@ -104,17 +104,6 @@ TEST(Utf8Test, tryCharLength) {
   ASSERT_EQ(-1, tryCharLength({0xBF}));
 }
 
-TEST(UTF8Test, validUtf8) {
-  auto tryHasInvalidUTF8 = [](const std::vector<unsigned char>& bytes) {
-    return hasInvalidUTF8(
-        reinterpret_cast<const char*>(bytes.data()), bytes.size());
-  };
-
-  ASSERT_FALSE(tryHasInvalidUTF8({0x5c, 0x19, 0x7A}));
-  ASSERT_TRUE(tryHasInvalidUTF8({0x5c, 0x19, 0x7A, 0xBF}));
-  ASSERT_TRUE(tryHasInvalidUTF8({0x64, 0x65, 0x1A, 0b11100000, 0x81, 0xBF}));
-}
-
 TEST(UTF8Test, replaceInvalidUTF8Characters) {
   auto testReplaceInvalidUTF8Chars = [](const std::string& input,
                                         const std::string& expected) {

@@ -267,9 +267,7 @@ TEST_F(JsonFunctionsTest, jsonParse) {
   velox::test::assertEqualVectors(
       expectedVector, evaluate("try(json_parse(c0))", data));
 
-  VELOX_ASSERT_THROW(
-      evaluate("json_parse(c0)", data),
-      "TAPE_ERROR: The JSON document has an improper structure: missing or superfluous commas, braces, missing keys, etc.");
+  VELOX_ASSERT_THROW(evaluate("json_parse(c0)", data), "TRAILING_CONTENT");
 
   data = makeRowVector({makeFlatVector<StringView>(
       {R"("This is a long sentence")", R"("This is some other sentence")"})});
