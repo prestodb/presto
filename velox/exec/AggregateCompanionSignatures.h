@@ -102,12 +102,12 @@ class CompanionSignatures {
     std::vector<T> processedSignatures;
 
     for (const auto& signature : signatures) {
-      auto normalizdIntermediateType =
+      auto normalizedIntermediateType =
           normalizeType(signature->intermediateType(), signature->variables());
       auto normalizedReturnType =
           normalizeType(signature->returnType(), signature->variables());
       if (distinctIntermediateAndResultTypes.count(std::make_pair(
-              normalizdIntermediateType, normalizedReturnType))) {
+              normalizedIntermediateType, normalizedReturnType))) {
         continue;
       }
 
@@ -121,7 +121,7 @@ class CompanionSignatures {
         // cannot. We only need one processed signature for each pair of
         // intermediate and result types.
         distinctIntermediateAndResultTypes.emplace(
-            normalizdIntermediateType, normalizedReturnType);
+            normalizedIntermediateType, normalizedReturnType);
       }
     }
     return processedSignatures;
@@ -138,9 +138,9 @@ class CompanionSignatures {
     std::vector<AggregateFunctionSignaturePtr> processedSignatures;
 
     for (const auto& signature : signatures) {
-      auto normalizdIntermediateType =
+      auto normalizedIntermediateType =
           normalizeType(signature->intermediateType(), signature->variables());
-      if (distinctIntermediateTypes.count(normalizdIntermediateType)) {
+      if (distinctIntermediateTypes.count(normalizedIntermediateType)) {
         continue;
       }
 
@@ -152,7 +152,7 @@ class CompanionSignatures {
         // There may be multiple signatures of the same intermediate type, some
         // can be processed successfully while some cannot. We only need one
         // processed signature for each intermediate type.
-        distinctIntermediateTypes.emplace(normalizdIntermediateType);
+        distinctIntermediateTypes.emplace(normalizedIntermediateType);
       }
     }
     return processedSignatures;
@@ -169,7 +169,7 @@ std::unordered_map<std::string, SignatureVariable> usedTypeVariables(
 bool isResultTypeResolvableGivenIntermediateType(
     const AggregateFunctionSignaturePtr& signature);
 
-// Return a string that is preorder traveral of `type`. For example, for
+// Return a string that is preorder traversal of `type`. For example, for
 // row(bigint, array(double)), return a string "row_bigint_array_double".
 std::string toSuffixString(const TypeSignature& type);
 

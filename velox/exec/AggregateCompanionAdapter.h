@@ -192,7 +192,7 @@ class CompanionFunctionsRegistrar {
   // with the same intermediate type, register extract functions with suffix
   // of their result types in the function names for each of them. Otherwise,
   // register one extract function of all supported signatures. The result
-  // type of the original aggregation function is required to be resolveable
+  // type of the original aggregation function is required to be resolvable
   // given its intermediate type. When there is already a function of the same
   // name as the extract companion function, if `overwrite` is true, the
   // registration is replaced. Otherwise, return false without overwriting the
@@ -203,7 +203,7 @@ class CompanionFunctionsRegistrar {
       bool overwrite = false);
 
   // Similar to registerExtractFunction(), the result type of the original
-  // aggregation function is required to be resolveable given its intermediate
+  // aggregation function is required to be resolvable given its intermediate
   // type. If there are multiple signatures of the original aggregation function
   // with the same intermediate type, register merge-extract functions with
   // suffix of their result types in the function names for each of them. When
@@ -217,8 +217,8 @@ class CompanionFunctionsRegistrar {
 
  private:
   // Register a vector function {originalName}_extract_{suffixOfResultType}
-  // that takes input of the intermeidate type and returns the result type of
-  // the orignal agregate function.
+  // that takes input of the intermediate type and returns the result type of
+  // the original aggregate function.
   static bool registerExtractFunctionWithSuffix(
       const std::string& originalName,
       const std::vector<AggregateFunctionSignaturePtr>& signatures,
