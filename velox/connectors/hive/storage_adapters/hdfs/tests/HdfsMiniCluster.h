@@ -31,14 +31,11 @@ static const std::string miniclusterCommand{"minicluster"};
 static const std::string noMapReduceOption{"-nomr"};
 static const std::string formatNameNodeOption{"-format"};
 static const std::string httpPortOption{"-nnhttpport"};
-static const std::string httpPort{"7676"};
 static const std::string nameNodePortOption{"-nnport"};
-static const std::string nameNodePort{"7878"};
 static const std::string configurationOption{"-D"};
 static const std::string turnOffPermissions{"dfs.permissions=false"};
 static const std::string filesystemCommand{"fs"};
 static const std::string filesystemUrlOption{"-fs"};
-static const std::string filesystemUrl{"hdfs://localhost:" + nameNodePort};
 static const std::string filePutOption{"-put"};
 
 class HdfsMiniCluster {
@@ -54,11 +51,27 @@ class HdfsMiniCluster {
   void addFile(std::string source, std::string destination);
   virtual ~HdfsMiniCluster();
 
+  std::string_view nameNodePort() const {
+    return nameNodePort_;
+  }
+
+  std::string_view url() const {
+    return filesystemUrl_;
+  }
+
+  std::string_view host() const {
+    static const std::string_view kLocalhost = "localhost";
+    return kLocalhost;
+  }
+
  private:
   void setupEnvironment(const std::string& homeDirectory);
 
   std::unique_ptr<::boost::process::child> serverProcess_;
   boost::filesystem::path exePath_;
   boost::process::environment env_;
+  std::string nameNodePort_;
+  std::string httpPort_;
+  std::string filesystemUrl_;
 };
 } // namespace facebook::velox::filesystems::test
