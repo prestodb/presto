@@ -167,6 +167,12 @@ TEST_F(TextWriterTest, abort) {
   writer->abort();
 
   std::string result = readFile(filePath);
-  EXPECT_EQ(result.size(), 8);
+  // With defaultFlushCount as 10, it will trigger two times of flushes before
+  // abort, and abort will discard the remaining 5 characters in buffer. The
+  // written file would have:
+  // 1^Atrue
+  // 2^Atrue
+  // 3^A
+  EXPECT_EQ(result.size(), 14);
 }
 } // namespace facebook::velox::text
