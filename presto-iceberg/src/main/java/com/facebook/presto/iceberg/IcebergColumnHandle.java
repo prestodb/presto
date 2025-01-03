@@ -51,8 +51,6 @@ public class IcebergColumnHandle
     public static final IcebergColumnHandle DATA_SEQUENCE_NUMBER_COLUMN_HANDLE = getIcebergColumnHandle(DATA_SEQUENCE_NUMBER);
     public static final ColumnMetadata DATA_SEQUENCE_NUMBER_COLUMN_METADATA = getColumnMetadata(DATA_SEQUENCE_NUMBER);
 
-    //    public static final int PRESTO_UPDATE_ROW_ID_COLUMN_ID = Integer.MIN_VALUE;
-//    public static final String PRESTO_UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
     private final ColumnIdentity columnIdentity;
     private final Type type;
 

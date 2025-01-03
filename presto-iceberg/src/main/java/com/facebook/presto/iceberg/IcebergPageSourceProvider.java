@@ -765,23 +765,10 @@ public class IcebergPageSourceProvider
         Schema tableSchema = SchemaParser.fromJson(tableSchemaJson.get());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(tableSchema, split.getPartitionSpecAsJson());
 
-        // In the case of updates on partitioned tables, all partition columns must be read in order
-        // to re-write the records in an update. Add missing partition columns to the split
-        if (!table.getUpdatedColumns().isEmpty()) {
-            Set<Integer> icebergColumnIds = icebergColumns.stream()
-                    .map(IcebergColumnHandle::getId)
-                    .collect(toImmutableSet());
-            partitionSpec.fields().stream()
-                    .map(PartitionField::sourceId)
-                    .filter(id -> !icebergColumnIds.contains(id));
-        }
-
         Map<Integer, HivePartitionKey> partitionKeys = split.getPartitionKeys();
 
-        // first, create the metadata for the page source which reads from storage.
-        // synthetic columns such as the UPDATE_ROW_DATA are synthesized in
-        // another page source further below.
-        // update fields are generated in a separate page source, filter it out for now
+        // the update row isn't a valid column that can be read from storage.
+        // Filter it out from columns passed to the storage page source.
         Set<IcebergColumnHandle> columnsToReadFromStorage = icebergColumns.stream()
                 .filter(column -> UPDATE_ROW_DATA.getId() != column.getId())
                 .collect(Collectors.toSet());
@@ -794,11 +781,11 @@ public class IcebergPageSourceProvider
                 .filter(not(icebergColumns::contains))
                 .forEach(columnsToReadFromStorage::add);
 
+
+        // finally, add the fields that the update column requires.
         Optional<IcebergColumnHandle> updateRow = icebergColumns.stream()
                 .filter(IcebergColumnHandle::isUpdateRowIdColumn)
                 .findFirst();
-
-        // finally, add any fields required by an update
         updateRow.ifPresent(updateRowIdColumn -> {
             Set<Integer> alreadyRequiredColumnIds = columnsToReadFromStorage.stream()
                     .map(IcebergColumnHandle::getId)
@@ -818,6 +805,7 @@ public class IcebergPageSourceProvider
                         }
                     });
         });
+
         // TODO: pushdownFilter for icebergLayout
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getIcebergTableName().getTableName());
         Function<List<IcebergColumnHandle>, ConnectorPageSourceWithRowPositions> partitionPageSourceDelegate =
@@ -832,8 +820,8 @@ public class IcebergPageSourceProvider
                         icebergLayout.getValidPredicate(),
                         splitContext.isCacheable());
 
-        HashMap<Integer, Object> metadataValues = new HashMap<>();
 
+        HashMap<Integer, Object> metadataValues = new HashMap<>();
         for (IcebergColumnHandle icebergColumn : icebergColumns) {
             if (icebergColumn.isPathColumn()) {
                 metadataValues.put(icebergColumn.getColumnIdentity().getId(), utf8Slice(split.getPath()));
