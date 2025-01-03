@@ -265,6 +265,22 @@ Property Name                                           Description             
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
 
+By configuring the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html##amazon-s3-configuration>`_
+properties, we can specify a S3 location as the warehouse dir of Hadoop catalog. This way, both metadata and data
+of iceberg tables will be maintained on S3 storage. An example configuration includes:
+
+.. code-block:: none
+
+    connector.name=iceberg
+    iceberg.catalog.type=hadoop
+    iceberg.catalog.warehouse=s3://iceberg_bucket/warehouse
+
+    hive.s3.use-instance-credentials=false
+    hive.s3.aws-access-key=accesskey
+    hive.s3.aws-secret-key=secretkey
+    hive.s3.endpoint=http://192.168.0.103:9878
+    hive.s3.path-style-access=true
+
 Configuration Properties
 ------------------------
 
