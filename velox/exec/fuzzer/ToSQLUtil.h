@@ -41,6 +41,9 @@ std::string toCastSql(const core::CastTypedExprPtr& cast);
 /// Convert a concat expression into a SQL string.
 std::string toConcatSql(const core::ConcatTypedExprPtr& concat);
 
+/// Convert a dereference expression into a SQL string.
+std::string toDereferenceSql(const core::DereferenceTypedExprPtr& dereference);
+
 /// Convert a constant expression into a SQL string.
 std::string toConstantSql(const core::ConstantTypedExprPtr& constant);
 
