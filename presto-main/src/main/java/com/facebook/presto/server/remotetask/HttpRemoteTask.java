@@ -1159,6 +1159,7 @@ public final class HttpRemoteTask
                         taskUpdateTimeline.removeElements(0, deliveredUpdates);
                     }
                     updateStats(currentRequestStartNanos);
+                    mergeTaskRuntimeStats(value);
                     processTaskUpdate(value, sources);
                     updateErrorTracker.requestSucceeded();
                     if (oldestTaskUpdateTime != 0) {
@@ -1169,6 +1170,11 @@ public final class HttpRemoteTask
                     sendUpdate();
                 }
             }
+        }
+
+        private void mergeTaskRuntimeStats(TaskInfo taskInfo)
+        {
+            session.getRuntimeStats().mergeWith(taskInfo.getStats().getRuntimeStats());
         }
 
         @Override
