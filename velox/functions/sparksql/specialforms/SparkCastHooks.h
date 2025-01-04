@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/core/QueryCtx.h"
 #include "velox/expression/CastHooks.h"
 
 namespace facebook::velox::functions::sparksql {
@@ -23,6 +24,8 @@ namespace facebook::velox::functions::sparksql {
 // This class provides cast hooks following Spark semantics.
 class SparkCastHooks : public exec::CastHooks {
  public:
+  explicit SparkCastHooks(const velox::core::QueryConfig& config);
+
   // TODO: Spark hook allows more string patterns than Presto.
   Expected<Timestamp> castStringToTimestamp(
       const StringView& view) const override;
@@ -49,15 +52,28 @@ class SparkCastHooks : public exec::CastHooks {
   /// whitespaces before cast.
   StringView removeWhiteSpaces(const StringView& view) const override;
 
-  /// 1) Does not follow 'isLegacyCast' and session timezone. 2) The conversion
-  /// precision is microsecond. 3) Does not append trailing zeros. 4) Adds a
-  /// positive sign at first if the year exceeds 9999.
-  const TimestampToStringOptions& timestampToStringOptions() const override;
+  const TimestampToStringOptions& timestampToStringOptions() const override {
+    return timestampToStringOptions_;
+  }
 
   bool truncate() const override {
     return true;
   }
 
   exec::PolicyType getPolicy() const override;
+
+ private:
+  const core::QueryConfig& config_;
+
+  /// 1) Does not follow 'isLegacyCast'. 2) The conversion precision is
+  /// microsecond. 3) Does not append trailing zeros. 4) Adds a positive
+  /// sign at first if the year exceeds 9999. 5) Respects the configured
+  /// session timezone.
+  TimestampToStringOptions timestampToStringOptions_ = {
+      .precision = TimestampToStringOptions::Precision::kMicroseconds,
+      .leadingPositiveSign = true,
+      .skipTrailingZeros = true,
+      .zeroPaddingYear = true,
+      .dateTimeSeparator = ' '};
 };
 } // namespace facebook::velox::functions::sparksql
