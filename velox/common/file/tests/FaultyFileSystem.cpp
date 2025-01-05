@@ -98,6 +98,11 @@ bool FaultyFileSystem::exists(std::string_view path) {
   return getFileSystem(delegatedPath, config_)->exists(delegatedPath);
 }
 
+bool FaultyFileSystem::isDirectory(std::string_view path) const {
+  const auto delegatedPath = extractPath(path);
+  return getFileSystem(delegatedPath, config_)->isDirectory(delegatedPath);
+}
+
 std::vector<std::string> FaultyFileSystem::list(std::string_view path) {
   const auto delegatedDirPath = extractPath(path);
   const auto delegatedFiles =

@@ -252,6 +252,15 @@ TEST_P(LocalFileTest, exists) {
   ASSERT_FALSE(localFs->exists(b));
 }
 
+TEST_P(LocalFileTest, isDirectory) {
+  auto tempFolder = ::exec::test::TempDirectoryPath::create(useFaultyFs_);
+  auto a = fmt::format("{}/a", tempFolder->getPath());
+  auto localFs = filesystems::getFileSystem(a, nullptr);
+  auto writeFile = localFs->openFileForWrite(a);
+  ASSERT_TRUE(localFs->isDirectory(tempFolder->getPath()));
+  ASSERT_FALSE(localFs->isDirectory(a));
+}
+
 TEST_P(LocalFileTest, list) {
   const auto tempFolder = ::exec::test::TempDirectoryPath::create(useFaultyFs_);
   const auto a = fmt::format("{}/1", tempFolder->getPath());

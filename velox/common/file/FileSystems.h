@@ -91,7 +91,7 @@ class FileSystem {
 
   /// Returns the file path without the fs scheme prefix such as "local:" prefix
   /// for local file system.
-  virtual std::string_view extractPath(std::string_view path) {
+  virtual std::string_view extractPath(std::string_view path) const {
     VELOX_NYI();
   }
 
@@ -118,6 +118,11 @@ class FileSystem {
 
   /// Returns true if the file exists.
   virtual bool exists(std::string_view path) = 0;
+
+  /// Returns true if it is a directory.
+  virtual bool isDirectory(std::string_view path) const {
+    VELOX_UNSUPPORTED("isDirectory not implemented");
+  }
 
   /// Returns the list of files or folders in a path. Currently, this method
   /// will be used for testing, but we will need change this to an iterator
