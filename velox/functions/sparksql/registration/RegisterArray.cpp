@@ -47,6 +47,21 @@ void registerSparkArrayFunctions(const std::string& prefix) {
 
 namespace sparksql {
 
+inline void registerArrayJoinFunctions(const std::string& prefix) {
+  registerFunction<
+      ParameterBinder<ArrayJoinFunction, Varchar>,
+      Varchar,
+      Array<Varchar>,
+      Varchar>({prefix + "array_join"});
+
+  registerFunction<
+      ParameterBinder<ArrayJoinFunction, Varchar>,
+      Varchar,
+      Array<Varchar>,
+      Varchar,
+      Varchar>({prefix + "array_join"});
+}
+
 template <typename T>
 inline void registerArrayMinMaxFunctions(const std::string& prefix) {
   registerFunction<ArrayMinFunction, T, Array<T>>({prefix + "array_min"});
@@ -94,6 +109,7 @@ inline void registerArrayRemoveFunctions(const std::string& prefix) {
 }
 
 void registerArrayFunctions(const std::string& prefix) {
+  registerArrayJoinFunctions(prefix);
   registerArrayMinMaxFunctions(prefix);
   registerArrayRemoveFunctions(prefix);
   registerSparkArrayFunctions(prefix);
