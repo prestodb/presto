@@ -334,8 +334,8 @@ size_t normalizeForJsonParse(const char* input, size_t length, char* output) {
   while (start < end) {
     // Unescape characters that are escaped by \ character.
     if (FOLLY_UNLIKELY(*start == '\\')) {
-      VELOX_USER_CHECK_NE(
-          start + 1, end, "Invalid escape sequence at the end of string");
+      VELOX_USER_CHECK(
+          start + 1 != end, "Invalid escape sequence at the end of string");
       // Presto java implementation only unescapes the / character.
       switch (*(start + 1)) {
         case '/':
@@ -343,8 +343,8 @@ size_t normalizeForJsonParse(const char* input, size_t length, char* output) {
           start += 2;
           continue;
         case 'u': {
-          VELOX_USER_CHECK_LE(
-              start + 5, end, "Invalid escape sequence at the end of string");
+          VELOX_USER_CHECK(
+              start + 5 <= end, "Invalid escape sequence at the end of string");
 
           // Read 4 hex digits.
           auto codePoint = parseHex(std::string_view(start + 2, 4));
@@ -428,16 +428,16 @@ size_t normalizedSizeForJsonParse(const char* input, size_t length) {
   size_t outSize = 0;
   while (start < end) {
     if (FOLLY_UNLIKELY(*start == '\\')) {
-      VELOX_USER_CHECK_NE(
-          start + 1, end, "Invalid escape sequence at the end of string");
+      VELOX_USER_CHECK(
+          start + 1 != end, "Invalid escape sequence at the end of string");
       switch (*(start + 1)) {
         case '/':
           ++outSize;
           start += 2;
           continue;
         case 'u': {
-          VELOX_USER_CHECK_LE(
-              start + 5, end, "Invalid escape sequence at the end of string");
+          VELOX_USER_CHECK(
+              start + 5 <= end, "Invalid escape sequence at the end of string");
           auto codePoint = parseHex(std::string_view(start + 2, 4));
           if (isHighSurrogate(codePoint) || isLowSurrogate(codePoint) ||
               isSpecialCode(codePoint)) {

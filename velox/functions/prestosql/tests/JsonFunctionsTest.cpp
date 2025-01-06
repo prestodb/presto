@@ -326,6 +326,12 @@ TEST_F(JsonFunctionsTest, jsonParse) {
   } catch (const VeloxUserError& e) {
     ASSERT_EQ(e.context(), "Top-level Expression: json_parse(c0)");
   }
+
+  // Test partial escape sequences.
+  VELOX_ASSERT_USER_THROW(
+      jsonParse("{\"k1\\"), "Invalid escape sequence at the end of string");
+  VELOX_ASSERT_USER_THROW(
+      jsonParse("{\"k1\\u"), "Invalid escape sequence at the end of string");
 }
 
 TEST_F(JsonFunctionsTest, canonicalization) {
