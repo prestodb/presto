@@ -1228,6 +1228,12 @@
                 <groupId>io.airlift.resolver</groupId>
                 <artifactId>resolver</artifactId>
                 <version>1.4</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.ning</groupId>
+                        <artifactId>async-http-client</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
