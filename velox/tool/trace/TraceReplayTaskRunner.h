@@ -53,7 +53,7 @@ class TraceReplayTaskRunner {
   static std::shared_ptr<RowVector> copy(
       const std::vector<RowVectorPtr>& results);
 
-  exec::test::CursorParameters cursorParams_;
+  exec::CursorParameters cursorParams_;
   std::unordered_map<core::PlanNodeId, std::vector<exec::Split>> splits_;
   bool noMoreSplits_ = false;
 };

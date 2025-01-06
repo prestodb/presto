@@ -20,7 +20,7 @@ namespace facebook::velox::tool::trace {
 
 std::pair<std::shared_ptr<exec::Task>, RowVectorPtr> TraceReplayTaskRunner::run(
     bool copyResults) {
-  auto cursor = exec::test::TaskCursor::create(cursorParams_);
+  auto cursor = exec::TaskCursor::create(cursorParams_);
   std::vector<RowVectorPtr> results;
   auto* task = cursor->task().get();
   addSplits(task);

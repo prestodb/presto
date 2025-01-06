@@ -94,11 +94,11 @@ class TpchSpeedTest {
     auto startTime = system_clock::now();
     intervalStart_ = startTime;
 
-    CursorParameters params;
+    exec::CursorParameters params;
     params.planNode = plan;
     params.maxDrivers = FLAGS_max_drivers;
 
-    auto taskCursor = TaskCursor::create(params);
+    auto taskCursor = exec::TaskCursor::create(params);
     taskCursor->start();
 
     auto task = taskCursor->task();

@@ -100,11 +100,11 @@ class LocalRunner : public Runner,
   const std::vector<ExecutableFragment> fragments_;
   const MultiFragmentPlan::Options& options_;
 
-  exec::test::CursorParameters params_;
+  exec::CursorParameters params_;
 
   tsan_atomic<State> state_{State::kInitialized};
 
-  std::unique_ptr<exec::test::TaskCursor> cursor_;
+  std::unique_ptr<exec::TaskCursor> cursor_;
   std::vector<std::vector<std::shared_ptr<exec::Task>>> stages_;
   std::exception_ptr error_;
   std::shared_ptr<SplitSourceFactory> splitSourceFactory_;

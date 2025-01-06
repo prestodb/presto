@@ -4100,14 +4100,14 @@ TEST_F(TableScanTest, addSplitsToFailedTask) {
   writeToFile(filePath->getPath(), {data});
 
   core::PlanNodeId scanNodeId;
-  exec::test::CursorParameters params;
+  CursorParameters params;
   params.planNode = exec::test::PlanBuilder()
                         .tableScan(ROW({"c0"}, {INTEGER()}))
                         .capturePlanNodeId(scanNodeId)
                         .project({"5 / c0"})
                         .planNode();
 
-  auto cursor = exec::test::TaskCursor::create(params);
+  auto cursor = TaskCursor::create(params);
   cursor->task()->addSplit(scanNodeId, makeHiveSplit(filePath->getPath()));
 
   EXPECT_THROW(while (cursor->moveNext()){}, VeloxUserError);

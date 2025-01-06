@@ -22,6 +22,7 @@
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox;
 

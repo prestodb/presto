@@ -20,6 +20,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 
 class UnnestTest : public OperatorTestBase,

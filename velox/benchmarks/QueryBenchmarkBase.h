@@ -86,8 +86,8 @@ class QueryBenchmarkBase {
   virtual ~QueryBenchmarkBase() = default;
   virtual void initialize();
   void shutdown();
-  std::pair<std::unique_ptr<exec::test::TaskCursor>, std::vector<RowVectorPtr>>
-  run(const exec::test::TpchPlan& tpchPlan);
+  std::pair<std::unique_ptr<exec::TaskCursor>, std::vector<RowVectorPtr>> run(
+      const exec::test::TpchPlan& tpchPlan);
 
   virtual std::vector<std::shared_ptr<connector::ConnectorSplit>> listSplits(
       const std::string& path,

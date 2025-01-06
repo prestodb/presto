@@ -19,7 +19,7 @@
 
 #include <filesystem>
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 
 bool waitForTaskDriversToFinish(exec::Task* task, uint64_t maxWaitMicros) {
   VELOX_USER_CHECK(!task->isRunning());
@@ -460,4 +460,4 @@ bool RowCursor::hasNext() {
   return currentRow_ < numRows_ || cursor_->hasNext();
 }
 
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::exec

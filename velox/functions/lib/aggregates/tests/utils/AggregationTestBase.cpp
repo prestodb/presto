@@ -33,8 +33,8 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/SignatureBinder.h"
 
+using facebook::velox::exec::CursorParameters;
 using facebook::velox::exec::test::AssertQueryBuilder;
-using facebook::velox::exec::test::CursorParameters;
 using facebook::velox::exec::test::PlanBuilder;
 using facebook::velox::test::VectorMaker;
 

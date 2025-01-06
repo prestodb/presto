@@ -18,7 +18,7 @@
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Task.h"
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 
 /// Wait up to maxWaitMicros for all the task drivers to finish. The function
 /// returns true if all the drivers have finished, otherwise false.
@@ -186,4 +186,4 @@ class RowCursor {
   vector_size_t numRows_ = 0;
 };
 
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::exec

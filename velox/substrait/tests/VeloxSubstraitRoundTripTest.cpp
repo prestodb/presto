@@ -28,6 +28,7 @@
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
+using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
 using namespace facebook::velox::substrait;
 
