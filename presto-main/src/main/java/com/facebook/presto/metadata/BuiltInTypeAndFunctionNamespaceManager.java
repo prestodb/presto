@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.TypeParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
+import com.facebook.presto.cost.ScalarStatsAnnotationProcessor;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
 import com.facebook.presto.geospatial.BingTileFunctions;
 import com.facebook.presto.geospatial.BingTileOperators;
@@ -184,6 +185,7 @@ import com.facebook.presto.operator.scalar.MapValues;
 import com.facebook.presto.operator.scalar.MathFunctions;
 import com.facebook.presto.operator.scalar.MathFunctions.LegacyLogFunction;
 import com.facebook.presto.operator.scalar.MultimapFromEntriesFunction;
+import com.facebook.presto.operator.scalar.ParametricScalar;
 import com.facebook.presto.operator.scalar.QuantileDigestFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpFunctions;
 import com.facebook.presto.operator.scalar.Re2JRegexpReplaceLambdaFunction;
@@ -1180,6 +1182,21 @@ public class BuiltInTypeAndFunctionNamespaceManager
                     function.isCalledOnNullInput(),
                     sqlFunction.getVersion(),
                     sqlFunction.getComplexTypeFunctionDescriptor());
+        }
+        else if (function instanceof ParametricScalar) {
+            ParametricScalar sqlFunction = (ParametricScalar) function;
+            return new FunctionMetadata(
+                    signature.getName(),
+                    signature.getArgumentTypes(),
+                    signature.getReturnType(),
+                    signature.getKind(),
+                    JAVA,
+                    function.isDeterministic(),
+                    function.isCalledOnNullInput(),
+                    sqlFunction.getComplexTypeFunctionDescriptor(),
+                    Optional.ofNullable(sqlFunction.getScalarHeader()
+                            .getSignatureToScalarFunctionStatsHeadersMap()
+                            .get(ScalarStatsAnnotationProcessor.eraseTypeBounds(signature))));
         }
         else {
             return new FunctionMetadata(
