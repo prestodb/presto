@@ -419,3 +419,23 @@ writer scaling if it is detected as overloaded by scale writer exchange.
 
 Minimum amount of data processed by all the logical table partitions to
 trigger skewed partition rebalancing by scale writer exchange.
+
+``native_table_scan_scaled_processing_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, enables scaling the table scan concurrency on each worker.
+
+``native_table_scan_scale_up_memory_usage_ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Minimum value:** ``0``
+* **Maximum value:** ``1``
+* **Default value:** ``0.7``
+
+Controls the ratio of available memory that can be used for scaling up table scans.
+A higher value allows more memory to be allocated for scaling up table scans,
+while a lower value limits the amount of memory used.
