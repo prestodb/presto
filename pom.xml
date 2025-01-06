@@ -60,7 +60,7 @@
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>8.10.0</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
-        <dep.logback.version>1.2.13</dep.logback.version>
+        <dep.logback.version>1.5.13</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
         <dep.asm.version>9.2</dep.asm.version>
@@ -976,6 +976,12 @@
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>log-manager</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1030,6 +1036,12 @@
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>bootstrap</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1046,6 +1058,10 @@
                     <exclusion>
                         <groupId>io.jsonwebtoken</groupId>
                         <artifactId>jjwt</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1090,6 +1106,12 @@
                 <groupId>com.facebook.airlift</groupId>
                 <artifactId>http-client</artifactId>
                 <version>${dep.airlift.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1934,6 +1956,14 @@
                     <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
