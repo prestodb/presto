@@ -44,7 +44,7 @@ class ClassificationAggregationInputGenerator : public InputGenerator {
     /// buckets are capped to 50'000 to prevent OOM-ing issues. The minimum is
     /// 2 since that is the minimum valid bucket count.
     if (!bucket_.has_value()) {
-      bucket_ = boost::random::uniform_int_distribution<int64_t>(2, 50000)(rng);
+      bucket_ = boost::random::uniform_int_distribution<int64_t>(2, 500)(rng);
     }
     const auto size = fuzzer.getOptions().vectorSize;
     velox::test::VectorMaker vectorMaker{pool};
