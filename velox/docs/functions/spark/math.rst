@@ -143,7 +143,7 @@ Mathematical Functions
 .. spark:function:: floor(x) -> [same as x]
 
     Returns ``x`` rounded down to the nearest integer.
-    Supported types are: BIGINT and DOUBLE.
+    Supported types are: BIGINT,  DOUBLE and DECIMAL.
 
 .. spark:function:: hex(x) -> varchar
 

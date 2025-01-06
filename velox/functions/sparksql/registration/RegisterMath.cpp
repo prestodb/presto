@@ -15,6 +15,7 @@
  */
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Arithmetic.h"
+#include "velox/functions/prestosql/DecimalFunctions.h"
 #include "velox/functions/sparksql/Arithmetic.h"
 #include "velox/functions/sparksql/DecimalArithmetic.h"
 #include "velox/functions/sparksql/Rand.h"
@@ -75,6 +76,7 @@ void registerMathFunctions(const std::string& prefix) {
       {prefix + "floor"});
   registerFunction<sparksql::FloorFunction, int64_t, double>(
       {prefix + "floor"});
+  registerDecimalFloor(prefix);
   registerFunction<HypotFunction, double, double, double>({prefix + "hypot"});
   registerFunction<sparksql::Log2Function, double, double>({prefix + "log2"});
   registerFunction<sparksql::Log10Function, double, double>({prefix + "log10"});
