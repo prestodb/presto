@@ -37,6 +37,10 @@ DistributedPlanBuilder::DistributedPlanBuilder(DistributedPlanBuilder& root)
   current_->width = options_.numWorkers;
 }
 
+DistributedPlanBuilder::~DistributedPlanBuilder() {
+  VELOX_CHECK_EQ(root_->stack_.size(), 1);
+}
+
 std::vector<runner::ExecutableFragment> DistributedPlanBuilder::fragments() {
   newFragment();
   return std::move(fragments_);
@@ -53,7 +57,7 @@ void DistributedPlanBuilder::newFragment() {
   planNode_ = nullptr;
 }
 
-PlanBuilder& DistributedPlanBuilder::shuffle(
+PlanBuilder& DistributedPlanBuilder::shufflePartitioned(
     const std::vector<std::string>& partitionKeys,
     int numPartitions,
     bool replicateNullsAndAny,
@@ -74,7 +78,7 @@ PlanBuilder& DistributedPlanBuilder::shuffle(
   return *this;
 }
 
-core::PlanNodePtr DistributedPlanBuilder::shuffleResult(
+core::PlanNodePtr DistributedPlanBuilder::shufflePartitionedResult(
     const std::vector<std::string>& partitionKeys,
     int numPartitions,
     bool replicateNullsAndAny,
@@ -103,6 +107,33 @@ core::PlanNodePtr DistributedPlanBuilder::shuffleResult(
   }
   exchange(output->outputType(), VectorSerde::Kind::kPresto);
   auto* exchange = dynamic_cast<const core::ExchangeNode*>(planNode_.get());
+  consumer->current_->inputStages.push_back(
+      runner::InputStage{exchange->id(), producerPrefix});
+  return std::move(planNode_);
+}
+
+core::PlanNodePtr DistributedPlanBuilder::shuffleBroadcastResult() {
+  partitionedOutputBroadcast();
+  auto* output =
+      dynamic_cast<const core::PartitionedOutputNode*>(planNode_.get());
+  VELOX_CHECK_NOT_NULL(output);
+  const auto producerPrefix = current_->taskPrefix;
+  auto result = planNode_;
+  newFragment();
+
+  VELOX_CHECK_GE(root_->stack_.size(), 2);
+  root_->stack_.pop_back();
+  auto* consumer = root_->stack_.back();
+  VELOX_CHECK_GE(consumer->current_->width, 1);
+  VELOX_CHECK_EQ(fragments_.back().numBroadcastDestinations, 0);
+  fragments_.back().numBroadcastDestinations = consumer->current_->width;
+
+  for (auto& fragment : fragments_) {
+    root_->fragments_.push_back(std::move(fragment));
+  }
+  exchange(output->outputType(), VectorSerde::Kind::kPresto);
+  auto* exchange = dynamic_cast<const core::ExchangeNode*>(planNode_.get());
+  VELOX_CHECK_NOT_NULL(exchange);
   consumer->current_->inputStages.push_back(
       runner::InputStage{exchange->id(), producerPrefix});
   return std::move(planNode_);

@@ -188,11 +188,13 @@ LocalRunner::makeStages() {
           0,
           onError);
       stages_.back().push_back(task);
+      // Output buffers are created during Task::start(), so we must start the
+      // task before calling updateOutputBuffers().
+      task->start(options_.numDrivers);
       if (fragment.numBroadcastDestinations) {
         // TODO: Add support for Arbitrary partition type.
         task->updateOutputBuffers(fragment.numBroadcastDestinations, true);
       }
-      task->start(options_.numDrivers);
     }
   }
 

@@ -44,9 +44,9 @@ class LocalRunnerTest : public LocalRunnerTestBase {
     };
 
     static int32_t counter2;
-    counter2 = 0;
+    counter2 = kNumRows - 1;
     auto customize2 = [&](const RowVectorPtr& rows) {
-      makeAscending(rows, counter2);
+      makeDescending(rows, counter2);
     };
 
     rowType_ = ROW({"c0"}, {BIGINT()});
@@ -87,13 +87,15 @@ class LocalRunnerTest : public LocalRunnerTestBase {
     DistributedPlanBuilder rootBuilder(options, idGenerator_, pool_.get());
     rootBuilder.tableScan("T", rowType_);
     if (numWorkers > 1) {
-      rootBuilder.shuffle({}, 1, false);
+      rootBuilder.shufflePartitioned({}, 1, false);
     }
     return std::make_shared<MultiFragmentPlan>(
         rootBuilder.fragments(), std::move(options));
   }
 
-  MultiFragmentPlanPtr makeJoinPlan(std::string project = "c0") {
+  MultiFragmentPlanPtr makeJoinPlan(
+      std::string project = "c0",
+      bool broadcastBuild = false) {
     MultiFragmentPlan::Options options = {
         .queryId = "test.", .numWorkers = 4, .numDrivers = 2};
     const int32_t width = 3;
@@ -101,17 +103,22 @@ class LocalRunnerTest : public LocalRunnerTestBase {
     DistributedPlanBuilder rootBuilder(options, idGenerator_, pool_.get());
     rootBuilder.tableScan("T", rowType_)
         .project({project})
-        .shuffle({"c0"}, 3, false)
+        .shufflePartitioned({"c0"}, 3, false)
         .hashJoin(
             {"c0"},
             {"b0"},
-            DistributedPlanBuilder(rootBuilder)
-                .tableScan("U", rowType_)
-                .project({"c0 as b0"})
-                .shuffleResult({"b0"}, width, false),
+            broadcastBuild
+                ? DistributedPlanBuilder(rootBuilder)
+                      .tableScan("U", rowType_)
+                      .project({"c0 as b0"})
+                      .shuffleBroadcastResult()
+                : DistributedPlanBuilder(rootBuilder)
+                      .tableScan("U", rowType_)
+                      .project({"c0 as b0"})
+                      .shufflePartitionedResult({"b0"}, width, false),
             "",
             {"c0", "b0"})
-        .shuffle({}, 1, false)
+        .shufflePartitioned({}, 1, false)
         .finalAggregation({}, {"count(1)"}, {{BIGINT()}});
     return std::make_shared<MultiFragmentPlan>(
         rootBuilder.fragments(), std::move(options));
@@ -123,6 +130,14 @@ class LocalRunnerTest : public LocalRunnerTestBase {
       ints->set(i, counter + i);
     }
     counter += ints->size();
+  }
+
+  static void makeDescending(const RowVectorPtr& rows, int32_t& counter) {
+    auto ints = rows->childAt(0)->as<FlatVector<int64_t>>();
+    for (auto i = 0; i < ints->size(); ++i) {
+      ints->set(i, counter - i);
+    }
+    counter -= ints->size();
   }
 
   void checkScanCount(const std::string& id, int32_t numWorkers) {
@@ -182,6 +197,24 @@ TEST_F(LocalRunnerTest, error) {
 TEST_F(LocalRunnerTest, scan) {
   checkScanCount("s1", 1);
   checkScanCount("s2", 3);
+}
+
+TEST_F(LocalRunnerTest, broadcast) {
+  auto plan = makeJoinPlan("c0", true);
+  const std::string id = "q1";
+  auto rootPool = makeRootPool(id);
+  auto splitSourceFactory = makeSimpleSplitSourceFactory(plan);
+  auto localRunner = std::make_shared<LocalRunner>(
+      std::move(plan), makeQueryCtx(id, rootPool.get()), splitSourceFactory);
+  auto results = readCursor(localRunner);
+  auto stats = localRunner->stats();
+  EXPECT_EQ(1, results.size());
+  EXPECT_EQ(1, results[0]->size());
+  EXPECT_EQ(
+      kNumRows, results[0]->childAt(0)->as<FlatVector<int64_t>>()->valueAt(0));
+  results.clear();
+  EXPECT_EQ(Runner::State::kFinished, localRunner->state());
+  localRunner->waitForCompletion(kWaitTimeoutUs);
 }
 
 } // namespace

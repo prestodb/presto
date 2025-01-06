@@ -36,21 +36,25 @@ class DistributedPlanBuilder : public PlanBuilder {
   /// a join build side.
   DistributedPlanBuilder(DistributedPlanBuilder& root);
 
+  ~DistributedPlanBuilder() override;
+
   /// Returns the planned fragments. The builder will be empty after this. This
   /// is only called on the root builder.
   std::vector<runner::ExecutableFragment> fragments();
 
-  PlanBuilder& shuffle(
+  PlanBuilder& shufflePartitioned(
       const std::vector<std::string>& keys,
       int numPartitions,
       bool replicateNullsAndAny,
       const std::vector<std::string>& outputLayout = {}) override;
 
-  core::PlanNodePtr shuffleResult(
+  core::PlanNodePtr shufflePartitionedResult(
       const std::vector<std::string>& keys,
       int numPartitions,
       bool replicateNullsAndAny,
       const std::vector<std::string>& outputLayout = {}) override;
+
+  core::PlanNodePtr shuffleBroadcastResult() override;
 
  private:
   void newFragment();

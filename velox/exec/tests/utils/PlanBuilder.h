@@ -1221,7 +1221,7 @@ class PlanBuilder {
   /// In a DistributedPlanBuilder, introduces a shuffle boundary. The plan so
   /// far is shuffled and subsequent nodes consume the shuffle. Arguments are as
   /// in partitionedOutput().
-  virtual PlanBuilder& shuffle(
+  virtual PlanBuilder& shufflePartitioned(
       const std::vector<std::string>& keys,
       int numPartitions,
       bool replicateNullsAndAny,
@@ -1232,11 +1232,18 @@ class PlanBuilder {
   /// In a DistributedPlanBuilder, returns an Exchange on top of the plan built
   /// so far and couples it to the current stage in the enclosing builder.
   /// Arguments are as in shuffle().
-  virtual core::PlanNodePtr shuffleResult(
+  virtual core::PlanNodePtr shufflePartitionedResult(
       const std::vector<std::string>& keys,
       int numPartitions,
       bool replicateNullsAndAny,
       const std::vector<std::string>& outputLayout = {}) {
+    VELOX_UNSUPPORTED("Needs DistributedPlanBuilder");
+  }
+
+  /// In a DistributedPlanBuilder, returns an Exchange on top of the plan built
+  /// so far that ends with a broadcast PartitionedOutput node, and couples the
+  /// Exchange to the current stage in the enclosing builder.
+  virtual core::PlanNodePtr shuffleBroadcastResult() {
     VELOX_UNSUPPORTED("Needs DistributedPlanBuilder");
   }
 
