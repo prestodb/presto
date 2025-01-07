@@ -257,9 +257,9 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
     {
-        return delegate().getRowFilter(identity, context, tableName);
+        return delegate().getRowFilters(identity, context, tableName);
     }
 
     @Override

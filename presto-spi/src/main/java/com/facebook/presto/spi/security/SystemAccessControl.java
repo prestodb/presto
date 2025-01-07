@@ -383,15 +383,15 @@ public interface SystemAccessControl
     }
 
     /**
-     * Get a row filter associated with the given table and identity.
+     * Get row filters associated with the given table and identity.
+     * <p>
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
      *
-     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
-     *
-     * @return the filter, or {@link Optional#empty()} if not applicable
+     * @return a list of filters, or empty list if not applicable
      */
-    default Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    default List<ViewExpression> getRowFilters(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
     {
-        return Optional.empty();
+        return Collections.emptyList();
     }
 
     /**
