@@ -17,7 +17,6 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.informationSchema.InformationSchemaConnector;
 import com.facebook.presto.connector.system.SystemConnector;
 import com.facebook.presto.metadata.Catalog;
@@ -25,6 +24,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -58,8 +58,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyQueryIntegrityCheck;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
@@ -69,6 +71,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 public class TestAccessControlManager
@@ -280,9 +283,13 @@ public class TestAccessControlManager
             {
                 return new SystemAccessControl() {
                     @Override
-                    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String column, Type type)
+                    public Map<ColumnMetadata, ViewExpression> getColumnMasks(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
                     {
-                        return Optional.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "system mask"));
+                        ImmutableMap.Builder<ColumnMetadata, ViewExpression> columnMaskBuilder = ImmutableMap.builder();
+                        for (ColumnMetadata column : columns) {
+                            columnMaskBuilder.put(column, new ViewExpression("user", Optional.empty(), Optional.empty(), "system mask"));
+                        }
+                        return columnMaskBuilder.buildOrThrow();
                     }
 
                     @Override
@@ -307,11 +314,26 @@ public class TestAccessControlManager
         ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
         accessControlManager.addCatalogAccessControl(connectorId, new ConnectorAccessControl() {
             @Override
-            public Optional<ViewExpression> getColumnMask(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, String column, Type type)
+            public Map<ColumnMetadata, ViewExpression> getColumnMasks(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
             {
-                return Optional.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "connector mask"));
+                ImmutableMap.Builder<ColumnMetadata, ViewExpression> columnMaskBuilder = ImmutableMap.builder();
+                for (ColumnMetadata column : columns) {
+                    columnMaskBuilder.put(column, new ViewExpression("user", Optional.empty(), Optional.empty(), "connector mask"));
+                }
+                return columnMaskBuilder.buildOrThrow();
             }
         });
+
+        PrestoException exception = expectThrows(
+                PrestoException.class,
+                () -> transaction(transactionManager, accessControlManager)
+                            .execute(transactionId -> {
+                                accessControlManager.getColumnMasks(transactionId, new Identity(USER_NAME, Optional.of(PRINCIPAL)),
+                                        new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty()), new QualifiedObjectName("catalog", "schema", "table"),
+                                        ImmutableList.of(ColumnMetadata.builder().setName("column").setType(BIGINT).build()));
+                            }));
+        assertEquals(exception.getErrorCode(), INVALID_COLUMN_MASK.toErrorCode());
+        assertEquals(exception.getMessage(), "Multiple masks for the same column found");
     }
 
     private static ConnectorId registerBogusConnector(CatalogManager catalogManager, TransactionManager transactionManager, AccessControl accessControl, String catalogName)

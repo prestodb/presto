@@ -15,11 +15,11 @@ package com.facebook.presto.security;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
 import com.facebook.presto.plugin.base.security.SchemaAccessControlRule;
 import com.facebook.presto.security.CatalogAccessControlRule.AccessMode;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
@@ -31,13 +31,13 @@ import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.security.ViewExpression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 
 import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -456,13 +456,13 @@ public class FileBasedSystemAccessControl
     @Override
     public List<ViewExpression> getRowFilters(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
     {
-        return Collections.emptyList();
+        return ImmutableList.of();
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        return Optional.empty();
+        return ImmutableMap.of();
     }
 
     private boolean isSchemaOwner(Identity identity, CatalogSchemaName schema)

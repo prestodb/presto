@@ -14,7 +14,7 @@
 package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -273,8 +273,8 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, String columnName, Type type)
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        return delegate().getColumnMask(transactionHandle, identity, context, tableName, columnName, type);
+        return delegate().getColumnMasks(transactionHandle, identity, context, tableName, columns);
     }
 }

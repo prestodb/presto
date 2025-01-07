@@ -14,8 +14,8 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
@@ -25,10 +25,11 @@ import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.security.ViewExpression;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -238,12 +239,12 @@ public class AllowAllSystemAccessControl
     @Override
     public List<ViewExpression> getRowFilters(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
     {
-        return Collections.emptyList();
+        return ImmutableList.of();
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        return Optional.empty();
+        return ImmutableMap.of();
     }
 }
