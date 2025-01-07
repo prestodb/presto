@@ -23,7 +23,7 @@ HTTP endpoints related to tasks are registered to Proxygen in
 Other HTTP endpoints include:
 
 * POST: v1/memory: Reports memory, but no assignments are adjusted unlike in Java workers
-* GET: v1/info/metrics: Returns worker level metrics in Prometheus Data format. Refer section `Worker Metrics Collection <#worker-metrics-collection>`_ for more info. Here is a sample Metrics data returned by this API.
+* GET: v1/info/metrics: Returns worker level metrics in Prometheus Data format. See `Worker Metrics Collection`_ for more information. Here is a sample Metrics data returned by this API.
 
    .. code-block:: text
 
