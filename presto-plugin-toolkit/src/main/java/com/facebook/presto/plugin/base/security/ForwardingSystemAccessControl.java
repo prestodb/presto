@@ -14,8 +14,8 @@
 package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
@@ -28,6 +28,7 @@ import com.facebook.presto.spi.security.ViewExpression;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -263,8 +264,8 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        return delegate().getColumnMask(identity, context, tableName, columnName, type);
+        return delegate().getColumnMasks(identity, context, tableName, columns);
     }
 }
