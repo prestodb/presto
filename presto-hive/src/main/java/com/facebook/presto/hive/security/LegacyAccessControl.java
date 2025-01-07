@@ -31,6 +31,8 @@ import com.facebook.presto.spi.security.ViewExpression;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -290,9 +292,9 @@ public class LegacyAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        return Optional.empty();
+        return Collections.emptyList();
     }
 
     @Override
