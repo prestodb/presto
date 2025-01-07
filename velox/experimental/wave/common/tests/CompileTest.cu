@@ -193,4 +193,40 @@ TEST_F(CompileTest, scan) {
   }
 }
 
+TEST_F(CompileTest, reduce) {
+  // Tests a warp reduce.
+
+  const char* text =
+      "#include \"velox/experimental/wave/common/Scan.cuh\"\n"
+      "namespace facebook::velox::wave {\n"
+      "template <typename T> __device__ __forceinline__ T add(T x, T y) {return x + y;}\n"
+      "__global__ void reduceKernel32(int32_t* ints, int32_t* result) {\n"
+      "  using Reduce = WarpReduce<uint32_t>;\n"
+      "  result[threadIdx.x] = Reduce().reduce(ints[threadIdx.x], add<int32_t>);\n"
+      "__syncthreads();\n"
+      "}\n"
+      "}\n";
+
+  WaveBufferPtr ints = arena_->allocate<uint32_t>(32);
+  for (auto i = 0; i < 32; ++i) {
+    ints->as<uint32_t>()[i] = i;
+  }
+  WaveBufferPtr result = arena_->allocate<uint32_t>(32);
+
+  KernelSpec spec = {
+      text, {"facebook::velox::wave::reduceKernel32"}, "reduces.cu"};
+  auto module = CompiledModule::create(spec);
+  auto ptr1 = ints->as<int32_t>();
+  auto ptr2 = result->as<int32_t>();
+  auto stream = std::make_unique<Stream>();
+  int32_t** arrays[2] = {&ptr1, &ptr2};
+  module->launch(0, 1, 32, 0, stream.get(), reinterpret_cast<void**>(arrays));
+  stream->wait();
+  int32_t sum = 0;
+  for (auto i = 0; i < 32; ++i) {
+    sum += i;
+  }
+  EXPECT_EQ(sum, ptr2[0]);
+}
+
 } // namespace facebook::velox::wave

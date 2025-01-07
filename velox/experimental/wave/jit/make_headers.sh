@@ -31,6 +31,7 @@ stringify "velox/experimental/wave/vector/Operand.h" >> $JIT/Headers.h
 stringify "velox/experimental/wave/exec/ErrorCode.h" >> $JIT/Headers.h
 stringify "velox/experimental/wave/exec/WaveCore.cuh" >> $JIT/Headers.h
 stringify "velox/experimental/wave/exec/ExprKernel.h" >> $JIT/Headers.h
+stringify "velox/experimental/wave/exec/Accumulators.cuh" >> $JIT/Headers.h
 stringify "velox/experimental/wave/common/HashTable.h" >> $JIT/Headers.h
 stringify "velox/experimental/wave/common/HashTable.cuh" >> $JIT/Headers.h
 stringify "velox/experimental/wave/common/hash.cuh" >> $JIT/Headers.h

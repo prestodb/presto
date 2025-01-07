@@ -214,7 +214,10 @@ void __global__ setupAggregationKernel(AggregationControl op) {
   memset(data->singleRow, 0, op.rowSize);
 }
 
-void WaveKernelStream::setupAggregation(AggregationControl& op) {
+void WaveKernelStream::setupAggregation(
+    AggregationControl& op,
+    int32_t entryPoint,
+    CompiledKernel* kernel) {
   int32_t numBlocks = 1;
   int32_t numThreads = 1;
   if (op.oldBuckets) {
@@ -223,7 +226,12 @@ void WaveKernelStream::setupAggregation(AggregationControl& op) {
     numBlocks = std::min<int64_t>(
         roundUp(op.numOldBuckets, kBlockSize) / kBlockSize, 640);
   }
-  setupAggregationKernel<<<numBlocks, numThreads, 0, stream_->stream>>>(op);
+  if (kernel) {
+    void* args = &op;
+    kernel->launch(entryPoint, numBlocks, numThreads, 0, this, &args);
+  } else {
+    setupAggregationKernel<<<numBlocks, numThreads, 0, stream_->stream>>>(op);
+  }
   wait();
 }
 

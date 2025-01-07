@@ -84,6 +84,10 @@ class AsyncCompiledKernel : public CompiledKernel {
     (*ptr_)->launch(kernelIdx, numBlocks, numThreads, shared, stream, args);
   }
 
+  KernelInfo info(int32_t kernelIdx) override {
+    return (*ptr_)->info(kernelIdx);
+  }
+
  private:
   KernelPtr ptr_;
 };

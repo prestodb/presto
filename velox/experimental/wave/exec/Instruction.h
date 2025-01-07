@@ -20,6 +20,7 @@
 #include "velox/exec/Operator.h"
 #include "velox/experimental/wave/common/ResultStaging.h"
 #include "velox/experimental/wave/exec/ExprKernel.h"
+#include "velox/expression/Expr.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 
@@ -37,6 +38,8 @@ T addBytes(U* p, int32_t bytes) {
 struct AbstractOperand {
   static constexpr int32_t kNoConstant = ~0;
   static constexpr int32_t kNoWrap = ~0;
+  static constexpr int32_t kNotAccessed = ~0;
+  static constexpr int32_t kNoNullBit = ~0;
 
   AbstractOperand(int32_t id, const TypePtr& type, std::string label)
       : id(id), type(type), label(label) {}
@@ -82,14 +85,73 @@ struct AbstractOperand {
   // by e.g. file metadata but not set at plan time.
   bool sourceNullable{false};
 
+  /// True if represents a column. May be subject to lazy load.
+  bool isColumn{false};
+
+  bool isHostReturn{false};
+
+  /// Corresponding Expr. Needs to be set if inlinable.
+  const exec::Expr* expr{nullptr};
+
+  // 1:1 to inputs of 'expr'. The same Expr will be different trees of
+  // AbstractOperand if these are in different conditional
+  // branches. Dedupping CSEs is only for non-conditionally executed.
+  std::vector<AbstractOperand*> inputs;
+
+  // True if value must be stored in memory, e.g. accessed in different kernel
+  // or if operand of retriable.
+  bool needsStore{false};
+
+  // True if this may need retry, e.g. like string concat that allocates.
+  bool retriable{false};
+
+  // True of a column whose first access is conditional, e.g. behind a filter or
+  // join.
+  bool maybeLazy{false};
+
+  // True of a column whose only use is as argument of a single pushdown
+  // compatible agg.
+  bool aggPushdown{false};
+
+  // Number of references.
+  int32_t numUses{0};
+
+  // Cost to compute, excl. children. Determines if worth storing or
+  // recomputing.
+  int32_t cost{0};
+
+  // Cost to compute, incl children.
+  int32_t costWithChildren{0};
+
+  // Segment ordinal where value is generated.
+  int32_t definingSegment{0};
+
+  // Segment ordinal where value is first accessed.
+  int32_t firstUseSegment{kNotAccessed};
+  // Segment ordinal where value is last accessed.
+  int32_t lastUseSegment{0};
+
   // Ordinal of the wrap instruction that first wraps this. All operands wrapped
   // by the same wrap share 'Operand.indices'. All Operands that are wrapped at
   // some point get indices when first created. When they get wrapped, there is
   // one wrap for all Operands with the same 'wrappedAt'
   int32_t wrappedAt{kNoWrap};
 
+  /// If true, during code gen, r<ordinal(id)> has the value.
+  bool inRegister{false};
+
+  /// During codegen, true if the value is in operands[ordinal(id)]. Applies to
+  /// expression results. Leaf columns are always stored.
+  bool isStored{false};
+
+  /// Bit field in register with null flags.
+  int32_t registerNullBit{kNoNullBit};
+
   std::string toString() const;
 };
+
+using OpVector = std::vector<AbstractOperand*>;
+using OpCVector = std::vector<const AbstractOperand*>;
 
 class WaveStream;
 struct OperatorState;
@@ -139,7 +201,8 @@ struct AdvanceResult {
 };
 
 struct AbstractInstruction {
-  AbstractInstruction(OpCode opCode) : opCode(opCode) {}
+  AbstractInstruction(OpCode opCode, int32_t serial = -1)
+      : opCode(opCode), serial(serial) {}
 
   virtual ~AbstractInstruction() = default;
 
@@ -187,6 +250,11 @@ struct AbstractInstruction {
     return false;
   }
 
+  /// Returns the instructionIdx to use in AdvanceResult to pick up from 'this'.
+  virtual int32_t continueIdx() const {
+    return serial;
+  }
+
   virtual void reserveState(InstructionStatus& state) {}
 
   /// Returns the InstructionStatus if any. Used for patching the grid
@@ -200,6 +268,8 @@ struct AbstractInstruction {
   virtual std::string toString() const {
     return fmt::format("OpCode {}", static_cast<int32_t>(opCode));
   }
+
+  int32_t serial{-1};
 };
 
 struct AbstractReturn : public AbstractInstruction {
@@ -330,6 +400,7 @@ struct AbstractState {
   /// True if there is one item per WaveDriver, If false, there is one item per
   /// WaveStream.
   bool isGlobal;
+  AbstractInstruction* instruction;
 };
 
 struct AbstractOperator : public AbstractInstruction {
@@ -338,8 +409,7 @@ struct AbstractOperator : public AbstractInstruction {
       int32_t serial,
       AbstractState* state,
       RowTypePtr outputType)
-      : AbstractInstruction(opCode),
-        serial(serial),
+      : AbstractInstruction(opCode, serial),
         state(state),
         outputType(outputType) {}
 
@@ -350,18 +420,22 @@ struct AbstractOperator : public AbstractInstruction {
     return state->id;
   }
 
-  // Identifies the bit in 'continuable' to indicate need for post-return
-  // action.
-  int32_t serial;
-
   // Handle on device side state, e.g. aggregate hash table or repartitioning
   // output buffers.
   AbstractState* state;
   RowTypePtr outputType;
 };
 
+/// Describes a field in a row-wise container for hash build/group by.
+struct AbstractField {
+  TypePtr type;
+  int32_t fieldIdx;
+  int32_t nullIdx{-1};
+};
+
 struct AbstractAggInstruction {
   AggregateOp op;
+
   // Offset of null indicator byte on accumulator row.
   int32_t nullOffset;
   // Offset of accumulator on accumulator row. Aligned at 8.
@@ -382,7 +456,8 @@ struct AbstractAggregation : public AbstractOperator {
         aggregates(std::move(aggregates)) {}
 
   int32_t rowSize() {
-    return aggregates.back().accumulatorOffset + sizeof(int64_t);
+    return roundedRowSize;
+    // return aggregates.back().accumulatorOffset + sizeof(int64_t);
   }
 
   bool isSink() const override {
@@ -406,6 +481,7 @@ struct AbstractAggregation : public AbstractOperator {
   bool intermediateInput{false};
   bool intermediateOutput{false};
   std::vector<AbstractOperand*> keys;
+  std::vector<AbstractField> keyFields;
   std::vector<AbstractAggInstruction> aggregates;
   int32_t stateId;
   int32_t literalOffset;
@@ -417,6 +493,8 @@ struct AbstractAggregation : public AbstractOperator {
 
   /// Prepare up to this many result reading streams.
   int16_t maxReadStreams{1};
+
+  int32_t roundedRowSize{0};
 };
 
 struct AbstractReadAggregation : public AbstractOperator {

@@ -150,6 +150,8 @@ struct Value {
     return expr == other.expr && subfield == other.subfield;
   }
 
+  std::string toString() const;
+
   const exec::Expr* expr;
   const common::Subfield* subfield;
 };
@@ -468,10 +470,39 @@ struct ProgramLaunch {
   AdvanceResult advance;
 };
 
+/// Identifies a compiled kernel. The text is the full description
+/// of the work. The operator ids are the ids in the plan making the
+/// lookup so that every placeholder in the text corresponds to one
+/// operand id.
+struct ProgramKey {
+  std::string text;
+  std::vector<AbstractOperand*> input;
+  std::vector<AbstractOperand*> local;
+  std::vector<AbstractOperand*> output;
+};
+
 class Program : public std::enable_shared_from_this<Program> {
  public:
+  Program() = default;
+
+  Program(
+      OperandSet input,
+      OperandSet local,
+      OperandSet output,
+      OperandSet extraWrap,
+      int32_t numBranches,
+      int32_t sharedSize,
+      const std::vector<std::unique_ptr<AbstractOperand>>& allOperands,
+      std::vector<std::unique_ptr<ProgramState>> operatorStates,
+      std::unique_ptr<CompiledKernel> kernel);
+
   void add(std::unique_ptr<AbstractInstruction> instruction) {
     instructions_.push_back(std::move(instruction));
+  }
+
+  const std::vector<std::unique_ptr<AbstractInstruction>>& instructions()
+      const {
+    return instructions_;
   }
 
   /// Specifies that Operand with 'id' is used by a dependent operation.
@@ -516,6 +547,10 @@ class Program : public std::enable_shared_from_this<Program> {
   }
 
   void releaseExe(std::unique_ptr<Executable>&& exe) {
+    std::lock_guard<std::mutex> l(mutex_);
+    // The exe being freed should not be the last reference to the Program.
+    VELOX_CHECK(!exe->programShared.unique());
+    exe->programShared = nullptr;
     prepared_.push_back(std::move(exe));
   }
 
@@ -538,6 +573,9 @@ class Program : public std::enable_shared_from_this<Program> {
   /// Fills 'ptrs' with device side global/stream states. Creates the states if
   /// necessary.
   void getOperatorStates(WaveStream& stream, std::vector<void*>& ptrs);
+  void setExtraWraps(std::vector<AbstractOperand*> operands) {
+    extraWraps_ = std::move(operands);
+  }
 
   /// True if begins with a source instruction, like reading and aggregate
   /// result or exchange.
@@ -557,7 +595,7 @@ class Program : public std::enable_shared_from_this<Program> {
   canAdvance(WaveStream& stream, LaunchControl* control, int32_t programIdx);
 
   /// True if last non-return instruction is a sink, e.g. build, repartition. No
-  /// output vectors,, synced on 'hostReturnEvent_'.
+  /// output vectors, synced on 'hostReturnEvent_'.
   bool isSink() const;
 
   /// Records instruction return status. The status os accessed by canAdvance().
@@ -572,6 +610,30 @@ class Program : public std::enable_shared_from_this<Program> {
   /// rehash device side table,. Caller synchronizes.
   void callUpdateStatus(WaveStream& stream, AdvanceResult& result);
 
+  CompiledKernel* kernel() const {
+    return kernel_.get();
+  }
+
+  OperandSet& extraWrap() {
+    return extraWrap_;
+  }
+
+  int32_t numBranches() const {
+    return numBranches_;
+  }
+
+  /// Register that 'entryPointIdx' in 'kernel' manages the state of the
+  /// instruction at with 'serial'.
+  void addEntryPointForSerial(int32_t serial, int32_t entryPointIdx) {
+    serialToEntryPoint_[serial] = entryPointIdx;
+  }
+
+  int32_t entryPointIdxBySerial(int32_t serial) {
+    auto it = serialToEntryPoint_.find(serial);
+    VELOX_CHECK(it != serialToEntryPoint_.end());
+    return it->second;
+  }
+
   std::string toString() const;
 
  private:
@@ -584,6 +646,8 @@ class Program : public std::enable_shared_from_this<Program> {
   int32_t addLiteral(T* value, int32_t count);
 
   void literalToOperand(AbstractOperand* abstractOp, Operand& op);
+
+  std::unique_ptr<CompiledKernel> kernel_;
 
   GpuArena* arena_{nullptr};
   std::vector<Program*> dependsOn_;
@@ -606,6 +670,8 @@ class Program : public std::enable_shared_from_this<Program> {
   /// Set of OperandIds for outputs. These must come after intermediates in
   /// Operands array.
   OperandSet outputIds_;
+
+  OperandSet extraWrap_;
 
   // Local Operand offset in operands array.
   folly::F14FastMap<AbstractOperand*, int32_t> local_;
@@ -631,6 +697,8 @@ class Program : public std::enable_shared_from_this<Program> {
 
   // Device resident program.
   ThreadBlockProgram* program_;
+  // Number of distinct code paths in the kernel. The
+  int32_t numBranches_{0};
 
   int32_t sharedMemorySize_{0};
 
@@ -652,6 +720,12 @@ class Program : public std::enable_shared_from_this<Program> {
 
   // Globals accessed by id from instructions.
   std::vector<std::unique_ptr<ProgramState>> operatorStates_;
+
+  std::vector<AbstractOperand*> extraWraps_;
+
+  // Maps from AbstratcOperator::serial to the per-operator kernel entry point
+  // number, e.g. for rehashing a hash table.
+  folly::F14FastMap<int32_t, int32_t> serialToEntryPoint_;
 };
 
 inline int32_t instructionStatusSize(
@@ -872,6 +946,8 @@ class WaveStream {
     int32_t totalBytes{0};
     folly::F14FastMap<int32_t, int32_t**> inputWrap;
     folly::F14FastMap<int32_t, int32_t**> localWrap;
+    int32_t numExtraWrap{0};
+    int32_t firstExtraWrap{0};
     std::vector<void*> operatorStates;
   };
 
@@ -968,6 +1044,20 @@ class WaveStream {
         status.gridState);
   }
 
+  /// Asynchronously zeroes out the device side  copy of the grid status.
+  template <typename T>
+  void clearGridStatus(const InstructionStatus& status) {
+    if (!deviceBlockStatus_) {
+      return;
+    }
+    auto numBlocks = bits::roundUp(numRows_, kBlockSize) / kBlockSize;
+    auto deviceAddress =
+        bits::roundUp(
+            reinterpret_cast<uintptr_t>(&deviceBlockStatus_[numBlocks]), 8) +
+        status.gridState;
+    streams_[0]->memset(reinterpret_cast<char*>(deviceAddress), 0, sizeof(T));
+  }
+
   BlockStatus* hostBlockStatus() const {
     return hostBlockStatus_->as<BlockStatus>();
   }
@@ -975,6 +1065,17 @@ class WaveStream {
   int16_t streamIdx() const {
     return streamIdx_;
   }
+
+  /// Integrity check for Executables in 'this'.
+  void checkExecutables() const;
+
+  /// Integrity check for error codes and row counts in host/device side
+  /// statuses.
+  void checkBlockStatuses() const;
+
+  /// Returns the Executable associated with 'this' whose Program contains
+  /// 'instruction'. nullptr if not found.
+  Executable* executableByInstruction(const AbstractInstruction* instruction);
 
  private:
   // true if 'op' is nullable in the context of 'this'.

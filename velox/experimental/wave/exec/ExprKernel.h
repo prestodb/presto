@@ -188,7 +188,8 @@ struct WaveShared {
   /// Operands.
   OperandIndex extraWraps;
   int16_t numExtraWraps;
-
+  // The continue label where execution is to resume if continuing.
+  int16_t startLabel;
   /// True if continuing the first instruction. The instruction will
   /// pick up its lane status from blockStatus or an
   /// instruction-specific source. The instruction must clear this

@@ -30,7 +30,8 @@ class TableScan : public WaveSourceOperator {
   TableScan(
       CompileState& state,
       int32_t operatorId,
-      const core::TableScanNode& tableScanNode)
+      const core::TableScanNode& tableScanNode,
+      DefinesMap defines)
       : WaveSourceOperator(
             state,
             tableScanNode.outputType(),
@@ -47,6 +48,7 @@ class TableScan : public WaveSourceOperator {
         readBatchSize_(driverCtx_->task->queryCtx()
                            ->queryConfig()
                            .preferredOutputBatchRows()) {
+    defines_ = std::move(defines);
     connector_ = connector::getConnector(tableHandle_->connectorId());
   }
 

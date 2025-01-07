@@ -132,4 +132,17 @@ struct Hasher<int32_t, uint32_t> : IntHasher32<int32_t> {};
 template <>
 struct Hasher<int64_t, uint32_t> : IntHasher32<int64_t> {};
 
+template <>
+struct Hasher<int64_t, uint64_t> {
+  WAVE_DEVICE_HOST uint64_t operator()(int64_t x) const {
+    auto k = x * 0xcc9e2d51;
+    return k ^ (x >> 13) ^ (k << 12);
+  }
+};
+
+template <typename T>
+inline WAVE_DEVICE_HOST uint64_t hashValue(T value) {
+  return Hasher<T, uint64_t>()(value);
+}
+
 } // namespace facebook::velox::wave

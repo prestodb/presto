@@ -105,4 +105,29 @@ struct WarpScan {
   }
 };
 
+template <typename T, int32_t kNumLanes = kWarpThreads>
+struct WarpReduce {
+  static constexpr int32_t STEPS = Log2<kNumLanes>::VALUE;
+
+  int laneId;
+
+  /// 32-thread physical warp member mask of logical warp
+
+  static constexpr unsigned int member_mask =
+      kNumLanes == 32 ? 0xffffffff : (1 << kNumLanes) - 1;
+
+  __device__ WarpReduce() : laneId(LaneId()) {}
+
+  template <typename Func>
+  __device__ __forceinline__ T reduce(T val, Func func) {
+    for (int32_t offset = kNumLanes / 2; offset > 0; offset = offset >> 1) {
+      T other = __shfl_down_sync(0xffffffff, val, offset);
+      if (laneId + offset < kNumLanes) {
+        val = func(val, other);
+      }
+    }
+    return val;
+  }
+};
+
 } // namespace facebook::velox::wave

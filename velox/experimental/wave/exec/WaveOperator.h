@@ -127,6 +127,14 @@ class WaveOperator {
     defines_[value] = op;
   }
 
+  void addSubfieldAndType(
+      const common::Subfield* subfield,
+      const TypePtr& type) {
+    VELOX_UNSUPPORTED();
+    // subfields_.push_back(subfield);
+    // types_.push_back(type);
+  }
+
   void setDriver(WaveDriver* driver) {
     driver_ = driver;
   }
@@ -178,10 +186,10 @@ class WaveOperator {
   // different times on different waves. In this list, ordered in
   // depth first preorder of outputType_. Top struct not listed,
   // struct columns have the parent before the children.
-  std::vector<const common::Subfield*> subfields_;
+  // std::vector<const common::Subfield*> subfields_;
 
   // Pairwise type for each subfield.
-  std::vector<TypePtr> types_;
+  // std::vector<TypePtr> types_;
 
   // Id in original plan. Use for getting splits.
   std::string planNodeId_;

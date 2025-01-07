@@ -290,6 +290,96 @@ class GpuHashTable : public GpuHashTableBase {
     }
   }
 
+  template <
+      typename RowType,
+      typename Ops,
+      typename Compare,
+      typename Init,
+      typename Update>
+  void __device__ updatingProbe(
+      int32_t i,
+      int32_t lane,
+      bool isLaneActive,
+      Ops& ops,
+      Compare compare,
+      Init init,
+      Update update) {
+    uint32_t laneMask = __ballot_sync(0xffffffff, isLaneActive);
+    if (!isLaneActive) {
+      return;
+    }
+    auto h = ops.hash(i);
+    uint32_t tagWord = hashTag(h);
+    tagWord |= tagWord << 8;
+    tagWord = tagWord | tagWord << 16;
+    auto bucketIdx = h & sizeMask;
+    uint32_t misses = 0;
+    RowType* hit = nullptr;
+    RowType* toInsert = nullptr;
+    int32_t hitIdx;
+    GpuBucket* bucket;
+    uint32_t tags;
+    for (;;) {
+      bucket = buckets + bucketIdx;
+    reprobe:
+      tags = asDeviceAtomic<uint32_t>(&bucket->tags)
+                 ->load(cuda::memory_order_consume);
+      auto hits = __vcmpeq4(tags, tagWord) & 0x01010101;
+      while (hits) {
+        hitIdx = (__ffs(hits) - 1) / 8;
+        auto candidate = bucket->loadWithWait<RowType>(hitIdx);
+        if (compare(candidate)) {
+          if (toInsert) {
+            ops.freeInsertable(this, toInsert, h);
+          }
+          hit = candidate;
+          break;
+        }
+        hits = hits & (hits - 1);
+      }
+      if (hit) {
+        break;
+      }
+      misses = __vcmpeq4(tags, 0);
+      if (misses) {
+        auto success = ops.insert(
+            this,
+            partitionIdx(h),
+            bucket,
+            misses,
+            tags,
+            tagWord,
+            i,
+            toInsert,
+            init);
+        if (success == ProbeState::kRetry) {
+          goto reprobe;
+        }
+        if (success == ProbeState::kNeedSpace) {
+          ops.addHostRetry(i);
+          hit = nullptr;
+          break;
+        }
+        hit = toInsert;
+        break;
+      }
+      bucketIdx = (bucketIdx + 1) & sizeMask;
+    }
+    // Every lane has a hit, or a nullptr if out of space.
+    uint32_t peers = __match_any_sync(laneMask, reinterpret_cast<int64_t>(hit));
+    if (hit) {
+      int32_t leader = (kWarpThreads - 1) - __clz(peers);
+      RowType* writable = nullptr;
+      if (lane == leader) {
+        writable = ops.getExclusive(this, bucket, hit, hitIdx);
+      }
+      update(this, hit, peers, leader, lane);
+      if (lane == leader) {
+        ops.writeDone(writable);
+      }
+    }
+  }
+
   template <typename RowType, typename Ops>
   void __device__
   rehash(GpuBucket* oldBuckets, int32_t numOldBuckets, Ops ops) {

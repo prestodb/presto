@@ -192,6 +192,8 @@ struct InstructionStatus {
 };
 
 /// Returns the number of active rows in 'status' for 'numBlocks'.
+#ifndef __CUDACC_RTC__
 int32_t statusNumRows(const BlockStatus* status, int32_t numBlocks);
+#endif
 
 } // namespace facebook::velox::wave

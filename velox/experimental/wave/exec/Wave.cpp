@@ -69,6 +69,16 @@ void WaveStats::clear() {
   new (this) WaveStats();
 }
 
+std::string Value::toString() const {
+  std::stringstream out;
+  if (subfield) {
+    out << "<F " << subfield->toString() << ">";
+  } else {
+    out << "<E " << expr->toString(1) << ">";
+  }
+  return out.str();
+}
+
 const SubfieldMap*& threadSubfieldMap() {
   thread_local const SubfieldMap* subfields;
   return subfields;
@@ -345,6 +355,20 @@ void WaveStream::resultToHost() {
   hostReturnEvent_->record(*transferStream);
 }
 
+Executable* WaveStream::executableByInstruction(
+    const AbstractInstruction* instruction) {
+  for (auto& exe : executables_) {
+    if (exe->programShared != nullptr) {
+      for (auto& i : exe->programShared->instructions()) {
+        if (i.get() == instruction) {
+          return exe.get();
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 namespace {
 // Copies from pageable host to unified address. Multithreaded memcpy is
 // probably best.
@@ -547,21 +571,21 @@ void WaveStream::ensureVector(
 }
 
 bool WaveStream::isNullable(const AbstractOperand& op) const {
-  bool notNull = op.notNull;
-  if (!notNull) {
-    if (op.sourceNullable) {
-      notNull = !operandNullable_[op.id];
-    } else {
-      notNull = true;
-      for (auto i : op.nullableIf) {
-        if (operandNullable_[i]) {
-          notNull = false;
-          break;
-        }
+  if (op.notNull) {
+    return false;
+  }
+  if (op.sourceNullable) {
+    return operandNullable_[op.id];
+  }
+  if (op.conditionalNonNull) {
+    for (auto i : op.nullableIf) {
+      if (operandNullable_[i]) {
+        return true;
       }
     }
+    return false;
   }
-  return !notNull;
+  return true;
 }
 
 void WaveStream::exeLaunchInfo(
@@ -607,13 +631,24 @@ void WaveStream::exeLaunchInfo(
       }
     }
   });
+  if (exe.programShared) {
+    info.numExtraWrap = exe.programShared->extraWrap().size();
+    exe.programShared->extraWrap().forEach([&](auto id) {
+      auto op = operandAt(id);
+      auto* inputExe = operandExecutable(op->id);
+      VELOX_CHECK(op->wrappedAt != AbstractOperand::kNoWrap);
+      auto* indices = inputExe->wraps[op->wrappedAt];
+      VELOX_CHECK_NOT_NULL(indices);
+    });
+  }
   auto numLiteral = exe.literals ? exe.literals->size() : 0;
   info.numLocalOps =
       exe.localOperands.size() + exe.outputOperands.size() + numLiteral;
   info.totalBytes =
-      // Pointer to Operand for input and local Operands.
-      sizeof(void*) * (info.numLocalOps + exe.inputOperands.size()) +
-      // Flat array of Operand for all but input.
+      // Pointer to Operand for input and local Operands and extra wraps.
+      sizeof(void*) *
+          (info.numLocalOps + exe.inputOperands.size() + info.numExtraWrap) +
+      // Flat array of Operand for all but input and extra wrap.
       sizeof(Operand) * info.numLocalOps +
       // Space for the 'indices' for each distinct wrappedAt.
       (info.localWrap.size() * numBlocks * sizeof(void*));
@@ -625,6 +660,7 @@ void WaveStream::exeLaunchInfo(
 Operand**
 WaveStream::fillOperands(Executable& exe, char* start, ExeLaunchInfo& info) {
   Operand** operandPtrBegin = addBytes<Operand**>(start, 0);
+  auto initialOperandBegin = operandPtrBegin;
   exe.inputOperands.forEach([&](int32_t id) {
     auto* inputExe = operandToExecutable_[id];
     int32_t ordinal = inputExe->outputOperands.ordinal(id);
@@ -633,7 +669,8 @@ WaveStream::fillOperands(Executable& exe, char* start, ExeLaunchInfo& info) {
     ++operandPtrBegin;
   });
   Operand* operandBegin = addBytes<Operand*>(
-      start, (info.numInput + info.numLocalOps) * sizeof(void*));
+      start,
+      (info.numInput + info.numLocalOps + info.numExtraWrap) * sizeof(void*));
   VELOX_CHECK_EQ(0, reinterpret_cast<uintptr_t>(operandBegin) & 7);
   int32_t* indicesBegin =
       addBytes<int32_t*>(operandBegin, info.numLocalOps * sizeof(Operand));
@@ -688,7 +725,16 @@ WaveStream::fillOperands(Executable& exe, char* start, ExeLaunchInfo& info) {
       ++operandBegin;
     }
   }
-
+  info.firstExtraWrap = operandPtrBegin - initialOperandBegin;
+  if (exe.programShared) {
+    exe.programShared->extraWrap().forEach([&](int32_t id) {
+      auto* inputExe = operandToExecutable_[id];
+      int32_t ordinal = inputExe->outputOperands.ordinal(id);
+      *operandPtrBegin =
+          &inputExe->operands[inputExe->firstOutputOperandIdx + ordinal];
+      ++operandPtrBegin;
+    });
+  }
   return addBytes<Operand**>(start, 0);
 }
 
@@ -733,6 +779,7 @@ LaunchControl* WaveStream::prepareProgramLaunch(
     for (auto& info : control.programInfo) {
       if (info.advance.isRetry) {
         isContinue = true;
+        checkBlockStatuses();
         break;
       }
     }
@@ -743,9 +790,14 @@ LaunchControl* WaveStream::prepareProgramLaunch(
     VELOX_CHECK_LT(0, inputRows);
     numRows_ = inputRows;
   }
-
+  int32_t numBranches = 1;
+  if (!exes.empty() && exes[0]->programShared->kernel()) {
+    numBranches = exes[0]->programShared->numBranches();
+    VELOX_CHECK_EQ(1, exes.size());
+  }
   // 2 int arrays: blockBase, programIdx.
-  int32_t numBlocks = std::max<int32_t>(1, exes.size()) * blocksPerExe;
+  int32_t numBlocks =
+      std::max<int32_t>(1, exes.size()) * blocksPerExe * numBranches;
   int32_t size = 2 * numBlocks * sizeof(int32_t);
   std::vector<ExeLaunchInfo> info(exes.size());
   // 2 pointers per exe: TB program and start of its param array and 1 int for
@@ -807,10 +859,10 @@ LaunchControl* WaveStream::prepareProgramLaunch(
     // Writing errors is not serialized but each lane with at least one error
     // will show one error.
     control.params.status = addBytes<BlockStatus*>(start, statusOffset);
+    deviceBlockStatus_ = control.params.status;
     // Memory is already set to all 0.
     for (auto i = 0; i < blocksPerExe; ++i) {
       auto status = &control.params.status[i];
-      deviceBlockStatus_ = status;
       status->numRows =
           i == blocksPerExe - 1 ? inputRows % kBlockSize : kBlockSize;
     }
@@ -831,6 +883,10 @@ LaunchControl* WaveStream::prepareProgramLaunch(
       }
     }
     auto operandPtrs = fillOperands(*exes[i], operandStart, info[i]);
+    if (exes.size() == 1) {
+      control.params.extraWraps = info[0].firstExtraWrap;
+      control.params.numExtraWraps = exes[0]->programShared->extraWrap().size();
+    }
     control.params.operands[i] = operandPtrs;
     // The operands defined by the exe start after the input operands and are
     // all consecutive.
@@ -874,6 +930,7 @@ int32_t WaveStream::getOutput(
     memory::MemoryPool& pool,
     folly::Range<const OperandId*> operands,
     VectorPtr* vectors) {
+  checkExecutables();
   auto it = launchControl_.find(operatorId);
   VELOX_CHECK(it != launchControl_.end());
   auto* control = it->second[0].get();
@@ -966,6 +1023,56 @@ void WaveStream::makeAggregate(
   releaseStream(std::move(stream));
 }
 
+void checkOperand(Operand& op) {
+  if (op.indexMask != 0 && op.indexMask != -1) {
+    VELOX_FAIL("Corrupt operand in executable");
+  }
+}
+
+void WaveStream::checkExecutables() const {
+  for (auto& pair : operandToExecutable_) {
+    bool found = false;
+    for (auto& exe : executables_) {
+      if (exe.get() == pair.second) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      VELOX_FAIL("Operand exe not found in owned executables");
+    }
+    auto* exe = pair.second;
+    if (exe->operands) {
+      auto numOperands =
+          exe->firstOutputOperandIdx + exe->outputOperands.size();
+      for (auto i = 0; i < numOperands; ++i) {
+        auto& op = exe->operands[i];
+        checkOperand(op);
+      }
+    }
+  }
+}
+
+void WaveStream::checkBlockStatuses() const {
+#ifdef BLOCK_STATUS_CHECK
+  auto numBlocks = bits::roundUp(numRows_, kBlockSize) / kBlockSize;
+  auto hostSide = hostBlockStatus();
+  auto deviceSide = deviceBlockStatus_;
+  for (auto i = 0; i < numBlocks; ++i) {
+    for (auto j = 0; j < kBlockSize; ++j) {
+      if (hostSide) {
+        VELOX_CHECK_LE(hostSide[i].numRows, 256);
+        VELOX_CHECK_LE(static_cast<uint8_t>(hostSide[i].errors[j]), 4);
+      }
+      if (deviceSide) {
+        VELOX_CHECK_LE(deviceSide[i].numRows, 256);
+        VELOX_CHECK_LE(static_cast<uint8_t>(deviceSide[i].errors[j]), 4);
+      }
+    }
+  }
+#endif
+}
+
 std::string WaveStream::toString() const {
   std::stringstream out;
   out << "{WaveStream ";
@@ -989,6 +1096,27 @@ std::string WaveStream::toString() const {
 
 WaveTypeKind typeKindCode(TypeKind kind) {
   return static_cast<WaveTypeKind>(kind);
+}
+
+Program::Program(
+    OperandSet input,
+    OperandSet local,
+    OperandSet output,
+    OperandSet extraWrap,
+    int32_t numBranches,
+    int32_t sharedSize,
+    const std::vector<std::unique_ptr<AbstractOperand>>& allOperands,
+    std::vector<std::unique_ptr<ProgramState>> states,
+    std::unique_ptr<CompiledKernel> kernel)
+    : kernel_(std::move(kernel)),
+      outputIds_(output),
+      extraWrap_(extraWrap),
+      numBranches_(numBranches),
+      sharedMemorySize_(sharedSize),
+      operatorStates_(std::move(states)) {
+  input.forEach([&](int32_t id) { input_[allOperands[id].get()] = id; });
+  local.forEach([&](int32_t id) { local_[allOperands[id].get()] = id; });
+  output.forEach([&](int32_t id) { output_[allOperands[id].get()] = id; });
 }
 
 void Program::getOperatorStates(WaveStream& stream, std::vector<void*>& ptrs) {
@@ -1048,6 +1176,10 @@ void Program::callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
   physicalInst->member = operandIndex(abstractInst->member)
 
 void Program::prepareForDevice(GpuArena& arena) {
+  arena_ = &arena;
+  if (kernel_) {
+    return;
+  }
   VELOX_CHECK(!instructions_.empty());
   if (instructions_.back()->opCode != OpCode::kReturn) {
     instructions_.push_back(std::make_unique<AbstractReturn>());
@@ -1138,7 +1270,6 @@ void Program::prepareForDevice(GpuArena& arena) {
             "OpCode {}", static_cast<int32_t>(instruction->opCode));
     }
   sortSlots();
-  arena_ = &arena;
   deviceData_ = arena.allocate<char>(
       codeSize + literalArea_.size() + sizeof(ThreadBlockProgram));
   uintptr_t end = reinterpret_cast<uintptr_t>(
@@ -1421,6 +1552,7 @@ std::unique_ptr<Executable> Program::getExecutable(
     std::lock_guard<std::mutex> l(mutex_);
     if (!prepared_.empty()) {
       exe = std::move(prepared_.back());
+      exe->programShared = shared_from_this();
       prepared_.pop_back();
     }
   }

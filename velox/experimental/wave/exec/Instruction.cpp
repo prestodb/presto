@@ -149,8 +149,12 @@ void resupplyHashTable(WaveStream& stream, AbstractInstruction& inst) {
     control.head = head;
     control.oldBuckets = oldBuckets->as<char>();
     control.numOldBuckets = numOldBuckets;
+    auto* exe = stream.executableByInstruction(&inst);
+    VELOX_CHECK_NOT_NULL(exe);
+    auto* program = exe->programShared.get();
+    auto entryPointIdx = program->entryPointIdxBySerial(agg->serial);
     reinterpret_cast<WaveKernelStream*>(deviceStream.get())
-        ->setupAggregation(control);
+        ->setupAggregation(control, entryPointIdx, program->kernel());
   }
   deviceStream->wait();
   WaveStream::releaseStream(std::move(deviceStream));
@@ -166,11 +170,13 @@ AdvanceResult AbstractAggregation::canAdvance(
   }
   auto gridState = stream.gridStatus<AggregateReturn>(instructionStatus);
   if (gridState->numDistinct) {
+    stream.checkBlockStatuses();
+    stream.clearGridStatus<AggregateReturn>(instructionStatus);
     // The hash table needs memory or rehash. Request a Task-wide break to
     // resupply the device side hash table.
     return {
         .numRows = stream.numRows(),
-        .instructionIdx = instructionIdx,
+        .instructionIdx = serial,
         .isRetry = true,
         .syncDrivers = true,
         .updateStatus = resupplyHashTable,

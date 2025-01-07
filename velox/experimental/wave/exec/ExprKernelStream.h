@@ -41,7 +41,10 @@ class WaveKernelStream : public Stream {
       KernelParams& params);
 
   /// Sets up or updates an aggregation.
-  void setupAggregation(AggregationControl& op);
+  void setupAggregation(
+      AggregationControl& op,
+      int32_t entryPoint = 0,
+      CompiledKernel* kernel = nullptr);
 
  private:
   // Debug implementation of call() where each instruction is a separate kernel

@@ -79,6 +79,7 @@ void addFlag(
 void getNvrtcOptions(std::vector<std::string>& data) {
   const char* includes = getenv("WAVE_NVRTC_INCLUDE_PATH");
   if (includes && strlen(includes) > 0) {
+    LOG(INFO) << "Found env NVRTC include path: " << includes;
     for (;;) {
       const char* end = strchr(includes, ':');
       if (!end) {
@@ -113,9 +114,22 @@ void getNvrtcOptions(std::vector<std::string>& data) {
         std::ifstream result(tempPath);
         std::string line;
         if (!std::getline(result, line)) {
-          LOG(ERROR) << "Cuda includes not found in fbcode/third-party";
-          return;
+          LOG(ERROR)
+              << "Cuda includes matching build version not found in fbcode/third-party. Looking for latest cuda.";
+          command = fmt::format(
+              "(cd {}; du |grep \"{}\.*x64-linux.*/cuda$\" |grep -v thrust | sort -r) >{}",
+              fbsourcePath,
+              __CUDA_API_VER_MAJOR__,
+              tempPath);
+          LOG(INFO) << "Running " << command;
+          system(command.c_str());
+          std::ifstream result(tempPath);
+          if (!std::getline(result, line)) {
+            LOG(ERROR) << "Did not find any cuda with the same major version";
+            return;
+          }
         }
+
         LOG(INFO) << "Got cuda line: " << line;
         // Now trim the size and the trailing /cuda from the line.
         const char* start = strstr(line.c_str(), "./");

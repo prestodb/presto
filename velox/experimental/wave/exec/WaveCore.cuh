@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
 #include "velox/experimental/wave/common/Scan.cuh"
@@ -23,15 +22,20 @@
 namespace facebook::velox::wave {
 
 template <typename T>
-inline T* __device__
-gridStatus(const WaveShared* shared, const InstructionStatus& status) {
+inline T* __device__ gridStatus(const WaveShared* shared, int32_t gridState) {
   return reinterpret_cast<T*>(
       roundUp(
           reinterpret_cast<uintptr_t>(
               &shared->status
                    [shared->numBlocks - (shared->blockBase / kBlockSize)]),
           8) +
-      status.gridState);
+      gridState);
+}
+
+template <typename T>
+inline T* __device__
+gridStatus(const WaveShared* shared, const InstructionStatus& status) {
+  return gridStatus<T>(shared, status.gridState);
 }
 
 template <typename T>
@@ -124,6 +128,19 @@ bool __device__ __forceinline__ valueOrNull(
 }
 
 template <bool kMayWrap, typename T>
+void __device__ __forceinline__ loadValueOrNull(
+    Operand** operands,
+    OperandIndex opIdx,
+    int32_t blockBase,
+    T& value,
+    uint32_t& nulls) {
+  nulls = (nulls & ~(1U << (opIdx & 31))) |
+      (static_cast<uint32_t>(
+           valueOrNull<kMayWrap>(operands, opIdx, blockBase, value))
+       << (opIdx & 31));
+}
+
+template <bool kMayWrap, typename T>
 T __device__ __forceinline__
 nonNullOperand(Operand** operands, OperandIndex opIdx, int32_t blockBase) {
   auto op = operands[opIdx];
@@ -146,11 +163,11 @@ nonNullOperand(Operand** operands, OperandIndex opIdx, int32_t blockBase) {
 }
 
 bool __device__ __forceinline__
-setRegisterNull(uint32_t& flags, int8_t bit, bool notNull) {
-  if (!notNull) {
+setRegisterNull(uint32_t& flags, int8_t bit, bool isNull) {
+  if (isNull) {
     flags &= ~(1 << bit);
   }
-  return !notNull;
+  return isNull;
 }
 
 bool __device__ __forceinline__ isRegisterNull(uint32_t flags, int8_t bit) {
@@ -181,6 +198,15 @@ __device__ inline void
 resultNull(Operand** operands, OperandIndex opIdx, int32_t blockBase) {
   auto* op = operands[opIdx];
   op->nulls[blockBase + threadIdx.x] = kNull;
+}
+
+__device__ inline void setNull(
+    Operand** operands,
+    OperandIndex opIdx,
+    int32_t blockBase,
+    bool isNull) {
+  auto* op = operands[opIdx];
+  op->nulls[blockBase + threadIdx.x] = isNull ? kNull : kNotNull;
 }
 
 template <typename T>
@@ -256,8 +282,11 @@ __device__ inline T& flatResult(Operand* op, int32_t blockBase) {
     shared->numRowsPerThread = params.numRowsPerThread;                        \
     shared->streamIdx = params.streamIdx;                                      \
     shared->isContinue = params.startPC != nullptr;                            \
+    if (shared->isContinue) {                                                  \
+      shared->startLabel = params.startPC[programIndex];                       \
+    }                                                                          \
     shared->extraWraps = params.extraWraps;                                    \
-    shared.numExtraWraps = params.numExtraWraps;                               \
+    shared->numExtraWraps = params.numExtraWraps;                              \
     shared->hasContinue = false;                                               \
     shared->stop = false;                                                      \
   }                                                                            \
@@ -265,15 +294,10 @@ __device__ inline T& flatResult(Operand* op, int32_t blockBase) {
   auto blockBase = shared->blockBase;                                          \
   auto operands = shared->operands;                                            \
   ErrorCode laneStatus;                                                        \
-  int32_t entryPoint = 0;                                                      \
   if (!shared->isContinue) {                                                   \
     laneStatus =                                                               \
         threadIdx.x < shared->numRows ? ErrorCode::kOk : ErrorCode::kInactive; \
   } else {                                                                     \
-    entryPoint = params.startPC[programIndex];                                 \
-    if (entryPoint == ~0) {                                                    \
-      return; /* no continue in this program*/                                 \
-    }                                                                          \
     laneStatus = shared->status->errors[threadIdx.x];                          \
   }
 
@@ -425,7 +449,7 @@ __device__ void __forceinline__ wrapKernel(
 }
 
 __device__ void __forceinline__ wrapKernel(
-    OperandIndex* wraps,
+    const OperandIndex* wraps,
     int32_t numWraps,
     OperandIndex indicesIdx,
     Operand** operands,

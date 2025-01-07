@@ -30,12 +30,35 @@ namespace facebook::velox::wave {
 
 using exec::Expr;
 
+WaveRegistry& waveRegistry() {
+  static auto registry = std::make_unique<WaveRegistry>();
+  return *registry;
+}
+
+AggregateRegistry& aggregateRegistry() {
+  static auto registry = std::make_unique<AggregateRegistry>();
+  return *registry;
+}
+
+CompileState::CompileState(
+    const exec::DriverFactory& driverFactory,
+    exec::Driver& driver)
+    : driverFactory_(driverFactory),
+      driver_(driver),
+      runtime_(std::make_shared<WaveRuntimeObjects>()),
+      subfields_(runtime_->subfields),
+      operands_(runtime_->operands),
+      operatorStates_(runtime_->states) {
+  setDevice(getDevice());
+}
+
 common::Subfield* CompileState::toSubfield(const Expr& expr) {
   std::string name = expr.toString();
   return toSubfield(name);
 }
 
 common::Subfield* CompileState::toSubfield(const std::string& name) {
+  VELOX_CHECK(!namesResolved_);
   auto it = subfields_.find(name);
   if (it == subfields_.end()) {
     auto field = std::make_unique<common::Subfield>(name);
@@ -80,6 +103,7 @@ Value CompileState::toValue(const core::FieldAccessTypedExpr& field) {
 
 AbstractOperand* CompileState::newOperand(AbstractOperand& other) {
   auto newOp = std::make_unique<AbstractOperand>(other, operandCounter_++);
+  newOp->definingSegment = segments_.size() - 1;
   operands_.push_back(std::move(newOp));
   return operands_.back().get();
 }
@@ -90,6 +114,7 @@ AbstractOperand* CompileState::newOperand(
   operands_.push_back(
       std::make_unique<AbstractOperand>(operandCounter_++, type, label));
   auto op = operands_.back().get();
+  op->definingSegment = segments_.size() - 1;
   return op;
 }
 
@@ -262,21 +287,14 @@ AbstractOperand* CompileState::addExpr(const Expr& expr) {
   if (auto* field = dynamic_cast<const exec::FieldReference*>(&expr)) {
     VELOX_FAIL("Should have been defined");
   } else if (auto* constant = dynamic_cast<const exec::ConstantExpr*>(&expr)) {
-    if (predicate_) {
-      auto result = newOperand(constant->type(), constant->toString());
-      currentProgram_->add(std::make_unique<AbstractLiteral>(
-          constant->value(), result, predicate_));
-      return result;
+    auto op = newOperand(constant->value()->type(), constant->toString());
+    op->constant = constant->value();
+    if (constant->value()->isNullAt(0)) {
+      op->literalNull = true;
     } else {
-      auto op = newOperand(constant->value()->type(), constant->toString());
-      op->constant = constant->value();
-      if (constant->value()->isNullAt(0)) {
-        op->literalNull = true;
-      } else {
-        op->notNull = true;
-      }
-      return op;
+      op->notNull = true;
     }
+    return op;
   } else if (dynamic_cast<const exec::SpecialForm*>(&expr)) {
     VELOX_UNSUPPORTED("No special forms: {}", expr.toString(1));
   }
@@ -599,8 +617,8 @@ bool CompileState::addOperator(
         driverFactory_.planNodes[nodeIndex].get());
     outputType = driverFactory_.planNodes[nodeIndex]->outputType();
 
-    operators_.push_back(
-        std::make_unique<TableScan>(*this, operators_.size(), *scan));
+    operators_.push_back(std::make_unique<TableScan>(
+        *this, operators_.size(), *scan, DefinesMap()));
     outputType = scan->outputType();
   } else {
     return false;
@@ -622,6 +640,7 @@ bool isProjectedThrough(
 }
 
 bool CompileState::compile() {
+  constexpr bool kCodeGen = true;
   auto operators = driver_.operators();
 
   int32_t first = 0;
@@ -632,70 +651,76 @@ bool CompileState::compile() {
   // them during the transformation.
   driver_.initializeOperators();
   RowTypePtr inputType;
-  for (; operatorIndex < operators.size(); ++operatorIndex) {
-    int32_t previousNumOperators = operators_.size();
-    auto& identity = operators[operatorIndex]->identityProjections();
-    // The columns that are projected through are renamed. They may also get an
-    // indirection after the new operator is placed.
-    std::vector<std::pair<AbstractOperand*, int32_t>> identityProjected;
-    for (auto& projection : identity) {
-      identityProjected.push_back(std::make_pair(
-          findCurrentValue(
-              Value(toSubfield(inputType->nameOf(projection.inputChannel)))),
-          projection.outputChannel));
-    }
-    if (!addOperator(operators[operatorIndex], nodeIndex, outputType)) {
-      break;
-    }
-    ++nodeIndex;
-    for (auto newIndex = previousNumOperators; newIndex < operators_.size();
-         ++newIndex) {
-      if (operators_[newIndex]->isSink()) {
-        // No output operands.
-        continue;
+  std::vector<OperandId> resultOrder;
+  if (kCodeGen) {
+    outputType = makeOperators(operatorIndex, resultOrder);
+  } else {
+    for (; operatorIndex < operators.size(); ++operatorIndex) {
+      int32_t previousNumOperators = operators_.size();
+      auto& identity = operators[operatorIndex]->identityProjections();
+      // The columns that are projected through are renamed. They may also get
+      // an indirection after the new operator is placed.
+      std::vector<std::pair<AbstractOperand*, int32_t>> identityProjected;
+      for (auto& projection : identity) {
+        identityProjected.push_back(std::make_pair(
+            findCurrentValue(
+                Value(toSubfield(inputType->nameOf(projection.inputChannel)))),
+            projection.outputChannel));
       }
-      for (auto i = 0; i < outputType->size(); ++i) {
-        auto& name = outputType->nameOf(i);
-        Value value = Value(toSubfield(name));
-        int32_t inputChannel;
-        if (isProjectedThrough(identity, i, inputChannel)) {
+      if (!addOperator(operators[operatorIndex], nodeIndex, outputType)) {
+        break;
+      }
+      ++nodeIndex;
+      for (auto newIndex = previousNumOperators; newIndex < operators_.size();
+           ++newIndex) {
+        if (operators_[newIndex]->isSink()) {
+          // No output operands.
           continue;
         }
-        auto operand = operators_[newIndex]->defines(value);
-        if (!operand &&
-            (operators_[newIndex]->isSource() ||
-             !operators_[newIndex]->isStreaming())) {
-          operand = operators_[newIndex]->definesSubfield(
-              *this, outputType->childAt(i), name, newIndex == 0);
-        }
-        if (operand) {
-          operators_[newIndex]->addOutputId(operand->id);
-          definedBy_[value] = operand;
-          operandOperatorIndex_[operand] = operators_.size() - 1;
+        for (auto i = 0; i < outputType->size(); ++i) {
+          auto& name = outputType->nameOf(i);
+          Value value = Value(toSubfield(name));
+          int32_t inputChannel;
+          if (isProjectedThrough(identity, i, inputChannel)) {
+            continue;
+          }
+          auto operand = operators_[newIndex]->defines(value);
+          if (!operand &&
+              (operators_[newIndex]->isSource() ||
+               !operators_[newIndex]->isStreaming())) {
+            operand = operators_[newIndex]->definesSubfield(
+                *this, outputType->childAt(i), name, newIndex == 0);
+          }
+          if (operand) {
+            operators_[newIndex]->addOutputId(operand->id);
+            definedBy_[value] = operand;
+            operandOperatorIndex_[operand] = operators_.size() - 1;
+          }
         }
       }
+      for (auto& [op, channel] : identityProjected) {
+        Value value(toSubfield(outputType->nameOf(channel)));
+        auto newOp = addIdentityProjections(op);
+        projectedTo_[value] = newOp;
+      }
+      inputType = outputType;
     }
-    for (auto& [op, channel] : identityProjected) {
-      Value value(toSubfield(outputType->nameOf(channel)));
-      auto newOp = addIdentityProjections(op);
-      projectedTo_[value] = newOp;
-    }
-    inputType = outputType;
   }
   if (operators_.empty()) {
     return false;
   }
-  std::vector<OperandId> resultOrder;
   for (auto i = 0; i < outputType->size(); ++i) {
-    auto operand = findCurrentValue(Value(toSubfield(outputType->nameOf(i))));
-    auto source = programOf(operand, false);
-    // Operands produced by programs, when projected out of Wave, must
-    // be marked as output of their respective programs. Some
-    // operands, e.g. table scan results are not from programs.
-    if (source) {
-      source->markOutput(operand->id);
+    if (!kCodeGen) {
+      auto operand = findCurrentValue(Value(toSubfield(outputType->nameOf(i))));
+      auto source = programOf(operand, false);
+      // Operands produced by programs, when projected out of Wave, must
+      // be marked as output of their respective programs. Some
+      // operands, e.g. table scan results are not from programs.
+      if (source) {
+        source->markOutput(operand->id);
+      }
+      resultOrder.push_back(operand->id);
     }
-    resultOrder.push_back(operand->id);
   }
   for (auto& op : operators_) {
     op->finalize(*this);
@@ -703,6 +728,11 @@ bool CompileState::compile() {
   instructionStatus_.gridStateSize = instructionStatus_.gridState;
   for (auto* status : allStatuses_) {
     status->gridStateSize = instructionStatus_.gridState;
+  }
+  if (kCodeGen) {
+    if (!reserveMemory()) {
+      VELOX_FAIL("Failed to reserve unified memory for Wave");
+    }
   }
   auto waveOpUnique = std::make_unique<WaveDriver>(
       driver_.driverCtx(),
@@ -712,9 +742,7 @@ bool CompileState::compile() {
       std::move(arena_),
       std::move(operators_),
       std::move(resultOrder),
-      std::move(subfields_),
-      std::move(operands_),
-      std::move(operatorStates_),
+      runtime_,
       instructionStatus_);
   auto waveOp = waveOpUnique.get();
   waveOp->initialize();
@@ -729,12 +757,29 @@ bool CompileState::compile() {
 bool waveDriverAdapter(
     const exec::DriverFactory& factory,
     exec::Driver& driver) {
-  CompileState state(factory, driver);
-  return state.compile();
+  auto state = std::make_shared<CompileState>(factory, driver);
+  return state->compile();
+}
+
+bool AggregateRegistry::registerGenerator(
+    std::string aggregateName,
+    std::unique_ptr<AggregateGenerator> generator) {
+  generators_[aggregateName] = std::move(generator);
+  return true;
+}
+
+const AggregateGenerator* AggregateRegistry::getGenerator(
+    const AggregateUpdate& update) {
+  auto it = generators_.find(update.name);
+  if (it == generators_.end()) {
+    VELOX_USER_FAIL("No aggregate {}", update.name);
+  }
+  return it->second.get();
 }
 
 void registerWave() {
   exec::DriverAdapter waveAdapter{"Wave", {}, waveDriverAdapter};
   exec::DriverFactory::registerAdapter(waveAdapter);
+  registerWaveFunctions();
 }
 } // namespace facebook::velox::wave

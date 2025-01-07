@@ -31,6 +31,7 @@ AbstractOperand* WaveOperator::definesSubfield(
     const TypePtr& type,
     const std::string& parentPath,
     bool sourceNullable) {
+  VELOX_UNSUPPORTED();
   switch (type->kind()) {
     case TypeKind::ROW: {
       auto& row = type->as<TypeKind::ROW>();
@@ -45,8 +46,8 @@ AbstractOperand* WaveOperator::definesSubfield(
       // TODO:Add cases for nested types.
     default: {
       auto field = state.toSubfield(parentPath);
-      subfields_.push_back(field);
-      types_.push_back(type);
+      // subfields_.push_back(field);
+      // types_.push_back(type);
       auto operand = state.findCurrentValue(Value(field));
       if (!operand) {
         operand = state.newOperand(type, parentPath);

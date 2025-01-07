@@ -91,6 +91,19 @@ class WaveBarrier {
   static std::unordered_map<std::string, std::weak_ptr<WaveBarrier>> barriers_;
 };
 
+/// Collection of object handed over to execution from plan transformation.
+/// Since codegen and execution overlap, this is owned by shared pointer from
+/// both sides after being prepared by plan transformation.
+struct WaveRuntimeObjects {
+  // Dedupped Subfields. Handed over by CompileState.
+  SubfieldMap subfields;
+  // Operands handed over by compilation.
+  std::vector<std::unique_ptr<AbstractOperand>> operands;
+
+  std::vector<std::unique_ptr<AbstractState>> states;
+};
+
+/// Operator that replaces a sequence of Velox Operators offloaded to Wave.
 class WaveDriver : public exec::SourceOperator {
  public:
   WaveDriver(
@@ -101,9 +114,7 @@ class WaveDriver : public exec::SourceOperator {
       std::unique_ptr<GpuArena> arena,
       std::vector<std::unique_ptr<WaveOperator>> waveOperators,
       std::vector<OperandId> resultOrder_,
-      SubfieldMap subfields,
-      std::vector<std::unique_ptr<AbstractOperand>> operands,
-      std::vector<std::unique_ptr<AbstractState>> states,
+      std::shared_ptr<WaveRuntimeObjects> runtime,
       InstructionStatus instructionStatus);
 
   RowVectorPtr getOutput() override;
@@ -257,12 +268,15 @@ class WaveDriver : public exec::SourceOperator {
   // Top level column order in getOutput result.
   std::vector<OperandId> resultOrder_;
 
-  // Dedupped Subfields. Handed over by CompileState.
-  SubfieldMap subfields_;
-  // Operands handed over by compilation.
-  std::vector<std::unique_ptr<AbstractOperand>> operands_;
+  /// Owns 'subfields_', 'operands_' and 'states_'
+  std::shared_ptr<WaveRuntimeObjects> runtime_;
 
-  std::vector<std::unique_ptr<AbstractState>> states_;
+  // Dedupped Subfields. Handed over by CompileState.
+  SubfieldMap& subfields_;
+  // Operands handed over by compilation.
+  std::vector<std::unique_ptr<AbstractOperand>>& operands_;
+
+  std::vector<std::unique_ptr<AbstractState>>& states_;
 
   WaveStats waveStats_;
 

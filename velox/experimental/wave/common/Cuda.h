@@ -285,6 +285,8 @@ class CompiledKernel {
       int32_t shared,
       Stream* stream,
       void** args) = 0;
+
+  virtual KernelInfo info(int32_t kernelIdx) = 0;
 };
 
 KernelInfo getRegisteredKernelInfo(const char* name);
