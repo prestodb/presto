@@ -19,8 +19,8 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -823,30 +823,31 @@ public class AccessControlManager
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, List<ColumnMetadata> columns)
     {
         requireNonNull(transactionId, "transactionId is null");
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "catalogName is null");
+        requireNonNull(columns, "columns is null");
 
-        ImmutableList.Builder<ViewExpression> masks = ImmutableList.builder();
+        ImmutableMap.Builder<ColumnMetadata, ViewExpression> columnMasksBuilder = ImmutableMap.builder();
 
         // connector-provided masks take precedence over global masks
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
-            entry.getAccessControl().getColumnMask(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName), columnName, type)
-                    .ifPresent(masks::add);
+            Map<ColumnMetadata, ViewExpression> connectorMasks = entry.getAccessControl().getColumnMasks(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName), columns);
+            columnMasksBuilder.putAll(connectorMasks);
         }
 
-        systemAccessControl.get().getColumnMask(identity, context, toCatalogSchemaTableName(tableName), columnName, type)
-                .ifPresent(masks::add);
+        Map<ColumnMetadata, ViewExpression> systemMasks = systemAccessControl.get().getColumnMasks(identity, context, toCatalogSchemaTableName(tableName), columns);
+        columnMasksBuilder.putAll(systemMasks);
 
-        List<ViewExpression> allMasks = masks.build();
-        if (allMasks.size() > 1) {
-            throw new PrestoException(INVALID_COLUMN_MASK, format("Column must have a single mask: %s", columnName));
+        try {
+            return columnMasksBuilder.buildOrThrow();
         }
-
-        return allMasks.stream().findFirst();
+        catch (IllegalArgumentException exception) {
+            throw new PrestoException(INVALID_COLUMN_MASK, "Multiple masks for the same column found", exception);
+        }
     }
 
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
