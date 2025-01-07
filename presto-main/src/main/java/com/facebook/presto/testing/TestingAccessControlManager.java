@@ -17,9 +17,9 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AllowAllSystemAccessControl;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.ViewExpression;
@@ -406,11 +406,20 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String column, Type type)
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, List<ColumnMetadata> columns)
     {
-        return Optional.ofNullable(
-                columnMasks.getOrDefault(new ColumnMaskKey(identity.getUser(), tableName, column),
-                        super.getColumnMask(transactionId, identity, context, tableName, column, type).orElse(null)));
+        Map<ColumnMetadata, ViewExpression> superResult = super.getColumnMasks(transactionId, identity, context, tableName, columns);
+        ImmutableMap.Builder<ColumnMetadata, ViewExpression> columnMaskBuilder = ImmutableMap.builder();
+        for (ColumnMetadata column : columns) {
+            ColumnMaskKey columnMaskKey = new ColumnMaskKey(identity.getUser(), tableName, column.getName());
+            if (columnMasks.containsKey(columnMaskKey)) {
+                columnMaskBuilder.put(column, columnMasks.get(columnMaskKey));
+            }
+            else if (superResult.containsKey(column)) {
+                columnMaskBuilder.put(column, superResult.get(column));
+            }
+        }
+        return columnMaskBuilder.buildOrThrow();
     }
 
     private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)

@@ -14,8 +14,8 @@
 package com.facebook.presto.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.CatalogSchemaTableName;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
@@ -242,8 +242,8 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        return Optional.empty();
+        return Collections.emptyMap();
     }
 }
