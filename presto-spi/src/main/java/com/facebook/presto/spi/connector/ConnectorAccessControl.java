@@ -22,6 +22,8 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.ViewExpression;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -409,15 +411,15 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Get a row filter associated with the given table and identity.
+     * Get row filters associated with the given table and identity.
+     * <p>
+     * Each filter must be a scalar SQL expression of boolean type over the columns in the table.
      *
-     * The filter must be a scalar SQL expression of boolean type over the columns in the table.
-     *
-     * @return the filter, or {@link Optional#empty()} if not applicable
+     * @return the list of filters, or empty list if not applicable
      */
-    default Optional<ViewExpression> getRowFilter(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    default List<ViewExpression> getRowFilters(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
-        return Optional.empty();
+        return Collections.emptyList();
     }
 
     /**
