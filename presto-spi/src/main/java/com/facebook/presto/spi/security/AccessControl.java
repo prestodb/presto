@@ -17,7 +17,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.transaction.TransactionId;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
@@ -323,8 +323,8 @@ public interface AccessControl
         return Collections.emptyList();
     }
 
-    default Optional<ViewExpression> getColumnMask(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String columnName, Type type)
+    default Map<ColumnMetadata, ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, List<ColumnMetadata> columns)
     {
-        return Optional.empty();
+        return Collections.emptyMap();
     }
 }
