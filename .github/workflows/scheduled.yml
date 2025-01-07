@@ -382,8 +382,10 @@ jobs:
           mkdir -p /tmp/fuzzer_repro/logs/
           chmod -R 777 /tmp/fuzzer_repro
           chmod +x velox_expression_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           ./velox_expression_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
                 --lazy_vector_generation_ratio 0.2 \
@@ -432,10 +434,12 @@ jobs:
         run: |
           ls /tmp/signatures
           mkdir -p /tmp/presto_bias_fuzzer_repro/logs/
-            chmod -R 777 /tmp/presto_bias_fuzzer_repro
-            chmod +x velox_expression_fuzzer_test
-            ./velox_expression_fuzzer_test \
-                --seed ${RANDOM} \
+          chmod -R 777 /tmp/presto_bias_fuzzer_repro
+          chmod +x velox_expression_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
+          ./velox_expression_fuzzer_test \
+                --seed ${random_seed} \
                 --lazy_vector_generation_ratio 0.2 \
                 --common_dictionary_wraps_generation_ratio=0.3 \
                 --assign_function_tickets  $(cat /tmp/signatures/presto_bias_functions) \
@@ -479,8 +483,10 @@ jobs:
           mkdir -p /tmp/spark_aggregate_fuzzer_repro/logs/
           chmod -R 777 /tmp/spark_aggregate_fuzzer_repro
           chmod +x spark_aggregation_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           ./spark_aggregation_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
@@ -520,10 +526,12 @@ jobs:
         run: |
           ls /tmp/signatures
           mkdir -p /tmp/spark_bias_fuzzer_repro/logs/
-            chmod -R 777 /tmp/spark_bias_fuzzer_repro
-            chmod +x spark_expression_fuzzer_test
-            ./spark_expression_fuzzer_test \
-                --seed ${RANDOM} \
+          chmod -R 777 /tmp/spark_bias_fuzzer_repro
+          chmod +x spark_expression_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
+          ./spark_expression_fuzzer_test \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
@@ -557,10 +565,12 @@ jobs:
       - name: Run Spark Expression Fuzzer
         run: |
           mkdir -p /tmp/spark_fuzzer_repro/logs/
-            chmod -R 777 /tmp/spark_fuzzer_repro
-            chmod +x spark_expression_fuzzer_test
-            ./spark_expression_fuzzer_test \
-                --seed ${RANDOM} \
+          chmod -R 777 /tmp/spark_fuzzer_repro
+          chmod +x spark_expression_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
+          ./spark_expression_fuzzer_test \
+                --seed ${random_seed} \
                 --enable_variadic_signatures \
                 --lazy_vector_generation_ratio 0.2 \
                 --velox_fuzzer_enable_column_reuse \
@@ -624,8 +634,10 @@ jobs:
           mkdir -p /tmp/join_fuzzer_repro/logs/
           chmod -R 777 /tmp/join_fuzzer_repro
           chmod +x velox_join_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           ./velox_join_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
@@ -662,8 +674,10 @@ jobs:
           mkdir -p /tmp/exchange_fuzzer_repro/logs/
           chmod -R 777 /tmp/exchange_fuzzer_repro
           chmod +x velox_exchange_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           ./velox_exchange_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
@@ -698,8 +712,10 @@ jobs:
           mkdir -p /tmp/row_fuzzer_repro/logs/
           chmod -R 777 /tmp/row_fuzzer_repro
           chmod +x velox_row_number_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           ./velox_row_number_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
@@ -790,8 +806,10 @@ jobs:
           mkdir -p /tmp/aggregate_fuzzer_repro/logs/
           chmod -R 777 /tmp/aggregate_fuzzer_repro
           chmod +x velox_aggregation_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           ./velox_aggregation_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
@@ -859,8 +877,7 @@ jobs:
           mkdir -p /tmp/presto_only_bias_function_fuzzer_repro/logs/
           chmod -R 777 /tmp/presto_only_bias_function_fuzzer_repro
           chmod +x velox_expression_fuzzer_test
-          echo "Biased functions:"
-          cat /tmp/signatures/presto_bias_functions
+          echo "Biased functions: $(< /tmp/signatures/presto_bias_functions)"
           # Convert the list of function names with tickets into a list of function names only.
           function_names=""
           IFS=',' read -r -a array <<< $(cat /tmp/signatures/presto_bias_functions)
@@ -871,9 +888,11 @@ jobs:
             function_names+=$(echo $x | cut -d '=' -f 1)
           done
           echo "Biased function names: $function_names"
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           echo "Running Fuzzer for $DURATION"
           ./velox_expression_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --lazy_vector_generation_ratio 0.2 \
                 --common_dictionary_wraps_generation_ratio=0.3 \
                 --only=$function_names \
@@ -949,11 +968,12 @@ jobs:
           chmod +x velox_aggregation_fuzzer_test
           echo "signatures folder"
           ls /tmp/signatures/
-          echo "Biased functions:"
-          cat /tmp/signatures/presto_aggregate_bias_functions
+          echo "Biased functions: $(< cat /tmp/signatures/presto_aggregate_bias_functions)"
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           echo "Running Fuzzer for $DURATION"
           ./velox_aggregation_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
@@ -1039,8 +1059,10 @@ jobs:
           mkdir -p /tmp/window_fuzzer_repro/logs/
           chmod -R 777 /tmp/window_fuzzer_repro
           chmod +x velox_window_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           ./velox_window_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --batch_size=50 \
                 --minloglevel=0 \
@@ -1105,8 +1127,10 @@ jobs:
           mkdir -p /tmp/writer_fuzzer_repro/logs/
           chmod -R 777 /tmp/writer_fuzzer_repro
           chmod +x velox_writer_fuzzer_test
+          random_seed=${RANDOM}
+          echo "Random seed: ${random_seed}"
           ./velox_writer_fuzzer_test \
-                --seed ${RANDOM} \
+                --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \
                 --stderrthreshold=2 \
