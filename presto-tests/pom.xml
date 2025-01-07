@@ -230,12 +230,12 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-codec</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.drift</groupId>
+            <groupId>com.github.imsayari404.drift</groupId>
             <artifactId>drift-transport-netty</artifactId>
         </dependency>
 
@@ -327,6 +327,20 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.facebook.drift:drift-codec:jar:1.40-SNAPSHOT</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>com.github.imsayari404.drift:drift-transport-netty:jar:1.40-SNAPSHOT</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                    <ignoredUsedUndeclaredDependencies>
+                        <ignoredUsedUndeclaredDependency>com.github.imsayari404.drift:drift-codec:jar:1.40-SNAPSHOT</ignoredUsedUndeclaredDependency>
+                        <ignoredUsedUndeclaredDependency>com.facebook.drift:drift-transport-netty:jar:1.31</ignoredUsedUndeclaredDependency>
+                    </ignoredUsedUndeclaredDependencies>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
