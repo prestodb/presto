@@ -812,12 +812,12 @@ public class AccessControlManager
         ImmutableList.Builder<ViewExpression> filters = ImmutableList.builder();
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
         if (entry != null) {
-            entry.getAccessControl().getRowFilter(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName))
-                    .ifPresent(filters::add);
+            entry.getAccessControl().getRowFilters(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName))
+                    .forEach(filters::add);
         }
 
-        systemAccessControl.get().getRowFilter(identity, context, toCatalogSchemaTableName(tableName))
-                .ifPresent(filters::add);
+        systemAccessControl.get().getRowFilters(identity, context, toCatalogSchemaTableName(tableName))
+                .forEach(filters::add);
 
         return filters.build();
     }
