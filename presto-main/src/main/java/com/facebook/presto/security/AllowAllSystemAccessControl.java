@@ -28,6 +28,7 @@ import com.facebook.presto.spi.security.ViewExpression;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -230,9 +231,9 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
+    public List<ViewExpression> getRowFilters(Identity identity, AccessControlContext context, CatalogSchemaTableName tableName)
     {
-        return Optional.empty();
+        return Collections.emptyList();
     }
 
     @Override
