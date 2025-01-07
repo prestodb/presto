@@ -1,0 +1,51 @@
+name: linux-build-all
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'presto-native-execution/**'
+
+jobs:
+  linux-build-all:
+    runs-on: 16-core
+    container:
+      image: prestocpp/prestocpp-avx-centos:root-20230613
+    env:
+      MAVEN_OPTS: "-Xmx4G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+      MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
+      MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --fail-at-end"
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: Update velox
+        run: |
+          cd presto-native-execution
+          make velox-submodule
+      - name: Install all adapter dependencies
+        run: |
+          mkdir -p ${GITHUB_WORKSPACE}/adapter-deps/install
+          source /opt/rh/gcc-toolset-9/enable
+          set -xu
+          cd presto-native-execution
+          DEPENDENCY_DIR=${GITHUB_WORKSPACE}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./velox/scripts/setup-adapters.sh
+          DEPENDENCY_DIR=${GITHUB_WORKSPACE}/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh jwt
+      - name: Build All
+        run: |
+          source /opt/rh/gcc-toolset-9/enable
+          cd presto-native-execution
+          cmake \
+            -B _build/release \
+            -GNinja \
+            -DAWSSDK_ROOT_DIR=${GITHUB_WORKSPACE}/adapter-deps/install \
+            -DTREAT_WARNINGS_AS_ERRORS=1 \
+            -DENABLE_ALL_WARNINGS=1 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPRESTO_ENABLE_PARQUET=ON \
+            -DPRESTO_ENABLE_S3=ON \
+            -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
+            -DPRESTO_ENABLE_JWT=ON \
+            -DCMAKE_PREFIX_PATH=/usr/local \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DMAX_LINK_JOBS=2
+          ninja -C _build/release -j 8
