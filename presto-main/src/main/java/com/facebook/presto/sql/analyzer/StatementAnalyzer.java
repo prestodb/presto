@@ -421,10 +421,8 @@ class StatementAnalyzer
 
             List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
 
-            for (ColumnMetadata column : columnsMetadata) {
-                if (accessControl.getColumnMask(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable, column.getName(), column.getType()).isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
-                }
+            if (!accessControl.getColumnMasks(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable, columnsMetadata).isEmpty()) {
+                throw new SemanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
             }
 
             List<String> tableColumns = columnsMetadata.stream()
@@ -620,10 +618,8 @@ class StatementAnalyzer
 
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), tableName);
             List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
-            for (ColumnMetadata columnMetadata : columnsMetadata) {
-                if (accessControl.getColumnMask(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, columnMetadata.getName(), columnMetadata.getType()).isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, node, "Delete from table with column mask is not supported");
-                }
+            if (!accessControl.getColumnMasks(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, columnsMetadata).isEmpty()) {
+                throw new SemanticException(NOT_SUPPORTED, node, "Delete from table with column mask is not supported");
             }
 
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
@@ -1367,6 +1363,7 @@ class StatementAnalyzer
             }
 
             TableColumnMetadata tableColumnsMetadata = getTableColumnsMetadata(session, metadataResolver, analysis.getMetadataHandle(), name);
+            List<ColumnMetadata> columnsMetadata = tableColumnsMetadata.getColumnsMetadata();
             Optional<TableHandle> tableHandle = getTableHandle(tableColumnsMetadata, table, name, scope);
 
             Map<String, ColumnHandle> columnHandles = tableColumnsMetadata.getColumnHandles();
@@ -1374,7 +1371,7 @@ class StatementAnalyzer
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
 
-            for (ColumnMetadata column : tableColumnsMetadata.getColumnsMetadata()) {
+            for (ColumnMetadata column : columnsMetadata) {
                 Field field = Field.newQualified(
                         Optional.empty(),
                         table.getName(),
@@ -1398,9 +1395,10 @@ class StatementAnalyzer
                     .withRelationType(RelationId.anonymous(), new RelationType(outputFields))
                     .build();
 
-            for (Field field : outputFields) {
-                Optional<ViewExpression> mask = accessControl.getColumnMask(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name, field.getName().get(), field.getType());
-                mask.ifPresent(viewExpression -> analyzeColumnMask(session.getIdentity().getUser(), table, name, field, accessControlScope, viewExpression));
+            Map<ColumnMetadata, ViewExpression> masks = accessControl.getColumnMasks(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name, columnsMetadata);
+
+            for (Map.Entry<ColumnMetadata, ViewExpression> maskEntry : masks.entrySet()) {
+                analyzeColumnMask(session.getIdentity().getUser(), table, name, maskEntry.getKey(), accessControlScope, maskEntry.getValue());
             }
 
             accessControl.getRowFilters(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), name)
@@ -3039,9 +3037,9 @@ class StatementAnalyzer
             analysis.addRowFilter(table, expression);
         }
 
-        private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, Field field, Scope scope, ViewExpression mask)
+        private void analyzeColumnMask(String currentIdentity, Table table, QualifiedObjectName tableName, ColumnMetadata columnMetadata, Scope scope, ViewExpression mask)
         {
-            String column = field.getName().get();
+            String column = columnMetadata.getName();
             if (analysis.hasColumnMask(tableName, column, currentIdentity)) {
                 throw new PrestoException(INVALID_ROW_FILTER, format("Column mask for '%s.%s' is recursive", tableName, column), null);
             }
@@ -3078,11 +3076,11 @@ class StatementAnalyzer
 
             analysis.recordSubqueries(expression, expressionAnalysis);
 
-            Type expectedType = field.getType();
+            Type expectedType = columnMetadata.getType();
             Type actualType = expressionAnalysis.getType(expression);
             if (!actualType.equals(expectedType)) {
-                if (!metadata.getFunctionAndTypeManager().canCoerce(actualType, field.getType())) {
-                    throw new PrestoException(DATATYPE_MISMATCH, format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
+                if (!metadata.getFunctionAndTypeManager().canCoerce(actualType, columnMetadata.getType())) {
+                    throw new PrestoException(DATATYPE_MISMATCH, format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, columnMetadata.getType(), actualType), null);
                 }
 
                 // TODO: this should be "coercion.isTypeOnlyCoercion(actualType, expectedType)", but type-only coercions are broken
