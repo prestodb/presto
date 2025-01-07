@@ -319,8 +319,8 @@ void CacheFuzzer::initializeCache(bool restartCache) {
   // We have up to 20 threads and 16 threads are used for reading so
   // there are some threads left over for SSD background write.
   executor_ = std::make_unique<folly::IOThreadPoolExecutor>(20);
-  const auto memoryCacheBytes = getMemoryCacheBytes();
-  const auto ssdCacheBytes = getSsdCacheBytes();
+  const auto memoryCacheBytes = getMemoryCacheBytes(restartCache);
+  const auto ssdCacheBytes = getSsdCacheBytes(restartCache);
 
   std::unique_ptr<SsdCache> ssdCache;
   if (ssdCacheBytes > 0) {
