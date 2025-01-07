@@ -339,10 +339,12 @@ public class TestIcebergSmokeRestNestedNamespace
         assertUpdate(session, "CREATE VIEW view_orders AS SELECT * from orders");
         assertQuery(session, "SELECT * FROM view_orders", "SELECT * from orders");
         assertThat(computeActual("SHOW CREATE VIEW view_orders").getOnlyValue())
-                .isEqualTo(format("CREATE VIEW iceberg.\"%s\".view_orders AS\n" +
-                        "SELECT *\n" +
-                        "FROM\n" +
-                        "  orders", schemaName));
+                .isEqualTo(format("CREATE VIEW iceberg.\"%s\".view_orders SECURITY %s AS\n" +
+                                "SELECT *\n" +
+                                "FROM\n" +
+                                "  orders",
+                        schemaName,
+                        "DEFINER"));
         assertUpdate(session, "DROP VIEW view_orders");
     }
 

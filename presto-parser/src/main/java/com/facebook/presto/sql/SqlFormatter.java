@@ -583,8 +583,7 @@ public final class SqlFormatter
 
             node.getSecurity().ifPresent(security ->
                     builder.append(" SECURITY ")
-                            .append(security.toString())
-                            .append(" "));
+                            .append(security.toString()));
 
             builder.append(" AS\n");
 
