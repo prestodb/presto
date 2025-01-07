@@ -15,6 +15,7 @@ package com.facebook.presto.plugin.base.security;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.plugin.base.security.TableAccessControlRule.TablePrivilege;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -23,11 +24,13 @@ import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.ViewExpression;
 import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -334,6 +337,18 @@ public class FileBasedAccessControl
         if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
             denyAddConstraint(tableName.toString());
         }
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return Collections.emptyMap();
     }
 
     private boolean canSetSessionProperty(ConnectorIdentity identity, String property)

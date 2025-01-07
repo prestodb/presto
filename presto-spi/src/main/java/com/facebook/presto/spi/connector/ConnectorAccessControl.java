@@ -14,7 +14,7 @@
 package com.facebook.presto.spi.connector;
 
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.ConnectorIdentity;
@@ -423,15 +423,15 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Get a column mask associated with the given table, column and identity.
-     *
-     * The mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
+     * Bulk method for getting column masks for a subset of columns in a table.
+     * <p>
+     * Each mask must be a scalar SQL expression of a type coercible to the type of the column being masked. The expression
      * must be written in terms of columns in the table.
      *
-     * @return the mask, or {@link Optional#empty()} if not applicable
+     * @return a mapping from columns to masks, or an empty map if not applicable. The keys of the return Map are a subset of {@code columns}.
      */
-    default Optional<ViewExpression> getColumnMask(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, String columnName, Type type)
+    default Map<ColumnMetadata, ViewExpression> getColumnMasks(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
     {
-        return Optional.empty();
+        return Collections.emptyMap();
     }
 }
