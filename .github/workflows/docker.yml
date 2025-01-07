@@ -71,7 +71,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and Push
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           file: "${{ matrix.file }}"
           build-args: "${{ matrix.args }}"
@@ -113,7 +113,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and Push
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           file: "${{ matrix.file }}"
           build-args: "${{ matrix.args }}"
