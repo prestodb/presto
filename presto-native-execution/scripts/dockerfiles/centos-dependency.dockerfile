@@ -23,4 +23,4 @@ RUN mkdir build && \
     (cd build && ../scripts/setup-centos.sh && \
                  ../velox/scripts/setup-adapters.sh && \
                  ../scripts/setup-adapters.sh ) && \
-    rm -rf build
+    rm -rf build && rm -r /deps-download

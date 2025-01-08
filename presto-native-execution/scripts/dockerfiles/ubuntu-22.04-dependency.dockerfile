@@ -32,4 +32,4 @@ RUN mkdir build && \
                          apt install -y rpm && \
                  ../velox/scripts/setup-adapters.sh && \
                  ../scripts/setup-adapters.sh ) && \
-    rm -rf build
+    rm -rf build && rm -rf /deps-download
