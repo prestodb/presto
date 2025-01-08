@@ -456,9 +456,9 @@ public class TestArbitraryOutputBuffer
             addPage(buffer, createPage(33));
             assertThat(secondReads).allMatch(future -> !future.isDone(), "No secondary reads should complete until after all first reads");
             List<OutputBufferId> completedIds = firstReads.entrySet().stream()
-                                                        .filter(entry -> entry.getValue().isDone())
-                                                        .map(Map.Entry::getKey)
-                                                        .collect(toList());
+                    .filter(entry -> entry.getValue().isDone())
+                    .map(Map.Entry::getKey)
+                    .collect(toList());
             assertEquals(completedIds.size(), 1, "One completed buffer read per page addition");
             OutputBufferId completed = completedIds.get(0);
 
@@ -1075,7 +1075,7 @@ public class TestArbitraryOutputBuffer
     {
         ArbitraryOutputBuffer buffer = new ArbitraryOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);

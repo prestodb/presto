@@ -177,6 +177,8 @@ public class QueryStateMachine
     private final AtomicReference<Set<String>> aggregateFunctions = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Set<String>> windowFunctions = new AtomicReference<>(ImmutableSet.of());
 
+    private final Executor executor;
+
     private QueryStateMachine(
             String query,
             Optional<String> preparedQuery,
@@ -201,10 +203,11 @@ public class QueryStateMachine
         this.queryStateTimer = new QueryStateTimer(ticker);
         this.metadata = requireNonNull(metadata, "metadata is null");
 
-        this.queryState = new StateMachine<>("query " + query, executor, WAITING_FOR_PREREQUISITES, TERMINAL_QUERY_STATES);
-        this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
+        this.queryState = new StateMachine<>("query " + query, WAITING_FOR_PREREQUISITES, TERMINAL_QUERY_STATES);
+        this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     /**
@@ -969,7 +972,7 @@ public class QueryStateMachine
      */
     public void addStateChangeListener(StateChangeListener<QueryState> stateChangeListener)
     {
-        queryState.addStateChangeListener(stateChangeListener);
+        queryState.addStateChangeListener(stateChangeListener, executor);
     }
 
     /**
@@ -985,7 +988,7 @@ public class QueryStateMachine
                 stateChangeListener.stateChanged(finalQueryInfo.get());
             }
         };
-        finalQueryInfo.addStateChangeListener(fireOnceStateChangeListener);
+        finalQueryInfo.addStateChangeListener(fireOnceStateChangeListener, executor);
     }
 
     public ListenableFuture<QueryState> getStateChange(QueryState currentState)

@@ -556,7 +556,7 @@ public class TestSpoolingOutputBuffer
                 taskId,
                 TASK_INSTANCE_ID,
                 OUTPUT_BUFFERS,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES));
+                new StateMachine<>("bufferState", OPEN, TERMINAL_BUFFER_STATES));
     }
 
     private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)

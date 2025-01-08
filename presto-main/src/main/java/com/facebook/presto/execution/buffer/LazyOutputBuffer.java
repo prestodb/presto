@@ -80,7 +80,7 @@ public class LazyOutputBuffer
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.executor = requireNonNull(executor, "executor is null");
-        state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
+        state = new StateMachine<>(taskId + "-buffer", OPEN, TERMINAL_BUFFER_STATES);
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
@@ -90,7 +90,7 @@ public class LazyOutputBuffer
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override
@@ -170,7 +170,7 @@ public class LazyOutputBuffer
                             outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
                             break;
                         case DISCARDING:
-                            outputBuffer = new DiscardingOutputBuffer(newOutputBuffers, state);
+                            outputBuffer = new DiscardingOutputBuffer(newOutputBuffers, state, executor);
                             break;
                         case SPOOLING:
                             outputBuffer = spoolingOutputBufferFactory.createSpoolingOutputBuffer(taskId, taskInstanceId, newOutputBuffers, state);

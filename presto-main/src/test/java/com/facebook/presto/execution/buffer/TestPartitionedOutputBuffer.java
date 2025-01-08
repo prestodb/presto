@@ -841,7 +841,7 @@ public class TestPartitionedOutputBuffer
     {
         PartitionedOutputBuffer buffer = new PartitionedOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", OPEN, TERMINAL_BUFFER_STATES),
                 buffers,
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),

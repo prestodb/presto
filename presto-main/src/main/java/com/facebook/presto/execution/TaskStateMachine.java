@@ -39,11 +39,13 @@ public class TaskStateMachine
     private final TaskId taskId;
     private final StateMachine<TaskState> taskState;
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
+    private final Executor executor;
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
-        taskState = new StateMachine<>("task " + taskId, executor, TaskState.RUNNING, TERMINAL_TASK_STATES);
+        this.executor = requireNonNull(executor, "executor is null");
+        taskState = new StateMachine<>("task " + taskId, TaskState.RUNNING, TERMINAL_TASK_STATES);
         taskState.addStateChangeListener(new StateChangeListener<TaskState>()
         {
             @Override
@@ -51,7 +53,7 @@ public class TaskStateMachine
             {
                 log.debug("Task %s is %s", taskId, newState);
             }
-        });
+        }, executor);
     }
 
     public DateTime getCreatedTime()
@@ -123,7 +125,7 @@ public class TaskStateMachine
      */
     public void addStateChangeListener(StateChangeListener<TaskState> stateChangeListener)
     {
-        taskState.addStateChangeListener(stateChangeListener);
+        taskState.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override
