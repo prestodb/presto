@@ -85,6 +85,7 @@
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
         <dep.netty.version>4.1.115.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
+        <dep.arrow.version>17.0.0</dep.arrow.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -205,6 +206,7 @@
         <module>presto-hana</module>
         <module>presto-openapi</module>
         <module>presto-native-sidecar-plugin</module>
+        <module>presto-base-arrow-flight</module>
     </modules>
 
     <dependencyManagement>
@@ -2243,6 +2245,31 @@
                 <artifactId>snakeyaml</artifactId>
                 <version>${dep.snakeyaml.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-core</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-jdbc</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>flight-core</artifactId>
+                <version>${dep.arrow.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
