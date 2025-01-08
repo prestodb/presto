@@ -35,23 +35,8 @@ velox_add_library(
 velox_link_libraries(
   velox_hive_connector
   PUBLIC velox_hive_iceberg_splitreader
-  PRIVATE
-    velox_common_io
-    velox_connector
-    velox_dwio_catalog_fbhive
-    velox_dwio_dwrf_reader
-    velox_dwio_dwrf_writer
-    velox_dwio_orc_reader
-    velox_dwio_parquet_reader
-    velox_dwio_parquet_writer
-    velox_dwio_text_writer_register
-    velox_file
-    velox_hive_partition_function
-    velox_type_tz
-    velox_s3fs
-    velox_hdfs
-    velox_gcs
-    velox_abfs)
+  PRIVATE velox_common_io velox_connector velox_dwio_catalog_fbhive
+          velox_hive_partition_function)
 
 velox_add_library(velox_hive_partition_function HivePartitionFunction.cpp)
 

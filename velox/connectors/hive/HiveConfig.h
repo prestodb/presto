@@ -44,9 +44,6 @@ class HiveConfig {
 
   /// Maximum number of (bucketed) partitions per a single table writer
   /// instance.
-  ///
-  /// TODO: remove hive_orc_use_column_names since it doesn't exist in presto,
-  /// right now this is only used for testing.
   static constexpr const char* kMaxPartitionsPerWriters =
       "max-partitions-per-writers";
   static constexpr const char* kMaxPartitionsPerWritersSession =
@@ -136,48 +133,6 @@ class HiveConfig {
   /// meta data together. Optimization to decrease the small IO requests
   static constexpr const char* kFilePreloadThreshold = "file-preload-threshold";
 
-  /// Maximum stripe size in orc writer.
-  static constexpr const char* kOrcWriterMaxStripeSize =
-      "hive.orc.writer.stripe-max-size";
-  static constexpr const char* kOrcWriterMaxStripeSizeSession =
-      "orc_optimized_writer_max_stripe_size";
-
-  /// Maximum dictionary memory that can be used in orc writer.
-  static constexpr const char* kOrcWriterMaxDictionaryMemory =
-      "hive.orc.writer.dictionary-max-memory";
-  static constexpr const char* kOrcWriterMaxDictionaryMemorySession =
-      "orc_optimized_writer_max_dictionary_memory";
-
-  /// Configs to control dictionary encoding.
-  static constexpr const char* kOrcWriterIntegerDictionaryEncodingEnabled =
-      "hive.orc.writer.integer-dictionary-encoding-enabled";
-  static constexpr const char*
-      kOrcWriterIntegerDictionaryEncodingEnabledSession =
-          "orc_optimized_writer_integer_dictionary_encoding_enabled";
-  static constexpr const char* kOrcWriterStringDictionaryEncodingEnabled =
-      "hive.orc.writer.string-dictionary-encoding-enabled";
-  static constexpr const char*
-      kOrcWriterStringDictionaryEncodingEnabledSession =
-          "orc_optimized_writer_string_dictionary_encoding_enabled";
-
-  /// Enables historical based stripe size estimation after compression.
-  static constexpr const char* kOrcWriterLinearStripeSizeHeuristics =
-      "hive.orc.writer.linear-stripe-size-heuristics";
-  static constexpr const char* kOrcWriterLinearStripeSizeHeuristicsSession =
-      "orc_writer_linear_stripe_size_heuristics";
-
-  /// Minimal number of items in an encoded stream.
-  static constexpr const char* kOrcWriterMinCompressionSize =
-      "hive.orc.writer.min-compression-size";
-  static constexpr const char* kOrcWriterMinCompressionSizeSession =
-      "orc_writer_min_compression_size";
-
-  /// The compression level to use with ZLIB and ZSTD.
-  static constexpr const char* kOrcWriterCompressionLevel =
-      "hive.orc.writer.compression-level";
-  static constexpr const char* kOrcWriterCompressionLevelSession =
-      "orc_optimized_writer_compression_level";
-
   /// Config used to create write files. This config is provided to underlying
   /// file system through hive connector and data sink. The config is free form.
   /// The form should be defined by the underlying file system.
@@ -260,31 +215,6 @@ class HiveConfig {
   bool isFileHandleCacheEnabled() const;
 
   uint64_t fileWriterFlushThresholdBytes() const;
-
-  uint64_t orcWriterMaxStripeSize(const config::ConfigBase* session) const;
-
-  uint64_t orcWriterMaxDictionaryMemory(
-      const config::ConfigBase* session) const;
-
-  bool isOrcWriterIntegerDictionaryEncodingEnabled(
-      const config::ConfigBase* session) const;
-
-  bool isOrcWriterStringDictionaryEncodingEnabled(
-      const config::ConfigBase* session) const;
-
-  bool orcWriterLinearStripeSizeHeuristics(
-      const config::ConfigBase* session) const;
-
-  uint64_t orcWriterMinCompressionSize(const config::ConfigBase* session) const;
-
-  std::optional<uint8_t> orcWriterCompressionLevel(
-      const config::ConfigBase* session) const;
-
-  uint8_t orcWriterZLIBCompressionLevel(
-      const config::ConfigBase* session) const;
-
-  uint8_t orcWriterZSTDCompressionLevel(
-      const config::ConfigBase* session) const;
 
   std::string writeFileCreateConfig() const;
 

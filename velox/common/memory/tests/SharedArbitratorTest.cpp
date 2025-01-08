@@ -1110,12 +1110,11 @@ DEBUG_ONLY_TEST_P(SharedArbitrationTestWithThreadingModes, runtimeStats) {
             // triggered flush.
             .connectorSessionProperty(
                 kHiveConnectorId,
-                connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+                dwrf::Config::kOrcWriterMaxStripeSizeSession,
                 "1GB")
             .connectorSessionProperty(
                 kHiveConnectorId,
-                connector::hive::HiveConfig::
-                    kOrcWriterMaxDictionaryMemorySession,
+                dwrf::Config::kOrcWriterMaxDictionaryMemorySession,
                 "1GB")
             .plan(std::move(writerPlan))
             .assertResults(fmt::format("SELECT {}", numRows));

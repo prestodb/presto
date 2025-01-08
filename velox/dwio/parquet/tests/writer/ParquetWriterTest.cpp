@@ -203,6 +203,24 @@ TEST_F(ParquetWriterTest, parquetWriteTimestampTimeZoneWithDefault) {
   writer->close();
 };
 
+TEST_F(ParquetWriterTest, updateWriterOptionsFromHiveConfig) {
+  std::unordered_map<std::string, std::string> configFromFile = {
+      {parquet::WriterOptions::kParquetSessionWriteTimestampUnit, "3"},
+      {core::QueryConfig::kSessionTimezone, "UTC"}};
+  const config::ConfigBase connectorConfig(std::move(configFromFile));
+  const config::ConfigBase connectorSessionProperties({});
+
+  parquet::WriterOptions options;
+  options.compressionKind = facebook::velox::common::CompressionKind_ZLIB;
+
+  options.processConfigs(connectorConfig, connectorSessionProperties);
+
+  ASSERT_EQ(
+      options.parquetWriteTimestampUnit.value(),
+      TimestampPrecision::kMilliseconds);
+  ASSERT_EQ(options.parquetWriteTimestampTimeZone.value(), "UTC");
+}
+
 #ifdef VELOX_ENABLE_PARQUET
 DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromHiveConfig) {
   SCOPED_TESTVALUE_SET(

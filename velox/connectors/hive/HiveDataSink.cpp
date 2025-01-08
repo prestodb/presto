@@ -780,11 +780,7 @@ uint32_t HiveDataSink::appendWriter(const HiveWriterId& id) {
         insertTableHandle_->serdeParameters().end());
   }
 
-  updateWriterOptionsFromHiveConfig(
-      insertTableHandle_->storageFormat(),
-      hiveConfig_,
-      connectorSessionProperties,
-      options);
+  options->processConfigs(*hiveConfig_->config(), *connectorSessionProperties);
 
   const auto& sessionTimeZoneName = connectorQueryCtx_->sessionTimezone();
   if (!sessionTimeZoneName.empty()) {

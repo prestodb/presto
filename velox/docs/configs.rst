@@ -564,6 +564,34 @@ Each query can override the config by setting corresponding query session proper
      - 1MB
      - Define the estimation of footer size in ORC and Parquet format. The footer data includes version, schema, and meta data for every columns which may or may not need to be fetched later.
        The parameter controls the size when footer is fetched each time. Bigger value can decrease the IO requests but may fetch more useless meta data.
+   * - cache.no_retention
+     - cache.no_retention
+     - bool
+     - false
+     - If true, evict out a query scanned data out of in-memory cache right after the access,
+       and also skip staging to the ssd cache. This helps to prevent the cache space pollution
+       from the one-time table scan by large batch query when mixed running with interactive
+       query which has high data locality.
+   * - hive.reader.stats_based_filter_reorder_disabaled
+     - hive.reader.stats_based_filter_reorder_disabaled
+     - bool
+     - false
+     - If true, disable the stats based filter reordering during the read processing, and the
+       filter execution order is totally determined by the filter type. Otherwise, the file
+       reader will dynamically adjust the filter execution order based on the past filter
+       execution stats.
+
+``ORC File Format Configuration``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. list-table::
+   :widths: 20 20 10 10 70
+   :header-rows: 1
+
+   * - Configuration Property Name
+     - Session Property Name
+     - Type
+     - Default Value
+     - Description
    * - hive.orc.writer.stripe-max-size
      - orc_optimized_writer_max_stripe_size
      - string
@@ -584,12 +612,6 @@ Each query can override the config by setting corresponding query session proper
      - bool
      - true
      - Whether or not dictionary encoding of string types should be used by the ORC writer.
-   * - hive.parquet.writer.timestamp-unit
-     - hive.parquet.writer.timestamp_unit
-     - tinyint
-     - 9
-     - Timestamp unit used when writing timestamps into Parquet through Arrow bridge.
-       Valid values are 3 (millisecond), 6 (microsecond), and 9 (nanosecond).
    * - hive.orc.writer.linear-stripe-size-heuristics
      - orc_writer_linear_stripe_size_heuristics
      - bool
@@ -605,22 +627,24 @@ Each query can override the config by setting corresponding query session proper
      - tinyint
      - 3 for ZSTD and 4 for ZLIB
      - The compression level to use with ZLIB and ZSTD.
-   * - cache.no_retention
-     - cache.no_retention
-     - bool
-     - false
-     - If true, evict out a query scanned data out of in-memory cache right after the access,
-       and also skip staging to the ssd cache. This helps to prevent the cache space pollution
-       from the one-time table scan by large batch query when mixed running with interactive
-       query which has high data locality.
-   * - hive.reader.stats_based_filter_reorder_disabaled
-     - hive.reader.stats_based_filter_reorder_disabaled
-     - bool
-     - false
-     - If true, disable the stats based filter reordering during the read processing, and the
-       filter execution order is totally determined by the filter type. Otherwise, the file
-       reader will dynamically adjust the filter execution order based on the past filter
-       execution stats.
+
+``Parquet File Format Configuration``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. list-table::
+   :widths: 20 20 10 10 70
+   :header-rows: 1
+
+   * - Configuration Property Name
+     - Session Property Name
+     - Type
+     - Default Value
+     - Description
+   * - hive.parquet.writer.timestamp-unit
+     - hive.parquet.writer.timestamp_unit
+     - tinyint
+     - 9
+     - Timestamp unit used when writing timestamps into Parquet through Arrow bridge.
+       Valid values are 3 (millisecond), 6 (microsecond), and 9 (nanosecond).
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -78,6 +78,48 @@ class Config : public config::ConfigBase {
   static Entry<uint64_t> RAW_DATA_SIZE_PER_BATCH;
   static Entry<bool> MAP_STATISTICS;
 
+  /// Maximum stripe size in orc writer.
+  static constexpr const char* kOrcWriterMaxStripeSize =
+      "hive.orc.writer.stripe-max-size";
+  static constexpr const char* kOrcWriterMaxStripeSizeSession =
+      "orc_optimized_writer_max_stripe_size";
+
+  /// Maximum dictionary memory that can be used in orc writer.
+  static constexpr const char* kOrcWriterMaxDictionaryMemory =
+      "hive.orc.writer.dictionary-max-memory";
+  static constexpr const char* kOrcWriterMaxDictionaryMemorySession =
+      "orc_optimized_writer_max_dictionary_memory";
+
+  /// Configs to control dictionary encoding.
+  static constexpr const char* kOrcWriterIntegerDictionaryEncodingEnabled =
+      "hive.orc.writer.integer-dictionary-encoding-enabled";
+  static constexpr const char*
+      kOrcWriterIntegerDictionaryEncodingEnabledSession =
+          "orc_optimized_writer_integer_dictionary_encoding_enabled";
+  static constexpr const char* kOrcWriterStringDictionaryEncodingEnabled =
+      "hive.orc.writer.string-dictionary-encoding-enabled";
+  static constexpr const char*
+      kOrcWriterStringDictionaryEncodingEnabledSession =
+          "orc_optimized_writer_string_dictionary_encoding_enabled";
+
+  /// Enables historical based stripe size estimation after compression.
+  static constexpr const char* kOrcWriterLinearStripeSizeHeuristics =
+      "hive.orc.writer.linear-stripe-size-heuristics";
+  static constexpr const char* kOrcWriterLinearStripeSizeHeuristicsSession =
+      "orc_writer_linear_stripe_size_heuristics";
+
+  /// Minimal number of items in an encoded stream.
+  static constexpr const char* kOrcWriterMinCompressionSize =
+      "hive.orc.writer.min-compression-size";
+  static constexpr const char* kOrcWriterMinCompressionSizeSession =
+      "orc_writer_min_compression_size";
+
+  /// The compression level to use with ZLIB and ZSTD.
+  static constexpr const char* kOrcWriterCompressionLevel =
+      "hive.orc.writer.compression-level";
+  static constexpr const char* kOrcWriterCompressionLevelSession =
+      "orc_optimized_writer_compression_level";
+
   static std::shared_ptr<Config> fromMap(
       const std::map<std::string, std::string>& map) {
     auto config = std::make_shared<Config>();

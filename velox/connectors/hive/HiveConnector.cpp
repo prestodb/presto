@@ -28,7 +28,6 @@
 #include <memory>
 
 using namespace facebook::velox::exec;
-using namespace facebook::velox::dwrf;
 
 namespace facebook::velox::connector::hive {
 

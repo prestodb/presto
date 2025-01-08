@@ -35,6 +35,10 @@ target_link_libraries(
   velox_hive_connector
   velox_tpch_connector
   velox_memory
+  velox_hdfs
+  velox_gcs
+  velox_abfs
+  velox_s3fs
   Folly::folly
   glog::glog
   gflags::gflags)

@@ -44,6 +44,10 @@ struct WriterOptions : public dwio::common::WriterOptions {
       columnWriterFactory;
   const tz::TimeZone* sessionTimezone{nullptr};
   bool adjustTimestampToTimezone{false};
+
+  void processConfigs(
+      const config::ConfigBase& connectorConfig,
+      const config::ConfigBase& session) override;
 };
 
 class Writer : public dwio::common::Writer {

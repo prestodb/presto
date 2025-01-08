@@ -16,6 +16,7 @@
 
 #include "velox/exec/tests/utils/ArbitratorTestUtil.h"
 #include "velox/common/memory/SharedArbitrator.h"
+#include "velox/dwio/dwrf/common/Config.h"
 #include "velox/exec/TableWriter.h"
 
 using namespace facebook::velox;
@@ -347,17 +348,15 @@ QueryTestResult runWriteTask(
             // triggered flush.
             .connectorSessionProperty(
                 kHiveConnectorId,
-                connector::hive::HiveConfig::kOrcWriterMaxStripeSizeSession,
+                dwrf::Config::kOrcWriterMaxStripeSizeSession,
                 "1GB")
             .connectorSessionProperty(
                 kHiveConnectorId,
-                connector::hive::HiveConfig::
-                    kOrcWriterMaxDictionaryMemorySession,
+                dwrf::Config::kOrcWriterMaxDictionaryMemorySession,
                 "1GB")
             .connectorSessionProperty(
                 kHiveConnectorId,
-                connector::hive::HiveConfig::
-                    kOrcWriterMaxDictionaryMemorySession,
+                dwrf::Config::kOrcWriterMaxDictionaryMemorySession,
                 "1GB")
             .queryCtx(queryCtx)
             .maxDrivers(numDrivers)

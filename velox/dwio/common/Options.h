@@ -632,21 +632,18 @@ struct WriterOptions {
       memoryReclaimerFactory{[]() { return nullptr; }};
 
   std::optional<velox::common::CompressionKind> compressionKind;
-  std::optional<uint64_t> orcMinCompressionSize{std::nullopt};
-  std::optional<uint64_t> maxStripeSize{std::nullopt};
-  std::optional<bool> orcLinearStripeSizeHeuristics{std::nullopt};
-  std::optional<uint64_t> maxDictionaryMemory{std::nullopt};
-  std::optional<bool> orcWriterIntegerDictionaryEncodingEnabled{std::nullopt};
-  std::optional<bool> orcWriterStringDictionaryEncodingEnabled{std::nullopt};
   std::map<std::string, std::string> serdeParameters;
-  std::optional<uint8_t> zlibCompressionLevel;
-  std::optional<uint8_t> zstdCompressionLevel;
-
   std::function<std::unique_ptr<dwio::common::FlushPolicy>()>
       flushPolicyFactory;
 
   const tz::TimeZone* sessionTimezone{nullptr};
   bool adjustTimestampToTimezone{false};
+
+  // WriterOption implementations can implement this function to specify how to
+  // process format-specific session and connector configs.
+  virtual void processConfigs(
+      const config::ConfigBase& connectorConfig,
+      const config::ConfigBase& session) {}
 
   virtual ~WriterOptions() = default;
 };
