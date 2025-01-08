@@ -2120,7 +2120,8 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
   std::shared_ptr<AggregationNode> aggregationNode;
   if (obj.count("aggregationNode") != 0) {
     aggregationNode = std::const_pointer_cast<AggregationNode>(
-        ISerializable::deserialize<AggregationNode>(obj["aggregationNode"]));
+        ISerializable::deserialize<AggregationNode>(
+            obj["aggregationNode"], context));
   }
   auto connectorId = obj["connectorId"].asString();
   auto connectorInsertTableHandle =

@@ -237,7 +237,7 @@ folly::dynamic LambdaTypedExpr::serialize() const {
 // static
 TypedExprPtr LambdaTypedExpr::create(const folly::dynamic& obj, void* context) {
   auto signature = ISerializable::deserialize<Type>(obj["signature"]);
-  auto body = ISerializable::deserialize<ITypedExpr>(obj["body"]);
+  auto body = ISerializable::deserialize<ITypedExpr>(obj["body"], context);
 
   return std::make_shared<LambdaTypedExpr>(
       asRowType(signature), std::move(body));

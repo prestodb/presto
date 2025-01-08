@@ -139,16 +139,18 @@ TEST_F(TypedExprSerDeTest, concat) {
 }
 
 TEST_F(TypedExprSerDeTest, lambda) {
-  // x -> (x > 10)
+  // x -> (x in (1, ..., 5))
   auto expression = std::make_shared<LambdaTypedExpr>(
       ROW({"x"}, {BIGINT()}),
       std::make_shared<CallTypedExpr>(
           BOOLEAN(),
           std::vector<TypedExprPtr>{
               std::make_shared<FieldAccessTypedExpr>(BIGINT(), "x"),
-              std::make_shared<ConstantTypedExpr>(BIGINT(), 10LL),
+              std::make_shared<ConstantTypedExpr>(makeArrayVector<int64_t>({
+                  {1, 2, 3, 4, 5},
+              })),
           },
-          "gt"));
+          "in"));
   testSerde(expression);
 }
 

@@ -648,6 +648,8 @@ void saveStringToFile(const std::string& content, const char* filePath) {
 }
 
 VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool) {
+  VELOX_CHECK_NOT_NULL(pool);
+
   // Encoding.
   auto encoding = readEncoding(in);
 
