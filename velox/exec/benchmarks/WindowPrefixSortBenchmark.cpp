@@ -19,6 +19,7 @@
 #include <folly/init/Init.h>
 #include <string>
 
+#include "velox/common/memory/SharedArbitrator.h"
 #include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -41,6 +42,7 @@ namespace {
 class WindowPrefixSortBenchmark : public HiveConnectorTestBase {
  public:
   explicit WindowPrefixSortBenchmark() {
+    memory::SharedArbitrator::registerFactory();
     HiveConnectorTestBase::SetUp();
     aggregate::prestosql::registerAllAggregateFunctions();
     window::prestosql::registerAllWindowFunctions();
