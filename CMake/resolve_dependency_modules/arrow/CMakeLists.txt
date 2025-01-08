@@ -71,27 +71,23 @@ if(VELOX_ENABLE_ARROW)
     URL_HASH ${VELOX_ARROW_BUILD_SHA256_CHECKSUM}
     SOURCE_SUBDIR cpp
     CMAKE_ARGS ${ARROW_CMAKE_ARGS}
-    BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a ${ARROW_LIBDIR}/libparquet.a
+    BUILD_BYPRODUCTS ${ARROW_LIBDIR}/libarrow.a
                      ${ARROW_LIBDIR}/libarrow_testing.a ${THRIFT_LIB}
     PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/thrift-download.patch)
 
   add_library(arrow STATIC IMPORTED GLOBAL)
   add_library(arrow_testing STATIC IMPORTED GLOBAL)
-  add_library(parquet STATIC IMPORTED GLOBAL)
   add_dependencies(arrow arrow_ep)
   add_dependencies(arrow_testing arrow)
-  add_dependencies(parquet arrow)
   file(MAKE_DIRECTORY ${ARROW_PREFIX}/install/include)
   set_target_properties(
-    arrow arrow_testing parquet PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                           ${ARROW_PREFIX}/install/include)
+    arrow arrow_testing PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                   ${ARROW_PREFIX}/install/include)
   set_target_properties(arrow PROPERTIES IMPORTED_LOCATION
                                          ${ARROW_LIBDIR}/libarrow.a)
   set_property(TARGET arrow PROPERTY INTERFACE_LINK_LIBRARIES ${RE2} thrift)
   set_target_properties(
     arrow_testing PROPERTIES IMPORTED_LOCATION
                              ${ARROW_LIBDIR}/libarrow_testing.a)
-  set_target_properties(parquet PROPERTIES IMPORTED_LOCATION
-                                           ${ARROW_LIBDIR}/libparquet.a)
 
 endif()
