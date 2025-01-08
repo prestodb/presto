@@ -55,4 +55,9 @@ public class CachingOrcFileTailSource
             throw new IOException("Unexpected error in orc file tail reading after cache miss", e.getCause());
         }
     }
+
+    public void flushCache()
+    {
+        cache.invalidateAll();
+    }
 }

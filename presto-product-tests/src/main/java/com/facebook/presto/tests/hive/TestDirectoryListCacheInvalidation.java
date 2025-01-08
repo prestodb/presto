@@ -19,7 +19,7 @@ import io.prestodb.tempto.ProductTest;
 import io.prestodb.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_LIST_CACHING;
+import static com.facebook.presto.tests.TestGroups.HIVE_CACHING;
 import static io.prestodb.tempto.query.QueryExecutor.query;
 import static org.testng.Assert.assertEquals;
 
@@ -33,7 +33,7 @@ public class TestDirectoryListCacheInvalidation
         query("CREATE TABLE hive_listcache.default.region_cache AS SELECT * FROM tpch.tiny.region");
     }
 
-    @Test(groups = {HIVE_LIST_CACHING})
+    @Test(groups = {HIVE_CACHING})
     public void testDirectoryListCacheInvalidation()
     {
         String jmxMetricsQuery = "SELECT sum(hitcount), sum(misscount) from jmx.current.\"com.facebook.presto.hive:name=hive_listcache,type=cachingdirectorylister\"";

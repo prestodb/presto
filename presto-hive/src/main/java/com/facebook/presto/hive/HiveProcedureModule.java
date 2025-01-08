@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.orc.OrcCacheInvalidationProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -31,5 +32,6 @@ public class HiveProcedureModule
         procedures.addBinding().toProvider(CreateEmptyPartitionProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SyncPartitionMetadataProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(DirectoryListCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(OrcCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
     }
 }

@@ -27,7 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 
-import static com.facebook.presto.tests.TestGroups.HIVE_LIST_CACHING;
+import static com.facebook.presto.tests.TestGroups.HIVE_CACHING;
 import static com.facebook.presto.tests.utils.QueryExecutors.onHive;
 import static com.google.common.io.Resources.getResource;
 import static io.prestodb.tempto.query.QueryExecutor.query;
@@ -65,7 +65,7 @@ public class TestSymlinkTableListCaching
         hdfsClient.saveFile(tableRoot + "/manifest", format("hdfs://hadoop-master:9000%s/data.parquet", dataDir));
     }
 
-    @Test(groups = {HIVE_LIST_CACHING})
+    @Test(groups = {HIVE_CACHING})
     public void testSymlinkTableListCaching()
     {
         String jmxMetricsQuery = "SELECT sum(hitcount), sum(misscount) from jmx.current.\"com.facebook.presto.hive:name=hivecached,type=cachingdirectorylister\"";

@@ -153,4 +153,11 @@ public class CachingStripeMetadataSource
         // BLOOM_FILTER and ROW_INDEX are on the critical path to generate a stripe. Other stream kinds could be lazily read.
         return streamKind == BLOOM_FILTER || streamKind == ROW_INDEX;
     }
+
+    public void flushCaches()
+    {
+        footerSliceCache.invalidateAll();
+        stripeStreamCache.invalidateAll();
+        rowGroupIndexCache.ifPresent(Cache::invalidateAll);
+    }
 }
