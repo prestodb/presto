@@ -94,6 +94,42 @@ RowVectorPtr reduceToSelectedRows(
   reducedVector->copy(rowVector.get(), rowsToCopy, rawIndices);
   return reducedVector;
 }
+
+// Returns the expression set used by common expression eval path.
+exec::ExprSet createExprSetCommon(
+    const std::vector<core::TypedExprPtr>& plans,
+    core::ExecCtx* execCtx,
+    bool disableConstantFolding) {
+  if (disableConstantFolding) {
+    exec::ExprSet exprSetCommon(
+        plans, execCtx, /*enableConstantFolding=*/false);
+    return exprSetCommon;
+  }
+
+  // When constant folding is enabled, the expression evaluation can throw
+  // VeloxRuntimeError of UNSUPPORTED_INPUT_UNCATCHABLE, which is allowed in
+  // the fuzzer test.
+  try {
+    exec::ExprSet exprSetCommon(plans, execCtx, /*enableConstantFolding=*/true);
+    return exprSetCommon;
+  } catch (const VeloxException& e) {
+    if (e.errorCode() != error_code::kUnsupportedInputUncatchable) {
+      LOG(ERROR)
+          << "ExprSet: Exceptions other than VeloxRuntimeError of UNSUPPORTED_INPUT_UNCATCHABLE are not allowed.";
+      throw;
+    }
+    LOG(WARNING)
+        << "ExprSet: Disabling constant folding to avoid VeloxRuntimeError of UNSUPPORTED_INPUT_UNCATCHABLE during evaluation.";
+    exec::ExprSet exprSetCommon(
+        plans, execCtx, /*enableConstantFolding=*/false);
+    return exprSetCommon;
+  } catch (...) {
+    LOG(ERROR)
+        << "ExprSet: Exceptions other than VeloxRuntimeError of UNSUPPORTED_INPUT_UNCATCHABLE are not allowed.";
+    throw;
+  }
+}
+
 } // namespace
 
 std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
@@ -144,8 +180,8 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
   std::vector<fuzzer::ResultOrError> results;
   // Share ExpressionSet between consecutive iterations to simulate its usage in
   // FilterProject.
-  exec::ExprSet exprSetCommon(
-      plans, execCtx_, !options_.disableConstantFolding);
+  exec::ExprSet exprSetCommon =
+      createExprSetCommon(plans, execCtx_, options_.disableConstantFolding);
   exec::ExprSetSimplified exprSetSimplified(plans, execCtx_);
 
   int testCaseItr = 0;
