@@ -735,7 +735,8 @@ public class TestStreamLayout
                 DwrfEncryptionProvider.NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY,
                 new RuntimeStats(),
-                Optional.of(introspector));
+                Optional.of(introspector),
+                tempFile.getFile().lastModified());
 
         OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                 ImmutableMap.of(0, type),

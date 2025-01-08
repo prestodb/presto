@@ -68,7 +68,8 @@ public class OrcBatchRecordReader
             int initialBatchSize,
             StripeMetadataSource stripeMetadataSource,
             boolean cacheable,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            long fileModificationTime)
             throws OrcCorruptionException
 
     {
@@ -107,7 +108,8 @@ public class OrcBatchRecordReader
                 stripeMetadataSource,
                 cacheable,
                 runtimeStats,
-                Optional.empty());
+                Optional.empty(),
+                 fileModificationTime);
     }
 
     public int nextBatch()

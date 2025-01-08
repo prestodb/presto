@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 
 import java.io.IOException;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
@@ -41,16 +40,27 @@ public class CachingOrcFileTailSource
     }
 
     @Override
-    public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, boolean cacheable)
+    public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, boolean cacheable, long fileModificationTime)
             throws IOException
     {
-        try {
-            if (cacheable) {
-                return cache.get(orcDataSource.getId(), () -> delegate.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable));
-            }
-            return delegate.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable);
+        if (!cacheable) {
+            return delegate.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable, fileModificationTime);
         }
-        catch (ExecutionException | UncheckedExecutionException e) {
+        try {
+            OrcFileTail orcFileTail = cache.getIfPresent(orcDataSource.getId());
+            if (orcFileTail != null) {
+                if (orcFileTail.getFileModificationTime() == fileModificationTime) {
+                    return orcFileTail;
+                }
+                cache.invalidate(orcDataSource.getId()); // stale entry
+                // This get call is to increment the miss count for invalidated entries so the stats are recorded correctly.
+                cache.getIfPresent(orcDataSource.getId());
+            }
+            orcFileTail = delegate.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable, fileModificationTime);
+            cache.put(orcDataSource.getId(), orcFileTail);
+            return orcFileTail;
+        }
+        catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), IOException.class);
             throw new IOException("Unexpected error in orc file tail reading after cache miss", e.getCause());
         }
