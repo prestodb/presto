@@ -155,6 +155,7 @@ import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositi
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static com.facebook.presto.orc.OrcReader.MODIFICATION_TIME_NOT_SET;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
@@ -504,7 +505,8 @@ public class IcebergPageSourceProvider
                     isCacheable,
                     dwrfEncryptionProvider,
                     dwrfKeyProvider,
-                    runtimeStats);
+                    runtimeStats,
+                    MODIFICATION_TIME_NOT_SET);
 
             List<HiveColumnHandle> physicalColumnHandles = new ArrayList<>(regularColumns.size());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
