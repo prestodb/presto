@@ -85,6 +85,8 @@ public class ArbitraryOutputBuffer
 
     private final LifespanSerializedPageTracker pageTracker;
 
+    private final Executor executor;
+
     public ArbitraryOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
@@ -102,12 +104,13 @@ public class ArbitraryOutputBuffer
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.pageTracker = new LifespanSerializedPageTracker(memoryManager);
         this.masterBuffer = new MasterBuffer(pageTracker);
+        this.executor = requireNonNull(notificationExecutor, "notificationExecutor is null");
     }
 
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override

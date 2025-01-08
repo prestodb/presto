@@ -42,11 +42,13 @@ import io.airlift.units.Duration;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CURRENT_STATE;
@@ -63,6 +65,7 @@ import static com.facebook.presto.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
 import static io.airlift.units.Duration.nanosSince;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 class ContinuousTaskStatusFetcher
         implements SimpleHttpResponseCallback<TaskStatus>
@@ -91,6 +94,8 @@ class ContinuousTaskStatusFetcher
     @GuardedBy("this")
     private ListenableFuture<BaseResponse<TaskStatus>> future;
 
+    private final ExecutorService executorService = newSingleThreadExecutor(daemonThreadsNamed("continuous-task-status-fetcher"));
+
     public ContinuousTaskStatusFetcher(
             Consumer<Throwable> onFail,
             TaskId taskId,
@@ -110,7 +115,7 @@ class ContinuousTaskStatusFetcher
 
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
-        this.taskStatus = new StateMachine<>("task-" + taskId, executor, initialTaskStatus);
+        this.taskStatus = new StateMachine<>("task-" + taskId, initialTaskStatus);
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
@@ -303,7 +308,7 @@ class ContinuousTaskStatusFetcher
      */
     public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
-        taskStatus.addStateChangeListener(stateChangeListener);
+        taskStatus.addStateChangeListener(stateChangeListener, executorService);
     }
 
     private void updateStats(long currentRequestStartNanos)
