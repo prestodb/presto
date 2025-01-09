@@ -17,7 +17,6 @@ import com.facebook.presto.benchmark.AbstractSqlBenchmark;
 import com.facebook.presto.benchmark.SimpleLineBenchmarkResultWriter;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.TestingHiveConnectorFactory;
-import com.facebook.presto.hive.authentication.MetastoreContext;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -29,16 +28,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.testcontainers.shaded.com.google.common.base.Charsets;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
@@ -86,7 +82,8 @@ public class StoragePartitionLoaderBenchmark
         metastore.createTable(
                 METASTORE_CONTEXT,
                 hiveSymlinkTable,
-                new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
+                new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()),
+                ImmutableList.of());
 
         LocalQueryRunner queryRunner = createLocalQueryRunner();
         queryRunner.createCatalog("hive", new TestingHiveConnectorFactory(metastore), ImmutableMap.of());
@@ -101,22 +98,23 @@ public class StoragePartitionLoaderBenchmark
             symlinkFile.createNewFile();
             Files.asCharSink(symlinkFile, Charsets.UTF_8)
                     .write(String.format("file:%s/datafile1\nfile:%s/datafile2\n", location, location));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to create symlink file at: " + symlinkFile.getAbsolutePath(), e);
         }
 
         try {
             new File(location, "datafile1").createNewFile();
             new File(location, "datafile2").createNewFile();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to create data files in: " + location, e);
         }
 
         StorageFormat symlinkStorageFormat = StorageFormat.create(
                 ParquetHiveSerDe.class.getName(),
                 SymlinkTextInputFormat.class.getName(),
-                HiveIgnoreKeyTextOutputFormat.class.getName()
-        );
+                HiveIgnoreKeyTextOutputFormat.class.getName());
 
         return new Table(
                 databaseName,
@@ -129,13 +127,11 @@ public class StoragePartitionLoaderBenchmark
                         Optional.empty(),
                         false,
                         ImmutableMap.of(),
-                        ImmutableMap.of()
-                ),
+                        ImmutableMap.of()),
                 columns,
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
-                Optional.empty()
-        );
+                Optional.empty());
     }
 }
