@@ -234,6 +234,16 @@ void ByteOutputStream::appendBits(
   VELOX_DCHECK(isBits_);
 
   const int32_t count = end - begin;
+
+  if (count == 1 && current_->size > current_->position) {
+    bits::setBit(
+        reinterpret_cast<uint64_t*>(current_->buffer),
+        current_->position,
+        bits::isBitSet(bits, begin));
+    ++current_->position;
+    return;
+  }
+
   int32_t offset = 0;
   for (;;) {
     const int32_t bitsFit =
