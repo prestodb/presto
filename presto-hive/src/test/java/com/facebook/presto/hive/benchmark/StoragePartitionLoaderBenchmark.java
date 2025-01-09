@@ -92,7 +92,7 @@ public class StoragePartitionLoaderBenchmark
         LocalQueryRunner queryRunner = createLocalQueryRunner();
         queryRunner.createCatalog(
                 "hive",
-                new HiveConnectorFactory("hive", null, Optional.of(metastore)),
+                new HiveConnectorFactory("hive", HiveConnectorFactory.class.getClassLoader(), Optional.of(metastore)),
                 ImmutableMap.of());
         return queryRunner;
     }
