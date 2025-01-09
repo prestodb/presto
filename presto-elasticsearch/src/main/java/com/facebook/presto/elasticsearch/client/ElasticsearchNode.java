@@ -41,6 +41,6 @@ public class ElasticsearchNode
     @Override
     public String toString()
     {
-        return id + "@" + address.orElse("<unknown>");
+        return new StringBuilder(id).append("@").append(address.orElse("<unknown>")).toString();
     }
 }

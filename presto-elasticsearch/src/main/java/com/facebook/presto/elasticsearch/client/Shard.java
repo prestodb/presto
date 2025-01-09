@@ -48,6 +48,6 @@ public class Shard
     @Override
     public String toString()
     {
-        return index + ":" + id + "@" + address.orElse("<unknown>");
+        return new StringBuilder().append(index).append(":").append(id).append("@").append(address.orElse("<unknown>")).toString();
     }
 }

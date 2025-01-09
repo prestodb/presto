@@ -131,14 +131,10 @@ public class IcebergOrcColumn
     @Override
     public String toString()
     {
-        return "IcebergOrcColumn{" +
-                "orcColumnId=" + orcColumnId +
-                ", orcFieldTypeIndex=" + orcFieldTypeIndex +
-                ", icebergColumnId=" + icebergColumnId +
-                ", columnName='" + columnName + '\'' +
-                ", columnType=" + columnType +
-                ", orcType=" + orcType +
-                ", attributes=" + attributes +
-                '}';
+        return new StringBuilder().append("IcebergOrcColumn{").append("orcColumnId=").append(orcColumnId)
+                .append(", orcFieldTypeIndex=").append(orcFieldTypeIndex).append(", icebergColumnId=")
+                .append(icebergColumnId).append(", columnName='").append(columnName).append('\'')
+                .append(", columnType=").append(columnType).append(", orcType=").append(orcType)
+                .append(", attributes=").append(attributes).append("}").toString();
     }
 }

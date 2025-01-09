@@ -103,7 +103,7 @@ public class IcebergTableName
     @Override
     public String toString()
     {
-        return getTableNameWithType() + "@" + snapshotId;
+        return new StringBuilder(getTableNameWithType()).append("@").append(snapshotId).toString();
     }
 
     public static IcebergTableName from(String name)
