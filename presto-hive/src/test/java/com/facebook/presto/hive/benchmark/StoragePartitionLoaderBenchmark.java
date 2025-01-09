@@ -31,7 +31,6 @@ import com.google.common.io.Files;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
-import org.testcontainers.shaded.com.google.common.base.Charsets;
 
 import java.io.File;
 import java.util.List;
