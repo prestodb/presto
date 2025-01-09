@@ -22,6 +22,8 @@ target_link_libraries(
   GTest::gtest_main
   presto_operators
   presto_protocol
+  velox_dwio_common
+  velox_dwio_orc_reader
   velox_hive_connector
   velox_tpch_connector
   velox_exec
@@ -88,6 +90,7 @@ target_link_libraries(
   presto_operators
   presto_type_converter
   presto_types
+  velox_dwio_common
   velox_hive_connector
   velox_tpch_connector
   GTest::gtest
@@ -124,6 +127,7 @@ target_link_libraries(
   presto_protocol
   presto_type_converter
   presto_types
+  velox_dwio_common
   velox_exec_test_lib
   GTest::gtest
   GTest::gtest_main)
