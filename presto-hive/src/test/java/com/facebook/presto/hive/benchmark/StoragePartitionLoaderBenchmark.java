@@ -15,6 +15,7 @@ package com.facebook.presto.hive.benchmark;
 
 import com.facebook.presto.benchmark.AbstractSqlBenchmark;
 import com.facebook.presto.benchmark.SimpleLineBenchmarkResultWriter;
+import com.facebook.presto.hive.HiveConnectorFactory;
 import com.facebook.presto.hive.HiveHandleResolver;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.TestingHiveConnectorFactory;
@@ -89,7 +90,10 @@ public class StoragePartitionLoaderBenchmark
                 ImmutableList.of());
 
         LocalQueryRunner queryRunner = createLocalQueryRunner();
-        queryRunner.createCatalog("hive", new TestingHiveConnectorFactory(metastore), ImmutableMap.of());
+        queryRunner.createCatalog(
+                "hive",
+                new HiveConnectorFactory("hive", null, Optional.of(metastore)),
+                ImmutableMap.of());
         return queryRunner;
     }
 
