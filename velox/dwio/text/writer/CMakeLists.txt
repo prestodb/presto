@@ -14,11 +14,4 @@
 
 velox_add_library(velox_dwio_text_writer TextWriter.cpp BufferedWriterSink.cpp)
 
-velox_link_libraries(
-  velox_dwio_text_writer
-  velox_dwio_arrow_parquet_writer_lib
-  velox_dwio_arrow_parquet_writer_util_lib
-  velox_dwio_common
-  velox_arrow_bridge
-  arrow
-  fmt::fmt)
+velox_link_libraries(velox_dwio_text_writer velox_dwio_common fmt::fmt)
