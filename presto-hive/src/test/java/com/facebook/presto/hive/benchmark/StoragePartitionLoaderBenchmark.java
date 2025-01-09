@@ -15,6 +15,7 @@ package com.facebook.presto.hive.benchmark;
 
 import com.facebook.presto.benchmark.AbstractSqlBenchmark;
 import com.facebook.presto.benchmark.SimpleLineBenchmarkResultWriter;
+import com.facebook.presto.hive.HiveHandleResolver;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.TestingHiveConnectorFactory;
 import com.facebook.presto.hive.metastore.Column;
@@ -23,6 +24,10 @@ import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
+import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,12 +40,14 @@ import org.testcontainers.shaded.com.google.common.base.Charsets;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetastore;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
+import static java.util.Objects.requireNonNull;
 
 public class StoragePartitionLoaderBenchmark
         extends AbstractSqlBenchmark
@@ -133,5 +140,34 @@ public class StoragePartitionLoaderBenchmark
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    private static class TestingHiveConnectorFactory
+            implements ConnectorFactory
+    {
+        private final Optional<ExtendedHiveMetastore> metastore;
+
+        public TestingHiveConnectorFactory(ExtendedHiveMetastore metastore)
+        {
+            this.metastore = Optional.of(requireNonNull(metastore, "metastore is null"));
+        }
+
+        @Override
+        public String getName()
+        {
+            return "hive";
+        }
+
+        @Override
+        public ConnectorHandleResolver getHandleResolver()
+        {
+            return new HiveHandleResolver();
+        }
+
+        @Override
+        public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
+        {
+            return createConnector(catalogName, config, context, metastore);
+        }
     }
 }
