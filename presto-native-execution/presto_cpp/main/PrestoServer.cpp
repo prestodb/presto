@@ -1564,6 +1564,16 @@ void PrestoServer::registerSidecarEndpoints() {
               downstream, json(response), http::kHttpUnprocessableContent);
         }
       });
+
+  rowExpressionEvaluator_ =
+      std::make_unique<expression::RowExpressionEvaluator>();
+  httpServer_->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        return rowExpressionEvaluator_->evaluate(message, body, downstream);
+      });
 }
 
 protocol::NodeStatus PrestoServer::fetchNodeStatus() {

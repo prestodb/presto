@@ -326,6 +326,7 @@ public final class SystemSessionProperties
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
+    public static final String DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED = "delegating_row_expression_optimizer_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1846,7 +1847,12 @@ public final class SystemSessionProperties
                 booleanProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED,
                         "Enable automatic scaling of writer threads",
                         featuresConfig.isNativeExecutionScaleWritersThreadsEnabled(),
-                        !featuresConfig.isNativeExecutionEnabled()));
+                        !featuresConfig.isNativeExecutionEnabled()),
+                booleanProperty(
+                        DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED,
+                        "Enable delegating row optimizer",
+                        featuresConfig.isDelegatingRowExpressionOptimizerEnabled(),
+                        false));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -3141,5 +3147,10 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionScaleWritersThreadsEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, Boolean.class);
+    }
+
+    public static boolean isDelegatingRowExpressionOptimizerEnabled(Session session)
+    {
+        return session.getSystemProperty(DELEGATING_ROW_EXPRESSION_OPTIMIZER_ENABLED, Boolean.class);
     }
 }

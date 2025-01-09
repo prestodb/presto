@@ -41,6 +41,7 @@ import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
@@ -66,7 +67,8 @@ public class TestingConnectorContext
     private final DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
     private final PredicateCompiler predicateCompiler = new RowExpressionPredicateCompiler(metadata);
     private final DeterminismEvaluator determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-    private final FilterStatsCalculatorService filterStatsCalculatorService = new ConnectorFilterStatsCalculatorService(new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata), new StatsNormalizer()));
+    private final ExpressionOptimizerProvider expressionOptimizerProvider = (ConnectorSession session) -> new RowExpressionOptimizer(metadata);
+    private final FilterStatsCalculatorService filterStatsCalculatorService = new ConnectorFilterStatsCalculatorService(new FilterStatsCalculator(metadata, new ScalarStatsCalculator(metadata, expressionOptimizerProvider), new StatsNormalizer()));
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
 
     @Override
@@ -117,7 +119,7 @@ public class TestingConnectorContext
             }
 
             @Override
-            public ExpressionOptimizer getExpressionOptimizer()
+            public ExpressionOptimizer getExpressionOptimizer(ConnectorSession session)
             {
                 return new RowExpressionOptimizer(metadata);
             }
