@@ -90,7 +90,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
-import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -781,7 +780,6 @@ public class IcebergPageSourceProvider
                 .filter(not(icebergColumns::contains))
                 .forEach(columnsToReadFromStorage::add);
 
-
         // finally, add the fields that the update column requires.
         Optional<IcebergColumnHandle> updateRow = icebergColumns.stream()
                 .filter(IcebergColumnHandle::isUpdateRowIdColumn)
@@ -819,7 +817,6 @@ public class IcebergPageSourceProvider
                         columnList,
                         icebergLayout.getValidPredicate(),
                         splitContext.isCacheable());
-
 
         HashMap<Integer, Object> metadataValues = new HashMap<>();
         for (IcebergColumnHandle icebergColumn : icebergColumns) {
