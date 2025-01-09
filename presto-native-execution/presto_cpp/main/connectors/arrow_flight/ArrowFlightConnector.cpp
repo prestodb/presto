@@ -141,7 +141,7 @@ void FlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
 
 std::optional<RowVectorPtr> FlightDataSource::next(
     uint64_t size,
-    velox::ContinueFuture& future) {
+    velox::ContinueFuture& /* unused */) {
   VELOX_CHECK_NOT_NULL(currentReader_, "Missing split, call addSplit() first");
 
   AFC_ASSIGN_OR_RAISE(auto chunk, currentReader_->Next());

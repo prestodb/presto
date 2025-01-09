@@ -23,7 +23,7 @@ namespace facebook::presto::connector::arrow_flight {
 class FlightTableHandle : public velox::connector::ConnectorTableHandle {
  public:
   explicit FlightTableHandle(const std::string& connectorId)
-      : ConnectorTableHandle{connectorId} {}
+      : ConnectorTableHandle(connectorId) {}
 };
 
 struct FlightSplit : public velox::connector::ConnectorSplit {
@@ -36,10 +36,10 @@ struct FlightSplit : public velox::connector::ConnectorSplit {
       const std::string& ticket,
       const std::vector<std::string>& locations = {},
       const std::map<std::string, std::string>& extraCredentials = {})
-      : ConnectorSplit{connectorId},
-        ticket{ticket},
-        locations{locations},
-        extraCredentials{extraCredentials} {}
+      : ConnectorSplit(connectorId),
+        ticket(ticket),
+        locations(locations),
+        extraCredentials(extraCredentials) {}
 
   const std::string ticket;
   const std::vector<std::string> locations;
@@ -48,7 +48,7 @@ struct FlightSplit : public velox::connector::ConnectorSplit {
 
 class FlightColumnHandle : public velox::connector::ColumnHandle {
  public:
-  FlightColumnHandle(const std::string& columnName) : columnName_{columnName} {}
+  FlightColumnHandle(const std::string& columnName) : columnName_(columnName) {}
 
   const std::string& name() {
     return columnName_;
@@ -77,7 +77,7 @@ class FlightDataSource : public velox::connector::DataSource {
 
   std::optional<velox::RowVectorPtr> next(
       uint64_t size,
-      velox::ContinueFuture& future) override;
+      velox::ContinueFuture& /* unused */) override;
 
   void addDynamicFilter(
       velox::column_index_t outputChannel,
@@ -122,15 +122,15 @@ class ArrowFlightConnector : public velox::connector::Connector {
       const std::string& id,
       std::shared_ptr<const velox::config::ConfigBase> config,
       const char* authenticatorName = nullptr)
-      : Connector{id},
-        flightConfig_{std::make_shared<FlightConfig>(config)},
-        clientOpts_{initClientOpts(flightConfig_)},
-        defaultLocation_{getDefaultLocation(flightConfig_)},
-        authenticator_{auth::getAuthenticatorFactory(
+      : Connector(id),
+        flightConfig_(std::make_shared<FlightConfig>(config)),
+        clientOpts_(initClientOpts(flightConfig_)),
+        defaultLocation_(getDefaultLocation(flightConfig_)),
+        authenticator_(auth::getAuthenticatorFactory(
                            authenticatorName
                                ? authenticatorName
                                : flightConfig_->authenticatorName())
-                           ->newAuthenticator(config)} {}
+                           ->newAuthenticator(config)) {}
 
   std::unique_ptr<velox::connector::DataSource> createDataSource(
       const velox::RowTypePtr& outputType,
@@ -183,7 +183,7 @@ class ArrowFlightConnectorFactory : public velox::connector::ConnectorFactory {
   explicit ArrowFlightConnectorFactory(
       const char* name,
       const char* authenticatorName = nullptr)
-      : ConnectorFactory{name}, authenticatorName_{authenticatorName} {}
+      : ConnectorFactory(name), authenticatorName_(authenticatorName) {}
 
   std::shared_ptr<velox::connector::Connector> newConnector(
       const std::string& id,
