@@ -20,3 +20,4 @@ This guide is intended for Presto contributors and plugin developers.
     develop/worker-protocol
     develop/serialized-page
     develop/presto-console
+    develop/presto-authenticator
