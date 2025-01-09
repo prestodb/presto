@@ -54,7 +54,7 @@ option(PRESTO_ENABLE_GCS "Build GCS support" OFF)
 option(PRESTO_ENABLE_ABFS "Build ABFS support" OFF)
 
 # Forwards user input to VELOX_ENABLE_PARQUET.
-option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
+option(PRESTO_ENABLE_PARQUET "Enable Parquet support" ON)
 
 # Forwards user input to VELOX_ENABLE_REMOTE_FUNCTIONS.
 option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
