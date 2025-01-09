@@ -19,7 +19,7 @@ add_library(
   core/ConnectorProtocol.cpp
 )
 
-target_link_libraries(presto_protocol velox_type velox_presto_serializer ${RE2})
+target_link_libraries(presto_protocol velox_type velox ${RE2})
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
