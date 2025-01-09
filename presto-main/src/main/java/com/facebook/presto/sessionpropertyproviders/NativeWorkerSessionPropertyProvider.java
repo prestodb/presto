@@ -73,6 +73,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_SCALED_WRITER_MAX_PARTITIONS_PER_WRITER = "native_scaled_writer_max_partitions_per_writer";
     public static final String NATIVE_SCALED_WRITER_MIN_PARTITION_PROCESSED_BYTES_REBALANCE_THRESHOLD = "native_scaled_writer_min_partition_processed_bytes_rebalance_threshold";
     public static final String NATIVE_SCALED_WRITER_MIN_PROCESSED_BYTES_REBALANCE_THRESHOLD = "native_scaled_writer_min_processed_bytes_rebalance_threshold";
+    public static final String NATIVE_TABLE_SCAN_SCALED_PROCESSING_ENABLED = "native_table_scan_scaled_processing_enabled";
+    public static final String NATIVE_TABLE_SCAN_SCALE_UP_MEMORY_USAGE_RATIO = "native_table_scan_scale_up_memory_usage_ratio";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -311,6 +313,20 @@ public class NativeWorkerSessionPropertyProvider
                         "Minimum amount of data processed by all the logical table partitions " +
                                 "to trigger skewed partition rebalancing by scale writer exchange.",
                         256L << 20,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_TABLE_SCAN_SCALED_PROCESSING_ENABLED,
+                        "If set to true, enables scaling the table scan concurrency on each worker.",
+                        false,
+                        !nativeExecution),
+                doubleProperty(
+                        NATIVE_TABLE_SCAN_SCALE_UP_MEMORY_USAGE_RATIO,
+                        "The query memory usage ratio used by scan controller to decide if it can " +
+                                "increase the number of running scan threads. When the query memory usage " +
+                                "is below this ratio, the scan controller keeps increasing the running scan " +
+                                "thread for scale up, and stop once exceeds this ratio. The value is in the " +
+                                "range of [0, 1].",
+                        0.7,
                         !nativeExecution));
     }
 
