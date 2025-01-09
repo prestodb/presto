@@ -82,10 +82,12 @@ public class StoragePartitionLoaderBenchmark
                 ImmutableList.of());
 
         LocalQueryRunner queryRunner = createLocalQueryRunner();
-        queryRunner.createCatalog(
+        HiveConnectorFactory connectorFactory = new HiveConnectorFactory(
                 "hive",
-                new HiveConnectorFactory("hive", HiveConnectorFactory.class.getClassLoader(), Optional.of(metastore)),
-                ImmutableMap.of());
+                HiveConnectorFactory.class.getClassLoader(),
+                Optional.of(metastore));
+        queryRunner.createCatalog("hive", connectorFactory, ImmutableMap.of());
+        queryRunner.execute("SELECT * FROM hive.sym_db.sym_table");
         return queryRunner;
     }
 
@@ -94,15 +96,15 @@ public class StoragePartitionLoaderBenchmark
         File symlinkFile = new File(location, "symlink.txt");
         try {
             symlinkFile.createNewFile();
-            Files.asCharSink(symlinkFile, Charsets.UTF_8)
-                    .write(String.format("file:%s/datafile1\nfile:%s/datafile2\n", location, location));
+            //Files.asCharSink(symlinkFile, Charsets.UTF_8)
+            //        .write(String.format("file:%s/datafile1.parquet\nfile:%s/datafile2.parquet\n", location, location));
         } catch (Exception e) {
             throw new RuntimeException("Failed to create symlink file at: " + symlinkFile.getAbsolutePath(), e);
         }
 
         try {
-            new File(location, "datafile1").createNewFile();
-            new File(location, "datafile2").createNewFile();
+            new File(location, "datafile1.parquet").createNewFile();
+            new File(location, "datafile2.parquet").createNewFile();
         } catch (Exception e) {
             throw new RuntimeException("Failed to create data files in: " + location, e);
         }
