@@ -42,8 +42,10 @@ import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetasto
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 
 public class StoragePartitionLoaderBenchmark
-        extends AbstractSqlBenchmark {
-    public StoragePartitionLoaderBenchmark(LocalQueryRunner localQueryRunner) {
+        extends AbstractSqlBenchmark
+{
+    public StoragePartitionLoaderBenchmark(LocalQueryRunner localQueryRunner)
+    {
         super(
                 localQueryRunner,
                 "storage_partition_loader_benchmark",
@@ -53,12 +55,14 @@ public class StoragePartitionLoaderBenchmark
     }
 
     public static void main(String[] args)
-            throws Exception {
+            throws Exception
+    {
         new StoragePartitionLoaderBenchmark(
                 createLocalQueryRunnerWithSymlink(Files.createTempDir(), Files.createTempDir())).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
     }
 
-    public static LocalQueryRunner createLocalQueryRunnerWithSymlink(File tempHiveDir, File tempExternalDir) {
+    public static LocalQueryRunner createLocalQueryRunnerWithSymlink(File tempHiveDir, File tempExternalDir)
+    {
         File hiveDir = new File(tempHiveDir, "hive_data");
         ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
 
@@ -90,21 +94,24 @@ public class StoragePartitionLoaderBenchmark
         return queryRunner;
     }
 
-    private static Table createHiveSymlinkTable(String databaseName, String tableName, List<Column> columns, File location) {
+    private static Table createHiveSymlinkTable(String databaseName, String tableName, List<Column> columns, File location)
+    {
         location.mkdir();
         File symlinkFile = new File(location, "symlink.txt");
         try {
             symlinkFile.createNewFile();
             //Files.asCharSink(symlinkFile, Charsets.UTF_8)
             //        .write(String.format("file:%s/datafile1.parquet\nfile:%s/datafile2.parquet\n", location, location));
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to create symlink file at: " + symlinkFile.getAbsolutePath(), e);
         }
 
         try {
             new File(location, "datafile1.parquet").createNewFile();
             new File(location, "datafile2.parquet").createNewFile();
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             throw new RuntimeException("Failed to create data files in: " + location, e);
         }
 
