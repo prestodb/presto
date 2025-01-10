@@ -20,6 +20,8 @@ import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
 public class TestingResourceGroup
@@ -38,6 +40,7 @@ public class TestingResourceGroup
     private boolean jmxExport;
     private int workersPerQueryLimit;
     private ResourceGroupQueryLimits resourceGroupQueryLimits;
+    private List<String> tags;
 
     public TestingResourceGroup(ResourceGroupId id)
     {
@@ -192,5 +195,17 @@ public class TestingResourceGroup
     public void setPerQueryLimits(ResourceGroupQueryLimits perQueryLimits)
     {
         this.resourceGroupQueryLimits = perQueryLimits;
+    }
+
+    @Override
+    public void setTags(List<String> tags)
+    {
+        this.tags = tags;
+    }
+
+    @Override
+    public List<String> getTags()
+    {
+        return tags;
     }
 }
