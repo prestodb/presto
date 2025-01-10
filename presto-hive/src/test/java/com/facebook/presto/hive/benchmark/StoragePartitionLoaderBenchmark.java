@@ -67,7 +67,7 @@ public class StoragePartitionLoaderBenchmark
                 "storage_partition_loader_benchmark",
                 10,
                 100,
-                "SELECT * FROM hive.sym_db.sym_table");
+                "SELECT * FROM tpch.sym_db.sym_table");
     }
 
     public static void main(String[] args)
@@ -113,10 +113,13 @@ public class StoragePartitionLoaderBenchmark
                 Optional.of(metastore));
 
         queryRunner.createCatalog("hive", connectorFactory, ImmutableMap.of());
+
         System.out.println("Hive metastore tables: " + metastore.getAllTables(METASTORE_CONTEXT, "sym_db"));
-        System.out.println("Hive metastore tables: " + metastore.getAllDatabases(METASTORE_CONTEXT));
+        System.out.println("Hive metastore databases: " + metastore.getAllDatabases(METASTORE_CONTEXT));
+
         MaterializedResult schemasResult = queryRunner.execute("SHOW CATALOGS");
-        System.out.println(schemasResult.toString());
+        System.out.println("All schemas: " + schemasResult.toString());
+
         return queryRunner;
     }
 
