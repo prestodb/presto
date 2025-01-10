@@ -75,6 +75,25 @@ TEST_F(SumTest, sumTinyint) {
       "SELECT sum(c1) FROM tmp WHERE c0 % 2 = 0");
 }
 
+TEST_F(SumTest, sumIntervalDayToSecond) {
+  auto inputRows = {
+      makeRowVector(
+          {makeFlatVector<int64_t>({1, 4}, INTERVAL_DAY_TIME()),
+           makeFlatVector<int64_t>({1, 2}, INTERVAL_DAY_TIME())}),
+
+  };
+  auto expectedResult = {
+      makeRowVector(
+          {makeFlatVector<int64_t>(
+               std::vector<int64_t>{5}, INTERVAL_DAY_TIME()),
+           makeFlatVector<int64_t>(
+               std::vector<int64_t>{3}, INTERVAL_DAY_TIME())}),
+  };
+
+  testAggregations(inputRows, {}, {"sum(c0)", "sum(c1)"}, expectedResult);
+  AggregationTestBase::enableTestIncremental();
+}
+
 TEST_F(SumTest, sumFloat) {
   auto data = makeRowVector({makeFlatVector<float>({2.00, 1.00})});
   createDuckDbTable({data});
