@@ -25,6 +25,7 @@ import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.parquet.writer.ParquetSchemaConverter;
 import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
 import com.facebook.presto.testing.LocalQueryRunner;
@@ -33,18 +34,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
 import io.airlift.units.DataSize;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
-import org.apache.parquet.example.data.Group;
-import org.apache.parquet.example.data.simple.SimpleGroupFactory;
-import org.apache.parquet.hadoop.ParquetFileWriter;
-import org.apache.parquet.hadoop.example.ExampleParquetWriter;
-import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.MessageTypeParser;
 import org.testcontainers.shaded.com.google.common.base.Charsets;
 
 import java.io.File;
@@ -60,6 +53,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetastore;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.UUID.randomUUID;
 import static org.testng.Assert.fail;
 
@@ -121,17 +115,17 @@ public class StoragePartitionLoaderBenchmark
         File symlinkFile = new File(location, "symlink.txt");
         try {
             symlinkFile.createNewFile();
-            //Files.asCharSink(symlinkFile, Charsets.UTF_8)
-            //        .write(String.format("file:%s/datafile1.parquet\nfile:%s/datafile2.parquet\n", location, location));
+            Files.asCharSink(symlinkFile, Charsets.UTF_8)
+                    .write(String.format("file:%s/datafile1.parquet\nfile:%s/datafile2.parquet\n", location.getAbsolutePath(), location.getAbsolutePath()));
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create symlink file at: " + symlinkFile.getAbsolutePath(), e);
         }
 
         try {
-            new File(location, "datafile1.parquet").createNewFile();
-            new File(location, "datafile2.parquet").createNewFile();
-            //createValidParquetFiles(location);
+            //new File(location, "datafile1.parquet").createNewFile();
+            //new File(location, "datafile2.parquet").createNewFile();
+            createValidParquetFiles(location);
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create data files in: " + location, e);
@@ -174,7 +168,7 @@ public class StoragePartitionLoaderBenchmark
                     .setMaxBlockSize(DataSize.succinctBytes(15000))
                     .setMaxDictionaryPageSize(DataSize.succinctBytes(1000))
                     .build();
-            try (com.facebook.presto.parquet.writer.ParquetWriter parquetWriter = null) {
+            try (ParquetWriter parquetWriter = createParquetWriter(df, types, names, parquetWriterOptions, CompressionCodecName.UNCOMPRESSED)) {
                 Random rand = new Random();
                 for (int pageIdx = 0; pageIdx < 10; pageIdx++) {
                     int pageRowCount = 100;
@@ -193,5 +187,23 @@ public class StoragePartitionLoaderBenchmark
                 fail("Should not fail, but throw an exception as follows:", e);
             }
         }
+    }
+
+    public static ParquetWriter createParquetWriter(File outputFile, List<Type> types, List<String> columnNames,
+                                                    ParquetWriterOptions parquetWriterOptions, CompressionCodecName compressionCodecName)
+            throws Exception
+    {
+        checkArgument(types.size() == columnNames.size());
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                types,
+                columnNames);
+        return new ParquetWriter(
+                java.nio.file.Files.newOutputStream(outputFile.toPath()),
+                schemaConverter.getMessageType(),
+                schemaConverter.getPrimitiveTypes(),
+                columnNames,
+                types,
+                parquetWriterOptions,
+                compressionCodecName.getHadoopCompressionCodecClassName());
     }
 }
