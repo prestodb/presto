@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cassert>
-#include <cstdint>
+#include <assert.h>
+#include <stdint.h>
 #include "velox/experimental/wave/common/CompilerDefines.h"
 
 namespace facebook::velox::wave {

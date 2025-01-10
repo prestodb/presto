@@ -1175,8 +1175,8 @@ void Program::callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
 #define IN_OPERAND(member) \
   physicalInst->member = operandIndex(abstractInst->member)
 
-void Program::prepareForDevice(GpuArena& arena) {
-  arena_ = &arena;
+void Program::prepareForDevice(GpuArena* arena) {
+  arena_ = arena;
   if (kernel_) {
     return;
   }
@@ -1270,7 +1270,7 @@ void Program::prepareForDevice(GpuArena& arena) {
             "OpCode {}", static_cast<int32_t>(instruction->opCode));
     }
   sortSlots();
-  deviceData_ = arena.allocate<char>(
+  deviceData_ = arena->allocate<char>(
       codeSize + literalArea_.size() + sizeof(ThreadBlockProgram));
   uintptr_t end = reinterpret_cast<uintptr_t>(
       deviceData_->as<char>() + deviceData_->size());

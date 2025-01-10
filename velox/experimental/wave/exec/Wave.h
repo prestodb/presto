@@ -524,7 +524,7 @@ class Program : public std::enable_shared_from_this<Program> {
 
   // Initializes executableImage and relocation information and places
   // the result on device.
-  void prepareForDevice(GpuArena& arena);
+  void prepareForDevice(GpuArena* arena);
 
   std::unique_ptr<Executable> getExecutable(
       int32_t maxRows,

@@ -27,6 +27,10 @@
 #include "velox/experimental/wave/jit/Headers.h"
 #include "velox/external/jitify/jitify.hpp"
 
+#ifndef VELOX_OSS_BUILD
+#include "velox/facebook/NvrtcUtil.h"
+#endif
+
 namespace facebook::velox::wave {
 
 void nvrtcCheck(nvrtcResult result) {
@@ -75,6 +79,14 @@ void addFlag(
   data.push_back(std::move(str));
 }
 
+#ifdef VELOX_OSS_BUILD
+void getDefaultNvrtcOptions(std::vector<std::string>& data) {
+  constexpr const char* kUsrLocalCuda = "/usr/local/cuda/include";
+  LOG(INFO) << "Using " << kUsrLocalCuda;
+  addFlag("-I", kUsrLocalCuda, strlen(kUsrLocalCuda), data);
+}
+#endif
+
 // Gets compiler options from the environment and appends  them  to 'data'.
 void getNvrtcOptions(std::vector<std::string>& data) {
   const char* includes = getenv("WAVE_NVRTC_INCLUDE_PATH");
@@ -90,66 +102,7 @@ void getNvrtcOptions(std::vector<std::string>& data) {
       includes = end + 1;
     }
   } else {
-    std::string currentPath = std::filesystem::current_path().c_str();
-    LOG(INFO) << "Looking for Cuda includes. cwd=" << currentPath
-              << " Cuda=" << __CUDA_API_VER_MAJOR__ << "."
-              << __CUDA_API_VER_MINOR__;
-    auto pathCStr = currentPath.c_str();
-    if (auto fbsource = strstr(pathCStr, "fbsource")) {
-      // fbcode has cuda includes in fbsource/third-party/cuda/...
-      try {
-        auto fbsourcePath =
-            std::string(pathCStr, fbsource - pathCStr + strlen("fbsource")) +
-            "/third-party/cuda";
-        LOG(INFO) << "Guessing fbsource path =" << fbsourcePath;
-        auto tempPath = fmt::format("/tmp/cuda.{}", getpid());
-        auto command = fmt::format(
-            "(cd {}; du |grep \"{}\\.{}.*x64-linux.*/cuda$\" |grep -v thrust) >{}",
-            fbsourcePath,
-            __CUDA_API_VER_MAJOR__,
-            __CUDA_API_VER_MINOR__,
-            tempPath);
-        LOG(INFO) << "Running " << command;
-        system(command.c_str());
-        std::ifstream result(tempPath);
-        std::string line;
-        if (!std::getline(result, line)) {
-          LOG(ERROR)
-              << "Cuda includes matching build version not found in fbcode/third-party. Looking for latest cuda.";
-          command = fmt::format(
-              "(cd {}; du |grep \"{}\.*x64-linux.*/cuda$\" |grep -v thrust | sort -r) >{}",
-              fbsourcePath,
-              __CUDA_API_VER_MAJOR__,
-              tempPath);
-          LOG(INFO) << "Running " << command;
-          system(command.c_str());
-          std::ifstream result(tempPath);
-          if (!std::getline(result, line)) {
-            LOG(ERROR) << "Did not find any cuda with the same major version";
-            return;
-          }
-        }
-
-        LOG(INFO) << "Got cuda line: " << line;
-        // Now trim the size and the trailing /cuda from the line.
-        const char* start = strstr(line.c_str(), "./");
-        if (!start) {
-          LOG(ERROR) << "Line " << line << " does not have ./";
-          return;
-        }
-        auto path = fbsourcePath + "/" + (start + 2);
-        // We add the cwd + the found path minus the trailing /cuda.
-        addFlag("-I", path.c_str(), path.size() - 5, data);
-      } catch (const std::exception& e) {
-        LOG(ERROR) << "Failed to infer fbcode Cuda include path: " << e.what();
-      }
-    } else {
-      addFlag(
-          "-I",
-          "/usr/local/cuda/include",
-          strlen("/usr/local/cuda/include"),
-          data);
-    }
+    getDefaultNvrtcOptions(data);
   }
   const char* flags = getenv("WAVE_NVRTC_FLAGS");
   if (flags && strlen(flags)) {
