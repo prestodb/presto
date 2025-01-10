@@ -25,7 +25,11 @@ import java.sql.ResultSet;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -139,6 +143,26 @@ public final class StandardReadMappings
     public static ReadMapping timestampReadMapping()
     {
         return longReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
+            String timestampString = resultSet.getString(columnIndex);
+            Pattern fractionalPattern = Pattern.compile("\\.(\\d+)$");
+            Matcher matcher = fractionalPattern.matcher(timestampString);
+            if (matcher.find()) {
+                StringBuilder formatBuilder = new StringBuilder("yyyy-MM-dd HH:mm:ss.");
+                for (int i = 0; i < matcher.group(1).length(); i++) {
+                    formatBuilder.append('S');
+                }
+
+                try {
+                    SimpleDateFormat dateTimeFormat = new SimpleDateFormat(formatBuilder.toString());
+                    java.util.Date parsedDate = dateTimeFormat.parse(timestampString);
+                    return parsedDate.getTime();
+                }
+                catch (ParseException e) {
+                    throw new IllegalArgumentException(
+                            "Could not parse timestamp string with milliseconds: " + timestampString, e);
+                }
+            }
+
             Timestamp timestamp = resultSet.getTimestamp(columnIndex);
             return timestamp.getTime();
         });
@@ -163,6 +187,8 @@ public final class StandardReadMappings
                     return Optional.of(varcharReadMapping(createUnboundedVarcharType()));
                 }
                 return Optional.of(varbinaryReadMapping());
+            case "DateTime64": // DateTime64(n)
+                return Optional.of(timestampReadMapping());
             case "block":
                 return Optional.of(doubleReadMapping());
         }
