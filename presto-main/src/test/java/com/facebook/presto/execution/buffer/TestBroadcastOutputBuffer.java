@@ -1083,7 +1083,7 @@ public class TestBroadcastOutputBuffer
     {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
                 () -> memoryContext.newLocalMemoryContext("test"),
                 notificationExecutor);
@@ -1145,7 +1145,7 @@ public class TestBroadcastOutputBuffer
     {
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
-                new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", OPEN, TERMINAL_BUFFER_STATES),
                 dataSize,
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);

@@ -55,6 +55,8 @@ public class PartitionedOutputBuffer
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
+    private final Executor executor;
+
     public PartitionedOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
@@ -82,6 +84,7 @@ public class PartitionedOutputBuffer
             partitions.add(partition);
         }
         this.partitions = partitions.build();
+        this.executor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         state.compareAndSet(OPEN, NO_MORE_BUFFERS);
         state.compareAndSet(NO_MORE_PAGES, FLUSHING);
@@ -91,7 +94,7 @@ public class PartitionedOutputBuffer
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override

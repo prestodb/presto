@@ -37,7 +37,7 @@ public class TestStateMachine
         BREAKFAST, LUNCH, DINNER
     }
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private static final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
@@ -50,13 +50,13 @@ public class TestStateMachine
             throws Exception
     {
         try {
-            new StateMachine<>("test", executor, null);
+            new StateMachine<>("test", null);
             fail("expected a NullPointerException");
         }
         catch (NullPointerException ignored) {
         }
 
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
+        StateMachine<State> stateMachine = new StateMachine<>("test", State.BREAKFAST);
 
         assertNoStateChange(stateMachine, () -> {
             try {
@@ -108,7 +108,7 @@ public class TestStateMachine
     public void testSet()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         assertNoStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.BREAKFAST), State.BREAKFAST));
@@ -136,7 +136,7 @@ public class TestStateMachine
     public void testCompareAndSet()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         // no match with new state
@@ -172,7 +172,7 @@ public class TestStateMachine
     public void testSetIf()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         // false predicate with new state
@@ -288,7 +288,7 @@ public class TestStateMachine
             else {
                 stateChanged.set(newState);
             }
-        });
+        }, executor);
 
         assertTrue(tryGetFutureValue(initialStateNotified, 10, SECONDS).isPresent(), "Initial state notification not fired");
 

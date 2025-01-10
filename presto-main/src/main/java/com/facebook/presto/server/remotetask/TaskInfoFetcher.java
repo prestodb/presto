@@ -51,12 +51,14 @@ import javax.annotation.concurrent.GuardedBy;
 import java.net.URI;
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
@@ -73,6 +75,7 @@ import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftC
 import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.airlift.units.Duration.nanosSince;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskInfoFetcher
@@ -123,6 +126,8 @@ public class TaskInfoFetcher
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
     private final Protocol thriftProtocol;
 
+    private final ExecutorService executorService = newSingleThreadExecutor(daemonThreadsNamed("task-info-fetcher"));
+
     public TaskInfoFetcher(
             Consumer<Throwable> onFail,
             TaskInfo initialTask,
@@ -151,8 +156,8 @@ public class TaskInfoFetcher
 
         this.taskId = initialTask.getTaskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
-        this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
-        this.finalTaskInfo = new StateMachine<>("task-" + taskId, executor, Optional.empty());
+        this.taskInfo = new StateMachine<>("task " + taskId, initialTask);
+        this.finalTaskInfo = new StateMachine<>("task-" + taskId, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.metadataUpdatesCodec = requireNonNull(metadataUpdatesCodec, "metadataUpdatesCodec is null");
@@ -219,7 +224,7 @@ public class TaskInfoFetcher
                 stateChangeListener.stateChanged(finalTaskInfo.get());
             }
         };
-        finalTaskInfo.addStateChangeListener(fireOnceStateChangeListener);
+        finalTaskInfo.addStateChangeListener(fireOnceStateChangeListener, executorService);
         fireOnceStateChangeListener.stateChanged(finalTaskInfo.get());
     }
 

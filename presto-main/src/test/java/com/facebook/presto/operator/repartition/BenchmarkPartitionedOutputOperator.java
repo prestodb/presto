@@ -359,7 +359,7 @@ public class BenchmarkPartitionedOutputOperator
         {
             return new TestingPartitionedOutputBuffer(
                     "task-instance-id",
-                    new StateMachine<>("bufferState", SCHEDULER, OPEN, TERMINAL_BUFFER_STATES),
+                    new StateMachine<>("bufferState", OPEN, TERMINAL_BUFFER_STATES),
                     buffers,
                     dataSize,
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
