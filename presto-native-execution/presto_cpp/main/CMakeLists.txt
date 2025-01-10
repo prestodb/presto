@@ -51,6 +51,7 @@ target_link_libraries(
   presto_http
   presto_operators
   presto_velox_conversion
+  presto_expression_optimizer
   velox_aggregates
   velox_caching
   velox_common_base
