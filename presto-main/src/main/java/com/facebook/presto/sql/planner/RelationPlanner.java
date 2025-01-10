@@ -221,7 +221,61 @@ class RelationPlanner
         context.incrementLeafNodes(session);
         PlanNode root = new TableScanNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), handle, outputVariables, columns.build(), tableConstraints, TupleDomain.all(), TupleDomain.all());
 
-        return new RelationPlan(root, scope, outputVariables);
+        RelationPlan tableScan = new RelationPlan(root, scope, outputVariables);
+        tableScan = addRowFilters(node, tableScan, context);
+        tableScan = addColumnMasks(node, tableScan, context);
+        return tableScan;
+    }
+
+    private RelationPlan addRowFilters(Table node, RelationPlan plan, SqlPlannerContext context)
+    {
+        PlanBuilder planBuilder = initializePlanBuilder(plan);
+
+        for (Expression filter : analysis.getRowFilters(node)) {
+            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, filter, context);
+
+            planBuilder = planBuilder.withNewRoot(new FilterNode(
+                    getSourceLocation(node.getLocation()),
+                    idAllocator.getNextId(),
+                    planBuilder.getRoot(),
+                    rowExpression(planBuilder.rewrite(filter), context)));
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
+    }
+
+    private RelationPlan addColumnMasks(Table table, RelationPlan plan, SqlPlannerContext context)
+    {
+        Map<String, Expression> columnMasks = analysis.getColumnMasks(table);
+
+        List<VariableReferenceExpression> mappings = plan.getFieldMappings();
+        TranslationMap translations = new TranslationMap(plan, analysis, lambdaDeclarationToVariableMap);
+        translations.setFieldMappings(mappings);
+
+        PlanBuilder planBuilder = new PlanBuilder(translations, plan.getRoot());
+
+        for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
+            Field field = plan.getDescriptor().getFieldByIndex(i);
+
+            if (field.getName().isPresent() && columnMasks.containsKey(field.getName().get())) {
+                Expression mask = columnMasks.get(field.getName().get());
+
+                planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask, context);
+
+                Map<VariableReferenceExpression, RowExpression> assignments = new LinkedHashMap<>();
+                for (VariableReferenceExpression variableReferenceExpression : planBuilder.getRoot().getOutputVariables()) {
+                    assignments.put(variableReferenceExpression, rowExpression(new SymbolReference(variableReferenceExpression.getName()), context));
+                }
+                assignments.put(mappings.get(i), rowExpression(translations.rewrite(mask), context));
+
+                planBuilder = planBuilder.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        planBuilder.getRoot(),
+                        Assignments.copyOf(assignments)));
+            }
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), mappings);
     }
 
     @Override
