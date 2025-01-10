@@ -20,7 +20,7 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
-import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 
@@ -34,7 +34,7 @@ public class JdbcPlanOptimizerProvider
     private final FunctionMetadataManager functionManager;
     private final StandardFunctionResolution functionResolution;
     private final DeterminismEvaluator determinismEvaluator;
-    private final ExpressionOptimizer expressionOptimizer;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
     private final String identifierQuote;
 
     @Inject
@@ -43,12 +43,12 @@ public class JdbcPlanOptimizerProvider
             FunctionMetadataManager functionManager,
             StandardFunctionResolution functionResolution,
             DeterminismEvaluator determinismEvaluator,
-            ExpressionOptimizer expressionOptimizer)
+            ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.determinismEvaluator = requireNonNull(determinismEvaluator, "determinismEvaluator is null");
-        this.expressionOptimizer = requireNonNull(expressionOptimizer, "expressionOptimizer is null");
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
         this.identifierQuote = jdbcClient.getIdentifierQuote();
     }
 
@@ -65,7 +65,7 @@ public class JdbcPlanOptimizerProvider
                 functionManager,
                 functionResolution,
                 determinismEvaluator,
-                expressionOptimizer,
+                expressionOptimizerProvider,
                 identifierQuote,
                 getFunctionTranslators()));
     }
