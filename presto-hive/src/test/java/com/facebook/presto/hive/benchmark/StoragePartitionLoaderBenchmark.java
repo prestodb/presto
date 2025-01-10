@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveConnectorFactory;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
@@ -28,7 +29,9 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.parquet.writer.ParquetSchemaConverter;
 import com.facebook.presto.parquet.writer.ParquetWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
+import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.LocalQueryRunner;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -47,14 +50,11 @@ import java.util.Random;
 
 import static com.facebook.presto.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.TestHiveUtil.createTestingFileHiveMetastore;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.UUID.randomUUID;
 import static org.testng.Assert.fail;
 
 public class StoragePartitionLoaderBenchmark
@@ -82,17 +82,23 @@ public class StoragePartitionLoaderBenchmark
         File hiveDir = new File(tempHiveDir, "hive_data");
         ExtendedHiveMetastore metastore = createTestingFileHiveMetastore(hiveDir);
 
-        List<Column> columns = ImmutableList.of(
-                new Column("col1", HiveType.HIVE_STRING, Optional.empty(), Optional.empty()),
-                new Column("col2", HiveType.HIVE_LONG, Optional.empty(), Optional.empty()),
-                new Column("col3", HiveType.HIVE_INT, Optional.empty(), Optional.empty()));
-
         File externalDir = new File(tempExternalDir, "external");
+        List<Column> columns = ImmutableList.of(new Column("col3", HiveType.HIVE_INT, Optional.empty(), Optional.empty()));
         Table hiveSymlinkTable = createHiveSymlinkTable(
                 "sym_db",
                 "sym_table",
                 columns,
                 externalDir);
+
+        metastore.createDatabase(
+                METASTORE_CONTEXT,
+                new Database(
+                        "sym_db",
+                        Optional.empty(),
+                        "hive",
+                        PrincipalType.USER,
+                        Optional.empty(),
+                        ImmutableMap.of()));
 
         metastore.createTable(
                 METASTORE_CONTEXT,
@@ -105,7 +111,12 @@ public class StoragePartitionLoaderBenchmark
                 "hive",
                 HiveConnectorFactory.class.getClassLoader(),
                 Optional.of(metastore));
+
         queryRunner.createCatalog("hive", connectorFactory, ImmutableMap.of());
+        System.out.println("Hive metastore tables: " + metastore.getAllTables(METASTORE_CONTEXT, "sym_db"));
+        System.out.println("Hive metastore tables: " + metastore.getAllDatabases(METASTORE_CONTEXT));
+        MaterializedResult schemasResult = queryRunner.execute("SHOW CATALOGS");
+        System.out.println(schemasResult.toString());
         return queryRunner;
     }
 
@@ -158,10 +169,10 @@ public class StoragePartitionLoaderBenchmark
 
     public static void createValidParquetFiles(File location)
     {
-        File df1 = new File(location, "datafile1.parquet");
-        File df2 = new File(location, "datafile2.parquet");
+        File dataFile1 = new File(location, "datafile1.parquet");
+        File dataFile2 = new File(location, "datafile2.parquet");
 
-        for (File df : ImmutableList.of(df1, df2)) {
+        for (File df : ImmutableList.of(dataFile1, dataFile2)) {
             List<Type> types = ImmutableList.of(BIGINT, INTEGER);
             List<String> names = ImmutableList.of("col_1", "col_2");
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
