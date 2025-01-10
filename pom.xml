@@ -2339,6 +2339,7 @@
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                    <exclude>org.jetbrains.kotlin:kotlin-stdlib-jdk8</exclude>
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
@@ -2350,6 +2351,7 @@
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
                         <ignoredClassPatterns combine.children="append">
+                            <ignoredClassPattern>module-info</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by commons-io & log4j-api -->
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by several netty dependencies-->
