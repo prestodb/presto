@@ -112,7 +112,7 @@ public class StoragePartitionLoaderBenchmark
                 HiveConnectorFactory.class.getClassLoader(),
                 Optional.of(metastore));
         queryRunner.createCatalog("hive", connectorFactory, ImmutableMap.of());
-        //queryRunner.execute("SELECT * FROM hive.sym_db.sym_table");
+        queryRunner.execute("SELECT * FROM hive.sym_db.sym_table");
         return queryRunner;
     }
 
@@ -122,17 +122,17 @@ public class StoragePartitionLoaderBenchmark
         File symlinkFile = new File(location, "symlink.txt");
         try {
             symlinkFile.createNewFile();
-            Files.asCharSink(symlinkFile, Charsets.UTF_8)
-                    .write(String.format("file:%s/datafile1.parquet\nfile:%s/datafile2.parquet\n", location, location));
+            //Files.asCharSink(symlinkFile, Charsets.UTF_8)
+            //        .write(String.format("file:%s/datafile1.parquet\nfile:%s/datafile2.parquet\n", location, location));
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create symlink file at: " + symlinkFile.getAbsolutePath(), e);
         }
 
         try {
-            //new File(location, "datafile1.parquet").createNewFile();
-            //new File(location, "datafile2.parquet").createNewFile();
-            createValidParquetFiles(location);
+            new File(location, "datafile1.parquet").createNewFile();
+            new File(location, "datafile2.parquet").createNewFile();
+            //createValidParquetFiles(location);
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create data files in: " + location, e);
@@ -163,7 +163,6 @@ public class StoragePartitionLoaderBenchmark
     }
 
     public static void createValidParquetFiles(File location)
-            throws Exception
     {
         File df1 = new File(location, "datafile1.parquet");
         File df2 = new File(location, "datafile2.parquet");
@@ -176,7 +175,7 @@ public class StoragePartitionLoaderBenchmark
                     .setMaxBlockSize(DataSize.succinctBytes(15000))
                     .setMaxDictionaryPageSize(DataSize.succinctBytes(1000))
                     .build();
-            try (com.facebook.presto.parquet.writer.ParquetWriter parquetWriter = new ParquetWriter()) {
+            try (com.facebook.presto.parquet.writer.ParquetWriter parquetWriter = null) {
                 Random rand = new Random();
                 for (int pageIdx = 0; pageIdx < 10; pageIdx++) {
                     int pageRowCount = 100;
