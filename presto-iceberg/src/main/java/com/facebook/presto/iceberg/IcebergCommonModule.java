@@ -27,9 +27,11 @@ import com.facebook.presto.hive.ForMetastoreHdfsEnvironment;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveNodePartitioningProvider;
+import com.facebook.presto.hive.InvalidateMetastoreCacheProcedure;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
@@ -116,7 +118,7 @@ public class IcebergCommonModule
     }
 
     @Override
-    public void setup(Binder binder)
+    protected void setup(Binder binder)
     {
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(CacheConfig.class);
@@ -167,6 +169,10 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(FastForwardBranchProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SetCurrentSnapshotProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SetTablePropertyProcedure.class).in(Scopes.SINGLETON);
+
+        if (buildConfigObject(HiveClientConfig.class).isInvalidateMetastoreCacheProcedureEnabled()) {
+            procedures.addBinding().toProvider(InvalidateMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
+        }
 
         // for orc
         binder.bind(EncryptionLibrary.class).annotatedWith(HiveDwrfEncryptionProvider.ForCryptoService.class).to(UnsupportedEncryptionLibrary.class).in(Scopes.SINGLETON);
