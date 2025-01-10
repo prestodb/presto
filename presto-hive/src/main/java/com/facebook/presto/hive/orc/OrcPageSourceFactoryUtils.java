@@ -104,7 +104,8 @@ public class OrcPageSourceFactoryUtils
                 hiveFileContext.isCacheable(),
                 dwrfEncryptionProvider,
                 dwrfKeyProvider,
-                hiveFileContext.getStats());
+                hiveFileContext.getStats(),
+                hiveFileContext.getModificationTime());
         return reader;
     }
 
