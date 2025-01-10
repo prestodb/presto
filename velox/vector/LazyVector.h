@@ -305,7 +305,7 @@ class LazyVector : public BaseVector {
     return loadedVector()->wrappedIndex(index);
   }
 
-  BufferPtr wrapInfo() const override {
+  const BufferPtr& wrapInfo() const override {
     return loadedVector()->wrapInfo();
   }
 

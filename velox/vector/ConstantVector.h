@@ -130,6 +130,9 @@ class ConstantVector final : public SimpleVector<T> {
   }
 
   virtual ~ConstantVector() override {
+    if (auto* wrapInfo = wrapInfo_.load()) {
+      delete wrapInfo;
+    }
     if (valueVector_) {
       valueVector_->clearContainingLazyAndWrapped();
     }
@@ -235,12 +238,21 @@ class ConstantVector final : public SimpleVector<T> {
     return valueVector_ ? valueVector_->wrappedIndex(index_) : 0;
   }
 
-  BufferPtr wrapInfo() const override {
+  const BufferPtr& wrapInfo() const override {
     static const DummyReleaser kDummy;
-    return BufferView<DummyReleaser>::create(
-        reinterpret_cast<const uint8_t*>(&index_),
-        sizeof(vector_size_t),
-        kDummy);
+    auto* wrapInfo = wrapInfo_.load();
+    if (FOLLY_UNLIKELY(!wrapInfo)) {
+      wrapInfo = new BufferPtr(BufferView<DummyReleaser>::create(
+          reinterpret_cast<const uint8_t*>(&index_),
+          sizeof(vector_size_t),
+          kDummy));
+      BufferPtr* oldWrapInfo = nullptr;
+      if (!wrapInfo_.compare_exchange_strong(oldWrapInfo, wrapInfo)) {
+        delete wrapInfo;
+        wrapInfo = oldWrapInfo;
+      }
+    }
+    return *wrapInfo;
   }
 
   /// Base vector if isScalar() is false (e.g. complex type vector) or if base
@@ -249,8 +261,8 @@ class ConstantVector final : public SimpleVector<T> {
     return valueVector_;
   }
 
-  VectorPtr& valueVector() override {
-    return valueVector_;
+  void setValueVector(VectorPtr valueVector) override {
+    valueVector_ = std::move(valueVector);
   }
 
   /// Index of the element of the base vector that determines the value of this
@@ -462,6 +474,7 @@ class ConstantVector final : public SimpleVector<T> {
   T value_;
   bool isNull_ = false;
   bool initialized_{false};
+  mutable std::atomic<BufferPtr*> wrapInfo_{nullptr};
 
   // This must be at end to avoid memory corruption.
   std::conditional_t<can_simd, xsimd::batch<T>, char> valueBuffer_;

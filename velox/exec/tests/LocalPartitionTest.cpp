@@ -20,9 +20,8 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::exec;
-using namespace facebook::velox::exec::test;
+namespace facebook::velox::exec::test {
+namespace {
 
 class LocalPartitionTest : public HiveConnectorTestBase {
  protected:
@@ -928,3 +927,29 @@ TEST_F(
   tasks[0]->requestAbort().wait();
   thread.join();
 }
+
+TEST_F(LocalPartitionTest, vectorPool) {
+  LocalExchangeVectorPool vectorPool(10);
+  std::vector<RowVector*> vectors;
+  auto makeVector = [&] {
+    auto vector =
+        BaseVector::create<RowVector>(ROW({"c0"}, {BIGINT()}), 1, pool());
+    vectors.push_back(vector.get());
+    return vector;
+  };
+  vectorPool.push(makeVector(), 5);
+  auto multiReferenced = makeVector();
+  vectorPool.push(multiReferenced, 2);
+  vectorPool.push(makeVector(), 3);
+  vectorPool.push(makeVector(), 1);
+  auto vector = vectorPool.pop();
+  ASSERT_TRUE(vector != nullptr);
+  ASSERT_EQ(vector.get(), vectors[0]);
+  vector = vectorPool.pop();
+  ASSERT_TRUE(vector != nullptr);
+  ASSERT_EQ(vector.get(), vectors[2]);
+  ASSERT_FALSE(vectorPool.pop());
+}
+
+} // namespace
+} // namespace facebook::velox::exec::test

@@ -130,12 +130,16 @@ class DictionaryVector : public SimpleVector<T> {
     return dictionaryValues_;
   }
 
-  VectorPtr& valueVector() override {
-    return dictionaryValues_;
+  void setValueVector(VectorPtr valueVector) override {
+    setDictionaryValues(std::move(valueVector));
   }
 
-  BufferPtr wrapInfo() const override {
+  const BufferPtr& wrapInfo() const override {
     return indices_;
+  }
+
+  void setWrapInfo(BufferPtr indices) override {
+    indices_ = std::move(indices);
   }
 
   BufferPtr mutableIndices(vector_size_t size) {

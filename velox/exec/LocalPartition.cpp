@@ -55,6 +55,31 @@ std::vector<ContinuePromise> LocalExchangeMemoryManager::decreaseMemoryUsage(
   return promises;
 }
 
+void LocalExchangeVectorPool::push(const RowVectorPtr& vector, int64_t size) {
+  pool_.withWLock([&](auto& pool) {
+    if (totalSize_ + size <= capacity_) {
+      pool.emplace(vector, size);
+      totalSize_ += size;
+    }
+  });
+}
+
+RowVectorPtr LocalExchangeVectorPool::pop() {
+  return pool_.withWLock([&](auto& pool) -> RowVectorPtr {
+    while (!pool.empty()) {
+      auto [vector, size] = std::move(pool.front());
+      pool.pop();
+      totalSize_ -= size;
+      VELOX_CHECK_GE(totalSize_, 0);
+      if (vector.use_count() == 1) {
+        return vector;
+      }
+    }
+    VELOX_CHECK_EQ(totalSize_, 0);
+    return nullptr;
+  });
+}
+
 void LocalExchangeQueue::addProducer() {
   queue_.withWLock([&](auto& /*queue*/) {
     VELOX_CHECK(!noMoreProducers_, "addProducer called after noMoreProducers");
@@ -124,6 +149,7 @@ BlockingReason LocalExchangeQueue::next(
     ContinueFuture* future,
     memory::MemoryPool* pool,
     RowVectorPtr* data) {
+  int64_t size;
   std::vector<ContinuePromise> memoryPromises;
   auto blockingReason = queue_.withWLock([&](auto& queue) {
     *data = nullptr;
@@ -138,8 +164,7 @@ BlockingReason LocalExchangeQueue::next(
       return BlockingReason::kWaitForProducer;
     }
 
-    int64_t size;
-    std::tie(*data, size) = queue.front();
+    std::tie(*data, size) = std::move(queue.front());
     queue.pop();
 
     memoryPromises = memoryManager_->decreaseMemoryUsage(size);
@@ -147,6 +172,9 @@ BlockingReason LocalExchangeQueue::next(
     return BlockingReason::kNotBlocked;
   });
   notify(memoryPromises);
+  if (*data != nullptr) {
+    vectorPool_->push(*data, size);
+  }
   return blockingReason;
 }
 
@@ -289,34 +317,44 @@ void LocalPartition::allocateIndexBuffers(
 RowVectorPtr LocalPartition::wrapChildren(
     const RowVectorPtr& input,
     vector_size_t size,
-    BufferPtr indices) {
-  VELOX_CHECK_EQ(childVectors_.size(), input->type()->size());
-
-  for (auto i = 0; i < input->type()->size(); ++i) {
-    childVectors_[i] = BaseVector::wrapInDictionary(
-        BufferPtr(nullptr), indices, size, input->childAt(i));
+    const BufferPtr& indices,
+    RowVectorPtr reusable) {
+  if (!reusable) {
+    reusable = std::make_shared<RowVector>(
+        pool(),
+        input->type(),
+        nullptr,
+        size,
+        std::vector<VectorPtr>(input->childrenSize()));
+  } else {
+    VELOX_CHECK(!reusable->mayHaveNulls());
+    VELOX_CHECK_EQ(reusable.use_count(), 1);
+    reusable->unsafeResize(size);
   }
 
-  return std::make_shared<RowVector>(
-      input->pool(), input->type(), BufferPtr(nullptr), size, childVectors_);
+  for (auto i = 0; i < input->childrenSize(); ++i) {
+    auto& child = reusable->childAt(i);
+    if (child && child->encoding() == VectorEncoding::Simple::DICTIONARY &&
+        child.use_count() == 1) {
+      child->BaseVector::resize(size);
+      child->setWrapInfo(indices);
+      child->setValueVector(input->childAt(i));
+    } else {
+      child = BaseVector::wrapInDictionary(
+          nullptr, indices, size, input->childAt(i));
+    }
+  }
+
+  reusable->updateContainsLazyNotLoaded();
+  return reusable;
 }
 
 void LocalPartition::addInput(RowVectorPtr input) {
   prepareForInput(input);
 
-  if (numPartitions_ == 1) {
-    ContinueFuture future;
-    auto blockingReason =
-        queues_[0]->enqueue(input, input->retainedSize(), &future);
-    if (blockingReason != BlockingReason::kNotBlocked) {
-      blockingReasons_.push_back(blockingReason);
-      futures_.push_back(std::move(future));
-    }
-    return;
-  }
-
-  const auto singlePartition =
-      partitionFunction_->partition(*input, partitions_);
+  const auto singlePartition = numPartitions_ == 1
+      ? 0
+      : partitionFunction_->partition(*input, partitions_);
   if (singlePartition.has_value()) {
     ContinueFuture future;
     auto blockingReason = queues_[singlePartition.value()]->enqueue(
@@ -349,7 +387,8 @@ void LocalPartition::addInput(RowVectorPtr input) {
       // Do not enqueue empty partitions.
       continue;
     }
-    auto partitionData = wrapChildren(input, partitionSize, indexBuffers_[i]);
+    auto partitionData = wrapChildren(
+        input, partitionSize, indexBuffers_[i], queues_[i]->getVector());
     ContinueFuture future;
     auto reason = queues_[i]->enqueue(
         partitionData, totalSize * partitionSize / numInput, &future);
@@ -370,9 +409,6 @@ void LocalPartition::prepareForInput(RowVectorPtr& input) {
   // order.
   for (auto& child : input->children()) {
     child->loadedVector();
-  }
-  if (childVectors_.empty()) {
-    childVectors_.resize(input->type()->size());
   }
 }
 

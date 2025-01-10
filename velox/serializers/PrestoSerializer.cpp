@@ -592,7 +592,7 @@ void read(
   const auto numNewValues = sizeWithIncomingNulls(size, numIncomingNulls);
   result->resize(resultOffset + numNewValues);
 
-  auto flatResult = result->asFlatVector<T>();
+  auto* flatResult = result->asUnchecked<FlatVector<T>>();
   auto nullCount = readNulls(
       source, size, resultOffset, incomingNulls, numIncomingNulls, *flatResult);
 
@@ -609,15 +609,17 @@ void read(
       return;
     }
   }
-  if (type->isLongDecimal()) {
-    readDecimalValues(
-        source,
-        numNewValues,
-        resultOffset,
-        flatResult->nulls(),
-        nullCount,
-        values);
-    return;
+  if constexpr (std::is_same_v<T, int128_t>) {
+    if (type->isLongDecimal()) {
+      readDecimalValues(
+          source,
+          numNewValues,
+          resultOffset,
+          flatResult->nulls(),
+          nullCount,
+          values);
+      return;
+    }
   }
   if (isUuidType(type)) {
     readUuidValues(
@@ -1497,9 +1499,9 @@ class VectorStream {
       initializeHeader(typeToEncodingName(type), *streamArena);
       if (type_->size() > 0) {
         hasLengths_ = true;
-        children_.resize(type_->size());
+        children_.reserve(type_->size());
         for (int32_t i = 0; i < type_->size(); ++i) {
-          children_[i] = std::make_unique<VectorStream>(
+          children_.emplace_back(
               type_->childAt(i),
               std::nullopt,
               getChildAt(vector, i),
@@ -1522,13 +1524,13 @@ class VectorStream {
         case VectorEncoding::Simple::CONSTANT: {
           initializeHeader(kRLE, *streamArena);
           isConstantStream_ = true;
-          children_.emplace_back(std::make_unique<VectorStream>(
+          children_.emplace_back(
               type_,
               std::nullopt,
               std::nullopt,
               streamArena,
               initialNumRows,
-              opts));
+              opts);
           return;
         }
         case VectorEncoding::Simple::DICTIONARY: {
@@ -1544,13 +1546,13 @@ class VectorStream {
           initializeHeader(kDictionary, *streamArena);
           values_.startWrite(initialNumRows * 4);
           isDictionaryStream_ = true;
-          children_.emplace_back(std::make_unique<VectorStream>(
+          children_.emplace_back(
               type_,
               std::nullopt,
               std::nullopt,
               streamArena,
               initialNumRows,
-              opts));
+              opts);
           return;
         }
         default:
@@ -1724,7 +1726,7 @@ class VectorStream {
   }
 
   VectorStream* childAt(int32_t index) {
-    return children_[index].get();
+    return &children_[index];
   }
 
   ByteOutputStream& values() {
@@ -1750,12 +1752,12 @@ class VectorStream {
       switch (encoding_.value()) {
         case VectorEncoding::Simple::CONSTANT: {
           writeInt32(out, nonNullCount_);
-          children_[0]->flush(out);
+          children_[0].flush(out);
           return;
         }
         case VectorEncoding::Simple::DICTIONARY: {
           writeInt32(out, nonNullCount_);
-          children_[0]->flush(out);
+          children_[0].flush(out);
           values_.flush(out);
 
           // Write 24 bytes of 'instance id'.
@@ -1779,7 +1781,7 @@ class VectorStream {
 
         writeInt32(out, children_.size());
         for (auto& child : children_) {
-          child->flush(out);
+          child.flush(out);
         }
         if (!opts_.nullsFirst) {
           writeInt32(out, nullCount_ + nonNullCount_);
@@ -1789,15 +1791,15 @@ class VectorStream {
         return;
 
       case TypeKind::ARRAY:
-        children_[0]->flush(out);
+        children_[0].flush(out);
         writeInt32(out, nullCount_ + nonNullCount_);
         lengths_.flush(out);
         flushNulls(out);
         return;
 
       case TypeKind::MAP: {
-        children_[0]->flush(out);
-        children_[1]->flush(out);
+        children_[0].flush(out);
+        children_[1].flush(out);
         // hash table size. -1 means not included in serialization.
         writeInt32(out, -1);
         writeInt32(out, nullCount_ + nonNullCount_);
@@ -1862,7 +1864,7 @@ class VectorStream {
     nulls_.startWrite(nulls_.size());
     values_.startWrite(values_.size());
     for (auto& child : children_) {
-      child->clear();
+      child.clear();
     }
   }
 
@@ -1880,9 +1882,9 @@ class VectorStream {
         [[fallthrough]];
       case TypeKind::MAP:
         hasLengths_ = true;
-        children_.resize(type_->size());
+        children_.reserve(type_->size());
         for (int32_t i = 0; i < type_->size(); ++i) {
-          children_[i] = std::make_unique<VectorStream>(
+          children_.emplace_back(
               type_->childAt(i),
               std::nullopt,
               getChildAt(vector, i),
@@ -1934,7 +1936,7 @@ class VectorStream {
   ByteOutputStream nulls_;
   ByteOutputStream lengths_;
   ByteOutputStream values_;
-  std::vector<std::unique_ptr<VectorStream>> children_;
+  std::vector<VectorStream> children_;
   bool isDictionaryStream_{false};
   bool isConstantStream_{false};
 };
@@ -2850,22 +2852,22 @@ void serializeWrapped(
   int32_t numInner = 0;
   auto* innerRows = innerRowsHolder.get(numRows);
   bool mayHaveNulls = vector->mayHaveNulls();
-  VectorPtr wrapped;
+  const VectorPtr* wrapped;
   if (vector->encoding() == VectorEncoding::Simple::DICTIONARY &&
       !mayHaveNulls) {
     // Dictionary with no nulls.
     auto* indices = vector->wrapInfo()->as<vector_size_t>();
-    wrapped = vector->valueVector();
+    wrapped = &vector->valueVector();
     simd::transpose(indices, rows, innerRows);
     numInner = numRows;
   } else {
-    wrapped = BaseVector::wrappedVectorShared(vector);
+    wrapped = &BaseVector::wrappedVectorShared(vector);
     for (int32_t i = 0; i < rows.size(); ++i) {
       if (mayHaveNulls && vector->isNullAt(rows[i])) {
         // The wrapper added a null.
         if (numInner > 0) {
           serializeColumn(
-              wrapped,
+              *wrapped,
               folly::Range<const vector_size_t*>(innerRows, numInner),
               stream,
               scratch);
@@ -2880,7 +2882,7 @@ void serializeWrapped(
 
   if (numInner > 0) {
     serializeColumn(
-        wrapped,
+        *wrapped,
         folly::Range<const vector_size_t*>(innerRows, numInner),
         stream,
         scratch);
@@ -3669,7 +3671,7 @@ void estimateSerializedSizeInt(
 }
 
 int64_t flushUncompressed(
-    const std::vector<std::unique_ptr<VectorStream>>& streams,
+    std::vector<VectorStream>& streams,
     int32_t numRows,
     OutputStream* out,
     PrestoOutputStreamListener* listener) {
@@ -3700,7 +3702,7 @@ int64_t flushUncompressed(
   writeInt32(out, streams.size());
 
   for (auto& stream : streams) {
-    stream->flush(out);
+    stream.flush(out);
   }
 
   // Pause CRC computation
@@ -3769,7 +3771,7 @@ void flushSerialization(
 }
 
 FlushSizes flushCompressed(
-    const std::vector<std::unique_ptr<VectorStream>>& streams,
+    std::vector<VectorStream>& streams,
     const StreamArena& arena,
     folly::io::Codec& codec,
     int32_t numRows,
@@ -3792,7 +3794,7 @@ FlushSizes flushCompressed(
   writeInt32(&out, streams.size());
 
   for (auto& stream : streams) {
-    stream->flush(&out);
+    stream.flush(&out);
   }
 
   const int32_t uncompressedSize = out.tellp();
@@ -3826,7 +3828,7 @@ FlushSizes flushCompressed(
 }
 
 FlushSizes flushStreams(
-    const std::vector<std::unique_ptr<VectorStream>>& streams,
+    std::vector<VectorStream>& streams,
     int32_t numRows,
     const StreamArena& arena,
     folly::io::Codec& codec,
@@ -3947,9 +3949,10 @@ class PrestoBatchVectorSerializer : public BatchVectorSerializer {
     const auto numChildren = vector->childrenSize();
 
     StreamArena arena(pool_);
-    std::vector<std::unique_ptr<VectorStream>> streams(numChildren);
+    std::vector<VectorStream> streams;
+    streams.reserve(numChildren);
     for (int i = 0; i < numChildren; i++) {
-      streams[i] = std::make_unique<VectorStream>(
+      streams.emplace_back(
           rowType->childAt(i),
           std::nullopt,
           vector->childAt(i),
@@ -3958,7 +3961,7 @@ class PrestoBatchVectorSerializer : public BatchVectorSerializer {
           opts_);
 
       if (numRows > 0) {
-        serializeColumn(vector->childAt(i), ranges, streams[i].get(), scratch);
+        serializeColumn(vector->childAt(i), ranges, &streams[i], scratch);
       }
     }
 
@@ -4120,10 +4123,10 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
         codec_(common::compressionKindToCodec(opts.compressionKind)) {
     const auto types = rowType->children();
     const auto numTypes = types.size();
-    streams_.resize(numTypes);
+    streams_.reserve(numTypes);
 
     for (int i = 0; i < numTypes; ++i) {
-      streams_[i] = std::make_unique<VectorStream>(
+      streams_.emplace_back(
           types[i], std::nullopt, std::nullopt, streamArena, numRows, opts);
     }
   }
@@ -4138,7 +4141,7 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
     }
     numRows_ += numNewRows;
     for (int32_t i = 0; i < vector->childrenSize(); ++i) {
-      serializeColumn(vector->childAt(i), ranges, streams_[i].get(), scratch);
+      serializeColumn(vector->childAt(i), ranges, &streams_[i], scratch);
     }
   }
 
@@ -4152,14 +4155,14 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
     }
     numRows_ += numNewRows;
     for (int32_t i = 0; i < vector->childrenSize(); ++i) {
-      serializeColumn(vector->childAt(i), rows, streams_[i].get(), scratch);
+      serializeColumn(vector->childAt(i), rows, &streams_[i], scratch);
     }
   }
 
   size_t maxSerializedSize() const override {
     size_t dataSize = 4; // streams_.size()
     for (auto& stream : streams_) {
-      dataSize += stream->serializedSize();
+      dataSize += const_cast<VectorStream&>(stream).serializedSize();
     }
 
     auto compressedSize = needCompression(*codec_)
@@ -4225,7 +4228,7 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
   void clear() override {
     numRows_ = 0;
     for (auto& stream : streams_) {
-      stream->clear();
+      stream.clear();
     }
   }
 
@@ -4235,7 +4238,7 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
   const std::unique_ptr<folly::io::Codec> codec_;
 
   int32_t numRows_{0};
-  std::vector<std::unique_ptr<VectorStream>> streams_;
+  std::vector<VectorStream> streams_;
 
   // Count of forthcoming compressions to skip.
   int32_t numCompressionToSkip_{0};

@@ -691,7 +691,7 @@ class BaseVector {
     VELOX_UNSUPPORTED("Vector is not a wrapper");
   }
 
-  virtual VectorPtr& valueVector() {
+  virtual void setValueVector(VectorPtr valueVector) {
     VELOX_UNSUPPORTED("Vector is not a wrapper");
   }
 
@@ -715,8 +715,12 @@ class BaseVector {
 
   /// If 'this' is a wrapper, returns the wrap info, interpretation depends on
   /// encoding.
-  virtual BufferPtr wrapInfo() const {
-    throw std::runtime_error("Vector is not a wrapper");
+  virtual const BufferPtr& wrapInfo() const {
+    VELOX_UNSUPPORTED("Vector is not a wrapper");
+  }
+
+  virtual void setWrapInfo(BufferPtr wrapInfo) {
+    VELOX_UNSUPPORTED("Vector is not a wrapper");
   }
 
   template <typename T = BaseVector>

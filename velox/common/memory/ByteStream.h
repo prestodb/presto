@@ -305,7 +305,35 @@ class ByteOutputStream {
     current_->position += sizeof(T) * values.size();
   }
 
-  void appendBool(bool value, int32_t count);
+  inline void appendBool(bool value, int32_t count) {
+    VELOX_DCHECK(isBits_);
+
+    if (count == 1 && current_->size > current_->position) {
+      bits::setBit(
+          reinterpret_cast<uint64_t*>(current_->buffer),
+          current_->position,
+          value);
+      ++current_->position;
+      return;
+    }
+
+    int32_t offset{0};
+    for (;;) {
+      const int32_t bitsFit =
+          std::min(count - offset, current_->size - current_->position);
+      bits::fillBits(
+          reinterpret_cast<uint64_t*>(current_->buffer),
+          current_->position,
+          current_->position + bitsFit,
+          value);
+      current_->position += bitsFit;
+      offset += bitsFit;
+      if (offset == count) {
+        return;
+      }
+      extend(bits::nbytes(count - offset));
+    }
+  }
 
   // A fast path for appending bits into pre-cleared buffers after first extend.
   inline void

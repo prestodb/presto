@@ -183,7 +183,8 @@ void ScaleWriterPartitioningLocalPartition::addInput(RowVectorPtr input) {
       auto writerInput = wrapChildren(
           input,
           writerRowCount,
-          std::move(writerAssignmmentIndicesBuffers_[i]));
+          std::move(writerAssignmmentIndicesBuffers_[i]),
+          queues_[i]->getVector());
       ContinueFuture future;
       auto reason = queues_[i]->enqueue(
           writerInput, totalInputBytes * writerRowCount / numInput, &future);

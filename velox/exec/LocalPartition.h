@@ -53,6 +53,24 @@ class LocalExchangeMemoryManager {
   std::vector<ContinuePromise> promises_;
 };
 
+/// A vector pool to reuse the RowVector and DictionaryVectors.  Only
+/// exclusively owned vectors will be reused.
+class LocalExchangeVectorPool {
+ public:
+  explicit LocalExchangeVectorPool(int64_t capacity) : capacity_(capacity) {}
+
+  /// `size' is the estimated size of the `vector' (e.g. taking shared
+  /// dictionary into consideration).
+  void push(const RowVectorPtr& vector, int64_t size);
+
+  RowVectorPtr pop();
+
+ private:
+  const int64_t capacity_;
+  int64_t totalSize_{0};
+  folly::Synchronized<std::queue<std::pair<RowVectorPtr, int64_t>>> pool_;
+};
+
 /// Buffers data for a single partition produced by local exchange. Allows
 /// multiple producers to enqueue data and multiple consumers fetch data. Each
 /// producer must be registered with a call to 'addProducer'. 'noMoreProducers'
@@ -63,8 +81,11 @@ class LocalExchangeQueue {
  public:
   LocalExchangeQueue(
       std::shared_ptr<LocalExchangeMemoryManager> memoryManager,
+      std::shared_ptr<LocalExchangeVectorPool> vectorPool,
       int partition)
-      : memoryManager_{std::move(memoryManager)}, partition_{partition} {}
+      : memoryManager_{std::move(memoryManager)},
+        vectorPool_{std::move(vectorPool)},
+        partition_{partition} {}
 
   std::string toString() const {
     return fmt::format("LocalExchangeQueue({})", partition_);
@@ -99,6 +120,12 @@ class LocalExchangeQueue {
   /// called before all the data has been processed. No-op otherwise.
   void close();
 
+  /// Get a reusable vector from the vector pool.  Return nullptr if none is
+  /// available.
+  RowVectorPtr getVector() {
+    return vectorPool_->pop();
+  }
+
   /// Returns true if all producers have sent no more data signal.
   bool testingProducersDone() const;
 
@@ -108,6 +135,7 @@ class LocalExchangeQueue {
   bool isFinishedLocked(const Queue& queue) const;
 
   const std::shared_ptr<LocalExchangeMemoryManager> memoryManager_;
+  const std::shared_ptr<LocalExchangeVectorPool> vectorPool_;
   const int partition_;
 
   folly::Synchronized<Queue> queue_;
@@ -196,7 +224,8 @@ class LocalPartition : public Operator {
   RowVectorPtr wrapChildren(
       const RowVectorPtr& input,
       vector_size_t size,
-      BufferPtr indices);
+      const BufferPtr& indices,
+      RowVectorPtr reusable);
 
   const std::vector<std::shared_ptr<LocalExchangeQueue>> queues_;
   const size_t numPartitions_;
@@ -210,7 +239,6 @@ class LocalPartition : public Operator {
   /// Reusable buffers for input partitioning.
   std::vector<BufferPtr> indexBuffers_;
   std::vector<vector_size_t*> rawIndices_;
-  std::vector<VectorPtr> childVectors_;
 };
 
 } // namespace facebook::velox::exec

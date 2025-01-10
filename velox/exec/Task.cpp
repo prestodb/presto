@@ -2609,11 +2609,12 @@ void Task::createLocalExchangeQueuesLocked(
   LocalExchangeState exchange;
   exchange.memoryManager = std::make_shared<LocalExchangeMemoryManager>(
       queryCtx_->queryConfig().maxLocalExchangeBufferSize());
-
+  exchange.vectorPool = std::make_shared<LocalExchangeVectorPool>(
+      queryCtx_->queryConfig().maxLocalExchangeBufferSize());
   exchange.queues.reserve(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {
-    exchange.queues.emplace_back(
-        std::make_shared<LocalExchangeQueue>(exchange.memoryManager, i));
+    exchange.queues.emplace_back(std::make_shared<LocalExchangeQueue>(
+        exchange.memoryManager, exchange.vectorPool, i));
   }
 
   const auto partitionNode =

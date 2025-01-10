@@ -88,6 +88,7 @@ struct SplitsState {
 /// Stores local exchange queues with the memory manager.
 struct LocalExchangeState {
   std::shared_ptr<LocalExchangeMemoryManager> memoryManager;
+  std::shared_ptr<LocalExchangeVectorPool> vectorPool;
   std::vector<std::shared_ptr<LocalExchangeQueue>> queues;
   std::shared_ptr<common::SkewedPartitionRebalancer>
       scaleWriterPartitionBalancer;
@@ -132,7 +133,7 @@ struct SplitGroupState {
   uint32_t numFinishedOutputDrivers{0};
 
   // True if the state contains structures used for connecting ungrouped
-  // execution pipeline with grouped excution pipeline. In that case we don't
+  // execution pipeline with grouped execution pipeline. In that case we don't
   // want to clean up some of these structures.
   bool mixedExecutionMode{false};
 
