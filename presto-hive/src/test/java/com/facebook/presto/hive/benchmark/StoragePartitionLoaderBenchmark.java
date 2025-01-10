@@ -112,7 +112,6 @@ public class StoragePartitionLoaderBenchmark
                 HiveConnectorFactory.class.getClassLoader(),
                 Optional.of(metastore));
         queryRunner.createCatalog("hive", connectorFactory, ImmutableMap.of());
-        queryRunner.execute("SELECT * FROM hive.sym_db.sym_table");
         return queryRunner;
     }
 
