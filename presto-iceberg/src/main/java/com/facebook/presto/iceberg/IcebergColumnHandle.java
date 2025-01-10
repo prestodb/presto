@@ -133,11 +133,15 @@ public class IcebergColumnHandle
     @Override
     public String toString()
     {
+        StringBuilder builder = new StringBuilder();
         if (getRequiredSubfields().isEmpty()) {
-            return getId() + ":" + getName() + ":" + type.getDisplayName();
+            return builder.append(getId()).append(":").append(getName()).append(":")
+                    .append(type.getDisplayName()).toString();
         }
 
-        return getId() + ":" + getName() + ":" + type.getDisplayName() + ":" + getColumnType() + ":" + getRequiredSubfields();
+        return builder.append(getId()).append(":").append(getName()).append(":")
+                .append(type.getDisplayName()).append(":").append(getColumnType()).append(":")
+                .append(getRequiredSubfields()).toString();
     }
 
     private static IcebergColumnHandle getIcebergColumnHandle(IcebergMetadataColumn metadataColumn)

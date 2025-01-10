@@ -645,7 +645,7 @@ public class InMemoryHiveMetastore
         @Override
         public String toString()
         {
-            return schemaName + "/" + tableName + "/" + partitionName;
+            return new StringBuilder().append(schemaName).append("/").append(tableName).append("/").append(partitionName).toString();
         }
     }
 

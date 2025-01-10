@@ -81,7 +81,9 @@ public class SearchShardsResponse
         @Override
         public String toString()
         {
-            return index + ":" + shard + "@" + node + (primary ? "[primary]" : "[replica]");
+            return new StringBuilder(index).append(":").append(shard)
+                    .append("@").append(node).append(primary ? "[primary]" : "[replica]")
+                    .toString();
         }
     }
 }
