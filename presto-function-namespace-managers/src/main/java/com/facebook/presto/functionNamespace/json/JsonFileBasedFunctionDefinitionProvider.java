@@ -14,6 +14,8 @@
 package com.facebook.presto.functionNamespace.json;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
+import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
 
 import java.io.IOException;
 import java.nio.file.Files;

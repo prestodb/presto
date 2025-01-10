@@ -17,6 +17,8 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
@@ -83,6 +85,30 @@ public final class FunctionResolution
     public FunctionHandle likeVarcharFunction()
     {
         return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, LIKE_PATTERN));
+    }
+
+    public boolean supportsLikePatternFunction()
+    {
+        try {
+            functionAndTypeResolver.lookupFunction("LIKE_PATTERN", fromTypes(VARCHAR, VARCHAR));
+            return true;
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode()) {
+                return false;
+            }
+            throw e;
+        }
+    }
+
+    public FunctionHandle likeVarcharVarcharFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, VARCHAR));
+    }
+
+    public FunctionHandle likeVarcharVarcharVarcharFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, VARCHAR, VARCHAR));
     }
 
     @Override
