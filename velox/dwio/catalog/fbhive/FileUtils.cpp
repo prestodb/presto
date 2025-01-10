@@ -21,7 +21,7 @@
 #include <fmt/core.h>
 #include <folly/container/Array.h>
 
-#include "velox/dwio/common/exception/Exception.h"
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook {
 namespace velox {
@@ -30,6 +30,8 @@ namespace catalog {
 namespace fbhive {
 
 namespace {
+
+constexpr auto kUriEscapeMode = folly::UriEscapeMode::ALL;
 
 constexpr size_t HEX_WIDTH = 2;
 
@@ -143,20 +145,14 @@ std::string FileUtils::escapePathName(const std::string& data) {
 }
 
 std::string FileUtils::unescapePathName(const std::string& data) {
-  std::string ret;
-  ret.reserve(data.size());
-  for (size_t i = 0; i < data.size(); ++i) {
-    char c = data[i];
-    if (c == '%' && i + HEX_WIDTH < data.size()) {
-      std::string tmp{data.data() + i + 1, HEX_WIDTH};
-      char* end;
-      c = static_cast<char>(std::strtol(tmp.c_str(), &end, 16));
-      DWIO_ENSURE(errno != ERANGE && end == tmp.data() + HEX_WIDTH);
-      i += HEX_WIDTH;
-    }
-    ret.append(1, c);
+  std::string out;
+  bool success = folly::tryUriUnescape<std::string>(data, out, kUriEscapeMode);
+  if (!success) {
+    VELOX_FAIL(
+        "Due to incomplete percent encode sequence, failed to unescape malformed path name: {}",
+        data);
   }
-  return ret;
+  return out;
 }
 
 std::string FileUtils::makePartName(
@@ -166,7 +162,7 @@ std::string FileUtils::makePartName(
   size_t escapeCount = 0;
   std::for_each(entries.begin(), entries.end(), [&](auto& pair) {
     auto keySize = pair.first.size();
-    DWIO_ENSURE_GT(keySize, 0);
+    VELOX_CHECK_GT(keySize, 0);
     size += keySize;
     escapeCount += countEscape(pair.first);
 
@@ -212,7 +208,7 @@ std::vector<std::pair<std::string, std::string>> FileUtils::parsePartKeyValues(
   std::for_each(parts.begin(), parts.end(), [&](auto& part) {
     std::vector<std::string> kv;
     folly::split('=', part, kv);
-    DWIO_ENSURE_EQ(kv.size(), 2);
+    VELOX_CHECK_EQ(kv.size(), 2);
     ret.push_back({unescapePathName(kv[0]), unescapePathName(kv[1])});
   });
   return ret;

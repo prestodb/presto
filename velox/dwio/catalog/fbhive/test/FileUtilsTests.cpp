@@ -16,12 +16,11 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "velox/common/base/Exceptions.h"
 #include "velox/dwio/catalog/fbhive/FileUtils.h"
-#include "velox/dwio/common/exception/Exception.h"
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::catalog::fbhive;
-using namespace facebook::velox::dwio::common::exception;
 
 TEST(FileUtilsTests, MakePartName) {
   std::vector<std::pair<std::string, std::string>> pairs{
@@ -35,15 +34,30 @@ TEST(FileUtilsTests, MakePartName) {
 }
 
 TEST(FileUtilsTests, ParsePartKeyValues) {
-  ASSERT_THROW(FileUtils::parsePartKeyValues("ds"), LoggedException);
+  EXPECT_THROW(
+      FileUtils::parsePartKeyValues("ds"), facebook::velox::VeloxRuntimeError);
+  EXPECT_THROW(
+      FileUtils::parsePartKeyValues("ds=/ts"),
+      facebook::velox::VeloxRuntimeError);
 
-  ASSERT_THAT(
+  try {
+    FileUtils::parsePartKeyValues("ts=%xx");
+    FAIL()
+        << "Expected VeloxException with message 'incomplete percent encode sequence' but none was thrown.";
+  } catch (const facebook::velox::VeloxException& e) {
+    EXPECT_THAT(
+        e.what(), ::testing::HasSubstr("incomplete percent encode sequence"));
+  } catch (...) {
+    FAIL() << "Expected VeloxException but caught an unknown exception type.";
+  }
+
+  EXPECT_THAT(
       FileUtils::parsePartKeyValues(
-          "ds=2016-01-01/foo=__HIVE_DEFAULT_PARTITION__/a%0Ab%3Ac=a%23b%3Dc"),
+          "ds=2016-01-01/foo=__HIVE_DEFAULT_PARTITION__/a%0Ab%3Ac=a%23b%3Dc%2F"),
       ElementsAre(
           std::make_pair("ds", "2016-01-01"),
           std::make_pair("foo", "__HIVE_DEFAULT_PARTITION__"),
-          std::make_pair("a\nb:c", "a#b=c")));
+          std::make_pair("a\nb:c", "a#b=c/")));
 }
 
 TEST(FileUtilsTests, ExtractPartitionName) {

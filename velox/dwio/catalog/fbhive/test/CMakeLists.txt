@@ -17,7 +17,7 @@ add_test(file_utils_test file_utils_test)
 target_link_libraries(
   file_utils_test
   velox_dwio_catalog_fbhive
-  velox_dwio_common_exception
+  velox_exception
   GTest::gtest
   GTest::gtest_main
   GTest::gmock)
