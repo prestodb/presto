@@ -33,16 +33,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
-import com.sun.tools.doclets.standard.Standard;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.testcontainers.shaded.com.google.common.base.Charsets;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
@@ -187,7 +184,8 @@ public class StoragePartitionLoaderBenchmark
                     }
                     parquetWriter.write(pageBuilder.build());
                 }
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 fail("Should not fail, but throw an exception as follows:", e);
             }
         }
