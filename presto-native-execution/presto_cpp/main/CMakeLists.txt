@@ -51,37 +51,7 @@ target_link_libraries(
   presto_http
   presto_operators
   presto_velox_conversion
-  velox_abfs
-  velox_aggregates
-  velox_caching
-  velox_common_base
-  velox_core
-  velox_dwio_common_exception
-  velox_dwio_dwrf_reader
-  velox_dwio_dwrf_writer
-  velox_dwio_orc_reader
-  velox_dwio_parquet_reader
-  velox_dwio_parquet_writer
-  velox_encode
-  velox_exec
-  velox_file
-  velox_functions_lib
-  velox_functions_prestosql
-  velox_gcs
-  velox_hdfs
-  velox_hive_connector
-  velox_hive_iceberg_splitreader
-  velox_hive_partition_function
-  velox_presto_serializer
-  velox_s3fs
-  velox_serialization
-  velox_time
-  velox_type_parser
-  velox_type
-  velox_type_fbhive
-  velox_type_tz
-  velox_vector
-  velox_window
+  velox
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}
   ${GLOG}
@@ -104,8 +74,7 @@ add_executable(presto_server PrestoMain.cpp)
 # results in multiple link errors similar to the one below only on GCC.
 # "undefined reference to `vtable for velox::connector::tpch::TpchTableHandle`"
 # TODO: Fix these errors.
-target_link_libraries(presto_server presto_server_lib velox_hive_connector
-                      velox_tpch_connector)
+target_link_libraries(presto_server presto_server_lib velox)
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_library(presto_server_remote_function JsonSignatureParser.cpp

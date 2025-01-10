@@ -23,8 +23,7 @@ target_link_libraries(
   presto_http
   http_filters
   presto_common
-  velox_memory
-  velox_exception
+  velox
   ${PROXYGEN_LIBRARIES}
   ${LIBSODIUM_LIBRARY}
   ${OPENSSL_SSL_LIBRARY}
