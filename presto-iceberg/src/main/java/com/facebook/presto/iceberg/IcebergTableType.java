@@ -22,6 +22,7 @@ public enum IcebergTableType
     PARTITIONS(true),
     FILES(true),
     REFS(true),
+    METADATA_LOG_ENTRIES(true),
     PROPERTIES(true),
     CHANGELOG(true),
     EQUALITY_DELETES(true),
