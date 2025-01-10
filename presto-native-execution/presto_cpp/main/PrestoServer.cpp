@@ -26,6 +26,7 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/connectors/tpcds/TpcdsConnector.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -69,6 +70,10 @@
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
+#endif
+
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+#include "presto_cpp/main/connectors/tpcds/TpcdsConnector.h"
 #endif
 
 #ifdef __linux__
@@ -276,6 +281,10 @@ void PrestoServer::run() {
       std::make_unique<SystemPrestoToVeloxConnector>("system"));
   registerPrestoToVeloxConnector(
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+  registerPrestoToVeloxConnector(
+      std::make_unique<connector::tpcds::TpcdsPrestoToVeloxConnector>("tpcds"));
+#endif
 
   velox::exec::OutputBufferManager::initialize({});
   initializeVeloxMemory();
@@ -1176,6 +1185,14 @@ void PrestoServer::registerConnectorFactories() {
     velox::connector::registerConnectorFactory(
         std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
   }
+#ifdef PRESTO_ENABLE_TPCDS_CONNECTOR
+  if (!velox::connector::hasConnectorFactory(
+          presto::connector::tpcds::TpcdsConnectorFactory::
+              kTpcdsConnectorName)) {
+    velox::connector::registerConnectorFactory(
+        std::make_shared<presto::connector::tpcds::TpcdsConnectorFactory>());
+  }
+#endif
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(
