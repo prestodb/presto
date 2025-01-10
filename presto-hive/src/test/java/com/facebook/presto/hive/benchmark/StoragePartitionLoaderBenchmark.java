@@ -33,6 +33,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Files;
+import com.sun.tools.doclets.standard.Standard;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
@@ -41,6 +42,8 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.testcontainers.shaded.com.google.common.base.Charsets;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -112,20 +115,21 @@ public class StoragePartitionLoaderBenchmark
     private static Table createHiveSymlinkTable(String databaseName, String tableName, List<Column> columns, File location)
     {
         location.mkdir();
-        File symlinkFile = new File(location, "symlink.txt");
+        File symlinkFile = new File(location, "symlink");
+
+        File dataDir = new File(location, "data");
+        dataDir.mkdir();
         try {
             symlinkFile.createNewFile();
-            Files.asCharSink(symlinkFile, Charsets.UTF_8)
-                    .write(String.format("file:%s/datafile1.parquet\nfile:%s/datafile2.parquet\n", location.getAbsolutePath(), location.getAbsolutePath()));
+            Files.asCharSink(symlinkFile, StandardCharsets.UTF_8)
+                    .write(String.format("file://%s/datafile1.parquet\nfile://%s/datafile2.parquet\n", dataDir.getAbsolutePath(), dataDir.getAbsolutePath()));
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create symlink file at: " + symlinkFile.getAbsolutePath(), e);
         }
 
         try {
-            //new File(location, "datafile1.parquet").createNewFile();
-            //new File(location, "datafile2.parquet").createNewFile();
-            createValidParquetFiles(location);
+            createValidParquetFiles(dataDir);
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create data files in: " + location, e);
