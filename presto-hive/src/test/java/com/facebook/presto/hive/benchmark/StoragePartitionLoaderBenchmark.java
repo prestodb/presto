@@ -162,8 +162,8 @@ public class StoragePartitionLoaderBenchmark
         File df2 = new File(location, "datafile2.parquet");
 
         for (File df : ImmutableList.of(df1, df2)) {
-            List<Type> types = ImmutableList.of(BIGINT, INTEGER, VARCHAR, BOOLEAN);
-            List<String> names = ImmutableList.of("col_1", "col_2", "col_3", "col_4");
+            List<Type> types = ImmutableList.of(BIGINT, INTEGER);
+            List<String> names = ImmutableList.of("col_1", "col_2");
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(DataSize.succinctBytes(1000))
                     .setMaxBlockSize(DataSize.succinctBytes(15000))
@@ -171,15 +171,12 @@ public class StoragePartitionLoaderBenchmark
                     .build();
             try (ParquetWriter parquetWriter = createParquetWriter(df, types, names, parquetWriterOptions, CompressionCodecName.UNCOMPRESSED)) {
                 Random rand = new Random();
-                for (int pageIdx = 0; pageIdx < 10; pageIdx++) {
-                    int pageRowCount = 100;
+                for (int pageIdx = 0; pageIdx < 5; pageIdx++) {
+                    int pageRowCount = 10;
                     PageBuilder pageBuilder = new PageBuilder(pageRowCount, types);
                     for (int rowIdx = 0; rowIdx < pageRowCount; rowIdx++) {
-                        // maintain col_1's dictionary size approximately half of raw data
                         BIGINT.writeLong(pageBuilder.getBlockBuilder(0), pageIdx * 100 + rand.nextInt(50));
                         INTEGER.writeLong(pageBuilder.getBlockBuilder(1), rand.nextInt(100000000));
-                        VARCHAR.writeString(pageBuilder.getBlockBuilder(2), randomUUID().toString());
-                        BOOLEAN.writeBoolean(pageBuilder.getBlockBuilder(3), rand.nextBoolean());
                         pageBuilder.declarePosition();
                     }
                     parquetWriter.write(pageBuilder.build());
