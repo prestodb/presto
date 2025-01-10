@@ -252,7 +252,8 @@ public class CanonicalPlanGenerator
                 node.getTarget().map(target -> CanonicalWriterTarget.from(target)),
                 node.getRowCountVariable(),
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                node.getCteMaterializationInfo());
         context.addPlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
     }

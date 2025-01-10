@@ -57,6 +57,11 @@ public class ScheduleResult
          * grouped execution where there are multiple lifespans per task).
          */
         MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE,
+
+        /**
+         * Waiting for the completion of CTE materialization by the table writer.
+         */
+        WAITING_FOR_CTE_MATERIALIZATION,
         /**/;
 
         public BlockedReason combineWith(BlockedReason other)
@@ -64,6 +69,7 @@ public class ScheduleResult
             switch (this) {
                 case WRITER_SCALING:
                     throw new IllegalArgumentException("cannot be combined");
+                case WAITING_FOR_CTE_MATERIALIZATION:
                 case NO_ACTIVE_DRIVER_GROUP:
                     return other;
                 case SPLIT_QUEUES_FULL:

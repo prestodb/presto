@@ -138,6 +138,7 @@ public class FeaturesConfig
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean printStatsForNonJoinQuery;
     private boolean defaultFilterFactorEnabled;
+    private boolean enhancedCteSchedulingEnabled = true;
     // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
     // which could result in syntactic join order. Set it to 0 to disable this feature
     private double defaultJoinSelectivityCoefficient;
@@ -1288,6 +1289,18 @@ public class FeaturesConfig
     public boolean isDefaultFilterFactorEnabled()
     {
         return defaultFilterFactorEnabled;
+    }
+
+    @Config("enhanced-cte-scheduling-enabled")
+    public FeaturesConfig setEnhancedCTESchedulingEnabled(boolean enhancedCTEBlockingEnabled)
+    {
+        this.enhancedCteSchedulingEnabled = enhancedCTEBlockingEnabled;
+        return this;
+    }
+
+    public boolean getEnhancedCTESchedulingEnabled()
+    {
+        return enhancedCteSchedulingEnabled;
     }
 
     @Config("optimizer.default-join-selectivity-coefficient")

@@ -283,7 +283,8 @@ public class SymbolMapper
                 node.getTarget(),
                 map(node.getRowCountVariable()),
                 node.getStatisticsAggregation().map(this::map),
-                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)),
+                node.getCteMaterializationInfo());
     }
 
     public TableWriterMergeNode map(TableWriterMergeNode node, PlanNode source)

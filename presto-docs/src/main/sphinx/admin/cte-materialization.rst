@@ -118,7 +118,6 @@ This setting specifies the Hash function type for CTE materialization.
 
 Use the ``hive.bucket_function_type_for_cte_materialization`` session property to set on a per-query basis.
 
-
 ``query.max-written-intermediate-bytes``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -128,6 +127,17 @@ Use the ``hive.bucket_function_type_for_cte_materialization`` session property t
 This setting defines a cap on the amount of data that can be written during CTE Materialization. If a query exceeds this limit, it will fail.
 
 Use the ``query_max_written_intermediate_bytes`` session property to set on a per-query basis.
+
+``enhanced-cte-scheduling-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``true``
+
+Flag to enable or disable the enhanced-cte-blocking during CTE Materialization. Enhanced CTE blocking restricts only the table scan stages of the CTE TableScan, rather than blocking entire plan sections, including the main query, until the query completes.
+This approach can improve latency in scenarios where parts of the query can execute concurrently with CTE materialization writes.
+
+Use the ``enhanced_cte_scheduling_enabled`` session property to set on a per-query basis.
 
 
 How to Participate in Development

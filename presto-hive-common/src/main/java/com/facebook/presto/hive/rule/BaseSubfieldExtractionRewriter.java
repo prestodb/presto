@@ -307,7 +307,8 @@ public abstract class BaseSubfieldExtractionRewriter
                 tableScan.getAssignments(),
                 tableScan.getTableConstraints(),
                 pushdownFilterResult.getLayout().getPredicate(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                tableScan.getCteMaterializationInfo());
     }
 
     private static ExtractionResult intersectExtractionResult(
