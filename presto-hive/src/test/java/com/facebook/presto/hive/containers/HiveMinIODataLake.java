@@ -29,12 +29,14 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
+import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
 public class HiveMinIODataLake
         implements Closeable
 {
+    public static final String EMPTY_DIR = "test-empty-dir-" + randomTableSuffix() + "/";
     public static final String ACCESS_KEY = "accesskey";
     public static final String SECRET_KEY = "secretkey";
 
@@ -99,6 +101,7 @@ public class HiveMinIODataLake
                             new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
                     .build();
             s3Client.createBucket(this.bucketName);
+            s3Client.putObject(this.bucketName, EMPTY_DIR, "");
         }
         finally {
             isStarted.set(true);
