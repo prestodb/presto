@@ -18,11 +18,19 @@ add_library(
   presto_types OBJECT
   PrestoToVeloxQueryPlan.cpp PrestoToVeloxExpr.cpp VeloxPlanValidator.cpp
   PrestoToVeloxSplit.cpp PrestoToVeloxConnector.cpp)
+
 add_dependencies(presto_types presto_operators presto_type_converter velox_type
                  velox_type_fbhive)
 
 target_link_libraries(presto_types presto_type_converter velox_type_fbhive
                       velox_hive_partition_function velox_tpch_gen)
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_dependencies(presto_types velox_expression presto_server_remote_function
+                   velox_functions_remote)
+  target_link_libraries(presto_types presto_server_remote_function
+                        velox_functions_remote)
+endif()
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
