@@ -66,6 +66,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
+import static com.facebook.presto.iceberg.FileContent.DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static com.facebook.presto.iceberg.PartitionTransforms.getColumnTransform;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -100,13 +101,13 @@ public class IcebergPageSink
     private final ConnectorSession session;
     private final FileFormat fileFormat;
     private final PagePartitioner pagePartitioner;
+    private final Table table;
 
     private final List<WriteContext> writers = new ArrayList<>();
 
     private long writtenBytes;
     private long systemMemoryUsage;
     private long validationCpuNanos;
-    private Table table;
 
     public IcebergPageSink(
             Table table,
@@ -180,7 +181,8 @@ public class IcebergPageSink
                     partitionSpec.specId(),
                     context.getPartitionData().map(PartitionData::toJson),
                     fileFormat,
-                    null);
+                    null,
+                    DATA);
 
             commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
         }
@@ -457,8 +459,8 @@ public class IcebergPageSink
         private Page transformedPage;
 
         public PagePartitioner(PageIndexerFactory pageIndexerFactory,
-                               List<PartitionColumn> columns,
-                               ConnectorSession session)
+                List<PartitionColumn> columns,
+                ConnectorSession session)
         {
             this.pageIndexer = pageIndexerFactory.createPageIndexer(columns.stream()
                     .map(PartitionColumn::getResultType)
