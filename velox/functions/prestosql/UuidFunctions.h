@@ -20,9 +20,28 @@
 
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
+#include "velox/functions/prestosql/Comparisons.h"
 #include "velox/functions/prestosql/types/UuidType.h"
 
 namespace facebook::velox::functions {
+
+#define VELOX_GEN_BINARY_EXPR_UUID(Name, uuidCompExpr)                         \
+  template <typename T>                                                        \
+  struct Name##Uuid {                                                          \
+    VELOX_DEFINE_FUNCTION_TYPES(T);                                            \
+                                                                               \
+    FOLLY_ALWAYS_INLINE void                                                   \
+    call(bool& result, const arg_type<Uuid>& lhs, const arg_type<Uuid>& rhs) { \
+      result = (uuidCompExpr);                                                 \
+    }                                                                          \
+  };
+
+VELOX_GEN_BINARY_EXPR_UUID(LtFunction, (uint128_t)lhs < (uint128_t)rhs);
+VELOX_GEN_BINARY_EXPR_UUID(GtFunction, (uint128_t)lhs > (uint128_t)rhs);
+VELOX_GEN_BINARY_EXPR_UUID(LteFunction, (uint128_t)lhs <= (uint128_t)rhs);
+VELOX_GEN_BINARY_EXPR_UUID(GteFunction, (uint128_t)lhs >= (uint128_t)rhs);
+
+#undef VELOX_GEN_BINARY_EXPR_UUID
 
 template <typename T>
 struct UuidFunction {
@@ -42,6 +61,10 @@ struct UuidFunction {
 inline void registerUuidFunctions(const std::string& prefix) {
   registerUuidType();
   registerFunction<UuidFunction, Uuid>({prefix + "uuid"});
+  registerFunction<LtFunctionUuid, bool, Uuid, Uuid>({prefix + "lt"});
+  registerFunction<GtFunctionUuid, bool, Uuid, Uuid>({prefix + "gt"});
+  registerFunction<LteFunctionUuid, bool, Uuid, Uuid>({prefix + "lte"});
+  registerFunction<GteFunctionUuid, bool, Uuid, Uuid>({prefix + "gte"});
 }
 
 } // namespace facebook::velox::functions

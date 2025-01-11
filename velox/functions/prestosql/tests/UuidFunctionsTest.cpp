@@ -108,5 +108,119 @@ TEST_F(UuidFunctionsTest, unsupportedCast) {
       evaluate("cast(123 as uuid())", input), "Cannot cast BIGINT to UUID.");
 }
 
+TEST_F(UuidFunctionsTest, comparisons) {
+  const auto uuidEval = [&](const std::optional<std::string>& lhs,
+                            const std::string& operation,
+                            const std::optional<std::string>& rhs) {
+    return evaluateOnce<bool>(
+        fmt::format("cast(c0 as uuid) {} cast(c1 as uuid)", operation),
+        lhs,
+        rhs);
+  };
+
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "33355449-2c7d-43d7-967a-f53cd23215ad",
+          "<",
+          "ffffffff-ffff-ffff-ffff-ffffffffffff"));
+  ASSERT_EQ(
+      false,
+      uuidEval(
+          "33355449-2c7d-43d7-967a-f53cd23215ad",
+          "<",
+          "00000000-0000-0000-0000-000000000000"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "f768f36d-4f09-4da7-a298-3564d8f3c986",
+          ">",
+          "00000000-0000-0000-0000-000000000000"));
+  ASSERT_EQ(
+      false,
+      uuidEval(
+          "f768f36d-4f09-4da7-a298-3564d8f3c986",
+          ">",
+          "ffffffff-ffff-ffff-ffff-ffffffffffff"));
+
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "33355449-2c7d-43d7-967a-f53cd23215ad",
+          "<=",
+          "33355449-2c7d-43d7-967a-f53cd23215ad"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "33355449-2c7d-43d7-967a-f53cd23215ad",
+          "<=",
+          "ffffffff-ffff-ffff-ffff-ffffffffffff"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "33355449-2c7d-43d7-967a-f53cd23215ad",
+          ">=",
+          "33355449-2c7d-43d7-967a-f53cd23215ad"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "ffffffff-ffff-ffff-ffff-ffffffffffff",
+          ">=",
+          "33355449-2c7d-43d7-967a-f53cd23215ad"));
+
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "f768f36d-4f09-4da7-a298-3564d8f3c986",
+          "==",
+          "f768f36d-4f09-4da7-a298-3564d8f3c986"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "eed9f812-4b0c-472f-8a10-4ae7bff79a47",
+          "!=",
+          "f768f36d-4f09-4da7-a298-3564d8f3c986"));
+
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "11000000-0000-0022-0000-000000000000",
+          "<",
+          "22000000-0000-0011-0000-000000000000"));
+  ASSERT_EQ(
+      true,
+      uuidEval(
+          "00000000-0000-0000-2200-000000000011",
+          ">",
+          "00000000-0000-0000-1100-000000000022"));
+  ASSERT_EQ(
+      false,
+      uuidEval(
+          "00000000-0000-0000-0000-000000000011",
+          ">",
+          "22000000-0000-0000-0000-000000000000"));
+  ASSERT_EQ(
+      false,
+      uuidEval(
+          "11000000-0000-0000-0000-000000000000",
+          "<",
+          "00000000-0000-0000-0000-000000000022"));
+
+  std::string lhs = "12342345-3456-4567-5678-678978908901";
+  std::string rhs = "23451234-4567-3456-6789-567889017890";
+  ASSERT_EQ(true, uuidEval(lhs, "<", rhs));
+
+  for (vector_size_t i = 0; i < lhs.size(); i++) {
+    if (lhs[i] == '-') {
+      continue;
+    }
+    lhs[i] = '0';
+    rhs[i] = '0';
+    bool expected = boost::lexical_cast<boost::uuids::uuid>(lhs) <
+        boost::lexical_cast<boost::uuids::uuid>(rhs);
+    ASSERT_EQ(expected, uuidEval(lhs, "<", rhs));
+  }
+}
+
 } // namespace
 } // namespace facebook::velox::functions::prestosql
