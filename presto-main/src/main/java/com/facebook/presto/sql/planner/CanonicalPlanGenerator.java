@@ -696,6 +696,7 @@ public class CanonicalPlanGenerator
                 new WindowNode.Specification(
                         partitionBy,
                         node.getSpecification().getOrderingScheme().map(scheme -> getCanonicalOrderingScheme(scheme, context.getExpressions()))),
+                node.getRankingFunction(),
                 rowNumberVariable,
                 node.getMaxRowCountPerPartition(),
                 node.isPartial(),
