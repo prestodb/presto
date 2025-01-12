@@ -1,0 +1,49 @@
+# GitHub Actions workflow for Baler (BAd Link reportER) version 2.0.4.
+# This is available as the file "sample-workflow.yml" from the source
+# code repository for Baler: https://github.com/caltechlibrary/baler
+
+name: Bad Link Reporter
+
+# Configure this section ─────────────────────────────────────────────
+
+env:
+  # Files to check. (Put patterns on separate lines, no leading dash.)
+  files: |
+    **/*.md
+
+  # Label assigned to issues created by this workflow:
+  labels: bug
+
+  # Number of previous issues to check for duplicate reports.
+  lookback: 10
+
+  # Time (sec) to wait on an unresponsive URL before trying once more.
+  timeout: 15
+
+  # Optional file containing a list of URLs to ignore, one per line:
+  ignore: .github/workflows/ignored-urls.txt
+
+on:
+  schedule:  # Cron syntax is: "min hr day-of-month month day-of-week"
+    - cron: 00 04 * * 1
+  push:
+    paths: ['**.md']
+  workflow_dispatch:
+
+# The rest of this file should be left as-is ─────────────────────────
+
+run-name: Test links in Markdown files
+jobs:
+  Baler:
+    name: Link checker and reporter
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: caltechlibrary/baler@v2
+        with:
+          files:    ${{github.event.inputs.files    || env.files}}
+          labels:   ${{github.event.inputs.labels   || env.labels}}
+          ignore:   ${{github.event.inputs.ignore   || env.ignore}}
+          timeout:  ${{github.event.inputs.timeout  || env.timeout}}
+          lookback: ${{github.event.inputs.lookback || env.lookback}}
