@@ -173,7 +173,7 @@ This property is optional; the default is ``0``.
 Configuring the MongoDB Connector to Use a TLS CA File
 ------------------------------------------------------
 
-A TLS CA file may be required to connect securely to a MongoDB cluster hosted on DigitalOcean. A TLS CA file may be required to connect securely to a MongoDB cluster hosted on DigitalOcean. MongoDB clusters are hosted on multiple nodes, each with its own hostname. Cluster hostnames do not resolve using standard ``dig`` requests to the hostname in the connection string.
+A TLS CA file may be required to connect securely to a MongoDB cluster hosted on DigitalOcean. MongoDB clusters are hosted on multiple nodes, each with its own hostname. Cluster hostnames do not resolve using standard ``dig`` requests to the hostname in the connection string.
 
 Retrieve the Node Hostnames
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
