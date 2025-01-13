@@ -187,6 +187,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
+import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
@@ -527,15 +528,6 @@ public abstract class IcebergAbstractMetadata
         RowDelta rowDelta = transaction.newRowDelta();
         writableTableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
         IsolationLevel isolationLevel = IsolationLevel.fromName(icebergTable.properties().getOrDefault(DELETE_ISOLATION_LEVEL, DELETE_ISOLATION_LEVEL_DEFAULT));
-        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
-            rowDelta.validateNoConflictingDataFiles();
-        }
-
-        // Ensure a row that is updated by this commit was not deleted by a separate commit
-        if (operationType == UPDATE_BEFORE || operationType == UPDATE_AFTER) {
-            rowDelta.validateDeletedFiles();
-            rowDelta.validateNoConflictingDeleteFiles();
-        }
 
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
@@ -583,6 +575,16 @@ public abstract class IcebergAbstractMetadata
             }
         }
         rowDelta.validateDataFilesExist(referencedDataFiles.build());
+        if (isolationLevel == IsolationLevel.SERIALIZABLE) {
+            rowDelta.validateNoConflictingDataFiles();
+        }
+
+        // Ensure a row that is updated by this commit was not deleted by a separate commit
+        if (operationType == UPDATE_BEFORE || operationType == UPDATE_AFTER) {
+            rowDelta.validateDeletedFiles();
+            rowDelta.validateNoConflictingDeleteFiles();
+        }
+
         try {
             rowDelta.set(PRESTO_QUERY_ID, session.getQueryId());
             rowDelta.commit();
@@ -1173,8 +1175,11 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
-            throw new PrestoException(NOT_SUPPORTED, "Iceberg table updates require at least format version 2");
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+                !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
+                        .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
+                        .orElse(false)) {
+            throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
         }
         validateTableMode(session, icebergTable);
         transaction = icebergTable.newTransaction();
@@ -1188,7 +1193,7 @@ public abstract class IcebergAbstractMetadata
     public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getIcebergTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         IcebergOutputTableHandle outputTableHandle = new IcebergOutputTableHandle(
                 handle.getSchemaName(),
                 handle.getIcebergTableName(),
