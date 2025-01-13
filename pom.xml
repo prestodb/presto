@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>102</version>
+        <version>104</version>
     </parent>
 
     <groupId>com.facebook.presto</groupId>
@@ -2610,7 +2610,7 @@
                 <plugin>
                     <groupId>com.facebook.presto</groupId>
                     <artifactId>presto-maven-plugin</artifactId>
-                    <version>0.4</version>
+                    <version>0.7</version>
                     <extensions>true</extensions>
                 </plugin>
 
