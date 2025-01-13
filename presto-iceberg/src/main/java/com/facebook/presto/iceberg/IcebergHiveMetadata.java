@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HdfsContext;
@@ -98,6 +99,7 @@ import static com.facebook.presto.hive.HiveStatisticsUtil.updatePartitionStatist
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
+import static com.facebook.presto.hive.SchemaProperties.getDatabaseProperties;
 import static com.facebook.presto.hive.SchemaProperties.getLocation;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
@@ -246,6 +248,17 @@ public class IcebergHiveMetadata
     public List<String> listSchemaNames(ConnectorSession session)
     {
         return metastore.getAllDatabases(getMetastoreContext(session));
+    }
+
+    @Override
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+        Optional<Database> database = metastore.getDatabase(metastoreContext, schemaName.getSchemaName());
+        if (database.isPresent()) {
+            return getDatabaseProperties(database.get());
+        }
+        throw new SchemaNotFoundException(schemaName.getSchemaName());
     }
 
     @Override

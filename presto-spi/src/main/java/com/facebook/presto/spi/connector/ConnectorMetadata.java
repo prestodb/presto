@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
@@ -83,6 +84,14 @@ public interface ConnectorMetadata
      * Returns the schemas provided by this connector.
      */
     List<String> listSchemaNames(ConnectorSession session);
+
+    /**
+     * Gets the schema properties for the specified schema.
+     */
+    default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support schema properties");
+    }
 
     /**
      * Returns a table handle for the specified table name, or null if the connector does not contain the table.

@@ -21,9 +21,11 @@ import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.cache.CacheBuilder;
 import org.apache.iceberg.Table;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -31,7 +33,9 @@ import java.nio.file.Path;
 import static com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore.memoizeMetastore;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergSmokeHive
         extends IcebergDistributedSmokeTestBase
@@ -66,5 +70,24 @@ public class TestIcebergSmokeHive
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
+    }
+
+    @Test
+    public void testShowCreateSchema()
+    {
+        String createSchemaSql = "CREATE SCHEMA show_create_iceberg_schema";
+        assertUpdate(createSchemaSql);
+        String expectedShowCreateSchema = "CREATE SCHEMA show_create_iceberg_schema\n" +
+                "WITH (\n" +
+                "   location = '.*show_create_iceberg_schema'\n" +
+                ")";
+
+        MaterializedResult actualResult = computeActual("SHOW CREATE SCHEMA show_create_iceberg_schema");
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet()).toString().matches(expectedShowCreateSchema));
+
+        assertQueryFails(format("SHOW CREATE SCHEMA %s.%s", getSession().getCatalog().get(), ""), ".*mismatched input '.'. Expecting: <EOF>");
+        assertQueryFails(format("SHOW CREATE SCHEMA %s.%s.%s", getSession().getCatalog().get(), "show_create_iceberg_schema", "tabletest"), ".*Too many parts in schema name: iceberg.show_create_iceberg_schema.tabletest");
+        assertQueryFails(format("SHOW CREATE SCHEMA %s", "schema_not_exist"), ".*Schema 'iceberg.schema_not_exist' does not exist");
+        assertUpdate("DROP SCHEMA show_create_iceberg_schema");
     }
 }
