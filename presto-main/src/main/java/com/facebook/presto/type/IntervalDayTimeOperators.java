@@ -141,7 +141,8 @@ public final class IntervalDayTimeOperators
 
         try {
             return multiplyByDouble(left, 1.0 / right);
-        } catch (PrestoException e) {
+        }
+        catch (PrestoException e) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval_day_to_second division overflow: %s ms / %s", left, right));
         }
     }
