@@ -787,6 +787,20 @@ void windowFuzzer(
     bool orderableGroupKeys,
     const std::optional<std::string>& planPath,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner) {
+  auto fuzzerOptions =
+      AggregationFuzzerBase::getFuzzerOptions(timestampPrecision);
+  // The window fuzzer often runs into OOMs when generating complex types
+  // nested inside other complex types.
+  // For e.g if we were to run map_union on a MAP<MAP<INT, TIMESTAMP>, ARRAY<>>,
+  // Then currently with the worst case the inner map can have up to 10k entries
+  // as that is the limit set by complexElementsMaxSize.
+  // Window frames can contain tens or hundreds of rows, causing the map_union
+  // result of every input row to contain up to windowFrameSize *
+  // complexElementsMaxSize number of nested elements. This leads to very fat
+  // vectors and an inordinate amount of time in just creating materialized rows
+  // and processing. Thus we set the complexElementsMaxSize to 100 to avoid
+  // OOMs.
+  fuzzerOptions.complexElementsMaxSize = 100;
   auto windowFuzzer = WindowFuzzer(
       std::move(aggregationSignatureMap),
       std::move(windowSignatureMap),
@@ -799,7 +813,8 @@ void windowFuzzer(
       queryConfigs,
       hiveConfigs,
       orderableGroupKeys,
-      std::move(referenceQueryRunner));
+      std::move(referenceQueryRunner),
+      fuzzerOptions);
   planPath.has_value() ? windowFuzzer.go(planPath.value()) : windowFuzzer.go();
 }
 
