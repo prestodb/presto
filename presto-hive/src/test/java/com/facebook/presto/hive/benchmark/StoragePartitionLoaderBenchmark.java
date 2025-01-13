@@ -43,6 +43,7 @@ import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
@@ -67,7 +68,7 @@ public class StoragePartitionLoaderBenchmark
                 "storage_partition_loader_benchmark",
                 10,
                 100,
-                "SELECT * FROM tpch.sym_db.sym_table");
+                "SELECT * FROM hive.sym_db.sym_table");
     }
 
     public static void main(String[] args)
@@ -117,8 +118,8 @@ public class StoragePartitionLoaderBenchmark
         System.out.println("Hive metastore tables: " + metastore.getAllTables(METASTORE_CONTEXT, "sym_db"));
         System.out.println("Hive metastore databases: " + metastore.getAllDatabases(METASTORE_CONTEXT));
 
-        MaterializedResult schemasResult = queryRunner.execute("SHOW CATALOGS");
-        System.out.println("All schemas: " + schemasResult.toString());
+        MaterializedResult catalogsResult = queryRunner.execute("SHOW CATALOGS");
+        System.out.println("All catalogs: " + catalogsResult.toString());
 
         return queryRunner;
     }
@@ -140,7 +141,7 @@ public class StoragePartitionLoaderBenchmark
         }
 
         try {
-            createValidParquetFiles(dataDir);
+            createBasicParquetFiles(dataDir, ImmutableList.of("datafile1.parquet", "datafile2.parquet"));
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create data files in: " + location, e);
@@ -170,12 +171,10 @@ public class StoragePartitionLoaderBenchmark
                 Optional.empty());
     }
 
-    public static void createValidParquetFiles(File location)
+    public static void createBasicParquetFiles(File location, List<String> fileNames)
     {
-        File dataFile1 = new File(location, "datafile1.parquet");
-        File dataFile2 = new File(location, "datafile2.parquet");
-
-        for (File df : ImmutableList.of(dataFile1, dataFile2)) {
+        for (String fileName : fileNames) {
+            File df = new File(location, fileName);
             List<Type> types = ImmutableList.of(BIGINT, INTEGER);
             List<String> names = ImmutableList.of("col_1", "col_2");
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
@@ -204,7 +203,7 @@ public class StoragePartitionLoaderBenchmark
 
     public static ParquetWriter createParquetWriter(File outputFile, List<Type> types, List<String> columnNames,
                                                     ParquetWriterOptions parquetWriterOptions, CompressionCodecName compressionCodecName)
-            throws Exception
+            throws IOException
     {
         checkArgument(types.size() == columnNames.size());
         ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
