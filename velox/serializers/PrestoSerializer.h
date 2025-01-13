@@ -19,6 +19,7 @@
 
 #include "velox/common/base/Crc.h"
 #include "velox/common/compression/Compression.h"
+#include "velox/serializers/PrestoVectorLexer.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::serializer::presto {
@@ -156,32 +157,6 @@ class PrestoVectorSerde : public VectorSerde {
       const Options* opts,
       memory::MemoryPool* pool,
       std::ostream* output);
-
-  enum class TokenType {
-    HEADER,
-    NUM_COLUMNS,
-    COLUMN_ENCODING,
-    NUM_ROWS,
-    NULLS,
-    BYTE_ARRAY,
-    SHORT_ARRAY,
-    INT_ARRAY,
-    LONG_ARRAY,
-    INT128_ARRAY,
-    VARIABLE_WIDTH_DATA_SIZE,
-    VARIABLE_WIDTH_DATA,
-    DICTIONARY_INDICES,
-    DICTIONARY_ID,
-    HASH_TABLE_SIZE,
-    HASH_TABLE,
-    NUM_FIELDS,
-    OFFSETS,
-  };
-
-  struct Token {
-    TokenType tokenType;
-    uint32_t length;
-  };
 
   /**
    * This function lexes the PrestoPage encoded source into tokens so that
