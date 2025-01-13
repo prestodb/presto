@@ -491,8 +491,18 @@ void WindowFuzzer::go() {
           generateSortingKeysAndOrders("s", argNames, argTypes, false, numKeys);
     }
 
+    std::vector<std::string> sortingKeys;
+    sortingKeys.reserve(sortingKeysAndOrders.size());
+    for (const auto& sortingKeyAndOrder : sortingKeysAndOrders) {
+      sortingKeys.push_back(sortingKeyAndOrder.key_);
+    }
     auto input = generateInputDataWithRowNumber(
-        argNames, argTypes, partitionKeys, kBoundColumns, signature);
+        argNames,
+        argTypes,
+        partitionKeys,
+        kBoundColumns,
+        sortingKeys,
+        signature);
     // Offset column names used for k-RANGE frame bounds have fixed names: off0
     // and off1, representing the precomputed offset columns used as frame start
     // and frame end bound respectively.

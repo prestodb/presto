@@ -213,6 +213,7 @@ class AggregationFuzzerBase {
       std::vector<TypePtr> types,
       const std::vector<std::string>& partitionKeys,
       const std::vector<std::string>& windowFrameBounds,
+      const std::vector<std::string>& sortingKeys,
       const CallableSignature& signature);
 
   velox::fuzzer::ResultOrError execute(

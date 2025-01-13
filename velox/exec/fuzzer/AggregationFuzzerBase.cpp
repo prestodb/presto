@@ -330,6 +330,7 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
     std::vector<TypePtr> types,
     const std::vector<std::string>& partitionKeys,
     const std::vector<std::string>& windowFrameBounds,
+    const std::vector<std::string>& sortingKeys,
     const CallableSignature& signature) {
   names.push_back("row_number");
   types.push_back(INTEGER());
@@ -345,6 +346,8 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
       partitionKeys.begin(), partitionKeys.end()};
   std::unordered_set<std::string> windowFrameBoundsSet{
       windowFrameBounds.begin(), windowFrameBounds.end()};
+  std::unordered_set<std::string> sortingKeySet{
+      sortingKeys.begin(), sortingKeys.end()};
 
   for (auto j = 0; j < FLAGS_num_batches; ++j) {
     std::vector<VectorPtr> children;
@@ -354,22 +357,74 @@ std::vector<RowVectorPtr> AggregationFuzzerBase::generateInputDataWithRowNumber(
           generator->generate(signature.args, vectorFuzzer_, rng_, pool_.get());
     }
 
-    // Number of partitions is randomly generated and is at least 1.
-    auto numPartitions = size ? randInt(1, size) : 1;
-    auto indices = vectorFuzzer_.fuzzIndices(size, numPartitions);
-    auto nulls = vectorFuzzer_.fuzzNulls(size);
+    // Some window functions like 'rank' have semantics influenced by "peer"
+    // rows. Peer rows are rows in the same partition having the same order by
+    // key. In rank and dense_rank functions, peer rows have the same function
+    // result value. This code influences the fuzzer to generate such data.
+    //
+    // To build such rows the code separates the notions of "peer" groups and
+    // "partition" groups during data generation. A number of peers are chosen
+    // between (1, size) of the input. Rows with the same peer number have the
+    // same order by keys. This means that there are sets of rows in the input
+    // data which will have the same order by key.
+    //
+    // Each peer is then mapped to a partition group. Rows in the same partition
+    // group have the same partition keys. So a partition can contain a group of
+    // rows with the same order by key and there can be multiple such groups
+    // (each with different order by keys) in one partition.
+    //
+    // This style of data generation is preferable for window functions. The
+    // input data so generated could look as follows:
+    //
+    //   numRows = 6, numPeerGroups = 3, numPartitions = 2,
+    //   columns = {p0: VARCHAR, s0: INTEGER}, partitioningKeys = {p0},
+    //   sortingKeys = {s0}
+    //     row1: 'APPLE'   2
+    //     row2: 'APPLE'   2
+    //     row3: 'APPLE'   2
+    //     row4: 'APPLE'   8
+    //     row5: 'ORANGE'  5
+    //     row6: 'ORANGE'  5
+    //
+    // In the above example, the sets of rows belonging to the same peer group
+    // are {row1, row2, row3}, {row4}, and {row5, row6}. The sets of rows
+    // belonging to the same partition are {row1, row2, row3, row4} and
+    // {row5, row6}.
+    auto numPeerGroups = size ? randInt(1, size) : 1;
+    auto sortingIndices = vectorFuzzer_.fuzzIndices(size, numPeerGroups);
+    auto rawSortingIndices = sortingIndices->as<vector_size_t>();
+    auto sortingNulls = vectorFuzzer_.fuzzNulls(size);
+
+    auto numPartitions = randInt(1, numPeerGroups);
+    auto peerGroupToPartitionIndices =
+        vectorFuzzer_.fuzzIndices(numPeerGroups, numPartitions);
+    auto rawPeerGroupToPartitionIndices =
+        peerGroupToPartitionIndices->as<vector_size_t>();
+    auto partitionIndices =
+        AlignedBuffer::allocate<vector_size_t>(size, pool_.get());
+    auto rawPartitionIndices = partitionIndices->asMutable<vector_size_t>();
+    auto partitionNulls = vectorFuzzer_.fuzzNulls(size);
+    for (auto i = 0; i < size; i++) {
+      auto peerGroup = rawSortingIndices[i];
+      rawPartitionIndices[i] = rawPeerGroupToPartitionIndices[peerGroup];
+    }
+
     for (auto i = children.size(); i < types.size() - 1; ++i) {
       if (partitionKeySet.find(names[i]) != partitionKeySet.end()) {
         // The partition keys are built with a dictionary over a smaller set of
         // values. This is done to introduce some repetition of key values for
         // windowing.
         auto baseVector = vectorFuzzer_.fuzz(types[i], numPartitions);
-        children.push_back(
-            BaseVector::wrapInDictionary(nulls, indices, size, baseVector));
+        children.push_back(BaseVector::wrapInDictionary(
+            partitionNulls, partitionIndices, size, baseVector));
       } else if (
           windowFrameBoundsSet.find(names[i]) != windowFrameBoundsSet.end()) {
         // Frame bound columns cannot have NULLs.
         children.push_back(vectorFuzzer_.fuzzNotNull(types[i], size));
+      } else if (sortingKeySet.find(names[i]) != sortingKeySet.end()) {
+        auto baseVector = vectorFuzzer_.fuzz(types[i], numPeerGroups);
+        children.push_back(BaseVector::wrapInDictionary(
+            sortingNulls, sortingIndices, size, baseVector));
       } else {
         children.push_back(vectorFuzzer_.fuzz(types[i], size));
       }
