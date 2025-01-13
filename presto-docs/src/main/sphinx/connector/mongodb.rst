@@ -124,7 +124,77 @@ This property is optional; the default is ``false``.
 
 This flag enables SSL connections to MongoDB servers.
 
-This property is optional; the default is ``false``.
+This property is optional and defaults to ``false``. If you set it to ``true`` and host Presto yourself, it’s likely that you also use a TLS CA file. For instance, a TLS CA file may be required to connect securely to a MongoDB cluster hosted on DigitalOcean. Note that cluster hostnames do not resolve using standard ``dig`` requests to the hostname in the connection string. MongoDB clusters are hosted on multiple nodes, each with its own hostname.
+
+To retrieve the node hostnames of a cluster using ``dig``, specify the ``srv`` record type in the request and prepend ``_mongodb._tcp.`` to the hostname in the connection string, as shown below:
+
+.. code-block:: bash
+
+    dig srv _mongodb._tcp.<cluster-hostname>
+
+For example, a properly formatted ``dig`` request would look like this:
+
+.. code-block:: bash
+
+    dig srv _mongodb._tcp.mongodb-prod-cluster-ba6e9b05.mongo.ondigitalocean.com
+
+The ``dig`` command will return the actual hosts (in the **Answer Section**) that you can use to connect to MongoDB through Presto. The regular hostname won’t work and will result in a "host not found" error.
+
+### Setting Up TLS CA File
+
+The following steps assume you are using CentOS. Adapt them as needed for your environment.
+
+1. Create the certificate file:
+
+   .. code-block:: bash
+
+       touch /etc/pki/ca-trust/source/anchors/mongo.prod-cluster.crt
+
+2. Paste the contents of the TLS CA file into the newly created file.
+
+3. Update the trust store by running:
+
+   .. code-block:: bash
+
+       update-ca-trust
+
+4. Verify the setup by running the following command:
+
+   .. code-block:: bash
+
+       openssl s_client -connect <host-found-with-dig-above>:27017 < /dev/null
+
+   The output should include ``CONNECTED`` and ``Verification: OK``, indicating the SSL connection is properly configured.
+
+### Configuring the Catalog
+
+To configure a MongoDB catalog for this cluster, follow these steps:
+
+1. Create the catalog configuration file:
+
+   .. code-block:: bash
+
+       touch etc/catalog/mongodb.properties
+
+2. Edit the file and include the host found using ``dig``. For example:
+
+   .. code-block:: none
+
+       connector.name=mongodb
+       mongodb.seeds=<host-found-with-dig-above>:27017
+       mongodb.credentials=<user>:<password>@<mongodb-auth-source>
+       mongodb.ssl.enabled=true
+       mongodb.required-replica-set=<mongodb-replica-set>
+
+### Running Queries
+
+After starting the Presto server, you should be able to connect to the catalog and execute queries. For instance:
+
+.. code-block:: sql
+
+    SELECT name
+    FROM users
+    WHERE _id = ObjectId('66fe8898c4ce1100c811cbe0');
 
 ``mongodb.read-preference``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
