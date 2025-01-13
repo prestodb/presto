@@ -141,6 +141,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties)
     {
         throw new UnsupportedOperationException();
