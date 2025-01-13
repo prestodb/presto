@@ -110,7 +110,6 @@ public class TestIntervalDayTime
         assertFunction("INTERVAL '3' SECOND + INTERVAL '3' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(6 * 1000));
         assertFunction("INTERVAL '6' DAY + INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 24 * 60 * 60 * 1000));
         assertFunction("INTERVAL '3' SECOND + INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime((6 * 24 * 60 * 60 * 1000) + (3 * 1000)));
-        assertFunction("INTERVAL '3' DAY + INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime((6 * 24 * 60 * 60 * 1000) + (3 * 1000)));
     }
 
     @Test
