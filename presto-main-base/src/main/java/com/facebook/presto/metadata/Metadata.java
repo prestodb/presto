@@ -76,6 +76,11 @@ public interface Metadata
 
     List<String> listSchemaNames(Session session, String catalogName);
 
+    /**
+     * Gets the schema properties for the specified schema.
+     */
+    Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName);
+
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
     /**
