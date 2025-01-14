@@ -76,10 +76,13 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
   void start() {
     // Check system-memory-gb < system-mem-limit-gb < actual total memory
     // capacity.
+    int64_t actualTotalMemory = getActualTotalMemory();
     VELOX_CHECK_LE(
         config_.systemMemLimitBytes,
-        getActualTotalMemory(),
-        "system-mem-limit-gb is higher than the actual total memory capacity.");
+        actualTotalMemory,
+        "system-mem-limit-gb = {} is higher than the actual total memory capacity {} gb.",
+        config_.systemMemLimitBytes,
+        actualTotalMemory);
 
     auto* systemConfig = SystemConfig::instance();
     if (config_.systemMemLimitBytes < systemConfig->systemMemoryGb()) {
@@ -106,10 +109,10 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
     // For cgroup v1, memory.limit_in_bytes can default to a really big numeric
     // value in bytes like 9223372036854771712 to represent that
     // memory.limit_in_bytes is not set to a value. The default value here is
-    // set to PAGE_COUNTER_MAX, which is LONG_MAX/PAGE_SIZE on 64-bit platform.
-    // The default value can vary based upon the platform's PAGE_SIZE. If
-    // memory.limit_in_bytes contains a really big numeric value, then we will
-    // use MemTotal from /proc/meminfo.
+    // set to PAGE_COUNTER_MAX, which is LONG_MAX/PAGE_SIZE on the 64-bit
+    // platform. The default value can vary based upon the platform's PAGE_SIZE.
+    // If memory.limit_in_bytes contains a really big numeric value, then we
+    // will use MemTotal from /proc/meminfo.
 
     // For cgroup v2, memory.max can contain a numeric value in bytes or string
     // "max" which represents no value has been set. If memory.max contains
