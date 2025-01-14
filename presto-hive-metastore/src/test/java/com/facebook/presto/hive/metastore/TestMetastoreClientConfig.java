@@ -49,7 +49,8 @@ public class TestMetastoreClientConfig
                 .setPartitionCacheValidationPercentage(0)
                 .setPartitionCacheColumnCountLimit(500)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.NONE)
-                .setDeleteFilesOnTableDrop(false));
+                .setDeleteFilesOnTableDrop(false)
+                .setInvalidateMetastoreCacheProcedureEnabled(false));
     }
 
     @Test
@@ -75,6 +76,7 @@ public class TestMetastoreClientConfig
                 .put("hive.partition-cache-column-count-limit", "50")
                 .put("hive.metastore.authentication.type", "KERBEROS")
                 .put("hive.metastore.thrift.delete-files-on-table-drop", "true")
+                .put("hive.invalidate-metastore-cache-procedure-enabled", "true")
                 .build();
 
         MetastoreClientConfig expected = new MetastoreClientConfig()
@@ -96,7 +98,8 @@ public class TestMetastoreClientConfig
                 .setPartitionCacheValidationPercentage(60.0)
                 .setPartitionCacheColumnCountLimit(50)
                 .setHiveMetastoreAuthenticationType(HiveMetastoreAuthenticationType.KERBEROS)
-                .setDeleteFilesOnTableDrop(true);
+                .setDeleteFilesOnTableDrop(true)
+                .setInvalidateMetastoreCacheProcedureEnabled(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

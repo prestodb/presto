@@ -66,6 +66,7 @@ public final class TestGroups
     public static final String AVRO = "avro";
     public static final String ICEBERG = "iceberg";
     public static final String HIVE_LIST_CACHING = "hive_list_caching";
+    public static final String INVALIDATE_METASTORE_CACHE = "invalidate_metastore_cache";
 
     private TestGroups() {}
 }
