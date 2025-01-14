@@ -15,6 +15,7 @@
 package com.facebook.presto.hudi;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheFactory;
 import com.facebook.presto.cache.CacheStats;
@@ -39,6 +40,7 @@ import com.facebook.presto.hive.gcs.HiveGcsConfig;
 import com.facebook.presto.hive.gcs.HiveGcsConfigurationInitializer;
 import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
+import com.facebook.presto.hive.metastore.InvalidateMetastoreCacheProcedure;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
 import com.facebook.presto.hudi.split.ForHudiBackgroundSplitLoader;
@@ -53,10 +55,11 @@ import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorSplitManager;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeNodePartitioningProvider;
+import com.facebook.presto.spi.procedure.Procedure;
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
 import javax.inject.Singleton;
@@ -76,7 +79,7 @@ import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HudiModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     private final ClassLoader classLoader;
     private final String connectorId;
@@ -88,7 +91,7 @@ public class HudiModule
     }
 
     @Override
-    public void configure(Binder binder)
+    protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(HiveClientConfig.class);
         configBinder(binder).bindConfig(MetastoreConfig.class);
@@ -127,6 +130,11 @@ public class HudiModule
         binder.bind(HudiSessionProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorAccessControl.class).to(AllowAllAccessControl.class).in(Scopes.SINGLETON);
+
+        Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
+        if (buildConfigObject(MetastoreClientConfig.class).isInvalidateMetastoreCacheProcedureEnabled()) {
+            procedures.addBinding().toProvider(InvalidateMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
+        }
     }
 
     @ForCachingHiveMetastore
