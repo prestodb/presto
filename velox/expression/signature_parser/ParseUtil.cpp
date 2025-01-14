@@ -34,4 +34,18 @@ TypeSignaturePtr inferTypeWithSpaces(
       allWords.data() + fieldName.size() + 1, {}, fieldName));
 }
 
+std::unordered_set<std::string> splitNames(const std::string& names) {
+  // Parse, lower case and trim it.
+  std::vector<folly::StringPiece> nameList;
+  folly::split(',', names, nameList);
+  std::unordered_set<std::string> nameSet;
+
+  for (const auto& it : nameList) {
+    auto str = folly::trimWhitespace(it).toString();
+    folly::toLowerAscii(str);
+    nameSet.insert(str);
+  }
+  return nameSet;
+}
+
 } // namespace facebook::velox::exec

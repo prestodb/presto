@@ -17,6 +17,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_set>
 #include "velox/expression/TypeSignature.h"
 
 namespace facebook::velox::exec {
@@ -28,5 +29,9 @@ namespace facebook::velox::exec {
 TypeSignaturePtr inferTypeWithSpaces(
     const std::vector<std::string>& words,
     bool canHaveFieldName = false);
+
+/// Extract names from an input string by splitting on commas, trimming and
+/// lower casing.
+std::unordered_set<std::string> splitNames(const std::string& names);
 
 } // namespace facebook::velox::exec

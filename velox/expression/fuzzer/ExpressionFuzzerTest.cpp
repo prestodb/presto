@@ -20,6 +20,7 @@
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/expression/fuzzer/ArgGenerator.h"
 #include "velox/expression/fuzzer/FuzzerRunner.h"
+#include "velox/expression/fuzzer/SpecialFormSignatureGenerator.h"
 #include "velox/functions/prestosql/fuzzer/DivideArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/FloorAndRoundArgGenerator.h"
 #include "velox/functions/prestosql/fuzzer/ModulusArgGenerator.h"
@@ -139,5 +140,7 @@ int main(int argc, char** argv) {
       {{"session_timezone", "America/Los_Angeles"},
        {"adjust_timestamp_to_session_timezone", "true"}},
       argGenerators,
-      referenceQueryRunner);
+      referenceQueryRunner,
+      std::make_shared<
+          facebook::velox::fuzzer::SpecialFormSignatureGenerator>());
 }

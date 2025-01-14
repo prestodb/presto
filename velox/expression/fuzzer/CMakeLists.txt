@@ -28,8 +28,9 @@ add_library(
   ArgumentTypeFuzzer.cpp
   DecimalArgGeneratorBase.cpp
   ExpressionFuzzer.cpp
+  ExpressionFuzzerVerifier.cpp
   FuzzerRunner.cpp
-  ExpressionFuzzerVerifier.cpp)
+  SpecialFormSignatureGenerator.cpp)
 
 target_link_libraries(
   velox_expression_fuzzer
@@ -54,7 +55,9 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main)
 
-add_executable(spark_expression_fuzzer_test SparkExpressionFuzzerTest.cpp)
+add_executable(
+  spark_expression_fuzzer_test SparkExpressionFuzzerTest.cpp
+                               SparkSpecialFormSignatureGenerator.cpp)
 
 target_link_libraries(
   spark_expression_fuzzer_test

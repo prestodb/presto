@@ -25,6 +25,7 @@
 #include "velox/exec/fuzzer/ExprTransformer.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/fuzzer/ExpressionFuzzerVerifier.h"
+#include "velox/expression/fuzzer/SpecialFormSignatureGenerator.h"
 #include "velox/functions/FunctionRegistry.h"
 
 namespace facebook::velox::fuzzer {
@@ -34,6 +35,7 @@ using facebook::velox::exec::test::ExprTransformer;
 /// FuzzerRunner leverages ExpressionFuzzerVerifier to create a gtest unit test.
 class FuzzerRunner {
  public:
+  /// @param signatureGenerator Generates valid signatures for special forms.
   static int run(
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions,
@@ -42,8 +44,10 @@ class FuzzerRunner {
       const std::unordered_map<std::string, std::string>& queryConfigs,
       const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
           argGenerators,
-      std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner);
+      std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner,
+      const std::shared_ptr<SpecialFormSignatureGenerator>& signatureGenerator);
 
+  /// @param signatureGenerator Generates valid signatures for special forms.
   static void runFromGtest(
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions,
@@ -52,7 +56,8 @@ class FuzzerRunner {
       const std::unordered_map<std::string, std::string>& queryConfigs,
       const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
           argGenerators,
-      std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner);
+      std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner,
+      const std::shared_ptr<SpecialFormSignatureGenerator>& signatureGenerator);
 };
 
 } // namespace facebook::velox::fuzzer

@@ -24,6 +24,7 @@
 
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/fuzzer/FuzzerRunner.h"
+#include "velox/expression/fuzzer/SparkSpecialFormSignatureGenerator.h"
 #include "velox/functions/prestosql/fuzzer/FloorAndRoundArgGenerator.h"
 #include "velox/functions/sparksql/fuzzer/AddSubtractArgGenerator.h"
 #include "velox/functions/sparksql/fuzzer/DivideArgGenerator.h"
@@ -106,5 +107,7 @@ int main(int argc, char** argv) {
       {{}},
       queryConfigs,
       argGenerators,
-      referenceQueryRunner);
+      referenceQueryRunner,
+      std::make_shared<
+          facebook::velox::fuzzer::SparkSpecialFormSignatureGenerator>());
 }

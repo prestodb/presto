@@ -29,6 +29,7 @@
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/fuzzer/ArgumentTypeFuzzer.h"
 #include "velox/expression/fuzzer/ExpressionFuzzer.h"
+#include "velox/expression/signature_parser/ParseUtil.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -73,125 +74,6 @@ class FullSignatureBinder : public SignatureBinderBase {
   bool bound_{false};
 };
 
-static const std::vector<std::string> kIntegralTypes{
-    "tinyint",
-    "smallint",
-    "integer",
-    "bigint",
-    "boolean"};
-
-static const std::vector<std::string> kFloatingPointTypes{"real", "double"};
-
-facebook::velox::exec::FunctionSignaturePtr makeCastSignature(
-    const std::string& fromType,
-    const std::string& toType) {
-  return facebook::velox::exec::FunctionSignatureBuilder()
-      .argumentType(fromType)
-      .returnType(toType)
-      .build();
-}
-
-void addCastFromIntegralSignatures(
-    const std::string& toType,
-    std::vector<facebook::velox::exec::FunctionSignaturePtr>& signatures) {
-  for (const auto& fromType : kIntegralTypes) {
-    signatures.push_back(makeCastSignature(fromType, toType));
-  }
-}
-
-void addCastFromFloatingPointSignatures(
-    const std::string& toType,
-    std::vector<facebook::velox::exec::FunctionSignaturePtr>& signatures) {
-  for (const auto& fromType : kFloatingPointTypes) {
-    signatures.push_back(makeCastSignature(fromType, toType));
-  }
-}
-
-void addCastFromVarcharSignature(
-    const std::string& toType,
-    std::vector<facebook::velox::exec::FunctionSignaturePtr>& signatures) {
-  signatures.push_back(makeCastSignature("varchar", toType));
-}
-
-void addCastFromTimestampSignature(
-    const std::string& toType,
-    std::vector<facebook::velox::exec::FunctionSignaturePtr>& signatures) {
-  signatures.push_back(makeCastSignature("timestamp", toType));
-}
-
-void addCastFromDateSignature(
-    const std::string& toType,
-    std::vector<facebook::velox::exec::FunctionSignaturePtr>& signatures) {
-  signatures.push_back(makeCastSignature("date", toType));
-}
-
-std::vector<facebook::velox::exec::FunctionSignaturePtr>
-getSignaturesForCast() {
-  std::vector<facebook::velox::exec::FunctionSignaturePtr> signatures;
-
-  // To integral types.
-  for (const auto& toType : kIntegralTypes) {
-    addCastFromIntegralSignatures(toType, signatures);
-    addCastFromFloatingPointSignatures(toType, signatures);
-    addCastFromVarcharSignature(toType, signatures);
-  }
-
-  // To floating-point types.
-  for (const auto& toType : kFloatingPointTypes) {
-    addCastFromIntegralSignatures(toType, signatures);
-    addCastFromFloatingPointSignatures(toType, signatures);
-    addCastFromVarcharSignature(toType, signatures);
-  }
-
-  // To varchar type.
-  addCastFromIntegralSignatures("varchar", signatures);
-  addCastFromFloatingPointSignatures("varchar", signatures);
-  addCastFromVarcharSignature("varchar", signatures);
-  addCastFromDateSignature("varchar", signatures);
-  addCastFromTimestampSignature("varchar", signatures);
-
-  // To timestamp type.
-  addCastFromVarcharSignature("timestamp", signatures);
-  addCastFromDateSignature("timestamp", signatures);
-
-  // To date type.
-  addCastFromVarcharSignature("date", signatures);
-  addCastFromTimestampSignature("date", signatures);
-
-  // For each supported translation pair T --> U, add signatures of array(T) -->
-  // array(U), map(varchar, T) --> map(varchar, U), row(T) --> row(U).
-  auto size = signatures.size();
-  for (auto i = 0; i < size; ++i) {
-    auto from = signatures[i]->argumentTypes()[0].baseName();
-    auto to = signatures[i]->returnType().baseName();
-
-    signatures.push_back(makeCastSignature(
-        fmt::format("array({})", from), fmt::format("array({})", to)));
-
-    signatures.push_back(makeCastSignature(
-        fmt::format("map(varchar, {})", from),
-        fmt::format("map(varchar, {})", to)));
-
-    signatures.push_back(makeCastSignature(
-        fmt::format("row({})", from), fmt::format("row({})", to)));
-  }
-  return signatures;
-}
-
-static std::unordered_set<std::string> splitNames(const std::string& names) {
-  // Parse, lower case and trim it.
-  std::vector<folly::StringPiece> nameList;
-  folly::split(',', names, nameList);
-  std::unordered_set<std::string> nameSet;
-
-  for (const auto& it : nameList) {
-    auto str = folly::trimWhitespace(it).toString();
-    folly::toLowerAscii(str);
-    nameSet.insert(str);
-  }
-  return nameSet;
-}
-
 static std::pair<std::string, std::string> splitSignature(
     const std::string& signature) {
   const auto parenPos = signature.find("(");
@@ -233,7 +115,7 @@ static void filterSignatures(
     const std::unordered_set<std::string>& skipFunctions) {
   if (!onlyFunctions.empty()) {
     // Parse, lower case and trim it.
-    auto nameSet = splitNames(onlyFunctions);
+    auto nameSet = exec::splitNames(onlyFunctions);
 
     // Use the generated set to filter the input signatures.
     for (auto it = input.begin(); it != input.end();) {
@@ -275,115 +157,6 @@ static void filterSignatures(
     } else {
       ++it;
     }
-  }
-}
-
-static void appendSpecialForms(
-    facebook::velox::FunctionSignatureMap& signatureMap,
-    const std::string& specialForms) {
-  static const std::unordered_map<
-      std::string,
-      std::vector<facebook::velox::exec::FunctionSignaturePtr>>
-      kSpecialForms = {
-          {"and",
-           std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-               // Signature: and (condition,...) -> output:
-               // boolean, boolean,.. -> boolean
-               facebook::velox::exec::FunctionSignatureBuilder()
-                   .argumentType("boolean")
-                   .variableArity("boolean")
-                   .returnType("boolean")
-                   .build()}},
-          {"or",
-           std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-               // Signature: or (condition,...) -> output:
-               // boolean, boolean,.. -> boolean
-               facebook::velox::exec::FunctionSignatureBuilder()
-                   .argumentType("boolean")
-                   .variableArity("boolean")
-                   .returnType("boolean")
-                   .build()}},
-          {"coalesce",
-           std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-               // Signature: coalesce (input,...) -> output:
-               // T, T,.. -> T
-               facebook::velox::exec::FunctionSignatureBuilder()
-                   .typeVariable("T")
-                   .argumentType("T")
-                   .variableArity("T")
-                   .returnType("T")
-                   .build()}},
-          {
-              "if",
-              std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-                  // Signature: if (condition, then) -> output:
-                  // boolean, T -> T
-                  facebook::velox::exec::FunctionSignatureBuilder()
-                      .typeVariable("T")
-                      .argumentType("boolean")
-                      .argumentType("T")
-                      .returnType("T")
-                      .build(),
-                  // Signature: if (condition, then, else) -> output:
-                  // boolean, T, T -> T
-                  facebook::velox::exec::FunctionSignatureBuilder()
-                      .typeVariable("T")
-                      .argumentType("boolean")
-                      .argumentType("T")
-                      .argumentType("T")
-                      .returnType("T")
-                      .build()},
-          },
-          {
-              "switch",
-              std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-                  // Signature: Switch (condition, then) -> output:
-                  // boolean, T -> T
-                  // This is only used to bind to a randomly selected type for
-                  // the
-                  // output, then while generating arguments, an override is
-                  // used
-                  // to generate inputs that can create variation of multiple
-                  // cases and may or may not include a final else clause.
-                  facebook::velox::exec::FunctionSignatureBuilder()
-                      .typeVariable("T")
-                      .argumentType("boolean")
-                      .argumentType("T")
-                      .returnType("T")
-                      .build()},
-          },
-          {
-              "cast",
-              // TODO: Add supported Cast signatures to CastTypedExpr and
-              // expose
-              // them to fuzzer instead of hard-coding signatures here.
-              getSignaturesForCast(),
-          },
-          {
-              // For Spark SQL only.
-              "concat_ws",
-              std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-                  // Signature: concat_ws (separator, input, ...) -> output:
-                  // varchar, varchar, varchar, ... -> varchar
-                  facebook::velox::exec::FunctionSignatureBuilder()
-                      .argumentType("varchar")
-                      .variableArity("varchar")
-                      .returnType("varchar")
-                      .build()},
-          },
-      };
-
-  auto specialFormNames = splitNames(specialForms);
-  for (const auto& [name, signatures] : kSpecialForms) {
-    if (specialFormNames.count(name) == 0) {
-      LOG(INFO) << "Skipping special form: " << name;
-      continue;
-    }
-    std::vector<const facebook::velox::exec::FunctionSignature*> rawSignatures;
-    for (const auto& signature : signatures) {
-      rawSignatures.push_back(signature.get());
-    }
-    signatureMap.insert({name, std::move(rawSignatures)});
   }
 }
 
@@ -507,7 +280,6 @@ ExpressionFuzzer::ExpressionFuzzer(
   VELOX_CHECK(vectorFuzzer, "Vector fuzzer must be provided");
   seed(initialSeed);
 
-  appendSpecialForms(signatureMap, options_.specialForms);
   filterSignatures(
       signatureMap, options_.useOnlyFunctions, options_.skipFunctions);
 
