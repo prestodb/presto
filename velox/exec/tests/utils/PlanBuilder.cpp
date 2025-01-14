@@ -440,10 +440,9 @@ PlanBuilder& PlanBuilder::optionalFilter(const std::string& optionalFilter) {
 
 PlanBuilder& PlanBuilder::filter(const std::string& filter) {
   VELOX_CHECK_NOT_NULL(planNode_, "Filter cannot be the source node");
-  planNode_ = std::make_shared<core::FilterNode>(
-      nextPlanNodeId(),
-      parseExpr(filter, planNode_->outputType(), options_, pool_),
-      planNode_);
+  auto expr = parseExpr(filter, planNode_->outputType(), options_, pool_);
+  planNode_ =
+      std::make_shared<core::FilterNode>(nextPlanNodeId(), expr, planNode_);
   return *this;
 }
 
