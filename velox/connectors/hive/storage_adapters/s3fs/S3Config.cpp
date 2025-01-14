@@ -17,6 +17,7 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Config.h"
 
 #include "velox/common/config/Config.h"
+#include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 
 namespace facebook::velox::filesystems {
 
@@ -72,6 +73,18 @@ S3Config::S3Config(
       }
     }
   }
+}
+
+std::optional<std::string> S3Config::endpointRegion() const {
+  auto region = config_.find(Keys::kEndpointRegion)->second;
+  if (!region.has_value()) {
+    // If region is not set, try inferring from the endpoint.
+    auto endpointValue = endpoint();
+    if (endpointValue.has_value()) {
+      region = parseStandardRegionName(endpointValue.value());
+    }
+  }
+  return region;
 }
 
 } // namespace facebook::velox::filesystems

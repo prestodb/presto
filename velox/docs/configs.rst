@@ -670,8 +670,13 @@ Each query can override the config by setting corresponding query session proper
      - Default AWS secret key to use.
    * - hive.s3.endpoint
      - string
-     - us-east-1
+     - 
      - The S3 storage endpoint server. This can be used to connect to an S3-compatible storage system instead of AWS.
+   * - hive.s3.endpoint.region
+     - string
+     - us-east-1
+     - The S3 storage endpoint server region. Default is set by the AWS SDK. If not configured, region will be attempted
+       to be parsed from the hive.s3.endpoint value. 
    * - hive.s3.path-style-access
      - bool
      - false

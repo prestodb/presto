@@ -23,9 +23,9 @@ if(VELOX_ENABLE_S3)
     S3Util.cpp
     S3Config.cpp)
 
-  velox_include_directories(velox_s3fs PUBLIC ${AWSSDK_INCLUDE_DIRS})
-  velox_link_libraries(velox_s3fs velox_dwio_common Folly::folly
-                       ${AWSSDK_LIBRARIES})
+  velox_include_directories(velox_s3fs PRIVATE ${AWSSDK_INCLUDE_DIRS})
+  velox_link_libraries(velox_s3fs PRIVATE velox_dwio_common Folly::folly
+                                          ${AWSSDK_LIBRARIES})
 
   if(${VELOX_BUILD_TESTING})
     add_subdirectory(tests)

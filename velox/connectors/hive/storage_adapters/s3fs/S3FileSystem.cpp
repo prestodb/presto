@@ -525,12 +525,21 @@ class S3FileSystem::Impl {
   Impl(const S3Config& s3Config) {
     VELOX_CHECK(getAwsInstance()->isInitialized(), "S3 is not initialized");
     Aws::Client::ClientConfiguration clientConfig;
-    clientConfig.endpointOverride = s3Config.endpoint();
+    if (s3Config.endpoint().has_value()) {
+      clientConfig.endpointOverride = s3Config.endpoint().value();
+    }
+
+    if (s3Config.endpointRegion().has_value()) {
+      clientConfig.region = s3Config.endpointRegion().value();
+    }
 
     if (s3Config.useProxyFromEnv()) {
-      auto proxyConfig = S3ProxyConfigurationBuilder(s3Config.endpoint())
-                             .useSsl(s3Config.useSSL())
-                             .build();
+      auto proxyConfig =
+          S3ProxyConfigurationBuilder(
+              s3Config.endpoint().has_value() ? s3Config.endpoint().value()
+                                              : "")
+              .useSsl(s3Config.useSSL())
+              .build();
       if (proxyConfig.has_value()) {
         clientConfig.proxyScheme = Aws::Http::SchemeMapper::FromString(
             proxyConfig.value().scheme().c_str());

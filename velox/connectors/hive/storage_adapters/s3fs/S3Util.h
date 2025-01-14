@@ -191,6 +191,12 @@ std::string getHttpProxyEnvVar();
 std::string getHttpsProxyEnvVar();
 std::string getNoProxyEnvVar();
 
+// Adopted from the AWS Java SDK
+// Endpoint can be 'service.[region].amazonaws.com' or
+// 'bucket.s3-[region].amazonaws.com' or bucket.s3.[region].amazonaws.com'
+// Return value is a region string value if present.
+std::optional<std::string> parseStandardRegionName(std::string_view endpoint);
+
 class S3ProxyConfigurationBuilder {
  public:
   S3ProxyConfigurationBuilder(const std::string& s3Endpoint)

@@ -20,6 +20,7 @@
 // (register|generate)ReadFile and (register|generate)WriteFile functions.
 
 #include "folly/IPAddress.h"
+#include "re2/re2.h"
 
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h"
 
@@ -146,6 +147,31 @@ std::optional<folly::Uri> S3ProxyConfigurationBuilder::build() {
     return std::nullopt;
   }
   return proxyUri;
+}
+
+std::optional<std::string> parseStandardRegionName(std::string_view endpoint) {
+  const std::string_view kAmazonHostSuffix = ".amazonaws.com";
+  auto index = endpoint.size() - kAmazonHostSuffix.size();
+  if (endpoint.rfind(kAmazonHostSuffix) != index) {
+    return std::nullopt;
+  }
+  // Remove the kAmazonHostSuffix.
+  std::string_view endpointPrefix = endpoint.substr(0, index);
+  const re2::RE2 pattern("^(?:.+\\.)?s3[-.]([a-z0-9-]+)$");
+  std::string region;
+  if (re2::RE2::FullMatch(endpointPrefix, pattern, &region)) {
+    // endpointPrefix is 'bucket.s3-[region]' or 'bucket.s3.[region]'
+    return region;
+  }
+
+  index = endpointPrefix.rfind('.');
+  if (index != std::string::npos) {
+    // endpointPrefix was 'service.[region]'.
+    return std::string(endpointPrefix.substr(index + 1));
+  }
+
+  // Use default region set by the SDK.
+  return std::nullopt;
 }
 
 } // namespace facebook::velox::filesystems
