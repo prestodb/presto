@@ -13,10 +13,15 @@
  */
 #pragma once
 
-#include <folly/SocketAddress.h>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
+
+#include <folly/Optional.h>
+#include <folly/SocketAddress.h>
+
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/config/Config.h"
 
 namespace facebook::presto {

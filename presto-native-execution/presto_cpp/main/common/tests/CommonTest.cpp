@@ -12,9 +12,11 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+
+#include "velox/common/base/Exceptions.h"
+
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "velox/common/base/Exceptions.h"
 
 using namespace facebook::velox;
 using namespace facebook::presto;

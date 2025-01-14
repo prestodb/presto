@@ -13,13 +13,7 @@
  */
 
 #include "presto_cpp/main/common/Configs.h"
-#include "presto_cpp/main/common/ConfigReader.h"
-#include "presto_cpp/main/common/Utils.h"
-#include "velox/core/QueryConfig.h"
 
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -27,6 +21,14 @@ namespace fs = std::filesystem;
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 #endif
+
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+
+#include "velox/core/QueryConfig.h"
+#include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/common/Utils.h"
 
 namespace facebook::presto {
 

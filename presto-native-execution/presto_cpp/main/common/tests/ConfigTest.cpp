@@ -12,12 +12,14 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include "presto_cpp/main/common/ConfigReader.h"
-#include "presto_cpp/main/common/Configs.h"
+
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
+
+#include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto::test {
 

@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <string_view>
 #include <folly/Range.h>
 
 // Here we have all the counters presto cpp worker would export.

@@ -13,8 +13,9 @@
  */
 
 #include "presto_cpp/main/common/ConfigReader.h"
-#include <fmt/format.h>
+#include <cctype>
 #include <fstream>
+#include <fmt/format.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/config/Config.h"
 
