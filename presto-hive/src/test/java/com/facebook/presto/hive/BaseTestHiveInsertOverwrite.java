@@ -134,6 +134,23 @@ public abstract class BaseTestHiveInsertOverwrite
         assertOverwritePartition(externalTableName);
     }
 
+    @Test
+    public void testCreateExternalTableOnEmptyS3Directory()
+    {
+        String emptyDir = "test-empty-dir-" + randomTableSuffix() + "/";
+        this.dockerizedS3DataLake.createDirectoryOnS3(emptyDir);
+        String testTable = getTestTableName();
+        String tableName = testTable.substring(testTable.lastIndexOf('.') + 1);
+        computeActual(getCreateTableStatement(
+                tableName,
+                "partitioned_by=ARRAY['regionkey']",
+                "bucketed_by = ARRAY['nationkey']",
+                "bucket_count = 3",
+                format("external_location = 's3a://%s/%s'", this.bucketName, emptyDir)));
+        MaterializedResult materializedRows = computeActual("select * from " + tableName);
+        assertEquals(materializedRows.getRowCount(), 0);
+    }
+
     protected void assertOverwritePartition(String testTable)
     {
         computeActual(format(
