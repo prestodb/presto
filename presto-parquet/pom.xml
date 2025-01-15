@@ -192,11 +192,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.ehcache</groupId>
-            <artifactId>sizeof</artifactId>
-            <version>0.4.3</version>
-        </dependency>
     </dependencies>
 
     <build>

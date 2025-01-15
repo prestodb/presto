@@ -478,6 +478,7 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
 * Ask reviewers to provide examples or code references without trying to find them on your own
 * Protest lack of documentation for a code section
     * Instead, review the related code, then draft initial documentation as a separate commit
+* Use AI tools to generate documentation
 * Submit without test cases or clear justification for lack thereof
 * Request review when there are tests failing
 

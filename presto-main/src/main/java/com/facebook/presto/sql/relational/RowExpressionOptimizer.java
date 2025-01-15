@@ -46,9 +46,9 @@ public final class RowExpressionOptimizer
     }
 
     @Override
-    public Object optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
+    public RowExpression optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver)
     {
         RowExpressionInterpreter interpreter = new RowExpressionInterpreter(expression, metadata.getFunctionAndTypeManager(), session, level);
-        return interpreter.optimize(variableResolver::apply);
+        return toRowExpression(expression.getSourceLocation(), interpreter.optimize(variableResolver::apply), expression.getType());
     }
 }
