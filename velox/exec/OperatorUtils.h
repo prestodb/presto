@@ -100,7 +100,7 @@ struct WrapState {
   // Set of distinct wrappers in input, each mapped to the wrap
   // indices combining the former with the new wrap.
 
-  folly::F14FastMap<Buffer*, Buffer*> transposeResults;
+  folly::F14FastMap<Buffer*, BufferPtr> transposeResults;
 };
 
 /// Wraps 'inputVector' with 'wrapIndices' and

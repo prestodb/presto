@@ -313,7 +313,7 @@ VectorPtr wrapOne(
   auto it = wrapState.transposeResults.find(baseIndices.get());
   if (it != wrapState.transposeResults.end()) {
     return BaseVector::wrapInDictionary(
-        wrapNulls, BufferPtr(it->second), wrapSize, baseValues);
+        wrapNulls, it->second, wrapSize, baseValues);
   }
 
   auto newIndices =
@@ -325,7 +325,7 @@ VectorPtr wrapOne(
       newIndices->asMutable<vector_size_t>());
   // If another column has the same wrapping and does not add nulls, we can use
   // the same transposed indices.
-  wrapState.transposeResults[baseIndices.get()] = newIndices.get();
+  wrapState.transposeResults[baseIndices.get()] = newIndices;
   return BaseVector::wrapInDictionary(
       wrapNulls, newIndices, wrapSize, baseValues);
 }
@@ -367,9 +367,8 @@ RowVectorPtr wrap(
   }
   std::vector<VectorPtr> wrappedChildren;
   wrappedChildren.reserve(childVectors.size());
-  WrapState state;
   for (auto& child : childVectors) {
-    wrappedChildren.emplace_back(wrapOne(size, mapping, child, nullptr, state));
+    wrappedChildren.emplace_back(wrapChild(size, mapping, child));
   }
   return std::make_shared<RowVector>(
       pool, rowType, nullptr, size, wrappedChildren);
