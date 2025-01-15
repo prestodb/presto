@@ -111,7 +111,7 @@ class SsdCacheTestHelper {
   uint64_t totalEvictionLogFilesSize() {
     uint64_t size = 0;
     for (auto& file : ssdCache_->files_) {
-      std::filesystem::path p{file->getEvictLogFilePath()};
+      std::filesystem::path p{file->evictLogFilePath()};
       size += std::filesystem::file_size(p);
     }
     return size;

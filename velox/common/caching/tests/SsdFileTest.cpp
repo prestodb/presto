@@ -554,7 +554,7 @@ TEST_F(SsdFileTest, fileCorruption) {
   // Corrupt the Checkpoint file. Cache cannot be recovered. All entries are
   // lost.
   ssdFile_->checkpoint(true);
-  corruptSsdFile(ssdFile_->getCheckpointFilePath());
+  corruptSsdFile(ssdFile_->checkpointFilePath());
   stats.clear();
   ssdFile_->updateStats(stats);
   EXPECT_EQ(stats.readCheckpointErrors, 0);

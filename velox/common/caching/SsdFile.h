@@ -164,7 +164,7 @@ struct SsdCacheStats {
     openFileErrors = tsanAtomicValue(other.openFileErrors);
     openCheckpointErrors = tsanAtomicValue(other.openCheckpointErrors);
     openLogErrors = tsanAtomicValue(other.openLogErrors);
-    deleteCheckpointErrors = tsanAtomicValue(other.deleteCheckpointErrors);
+    deleteMetaFileErrors = tsanAtomicValue(other.deleteMetaFileErrors);
     growFileErrors = tsanAtomicValue(other.growFileErrors);
     writeSsdErrors = tsanAtomicValue(other.writeSsdErrors);
     writeSsdDropped = tsanAtomicValue(other.writeSsdDropped);
@@ -192,8 +192,8 @@ struct SsdCacheStats {
     result.openCheckpointErrors =
         openCheckpointErrors - other.openCheckpointErrors;
     result.openLogErrors = openLogErrors - other.openLogErrors;
-    result.deleteCheckpointErrors =
-        deleteCheckpointErrors - other.deleteCheckpointErrors;
+    result.deleteMetaFileErrors =
+        deleteMetaFileErrors - other.deleteMetaFileErrors;
     result.growFileErrors = growFileErrors - other.growFileErrors;
     result.writeSsdErrors = writeSsdErrors - other.writeSsdErrors;
     result.writeSsdDropped = writeSsdDropped - other.writeSsdDropped;
@@ -232,7 +232,7 @@ struct SsdCacheStats {
   tsan_atomic<uint32_t> openFileErrors{0};
   tsan_atomic<uint32_t> openCheckpointErrors{0};
   tsan_atomic<uint32_t> openLogErrors{0};
-  tsan_atomic<uint32_t> deleteCheckpointErrors{0};
+  tsan_atomic<uint32_t> deleteMetaFileErrors{0};
   tsan_atomic<uint32_t> growFileErrors{0};
   tsan_atomic<uint32_t> writeSsdErrors{0};
   tsan_atomic<uint32_t> writeSsdDropped{0};
@@ -368,12 +368,12 @@ class SsdFile {
   }
 
   /// Returns the eviction log file path.
-  std::string getEvictLogFilePath() const {
+  std::string evictLogFilePath() const {
     return fileName_ + kLogExtension;
   }
 
   /// Returns the checkpoint file path.
-  std::string getCheckpointFilePath() const {
+  std::string checkpointFilePath() const {
     return fileName_ + kCheckpointExtension;
   }
 
@@ -440,10 +440,9 @@ class SsdFile {
   // Verifies that 'entry' has the data at 'run'.
   void verifyWrite(AsyncDataCacheEntry& entry, SsdRun run);
 
-  // Reads a checkpoint state file and sets 'this' accordingly if read is
-  // successful. Return true for successful read. A failed read deletes the
-  // checkpoint and leaves the log truncated open.
-  void readCheckpoint(std::unique_ptr<common::FileInputStream> stream);
+  // Reads a checkpoint file and sets 'this' accordingly if read succeeds. A
+  // failed read deletes the checkpoint and leaves the truncated log open.
+  void readCheckpoint();
 
   // Logs an error message, deletes the checkpoint and stop making new
   // checkpoints.
@@ -488,17 +487,11 @@ class SsdFile {
   // file system not supporting cow feature.
   void disableFileCow();
 
-  // Truncates the eviction log file to 0.
-  void truncateEvictLogFile();
+  // Truncates the given file to 0.
+  void truncateFile(WriteFile* file);
 
-  // Truncates the checkpoint file to 0.
-  void truncateCheckpointFile();
-
-  // Deletes the eviction log file if it exists.
-  void deleteEvictLogFile();
-
-  // Deletes the checkpoint file if it exists.
-  void deleteCheckpointFile();
+  // Deletes the given file if it exists.
+  void deleteFile(std::unique_ptr<WriteFile> file);
 
   // Allocates 'kCheckpointBufferSize' buffer from cache memory pool for
   // checkpointing.

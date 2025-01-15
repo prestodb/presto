@@ -487,7 +487,7 @@ TEST_F(PeriodicStatsReporterTest, basic) {
     ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenSsdErrors.str()), 0);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenCheckpointErrors.str()), 0);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenLogErrors.str()), 0);
-    ASSERT_EQ(counterMap.count(kMetricSsdCacheDeleteCheckpointErrors.str()), 0);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheMetaFileDeleteErrors.str()), 0);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheGrowFileErrors.str()), 0);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdErrors.str()), 0);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdDropped.str()), 0);
@@ -520,7 +520,7 @@ TEST_F(PeriodicStatsReporterTest, basic) {
   newSsdStats->openFileErrors = 10;
   newSsdStats->openCheckpointErrors = 10;
   newSsdStats->openLogErrors = 10;
-  newSsdStats->deleteCheckpointErrors = 10;
+  newSsdStats->deleteMetaFileErrors = 10;
   newSsdStats->growFileErrors = 10;
   newSsdStats->writeSsdErrors = 10;
   newSsdStats->writeSsdDropped = 10;
@@ -570,7 +570,7 @@ TEST_F(PeriodicStatsReporterTest, basic) {
     ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenSsdErrors.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenCheckpointErrors.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheOpenLogErrors.str()), 1);
-    ASSERT_EQ(counterMap.count(kMetricSsdCacheDeleteCheckpointErrors.str()), 1);
+    ASSERT_EQ(counterMap.count(kMetricSsdCacheMetaFileDeleteErrors.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheGrowFileErrors.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdErrors.str()), 1);
     ASSERT_EQ(counterMap.count(kMetricSsdCacheWriteSsdDropped.str()), 1);

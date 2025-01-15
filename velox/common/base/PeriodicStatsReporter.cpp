@@ -198,8 +198,8 @@ void PeriodicStatsReporter::reportCacheStats() {
     REPORT_IF_NOT_ZERO(
         kMetricSsdCacheOpenLogErrors, deltaSsdStats.openLogErrors);
     REPORT_IF_NOT_ZERO(
-        kMetricSsdCacheDeleteCheckpointErrors,
-        deltaSsdStats.deleteCheckpointErrors);
+        kMetricSsdCacheMetaFileDeleteErrors,
+        deltaSsdStats.deleteMetaFileErrors);
     REPORT_IF_NOT_ZERO(
         kMetricSsdCacheGrowFileErrors, deltaSsdStats.growFileErrors);
     REPORT_IF_NOT_ZERO(

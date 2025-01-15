@@ -191,6 +191,10 @@ class WriteFile {
   /// be needed to get the exact size written, and this should be able to be
   /// called after the file close.
   virtual uint64_t size() const = 0;
+
+  virtual const std::string getName() const {
+    VELOX_NYI("{} is not implemented", __FUNCTION__);
+  }
 };
 
 // We currently do a simple implementation for the in-memory files
@@ -349,7 +353,7 @@ class LocalWriteFile final : public WriteFile {
     return size_;
   }
 
-  const std::string& getName() const {
+  const std::string getName() const final {
     return path_;
   }
 

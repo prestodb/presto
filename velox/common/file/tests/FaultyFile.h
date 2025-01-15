@@ -103,9 +103,9 @@ class FaultyWriteFile : public WriteFile {
 
   void close() override;
 
-  uint64_t size() const override {
-    return delegatedFile_->size();
-  }
+  uint64_t size() const override;
+
+  const std::string getName() const override;
 
  private:
   const std::string path_;

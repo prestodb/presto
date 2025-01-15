@@ -134,4 +134,12 @@ std::unordered_map<std::string, std::string> FaultyWriteFile::getAttributes()
 void FaultyWriteFile::close() {
   delegatedFile_->close();
 }
+
+uint64_t FaultyWriteFile::size() const {
+  return delegatedFile_->size();
+}
+
+const std::string FaultyWriteFile::getName() const {
+  return delegatedFile_->getName();
+}
 } // namespace facebook::velox::tests::utils

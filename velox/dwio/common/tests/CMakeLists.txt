@@ -13,9 +13,9 @@
 # limitations under the License.
 
 add_subdirectory(utils)
-velox_add_library(velox_dwio_faulty_file_sink FaultyFileSink.cpp)
-velox_link_libraries(velox_dwio_faulty_file_sink velox_file_test_utils
-                     velox_dwio_common)
+add_library(velox_dwio_faulty_file_sink FaultyFileSink.cpp)
+target_link_libraries(
+  velox_dwio_faulty_file_sink velox_file_test_utils velox_dwio_common)
 
 # There is an issue with the VTT symbol for the InlineExecutor from folly when
 # building on Linux with Clang15. It is not created and results in a SEGV when
