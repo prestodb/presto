@@ -1436,6 +1436,11 @@ void exportToArrow(
         0, newArrowSchema("i", "run_ends"), arrowSchema);
     bridgeHolder->setChildAtIndex(1, std::move(valuesChild), arrowSchema);
   } else {
+    if (vec->encoding() == VectorEncoding::Simple::CONSTANT &&
+        options.flattenConstant) {
+      VELOX_CHECK(
+          vec->isScalar(), "Flattening is only supported for scalar types.");
+    }
     arrowSchema.format =
         exportArrowFormatStr(type, options, bridgeHolder->formatBuffer);
     arrowSchema.dictionary = nullptr;

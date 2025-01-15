@@ -34,6 +34,7 @@ enum class TimestampUnit : uint8_t {
 
 struct ArrowOptions {
   bool flattenDictionary{false};
+  // NOTE: flattenConstant is only supported for scalar types.
   bool flattenConstant{false};
   TimestampUnit timestampUnit = TimestampUnit::kNano;
   std::optional<std::string> timestampTimeZone{std::nullopt};
@@ -69,7 +70,6 @@ namespace facebook::velox {
 ///   (use arrowArray)
 ///
 ///   arrowArray.release(&arrowArray);
-///
 void exportToArrow(
     const VectorPtr& vector,
     ArrowArray& arrowArray,
