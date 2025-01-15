@@ -87,11 +87,25 @@ if(${VELOX_ENABLE_PARQUET})
     thrift)
 endif()
 
+add_library(velox_orderby_benchmark_util OrderByBenchmarkUtil.cpp)
+
+target_link_libraries(
+  velox_orderby_benchmark_util velox_vector_fuzzer velox_vector_test_lib)
+
 add_executable(velox_prefixsort_benchmark PrefixSortBenchmark.cpp)
 
 target_link_libraries(
-  velox_prefixsort_benchmark
+  velox_prefixsort_benchmark velox_exec velox_orderby_benchmark_util
+  Folly::follybenchmark)
+
+add_executable(velox_orderby_benchmark OrderByBenchmark.cpp
+                                       OrderByBenchmarkUtil.cpp)
+
+target_link_libraries(
+  velox_orderby_benchmark
   velox_exec
+  velox_exec_test_lib
+  velox_orderby_benchmark_util
   velox_vector_fuzzer
   velox_vector_test_lib
   Folly::follybenchmark)
