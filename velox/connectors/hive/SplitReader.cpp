@@ -342,7 +342,7 @@ std::vector<TypePtr> SplitReader::adaptColumns(
       auto fileTypeIdx = fileType->getChildIdxIfExists(fieldName);
       if (!fileTypeIdx.has_value()) {
         // Column is missing. Most likely due to schema evolution.
-        VELOX_CHECK(tableSchema);
+        VELOX_CHECK(tableSchema, "Unable to resolve column '{}'", fieldName);
         childSpec->setConstantValue(BaseVector::createNullConstant(
             tableSchema->findChild(fieldName),
             1,
