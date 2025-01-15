@@ -133,7 +133,7 @@ jobs:
           git config --global user.email "velox@users.noreply.github.com"
           git config --global user.name "velox"
 
-      - uses: cachix/install-nix-action@8887e596b4ee1134dae06b98d573bd674693f47c # v26
+      - uses: cachix/install-nix-action@08dcb3a5e62fa31e2da3d490afc4176ef55ecd72 # v30
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
