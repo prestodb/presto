@@ -47,6 +47,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -100,6 +101,7 @@ public class StoragePartitionLoader
 {
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
+    private final HashMap<HiveFileInfo, List<Path>> symlinkPathCache = new HashMap<>();
     private final Table table;
     private final Map<Integer, Domain> infoColumnConstraints;
     private final Optional<BucketSplitInfo> tableBucketInfo;
@@ -595,11 +597,16 @@ public class StoragePartitionLoader
             List<HiveFileInfo> manifestFileInfos = ImmutableList.copyOf(directoryLister.list(fileSystem, table, symlinkDir, partition, namenodeStats, hiveDirectoryContext));
 
             for (HiveFileInfo symlink : manifestFileInfos) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
-                    CharStreams.readLines(reader).stream()
-                            .map(Path::new)
-                            .forEach(targets::add);
+                if (!symlinkPathCache.containsKey(symlink)) {
+                    List<Path> currentSymlinkTargets = new ArrayList<>();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
+                        CharStreams.readLines(reader).stream()
+                                .map(Path::new)
+                                .forEach(currentSymlinkTargets::add);
+                    }
+                    symlinkPathCache.put(symlink, currentSymlinkTargets);
                 }
+                targets.addAll(symlinkPathCache.get(symlink));
             }
             return targets;
         }
