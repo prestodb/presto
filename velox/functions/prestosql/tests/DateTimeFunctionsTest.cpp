@@ -3797,8 +3797,6 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
 
   // User format errors or unsupported errors.
   EXPECT_THROW(
-      formatDatetime(parseTimestamp("1970-01-01"), "x"), VeloxUserError);
-  EXPECT_THROW(
       formatDatetime(parseTimestamp("1970-01-01"), "q"), VeloxUserError);
   EXPECT_THROW(
       formatDatetime(parseTimestamp("1970-01-01"), "'abcd"), VeloxUserError);
@@ -4122,9 +4120,6 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   VELOX_ASSERT_THROW(
       dateFormat(timestamp, "%X"),
       "Date format specifier is not supported: %X");
-  VELOX_ASSERT_THROW(
-      dateFormat(timestamp, "%x"),
-      "Date format specifier is not supported: WEEK_YEAR");
 }
 
 TEST_F(DateTimeFunctionsTest, dateFormatTimestampWithTimezone) {
@@ -4167,6 +4162,24 @@ TEST_F(DateTimeFunctionsTest, dateFormatTimestampWithTimezone) {
       "69-May-11 20:04:45 PM",
       dateFormatTimestampWithTimezone(
           "%y-%M-%e %T %p", TimestampWithTimezone(-20220915000, "-03:00")));
+}
+
+TEST_F(DateTimeFunctionsTest, test_week_year) {
+  const auto dateFormat = [&](std::optional<Timestamp> timestamp,
+                              std::optional<std::string> format) {
+    return evaluateOnce<std::string>("date_format(c0, c1)", timestamp, format);
+  };
+  auto rst_wy = dateFormat(Timestamp(1609545600, 0), "%x");
+  EXPECT_EQ("2020", rst_wy);
+
+  EXPECT_EQ(
+      "1999-52",
+      dateFormat(parseTimestamp("1999-12-31 23:59:59.999"), "%x-%v"));
+  // 2023-01-01 is a Sunday, so it's part of the last week of 2022 (week 52)
+  // according to ISO week date system.
+  EXPECT_EQ(
+      "2022-52",
+      dateFormat(parseTimestamp("2023-01-01 00:00:00.000"), "%x-%v"));
 }
 
 TEST_F(DateTimeFunctionsTest, fromIso8601Date) {
