@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -36,6 +35,7 @@ class SetAggTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
+    functions::prestosql::registerInternalFunctions();
   }
 };
 
@@ -512,88 +512,180 @@ TEST_F(SetAggTest, groupByArray) {
       {expected});
 }
 
-TEST_F(SetAggTest, arrayCheckNulls) {
-  auto batch = makeRowVector({
-      makeArrayVectorFromJson<int32_t>({
-          "[1, 2]",
-          "[6, 7]",
-          "[2, 3]",
-      }),
-      makeFlatVector<int32_t>({
-          1,
-          2,
-          3,
-      }),
+TEST_F(SetAggTest, arrayNestedNulls) {
+  auto batch1 = makeRowVector({
+      makeArrayVectorFromJson<int32_t>(
+          {"[1, 2]", "[null, 7]", "[2, 3]", "[null, null]"}),
+      makeFlatVector<int32_t>({1, 2, 3, 4}),
   });
 
-  auto batchWithNull = makeRowVector({
-      makeArrayVectorFromJson<int32_t>({
-          "[1, 2]",
-          "[6, 7]",
-          "[3, null]",
-      }),
-      makeFlatVector<int32_t>({
-          1,
-          2,
-          3,
-      }),
+  auto batch2 = makeRowVector({
+      makeArrayVectorFromJson<int32_t>({"[]", "[6, 7]", "[3, null]", "[8, 9]"}),
+      makeFlatVector<int32_t>({1, 2, 3, 4}),
   });
 
-  testFailingAggregations(
-      {batch, batchWithNull},
+  auto expected = makeRowVector({makeNullableNestedArrayVector<int32_t>(
+      {{{{{}},
+         {{1, 2}},
+         {{2, 3}},
+         {{3, std::nullopt}},
+         {{6, 7}},
+         {{8, 9}},
+         {{std::nullopt, 7}},
+         {{std::nullopt, std::nullopt}}}}})});
+
+  testAggregations(
+      {batch1, batch1, batch2, batch2},
       {},
       {"set_agg(c0)"},
-      "ARRAY comparison not supported for values that contain nulls");
-  testFailingAggregations(
-      {batch, batchWithNull},
+      {"\"$internal$canonicalize\"(a0)"},
+      {expected});
+
+  expected = makeRowVector(
+      {makeFlatVector<int32_t>({1, 2, 3, 4}),
+       makeNullableNestedArrayVector<int32_t>(
+           {{{{{{}}, {{1, 2}}}},
+             {{{{6, 7}}, {{std::nullopt, 7}}}},
+             {{{{2, 3}}, {{3, std::nullopt}}}},
+             {{{{8, 9}}, {{std::nullopt, std::nullopt}}}}}})});
+
+  testAggregations(
+      {batch1, batch1, batch2, batch2},
       {"c1"},
       {"set_agg(c0)"},
-      "ARRAY comparison not supported for values that contain nulls");
+      {"c1", "\"$internal$canonicalize\"(a0)"},
+      {expected});
 }
 
-TEST_F(SetAggTest, rowCheckNull) {
-  auto batch = makeRowVector({
-      makeRowVector({
-          makeFlatVector<StringView>({
-              "a"_sv,
-              "b"_sv,
-              "c"_sv,
-          }),
-          makeNullableFlatVector<StringView>({
-              "aa"_sv,
-              "bb"_sv,
-              "cc"_sv,
-          }),
-      }),
-      makeFlatVector<int8_t>({1, 2, 3}),
-  });
+TEST_F(SetAggTest, mapNestedNulls) {
+  auto batch1 = makeRowVector(
+      {makeMapVector<int32_t, int32_t>(
+           {{{1, 1}, {2, 2}},
+            {{1, std::nullopt}, {2, 7}},
+            {{1, 2}, {2, 3}},
+            {{1, std::nullopt}, {2, std::nullopt}}}),
+       makeFlatVector<int32_t>({1, 2, 3, 4})});
 
-  auto batchWithNull = makeRowVector({
-      makeRowVector({
-          makeFlatVector<StringView>({
-              "a"_sv,
-              "b"_sv,
-              "c"_sv,
-          }),
-          makeNullableFlatVector<StringView>({
-              "aa"_sv,
-              std::nullopt,
-              "cc"_sv,
-          }),
-      }),
-      makeFlatVector<int8_t>({1, 2, 3}),
-  });
+  auto batch2 = makeRowVector(
+      {makeMapVector<int32_t, int32_t>(
+           {{{}},
+            {{1, 6}, {2, 7}},
+            {{1, 3}, {2, std::nullopt}},
+            {{1, 8}, {2, 9}}}),
+       makeFlatVector<int32_t>({1, 2, 3, 4})});
 
-  testFailingAggregations(
-      {batch, batchWithNull},
+  auto expected = makeRowVector({makeArrayVector(
+      {0},
+      makeMapVector<int32_t, int32_t>(
+          {{{}},
+           {{1, 1}, {2, 2}},
+           {{1, 2}, {2, 3}},
+           {{1, 3}, {2, std::nullopt}},
+           {{1, 6}, {2, 7}},
+           {{1, 8}, {2, 9}},
+           {{1, std::nullopt}, {2, 7}},
+           {{1, std::nullopt}, {2, std::nullopt}}}))});
+
+  testAggregations(
+      {batch1, batch1, batch2, batch2},
       {},
       {"set_agg(c0)"},
-      "ROW comparison not supported for values that contain nulls");
-  testFailingAggregations(
-      {batch, batchWithNull},
+      {"\"$internal$canonicalize\"(a0)"},
+      {expected});
+
+  expected = makeRowVector(
+      {makeFlatVector<int32_t>({1, 2, 3, 4}),
+       makeArrayVector(
+           {0, 2, 4, 6},
+           makeMapVector<int32_t, int32_t>(
+               {{{}},
+                {{1, 1}, {2, 2}},
+                {{1, 6}, {2, 7}},
+                {{1, std::nullopt}, {2, 7}},
+                {{1, 2}, {2, 3}},
+                {{1, 3}, {2, std::nullopt}},
+                {{1, 8}, {2, 9}},
+                {{1, std::nullopt}, {2, std::nullopt}}}))});
+
+  testAggregations(
+      {batch1, batch1, batch2, batch2},
       {"c1"},
       {"set_agg(c0)"},
-      "ROW comparison not supported for values that contain nulls");
+      {"c1", "\"$internal$canonicalize\"(a0)"},
+      {expected});
+}
+
+TEST_F(SetAggTest, rowNestedNulls) {
+  auto batch1 = makeRowVector(
+      {makeRowVector(
+           {makeNullableFlatVector<StringView>(
+                {"a"_sv, std::nullopt, "c"_sv, std::nullopt}),
+            makeNullableFlatVector<StringView>(
+                {"aa"_sv, "bb"_sv, "cc"_sv, std::nullopt})}),
+       makeFlatVector<int32_t>({1, 2, 3, 4})});
+
+  auto batch2 = makeRowVector(
+      {makeRowVector(
+           {makeFlatVector<StringView>({"a"_sv, "b"_sv, "c"_sv, "d"_sv}),
+            makeNullableFlatVector<StringView>(
+                {"aa"_sv, "bb"_sv, std::nullopt, "dd"_sv})}),
+       makeFlatVector<int32_t>({1, 2, 3, 4})});
+
+  auto expected = makeRowVector({makeArrayVector(
+      {0},
+      makeRowVector(
+          {makeNullableFlatVector<StringView>(
+               {"a"_sv,
+                "b"_sv,
+                "c"_sv,
+                "c"_sv,
+                "d"_sv,
+                std::nullopt,
+                std::nullopt}),
+           makeNullableFlatVector<StringView>(
+               {"aa"_sv,
+                "bb"_sv,
+                "cc"_sv,
+                std::nullopt,
+                "dd"_sv,
+                "bb"_sv,
+                std::nullopt})}))});
+
+  testAggregations(
+      {batch1, batch1, batch2, batch2},
+      {},
+      {"set_agg(c0)"},
+      {"\"$internal$canonicalize\"(a0)"},
+      {expected});
+
+  expected = makeRowVector(
+      {makeFlatVector<int32_t>({1, 2, 3, 4}),
+       makeArrayVector(
+           {0, 1, 3, 5},
+           makeRowVector(
+               {makeNullableFlatVector<StringView>(
+                    {"a"_sv,
+                     "b"_sv,
+                     std::nullopt,
+                     "c"_sv,
+                     "c"_sv,
+                     "d"_sv,
+                     std::nullopt}),
+                makeNullableFlatVector<StringView>(
+                    {"aa"_sv,
+                     "bb"_sv,
+                     "bb"_sv,
+                     "cc"_sv,
+                     std::nullopt,
+                     "dd"_sv,
+                     std::nullopt})}))});
+
+  testAggregations(
+      {batch1, batch1, batch2, batch2},
+      {"c1"},
+      {"set_agg(c0)"},
+      {"c1", "\"$internal$canonicalize\"(a0)"},
+      {expected});
 }
 
 TEST_F(SetAggTest, inputOrder) {
@@ -694,8 +786,8 @@ TEST_F(SetAggTest, inputOrder) {
 }
 
 TEST_F(SetAggTest, nans) {
-  // Verify that NaNs with different binary representations are considered equal
-  // and deduplicated.
+  // Verify that NaNs with different binary representations are considered
+  // equal and deduplicated.
   static const auto kNaN = std::numeric_limits<double>::quiet_NaN();
   static const auto kSNaN = std::numeric_limits<double>::signaling_NaN();
 

@@ -86,10 +86,8 @@ void registerCollectSetAggAggregate(
           case TypeKind::ARRAY:
             [[fallthrough]];
           case TypeKind::ROW:
-            // Nested nulls are allowed by setting 'throwOnNestedNulls' as
-            // false.
             return std::make_unique<SparkSetAggAggregate<ComplexType>>(
-                resultType, false);
+                resultType);
           default:
             VELOX_UNSUPPORTED(
                 "Unsupported type {}", mapTypeKindToName(typeKind));

@@ -111,7 +111,7 @@ class CountDistinctAggregate
   explicit CountDistinctAggregate(
       const TypePtr& resultType,
       const TypePtr& inputType)
-      : Base(resultType, false), inputType_{inputType} {}
+      : Base(resultType), inputType_{inputType} {}
 
   bool supportsToIntermediate() const override {
     return false;
@@ -264,7 +264,6 @@ void registerSetAggAggregate(
         const TypePtr& inputType =
             isRawInput ? argTypes[0] : argTypes[0]->childAt(0);
         const TypeKind typeKind = inputType->kind();
-        const bool throwOnNestedNulls = isRawInput;
 
         if (inputType->providesCustomComparison()) {
           return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
@@ -302,8 +301,7 @@ void registerSetAggAggregate(
           case TypeKind::MAP:
             [[fallthrough]];
           case TypeKind::ROW:
-            return std::make_unique<SetAggAggregate<ComplexType>>(
-                resultType, throwOnNestedNulls);
+            return std::make_unique<SetAggAggregate<ComplexType>>(resultType);
           default:
             VELOX_UNREACHABLE(
                 "Unexpected type {}", mapTypeKindToName(typeKind));
