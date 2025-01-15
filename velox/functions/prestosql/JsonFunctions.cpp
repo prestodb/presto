@@ -320,7 +320,9 @@ class JsonParseFunction : public exec::VectorFunction {
         return value.get_double().error();
       case simdjson::ondemand::json_type::string:
         addOrMergeViews(views_, trimToken(value.raw_json_token()));
-        return value.get_string().error();
+        // We ask simdjson to allow replacements for invalid UTF-8 sequences.
+        // to avoid throwing an exception in line with Presto java.
+        return value.get_string(true).error();
       case simdjson::ondemand::json_type::boolean:
         addOrMergeViews(views_, trimToken(value.raw_json_token()));
         return value.get_bool().error();
