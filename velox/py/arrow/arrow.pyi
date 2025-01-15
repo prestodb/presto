@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,20 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# velox.py.type library:
-velox_add_library(velox_py_type_lib type/PyType.cpp)
-velox_link_libraries(velox_py_type_lib velox_type pybind11::module)
+# pyre-unsafe
 
-pybind11_add_module(type MODULE type/type.cpp)
-target_link_libraries(
-  type
-  PRIVATE velox_py_type_lib)
+from typing import List
 
-# velox.py.vector library:
-velox_add_library(velox_py_vector_lib vector/PyVector.cpp)
-velox_link_libraries(velox_py_vector_lib velox_vector pybind11::module)
+# pyre-fixme[21]: Could not find `velox.py.vector`.
+from velox.py.vector import Vector
+from pyarrow import Array
 
-pybind11_add_module(vector MODULE vector/vector.cpp)
-target_link_libraries(
-  vector
-  PRIVATE velox_py_vector_lib)
+# pyre-fixme[11]: Annotation `Vector` is not defined as a type.
+def to_velox(array: Array) -> Vector: ...
+def to_arrow(vector: Vector) -> Array: ...
