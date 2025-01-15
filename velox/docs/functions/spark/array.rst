@@ -205,7 +205,7 @@ Array Functions
 .. spark:function:: in(value, array(E)) -> boolean
 
     Returns true if value matches at least one of the elements of the array.
-    Supports BOOLEAN, REAL, DOUBLE, BIGINT, VARCHAR, TIMESTAMP, DATE input types.
+    Supports BOOLEAN, REAL, DOUBLE, BIGINT, VARCHAR, TIMESTAMP, DATE, DECIMAL input types.
 
 .. spark:function:: shuffle(array(E), seed) -> array(E)
 

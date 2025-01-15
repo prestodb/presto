@@ -122,6 +122,10 @@ Decimal Functions
 
         SELECT floor(cast(1.23 as DECIMAL(3, 2))); -- 1 // Output type: decimal(2,0)
 
+.. spark:function:: in(x: decimal(p, s), array(decimal(p, s))) -> boolean
+
+    Returns true if ``x`` matches at least one of the elements of the array.
+
 .. spark:function:: unaryminus(x: decimal(p, s)) -> r: decimal(p, s)
 
     Returns negated value of x (r = -x). Corresponds to Spark's operator ``-``.
