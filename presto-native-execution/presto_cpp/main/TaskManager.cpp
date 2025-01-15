@@ -387,6 +387,7 @@ void TaskManager::acknowledgeResults(
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
     const TaskId& taskId,
     const std::exception_ptr& exception,
+    bool summarize,
     long startProcessCpuTime) {
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
   {
@@ -399,7 +400,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
     prestoTask->info.needsPlan = false;
   }
 
-  auto info = prestoTask->updateInfo();
+  auto info = prestoTask->updateInfo(summarize);
   return std::make_unique<TaskInfo>(info);
 }
 
@@ -462,6 +463,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
     const velox::core::PlanFragment& planFragment,
+    bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   return createOrUpdateTaskImpl(
@@ -469,6 +471,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
+      summarize,
       std::move(queryCtx),
       startProcessCpuTime);
 }
@@ -477,6 +480,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
     const velox::core::PlanFragment& planFragment,
+    bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   auto updateRequest = batchUpdateRequest.taskUpdateRequest;
@@ -488,6 +492,7 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
       planFragment,
       updateRequest.sources,
       updateRequest.outputIds,
+      summarize,
       std::move(queryCtx),
       startProcessCpuTime);
 }
@@ -497,6 +502,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const velox::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
+    bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   std::shared_ptr<exec::Task> execTask;
@@ -509,7 +515,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       // If the task is aborted, no need to do anything else.
       // This takes care of DELETE task message coming before CREATE task.
       if (prestoTask->info.taskStatus.state == protocol::TaskState::ABORTED) {
-        return std::make_unique<TaskInfo>(prestoTask->updateInfoLocked());
+        return std::make_unique<TaskInfo>(
+            prestoTask->updateInfoLocked(summarize));
       }
 
       // Uses a temp variable to store the created velox task to destroy it
@@ -627,7 +634,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
 
   // 'prestoTask' will exist by virtue of shared_ptr but may for example have
   // been aborted.
-  auto info = prestoTask->updateInfoLocked(); // Presto task is locked above.
+  auto info =
+      prestoTask->updateInfoLocked(summarize); // Presto task is locked above.
   if (auto promiseHolder = infoRequest.lock()) {
     promiseHolder->promise.setValue(std::make_unique<protocol::TaskInfo>(info));
   }
@@ -638,9 +646,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
   return std::make_unique<TaskInfo>(info);
 }
 
-std::unique_ptr<TaskInfo> TaskManager::deleteTask(
-    const TaskId& taskId,
-    bool /*abort*/) {
+std::unique_ptr<TaskInfo>
+TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
   LOG(INFO) << "Deleting task " << taskId;
   // Fast. non-blocking delete and cancel serialized on 'taskMap'.
   std::shared_ptr<facebook::presto::PrestoTask> prestoTask;
@@ -668,7 +675,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
     }
     prestoTask->info.stats.endTime =
         util::toISOTimestamp(velox::getCurrentTimeMs());
-    prestoTask->updateInfoLocked();
+    prestoTask->updateInfoLocked(summarize);
   } else {
     // If task is not found than we observe DELETE message coming before
     // CREATE. In that case we create the task with ABORTED state, so we know
@@ -809,8 +816,8 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
   auto prestoTask = findOrCreateTask(taskId);
   if (!currentState || !maxWait) {
     // Return current TaskInfo without waiting.
-    promise.setValue(
-        std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
+    promise.setValue(std::make_unique<protocol::TaskInfo>(
+        prestoTask->updateInfo(summarize)));
     prestoTask->updateCoordinatorHeartbeat();
     return std::move(future).via(httpSrvCpuExecutor_);
   }
@@ -831,12 +838,14 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
 
       return std::move(future)
           .via(httpSrvCpuExecutor_)
-          .onTimeout(std::chrono::microseconds(maxWaitMicros), [prestoTask]() {
-            return std::make_unique<protocol::TaskInfo>(
-                prestoTask->updateInfo());
-          });
+          .onTimeout(
+              std::chrono::microseconds(maxWaitMicros),
+              [prestoTask, summarize]() {
+                return std::make_unique<protocol::TaskInfo>(
+                    prestoTask->updateInfo(summarize));
+              });
     }
-    info = prestoTask->updateInfoLocked();
+    info = prestoTask->updateInfoLocked(summarize);
   }
   if (currentState.value() != info.taskStatus.state ||
       isFinalState(info.taskStatus.state)) {
@@ -850,16 +859,17 @@ folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(
 
   prestoTask->task->stateChangeFuture(maxWaitMicros)
       .via(httpSrvCpuExecutor_)
-      .thenValue([promiseHolder, prestoTask](auto&& /*done*/) {
-        promiseHolder->promise.setValue(
-            std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
+      .thenValue([promiseHolder, prestoTask, summarize](auto&& /*done*/) {
+        promiseHolder->promise.setValue(std::make_unique<protocol::TaskInfo>(
+            prestoTask->updateInfo(summarize)));
       })
       .thenError(
           folly::tag_t<std::exception>{},
-          [promiseHolder, prestoTask](const std::exception& /*e*/) {
+          [promiseHolder, prestoTask, summarize](const std::exception& /*e*/) {
             // We come here in the case of maxWait elapsed.
             promiseHolder->promise.setValue(
-                std::make_unique<protocol::TaskInfo>(prestoTask->updateInfo()));
+                std::make_unique<protocol::TaskInfo>(
+                    prestoTask->updateInfo(summarize)));
           });
   return std::move(future).via(httpSrvCpuExecutor_);
 }
