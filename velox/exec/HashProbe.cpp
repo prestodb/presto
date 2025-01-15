@@ -428,7 +428,8 @@ void HashProbe::asyncWaitForHashTable() {
   } else if (
       (isInnerJoin(joinType_) || isLeftSemiFilterJoin(joinType_) ||
        isRightSemiFilterJoin(joinType_) ||
-       (isRightSemiProjectJoin(joinType_) && !nullAware_)) &&
+       (isRightSemiProjectJoin(joinType_) && !nullAware_) ||
+       isRightJoin(joinType_)) &&
       table_->hashMode() != BaseHashTable::HashMode::kHash && !isSpillInput() &&
       !hasMoreSpillData()) {
     // Find out whether there are any upstream operators that can accept dynamic
@@ -632,7 +633,8 @@ void HashProbe::clearDynamicFilters() {
   //  * hash table has a single key with unique values,
   //  * build side has no dependent columns.
   if (keyChannels_.size() == 1 && !table_->hasDuplicateKeys() &&
-      tableOutputProjections_.empty() && !filter_ && !dynamicFilters_.empty()) {
+      tableOutputProjections_.empty() && !filter_ && !dynamicFilters_.empty() &&
+      !isRightJoin(joinType_)) {
     canReplaceWithDynamicFilter_ = true;
   }
 
