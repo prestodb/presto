@@ -167,7 +167,7 @@ RowVectorPtr SystemDataSource::getTaskResults() {
   std::vector<protocol::TaskInfo> taskInfos;
   taskInfos.reserve(numRows);
   for (const auto& taskEntry : taskMap) {
-    taskInfos.push_back(taskEntry.second->updateInfo());
+    taskInfos.push_back(taskEntry.second->updateInfo(true));
   }
 
   auto result = std::dynamic_pointer_cast<RowVector>(
