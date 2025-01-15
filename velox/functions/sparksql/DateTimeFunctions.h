@@ -449,25 +449,21 @@ template <typename T>
 struct MakeDateFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE void call(
+  FOLLY_ALWAYS_INLINE bool call(
       out_type<Date>& result,
       const int32_t year,
       const int32_t month,
       const int32_t day) {
     Expected<int64_t> expected = util::daysSinceEpochFromDate(year, month, day);
     if (expected.hasError()) {
-      VELOX_DCHECK(expected.error().isUserError());
-      VELOX_USER_FAIL(expected.error().message());
+      return false;
     }
     int64_t daysSinceEpoch = expected.value();
-    VELOX_USER_CHECK_EQ(
-        daysSinceEpoch,
-        (int32_t)daysSinceEpoch,
-        "Integer overflow in make_date({}, {}, {})",
-        year,
-        month,
-        day);
+    if (daysSinceEpoch != static_cast<int32_t>(daysSinceEpoch)) {
+      return false;
+    }
     result = daysSinceEpoch;
+    return true;
   }
 };
 

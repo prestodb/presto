@@ -139,7 +139,7 @@ These functions support TIMESTAMP and DATE input types.
 
     Returns the date from year, month and day fields.
     ``year``, ``month`` and ``day`` must be ``INTEGER``.
-    Throws an error if inputs are not valid.
+    Returns NULL if inputs are not valid.
 
     The valid inputs need to meet the following conditions,
     ``month`` need to be from 1 (January) to 12 (December).
