@@ -57,7 +57,7 @@ class IsNullFunction : public exec::VectorFunction {
             isNull->asMutable<int64_t>(),
             arg->rawNulls(),
             bits::nbytes(rows.end()));
-        bits::negate(isNull->asMutable<char>(), rows.end());
+        bits::negate(isNull->asMutable<uint64_t>(), rows.end());
       }
     } else {
       exec::DecodedArgs decodedArgs(rows, args, context);
@@ -69,7 +69,7 @@ class IsNullFunction : public exec::VectorFunction {
           bits::nbytes(rows.end()));
 
       if (!IsNotNULL) {
-        bits::negate(isNull->asMutable<char>(), rows.end());
+        bits::negate(isNull->asMutable<uint64_t>(), rows.end());
       }
     }
 

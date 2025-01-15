@@ -231,11 +231,15 @@ inline int128_t ByteInputStream::read<int128_t>() {
 class ByteOutputStream {
  public:
   /// For output.
-  ByteOutputStream(
+  explicit ByteOutputStream(
       StreamArena* arena,
       bool isBits = false,
-      bool isReverseBitOrder = false)
-      : arena_(arena), isBits_(isBits), isReverseBitOrder_(isReverseBitOrder) {}
+      bool isReverseBitOrder = false,
+      bool isNegateBits = false)
+      : arena_(arena),
+        isBits_(isBits),
+        isReverseBitOrder_(isReverseBitOrder),
+        isNegateBits_(isNegateBits) {}
 
   ByteOutputStream(const ByteOutputStream& other) = delete;
 
@@ -267,6 +271,7 @@ class ByteOutputStream {
   void startWrite(int32_t initialSize) {
     ranges_.clear();
     isReversed_ = false;
+    isNegated_ = false;
     allocatedBytes_ = 0;
     current_ = nullptr;
     lastRangeEnd_ = 0;
@@ -431,9 +436,15 @@ class ByteOutputStream {
 
   const bool isReverseBitOrder_;
 
+  const bool isNegateBits_;
+
   // True if the bit order in ranges_ has been inverted. Presto requires
   // reverse bit order.
   bool isReversed_ = false;
+
+  // True if the bits in ranges_ have been negated. Presto requires null flags
+  // to be the inverse of Velox.
+  bool isNegated_ = false;
 
   std::vector<ByteRange> ranges_;
   // The total number of bytes allocated from 'arena_' in 'ranges_'.

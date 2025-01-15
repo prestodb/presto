@@ -115,7 +115,7 @@ class FirstLastValueFunction : public exec::WindowFunction {
 
     // first(last)Value functions return the first(last) non-null values for the
     // frame. Negate the bits in nulls_ so that nonNull bits are set instead.
-    bits::negate(nulls_->asMutable<char>(), frameSize);
+    bits::negate(nulls_->asMutable<uint64_t>(), frameSize);
     auto rawNonNulls = nulls_->as<uint64_t>();
 
     auto rawFrameStarts = frameStarts->as<vector_size_t>();

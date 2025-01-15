@@ -296,10 +296,16 @@ void ByteOutputStream::flush(OutputStream* out) {
   for (int32_t i = 0; i < ranges_.size(); ++i) {
     int32_t count = i == ranges_.size() - 1 ? lastRangeEnd_ : ranges_[i].size;
     int32_t bytes = isBits_ ? bits::nbytes(count) : count;
+    if (isBits_ && isNegateBits_ && !isNegated_) {
+      bits::negate(reinterpret_cast<uint64_t*>(ranges_[i].buffer), count);
+    }
     if (isBits_ && isReverseBitOrder_ && !isReversed_) {
       bits::reverseBits(ranges_[i].buffer, bytes);
     }
     out->write(reinterpret_cast<char*>(ranges_[i].buffer), bytes);
+  }
+  if (isBits_ && isNegateBits_) {
+    isNegated_ = true;
   }
   if (isBits_ && isReverseBitOrder_) {
     isReversed_ = true;

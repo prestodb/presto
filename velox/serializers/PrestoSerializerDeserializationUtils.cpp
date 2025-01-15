@@ -74,7 +74,7 @@ vector_size_t valueCount(
   auto numBytes = bits::nbytes(size);
   source->readBytes(rawNulls, numBytes);
   bits::reverseBits(reinterpret_cast<uint8_t*>(rawNulls), numBytes);
-  bits::negate(reinterpret_cast<char*>(rawNulls), numBytes * 8);
+  bits::negate(rawNulls, numBytes * 8);
   if (copy) {
     copy->resize(bits::nwords(size));
     memcpy(copy->data(), rawNulls, numBytes);
@@ -329,7 +329,7 @@ vector_size_t readNulls(
 
   source->readBytes(rawNulls, numBytes);
   bits::reverseBits(rawNulls, numBytes);
-  bits::negate(reinterpret_cast<char*>(rawNulls), numBytes * 8);
+  bits::negate(reinterpret_cast<uint64_t*>(rawNulls), numBytes * 8);
   // Add incoming nulls if any.
   if (incomingNulls) {
     bits::scatterBits(

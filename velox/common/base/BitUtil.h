@@ -92,17 +92,18 @@ inline void setBit(T* bits, uint64_t idx, bool value) {
   value ? setBit(bits, idx) : clearBit(bits, idx);
 }
 
-inline void negate(char* bits, int32_t size) {
+inline void negate(uint64_t* bits, int32_t size) {
   int32_t i = 0;
   for (; i + 64 <= size; i += 64) {
-    auto wordPtr = reinterpret_cast<uint64_t*>(bits + (i / 8));
+    auto wordPtr = bits + i / 64;
     *wordPtr = ~*wordPtr;
   }
+  auto* bitsAs8Bit = reinterpret_cast<uint8_t*>(bits);
   for (; i + 8 <= size; i += 8) {
-    bits[i / 8] = ~bits[i / 8];
+    bitsAs8Bit[i / 8] = ~bitsAs8Bit[i / 8];
   }
   for (; i < size; ++i) {
-    bits::setBit(bits, i, !bits::isBitSet(bits, i));
+    bits::setBit(bitsAs8Bit, i, !bits::isBitSet(bits, i));
   }
 }
 

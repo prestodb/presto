@@ -262,36 +262,62 @@ TEST_F(ByteStreamTest, bits) {
     bits.push_back(seed * (i + 1));
   }
   auto arena = newArena();
-  ByteOutputStream bitStream(arena.get(), true);
-  bitStream.startWrite(11);
-  int32_t offset = 0;
-  // Odd number of sizes.
-  std::vector<int32_t> bitSizes = {1, 19, 52, 58, 129};
-  int32_t counter = 0;
-  auto totalBits = bits.size() * 64;
-  while (offset < totalBits) {
-    // Every second uses the fast path for aligned source and append only.
-    auto numBits = std::min<int32_t>(
-        totalBits - offset, bitSizes[counter % bitSizes.size()]);
-    if (counter % 1 == 0) {
-      bitStream.appendBits(bits.data(), offset, offset + numBits);
-    } else {
-      uint64_t aligned[10];
-      bits::copyBits(bits.data(), offset, aligned, 0, numBits);
-      bitStream.appendBitsFresh(aligned, 0, numBits);
+
+  struct {
+    bool reversed;
+    bool negated;
+
+    std::string debugString() const {
+      return fmt::format("reversed: {}, negated: {}", reversed, negated);
     }
-    offset += numBits;
-    ++counter;
+  } testSettings[] = {
+      {false, false}, {true, false}, {false, true}, {true, true}};
+
+  for (const auto& settings : testSettings) {
+    SCOPED_TRACE(settings.debugString());
+    ByteOutputStream bitStream(
+        arena.get(), true, settings.reversed, settings.negated);
+    bitStream.startWrite(11);
+    int32_t offset = 0;
+    // Odd number of sizes.
+    std::vector<int32_t> bitSizes = {1, 19, 52, 58, 129};
+    int32_t counter = 0;
+    auto totalBits = bits.size() * 64;
+    while (offset < totalBits) {
+      // Every second uses the fast path for aligned source and append only.
+      auto numBits = std::min<int32_t>(
+          totalBits - offset, bitSizes[counter % bitSizes.size()]);
+      if (counter % 1 == 0) {
+        bitStream.appendBits(bits.data(), offset, offset + numBits);
+      } else {
+        uint64_t aligned[10];
+        bits::copyBits(bits.data(), offset, aligned, 0, numBits);
+        bitStream.appendBitsFresh(aligned, 0, numBits);
+      }
+      offset += numBits;
+      ++counter;
+    }
+    std::stringstream stringStream;
+    OStreamOutputStream out(&stringStream);
+    bitStream.flush(&out);
+
+    auto expected = bits;
+    if (settings.reversed) {
+      bits::reverseBits(
+          reinterpret_cast<uint8_t*>(expected.data()),
+          expected.size() * sizeof(expected[0]));
+    }
+    if (settings.negated) {
+      bits::negate(expected.data(), expected.size() * sizeof(expected[0]) * 8);
+    }
+
+    EXPECT_EQ(
+        0,
+        memcmp(
+            stringStream.str().data(),
+            expected.data(),
+            expected.size() * sizeof(expected[0])));
   }
-  std::stringstream stringStream;
-  OStreamOutputStream out(&stringStream);
-  bitStream.flush(&out);
-  EXPECT_EQ(
-      0,
-      memcmp(
-          stringStream.str().data(),
-          bits.data(),
-          bits.size() * sizeof(bits[0])));
 }
 
 TEST_F(ByteStreamTest, appendWindow) {
