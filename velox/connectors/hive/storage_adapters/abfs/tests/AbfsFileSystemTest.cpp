@@ -99,9 +99,8 @@ void readData(ReadFile* readFile) {
   ASSERT_EQ(readFile->pread(10 + kOneMB, 5, &buffer1), "ddddd");
   char buffer2[10];
   ASSERT_EQ(readFile->pread(0, 10, &buffer2), "aaaaabbbbb");
-  auto buffer3 = new char[kOneMB];
+  char buffer3[kOneMB];
   ASSERT_EQ(readFile->pread(10, kOneMB, buffer3), std::string(kOneMB, 'c'));
-  delete[] buffer3;
   ASSERT_EQ(readFile->size(), 15 + kOneMB);
   char buffer4[10];
   const std::string_view arf = readFile->pread(5, 10, &buffer4);
@@ -286,8 +285,8 @@ TEST_F(AbfsFileSystemTest, registerAbfsFileSink) {
     auto sink = dwio::common::FileSink::create(
         path, {.connectorProperties = hiveConfig});
     auto writeFileSink = dynamic_cast<dwio::common::WriteFileSink*>(sink.get());
-    auto writeFile =
-        dynamic_cast<AbfsWriteFile*>(writeFileSink->toWriteFile().get());
-    ASSERT_TRUE(writeFile != nullptr);
+    auto writeFile = writeFileSink->toWriteFile();
+    auto abfsWriteFile = dynamic_cast<AbfsWriteFile*>(writeFile.get());
+    ASSERT_TRUE(abfsWriteFile != nullptr);
   }
 }
