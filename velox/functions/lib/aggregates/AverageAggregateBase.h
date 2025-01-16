@@ -98,7 +98,12 @@ class AverageAggregateBase : public exec::Aggregate {
       } else {
         clearNull(rawNulls, i);
         auto* sumCount = accumulator(group);
-        rawValues[i] = TResult(sumCount->sum) / sumCount->count;
+        if constexpr (std::is_integral_v<TResult>) {
+          rawValues[i] =
+              static_cast<TResult>(std::round(sumCount->sum / sumCount->count));
+        } else {
+          rawValues[i] = sumCount->sum / sumCount->count;
+        }
       }
     }
   }

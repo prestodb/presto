@@ -594,6 +594,23 @@ TEST_F(AverageAggregationTest, avgDecimalWithMultipleRowVectors) {
   AggregationTestBase::enableTestIncremental();
 }
 
+TEST_F(AverageAggregationTest, avgIntervalWithMultipleRowVectors) {
+  AggregationTestBase::disableTestIncremental();
+
+  auto inputRows = {
+      makeRowVector({makeFlatVector<int64_t>({100, 200}, INTERVAL_DAY_TIME())}),
+      makeRowVector({makeFlatVector<int64_t>({300, 400}, INTERVAL_DAY_TIME())}),
+      makeRowVector({makeFlatVector<int64_t>({500, 845}, INTERVAL_DAY_TIME())}),
+  };
+
+  auto expectedResult = {makeRowVector(
+      {makeFlatVector(std::vector<int64_t>{391}, INTERVAL_DAY_TIME())})};
+
+  testAggregations(inputRows, {}, {"avg(c0)"}, expectedResult);
+
+  AggregationTestBase::enableTestIncremental();
+}
+
 TEST_F(AverageAggregationTest, constantVectorOverflow) {
   auto rows = makeRowVector({makeConstant<int32_t>(1073741824, 100)});
   auto plan = PlanBuilder()
