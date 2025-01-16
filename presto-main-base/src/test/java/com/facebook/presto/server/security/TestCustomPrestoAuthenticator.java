@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.server.security;
 
-import com.facebook.airlift.http.server.BasicPrincipal;
+import com.facebook.presto.security.BasicPrincipal;
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.PrestoAuthenticator;

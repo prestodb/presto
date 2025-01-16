@@ -80,7 +80,7 @@
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>io.netty</groupId>
