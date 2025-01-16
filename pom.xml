@@ -2449,7 +2449,7 @@
                 <configuration combine.children="append">
                     <forkCount>3</forkCount>
                     <reuseForks>true</reuseForks>
-                    <argLine>-Xmx1024m -XX:MaxPermSize=256m</argLine>
+                    <argLine>-Xmx1024m -XX:MaxPermSize=1024m</argLine>
                     <includes>
                         <include>**/Test*.java</include>
                         <include>**/Benchmark*.java</include>
