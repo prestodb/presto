@@ -392,8 +392,8 @@ public final class HttpRequestSessionContext
         return emptyToNull(nullToEmpty(value).trim());
     }
 
-
-    private static String filterSpecialCharacters(String value) {
+    private static String filterSpecialCharacters(String value)
+    {
         return emptyToNull(nullToEmpty(value).replaceAll("[;&|><*?$\\[\\](){}/!#%=\\\\]", ""));
     }
 
