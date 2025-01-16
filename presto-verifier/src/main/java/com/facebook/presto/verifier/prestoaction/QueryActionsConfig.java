@@ -26,6 +26,7 @@ public class QueryActionsConfig
     private String controlQueryActionType = JdbcPrestoAction.QUERY_ACTION_TYPE;
     private String testQueryActionType = JdbcPrestoAction.QUERY_ACTION_TYPE;
     private boolean runHelperQueriesOnControl = true;
+    private boolean runChecksumQueriesOnControl;
 
     private Duration metadataTimeout = new Duration(3, MINUTES);
     private Duration checksumTimeout = new Duration(30, MINUTES);
@@ -65,6 +66,18 @@ public class QueryActionsConfig
     public QueryActionsConfig setRunHelperQueriesOnControl(boolean runHelperQueriesOnControl)
     {
         this.runHelperQueriesOnControl = runHelperQueriesOnControl;
+        return this;
+    }
+
+    public boolean isRunChecksumQueriesOnControl()
+    {
+        return runChecksumQueriesOnControl;
+    }
+
+    @Config("run-checksum-queries-on-control")
+    public QueryActionsConfig setRunChecksumQueriesOnControl(boolean runChecksumQueriesOnControl)
+    {
+        this.runChecksumQueriesOnControl = runChecksumQueriesOnControl;
         return this;
     }
 

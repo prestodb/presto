@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.verifier.prestoaction;
 
+import com.facebook.presto.verifier.annotation.ForChecksum;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForHelper;
 import com.facebook.presto.verifier.annotation.ForTest;
@@ -26,16 +27,19 @@ public class QueryActionsProvider
         implements QueryActionsFactory
 {
     private final PrestoActionFactory helpActionFactory;
+    private final PrestoActionFactory checksumActionFactory;
     private final QueryActionFactory controlActionFactory;
     private final QueryActionFactory testActionFactory;
 
     @Inject
     public QueryActionsProvider(
             @ForHelper PrestoActionFactory helpActionFactory,
+            @ForChecksum PrestoActionFactory checksumActionFactory,
             @ForControl QueryActionFactory controlActionFactory,
             @ForTest QueryActionFactory testActionFactory)
     {
         this.helpActionFactory = requireNonNull(helpActionFactory, "helpActionFactory is null");
+        this.checksumActionFactory = requireNonNull(checksumActionFactory, "checksumActionFactory is null");
         this.controlActionFactory = requireNonNull(controlActionFactory, "controlActionFactory is null");
         this.testActionFactory = requireNonNull(testActionFactory, "testActionFactory is null");
     }
@@ -44,6 +48,7 @@ public class QueryActionsProvider
     {
         return new QueryActions(
                 helpActionFactory.create(sourceQuery.getControlConfiguration(), verificationContext),
+                checksumActionFactory.create(sourceQuery.getTestConfiguration(), verificationContext),
                 controlActionFactory.create(sourceQuery.getControlConfiguration(), verificationContext),
                 testActionFactory.create(sourceQuery.getTestConfiguration(), verificationContext));
     }
