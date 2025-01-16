@@ -227,6 +227,12 @@
             </dependency>
 
             <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-transport</artifactId>
+                <version>${dep.netty.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-testing-docker</artifactId>
                 <version>${project.version}</version>
@@ -2681,7 +2687,9 @@
                         <executions>
                             <execution>
                                 <id>unlink-out-of-tree-build-directory</id>
-                                <goals><goal>exec</goal></goals>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
                                 <phase>pre-clean</phase>
                                 <configuration>
                                     <executable>rm</executable>
@@ -2693,7 +2701,9 @@
                             </execution>
                             <execution>
                                 <id>remove-out-of-tree-build-directory</id>
-                                <goals><goal>exec</goal></goals>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
                                 <phase>pre-clean</phase>
                                 <configuration>
                                     <executable>rm</executable>
@@ -2705,7 +2715,9 @@
                             </execution>
                             <execution>
                                 <id>create-out-of-tree-build-directory</id>
-                                <goals><goal>exec</goal></goals>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
                                 <phase>validate</phase>
                                 <configuration>
                                     <executable>mkdir</executable>
@@ -2717,7 +2729,9 @@
                             </execution>
                             <execution>
                                 <id>link-out-of-tree-build-directory</id>
-                                <goals><goal>exec</goal></goals>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
                                 <phase>validate</phase>
                                 <configuration>
                                     <executable>ln</executable>
