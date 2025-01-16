@@ -190,6 +190,9 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   std::string toString(vector_size_t index) const override {
+    VELOX_CHECK(
+        initialized_,
+        "Cannot convert to string because current DictionaryVector is not properly initialized yet.");
     if (BaseVector::isNullAt(index)) {
       return "null";
     }
