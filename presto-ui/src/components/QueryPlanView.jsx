@@ -20,7 +20,8 @@ import { StageStatistics, PlanNode } from './LivePlan';
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
-import { formatRows, getStageStateColor, initializeGraph } from "../utils";
+import { formatRows, getStageStateColor } from "../utils";
+import { initializeGraph } from "../d3utils";
 
 export default function PlanView({show, data}) {
     const widgets = React.useRef({

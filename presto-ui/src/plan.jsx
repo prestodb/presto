@@ -1,8 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import {LivePlan} from "./components/LivePlan";
+import lazy from "./lazy";
 import {PageTitle} from "./components/PageTitle";
 import {getFirstParameter} from "./utils";
+
+const LivePlan = lazy('LivePlan');
 
 ReactDOM.render(
     <PageTitle titles={["Query Details"]} />,

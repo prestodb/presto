@@ -18,7 +18,8 @@ import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
 
-import {formatRows, getStageStateColor, initializeGraph, initializeSvg, truncateString} from "../utils";
+import {formatRows, getStageStateColor, truncateString} from "../utils";
+import {initializeGraph, initializeSvg} from "../d3utils";
 import {QueryHeader} from "./QueryHeader";
 
 type StageStatisticsProps = {
@@ -359,3 +360,5 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
         );
     }
 }
+
+export default LivePlan;

@@ -89,3 +89,5 @@ export function QueryViewer() {
         </div>
     );
 }
+
+export default QueryViewer;

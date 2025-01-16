@@ -25,12 +25,11 @@ import {
     getChildren,
     getFirstParameter,
     getTaskNumber,
-    initializeGraph,
-    initializeSvg,
     isQueryEnded,
     parseDataSize,
     parseDuration
 } from "../utils";
+import { initializeGraph, initializeSvg } from "../d3utils";
 import {QueryHeader} from "./QueryHeader";
 
 function getTotalWallTime(operator) {
@@ -643,3 +642,5 @@ export class StageDetail extends React.Component {
         );
     }
 }
+
+export default StageDetail;
