@@ -71,6 +71,68 @@ class OutputStream {
   OutputStreamListener* listener_;
 };
 
+/// An OutputStream that wraps another and coalesces writes into a buffer before
+/// flushing them as large writes to the wrapped OutputStream.
+///
+/// Note that you must call flush at the end of writing to ensure the changes
+/// propagate to the wrapped OutputStream.
+class BufferedOutputStream : public OutputStream {
+ public:
+  BufferedOutputStream(
+      OutputStream* out,
+      StreamArena* arena,
+      int32_t bufferSize = 1 << 20)
+      : OutputStream(), out_(out) {
+    arena->newRange(bufferSize, nullptr, &buffer_);
+  }
+
+  ~BufferedOutputStream() {
+    flush();
+  }
+
+  void write(const char* s, std::streamsize count) override {
+    auto remaining = count;
+    while (remaining > 0) {
+      const int32_t copyLength =
+          std::min(remaining, (std::streamsize)buffer_.size - buffer_.position);
+      simd::memcpy(
+          buffer_.buffer + buffer_.position, s + count - remaining, copyLength);
+      buffer_.position += copyLength;
+      remaining -= copyLength;
+      if (buffer_.position == buffer_.size) {
+        flush();
+        if (remaining >= buffer_.size) {
+          out_->write(s + count - remaining, remaining);
+          break;
+        }
+      }
+    }
+  }
+
+  std::streampos tellp() const override {
+    flushImpl();
+    return out_->tellp();
+  }
+
+  void seekp(std::streampos pos) override {
+    flushImpl();
+    out_->seekp(pos);
+  }
+
+  void flush() {
+    flushImpl();
+  }
+
+ private:
+  inline void flushImpl() const {
+    out_->write(reinterpret_cast<char*>(buffer_.buffer), buffer_.position);
+    buffer_.position = 0;
+  }
+
+  OutputStream* const out_;
+  mutable ByteRange buffer_;
+};
+
 class OStreamOutputStream : public OutputStream {
  public:
   explicit OStreamOutputStream(

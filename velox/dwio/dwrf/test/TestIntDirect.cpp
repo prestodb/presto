@@ -44,7 +44,9 @@ void testInts(std::function<T()> generator) {
       count * (vInt ? folly::kMaxVarintLength64 : sizeof(T));
   MemorySink sink{capacity, {.pool = pool.get()}};
   DataBufferHolder holder{*pool, capacity, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
-  auto output = std::make_unique<BufferedOutputStream>(holder);
+  auto output =
+      std::make_unique<facebook::velox::dwio::common::BufferedOutputStream>(
+          holder);
   auto encoder =
       createDirectEncoder<isSigned>(std::move(output), vInt, sizeof(T));
 

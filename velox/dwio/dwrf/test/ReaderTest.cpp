@@ -1713,7 +1713,7 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
 TEST_F(TestReader, testEmptyFile) {
   MemorySink sink{1024, {.pool = pool()}};
   DataBufferHolder holder{*pool(), 1024, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
-  BufferedOutputStream output{holder};
+  facebook::velox::dwio::common::BufferedOutputStream output{holder};
 
   proto::Footer footer;
   footer.set_numberofrows(0);
