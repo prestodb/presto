@@ -718,3 +718,4 @@ export class QueryList extends React.Component {
     }
 }
 
+export default QueryList;

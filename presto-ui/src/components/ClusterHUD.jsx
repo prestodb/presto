@@ -293,3 +293,4 @@ export class ClusterHUD extends React.Component {
     }
 }
 
+export default ClusterHUD;
