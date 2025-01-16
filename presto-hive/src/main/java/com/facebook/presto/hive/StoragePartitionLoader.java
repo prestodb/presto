@@ -24,6 +24,8 @@ import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -47,7 +49,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -100,9 +101,12 @@ public class StoragePartitionLoader
         extends PartitionLoader
 {
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
-
-    private final HashMap<Integer, JobConf> jobConfCache = new HashMap<>();
-    private final HashMap<Integer, Configuration> configurationCache = new HashMap<>();
+    private final Cache<Integer, JobConf> jobConfCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .build();
+    private final Cache<Integer, Configuration> configurationCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .build();
     private final Table table;
     private final Map<Integer, Domain> infoColumnConstraints;
     private final Optional<BucketSplitInfo> tableBucketInfo;
@@ -187,8 +191,16 @@ public class StoragePartitionLoader
             // the splits must be generated using the file system for the target path
             // get the configuration for the target path -- it may be a different hdfs instance
             ExtendedFileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
-            Configuration targetConf = configurationCache.computeIfAbsent(targetFilesystem.hashCode(), ignored -> targetFilesystem.getConf());
-            JobConf targetJob = jobConfCache.computeIfAbsent(targetConf.hashCode(), ignored -> toJobConf(targetConf));
+            Configuration targetConf = configurationCache.getIfPresent(targetFilesystem.hashCode());
+            if (targetConf == null) {
+                targetConf = targetFilesystem.getConf();
+                configurationCache.put(targetFilesystem.hashCode(), targetConf);
+            }
+            JobConf targetJob = jobConfCache.getIfPresent(targetConf.hashCode());
+            if (targetJob == null) {
+                targetJob = toJobConf(targetConf);
+                jobConfCache.put(targetConf.hashCode(), targetJob);
+            }
             targetJob.setInputFormat(TextInputFormat.class);
             targetInputFormat.configure(targetJob);
             targetJob.set(SPLIT_MINSIZE, Long.toString(getMaxSplitSize(session).toBytes()));
