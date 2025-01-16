@@ -112,6 +112,7 @@ CODEOWNERS @prestodb/team-tsc
 #####################################################################
 # Prestissimo module
 /presto-native-execution @prestodb/team-velox
+/.github/workflows/prestocpp-* @prestodb/team-velox @prestodb/committers
 
 #####################################################################
 # Presto on Spark module
