@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include <cpr/cpr.h> // @manual
 #include <folly/json.h>
 #include <iostream>
+#include <utility>
+
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
-#include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/Expressions.h"
@@ -28,6 +28,7 @@
 #include "velox/dwio/common/WriterFactory.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
+#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ToSQLUtil.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
@@ -36,8 +37,6 @@
 #include "velox/functions/prestosql/types/UuidType.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/parser/TypeParser.h"
-
-#include <utility>
 
 using namespace facebook::velox;
 
@@ -220,20 +219,6 @@ std::string toWindowCallSql(
     sql << " IGNORE NULLS";
   }
   return sql.str();
-}
-
-bool isSupportedDwrfType(const TypePtr& type) {
-  if (type->isDate() || type->isIntervalDayTime() || type->isUnKnown()) {
-    return false;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (!isSupportedDwrfType(type->childAt(i))) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 } // namespace
@@ -557,152 +542,25 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   return sql.str();
 }
 
-std::optional<std::string> PrestoQueryRunner::toSql(
-    const std::shared_ptr<const core::HashJoinNode>& joinNode) {
-  if (!isSupportedDwrfType(joinNode->sources()[0]->outputType())) {
-    return std::nullopt;
-  }
-
-  if (!isSupportedDwrfType(joinNode->sources()[1]->outputType())) {
-    return std::nullopt;
-  }
-
-  const auto joinKeysToSql = [](auto keys) {
-    std::stringstream out;
-    for (auto i = 0; i < keys.size(); ++i) {
-      if (i > 0) {
-        out << ", ";
-      }
-      out << keys[i]->name();
+std::pair<
+    std::optional<std::multiset<std::vector<velox::variant>>>,
+    ReferenceQueryErrorCode>
+PrestoQueryRunner::execute(const core::PlanNodePtr& plan) {
+  if (std::optional<std::string> sql = toSql(plan)) {
+    try {
+      return std::make_pair(
+          exec::test::materialize(executeAndReturnVector(*sql, plan)),
+          ReferenceQueryErrorCode::kSuccess);
+    } catch (...) {
+      LOG(WARNING) << "Query failed in Presto";
+      return std::make_pair(
+          std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
     }
-    return out.str();
-  };
-
-  const auto filterToSql = [](core::TypedExprPtr filter) {
-    auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(filter);
-    return toCallSql(call);
-  };
-
-  const auto& joinConditionAsSql = [&](auto joinNode) {
-    std::stringstream out;
-    for (auto i = 0; i < joinNode->leftKeys().size(); ++i) {
-      if (i > 0) {
-        out << " AND ";
-      }
-      out << joinNode->leftKeys()[i]->name() << " = "
-          << joinNode->rightKeys()[i]->name();
-    }
-    if (joinNode->filter()) {
-      out << " AND " << filterToSql(joinNode->filter());
-    }
-    return out.str();
-  };
-
-  const auto& outputNames = joinNode->outputType()->names();
-
-  std::stringstream sql;
-  if (joinNode->isLeftSemiProjectJoin()) {
-    sql << "SELECT "
-        << folly::join(", ", outputNames.begin(), --outputNames.end());
-  } else {
-    sql << "SELECT " << folly::join(", ", outputNames);
   }
 
-  switch (joinNode->joinType()) {
-    case core::JoinType::kInner:
-      sql << " FROM t INNER JOIN u ON " << joinConditionAsSql(joinNode);
-      break;
-    case core::JoinType::kLeft:
-      sql << " FROM t LEFT JOIN u ON " << joinConditionAsSql(joinNode);
-      break;
-    case core::JoinType::kFull:
-      sql << " FROM t FULL OUTER JOIN u ON " << joinConditionAsSql(joinNode);
-      break;
-    case core::JoinType::kLeftSemiFilter:
-      // Multiple columns returned by a scalar subquery is not supported in
-      // Presto. A scalar subquery expression is a subquery that returns one
-      // result row from exactly one column for every input row.
-      if (joinNode->leftKeys().size() > 1) {
-        return std::nullopt;
-      }
-      sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
-          << " IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-          << " FROM u";
-      if (joinNode->filter()) {
-        sql << " WHERE " << filterToSql(joinNode->filter());
-      }
-      sql << ")";
-      break;
-    case core::JoinType::kLeftSemiProject:
-      if (joinNode->isNullAware()) {
-        sql << ", " << joinKeysToSql(joinNode->leftKeys()) << " IN (SELECT "
-            << joinKeysToSql(joinNode->rightKeys()) << " FROM u";
-        if (joinNode->filter()) {
-          sql << " WHERE " << filterToSql(joinNode->filter());
-        }
-        sql << ") FROM t";
-      } else {
-        sql << ", EXISTS (SELECT * FROM u WHERE "
-            << joinConditionAsSql(joinNode);
-        sql << ") FROM t";
-      }
-      break;
-    case core::JoinType::kAnti:
-      if (joinNode->isNullAware()) {
-        sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
-            << " NOT IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-            << " FROM u";
-        if (joinNode->filter()) {
-          sql << " WHERE " << filterToSql(joinNode->filter());
-        }
-        sql << ")";
-      } else {
-        sql << " FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE "
-            << joinConditionAsSql(joinNode);
-        sql << ")";
-      }
-      break;
-    default:
-      VELOX_UNREACHABLE(
-          "Unknown join type: {}", static_cast<int>(joinNode->joinType()));
-  }
-  return sql.str();
-}
-
-std::optional<std::string> PrestoQueryRunner::toSql(
-    const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode) {
-  std::stringstream sql;
-  sql << "SELECT " << folly::join(", ", joinNode->outputType()->names());
-
-  // Nested loop join without filter.
-  VELOX_CHECK(
-      joinNode->joinCondition() == nullptr,
-      "This code path should be called only for nested loop join without filter");
-  const std::string joinCondition{"(1 = 1)"};
-  switch (joinNode->joinType()) {
-    case core::JoinType::kInner:
-      sql << " FROM t INNER JOIN u ON " << joinCondition;
-      break;
-    case core::JoinType::kLeft:
-      sql << " FROM t LEFT JOIN u ON " << joinCondition;
-      break;
-    case core::JoinType::kFull:
-      sql << " FROM t FULL OUTER JOIN u ON " << joinCondition;
-      break;
-    default:
-      VELOX_UNREACHABLE(
-          "Unknown join type: {}", static_cast<int>(joinNode->joinType()));
-  }
-
-  return sql.str();
-}
-
-std::optional<std::string> PrestoQueryRunner::toSql(
-    const std::shared_ptr<const core::ValuesNode>& valuesNode) {
-  if (!isSupportedDwrfType(valuesNode->outputType())) {
-    return std::nullopt;
-  }
-  return "tmp";
+  LOG(INFO) << "Query not supported in Presto";
+  return std::make_pair(
+      std::nullopt, ReferenceQueryErrorCode::kReferenceQueryUnsupported);
 }
 
 std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
@@ -710,15 +568,6 @@ std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
     const std::vector<RowVectorPtr>& input,
     const RowTypePtr& resultType) {
   return exec::test::materialize(executeVector(sql, input, resultType));
-}
-
-std::multiset<std::vector<velox::variant>> PrestoQueryRunner::execute(
-    const std::string& sql,
-    const std::vector<RowVectorPtr>& probeInput,
-    const std::vector<RowVectorPtr>& buildInput,
-    const RowTypePtr& resultType) {
-  return exec::test::materialize(
-      executeVector(sql, probeInput, buildInput, resultType));
 }
 
 std::string PrestoQueryRunner::createTable(
@@ -752,40 +601,31 @@ std::string PrestoQueryRunner::createTable(
   return tableDirectoryPath;
 }
 
-std::vector<velox::RowVectorPtr> PrestoQueryRunner::executeVector(
+std::vector<velox::RowVectorPtr> PrestoQueryRunner::executeAndReturnVector(
     const std::string& sql,
-    const std::vector<RowVectorPtr>& probeInput,
-    const std::vector<RowVectorPtr>& buildInput,
-    const velox::RowTypePtr& resultType) {
-  auto probeType = asRowType(probeInput[0]->type());
-  if (probeType->size() == 0) {
-    auto rowVector = makeNullRows(probeInput, "x", pool());
-    return executeVector(sql, {rowVector}, buildInput, resultType);
+    const core::PlanNodePtr& plan) {
+  std::unordered_map<std::string, std::vector<velox::RowVectorPtr>> inputMap =
+      getAllTables(plan);
+  for (const auto& [tableName, input] : inputMap) {
+    auto inputType = asRowType(input[0]->type());
+    if (inputType->size() == 0) {
+      inputMap[tableName] = {
+          makeNullRows(input, fmt::format("{}x", tableName), pool())};
+    }
   }
-
-  auto buildType = asRowType(buildInput[0]->type());
-  if (probeType->size() == 0) {
-    auto rowVector = makeNullRows(buildInput, "y", pool());
-    return executeVector(sql, probeInput, {rowVector}, resultType);
-  }
-
-  auto probeTableDirectoryPath = createTable("t", probeInput[0]->type());
-  auto buildTableDirectoryPath = createTable("u", buildInput[0]->type());
-
-  // Create a new file in table's directory with fuzzer-generated data.
-  auto probeFilePath = fs::path(probeTableDirectoryPath)
-                           .append("probe.dwrf")
-                           .string()
-                           .substr(strlen("file:"));
-
-  auto buildFilePath = fs::path(buildTableDirectoryPath)
-                           .append("build.dwrf")
-                           .string()
-                           .substr(strlen("file:"));
 
   auto writerPool = aggregatePool()->addAggregateChild("writer");
-  writeToFile(probeFilePath, probeInput, writerPool.get());
-  writeToFile(buildFilePath, buildInput, writerPool.get());
+  for (const auto& [tableName, input] : inputMap) {
+    auto tableDirectoryPath = createTable(tableName, input[0]->type());
+
+    // Create a new file in table's directory with fuzzer-generated data.
+    auto filePath = fs::path(tableDirectoryPath)
+                        .append(fmt::format("{}.dwrf", tableName))
+                        .string()
+                        .substr(strlen("file:"));
+
+    writeToFile(filePath, input, writerPool.get());
+  }
 
   // Run the query.
   return execute(sql);

@@ -679,12 +679,12 @@ std::optional<MaterializedRowMultiset> JoinFuzzer::computeReferenceResults(
     VELOX_CHECK(!containsUnsupportedTypes(buildInput[0]->type()));
   }
 
-  if (auto sql = referenceQueryRunner_->toSql(plan)) {
-    return referenceQueryRunner_->execute(
-        sql.value(), probeInput, buildInput, plan->outputType());
+  auto result = referenceQueryRunner_->execute(plan);
+  if (result.first) {
+    return result.first;
   }
 
-  LOG(INFO) << "Query not supported by the reference DB";
+  LOG(INFO) << "Query not supported by or failed in the reference DB";
   return std::nullopt;
 }
 

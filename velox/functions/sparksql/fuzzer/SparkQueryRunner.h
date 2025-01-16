@@ -88,6 +88,8 @@ class SparkQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   std::vector<velox::RowVectorPtr> execute(const std::string& sql) override;
 
  private:
+  using ReferenceQueryRunner::toSql;
+
   // Generates a random UUID string for Spark. It must be of the format
   // '00112233-4455-6677-8899-aabbccddeeff'.
   std::string generateUUID();

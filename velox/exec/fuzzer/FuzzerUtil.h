@@ -131,12 +131,6 @@ void setupMemory(
 void registerHiveConnector(
     const std::unordered_map<std::string, std::string>& hiveConfigs);
 
-enum ReferenceQueryErrorCode {
-  kSuccess,
-  kReferenceQueryFail,
-  kReferenceQueryUnsupported
-};
-
 // Converts 'plan' into an SQL query and runs it on 'input' in the reference DB.
 // Result is returned as a MaterializedRowMultiset with the
 // ReferenceQueryErrorCode::kSuccess if successful, or an std::nullopt with a

@@ -15,12 +15,21 @@
  */
 #pragma once
 
+#include <optional>
 #include <set>
+#include <unordered_map>
+
 #include "velox/core/PlanNode.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::exec::test {
+
+enum ReferenceQueryErrorCode {
+  kSuccess,
+  kReferenceQueryFail,
+  kReferenceQueryUnsupported
+};
 
 /// Query runner that uses reference database, i.e. DuckDB, Presto, Spark.
 class ReferenceQueryRunner {
@@ -54,6 +63,18 @@ class ReferenceQueryRunner {
   /// reference database.
   virtual std::optional<std::string> toSql(const core::PlanNodePtr& plan) = 0;
 
+  /// Same as the above toSql but for values nodes.
+  virtual std::optional<std::string> toSql(
+      const core::ValuesNodePtr& valuesNode);
+
+  /// Same as the above toSql but for hash join nodes.
+  virtual std::optional<std::string> toSql(
+      const std::shared_ptr<const core::HashJoinNode>& joinNode);
+
+  /// Same as the above toSql but for nested loop join nodes.
+  virtual std::optional<std::string> toSql(
+      const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode);
+
   /// Returns whether a constant expression is supported by the reference
   /// database.
   virtual bool isConstantExprSupported(const core::TypedExprPtr& /*expr*/) {
@@ -64,6 +85,15 @@ class ReferenceQueryRunner {
   /// by the reference database.
   virtual bool isSupported(const exec::FunctionSignature& /*signature*/) {
     return true;
+  }
+
+  /// Executes the plan and returns the result along with success or fail error
+  /// code.
+  virtual std::pair<
+      std::optional<std::multiset<std::vector<velox::variant>>>,
+      ReferenceQueryErrorCode>
+  execute(const core::PlanNodePtr& /*plan*/) {
+    VELOX_UNSUPPORTED();
   }
 
   /// Executes SQL query returned by the 'toSql' method using 'input' data.
@@ -77,10 +107,12 @@ class ReferenceQueryRunner {
   /// 'buildInput' data for join node.
   /// Converts results using 'resultType' schema.
   virtual std::multiset<std::vector<velox::variant>> execute(
-      const std::string& sql,
-      const std::vector<RowVectorPtr>& probeInput,
-      const std::vector<RowVectorPtr>& buildInput,
-      const RowTypePtr& resultType) = 0;
+      const std::string& /*sql*/,
+      const std::vector<RowVectorPtr>& /*probeInput*/,
+      const std::vector<RowVectorPtr>& /*buildInput*/,
+      const RowTypePtr& /*resultType*/) {
+    VELOX_UNSUPPORTED();
+  }
 
   /// Returns true if 'executeVector' can be called to get results as Velox
   /// Vector.
@@ -91,28 +123,19 @@ class ReferenceQueryRunner {
   /// Similar to 'execute' but returns results in RowVector format.
   /// Caller should ensure 'supportsVeloxVectorResults' returns true.
   virtual std::vector<RowVectorPtr> executeVector(
-      const std::string& sql,
-      const std::vector<RowVectorPtr>& input,
-      const RowTypePtr& resultType) {
+      const std::string& /*sql*/,
+      const std::vector<RowVectorPtr>& /*input*/,
+      const RowTypePtr& /*resultType*/) {
     VELOX_UNSUPPORTED();
   }
 
-  /// Similar to above but for join node with 'probeInput' and 'buildInput'.
-  virtual std::vector<RowVectorPtr> executeVector(
-      const std::string& sql,
-      const std::vector<RowVectorPtr>& probeInput,
-      const std::vector<RowVectorPtr>& buildInput,
-      const RowTypePtr& resultType) {
-    VELOX_UNSUPPORTED();
-  }
-
-  virtual std::vector<velox::RowVectorPtr> execute(const std::string& sql) {
+  virtual std::vector<velox::RowVectorPtr> execute(const std::string& /*sql*/) {
     VELOX_UNSUPPORTED();
   }
 
   virtual std::vector<velox::RowVectorPtr> execute(
-      const std::string& sql,
-      const std::string& sessionProperty) {
+      const std::string& /*sql*/,
+      const std::string& /*sessionProperty*/) {
     VELOX_UNSUPPORTED();
   }
 
@@ -121,8 +144,20 @@ class ReferenceQueryRunner {
     return aggregatePool_;
   }
 
+  bool isSupportedDwrfType(const TypePtr& type);
+
+  /// Returns the name of the values node table in the form t_<id>.
+  std::string getTableName(const core::ValuesNodePtr& valuesNode) {
+    return fmt::format("t_{}", valuesNode->id());
+  }
+
+  // Traverses all nodes in the plan and returns all tables and their names.
+  std::unordered_map<std::string, std::vector<velox::RowVectorPtr>>
+  getAllTables(const core::PlanNodePtr& plan);
+
  private:
   memory::MemoryPool* aggregatePool_;
-};
 
+  std::optional<std::string> joinSourceToSql(const core::PlanNodePtr& planNode);
+};
 } // namespace facebook::velox::exec::test

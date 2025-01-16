@@ -255,4 +255,122 @@ TEST_F(PrestoQueryRunnerTest, toSql) {
   }
 }
 
+TEST_F(PrestoQueryRunnerTest, toSqlJoins) {
+  auto aggregatePool = rootPool_->addAggregateChild("toSqlJoins");
+  auto queryRunner = std::make_unique<PrestoQueryRunner>(
+      aggregatePool.get(),
+      "http://unused",
+      "hive",
+      static_cast<std::chrono::milliseconds>(1000));
+
+  auto t = makeRowVector(
+      {"t0", "t1", "t2"},
+      {
+          makeFlatVector<int64_t>({}),
+          makeFlatVector<int32_t>({}),
+          makeFlatVector<bool>({}),
+      });
+  auto u = makeRowVector(
+      {"u0", "u1", "u2"},
+      {
+          makeFlatVector<int64_t>({}),
+          makeFlatVector<int32_t>({}),
+          makeFlatVector<bool>({}),
+      });
+  auto v = makeRowVector(
+      {"v0", "v1", "v2"},
+      {
+          makeFlatVector<int64_t>({}),
+          makeFlatVector<int32_t>({}),
+          makeFlatVector<bool>({}),
+      });
+  auto w = makeRowVector(
+      {"w0", "w1", "w2"},
+      {
+          makeFlatVector<int64_t>({}),
+          makeFlatVector<int32_t>({}),
+          makeFlatVector<bool>({}),
+      });
+
+  // Single join.
+  {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values({t})
+                    .hashJoin(
+                        {"t0"},
+                        {"u0"},
+                        PlanBuilder(planNodeIdGenerator).values({u}).planNode(),
+                        /*filter=*/"",
+                        {"t0", "t1"},
+                        core::JoinType::kInner)
+                    .planNode();
+    EXPECT_EQ(
+        *queryRunner->toSql(plan),
+        "SELECT t0, t1 FROM t_0 INNER JOIN t_1 ON t0 = u0");
+  }
+
+  // Two joins with a filter.
+  {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values({t})
+                    .hashJoin(
+                        {"t0"},
+                        {"u0"},
+                        PlanBuilder(planNodeIdGenerator).values({u}).planNode(),
+                        /*filter=*/"",
+                        {"t0"},
+                        core::JoinType::kLeftSemiFilter)
+                    .hashJoin(
+                        {"t0"},
+                        {"v0"},
+                        PlanBuilder(planNodeIdGenerator).values({v}).planNode(),
+                        "v1 > 0",
+                        {"t0", "v1"},
+                        core::JoinType::kInner)
+                    .planNode();
+    EXPECT_EQ(
+        *queryRunner->toSql(plan),
+        "SELECT t0, v1"
+        " FROM (SELECT t0 FROM t_0 WHERE t0 IN (SELECT u0 FROM t_1))"
+        " INNER JOIN t_3 ON t0 = v0 AND (cast(v1 as BIGINT) > BIGINT '0')");
+  }
+
+  // Three joins.
+  {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values({t})
+                    .hashJoin(
+                        {"t0"},
+                        {"u0"},
+                        PlanBuilder(planNodeIdGenerator).values({u}).planNode(),
+                        /*filter=*/"",
+                        {"t0", "t1"},
+                        core::JoinType::kLeft)
+                    .hashJoin(
+                        {"t0"},
+                        {"v0"},
+                        PlanBuilder(planNodeIdGenerator).values({v}).planNode(),
+                        /*filter=*/"",
+                        {"t0", "v1"},
+                        core::JoinType::kInner)
+                    .hashJoin(
+                        {"t0", "v1"},
+                        {"w0", "w1"},
+                        PlanBuilder(planNodeIdGenerator).values({w}).planNode(),
+                        /*filter=*/"",
+                        {"t0", "w1"},
+                        core::JoinType::kFull)
+                    .planNode();
+    EXPECT_EQ(
+        *queryRunner->toSql(plan),
+        "SELECT t0, w1"
+        " FROM (SELECT t0, v1 FROM (SELECT t0, t1 FROM t_0 LEFT JOIN t_1 ON t0 = u0)"
+        " INNER JOIN t_3 ON t0 = v0)"
+        " FULL OUTER JOIN t_5 ON t0 = w0 AND v1 = w1");
+  }
+}
+
 } // namespace facebook::velox::exec::test

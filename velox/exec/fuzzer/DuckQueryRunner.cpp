@@ -13,6 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include <optional>
+#include <set>
+#include <unordered_map>
+
 #include "velox/exec/fuzzer/DuckQueryRunner.h"
 #include "velox/exec/fuzzer/ToSQLUtil.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
@@ -102,23 +107,39 @@ DuckQueryRunner::aggregationFunctionDataSpecs() const {
   return kAggregationFunctionDataSpecs;
 }
 
+std::pair<
+    std::optional<std::multiset<std::vector<velox::variant>>>,
+    ReferenceQueryErrorCode>
+DuckQueryRunner::execute(const core::PlanNodePtr& plan) {
+  if (std::optional<std::string> sql = toSql(plan)) {
+    try {
+      DuckDbQueryRunner queryRunner;
+      std::unordered_map<std::string, std::vector<RowVectorPtr>> inputMap =
+          getAllTables(plan);
+      for (const auto& [tableName, input] : inputMap) {
+        queryRunner.createTable(tableName, input);
+      }
+      return std::make_pair(
+          queryRunner.execute(*sql, plan->outputType()),
+          ReferenceQueryErrorCode::kSuccess);
+    } catch (...) {
+      LOG(WARNING) << "Query failed in DuckDB";
+      return std::make_pair(
+          std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
+    }
+  }
+
+  LOG(INFO) << "Query not supported in DuckDB";
+  return std::make_pair(
+      std::nullopt, ReferenceQueryErrorCode::kReferenceQueryUnsupported);
+}
+
 std::multiset<std::vector<velox::variant>> DuckQueryRunner::execute(
     const std::string& sql,
     const std::vector<RowVectorPtr>& input,
     const RowTypePtr& resultType) {
   DuckDbQueryRunner queryRunner;
   queryRunner.createTable("tmp", input);
-  return queryRunner.execute(sql, resultType);
-}
-
-std::multiset<std::vector<velox::variant>> DuckQueryRunner::execute(
-    const std::string& sql,
-    const std::vector<RowVectorPtr>& probeInput,
-    const std::vector<RowVectorPtr>& buildInput,
-    const RowTypePtr& resultType) {
-  DuckDbQueryRunner queryRunner;
-  queryRunner.createTable("t", probeInput);
-  queryRunner.createTable("u", buildInput);
   return queryRunner.execute(sql, resultType);
 }
 
@@ -162,6 +183,11 @@ std::optional<std::string> DuckQueryRunner::toSql(
   if (const auto joinNode =
           std::dynamic_pointer_cast<const core::NestedLoopJoinNode>(plan)) {
     return toSql(joinNode);
+  }
+
+  if (const auto valuesNode =
+          std::dynamic_pointer_cast<const core::ValuesNode>(plan)) {
+    return toSql(valuesNode);
   }
 
   VELOX_NYI();
@@ -337,139 +363,6 @@ std::optional<std::string> DuckQueryRunner::toSql(
   }
 
   sql << ") as row_number FROM tmp";
-
-  return sql.str();
-}
-
-std::optional<std::string> DuckQueryRunner::toSql(
-    const std::shared_ptr<const core::HashJoinNode>& joinNode) {
-  const auto& joinKeysToSql = [](auto keys) {
-    std::stringstream out;
-    for (auto i = 0; i < keys.size(); ++i) {
-      if (i > 0) {
-        out << ", ";
-      }
-      out << keys[i]->name();
-    }
-    return out.str();
-  };
-
-  const auto filterToSql = [](core::TypedExprPtr filter) {
-    auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(filter);
-    return toCallSql(call);
-  };
-
-  const auto& joinConditionAsSql = [&](auto joinNode) {
-    std::stringstream out;
-    for (auto i = 0; i < joinNode->leftKeys().size(); ++i) {
-      if (i > 0) {
-        out << " AND ";
-      }
-      out << joinNode->leftKeys()[i]->name() << " = "
-          << joinNode->rightKeys()[i]->name();
-    }
-    if (joinNode->filter()) {
-      out << " AND " << filterToSql(joinNode->filter());
-    }
-    return out.str();
-  };
-
-  const auto& outputNames = joinNode->outputType()->names();
-
-  std::stringstream sql;
-  if (joinNode->isLeftSemiProjectJoin()) {
-    sql << "SELECT "
-        << folly::join(", ", outputNames.begin(), --outputNames.end());
-  } else {
-    sql << "SELECT " << folly::join(", ", outputNames);
-  }
-
-  switch (joinNode->joinType()) {
-    case core::JoinType::kInner:
-      sql << " FROM t INNER JOIN u ON " << joinConditionAsSql(joinNode);
-      break;
-    case core::JoinType::kLeft:
-      sql << " FROM t LEFT JOIN u ON " << joinConditionAsSql(joinNode);
-      break;
-    case core::JoinType::kFull:
-      sql << " FROM t FULL OUTER JOIN u ON " << joinConditionAsSql(joinNode);
-      break;
-    case core::JoinType::kLeftSemiFilter:
-      // Multiple columns returned by a scalar subquery is not supported in
-      // DuckDB. A scalar subquery expression is a subquery that returns one
-      // result row from exactly one column for every input row.
-      if (joinNode->leftKeys().size() > 1) {
-        return std::nullopt;
-      }
-      sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
-          << " IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-          << " FROM u";
-      if (joinNode->filter()) {
-        sql << " WHERE " << filterToSql(joinNode->filter());
-      }
-      sql << ")";
-      break;
-    case core::JoinType::kLeftSemiProject:
-      if (joinNode->isNullAware()) {
-        sql << ", " << joinKeysToSql(joinNode->leftKeys()) << " IN (SELECT "
-            << joinKeysToSql(joinNode->rightKeys()) << " FROM u";
-        if (joinNode->filter()) {
-          sql << " WHERE " << filterToSql(joinNode->filter());
-        }
-        sql << ") FROM t";
-      } else {
-        sql << ", EXISTS (SELECT * FROM u WHERE "
-            << joinConditionAsSql(joinNode);
-        sql << ") FROM t";
-      }
-      break;
-    case core::JoinType::kAnti:
-      if (joinNode->isNullAware()) {
-        sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
-            << " NOT IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-            << " FROM u";
-        if (joinNode->filter()) {
-          sql << " WHERE " << filterToSql(joinNode->filter());
-        }
-        sql << ")";
-      } else {
-        sql << " FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE "
-            << joinConditionAsSql(joinNode);
-        sql << ")";
-      }
-      break;
-    default:
-      VELOX_UNREACHABLE(
-          "Unknown join type: {}", static_cast<int>(joinNode->joinType()));
-  }
-
-  return sql.str();
-}
-
-std::optional<std::string> DuckQueryRunner::toSql(
-    const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode) {
-  std::stringstream sql;
-  sql << "SELECT " << folly::join(", ", joinNode->outputType()->names());
-
-  // Nested loop join without filter.
-  VELOX_CHECK(
-      joinNode->joinCondition() == nullptr,
-      "This code path should be called only for nested loop join without filter");
-  const std::string joinCondition{"(1 = 1)"};
-  switch (joinNode->joinType()) {
-    case core::JoinType::kInner:
-      sql << " FROM t INNER JOIN u ON " << joinCondition;
-      break;
-    case core::JoinType::kLeft:
-      sql << " FROM t LEFT JOIN u ON " << joinCondition;
-      break;
-    case core::JoinType::kFull:
-      sql << " FROM t FULL OUTER JOIN u ON " << joinCondition;
-      break;
-    default:
-      VELOX_UNREACHABLE(
-          "Unknown join type: {}", static_cast<int>(joinNode->joinType()));
-  }
 
   return sql.str();
 }

@@ -324,6 +324,8 @@ class ValuesNode : public PlanNode {
   const size_t repeatTimes_;
 };
 
+using ValuesNodePtr = std::shared_ptr<const ValuesNode>;
+
 class ArrowStreamNode : public PlanNode {
  public:
   ArrowStreamNode(

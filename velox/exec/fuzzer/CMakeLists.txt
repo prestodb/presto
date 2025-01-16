@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_fuzzer_util DuckQueryRunner.cpp PrestoQueryRunner.cpp
-                              FuzzerUtil.cpp ToSQLUtil.cpp)
+add_library(
+  velox_fuzzer_util
+  ReferenceQueryRunner.cpp
+  DuckQueryRunner.cpp
+  PrestoQueryRunner.cpp
+  FuzzerUtil.cpp
+  ToSQLUtil.cpp)
 
 target_link_libraries(
   velox_fuzzer_util

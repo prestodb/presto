@@ -18,7 +18,6 @@
 
 #include <folly/SocketAddress.h>
 #include <folly/io/async/EventBaseThread.h>
-#include "velox/common/memory/Memory.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/vector/ComplexVector.h"
 
@@ -83,11 +82,12 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
       const std::vector<velox::RowVectorPtr>& input,
       const velox::RowTypePtr& resultType) override;
 
-  std::multiset<std::vector<velox::variant>> execute(
-      const std::string& sql,
-      const std::vector<RowVectorPtr>& probeInput,
-      const std::vector<RowVectorPtr>& buildInput,
-      const RowTypePtr& resultType) override;
+  /// Executes the plan and returns the result along with success or fail error
+  /// code.
+  std::pair<
+      std::optional<std::multiset<std::vector<velox::variant>>>,
+      ReferenceQueryErrorCode>
+  execute(const core::PlanNodePtr& plan) override;
 
   /// Executes Presto SQL query and returns the results. Tables referenced by
   /// the query must already exist.
@@ -105,17 +105,13 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
       const std::vector<RowVectorPtr>& input,
       const RowTypePtr& resultType) override;
 
-  std::vector<RowVectorPtr> executeVector(
-      const std::string& sql,
-      const std::vector<RowVectorPtr>& probeInput,
-      const std::vector<RowVectorPtr>& buildInput,
-      const RowTypePtr& resultType) override;
-
   std::shared_ptr<QueryRunnerContext> queryRunnerContext() {
     return queryRunnerContext_;
   }
 
  private:
+  using ReferenceQueryRunner::toSql;
+
   memory::MemoryPool* pool() {
     return pool_.get();
   }
@@ -136,14 +132,11 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
   std::optional<std::string> toSql(
       const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
 
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const velox::core::HashJoinNode>& joinNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::NestedLoopJoinNode>& joinNode);
-
-  std::optional<std::string> toSql(
-      const std::shared_ptr<const core::ValuesNode>& valuesNode);
+  /// Executes SQL query returned by the 'toSql' method based on the plan.
+  /// Returns std::nullopt if the plan is not supported.
+  std::vector<velox::RowVectorPtr> executeAndReturnVector(
+      const std::string& sql,
+      const core::PlanNodePtr& plan);
 
   std::string startQuery(
       const std::string& sql,
