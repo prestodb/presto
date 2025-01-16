@@ -795,43 +795,46 @@ void PrestoTask::updateExecutionInfoLocked(
   }
   for (int i = 0; i < veloxTaskStats.pipelineStats.size(); ++i) {
     auto& veloxPipeline = veloxTaskStats.pipelineStats[i];
-    if (veloxPipeline.inputPipeline) {
-      const auto& firstVeloxOpStats = veloxPipeline.operatorStats[0];
-      prestoTaskStats.rawInputPositions += firstVeloxOpStats.rawInputPositions;
-      prestoTaskStats.rawInputDataSizeInBytes +=
-          firstVeloxOpStats.rawInputBytes;
-      prestoTaskStats.processedInputPositions +=
-          firstVeloxOpStats.inputPositions;
-      prestoTaskStats.processedInputDataSizeInBytes +=
-          firstVeloxOpStats.inputBytes;
-    }
-    if (veloxPipeline.outputPipeline) {
-      const auto& lastVeloxOpStats = veloxPipeline.operatorStats.back();
-      prestoTaskStats.outputPositions += lastVeloxOpStats.outputPositions;
-      prestoTaskStats.outputDataSizeInBytes += lastVeloxOpStats.outputBytes;
-    }
 
-    for (auto j = 0; j < veloxPipeline.operatorStats.size(); ++j) {
-      auto& veloxOp = veloxPipeline.operatorStats[j];
-      auto wallNanos = veloxOp.isBlockedTiming.wallNanos +
-          veloxOp.addInputTiming.wallNanos + veloxOp.getOutputTiming.wallNanos +
-          veloxOp.finishTiming.wallNanos;
-      auto cpuNanos = veloxOp.isBlockedTiming.cpuNanos +
-          veloxOp.addInputTiming.cpuNanos + veloxOp.getOutputTiming.cpuNanos +
-          veloxOp.finishTiming.cpuNanos;
-
-      prestoTaskStats.totalScheduledTimeInNanos += wallNanos;
-      prestoTaskStats.totalCpuTimeInNanos += cpuNanos;
-      prestoTaskStats.totalBlockedTimeInNanos += veloxOp.blockedWallNanos;
-    }
-
-    for (auto j = 0; j < veloxPipeline.operatorStats.size(); ++j) {
-      auto& veloxOp = veloxPipeline.operatorStats[j];
-      for (const auto& stat : veloxOp.runtimeStats) {
-        auto statName = generateRuntimeStatName(veloxOp, stat.first);
-        addRuntimeMetric(taskRuntimeStats, statName, stat.second);
+    // tasks may fail before any operators are created;
+    // collect stats only when we have operators
+    if (!veloxPipeline.operatorStats.empty()) {
+      if (veloxPipeline.inputPipeline) {
+        const auto& firstVeloxOpStats = veloxPipeline.operatorStats[0];
+        prestoTaskStats.rawInputPositions +=
+            firstVeloxOpStats.rawInputPositions;
+        prestoTaskStats.rawInputDataSizeInBytes +=
+            firstVeloxOpStats.rawInputBytes;
+        prestoTaskStats.processedInputPositions +=
+            firstVeloxOpStats.inputPositions;
+        prestoTaskStats.processedInputDataSizeInBytes +=
+            firstVeloxOpStats.inputBytes;
       }
-      updateOperatorRuntimeStats(veloxOp, prestoTaskStats.runtimeStats);
+      if (veloxPipeline.outputPipeline) {
+        const auto& lastVeloxOpStats = veloxPipeline.operatorStats.back();
+        prestoTaskStats.outputPositions += lastVeloxOpStats.outputPositions;
+        prestoTaskStats.outputDataSizeInBytes += lastVeloxOpStats.outputBytes;
+      }
+
+      for (auto j = 0; j < veloxPipeline.operatorStats.size(); ++j) {
+        auto& veloxOp = veloxPipeline.operatorStats[j];
+        auto wallNanos = veloxOp.isBlockedTiming.wallNanos +
+            veloxOp.addInputTiming.wallNanos +
+            veloxOp.getOutputTiming.wallNanos + veloxOp.finishTiming.wallNanos;
+        auto cpuNanos = veloxOp.isBlockedTiming.cpuNanos +
+            veloxOp.addInputTiming.cpuNanos + veloxOp.getOutputTiming.cpuNanos +
+            veloxOp.finishTiming.cpuNanos;
+
+        prestoTaskStats.totalScheduledTimeInNanos += wallNanos;
+        prestoTaskStats.totalCpuTimeInNanos += cpuNanos;
+        prestoTaskStats.totalBlockedTimeInNanos += veloxOp.blockedWallNanos;
+
+        for (const auto& stat : veloxOp.runtimeStats) {
+          auto statName = generateRuntimeStatName(veloxOp, stat.first);
+          addRuntimeMetric(taskRuntimeStats, statName, stat.second);
+        }
+        updateOperatorRuntimeStats(veloxOp, prestoTaskStats.runtimeStats);
+      }
     }
 
     for (const auto& driverStat : veloxPipeline.driverStats) {
