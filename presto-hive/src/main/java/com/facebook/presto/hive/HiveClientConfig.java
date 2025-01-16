@@ -223,6 +223,19 @@ public class HiveClientConfig
     private int quickStatsMaxConcurrentCalls = 100;
     private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
     private boolean legacyTimestampBucketing;
+    private int configurationCacheMaxSize = 100;
+
+    public int getConfigurationCacheMaxSize()
+    {
+        return configurationCacheMaxSize;
+    }
+
+    @Config("hive.configuration-cache-max-size")
+    public HiveClientConfig setConfigurationCacheMaxSize(int configurationCacheMaxSize)
+    {
+        this.configurationCacheMaxSize = configurationCacheMaxSize;
+        return this;
+    }
 
     @Min(0)
     public int getMaxInitialSplits()
