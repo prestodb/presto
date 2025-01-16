@@ -44,6 +44,7 @@ jobs:
       matrix:
         runner: ["16-core-ubuntu"]
         type: ["debug", "release"]
+        link-type: ["shared", "static"]
     defaults:
       run:
         shell: bash
@@ -57,7 +58,8 @@ jobs:
         # it doesn't work
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
-      - name: Make ${{ matrix.type }} Build
+      - name: Make  ${{ matrix.link-type }} - ${{ matrix.type }} Build
+        if: ${{ matrix.link-type == 'static' }}
         env:
           MAKEFLAGS: 'MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4'
         run: |
@@ -70,6 +72,25 @@ jobs:
             "-DVELOX_ENABLE_GCS=ON"
             "-DVELOX_ENABLE_ABFS=ON"
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
+          )
+          make '${{ matrix.type }}'
+
+      - name: Make  ${{ matrix.link-type }} - ${{ matrix.type }} Build
+        if: ${{ matrix.link-type == 'shared' }}
+        env:
+          MAKEFLAGS: 'MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4'
+        run: |
+          EXTRA_CMAKE_FLAGS=(
+            "-DVELOX_ENABLE_BENCHMARKS=ON"
+            "-DVELOX_ENABLE_ARROW=ON"
+            "-DVELOX_ENABLE_PARQUET=ON"
+            "-DVELOX_ENABLE_HDFS=ON"
+            "-DVELOX_ENABLE_S3=ON"
+            "-DVELOX_ENABLE_GCS=ON"
+            "-DVELOX_ENABLE_ABFS=ON"
+            "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
+            "-DVELOX_MONO_LIBRARY=ON"
+            "-DVELOX_BUILD_SHARED=ON"
           )
           make '${{ matrix.type }}'
 
@@ -110,8 +131,8 @@ jobs:
           CONBENCH_PROJECT_COMMIT: "${{ inputs.ref || github.sha }}"
         run: |
           ./scripts/build-metrics.py upload \
-            --build_type "${{ matrix.type }}" \
-            --run_id "BM-${{ matrix.type }}-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --build_type "${{ matrix.link-type }}-${{ matrix.type }}" \
+            --run_id "BM-${{ matrix.link-type }}-${{ matrix.type }}-${{ github.run_id }}-${{ github.run_attempt }}" \
             --pr_number "${{ github.event.number }}" \
             --sha "${{ inputs.ref || github.sha }}" \
             "/tmp/metrics"
