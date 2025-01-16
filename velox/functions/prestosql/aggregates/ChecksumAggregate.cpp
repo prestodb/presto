@@ -15,7 +15,7 @@
  */
 
 #define XXH_INLINE_ALL
-#include <xxhash.h>
+#include <xxhash.h> // @manual=third-party//xxHash:xxhash
 
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
