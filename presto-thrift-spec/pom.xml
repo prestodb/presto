@@ -21,7 +21,7 @@
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-main</artifactId>
+            <artifactId>presto-main-base</artifactId>
         </dependency>
     </dependencies>
 
@@ -33,7 +33,7 @@
                 <configuration>
                     <ignoredDependencies>
                         <ignoredDependency>com.facebook.presto:presto-common</ignoredDependency>
-                        <ignoredDependency>com.facebook.presto:presto-main</ignoredDependency>
+                        <ignoredDependency>com.facebook.presto:presto-main-base</ignoredDependency>
                     </ignoredDependencies>
                 </configuration>
             </plugin>

@@ -147,6 +147,7 @@
         <module>presto-bytecode</module>
         <module>presto-client</module>
         <module>presto-parser</module>
+        <module>presto-main-base</module>
         <module>presto-main</module>
         <module>presto-ml</module>
         <module>presto-geospatial-toolkit</module>
@@ -762,6 +763,19 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-main-base</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-main-base</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-metastore</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -1026,6 +1040,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-function-namespace-managers</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-function-namespace-managers-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

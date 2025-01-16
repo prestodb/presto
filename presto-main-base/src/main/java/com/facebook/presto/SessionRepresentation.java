@@ -13,7 +13,6 @@
  */
 package com.facebook.presto;
 
-import com.facebook.airlift.http.server.BasicPrincipal;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
@@ -21,6 +20,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.security.BasicPrincipal;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
