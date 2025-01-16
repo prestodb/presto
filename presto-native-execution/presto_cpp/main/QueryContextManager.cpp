@@ -94,37 +94,6 @@ void updateVeloxConfigs(
   }
 }
 
-void updateVeloxConnectorConfigs(
-    std::unordered_map<
-        std::string,
-        std::unordered_map<std::string, std::string>>& connectorConfigStrings) {
-  const auto& systemConfig = SystemConfig::instance();
-  for (auto& entry : connectorConfigStrings) {
-    auto& connectorConfig = entry.second;
-    // If queryDataCacheEnabledDefault is true, when `node_selection_strategy`
-    // is
-    //       not set                             retain cache
-    //       SOFT_AFFINITY                       retain cache
-    //       HARD_AFFINITY                       retain cache
-    //       NO_PREFERENCE                       do not retain cache
-    // If queryDataCacheEnabledDefault is false, when `node_selection_strategy`
-    // is
-    //       not set                             do not retain cache
-    //       SOFT_AFFINITY                       retain cache
-    //       HARD_AFFINITY                       retain cache
-    //       NO_PREFERENCE                       do not retain cache
-    connectorConfig.emplace(
-        connector::hive::HiveConfig::kCacheNoRetentionSession,
-        systemConfig->queryDataCacheEnabledDefault() ? "false" : "true");
-    auto it = connectorConfig.find("node_selection_strategy");
-    if (it != connectorConfig.end()) {
-      connectorConfig[connector::hive::HiveConfig::kCacheNoRetentionSession] =
-          (it->second != "SOFT_AFFINITY" && it->second != "HARD_AFFINITY")
-          ? "true"
-          : "false";
-    }
-  }
-}
 } // namespace
 
 QueryContextManager::QueryContextManager(
@@ -157,7 +126,6 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   }
 
   updateVeloxConfigs(configStrings);
-  updateVeloxConnectorConfigs(connectorConfigStrings);
 
   std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
       connectorConfigs;
