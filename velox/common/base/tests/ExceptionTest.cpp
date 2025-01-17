@@ -19,6 +19,8 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/config/GlobalConfig.h"
+#include "velox/flag_definitions/flags.h"
 
 using namespace facebook::velox;
 
@@ -83,6 +85,7 @@ void testExceptionTraceCollectionControl(bool userException, bool enabled) {
     FLAGS_velox_exception_system_stacktrace_enabled = enabled ? true : false;
     FLAGS_velox_exception_user_stacktrace_enabled = folly::Random::oneIn(2);
   }
+  translateFlagsToGlobalConfig();
   try {
     if (userException) {
       throw VeloxUserError(
@@ -109,8 +112,8 @@ void testExceptionTraceCollectionControl(bool userException, bool enabled) {
     SCOPED_TRACE(fmt::format(
         "enabled: {}, user flag: {}, sys flag: {}",
         enabled,
-        FLAGS_velox_exception_user_stacktrace_enabled,
-        FLAGS_velox_exception_system_stacktrace_enabled));
+        config::globalConfig.exceptionUserStacktraceEnabled,
+        config::globalConfig.exceptionSystemStacktraceEnabled));
     ASSERT_EQ(userException, e.exceptionType() == VeloxException::Type::kUser);
     ASSERT_EQ(enabled, e.stackTrace() != nullptr);
   }
@@ -123,6 +126,7 @@ void testExceptionTraceCollectionRateControl(
   // Enable trace rate control in the test.
   FLAGS_velox_exception_user_stacktrace_enabled = true;
   FLAGS_velox_exception_system_stacktrace_enabled = true;
+  translateFlagsToGlobalConfig();
   // Set rate control interval to a large value to avoid time related test
   // flakiness.
   const int kRateLimitIntervalMs = 4000;
@@ -146,6 +150,7 @@ void testExceptionTraceCollectionRateControl(
     FLAGS_velox_exception_user_stacktrace_rate_limit_ms =
         folly::Random::rand32();
   }
+  translateFlagsToGlobalConfig();
   for (int iter = 0; iter < 3; ++iter) {
     try {
       if (userException) {
@@ -174,8 +179,8 @@ void testExceptionTraceCollectionRateControl(
           "userException: {}, hasRateLimit: {}, user limit: {}ms, sys limit: {}ms",
           userException,
           hasRateLimit,
-          FLAGS_velox_exception_user_stacktrace_rate_limit_ms,
-          FLAGS_velox_exception_system_stacktrace_rate_limit_ms));
+          config::globalConfig.exceptionUserStacktraceRateLimitMs,
+          config::globalConfig.exceptionSystemStacktraceRateLimitMs));
       ASSERT_EQ(
           userException, e.exceptionType() == VeloxException::Type::kUser);
       ASSERT_EQ(!hasRateLimit || ((iter % 2) == 0), e.stackTrace() != nullptr);

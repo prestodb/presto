@@ -37,7 +37,7 @@ MallocAllocator::MallocAllocator(size_t capacity, uint32_t reservationByteLimit)
 
 MallocAllocator::~MallocAllocator() {
   // TODO: Remove the check when memory leak issue is resolved.
-  if (FLAGS_velox_memory_leak_check_enabled) {
+  if (config::globalConfig.memoryLeakCheckEnabled) {
     VELOX_CHECK(
         ((allocatedBytes_ - reservations_.read()) == 0) &&
             (numAllocated_ == 0) && (numMapped_ == 0),

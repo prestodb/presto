@@ -20,8 +20,6 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MemoryAllocator.h"
 
-DECLARE_bool(velox_memory_leak_check_enabled);
-
 namespace facebook::velox::memory {
 /// The implementation of MemoryAllocator using malloc.
 class MallocAllocator : public MemoryAllocator {

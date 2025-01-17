@@ -62,6 +62,7 @@ target_link_libraries(
   velox_dwio_common_test
   velox_dwio_common_test_utils
   velox_temp_path
+  velox_global_config
   velox_vector_test_lib
   Boost::regex
   velox_link_libs

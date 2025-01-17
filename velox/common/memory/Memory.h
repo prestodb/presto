@@ -25,7 +25,6 @@
 
 #include <fmt/format.h>
 #include <folly/Synchronized.h>
-#include <gflags/gflags.h>
 #include <glog/logging.h>
 
 #include <velox/common/base/Exceptions.h>
@@ -36,13 +35,10 @@
 #include "folly/SharedMutex.h"
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/memory/Allocation.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MemoryPool.h"
-
-DECLARE_bool(velox_memory_leak_check_enabled);
-DECLARE_bool(velox_memory_pool_debug_enabled);
-DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
 
 namespace facebook::velox::memory {
 #define VELOX_MEM_LOG_PREFIX "[MEM] "
@@ -65,18 +61,18 @@ struct MemoryManagerOptions {
 
   /// If true, enable memory usage tracking in the default memory pool.
   bool trackDefaultUsage{
-      FLAGS_velox_enable_memory_usage_track_in_default_memory_pool};
+      config::globalConfig.enableMemoryUsageTrackInDefaultMemoryPool};
 
   /// If true, check the memory pool and usage leaks on destruction.
   ///
   /// TODO: deprecate this flag after all the existing memory leak use cases
   /// have been fixed.
-  bool checkUsageLeak{FLAGS_velox_memory_leak_check_enabled};
+  bool checkUsageLeak{config::globalConfig.memoryLeakCheckEnabled};
 
   /// If true, the memory pool will be running in debug mode to track the
   /// allocation and free call stacks to detect the source of memory leak for
   /// testing purpose.
-  bool debugEnabled{FLAGS_velox_memory_pool_debug_enabled};
+  bool debugEnabled{config::globalConfig.memoryPoolDebugEnabled};
 
   /// Terminates the process and generates a core file on an allocation failure
   bool coreOnAllocationFailureEnabled{false};

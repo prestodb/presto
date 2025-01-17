@@ -16,6 +16,7 @@
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include <re2/re2.h>
 #include <filesystem>
+#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
@@ -341,8 +342,8 @@ void setupMemory(
     int64_t allocatorCapacity,
     int64_t arbitratorCapacity,
     bool enableGlobalArbitration) {
-  FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
-  FLAGS_velox_memory_leak_check_enabled = true;
+  config::globalConfig.enableMemoryUsageTrackInDefaultMemoryPool = true;
+  config::globalConfig.memoryLeakCheckEnabled = true;
   facebook::velox::memory::SharedArbitrator::registerFactory();
   facebook::velox::memory::MemoryManagerOptions options;
   options.allocatorCapacity = allocatorCapacity;

@@ -19,6 +19,7 @@
 #include "folly/Range.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
+#include "velox/flag_definitions/flags.h"
 #include "velox/type/StringView.h"
 
 #include <glog/logging.h>
@@ -27,8 +28,7 @@
 
 DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
 
-namespace facebook {
-namespace velox {
+namespace facebook::velox {
 
 static_assert(Buffer::is_pod_like_v<int64_t>, "");
 static_assert(Buffer::is_pod_like_v<StringView>, "");
@@ -40,6 +40,7 @@ class BufferTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
+    translateFlagsToGlobalConfig();
   }
 
   void SetUp() override {
@@ -490,5 +491,4 @@ TEST_F(BufferTest, sliceBooleanBuffer) {
       Buffer::slice<bool>(bufferPtr, 5, 6, nullptr), "Pool must not be null.");
 }
 
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox

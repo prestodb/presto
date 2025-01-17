@@ -17,6 +17,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "velox/dwio/dwrf/writer/StringDictionaryEncoder.h"
+#include "velox/flag_definitions/flags.h"
 
 DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
 
@@ -28,6 +29,7 @@ class TestStringDictionaryEncoder : public ::testing::Test {
  protected:
   static void SetUpTestCase() {
     FLAGS_velox_enable_memory_usage_track_in_default_memory_pool = true;
+    translateFlagsToGlobalConfig();
     memory::MemoryManager::testingSetInstance({});
   }
 };

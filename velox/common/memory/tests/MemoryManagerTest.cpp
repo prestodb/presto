@@ -24,6 +24,7 @@
 #include "velox/common/memory/MallocAllocator.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/SharedArbitrator.h"
+#include "velox/flag_definitions/flags.h"
 
 DECLARE_int32(velox_memory_num_shared_leaf_pools);
 DECLARE_bool(velox_enable_memory_usage_track_in_default_memory_pool);
@@ -44,6 +45,7 @@ class MemoryManagerTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     SharedArbitrator::registerFactory();
+    translateFlagsToGlobalConfig();
   }
 
   inline static const std::string arbitratorKind_{"SHARED"};
@@ -370,6 +372,7 @@ TEST_F(MemoryManagerTest, defaultMemoryUsageTracking) {
   for (bool trackDefaultMemoryUsage : {false, true}) {
     FLAGS_velox_enable_memory_usage_track_in_default_memory_pool =
         trackDefaultMemoryUsage;
+    translateFlagsToGlobalConfig();
     MemoryManager manager{};
     auto defaultPool = manager.addLeafPool("defaultMemoryUsageTracking");
     ASSERT_EQ(defaultPool->trackUsage(), trackDefaultMemoryUsage);

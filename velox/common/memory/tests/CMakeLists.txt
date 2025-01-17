@@ -38,6 +38,7 @@ target_link_libraries(
     velox_exception
     velox_exec
     velox_exec_test_lib
+    velox_flag_definitions
     velox_memory
     velox_temp_path
     velox_test_util

@@ -17,6 +17,7 @@
 #include "velox/common/base/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/OperatorUtils.h"
@@ -649,7 +650,7 @@ void Operator::MemoryReclaimer::enterArbitration() {
   }
 
   Driver* const runningDriver = driverThreadCtx->driverCtx()->driver;
-  if (!FLAGS_velox_memory_pool_capacity_transfer_across_tasks) {
+  if (!config::globalConfig.memoryPoolCapacityTransferAcrossTasks) {
     if (auto opDriver = ensureDriver()) {
       // NOTE: the current running driver might not be the driver of the
       // operator that requests memory arbitration. The reason is that an
@@ -679,7 +680,7 @@ void Operator::MemoryReclaimer::leaveArbitration() noexcept {
     return;
   }
   Driver* const runningDriver = driverThreadCtx->driverCtx()->driver;
-  if (!FLAGS_velox_memory_pool_capacity_transfer_across_tasks) {
+  if (!config::globalConfig.memoryPoolCapacityTransferAcrossTasks) {
     if (auto opDriver = ensureDriver()) {
       VELOX_CHECK_EQ(
           runningDriver->task()->taskId(),

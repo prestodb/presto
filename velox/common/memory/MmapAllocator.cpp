@@ -191,7 +191,7 @@ MachinePageCount MmapAllocator::freeNonContiguousInternal(
       ClockTimer timer(clocks);
       pages = sizeClass->free(allocation);
     }
-    if ((pages > 0) && FLAGS_velox_time_allocations) {
+    if ((pages > 0) && config::globalConfig.timeAllocations) {
       // Increment the free time only if the allocation contained
       // pages in the class. Note that size class indices in the
       // allocator are not necessarily the same as in the stats.

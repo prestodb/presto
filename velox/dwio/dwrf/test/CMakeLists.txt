@@ -19,6 +19,7 @@ set(TEST_LINK_LIBS
     velox_dwio_dwrf_reader
     velox_dwio_dwrf_writer
     velox_row_fast
+    velox_flag_definitions
     gflags::gflags
     GTest::gtest
     GTest::gtest_main
