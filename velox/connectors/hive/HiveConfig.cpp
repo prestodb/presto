@@ -214,12 +214,6 @@ bool HiveConfig::readStatsBasedFilterReorderDisabled(
       config_->get<bool>(kReadStatsBasedFilterReorderDisabled, false));
 }
 
-bool HiveConfig::cacheNoRetention(const config::ConfigBase* session) const {
-  return session->get<bool>(
-      kCacheNoRetentionSession,
-      config_->get<bool>(kCacheNoRetention, /*defaultValue=*/false));
-}
-
 std::string HiveConfig::hiveLocalDataPath() const {
   return config_->get<std::string>(kLocalDataPath, "");
 }

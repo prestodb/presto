@@ -52,7 +52,6 @@ TEST(HiveConfigTest, defaultConfig) {
       hiveConfig.sortWriterFinishTimeSliceLimitMs(emptySession.get()), 5'000);
   ASSERT_TRUE(hiveConfig.isPartitionPathAsLowerCase(emptySession.get()));
   ASSERT_TRUE(hiveConfig.allowNullPartitionKeys(emptySession.get()));
-  ASSERT_FALSE(hiveConfig.cacheNoRetention(emptySession.get()));
   ASSERT_EQ(hiveConfig.loadQuantum(emptySession.get()), 8 << 20);
 }
 
@@ -73,7 +72,6 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kSortWriterMaxOutputRows, "100"},
       {HiveConfig::kSortWriterMaxOutputBytes, "100MB"},
       {HiveConfig::kSortWriterFinishTimeSliceLimitMs, "400"},
-      {HiveConfig::kCacheNoRetention, "true"},
       {HiveConfig::kReadStatsBasedFilterReorderDisabled, "true"},
       {HiveConfig::kLoadQuantum, std::to_string(4 << 20)}};
   HiveConfig hiveConfig(
@@ -101,7 +99,6 @@ TEST(HiveConfigTest, overrideConfig) {
       hiveConfig.sortWriterMaxOutputBytes(emptySession.get()), 100UL << 20);
   ASSERT_EQ(
       hiveConfig.sortWriterFinishTimeSliceLimitMs(emptySession.get()), 400);
-  ASSERT_TRUE(hiveConfig.cacheNoRetention(emptySession.get()));
   ASSERT_TRUE(
       hiveConfig.readStatsBasedFilterReorderDisabled(emptySession.get()));
   ASSERT_EQ(hiveConfig.loadQuantum(emptySession.get()), 4 << 20);
@@ -121,7 +118,6 @@ TEST(HiveConfigTest, overrideSession) {
       {HiveConfig::kPartitionPathAsLowerCaseSession, "false"},
       {HiveConfig::kAllowNullPartitionKeysSession, "false"},
       {HiveConfig::kIgnoreMissingFilesSession, "true"},
-      {HiveConfig::kCacheNoRetentionSession, "true"},
       {HiveConfig::kReadStatsBasedFilterReorderDisabledSession, "true"},
       {HiveConfig::kLoadQuantumSession, std::to_string(4 << 20)}};
   const auto session =
@@ -147,7 +143,6 @@ TEST(HiveConfigTest, overrideSession) {
   ASSERT_FALSE(hiveConfig.isPartitionPathAsLowerCase(session.get()));
   ASSERT_FALSE(hiveConfig.allowNullPartitionKeys(session.get()));
   ASSERT_TRUE(hiveConfig.ignoreMissingFiles(session.get()));
-  ASSERT_TRUE(hiveConfig.cacheNoRetention(session.get()));
   ASSERT_TRUE(hiveConfig.readStatsBasedFilterReorderDisabled(session.get()));
   ASSERT_EQ(hiveConfig.loadQuantum(session.get()), 4 << 20);
 }

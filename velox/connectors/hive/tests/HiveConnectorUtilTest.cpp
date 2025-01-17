@@ -266,30 +266,21 @@ TEST_F(HiveConnectorUtilTest, configureReaderOptions) {
 
 TEST_F(HiveConnectorUtilTest, cacheRetention) {
   struct {
-    bool sessionNoCacheRetention;
     bool splitCacheable;
     bool expectedNoCacheRetention;
 
     std::string debugString() const {
       return fmt::format(
-          "sessionNoCacheRetention {}, splitCacheable {}, expectedNoCacheRetention {}",
-          sessionNoCacheRetention,
+          "splitCacheable {}, expectedNoCacheRetention {}",
           splitCacheable,
           expectedNoCacheRetention);
     }
-  } testSettings[] = {
-      {false, false, true},
-      {true, false, true},
-      {false, true, false},
-      {true, true, true}};
+  } testSettings[] = {{false, true}, {true, false}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
 
-    std::unordered_map<std::string, std::string> sessionConfigs;
-    sessionConfigs[hive::HiveConfig::kCacheNoRetentionSession] =
-        testData.sessionNoCacheRetention ? "true" : "false";
-    config::ConfigBase sessionProperties(std::move(sessionConfigs));
+    config::ConfigBase sessionProperties({});
     auto hiveConfig =
         std::make_shared<hive::HiveConfig>(std::make_shared<config::ConfigBase>(
             std::unordered_map<std::string, std::string>()));

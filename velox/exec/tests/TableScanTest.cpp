@@ -5164,22 +5164,16 @@ TEST_F(TableScanTest, noCacheRetention) {
   createDuckDbTable(vectors);
 
   struct {
-    bool sessionNoCacheRetention;
     bool splitCacheable;
-    bool expectedNoCacheRetention;
+    bool expectSplitCached;
 
     std::string debugString() const {
       return fmt::format(
-          "sessionNoCacheRetention {}, splitCacheable {}, expectedNoCacheRetention {}",
-          sessionNoCacheRetention,
+          "splitCacheable {}, expectSplitCached {}",
           splitCacheable,
-          expectedNoCacheRetention);
+          expectSplitCached);
     }
-  } testSettings[] = {
-      {false, false, true},
-      {true, false, true},
-      {false, true, false},
-      {true, true, true}};
+  } testSettings[] = {{false, false}, {true, true}};
 
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(testData.debugString());
@@ -5191,10 +5185,6 @@ TEST_F(TableScanTest, noCacheRetention) {
         0,
         testData.splitCacheable);
     AssertQueryBuilder(tableScanNode(), duckDbQueryRunner_)
-        .connectorSessionProperty(
-            kHiveConnectorId,
-            connector::hive::HiveConfig::kCacheNoRetentionSession,
-            testData.sessionNoCacheRetention ? "true" : "false")
         .split(std::move(split))
         .assertResults("SELECT * FROM tmp");
     waitForAllTasksToBeDeleted();
@@ -5206,14 +5196,7 @@ TEST_F(TableScanTest, noCacheRetention) {
     for (const auto& cacheEntry : cacheEntries) {
       const auto cacheEntryHelper =
           cache::test::AsyncDataCacheEntryTestHelper(cacheEntry);
-      if (testData.expectedNoCacheRetention) {
-        if (!cacheEntryHelper.firstUse()) {
-          ASSERT_EQ(cacheEntryHelper.accessStats().lastUse, 0)
-              << cacheEntry->toString();
-        }
-        ASSERT_EQ(cacheEntryHelper.accessStats().numUses, 0)
-            << cacheEntry->toString();
-      } else {
+      if (testData.expectSplitCached) {
         if (cacheEntryHelper.firstUse()) {
           ASSERT_EQ(cacheEntryHelper.accessStats().numUses, 0)
               << cacheEntry->toString();
@@ -5222,6 +5205,13 @@ TEST_F(TableScanTest, noCacheRetention) {
               << cacheEntry->toString();
         }
         ASSERT_NE(cacheEntryHelper.accessStats().lastUse, 0)
+            << cacheEntry->toString();
+      } else {
+        if (!cacheEntryHelper.firstUse()) {
+          ASSERT_EQ(cacheEntryHelper.accessStats().lastUse, 0)
+              << cacheEntry->toString();
+        }
+        ASSERT_EQ(cacheEntryHelper.accessStats().numUses, 0)
             << cacheEntry->toString();
       }
     }

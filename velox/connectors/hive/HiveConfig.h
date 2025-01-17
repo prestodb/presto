@@ -169,8 +169,6 @@ class HiveConfig {
   static constexpr const char* kReadStatsBasedFilterReorderDisabledSession =
       "hive.reader.stats_based_filter_reorder_disabaled";
 
-  static constexpr const char* kCacheNoRetention = "cache.no_retention";
-  static constexpr const char* kCacheNoRetentionSession = "cache.no_retention";
   static constexpr const char* kLocalDataPath = "hive_local_data_path";
   static constexpr const char* kLocalFileFormat = "hive_local_file_format";
 
@@ -235,13 +233,6 @@ class HiveConfig {
   /// Returns true if the stats based filter reorder for read is disabled.
   bool readStatsBasedFilterReorderDisabled(
       const config::ConfigBase* session) const;
-
-  /// Returns true to evict out a query scanned data out of in-memory cache
-  /// right after the access, and also skip staging to the ssd cache. This helps
-  /// to prevent the cache space pollution from the one-time table scan by large
-  /// batch query when mixed running with interactive query which has high data
-  /// locality.
-  bool cacheNoRetention(const config::ConfigBase* session) const;
 
   /// Returns the file system path containing local data. If non-empty,
   /// initializes LocalHiveConnectorMetadata to provide metadata for the tables
