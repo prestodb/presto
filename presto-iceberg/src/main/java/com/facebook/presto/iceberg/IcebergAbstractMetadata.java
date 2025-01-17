@@ -185,6 +185,7 @@ public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
 {
     private static final Logger log = Logger.get(IcebergAbstractMetadata.class);
+    protected static final String INFORMATION_SCHEMA = "information_schema";
 
     protected final TypeManager typeManager;
     protected final JsonCodec<CommitTaskData> commitTaskCodec;

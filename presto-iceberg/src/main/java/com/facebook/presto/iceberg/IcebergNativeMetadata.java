@@ -87,7 +87,6 @@ import static java.util.stream.Collectors.toMap;
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
-    private static final String INFORMATION_SCHEMA = "information_schema";
     private static final String VIEW_DIALECT = "presto";
 
     private final IcebergNativeCatalogFactory catalogFactory;
