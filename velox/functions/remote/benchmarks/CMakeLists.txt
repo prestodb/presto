@@ -21,6 +21,7 @@ target_link_libraries(
          velox_benchmark_builder
          velox_vector_test_lib
          velox_function_registry
+         velox_functions_lib
          velox_functions_remote
          velox_functions_remote_utils
          Folly::folly
