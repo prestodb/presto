@@ -68,14 +68,14 @@ DEFINE_bool(
     "up after failures. Therefore, results are not compared when this is "
     "enabled. Note that this option only works in debug builds.");
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 namespace {
 
 class RowNumberFuzzer {
  public:
   explicit RowNumberFuzzer(
       size_t initialSeed,
-      std::unique_ptr<ReferenceQueryRunner>);
+      std::unique_ptr<test::ReferenceQueryRunner>);
 
   void go();
 
@@ -124,7 +124,7 @@ class RowNumberFuzzer {
       const std::vector<std::string>& keyNames,
       const std::vector<TypePtr>& keyTypes);
 
-  std::optional<MaterializedRowMultiset> computeReferenceResults(
+  std::optional<test::MaterializedRowMultiset> computeReferenceResults(
       core::PlanNodePtr& plan,
       const std::vector<RowVectorPtr>& input);
 
@@ -166,12 +166,12 @@ class RowNumberFuzzer {
       "rowNumberFuzzerWriter",
       exec::MemoryReclaimer::create())};
   VectorFuzzer vectorFuzzer_;
-  std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner_;
+  std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner_;
 };
 
 RowNumberFuzzer::RowNumberFuzzer(
     size_t initialSeed,
-    std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner)
+    std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner)
     : vectorFuzzer_{getFuzzerOptions(), pool_.get()},
       referenceQueryRunner_{std::move(referenceQueryRunner)} {
   filesystems::registerLocalFileSystem();
@@ -196,7 +196,7 @@ RowNumberFuzzer::RowNumberFuzzer(
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
           ->newConnector(
-              kHiveConnectorId,
+              test::kHiveConnectorId,
               std::make_shared<config::ConfigBase>(std::move(hiveConfig)));
   connector::registerConnector(hiveConnector);
 
@@ -265,7 +265,7 @@ RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makeDefaultPlan(
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   std::vector<std::string> projectFields = partitionKeys;
   projectFields.emplace_back("row_number");
-  auto plan = PlanBuilder()
+  auto plan = test::PlanBuilder()
                   .values(input)
                   .rowNumber(partitionKeys)
                   .project(projectFields)
@@ -273,10 +273,11 @@ RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makeDefaultPlan(
   return PlanWithSplits{std::move(plan)};
 }
 
-std::optional<MaterializedRowMultiset> RowNumberFuzzer::computeReferenceResults(
+std::optional<test::MaterializedRowMultiset>
+RowNumberFuzzer::computeReferenceResults(
     core::PlanNodePtr& plan,
     const std::vector<RowVectorPtr>& input) {
-  if (containsUnsupportedTypes(input[0]->type())) {
+  if (test::containsUnsupportedTypes(input[0]->type())) {
     return std::nullopt;
   }
 
@@ -294,12 +295,12 @@ RowVectorPtr RowNumberFuzzer::execute(
     bool injectSpill) {
   LOG(INFO) << "Executing query plan: " << plan.plan->toString(true, true);
 
-  AssertQueryBuilder builder(plan.plan);
+  test::AssertQueryBuilder builder(plan.plan);
   if (!plan.splits.empty()) {
     builder.splits(plan.splits);
   }
 
-  std::shared_ptr<TempDirectoryPath> spillDirectory;
+  std::shared_ptr<test::TempDirectoryPath> spillDirectory;
   int32_t spillPct{0};
   if (injectSpill) {
     spillDirectory = exec::test::TempDirectoryPath::create();
@@ -312,7 +313,7 @@ RowVectorPtr RowNumberFuzzer::execute(
     spillPct = 10;
   }
 
-  ScopedOOMInjector oomInjector(
+  test::ScopedOOMInjector oomInjector(
       []() -> bool { return folly::Random::oneIn(10); },
       10); // Check the condition every 10 ms.
   if (FLAGS_enable_oom_injection) {
@@ -322,7 +323,8 @@ RowVectorPtr RowNumberFuzzer::execute(
   // Wait for the task to be destroyed before start next query execution to
   // avoid the potential interference of the background activities across query
   // executions.
-  auto stopGuard = folly::makeGuard([&]() { waitForAllTasksToBeDeleted(); });
+  auto stopGuard =
+      folly::makeGuard([&]() { test::waitForAllTasksToBeDeleted(); });
 
   TestScopedSpillInjection scopedSpillInjection(spillPct);
   RowVectorPtr result;
@@ -331,7 +333,7 @@ RowVectorPtr RowNumberFuzzer::execute(
   } catch (VeloxRuntimeError& e) {
     if (FLAGS_enable_oom_injection &&
         e.errorCode() == facebook::velox::error_code::kMemCapExceeded &&
-        e.message() == ScopedOOMInjector::kErrorMessage) {
+        e.message() == test::ScopedOOMInjector::kErrorMessage) {
       // If we enabled OOM injection we expect the exception thrown by the
       // ScopedOOMInjector.
       return nullptr;
@@ -356,7 +358,7 @@ RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makePlanWithTableScan(
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId scanId;
-  auto plan = PlanBuilder(planNodeIdGenerator)
+  auto plan = test::PlanBuilder(planNodeIdGenerator)
                   .tableScan(type)
                   .rowNumber(partitionKeys)
                   .project(projectFields)
@@ -400,8 +402,8 @@ void RowNumberFuzzer::addPlansWithTableScan(
     return;
   }
 
-  const std::vector<Split> inputSplits =
-      makeSplits(input, fmt::format("{}/row_number", tableDir), writerPool_);
+  const std::vector<Split> inputSplits = test::makeSplits(
+      input, fmt::format("{}/row_number", tableDir), writerPool_);
   altPlans.push_back(makePlanWithTableScan(
       asRowType(input[0]->type()), partitionKeys, inputSplits));
 }
@@ -426,7 +428,7 @@ void RowNumberFuzzer::verify() {
     if (const auto referenceResult =
             computeReferenceResults(defaultPlan.plan, input)) {
       VELOX_CHECK(
-          assertEqualResults(
+          test::assertEqualResults(
               referenceResult.value(),
               defaultPlan.plan->outputType(),
               {expected}),
@@ -445,7 +447,7 @@ void RowNumberFuzzer::verify() {
     auto actual = execute(altPlans[i], /*injectSpill=*/false);
     if (actual != nullptr && expected != nullptr) {
       VELOX_CHECK(
-          assertEqualResults({expected}, {actual}),
+          test::assertEqualResults({expected}, {actual}),
           "Logically equivalent plans produced different results");
     } else {
       VELOX_CHECK(
@@ -458,7 +460,7 @@ void RowNumberFuzzer::verify() {
       if (actual != nullptr && expected != nullptr) {
         try {
           VELOX_CHECK(
-              assertEqualResults({expected}, {actual}),
+              test::assertEqualResults({expected}, {actual}),
               "Logically equivalent plans produced different results");
         } catch (const VeloxException&) {
           LOG(ERROR) << "Expected\n"
@@ -501,4 +503,4 @@ void rowNumberFuzzer(
     std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner) {
   RowNumberFuzzer(seed, std::move(referenceQueryRunner)).go();
 }
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::exec

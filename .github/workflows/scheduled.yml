@@ -324,7 +324,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: row_number
-          path: velox/_build/debug//velox/exec/tests/velox_row_number_fuzzer_test
+          path: velox/_build/debug//velox/exec/fuzzer/velox_row_number_fuzzer
           retention-days: "${{ env.RETENTION }}"
 
       - name: Upload writer fuzzer
@@ -711,10 +711,10 @@ jobs:
           cat /proc/sys/vm/max_map_count
           mkdir -p /tmp/row_fuzzer_repro/logs/
           chmod -R 777 /tmp/row_fuzzer_repro
-          chmod +x velox_row_number_fuzzer_test
+          chmod +x velox_row_number_fuzzer
           random_seed=${RANDOM}
           echo "Random seed: ${random_seed}"
-          ./velox_row_number_fuzzer_test \
+          ./velox_row_number_fuzzer \
                 --seed ${random_seed} \
                 --duration_sec $DURATION \
                 --minloglevel=0 \

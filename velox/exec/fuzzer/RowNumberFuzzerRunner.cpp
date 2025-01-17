@@ -18,6 +18,7 @@
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
 #include <unordered_set>
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/MemoryReclaimer.h"
@@ -25,7 +26,40 @@
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
-#include "velox/exec/fuzzer/RowNumberFuzzerRunner.h"
+#include "velox/exec/fuzzer/RowNumberFuzzer.h"
+#include "velox/serializers/PrestoSerializer.h"
+
+/// RowNumberFuzzerRunner leverages RowNumberFuzzer and VectorFuzzer to
+/// automatically generate and execute the fuzzer. It works as follows:
+///
+///  1. Plan Generation: Generate two equivalent query plans, one is row-number
+///     over ValuesNode and the other is over TableScanNode.
+///  2. Executes a variety of logically equivalent query plans and checks the
+///     results are the same.
+///  3. Rinse and repeat.
+///
+/// It is used as follows:
+///
+///  $ ./velox_row_number_fuzzer --duration_sec 600
+///
+/// The flags that configure RowNumberFuzzer's behavior are:
+///
+///  --steps: how many iterations to run.
+///  --duration_sec: alternatively, for how many seconds it should run (takes
+///          precedence over --steps).
+///  --seed: pass a deterministic seed to reproduce the behavior (each iteration
+///          will print a seed as part of the logs).
+///  --v=1: verbose logging; print a lot more details about the execution.
+///  --batch_size: size of input vector batches generated.
+///  --num_batches: number if input vector batches to generate.
+///  --enable_spill: test plans with spilling enabled.
+///  --enable_oom_injection: randomly trigger OOM while executing query plans.
+/// e.g:
+///
+///  $ ./velox_row_number_fuzzer \
+///         --seed 123 \
+///         --duration_sec 600 \
+///         --v=1
 
 DEFINE_int64(
     seed,
@@ -75,8 +109,6 @@ std::unique_ptr<test::ReferenceQueryRunner> setupReferenceQueryRunner(
 } // namespace
 
 int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
@@ -90,6 +122,7 @@ int main(int argc, char** argv) {
       "row_number_fuzzer",
       FLAGS_req_timeout_ms);
   const size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
-  return test::RowNumberFuzzerRunner::run(
-      initialSeed, std::move(referenceQueryRunner));
+  facebook::velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  facebook::velox::filesystems::registerLocalFileSystem();
+  rowNumberFuzzer(initialSeed, std::move(referenceQueryRunner));
 }

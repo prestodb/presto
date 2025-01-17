@@ -213,13 +213,6 @@ target_link_libraries(
   velox_tpch_connector
   velox_memory)
 
-# RowNumber Fuzzer.
-add_executable(velox_row_number_fuzzer_test RowNumberFuzzerTest.cpp)
-
-target_link_libraries(
-  velox_row_number_fuzzer_test velox_row_number_fuzzer GTest::gtest
-  GTest::gtest_main)
-
 # Join Fuzzer.
 add_executable(velox_join_fuzzer_test JoinFuzzerTest.cpp)
 
