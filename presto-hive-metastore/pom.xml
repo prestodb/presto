@@ -129,7 +129,6 @@
         <dependency>
             <groupId>com.github.namya28</groupId>
             <artifactId>presto-hive-dwrf</artifactId>
-            <version>snappy0.5</version>
         </dependency>
 
         <dependency>
