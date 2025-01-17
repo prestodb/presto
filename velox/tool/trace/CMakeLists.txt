@@ -52,4 +52,22 @@ target_link_libraries(
   velox_exec_test_lib
   velox_tpch_connector)
 
+add_library(velox_trace_file_tool_base TraceFileToolRunner.cpp)
+
+target_link_libraries(
+  velox_trace_file_tool_base
+  velox_exec
+  velox_type
+  velox_vector
+  velox_exec
+  velox_hive_connector
+  Folly::folly
+  glog::glog
+  gflags::gflags)
+
+add_executable(velox_trace_file_tool TraceFileToolMain.cpp)
+
+target_link_libraries(
+  velox_trace_file_tool velox_trace_file_tool_base)
+
 add_subdirectory(tests)
