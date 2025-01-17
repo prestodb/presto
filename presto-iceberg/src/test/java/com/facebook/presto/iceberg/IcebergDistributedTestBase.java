@@ -2218,6 +2218,29 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
+    @Test
+    public void testInformationSchemaQueries()
+    {
+        assertQuerySucceeds("CREATE SCHEMA ICEBERG.TEST_SCHEMA1");
+        assertQuerySucceeds("CREATE SCHEMA ICEBERG.TEST_SCHEMA2");
+        assertQuerySucceeds("CREATE TABLE ICEBERG.TEST_SCHEMA1.ICEBERG_T1(i int)");
+        assertQuerySucceeds("CREATE TABLE ICEBERG.TEST_SCHEMA1.ICEBERG_T2(i int)");
+        assertQuerySucceeds("CREATE TABLE ICEBERG.TEST_SCHEMA2.ICEBERG_T3(i int)");
+        assertQuerySucceeds("CREATE TABLE ICEBERG.TEST_SCHEMA2.ICEBERG_T4(i int)");
+
+        assertQuery("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema ='test_schema1'", "VALUES 'iceberg_t1', 'iceberg_t2'");
+        assertQuery("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema ='test_schema2'", "VALUES 'iceberg_t3', 'iceberg_t4'");
+        //query on non-existing schema
+        assertQueryReturnsEmptyResult("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema = 'NON_EXISTING_SCHEMA'");
+
+        assertQuerySucceeds("DROP TABLE ICEBERG.TEST_SCHEMA1.ICEBERG_T1");
+        assertQuerySucceeds("DROP TABLE ICEBERG.TEST_SCHEMA1.ICEBERG_T2");
+        assertQuerySucceeds("DROP TABLE ICEBERG.TEST_SCHEMA2.ICEBERG_T3");
+        assertQuerySucceeds("DROP TABLE ICEBERG.TEST_SCHEMA2.ICEBERG_T4");
+        assertQuerySucceeds("DROP SCHEMA ICEBERG.TEST_SCHEMA1");
+        assertQuerySucceeds("DROP SCHEMA ICEBERG.TEST_SCHEMA2");
+    }
+
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
     {
         // check delete file list

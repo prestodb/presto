@@ -212,6 +212,12 @@ public class IcebergHiveMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
+        if (schemaName.isPresent() && INFORMATION_SCHEMA.equals(schemaName.get())) {
+            return metastore.getAllDatabases(metastoreContext)
+                    .stream()
+                    .map(table -> new SchemaTableName(INFORMATION_SCHEMA, table))
+                    .collect(toImmutableList());
+        }
         // If schema name is not present, list tables from all schemas
         List<String> schemaNames = schemaName
                 .map(ImmutableList::of)
@@ -219,7 +225,7 @@ public class IcebergHiveMetadata
         return schemaNames.stream()
                 .flatMap(schema -> metastore
                         .getAllTables(metastoreContext, schema)
-                        .orElseGet(() -> metastore.getAllDatabases(metastoreContext))
+                        .orElseGet(() -> ImmutableList.of())
                         .stream()
                         .map(table -> new SchemaTableName(schema, table)))
                 .collect(toImmutableList());
