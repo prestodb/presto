@@ -157,8 +157,9 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
+            <groupId>com.github.namya28</groupId>
+            <artifactId>presto-hive-dwrf</artifactId>
+            <version>snappy0.5</version>
             <scope>test</scope>
         </dependency>
 

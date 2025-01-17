@@ -103,6 +103,13 @@
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <modules>
         <module>presto-atop</module>
         <module>presto-spi</module>
@@ -970,9 +977,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.hive</groupId>
-                <artifactId>hive-dwrf</artifactId>
-                <version>0.8.5</version>
+                <groupId>com.github.namya28</groupId>
+                <artifactId>presto-hive-dwrf</artifactId>
+                <version>snappy0.5</version>
             </dependency>
 
             <dependency>
