@@ -120,7 +120,7 @@ jobs:
           ctest -j 8 --label-exclude cuda_driver --output-on-failure --no-tests=error
 
   ubuntu-debug:
-    runs-on: 8-core-ubuntu
+    runs-on: 8-core-ubuntu-22.04
     # prevent errors when forks ff their main branch
     if: ${{ github.repository == 'facebookincubator/velox' }}
     name: "Ubuntu debug with resolve_dependency"
