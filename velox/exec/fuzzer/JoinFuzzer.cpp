@@ -896,6 +896,7 @@ void JoinFuzzer::makeAlternativePlans(
   const auto joinType = joinNode->joinType();
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  // Use LocalPartition with round robin.
   plans.push_back(JoinFuzzer::PlanWithSplits{
       PlanBuilder(planNodeIdGenerator)
           .localPartitionRoundRobin(
@@ -906,6 +907,24 @@ void JoinFuzzer::makeAlternativePlans(
               PlanBuilder(planNodeIdGenerator)
                   .localPartitionRoundRobin(
                       makeSources(buildInput, planNodeIdGenerator))
+                  .planNode(),
+              filter,
+              outputColumns,
+              joinType,
+              joinNode->isNullAware())
+          .planNode()});
+
+  // Use LocalPartition with hash.
+  plans.push_back(JoinFuzzer::PlanWithSplits{
+      PlanBuilder(planNodeIdGenerator)
+          .localPartition(
+              probeKeys, makeSources(probeInput, planNodeIdGenerator))
+          .hashJoin(
+              probeKeys,
+              buildKeys,
+              PlanBuilder(planNodeIdGenerator)
+                  .localPartition(
+                      buildKeys, makeSources(buildInput, planNodeIdGenerator))
                   .planNode(),
               filter,
               outputColumns,
