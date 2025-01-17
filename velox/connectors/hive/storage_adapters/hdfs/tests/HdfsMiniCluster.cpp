@@ -24,17 +24,17 @@ void HdfsMiniCluster::start() {
     serverProcess_ = std::make_unique<boost::process::child>(
         env_,
         exePath_,
-        jarCommand,
-        env_["HADOOP_HOME"].to_string() + miniclusterJar,
-        miniclusterCommand,
-        noMapReduceOption,
-        formatNameNodeOption,
-        httpPortOption,
+        kJarCommand,
+        env_["HADOOP_HOME"].to_string() + kMiniclusterJar,
+        kMiniclusterCommand,
+        kNoMapReduceOption,
+        kFormatNameNodeOption,
+        kHttpPortOption,
         httpPort_,
-        nameNodePortOption,
+        kNameNodePortOption,
         nameNodePort_,
-        configurationOption,
-        turnOffPermissions);
+        kConfigurationOption,
+        kTurnOffPermissions);
     serverProcess_->wait_for(std::chrono::duration<int, std::milli>(60000));
     VELOX_CHECK_EQ(
         serverProcess_->exit_code(),
@@ -64,14 +64,15 @@ bool HdfsMiniCluster::isRunning() {
 // requires hadoop executable to be on the PATH
 HdfsMiniCluster::HdfsMiniCluster() {
   env_ = (boost::process::environment)boost::this_process::environment();
-  env_["PATH"] = env_["PATH"].to_string() + hadoopSearchPath;
+  env_["PATH"] = env_["PATH"].to_string() + kHadoopSearchPath;
   auto path = env_["PATH"].to_vector();
   exePath_ = boost::process::search_path(
-      miniClusterExecutableName,
+      kMiniClusterExecutableName,
       std::vector<boost::filesystem::path>(path.begin(), path.end()));
   if (exePath_.empty()) {
     VELOX_FAIL(
-        "Failed to find minicluster executable {}'", miniClusterExecutableName);
+        "Failed to find minicluster executable {}'",
+        kMiniClusterExecutableName);
   }
   constexpr auto kHostAddressTemplate = "hdfs://{}:{}";
   auto ports = facebook::velox::exec::test::getFreePorts(2);
@@ -87,10 +88,10 @@ void HdfsMiniCluster::addFile(std::string source, std::string destination) {
   auto filePutProcess = std::make_shared<boost::process::child>(
       env_,
       exePath_,
-      filesystemCommand,
-      filesystemUrlOption,
+      kFilesystemCommand,
+      kFilesystemUrlOption,
       filesystemUrl_,
-      filePutOption,
+      kFilePutOption,
       source,
       destination);
   bool isExited =

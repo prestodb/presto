@@ -35,9 +35,10 @@ using namespace facebook::velox;
 using filesystems::arrow::io::internal::LibHdfsShim;
 
 constexpr int kOneMB = 1 << 20;
-static const std::string destinationPath = "/test_file.txt";
-static const std::string simpleDestinationPath = "hdfs://" + destinationPath;
-static const std::string viewfsDestinationPath = "viewfs://" + destinationPath;
+static const std::string kDestinationPath = "/test_file.txt";
+static const std::string kSimpleDestinationPath = "hdfs://" + kDestinationPath;
+static const std::string kViewfsDestinationPath =
+    "viewfs://" + kDestinationPath;
 std::unordered_map<std::string, std::string> configurationValues;
 
 class HdfsFileSystemTest : public testing::Test {
@@ -48,14 +49,14 @@ class HdfsFileSystemTest : public testing::Test {
       miniCluster = std::make_shared<filesystems::test::HdfsMiniCluster>();
       miniCluster->start();
       auto tempFile = createFile();
-      miniCluster->addFile(tempFile->getPath(), destinationPath);
+      miniCluster->addFile(tempFile->getPath(), kDestinationPath);
     }
     configurationValues.insert(
         {"hive.hdfs.host", std::string(miniCluster->host())});
     configurationValues.insert(
         {"hive.hdfs.port", std::string(miniCluster->nameNodePort())});
     fullDestinationPath_ =
-        fmt::format("{}{}", miniCluster->url(), destinationPath);
+        fmt::format("{}{}", miniCluster->url(), kDestinationPath);
   }
 
   void SetUp() override {
@@ -109,7 +110,7 @@ void readData(ReadFile* readFile) {
   ASSERT_EQ(readFile->size(), 15 + kOneMB);
   char buffer4[10];
   const std::string_view arf = readFile->pread(5, 10, &buffer4);
-  const std::string zarf = readFile->pread(kOneMB, 15);
+  const std::string_view zarf = readFile->pread(kOneMB, 15);
   auto buf = std::make_unique<char[]>(8);
   const std::string_view warf = readFile->pread(4, 8, buf.get());
   const std::string_view warfFromBuf(buf.get(), 8);
@@ -123,20 +124,11 @@ void checkReadErrorMessages(
     ReadFile* readFile,
     std::string errorMessage,
     int endpoint) {
-  try {
-    readFile->pread(10 + kOneMB, endpoint);
-    FAIL() << "expected VeloxException";
-  } catch (VeloxException const& error) {
-    EXPECT_THAT(error.message(), testing::HasSubstr(errorMessage));
-  }
+  VELOX_ASSERT_THROW(readFile->pread(10 + kOneMB, endpoint), errorMessage);
 
-  try {
-    auto buf = std::make_unique<char[]>(8);
-    readFile->pread(10 + kOneMB, endpoint, buf.get());
-    FAIL() << "expected VeloxException";
-  } catch (VeloxException const& error) {
-    EXPECT_THAT(error.message(), testing::HasSubstr(errorMessage));
-  }
+  auto buf = std::make_unique<char[]>(8);
+  VELOX_ASSERT_THROW(
+      readFile->pread(10 + kOneMB, endpoint, buf.get()), errorMessage);
 }
 
 bool checkMiniClusterStop(ReadFile* readFile, const std::string& errorMessage) {
@@ -149,8 +141,8 @@ bool checkMiniClusterStop(ReadFile* readFile, const std::string& errorMessage) {
 }
 
 void verifyFailures(LibHdfsShim* driver, hdfsFS hdfs) {
-  HdfsReadFile readFile(driver, hdfs, destinationPath);
-  HdfsReadFile readFile2(driver, hdfs, destinationPath);
+  HdfsReadFile readFile(driver, hdfs, kDestinationPath);
+  HdfsReadFile readFile2(driver, hdfs, kDestinationPath);
   auto startPoint = 10 + kOneMB;
   auto size = 15 + kOneMB;
   auto endpoint = 10 + 2 * kOneMB;
@@ -163,7 +155,7 @@ void verifyFailures(LibHdfsShim* driver, hdfsFS hdfs) {
   auto readFailErrorMessage =
       (boost::format(
            "Unable to open file %s. got error: ConnectException: Connection refused") %
-       destinationPath)
+       kDestinationPath)
           .str();
 
   checkReadErrorMessages(&readFile, offsetErrorMessage, kOneMB);
@@ -216,7 +208,7 @@ TEST_F(HdfsFileSystemTest, read) {
       &driver,
       std::string(miniCluster->host()),
       std::string(miniCluster->nameNodePort()));
-  HdfsReadFile readFile(driver, hdfs, destinationPath);
+  HdfsReadFile readFile(driver, hdfs, kDestinationPath);
   readData(&readFile);
 }
 
@@ -241,7 +233,7 @@ TEST_F(HdfsFileSystemTest, initializeFsWithEndpointInfoInFilePath) {
   // Wrong endpoint info specified in hdfs file path.
   const std::string wrongFullDestinationPath =
       "hdfs://not_exist_host:" + std::string(miniCluster->nameNodePort()) +
-      destinationPath;
+      kDestinationPath;
   VELOX_ASSERT_THROW(
       filesystems::getFileSystem(wrongFullDestinationPath, config),
       "Unable to connect to HDFS");
@@ -278,102 +270,72 @@ TEST_F(HdfsFileSystemTest, missingFileViaFileSystem) {
 }
 
 TEST_F(HdfsFileSystemTest, missingHost) {
-  try {
-    std::unordered_map<std::string, std::string> missingHostConfiguration(
-        {{"hive.hdfs.port", std::string(miniCluster->nameNodePort())}});
-    auto config = std::make_shared<const config::ConfigBase>(
-        std::move(missingHostConfiguration));
-    filesystems::HdfsFileSystem hdfsFileSystem(
-        config,
-        filesystems::HdfsFileSystem::getServiceEndpoint(
-            simpleDestinationPath, config.get()));
-    FAIL() << "expected VeloxException";
-  } catch (VeloxException const& error) {
-    EXPECT_THAT(
-        error.message(),
-        testing::HasSubstr(
-            "hdfsHost is empty, configuration missing for hdfs host"));
-  }
+  std::unordered_map<std::string, std::string> missingHostConfiguration(
+      {{"hive.hdfs.port", std::string(miniCluster->nameNodePort())}});
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::move(missingHostConfiguration));
+
+  VELOX_ASSERT_THROW(
+      filesystems::HdfsFileSystem::getServiceEndpoint(
+          kSimpleDestinationPath, config.get()),
+      "hdfsHost is empty, configuration missing for hdfs host");
 }
 
 TEST_F(HdfsFileSystemTest, missingPort) {
-  try {
-    std::unordered_map<std::string, std::string> missingPortConfiguration(
-        {{"hive.hdfs.host", std::string(miniCluster->host())}});
-    auto config = std::make_shared<const config::ConfigBase>(
-        std::move(missingPortConfiguration));
-    filesystems::HdfsFileSystem hdfsFileSystem(
-        config,
-        filesystems::HdfsFileSystem::getServiceEndpoint(
-            simpleDestinationPath, config.get()));
-    FAIL() << "expected VeloxException";
-  } catch (VeloxException const& error) {
-    EXPECT_THAT(
-        error.message(),
-        testing::HasSubstr(
-            "hdfsPort is empty, configuration missing for hdfs port"));
-  }
+  std::unordered_map<std::string, std::string> missingPortConfiguration(
+      {{"hive.hdfs.host", std::string(miniCluster->host())}});
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::move(missingPortConfiguration));
+
+  VELOX_ASSERT_THROW(
+      filesystems::HdfsFileSystem::getServiceEndpoint(
+          kSimpleDestinationPath, config.get()),
+      "hdfsPort is empty, configuration missing for hdfs port");
 }
 
 TEST_F(HdfsFileSystemTest, missingFileViaReadFile) {
-  try {
-    filesystems::arrow::io::internal::LibHdfsShim* driver;
-    auto hdfs = connectHdfsDriver(
-        &driver,
-        std::string(miniCluster->host()),
-        std::string(miniCluster->nameNodePort()));
-    HdfsReadFile readFile(driver, hdfs, "/path/that/does/not/exist");
-    FAIL() << "expected VeloxException";
-  } catch (VeloxException const& error) {
-    EXPECT_THAT(
-        error.message(),
-        testing::HasSubstr(
-            "Unable to get file path info for file: /path/that/does/not/exist. got error: FileNotFoundException: Path /path/that/does/not/exist does not exist."));
-  }
+  filesystems::arrow::io::internal::LibHdfsShim* driver;
+  auto hdfs = connectHdfsDriver(
+      &driver,
+      std::string(miniCluster->host()),
+      std::string(miniCluster->nameNodePort()));
+  VELOX_ASSERT_THROW(
+      std::make_shared<const HdfsReadFile>(
+          driver, hdfs, "/path/that/does/not/exist"),
+      "Unable to get file path info for file: /path/that/does/not/exist. got error: FileNotFoundException: Path /path/that/does/not/exist does not exist.");
 }
 
 TEST_F(HdfsFileSystemTest, schemeMatching) {
-  try {
-    auto fs = std::dynamic_pointer_cast<filesystems::HdfsFileSystem>(
-        filesystems::getFileSystem("file://", nullptr));
-    FAIL() << "expected VeloxException";
-  } catch (VeloxException const& error) {
-    EXPECT_THAT(
-        error.message(),
-        testing::HasSubstr(
-            "No registered file system matched with file path 'file://'"));
-  }
+  VELOX_ASSERT_THROW(
+      std::dynamic_pointer_cast<filesystems::HdfsFileSystem>(
+          filesystems::getFileSystem("file://", nullptr)),
+      "No registered file system matched with file path 'file://'")
+
   auto fs = std::dynamic_pointer_cast<filesystems::HdfsFileSystem>(
       filesystems::getFileSystem(fullDestinationPath_, nullptr));
   ASSERT_TRUE(fs->isHdfsFile(fullDestinationPath_));
 
   fs = std::dynamic_pointer_cast<filesystems::HdfsFileSystem>(
-      filesystems::getFileSystem(viewfsDestinationPath, nullptr));
-  ASSERT_TRUE(fs->isHdfsFile(viewfsDestinationPath));
+      filesystems::getFileSystem(kViewfsDestinationPath, nullptr));
+  ASSERT_TRUE(fs->isHdfsFile(kViewfsDestinationPath));
 }
 
-TEST_F(HdfsFileSystemTest, writeNotSupported) {
-  try {
-    auto config = std::make_shared<const config::ConfigBase>(
-        std::unordered_map<std::string, std::string>(configurationValues));
-    auto hdfsFileSystem =
-        filesystems::getFileSystem(fullDestinationPath_, config);
-    hdfsFileSystem->openFileForWrite("/path");
-  } catch (VeloxException const& error) {
-    EXPECT_EQ(error.message(), "Write to HDFS is unsupported");
-  }
+TEST_F(HdfsFileSystemTest, writeSupported) {
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
+  auto hdfsFileSystem =
+      filesystems::getFileSystem(fullDestinationPath_, config);
+  hdfsFileSystem->openFileForWrite("/path");
 }
 
 TEST_F(HdfsFileSystemTest, removeNotSupported) {
-  try {
-    auto config = std::make_shared<const config::ConfigBase>(
-        std::unordered_map<std::string, std::string>(configurationValues));
-    auto hdfsFileSystem =
-        filesystems::getFileSystem(fullDestinationPath_, config);
-    hdfsFileSystem->remove("/path");
-  } catch (VeloxException const& error) {
-    EXPECT_EQ(error.message(), "Does not support removing files from hdfs");
-  }
+  auto config = std::make_shared<const config::ConfigBase>(
+      std::unordered_map<std::string, std::string>(configurationValues));
+  auto hdfsFileSystem =
+      filesystems::getFileSystem(fullDestinationPath_, config);
+  VELOX_ASSERT_THROW(
+      hdfsFileSystem->remove("/path"),
+      "Does not support removing files from hdfs");
 }
 
 TEST_F(HdfsFileSystemTest, multipleThreadsWithReadFile) {
@@ -398,7 +360,7 @@ TEST_F(HdfsFileSystemTest, multipleThreadsWithReadFile) {
           }
           std::this_thread::sleep_for(
               std::chrono::microseconds(sleepTimesInMicroseconds[index]));
-          HdfsReadFile readFile(driver, hdfs, destinationPath);
+          HdfsReadFile readFile(driver, hdfs, kDestinationPath);
           readData(&readFile);
         });
     threads.emplace_back(std::move(thread));
@@ -444,9 +406,9 @@ TEST_F(HdfsFileSystemTest, multipleThreadsWithFileSystem) {
 }
 
 TEST_F(HdfsFileSystemTest, write) {
-  std::string path = "/a.txt";
+  const std::string_view path = "/a.txt";
   auto writeFile = openFileForWrite(path);
-  std::string data = "abcdefghijk";
+  const std::string_view data = "abcdefghijk";
   writeFile->append(data);
   writeFile->flush();
   ASSERT_EQ(writeFile->size(), 0);
@@ -458,8 +420,9 @@ TEST_F(HdfsFileSystemTest, write) {
 }
 
 TEST_F(HdfsFileSystemTest, missingFileForWrite) {
-  const std::string filePath = "hdfs://localhost:7777/path/that/does/not/exist";
-  const std::string errorMsg =
+  const std::string_view filePath =
+      "hdfs://localhost:7777/path/that/does/not/exist";
+  const std::string_view errorMsg =
       "Failed to open hdfs file: hdfs://localhost:7777/path/that/does/not/exist";
   VELOX_ASSERT_THROW(openFileForWrite(filePath), errorMsg);
 }
@@ -481,9 +444,9 @@ TEST_F(HdfsFileSystemTest, writeFlushFailures) {
 }
 
 TEST_F(HdfsFileSystemTest, writeWithParentDirNotExist) {
-  std::string path = "/parent/directory/that/does/not/exist/a.txt";
+  const std::string_view path = "/parent/directory/that/does/not/exist/a.txt";
   auto writeFile = openFileForWrite(path);
-  std::string data = "abcdefghijk";
+  const std::string_view data = "abcdefghijk";
   writeFile->append(data);
   writeFile->flush();
   ASSERT_EQ(writeFile->size(), 0);
