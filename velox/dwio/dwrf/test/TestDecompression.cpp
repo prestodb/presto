@@ -33,7 +33,7 @@ using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
 using namespace facebook::velox;
-using namespace folly::io;
+using namespace folly::compression;
 
 const std::string simpleFile(getExampleFilePath("simple-file.binary"));
 
