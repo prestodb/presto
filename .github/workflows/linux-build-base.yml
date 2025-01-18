@@ -28,7 +28,7 @@ jobs:
     name: Linux release with adapters
     # prevent errors when forks ff their main branch
     if: ${{ github.repository == 'facebookincubator/velox' }}
-    runs-on: 8-core-ubuntu
+    runs-on: 8-core-ubuntu-22.04
     container: ghcr.io/facebookincubator/velox-dev:adapters
     defaults:
       run:
