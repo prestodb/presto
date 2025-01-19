@@ -16,13 +16,13 @@ add_library(presto_common_Utils Utils.cpp Utils.h)
 add_library(presto_common_ConfigReader ConfigReader.cpp ConfigReader.h)
 add_library(presto_common_Configs Configs.cpp Configs.h)
 
-target_link_libraries(presto_common_ConfigReader  velox_common_config velox_exception)
+target_link_libraries(presto_common_ConfigReader velox_common_config velox_exception)
 
-target_link_libraries(presto_common_Configs  velox_common_config velox_core velox_exception)
+target_link_libraries(presto_common_Configs velox_common_config velox_core velox_exception)
 
-target_link_libraries(presto_common_Counters  velox_common_config)
+target_link_libraries(presto_common_Counters velox_common_config)
 
-target_link_libraries(presto_common_Utils  velox_common_config)
+target_link_libraries(presto_common_Utils velox_common_config)
 
 target_link_libraries(presto_exception velox_exception)
 
