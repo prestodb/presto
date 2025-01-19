@@ -38,8 +38,8 @@ Please follow these rules for composing UI components:
 - Define components as JavaScript functions instead of classes: Some old components are written in classes and
   must be refactored into functions. For new components, please use function components. Check
   `Defining a component  <https://react.dev/learn/your-first-component#defining-a-component>`_ for detailed information.
-- Bootstrap: the current code base is using Bootstrap v3.3.5. You can find the CSS and components it provides
-  in the `Bootstrap Getting Started <https://bootstrapdocs.com/v3.3.5/docs/getting-started/>`_.
+- Bootstrap: the current code base is using Bootstrap v5.3.3. You can find the CSS and components it provides
+  in the `Bootstrap Getting Started <https://getbootstrap.com/docs/5.3/getting-started/>`_.
 - Use `flow <https://flow.org/>`_ as the static type checker:  Add ``//@flow`` at the beginning of the ``.jsx`` file
   to enable the type checker and use ``yarn run flow`` to run the flow checker.
 
