@@ -153,6 +153,7 @@ type ResourceEstimates = {
     cpuTime?: string;
     peakMemory?: string;
     peakTaskMemory?: string;
+    [key: string]: string;
 }
 
 type SessionRepresentation = {
@@ -1111,7 +1112,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                 }
 
                 renderedEstimates.push(
-                    <span>- {snakeCased + "=" + data.session.resourceEstimates[resource]} <br /></span>
+                    <span>- {snakeCased + "=" + estimates[resource]} <br /></span>
                 )
             }
         }
