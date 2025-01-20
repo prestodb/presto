@@ -80,12 +80,22 @@ public class HudiDirectoryLister
                 .setConf(actualConfig)
                 .setBasePath(table.getStorage().getLocation())
                 .build();
-        this.latestInstant = metaClient.getActiveTimeline()
+        String latestCompactionInstantTime = metaClient.getActiveTimeline()
                 .getCommitsAndCompactionTimeline()
                 .filterCompletedInstants()
-                .filter(instant -> !HoodieTableType.MERGE_ON_READ.equals(metaClient.getTableType()) || instant.getAction().equals(HoodieTimeline.COMMIT_ACTION))
+                .filter(instant -> HoodieTableType.MERGE_ON_READ.equals(metaClient.getTableType()) && instant.getAction().equals(HoodieTimeline.COMPACTION_ACTION))
                 .lastInstant()
-                .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found"));
+                .map(HoodieInstant::getTimestamp).orElse(null);
+        if (latestCompactionInstantTime != null) {
+            this.latestInstant = latestCompactionInstantTime;
+        }
+        else {
+            this.latestInstant = metaClient.getActiveTimeline()
+                    .getCommitsTimeline()
+                    .filterCompletedInstants()
+                    .lastInstant()
+                    .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found"));
+        }
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(actualConfig);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
