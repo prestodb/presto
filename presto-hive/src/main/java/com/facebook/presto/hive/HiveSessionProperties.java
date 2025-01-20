@@ -612,7 +612,7 @@ public final class HiveSessionProperties
                         false),
                 stringProperty(
                         HUDI_TABLES_USE_MERGED_VIEW,
-                        "For Hudi tables, use merged view to read data",
+                        "For Hudi tables, a comma-separated list in the form of <schema>.<table> which should use merged view to read data",
                         hiveClientConfig.getHudiTablesUseMergedView(),
                         false),
                 booleanProperty(

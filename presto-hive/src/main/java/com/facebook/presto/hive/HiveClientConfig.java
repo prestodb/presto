@@ -1617,7 +1617,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.hudi-tables-use-merged-view")
-    @ConfigDescription("For Hudi tables prefer to fetch the list of files from the merged file system view")
+    @ConfigDescription("For Hudi tables, a comma-separated list in the form of <schema>.<table> which should prefer to fetch the list of files from the merged file system view")
     public HiveClientConfig setHudiTablesUseMergedView(String hudiTablesUseMergedView)
     {
         this.hudiTablesUseMergedView = hudiTablesUseMergedView;
