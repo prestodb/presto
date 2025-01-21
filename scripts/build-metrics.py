@@ -45,8 +45,6 @@ class BinarySizeAdapter(BenchmarkAdapter):
         result_fields_append: Dict[str, Any] = {},
     ) -> None:
         self.size_file = Path(size_file)
-        if build_type not in ["debug", "release"]:
-            raise ValueError(f"Build type '{build_type}' is not valid!")
         self.build_type = build_type
         super().__init__(command, result_fields_override, result_fields_append)
 
@@ -112,8 +110,6 @@ class NinjaLogAdapter(BenchmarkAdapter):
         result_fields_append: Dict[str, Any] = {},
     ) -> None:
         self.ninja_log = Path(ninja_log)
-        if build_type not in ["debug", "release"]:
-            raise ValueError(f"Build type '{build_type}' is not valid!")
         self.build_type = build_type
         super().__init__(command, result_fields_override, result_fields_append)
 
