@@ -253,7 +253,8 @@ public class TestFeaturesConfig
                 .setNativeExecutionScaleWritersThreadsEnabled(false)
                 .setEnhancedCTESchedulingEnabled(true)
                 .setExpressionOptimizerName("default")
-                .setExcludeInvalidWorkerSessionProperties(false));
+                .setExcludeInvalidWorkerSessionProperties(false)
+                .setAddExchangeBelowPartialAggregationOverGroupId(false));
     }
 
     @Test
@@ -456,6 +457,7 @@ public class TestFeaturesConfig
                 .put("enhanced-cte-scheduling-enabled", "false")
                 .put("expression-optimizer-name", "custom")
                 .put("exclude-invalid-worker-session-properties", "true")
+                .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -655,7 +657,8 @@ public class TestFeaturesConfig
                 .setNativeExecutionScaleWritersThreadsEnabled(true)
                 .setEnhancedCTESchedulingEnabled(false)
                 .setExpressionOptimizerName("custom")
-                .setExcludeInvalidWorkerSessionProperties(true);
+                .setExcludeInvalidWorkerSessionProperties(true)
+                .setAddExchangeBelowPartialAggregationOverGroupId(true);
         assertFullMapping(properties, expected);
     }
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -22,6 +23,8 @@ import javax.inject.Inject;
 import java.util.Set;
 import java.util.function.IntSupplier;
 
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -53,5 +56,10 @@ public class TaskCountEstimator
     public int estimateSourceDistributedTaskCount()
     {
         return numberOfNodes.getAsInt();
+    }
+
+    public int estimateHashedTaskCount(Session session)
+    {
+        return min(numberOfNodes.getAsInt(), getHashPartitionCount(session));
     }
 }
