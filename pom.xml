@@ -69,7 +69,8 @@
         <dep.slf4j.version>2.0.16</dep.slf4j.version>
         <dep.kafka.version>3.9.0</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
-        <dep.druid.version>30.0.1</dep.druid.version>
+        <!-- Custom druid version built from branch: https://github.ibm.com/lakehouse/wxd-druid/tree/druid-30.0.1 -->
+        <dep.druid.version>30.0.1-wxd</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
         <dep.hudi.version>0.14.0</dep.hudi.version>
         <dep.testcontainers.version>1.20.5</dep.testcontainers.version>
@@ -2600,6 +2601,18 @@
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>flight-core</artifactId>
                 <version>${dep.arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.asynchttpclient</groupId>
+                <artifactId>async-http-client</artifactId>
+                <version>3.0.1-wxd-jdk8</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.jetbrains</groupId>
+                        <artifactId>annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
         </dependencies>
