@@ -46,6 +46,9 @@ jobs:
           find . -name tests | xargs rm -r
           find . -name test | xargs rm -rf
 
+      - name: Disk space consumption before build
+        run: df
+
       - name: Build engine
         run: |
           source /opt/rh/gcc-toolset-12/enable
@@ -71,6 +74,9 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DMAX_LINK_JOBS=4
           ninja -C _build/debug -j 4
+
+      - name: Disk space consumption after build
+        run: df
 
       - name: Ccache after
         run: ccache -s
