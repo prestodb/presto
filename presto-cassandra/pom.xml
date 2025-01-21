@@ -185,7 +185,7 @@
         </dependency>
     </dependencies>
 
-    <!--- dependencyManagement is to fix the Require upper bound dependencies error for slf4j  -->
+    <!-- dependencyManagement is to fix the Require upper bound dependencies error for slf4j -->
     <dependencyManagement>
         <dependencies>
             <dependency>
