@@ -295,6 +295,7 @@ public class FeaturesConfig
     private boolean singleNodeExecutionEnabled;
     private boolean nativeExecutionScaleWritersThreadsEnabled;
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
+    private boolean addExchangeBelowPartialAggregationOverGroupId;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2929,5 +2930,18 @@ public class FeaturesConfig
     {
         this.expressionOptimizerName = expressionOptimizerName;
         return this;
+    }
+
+    @Config("optimizer.add-exchange-below-partial-aggregation-over-group-id")
+    @ConfigDescription("Enable adding an exchange below partial aggregation over a GroupId node to improve partial aggregation performance")
+    public FeaturesConfig setAddExchangeBelowPartialAggregationOverGroupId(boolean addExchangeBelowPartialAggregationOverGroupId)
+    {
+        this.addExchangeBelowPartialAggregationOverGroupId = addExchangeBelowPartialAggregationOverGroupId;
+        return this;
+    }
+
+    public boolean getAddExchangeBelowPartialAggregationOverGroupId()
+    {
+        return addExchangeBelowPartialAggregationOverGroupId;
     }
 }
