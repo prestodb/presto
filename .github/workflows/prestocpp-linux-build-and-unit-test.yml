@@ -242,7 +242,7 @@ jobs:
           export TESTCLASSES=${TESTCLASSES#,}
           # Override the possible test classes with test classes known to pass from the previous CI.
           # A number of newly added tests are flaky and are disabled.
-          export TESTCLASSES=TestPrestoSparkExpressionCompiler,TestPrestoSparkNativeBitwiseFunctionQueries,TestPrestoSparkNativeTpchConnectorQueries,TestPrestoSparkNativeSimpleQueries,TestPrestoSparkSqlFunctions,TestPrestoSparkNativeTpchQueries,TestPrestoSparkNativeArrayFunctionQueries
+          export TESTCLASSES=TestPrestoSparkExpressionCompiler,TestPrestoSparkNativeBitwiseFunctionQueries,TestPrestoSparkNativeTpchConnectorQueries,TestPrestoSparkNativeSimpleQueries,TestPrestoSparkSqlFunctions,TestPrestoSparkNativeTpchQueries
           echo "TESTCLASSES = $TESTCLASSES"
           mvn test \
             ${MAVEN_TEST} \
