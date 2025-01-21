@@ -145,7 +145,6 @@ public class RouterPluginManager
 
     public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
-
         for (PasswordAuthenticatorFactory authenticatorFactory : plugin.getPasswordAuthenticatorFactories()) {
             log.info("Registering password authenticator %s", authenticatorFactory.getName());
             passwordAuthenticatorManager.addPasswordAuthenticatorFactory(authenticatorFactory);
