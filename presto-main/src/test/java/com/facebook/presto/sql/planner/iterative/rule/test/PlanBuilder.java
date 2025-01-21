@@ -76,6 +76,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
@@ -97,6 +98,7 @@ import com.google.common.collect.ListMultimap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -126,8 +128,10 @@ import static com.facebook.presto.util.MoreLists.nElements;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.function.Function.identity;
 
 public class PlanBuilder
 {
@@ -1046,5 +1050,30 @@ public class PlanBuilder
     public PlanNodeIdAllocator getIdAllocator()
     {
         return idAllocator;
+    }
+
+    public GroupIdNode groupId(List<List<VariableReferenceExpression>> groupingSets, List<VariableReferenceExpression> aggregationArguments, VariableReferenceExpression groupIdSymbol, PlanNode source)
+    {
+        Map<VariableReferenceExpression, VariableReferenceExpression> groupingColumns = groupingSets.stream()
+                .flatMap(Collection::stream)
+                .distinct()
+                .collect(toImmutableMap(identity(), identity()));
+        return groupId(groupingSets, groupingColumns, aggregationArguments, groupIdSymbol, source);
+    }
+
+    public GroupIdNode groupId(List<List<VariableReferenceExpression>> groupingSets,
+            Map<VariableReferenceExpression, VariableReferenceExpression> groupingColumns,
+            List<VariableReferenceExpression> aggregationArguments,
+            VariableReferenceExpression groupIdSymbol,
+            PlanNode source)
+    {
+        return new GroupIdNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                source,
+                groupingSets,
+                groupingColumns,
+                aggregationArguments,
+                groupIdSymbol);
     }
 }

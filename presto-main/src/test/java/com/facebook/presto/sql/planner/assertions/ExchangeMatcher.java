@@ -17,10 +17,14 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern.Ordering;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
 import static com.facebook.presto.sql.planner.assertions.Util.orderingSchemeMatches;
@@ -34,12 +38,14 @@ final class ExchangeMatcher
     private final ExchangeNode.Scope scope;
     private final ExchangeNode.Type type;
     private final List<Ordering> orderBy;
+    private final Set<String> partitionedBy;
 
-    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy)
+    public ExchangeMatcher(ExchangeNode.Scope scope, ExchangeNode.Type type, List<Ordering> orderBy, Set<String> partitionedBy)
     {
         this.scope = scope;
         this.type = type;
         this.orderBy = requireNonNull(orderBy, "orderBy is null");
+        this.partitionedBy = requireNonNull(partitionedBy, "partitionedBy is null");
     }
 
     @Override
@@ -65,6 +71,18 @@ final class ExchangeMatcher
             }
 
             if (!orderingSchemeMatches(orderBy, exchangeNode.getOrderingScheme().get(), symbolAliases)) {
+                return NO_MATCH;
+            }
+        }
+
+        if (!partitionedBy.isEmpty()) {
+            Set<String> partitionedColumns = exchangeNode.getPartitioningScheme().getPartitioning().getArguments().stream()
+                    .map(RowExpression.class::cast)
+                    .map(VariableReferenceExpression.class::cast)
+                    .map(VariableReferenceExpression::getName)
+                    .collect(ImmutableSet.toImmutableSet());
+
+            if (!partitionedColumns.containsAll(partitionedBy)) {
                 return NO_MATCH;
             }
         }
