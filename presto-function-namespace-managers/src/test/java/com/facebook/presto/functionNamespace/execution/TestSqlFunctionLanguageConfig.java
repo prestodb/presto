@@ -54,4 +54,16 @@ public class TestSqlFunctionLanguageConfig
 
         assertFullMapping(properties, expected);
     }
+
+    @Test
+    public void testRESTType()
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("function-implementation-type", "REST")
+                .build();
+        SqlFunctionLanguageConfig expected = new SqlFunctionLanguageConfig()
+                .setFunctionImplementationType("REST");
+
+        assertFullMapping(properties, expected);
+    }
 }
