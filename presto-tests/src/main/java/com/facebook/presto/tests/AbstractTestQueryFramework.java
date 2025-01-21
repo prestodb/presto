@@ -22,6 +22,7 @@ import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.nodeManager.PluginNodeManager;
@@ -576,7 +577,8 @@ public abstract class AbstractTestQueryFramework
                 featuresConfig,
                 new ExpressionOptimizerManager(
                         new PluginNodeManager(new InMemoryNodeManager()),
-                        queryRunner.getMetadata().getFunctionAndTypeManager()))
+                        queryRunner.getMetadata().getFunctionAndTypeManager()),
+                new TaskManagerConfig())
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,

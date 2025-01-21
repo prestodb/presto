@@ -81,7 +81,9 @@ public class GroupIdNode
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source);
-        this.groupingSets = listOfListsCopy(requireNonNull(groupingSets, "groupingSets is null"));
+        checkArgument(requireNonNull(groupingSets, "groupingSets is null").size() > 1,
+                "groupingSets must have more than one grouping set, passed set was [%s]", groupingSets);
+        this.groupingSets = listOfListsCopy(groupingSets);
         this.groupingColumns = ImmutableMap.copyOf(requireNonNull(groupingColumns));
         this.aggregationArguments = ImmutableList.copyOf(aggregationArguments);
         this.groupIdVariable = requireNonNull(groupIdVariable);
