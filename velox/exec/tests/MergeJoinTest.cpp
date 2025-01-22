@@ -712,30 +712,41 @@ TEST_F(MergeJoinTest, lazyVectors) {
   writeToFile(rightFile->getPath(), rightVectors);
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  core::PlanNodeId leftScanId;
-  core::PlanNodeId rightScanId;
-  auto op = PlanBuilder(planNodeIdGenerator)
-                .tableScan(
-                    ROW({"c0", "c1", "c2", "c3"},
-                        {INTEGER(), BIGINT(), INTEGER(), VARCHAR()}))
-                .capturePlanNodeId(leftScanId)
-                .mergeJoin(
-                    {"c0"},
-                    {"rc0"},
-                    PlanBuilder(planNodeIdGenerator)
-                        .tableScan(ROW({"rc0", "rc1"}, {INTEGER(), BIGINT()}))
-                        .capturePlanNodeId(rightScanId)
-                        .planNode(),
-                    "c1 + rc1 < 30",
-                    {"c0", "rc0", "c1", "rc1", "c2", "c3"})
-                .planNode();
+  auto joinTypes = {
+      core::JoinType::kInner,
+      core::JoinType::kLeft,
+      core::JoinType::kRight,
+  };
 
-  AssertQueryBuilder(op, duckDbQueryRunner_)
-      .split(rightScanId, makeHiveConnectorSplit(rightFile->getPath()))
-      .split(leftScanId, makeHiveConnectorSplit(leftFile->getPath()))
-      .assertResults(
-          "SELECT c0, rc0, c1, rc1, c2, c3  FROM t, u WHERE t.c0 = u.rc0 and c1 + rc1 < 30");
+  for (auto joinType : joinTypes) {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    core::PlanNodeId leftScanId;
+    core::PlanNodeId rightScanId;
+    auto op = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(
+                      ROW({"c0", "c1", "c2", "c3"},
+                          {INTEGER(), BIGINT(), INTEGER(), VARCHAR()}))
+                  .capturePlanNodeId(leftScanId)
+                  .mergeJoin(
+                      {"c0"},
+                      {"rc0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(ROW({"rc0", "rc1"}, {INTEGER(), BIGINT()}))
+                          .capturePlanNodeId(rightScanId)
+                          .planNode(),
+                      "c1 + rc1 < 30",
+                      {"c0", "rc0", "c1", "rc1", "c2", "c3"},
+                      joinType)
+                  .planNode();
+
+    AssertQueryBuilder(op, duckDbQueryRunner_)
+        .split(rightScanId, makeHiveConnectorSplit(rightFile->getPath()))
+        .split(leftScanId, makeHiveConnectorSplit(leftFile->getPath()))
+        .assertResults(fmt::format(
+            "SELECT c0, rc0, c1, rc1, c2, c3 FROM t {} JOIN u "
+            "ON t.c0 = u.rc0 AND c1 + rc1 < 30",
+            joinTypeName(joinType)));
+  }
 }
 
 // Ensures the output of merge joins are dictionaries.

@@ -628,6 +628,11 @@ bool MergeJoin::addToOutputForRightJoin() {
         auto leftEnd = l == numLefts - 1 ? leftMatch_->endIndex : left->size();
 
         if (prepareOutput(left, right)) {
+          // Differently from left joins, for right joins we need to load lazies
+          // (from the left) whenever we detect we have to move to the next
+          // right batch, since this means that we will produce this buffer, but
+          // we may have subsequent matches.
+          loadColumns(left, *operatorCtx_->execCtx());
           output_->resize(outputSize_);
           leftMatch_->setCursor(l, leftStart);
           rightMatch_->setCursor(r, i);
