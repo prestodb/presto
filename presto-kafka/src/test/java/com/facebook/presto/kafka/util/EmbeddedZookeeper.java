@@ -13,87 +13,59 @@
  */
 package com.facebook.presto.kafka.util;
 
-import com.google.common.io.Files;
-import org.apache.zookeeper.server.NIOServerCnxnFactory;
-import org.apache.zookeeper.server.ServerCnxnFactory;
-import org.apache.zookeeper.server.ZooKeeperServer;
-import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
+import org.apache.curator.test.TestingServer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-
+/**
+ * Runs an in-memory, "embedded" instance of a ZooKeeper server.
+ *
+ * The ZooKeeper server instance is automatically started when you create a new instance of this class.
+ */
 public class EmbeddedZookeeper
-        implements Closeable
 {
-    private final int port;
-    private final File zkDataDir;
-    private final ZooKeeperServer zkServer;
-    private final ServerCnxnFactory cnxnFactory;
+    private static final Logger log = LoggerFactory.getLogger(EmbeddedZookeeper.class);
 
-    private final AtomicBoolean started = new AtomicBoolean();
-    private final AtomicBoolean stopped = new AtomicBoolean();
+    private final TestingServer server;
 
-    public EmbeddedZookeeper()
-            throws IOException
+    /**
+     * Starts a ZooKeeper instance that listens at the defined port.
+     *
+     * @param port The port (aka `clientPort`) to listen to.  Default: 2181.
+     * @throws Exception
+     */
+    public EmbeddedZookeeper(int port) throws Exception
     {
-        this(TestUtils.findUnusedPort());
+        log.debug("Starting embedded ZooKeeper server on port {} ...", port);
+        this.server = new TestingServer(port);
     }
 
-    public EmbeddedZookeeper(int port)
-            throws IOException
+    public void stop() throws IOException
     {
-        this.port = port;
-        zkDataDir = Files.createTempDir();
-        zkServer = new ZooKeeperServer();
-
-        FileTxnSnapLog ftxn = new FileTxnSnapLog(zkDataDir, zkDataDir);
-        zkServer.setTxnLogFactory(ftxn);
-
-        cnxnFactory = NIOServerCnxnFactory.createFactory(new InetSocketAddress(port), 0);
+        log.debug("Shutting down embedded ZooKeeper server at {} ...", server.getConnectString());
+        server.close();
+        log.debug("Shutdown of embedded ZooKeeper server at {} completed", server.getConnectString());
     }
 
-    public void start()
-            throws InterruptedException, IOException
+    /**
+     * The ZooKeeper connection string aka `zookeeper.connect` in `hostnameOrIp:port` format.
+     * Example: `127.0.0.1:2181`.
+     *
+     * You can use this to e.g. tell Kafka brokers how to connect to this instance.
+     */
+    public String connectString()
     {
-        if (!started.getAndSet(true)) {
-            cnxnFactory.startup(zkServer);
-        }
+        return server.getConnectString();
     }
 
-    @Override
-    public void close()
-            throws IOException
+    /**
+     * The hostname of the ZooKeeper instance.  Example: `127.0.0.1`
+     */
+    public String hostname()
     {
-        if (started.get() && !stopped.getAndSet(true)) {
-            cnxnFactory.shutdown();
-            try {
-                cnxnFactory.join();
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-
-            if (zkServer.isRunning()) {
-                zkServer.shutdown();
-            }
-
-            deleteRecursively(zkDataDir.toPath(), ALLOW_INSECURE);
-        }
-    }
-
-    public String getConnectString()
-    {
-        return "127.0.0.1:" + Integer.toString(port);
-    }
-
-    public int getPort()
-    {
-        return port;
+        // "server:1:2:3" -> "server:1:2"
+        return connectString().substring(0, connectString().lastIndexOf(':'));
     }
 }

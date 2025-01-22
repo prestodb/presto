@@ -54,15 +54,15 @@ public class EmbeddedKafka
     private final AtomicBoolean stopped = new AtomicBoolean();
 
     public static EmbeddedKafka createEmbeddedKafka()
-            throws IOException
+            throws Exception
     {
-        return new EmbeddedKafka(new EmbeddedZookeeper(), new Properties());
+        return new EmbeddedKafka(new EmbeddedZookeeper(findUnusedPort()), new Properties());
     }
 
     public static EmbeddedKafka createEmbeddedKafka(Properties overrideProperties)
-            throws IOException
+            throws Exception
     {
-        return new EmbeddedKafka(new EmbeddedZookeeper(), overrideProperties);
+        return new EmbeddedKafka(new EmbeddedZookeeper(findUnusedPort()), overrideProperties);
     }
 
     EmbeddedKafka(EmbeddedZookeeper zookeeper, Properties overrideProperties)
@@ -85,7 +85,7 @@ public class EmbeddedKafka
                 .put("zookeeper.connection.timeout.ms", "1000000")
                 .put("port", Integer.toString(port))
                 .put("log.dirs", kafkaDataDir.getAbsolutePath())
-                .put("zookeeper.connect", zookeeper.getConnectString())
+                .put("zookeeper.connect", zookeeper.connectString())
                 .put("offsets.topic.replication.factor", "1")
                 .putAll(Maps.fromProperties(overrideProperties))
                 .build();
@@ -98,7 +98,6 @@ public class EmbeddedKafka
             throws InterruptedException, IOException
     {
         if (!started.getAndSet(true)) {
-            zookeeper.start();
             kafka.startup();
         }
     }
@@ -110,7 +109,7 @@ public class EmbeddedKafka
         if (started.get() && !stopped.getAndSet(true)) {
             kafka.shutdown();
             kafka.awaitShutdown();
-            zookeeper.close();
+            zookeeper.stop();
             deleteRecursively(kafkaDataDir.toPath(), ALLOW_INSECURE);
         }
     }
@@ -146,11 +145,6 @@ public class EmbeddedKafka
         return new KafkaProducer<>(properties);
     }
 
-    public int getZookeeperPort()
-    {
-        return zookeeper.getPort();
-    }
-
     public int getPort()
     {
         return port;
@@ -163,6 +157,6 @@ public class EmbeddedKafka
 
     public String getZookeeperConnectString()
     {
-        return zookeeper.getConnectString();
+        return zookeeper.connectString();
     }
 }
