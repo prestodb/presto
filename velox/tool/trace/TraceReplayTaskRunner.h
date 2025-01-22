@@ -28,6 +28,8 @@ class TraceReplayTaskRunner {
       std::shared_ptr<core::QueryCtx> queryCtx) {
     cursorParams_.planNode = std::move(plan);
     cursorParams_.queryCtx = std::move(queryCtx);
+    VELOX_CHECK_NOT_NULL(cursorParams_.planNode);
+    VELOX_CHECK_NOT_NULL(cursorParams_.queryCtx);
   }
 
   /// Run the replaying task. Return the copied results if 'copyResults' is
@@ -50,8 +52,7 @@ class TraceReplayTaskRunner {
  private:
   void addSplits(exec::Task* task);
 
-  static std::shared_ptr<RowVector> copy(
-      const std::vector<RowVectorPtr>& results);
+  std::shared_ptr<RowVector> copy(const std::vector<RowVectorPtr>& results);
 
   exec::CursorParameters cursorParams_;
   std::unordered_map<core::PlanNodeId, std::vector<exec::Split>> splits_;

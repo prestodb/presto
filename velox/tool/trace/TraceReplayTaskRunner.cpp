@@ -45,7 +45,9 @@ std::shared_ptr<RowVector> TraceReplayTaskRunner::copy(
     totalRows += result->size();
   }
   auto copyResult = BaseVector::create<RowVector>(
-      results[0]->type(), totalRows, memory::traceMemoryPool());
+      cursorParams_.planNode->outputType(),
+      totalRows,
+      memory::traceMemoryPool());
   auto resultRowOffset = 0;
   for (const auto& result : results) {
     copyResult->copy(result.get(), resultRowOffset, 0, result->size());

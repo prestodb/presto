@@ -76,6 +76,7 @@ class OperatorReplayerBase {
       connectorConfigs_;
   core::PlanNodePtr planFragment_;
   core::PlanNodeId replayPlanNodeId_;
+  std::atomic_uint64_t replayQueryId_{0};
 
   void printStats(const std::shared_ptr<exec::Task>& task) const;
 
