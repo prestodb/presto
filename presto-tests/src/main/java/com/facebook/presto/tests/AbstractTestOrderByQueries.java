@@ -86,11 +86,6 @@ public abstract class AbstractTestOrderByQueries
         assertQueryOrdered("SELECT -a AS a, a AS b FROM (VALUES 1, 2) t(a) GROUP BY a ORDER BY t.a+2*a", "VALUES (-2, 2), (-1, 1)");
         assertQueryOrdered("SELECT -a AS a, a AS b FROM (VALUES 1, 2) t(a) GROUP BY t.a ORDER BY t.a+2*a", "VALUES (-2, 2), (-1, 1)");
 
-        // lambdas
-        assertQueryOrdered("SELECT x AS y FROM (values (1,2), (2,3)) t(x, y) GROUP BY x ORDER BY apply(x, x -> -x) + 2*x", "VALUES 1, 2");
-        assertQueryOrdered("SELECT -y AS x FROM (values (1,2), (2,3)) t(x, y) GROUP BY y ORDER BY apply(x, x -> -x)", "VALUES -2, -3");
-        assertQueryOrdered("SELECT -y AS x FROM (values (1,2), (2,3)) t(x, y) GROUP BY y ORDER BY sum(apply(-y, x -> x * 1.0))", "VALUES -3, -2");
-
         // distinct
         assertQueryOrdered("SELECT DISTINCT -a AS b FROM (VALUES 1, 2) t(a) ORDER BY b", "VALUES -2, -1");
         assertQueryOrdered("SELECT DISTINCT -a AS b FROM (VALUES 1, 2) t(a) ORDER BY 1", "VALUES -2, -1");
@@ -104,6 +99,14 @@ public abstract class AbstractTestOrderByQueries
         assertQueryOrdered("SELECT -a AS a FROM (VALUES 1, 2) t(a) ORDER BY first_value(a+t.a*2) OVER (ORDER BY a ROWS 0 PRECEDING)", "VALUES -1, -2");
 
         assertQueryFails("SELECT a, a* -1 AS a FROM (VALUES -1, 0, 2) t(a) ORDER BY a", ".*'a' is ambiguous");
+    }
+
+    @Test
+    public void testOrderByWithOutputColumnReferenceInLambdas()
+    {
+        assertQueryOrdered("SELECT x AS y FROM (values (1,2), (2,3)) t(x, y) GROUP BY x ORDER BY apply(x, x -> -x) + 2*x", "VALUES 1, 2");
+        assertQueryOrdered("SELECT -y AS x FROM (values (1,2), (2,3)) t(x, y) GROUP BY y ORDER BY apply(x, x -> -x)", "VALUES -2, -3");
+        assertQueryOrdered("SELECT -y AS x FROM (values (1,2), (2,3)) t(x, y) GROUP BY y ORDER BY sum(apply(-y, x -> x * 1.0))", "VALUES -3, -2");
     }
 
     @Test
