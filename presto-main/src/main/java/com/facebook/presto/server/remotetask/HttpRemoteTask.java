@@ -76,7 +76,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.sun.management.ThreadMXBean;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.netty.channel.EventLoop;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.joda.time.DateTime;
 
@@ -143,7 +142,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * This class now uses an event loop concurrency model to eliminate the need for explicit synchronization:
  * <ul>
  * <li>All mutable state access and modifications are performed on a single dedicated event loop thread</li>
- * <li>External threads submit operations to the event loop using {@code taskEventLoop.execute()}</li>
+ * <li>External threads submit operations to the event loop using {@code safeExecuteOnEventLoop()}</li>
  * <li>The event loop serializes all operations, eliminating race conditions without using locks</li>
  * </ul>
  * <p>
@@ -230,9 +229,9 @@ public final class HttpRemoteTask
     private final DecayCounter taskUpdateRequestSize;
     private final SchedulerStatsTracker schedulerStatsTracker;
 
-    private final EventLoop taskEventLoop;
+    private final HttpRemoteTaskFactory.SafeEventLoop taskEventLoop;
 
-    public HttpRemoteTask(
+    public static HttpRemoteTask createHttpRemoteTask(
             Session session,
             TaskId taskId,
             String nodeId,
@@ -267,7 +266,82 @@ public final class HttpRemoteTask
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
             SchedulerStatsTracker schedulerStatsTracker,
-            EventLoop taskEventLoop)
+            HttpRemoteTaskFactory.SafeEventLoop taskEventLoop)
+    {
+        HttpRemoteTask task = new HttpRemoteTask(session,
+                taskId,
+                nodeId,
+                location,
+                remoteLocation,
+                planFragment,
+                initialSplits,
+                outputBuffers,
+                httpClient,
+                maxErrorDuration,
+                taskStatusRefreshMaxWait,
+                taskInfoRefreshMaxWait,
+                taskInfoUpdateInterval,
+                summarizeTaskInfo,
+                taskStatusCodec,
+                taskInfoCodec,
+                taskInfoJsonCodec,
+                taskUpdateRequestCodec,
+                planFragmentCodec,
+                metadataUpdatesCodec,
+                nodeStatsTracker,
+                stats,
+                binaryTransportEnabled,
+                thriftTransportEnabled,
+                taskInfoThriftTransportEnabled,
+                thriftProtocol,
+                tableWriteInfo,
+                maxTaskUpdateSizeInBytes,
+                metadataManager,
+                queryManager,
+                taskUpdateRequestSize,
+                handleResolver,
+                connectorTypeSerdeManager,
+                schedulerStatsTracker,
+                taskEventLoop);
+        task.initialize();
+        return task;
+    }
+
+    private HttpRemoteTask(Session session,
+            TaskId taskId,
+            String nodeId,
+            URI location,
+            URI remoteLocation,
+            PlanFragment planFragment,
+            Multimap<PlanNodeId, Split> initialSplits,
+            OutputBuffers outputBuffers,
+            HttpClient httpClient,
+            Duration maxErrorDuration,
+            Duration taskStatusRefreshMaxWait,
+            Duration taskInfoRefreshMaxWait,
+            Duration taskInfoUpdateInterval,
+            boolean summarizeTaskInfo,
+            Codec<TaskStatus> taskStatusCodec,
+            Codec<TaskInfo> taskInfoCodec,
+            Codec<TaskInfo> taskInfoJsonCodec,
+            Codec<TaskUpdateRequest> taskUpdateRequestCodec,
+            Codec<PlanFragment> planFragmentCodec,
+            Codec<MetadataUpdates> metadataUpdatesCodec,
+            NodeStatsTracker nodeStatsTracker,
+            RemoteTaskStats stats,
+            boolean binaryTransportEnabled,
+            boolean thriftTransportEnabled,
+            boolean taskInfoThriftTransportEnabled,
+            Protocol thriftProtocol,
+            TableWriteInfo tableWriteInfo,
+            int maxTaskUpdateSizeInBytes,
+            MetadataManager metadataManager,
+            QueryManager queryManager,
+            DecayCounter taskUpdateRequestSize,
+            HandleResolver handleResolver,
+            ConnectorTypeSerdeManager connectorTypeSerdeManager,
+            SchedulerStatsTracker schedulerStatsTracker,
+            HttpRemoteTaskFactory.SafeEventLoop taskEventLoop)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -389,7 +463,11 @@ public final class HttpRemoteTask
                 handleResolver,
                 connectorTypeSerdeManager,
                 thriftProtocol);
+    }
 
+    // this is a separate method to ensure that the `this` reference is not leaked during construction
+    private void initialize()
+    {
         taskStatusFetcher.addStateChangeListener(newStatus -> {
             verify(taskEventLoop.inEventLoop());
 
@@ -404,7 +482,7 @@ public final class HttpRemoteTask
         });
 
         updateTaskStats();
-        taskEventLoop.execute(this::updateSplitQueueSpace);
+        safeExecuteOnEventLoop(this::updateSplitQueueSpace);
     }
 
     public PlanFragment getPlanFragment()
@@ -445,7 +523,7 @@ public final class HttpRemoteTask
     @Override
     public void start()
     {
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             // to start we just need to trigger an update
             started = true;
             scheduleUpdate();
@@ -465,7 +543,7 @@ public final class HttpRemoteTask
             return;
         }
 
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             boolean updateNeeded = false;
             for (Entry<PlanNodeId, Collection<Split>> entry : splitsBySource.asMap().entrySet()) {
                 PlanNodeId sourceId = entry.getKey();
@@ -502,7 +580,7 @@ public final class HttpRemoteTask
     @Override
     public void noMoreSplits(PlanNodeId sourceId)
     {
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             if (noMoreSplits.containsKey(sourceId)) {
                 return;
             }
@@ -516,7 +594,7 @@ public final class HttpRemoteTask
     @Override
     public void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan)
     {
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             if (pendingNoMoreSplitsForLifespan.put(sourceId, lifespan)) {
                 needsUpdate = true;
                 scheduleUpdate();
@@ -531,7 +609,7 @@ public final class HttpRemoteTask
             return;
         }
 
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             if (newOutputBuffers.getVersion() > outputBuffers.getVersion()) {
                 outputBuffers = newOutputBuffers;
                 needsUpdate = true;
@@ -696,7 +774,7 @@ public final class HttpRemoteTask
             return immediateFuture(null);
         }
         SettableFuture<?> future = SettableFuture.create();
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             if (whenSplitQueueHasSpaceThreshold.isPresent()) {
                 checkArgument(weightThreshold == whenSplitQueueHasSpaceThreshold.getAsLong(), "Multiple split queue space notification thresholds not supported");
             }
@@ -866,7 +944,7 @@ public final class HttpRemoteTask
 
     private void sendUpdate()
     {
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             TaskStatus taskStatus = getTaskStatus();
             // don't update if the task hasn't been started yet or if it is already finished
             if (!started || !needsUpdate || taskStatus.getState().isDone()) {
@@ -987,7 +1065,7 @@ public final class HttpRemoteTask
     @Override
     public void cancel()
     {
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             TaskStatus taskStatus = getTaskStatus();
             if (taskStatus.getState().isDone()) {
                 return;
@@ -1007,7 +1085,7 @@ public final class HttpRemoteTask
 
     private void cleanUpTask()
     {
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             checkState(getTaskStatus().getState().isDone(), "attempt to clean up a task that is not done yet");
 
             // clear pending splits to free memory
@@ -1055,7 +1133,7 @@ public final class HttpRemoteTask
 
     private void abort(TaskStatus status)
     {
-        taskEventLoop.execute(() -> {
+        safeExecuteOnEventLoop(() -> {
             checkState(status.getState().isDone(), "cannot abort task with an incomplete status");
 
             taskStatusFetcher.updateTaskStatus(status);
@@ -1316,5 +1394,20 @@ public final class HttpRemoteTask
             verify(taskEventLoop.inEventLoop());
             onFailureTaskInfo(throwable, this.action, this.request, this.cleanupBackoff);
         }
+    }
+
+    /***
+     *  Wrap the task execution on event loop to fail the entire task on any failure.
+     */
+    private void safeExecuteOnEventLoop(Runnable r)
+    {
+        taskEventLoop.execute(() -> {
+            try {
+                r.run();
+            }
+            catch (Throwable t) {
+                failTask(t);
+            }
+        });
     }
 }
