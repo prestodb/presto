@@ -280,14 +280,7 @@ RowNumberFuzzer::computeReferenceResults(
   if (test::containsUnsupportedTypes(input[0]->type())) {
     return std::nullopt;
   }
-
-  if (auto sql = referenceQueryRunner_->toSql(plan)) {
-    return referenceQueryRunner_->execute(
-        sql.value(), input, plan->outputType());
-  }
-
-  LOG(INFO) << "Query not supported by the reference DB";
-  return std::nullopt;
+  return referenceQueryRunner_->execute(plan).first;
 }
 
 RowVectorPtr RowNumberFuzzer::execute(

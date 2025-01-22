@@ -131,14 +131,13 @@ void setupMemory(
 void registerHiveConnector(
     const std::unordered_map<std::string, std::string>& hiveConfigs);
 
-// Converts 'plan' into an SQL query and runs it on 'input' in the reference DB.
+// Converts 'plan' into an SQL query and runs in the reference DB.
 // Result is returned as a MaterializedRowMultiset with the
 // ReferenceQueryErrorCode::kSuccess if successful, or an std::nullopt with a
 // ReferenceQueryErrorCode if the query fails.
 std::pair<std::optional<MaterializedRowMultiset>, ReferenceQueryErrorCode>
 computeReferenceResults(
     const core::PlanNodePtr& plan,
-    const std::vector<RowVectorPtr>& input,
     ReferenceQueryRunner* referenceQueryRunner);
 
 // Similar to computeReferenceResults(), but returns the result as a
@@ -147,7 +146,6 @@ computeReferenceResults(
 std::pair<std::optional<std::vector<RowVectorPtr>>, ReferenceQueryErrorCode>
 computeReferenceResultsAsVector(
     const core::PlanNodePtr& plan,
-    const std::vector<RowVectorPtr>& input,
     ReferenceQueryRunner* referenceQueryRunner);
 
 } // namespace facebook::velox::exec::test

@@ -109,6 +109,11 @@ std::optional<std::string> ReferenceQueryRunner::toSql(
 }
 
 std::optional<std::string> ReferenceQueryRunner::toSql(
+    const core::TableScanNodePtr& tableScanNode) {
+  return tableScanNode->tableHandle()->name();
+}
+
+std::optional<std::string> ReferenceQueryRunner::toSql(
     const std::shared_ptr<const core::HashJoinNode>& joinNode) {
   if (!isSupportedDwrfType(joinNode->sources()[0]->outputType()) ||
       !isSupportedDwrfType(joinNode->sources()[1]->outputType())) {

@@ -50,19 +50,14 @@ class DuckQueryRunner : public ReferenceQueryRunner {
   /// Assumes that source of AggregationNode or Window Node is 'tmp' table.
   std::optional<std::string> toSql(const core::PlanNodePtr& plan) override;
 
-  /// Executes the plan and returns the result along with success or fail error
-  /// code.
+  // Converts 'plan' into an SQL query and executes it. Result is returned as a
+  // MaterializedRowMultiset with the ReferenceQueryErrorCode::kSuccess if
+  // successful, or an std::nullopt with a ReferenceQueryErrorCode if the query
+  // fails.
   std::pair<
       std::optional<std::multiset<std::vector<velox::variant>>>,
       ReferenceQueryErrorCode>
   execute(const core::PlanNodePtr& plan) override;
-
-  /// Creates 'tmp' table with 'input' data and runs 'sql' query. Returns
-  /// results according to 'resultType' schema.
-  std::multiset<std::vector<velox::variant>> execute(
-      const std::string& sql,
-      const std::vector<RowVectorPtr>& input,
-      const RowTypePtr& resultType) override;
 
  private:
   using ReferenceQueryRunner::toSql;

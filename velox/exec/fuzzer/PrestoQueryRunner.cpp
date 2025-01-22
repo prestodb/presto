@@ -203,6 +203,11 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     return toSql(valuesNode);
   }
 
+  if (const auto tableScanNode =
+          std::dynamic_pointer_cast<const core::TableScanNode>(plan)) {
+    return toSql(tableScanNode);
+  }
+
   VELOX_NYI();
 }
 
@@ -300,8 +305,12 @@ std::optional<std::string> PrestoQueryRunner::toSql(
       sql << " as " << aggregationNode->aggregateNames()[i];
     }
   }
-
-  sql << " FROM tmp";
+  // AggregationNode should have a single source.
+  std::optional<std::string> source = toSql(aggregationNode->sources()[0]);
+  if (!source) {
+    return std::nullopt;
+  }
+  sql << " FROM " << *source;
 
   if (!groupingKeys.empty()) {
     sql << " GROUP BY " << folly::join(", ", groupingKeys);
@@ -403,7 +412,12 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     sql << ")";
   }
 
-  sql << " FROM tmp";
+  // WindowNode should have a single source.
+  std::optional<std::string> source = toSql(windowNode->sources()[0]);
+  if (!source) {
+    return std::nullopt;
+  }
+  sql << " FROM " << *source;
 
   return sql.str();
 }
@@ -474,7 +488,12 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     }
   }
 
-  sql << ") as row_number FROM tmp";
+  // RowNumberNode should have a single source.
+  std::optional<std::string> source = toSql(rowNumberNode->sources()[0]);
+  if (!source) {
+    return std::nullopt;
+  }
+  sql << ") as row_number FROM " << *source;
 
   return sql.str();
 }
@@ -493,7 +512,7 @@ std::optional<std::string> PrestoQueryRunner::toSql(
   // SORTED_BY = ARRAY['s0 ASC', 's1 DESC'],
   // FORMAT = 'ORC'
   // )
-  // AS SELECT * FROM tmp
+  // AS SELECT * FROM t_<id>
   std::stringstream sql;
   sql << "CREATE TABLE tmp_write";
   std::vector<std::string> partitionKeys;
@@ -538,7 +557,13 @@ std::optional<std::string> PrestoQueryRunner::toSql(
     }
   }
 
-  sql << "FORMAT = 'ORC')  AS SELECT * FROM tmp";
+  // TableWriteNode should have a single source.
+  std::optional<std::string> source = toSql(tableWriteNode->sources()[0]);
+  if (!source) {
+    return std::nullopt;
+  }
+  sql << "FORMAT = 'ORC')  AS SELECT * FROM " << *source;
+
   return sql.str();
 }
 
@@ -546,28 +571,15 @@ std::pair<
     std::optional<std::multiset<std::vector<velox::variant>>>,
     ReferenceQueryErrorCode>
 PrestoQueryRunner::execute(const core::PlanNodePtr& plan) {
-  if (std::optional<std::string> sql = toSql(plan)) {
-    try {
-      return std::make_pair(
-          exec::test::materialize(executeAndReturnVector(*sql, plan)),
-          ReferenceQueryErrorCode::kSuccess);
-    } catch (...) {
-      LOG(WARNING) << "Query failed in Presto";
-      return std::make_pair(
-          std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
-    }
+  std::pair<
+      std::optional<std::vector<velox::RowVectorPtr>>,
+      ReferenceQueryErrorCode>
+      result = executeAndReturnVector(plan);
+  if (result.first) {
+    return std::make_pair(
+        exec::test::materialize(*result.first), result.second);
   }
-
-  LOG(INFO) << "Query not supported in Presto";
-  return std::make_pair(
-      std::nullopt, ReferenceQueryErrorCode::kReferenceQueryUnsupported);
-}
-
-std::multiset<std::vector<variant>> PrestoQueryRunner::execute(
-    const std::string& sql,
-    const std::vector<RowVectorPtr>& input,
-    const RowTypePtr& resultType) {
-  return exec::test::materialize(executeVector(sql, input, resultType));
+  return std::make_pair(std::nullopt, result.second);
 }
 
 std::string PrestoQueryRunner::createTable(
@@ -601,59 +613,47 @@ std::string PrestoQueryRunner::createTable(
   return tableDirectoryPath;
 }
 
-std::vector<velox::RowVectorPtr> PrestoQueryRunner::executeAndReturnVector(
-    const std::string& sql,
-    const core::PlanNodePtr& plan) {
-  std::unordered_map<std::string, std::vector<velox::RowVectorPtr>> inputMap =
-      getAllTables(plan);
-  for (const auto& [tableName, input] : inputMap) {
-    auto inputType = asRowType(input[0]->type());
-    if (inputType->size() == 0) {
-      inputMap[tableName] = {
-          makeNullRows(input, fmt::format("{}x", tableName), pool())};
+std::pair<
+    std::optional<std::vector<velox::RowVectorPtr>>,
+    ReferenceQueryErrorCode>
+PrestoQueryRunner::executeAndReturnVector(const core::PlanNodePtr& plan) {
+  if (std::optional<std::string> sql = toSql(plan)) {
+    try {
+      std::unordered_map<std::string, std::vector<velox::RowVectorPtr>>
+          inputMap = getAllTables(plan);
+      for (const auto& [tableName, input] : inputMap) {
+        auto inputType = asRowType(input[0]->type());
+        if (inputType->size() == 0) {
+          inputMap[tableName] = {
+              makeNullRows(input, fmt::format("{}x", tableName), pool())};
+        }
+      }
+
+      auto writerPool = aggregatePool()->addAggregateChild("writer");
+      for (const auto& [tableName, input] : inputMap) {
+        auto tableDirectoryPath = createTable(tableName, input[0]->type());
+
+        // Create a new file in table's directory with fuzzer-generated data.
+        auto filePath = fs::path(tableDirectoryPath)
+                            .append(fmt::format("{}.dwrf", tableName))
+                            .string()
+                            .substr(strlen("file:"));
+
+        writeToFile(filePath, input, writerPool.get());
+      }
+
+      // Run the query.
+      return std::make_pair(execute(*sql), ReferenceQueryErrorCode::kSuccess);
+    } catch (...) {
+      LOG(WARNING) << "Query failed in Presto";
+      return std::make_pair(
+          std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
     }
   }
 
-  auto writerPool = aggregatePool()->addAggregateChild("writer");
-  for (const auto& [tableName, input] : inputMap) {
-    auto tableDirectoryPath = createTable(tableName, input[0]->type());
-
-    // Create a new file in table's directory with fuzzer-generated data.
-    auto filePath = fs::path(tableDirectoryPath)
-                        .append(fmt::format("{}.dwrf", tableName))
-                        .string()
-                        .substr(strlen("file:"));
-
-    writeToFile(filePath, input, writerPool.get());
-  }
-
-  // Run the query.
-  return execute(sql);
-}
-
-std::vector<velox::RowVectorPtr> PrestoQueryRunner::executeVector(
-    const std::string& sql,
-    const std::vector<velox::RowVectorPtr>& input,
-    const velox::RowTypePtr& resultType) {
-  auto inputType = asRowType(input[0]->type());
-  if (inputType->size() == 0) {
-    auto rowVector = makeNullRows(input, "x", pool());
-    return executeVector(sql, {rowVector}, resultType);
-  }
-
-  auto tableDirectoryPath = createTable("tmp", input[0]->type());
-
-  // Create a new file in table's directory with fuzzer-generated data.
-  auto newFilePath = fs::path(tableDirectoryPath)
-                         .append("fuzzer.dwrf")
-                         .string()
-                         .substr(strlen("file:"));
-
-  auto writerPool = aggregatePool()->addAggregateChild("writer");
-  writeToFile(newFilePath, input, writerPool.get());
-
-  // Run the query.
-  return execute(sql);
+  LOG(INFO) << "Query not supported in Presto";
+  return std::make_pair(
+      std::nullopt, ReferenceQueryErrorCode::kReferenceQueryUnsupported);
 }
 
 std::vector<RowVectorPtr> PrestoQueryRunner::execute(const std::string& sql) {

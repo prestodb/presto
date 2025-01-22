@@ -67,6 +67,10 @@ class ReferenceQueryRunner {
   virtual std::optional<std::string> toSql(
       const core::ValuesNodePtr& valuesNode);
 
+  /// Same as the above toSql but for table scan nodes.
+  virtual std::optional<std::string> toSql(
+      const core::TableScanNodePtr& tableScanNode);
+
   /// Same as the above toSql but for hash join nodes.
   virtual std::optional<std::string> toSql(
       const std::shared_ptr<const core::HashJoinNode>& joinNode);
@@ -87,8 +91,19 @@ class ReferenceQueryRunner {
     return true;
   }
 
-  /// Executes the plan and returns the result along with success or fail error
-  /// code.
+  /// Executes SQL query returned by the 'toSql' method using 'input' data.
+  /// Converts results using 'resultType' schema.
+  virtual std::multiset<std::vector<velox::variant>> execute(
+      const std::string& /*sql*/,
+      const std::vector<velox::RowVectorPtr>& /*input*/,
+      const velox::RowTypePtr& /*resultType*/) {
+    VELOX_UNSUPPORTED();
+  }
+
+  // Converts 'plan' into an SQL query and executes it. Result is returned as a
+  // MaterializedRowMultiset with the ReferenceQueryErrorCode::kSuccess if
+  // successful, or an std::nullopt with a ReferenceQueryErrorCode if the query
+  // fails.
   virtual std::pair<
       std::optional<std::multiset<std::vector<velox::variant>>>,
       ReferenceQueryErrorCode>
@@ -96,12 +111,14 @@ class ReferenceQueryRunner {
     VELOX_UNSUPPORTED();
   }
 
-  /// Executes SQL query returned by the 'toSql' method using 'input' data.
-  /// Converts results using 'resultType' schema.
-  virtual std::multiset<std::vector<velox::variant>> execute(
-      const std::string& sql,
-      const std::vector<RowVectorPtr>& input,
-      const RowTypePtr& resultType) = 0;
+  /// Similar to 'execute' but returns results in RowVector format.
+  /// Caller should ensure 'supportsVeloxVectorResults' returns true.
+  virtual std::pair<
+      std::optional<std::vector<velox::RowVectorPtr>>,
+      ReferenceQueryErrorCode>
+  executeAndReturnVector(const core::PlanNodePtr& /*plan*/) {
+    VELOX_UNSUPPORTED();
+  }
 
   /// Executes SQL query returned by the 'toSql' method using 'probeInput' and
   /// 'buildInput' data for join node.

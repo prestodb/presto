@@ -725,7 +725,7 @@ bool WindowFuzzer::verifyWindow(
               .push_back(prestoFrameClause);
         }
         auto referenceResult =
-            computeReferenceResults(plan, input, referenceQueryRunner_.get());
+            computeReferenceResults(plan, referenceQueryRunner_.get());
         if (isPrestoQueryRunner) {
           prestoQueryRunner->queryRunnerContext()->windowFrames_.clear();
         }

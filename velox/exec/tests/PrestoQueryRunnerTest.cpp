@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
@@ -98,18 +99,15 @@ TEST_F(PrestoQueryRunnerTest, DISABLED_fuzzer) {
       "http://127.0.0.1:8080",
       "hive",
       static_cast<std::chrono::milliseconds>(1000));
-  auto sql = queryRunner->toSql(plan);
-  ASSERT_TRUE(sql.has_value());
 
-  auto prestoResults = queryRunner->execute(
-      sql.value(),
-      {data},
-      ROW({"a", "b", "c"}, {BIGINT(), BIGINT(), ARRAY(BIGINT())}));
+  std::optional<std::multiset<std::vector<velox::variant>>> prestoResults =
+      queryRunner->execute(plan).first;
+  ASSERT_TRUE(prestoResults.has_value());
 
   auto veloxResults =
       velox::exec::test::AssertQueryBuilder(plan).copyResults(pool());
   velox::exec::test::assertEqualResults(
-      prestoResults, plan->outputType(), {veloxResults});
+      *prestoResults, plan->outputType(), {veloxResults});
 }
 
 TEST_F(PrestoQueryRunnerTest, sortedAggregation) {
@@ -135,9 +133,10 @@ TEST_F(PrestoQueryRunnerTest, sortedAggregation) {
   auto sql = queryRunner->toSql(plan);
   ASSERT_TRUE(sql.has_value());
 
-  ASSERT_EQ(
-      "SELECT multimap_agg(c0, c1 ORDER BY c0 ASC NULLS LAST) as a0 FROM tmp",
-      sql.value());
+  ASSERT_THAT(
+      *sql,
+      ::testing::HasSubstr(
+          "SELECT multimap_agg(c0, c1 ORDER BY c0 ASC NULLS LAST) as a0 FROM "));
 
   // Plans with multiple order by's in the aggregate.
 
@@ -151,9 +150,10 @@ TEST_F(PrestoQueryRunnerTest, sortedAggregation) {
 
   sql = queryRunner->toSql(plan);
   ASSERT_TRUE(sql.has_value());
-  ASSERT_EQ(
-      "SELECT multimap_agg(c0, c1 ORDER BY c1 ASC NULLS FIRST, c0 DESC NULLS LAST, c2 ASC NULLS LAST) as a0 FROM tmp",
-      sql.value());
+  ASSERT_THAT(
+      *sql,
+      ::testing::HasSubstr(
+          "SELECT multimap_agg(c0, c1 ORDER BY c1 ASC NULLS FIRST, c0 DESC NULLS LAST, c2 ASC NULLS LAST) as a0 FROM "));
 }
 
 TEST_F(PrestoQueryRunnerTest, distinctAggregation) {
@@ -174,7 +174,8 @@ TEST_F(PrestoQueryRunnerTest, distinctAggregation) {
 
   auto sql = queryRunner->toSql(plan);
   ASSERT_TRUE(sql.has_value());
-  ASSERT_EQ("SELECT array_agg(distinct c0) as a0 FROM tmp", sql.value());
+  ASSERT_THAT(
+      *sql, ::testing::HasSubstr("SELECT array_agg(distinct c0) as a0 FROM "));
 }
 
 TEST_F(PrestoQueryRunnerTest, toSql) {

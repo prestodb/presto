@@ -589,6 +589,8 @@ class TableScanNode : public PlanNode {
           assignments_;
 };
 
+using TableScanNodePtr = std::shared_ptr<const TableScanNode>;
+
 class AggregationNode : public PlanNode {
  public:
   enum class Step {

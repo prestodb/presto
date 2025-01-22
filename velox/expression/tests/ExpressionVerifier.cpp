@@ -287,8 +287,8 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
       VLOG(1) << "Execute with reference DB.";
       auto inputRowVector = reduceToSelectedRows(rowVector, rows);
       auto projectionPlan = makeProjectionPlan(inputRowVector, plans);
-      auto referenceResultOrError = computeReferenceResults(
-          projectionPlan, {inputRowVector}, referenceQueryRunner_.get());
+      auto referenceResultOrError =
+          computeReferenceResults(projectionPlan, referenceQueryRunner_.get());
 
       auto referenceEvalResult = referenceResultOrError.first;
 

@@ -481,26 +481,25 @@ void WriterFuzzer::verifyWriter(
     return;
   }
 
-  const auto dropSql = "DROP TABLE IF EXISTS tmp_write";
-  const auto sql = referenceQueryRunner_->toSql(plan).value();
-  std::multiset<std::vector<variant>> expectedResult;
   try {
-    referenceQueryRunner_->execute(dropSql);
-    expectedResult =
-        referenceQueryRunner_->execute(sql, input, plan->outputType());
+    referenceQueryRunner_->execute("DROP TABLE IF EXISTS tmp_write");
   } catch (...) {
-    LOG(WARNING) << "Query failed in the reference DB";
+    LOG(WARNING) << "Drop table query failed in the reference DB";
+    return;
+  }
+  auto expectedResult = referenceQueryRunner_->execute(plan).first;
+  if (!expectedResult.has_value()) {
     return;
   }
 
   // 1. Verifies the table writer output result: the inserted number of rows.
   VELOX_CHECK_EQ(
-      expectedResult.size(), // Presto sql only produces one row which is how
-                             // many rows are inserted.
+      expectedResult->size(), // Presto sql only produces one row which is
+                              // how many rows are inserted.
       1,
       "Query returned unexpected result in the reference DB");
   VELOX_CHECK(
-      assertEqualResults(expectedResult, plan->outputType(), {result}),
+      assertEqualResults(*expectedResult, plan->outputType(), {result}),
       "Velox and reference DB results don't match");
 
   // 2. Verifies directory layout for partitioned (bucketed) table.

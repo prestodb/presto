@@ -134,15 +134,6 @@ DuckQueryRunner::execute(const core::PlanNodePtr& plan) {
       std::nullopt, ReferenceQueryErrorCode::kReferenceQueryUnsupported);
 }
 
-std::multiset<std::vector<velox::variant>> DuckQueryRunner::execute(
-    const std::string& sql,
-    const std::vector<RowVectorPtr>& input,
-    const RowTypePtr& resultType) {
-  DuckDbQueryRunner queryRunner;
-  queryRunner.createTable("tmp", input);
-  return queryRunner.execute(sql, resultType);
-}
-
 std::optional<std::string> DuckQueryRunner::toSql(
     const core::PlanNodePtr& plan) {
   if (!isSupportedType(plan->outputType())) {
@@ -188,6 +179,11 @@ std::optional<std::string> DuckQueryRunner::toSql(
   if (const auto valuesNode =
           std::dynamic_pointer_cast<const core::ValuesNode>(plan)) {
     return toSql(valuesNode);
+  }
+
+  if (const auto tableScanNode =
+          std::dynamic_pointer_cast<const core::TableScanNode>(plan)) {
+    return toSql(tableScanNode);
   }
 
   VELOX_NYI();
@@ -254,7 +250,12 @@ std::optional<std::string> DuckQueryRunner::toSql(
     }
   }
 
-  sql << " FROM tmp";
+  // AggregationNode should have a single source.
+  std::optional<std::string> source = toSql(aggregationNode->sources()[0]);
+  if (!source) {
+    return std::nullopt;
+  }
+  sql << " FROM " << *source;
 
   if (!groupingKeys.empty()) {
     sql << " GROUP BY " << folly::join(", ", groupingKeys);
@@ -335,7 +336,12 @@ std::optional<std::string> DuckQueryRunner::toSql(
     }
   }
 
-  sql << ") FROM tmp";
+  // WindowNode should have a single source.
+  std::optional<std::string> source = toSql(windowNode->sources()[0]);
+  if (!source) {
+    return std::nullopt;
+  }
+  sql << ") FROM " << *source;
 
   return sql.str();
 }
@@ -362,7 +368,12 @@ std::optional<std::string> DuckQueryRunner::toSql(
     }
   }
 
-  sql << ") as row_number FROM tmp";
+  // RowNumberNode should have a single source.
+  std::optional<std::string> source = toSql(rowNumberNode->sources()[0]);
+  if (!source) {
+    return std::nullopt;
+  }
+  sql << ") as row_number FROM " << *source;
 
   return sql.str();
 }
