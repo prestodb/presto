@@ -99,6 +99,25 @@ TEST_F(MapTest, noNulls) {
   assertEqualVectors(expectedMap, result);
 }
 
+TEST_F(MapTest, emptyMap) {
+  const auto numRows = 1'000;
+  // We use unknown types here because no way to specify the output type for the
+  // map() call.
+  auto emptyMapVector = std::make_shared<MapVector>(
+      pool(),
+      MAP(UNKNOWN(), UNKNOWN()),
+      nullptr, // nulls
+      numRows,
+      allocateOffsets(numRows, pool()),
+      allocateSizes(numRows, pool()),
+      BaseVector::create(UNKNOWN(), 0, pool()),
+      BaseVector::create(UNKNOWN(), 0, pool()));
+
+  auto result =
+      evaluate("map()", makeRowVector({makeConstant<int64_t>(1, numRows)}));
+  assertEqualVectors(emptyMapVector, result);
+}
+
 TEST_F(MapTest, someNulls) {
   auto size = 1'000;
 
