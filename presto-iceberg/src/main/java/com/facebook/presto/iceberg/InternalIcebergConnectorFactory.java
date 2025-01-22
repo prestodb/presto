@@ -23,6 +23,7 @@ import com.facebook.presto.hive.HiveCommonModule;
 import com.facebook.presto.hive.HiveCommonSessionProperties;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.RebindSafeMBeanServer;
+import com.facebook.presto.hive.SchemaProperties;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -130,7 +131,7 @@ public final class InternalIcebergConnectorFactory
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
                     ImmutableSet.of(),
                     allSessionProperties,
-                    IcebergSchemaProperties.SCHEMA_PROPERTIES,
+                    SchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
                     icebergTableProperties.getColumnProperties(),
                     new AllowAllAccessControl(),
