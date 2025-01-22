@@ -20,6 +20,7 @@
 #endif
 
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/connectors/tpcds/TpcdsConnector.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 
 namespace facebook::presto {
@@ -41,6 +42,8 @@ connectorFactories() {
           {kHiveHadoop2ConnectorName,
            std::make_shared<velox::connector::hive::HiveConnectorFactory>(
                kHiveHadoop2ConnectorName)},
+          {velox::connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName,
+           std::make_shared<velox::connector::tpcds::TpcdsConnectorFactory>()},
           {velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName,
            std::make_shared<velox::connector::tpch::TpchConnectorFactory>()},
           {kIcebergConnectorName,
@@ -75,6 +78,8 @@ void registerConnectors() {
       std::make_unique<IcebergPrestoToVeloxConnector>(kIcebergConnectorName));
   registerPrestoToVeloxConnector(std::make_unique<TpchPrestoToVeloxConnector>(
       velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName));
+  registerPrestoToVeloxConnector(std::make_unique<TpcdsPrestoToVeloxConnector>(
+      velox::connector::tpcds::TpcdsConnectorFactory::kTpcdsConnectorName));
 
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
