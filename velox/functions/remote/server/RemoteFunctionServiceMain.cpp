@@ -44,6 +44,7 @@ using ::apache::thrift::ThriftServer;
 
 int main(int argc, char* argv[]) {
   folly::Init init{&argc, &argv, false};
+  memory::MemoryManager::initialize({});
   FLAGS_logtostderr = true;
 
   // Always registers all Presto functions and make them available under a
