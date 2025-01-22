@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
@@ -346,7 +347,18 @@ public final class QueryAssertions
             fail(format("Expected query to fail: %s", sql));
         }
         catch (RuntimeException ex) {
-            assertExceptionMessage(sql, ex, expectedMessageRegExp);
+            assertExceptionMessage(sql, ex, expectedMessageRegExp, false);
+        }
+    }
+
+    protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp, boolean usePatternMatcher)
+    {
+        try {
+            queryRunner.execute(session, sql);
+            fail(format("Expected query to fail: %s", sql));
+        }
+        catch (RuntimeException ex) {
+            assertExceptionMessage(sql, ex, expectedMessageRegExp, usePatternMatcher);
         }
     }
 
@@ -362,10 +374,18 @@ public final class QueryAssertions
         }
     }
 
-    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex)
+    private static void assertExceptionMessage(String sql, Exception exception, @Language("RegExp") String regex, boolean usePatternMatcher)
     {
-        if (!nullToEmpty(exception.getMessage()).matches(regex)) {
-            fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+        if (usePatternMatcher) {
+            Pattern p = Pattern.compile(regex, Pattern.MULTILINE);
+            if (!(p.matcher(exception.getMessage()).find())) {
+                fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+            }
+        }
+        else {
+            if (!nullToEmpty(exception.getMessage()).matches(regex)) {
+                fail(format("Expected exception message '%s' to match '%s' for query: %s", exception.getMessage(), regex, sql), exception);
+            }
         }
     }
 
