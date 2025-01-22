@@ -159,6 +159,11 @@ class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
   exec::CastOperatorPtr getCastOperator() const override {
     return TimestampWithTimeZoneCastOperator::get();
   }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& /*config*/) const override {
+    return nullptr;
+  }
 };
 
 void registerTimestampWithTimeZoneType();

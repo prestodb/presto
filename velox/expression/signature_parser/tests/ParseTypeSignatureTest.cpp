@@ -64,6 +64,11 @@ class TypeFactories : public CustomTypeFactories {
     return nullptr;
   }
 
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& /*config*/) const override {
+    return nullptr;
+  }
+
  private:
   TypePtr type_;
 };

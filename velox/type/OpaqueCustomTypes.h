@@ -94,6 +94,11 @@ class OpaqueCustomTypeRegister {
     exec::CastOperatorPtr getCastOperator() const override {
       VELOX_UNSUPPORTED();
     }
+
+    AbstractInputGeneratorPtr getInputGenerator(
+        const InputGeneratorConfig& /*config*/) const override {
+      return nullptr;
+    }
   };
 };
 } // namespace facebook::velox

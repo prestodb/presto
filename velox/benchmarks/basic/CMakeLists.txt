@@ -87,7 +87,7 @@ target_link_libraries(
 add_executable(velox_benchmark_basic_vector_fuzzer VectorFuzzer.cpp)
 target_link_libraries(
   velox_benchmark_basic_vector_fuzzer ${velox_benchmark_deps}
-  velox_vector_test_lib)
+  velox_vector_test_lib velox_common_fuzzer_util)
 
 add_executable(velox_cast_benchmark CastBenchmark.cpp)
 target_link_libraries(

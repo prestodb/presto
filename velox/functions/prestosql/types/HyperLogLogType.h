@@ -81,6 +81,11 @@ class HyperLogLogTypeFactories : public CustomTypeFactories {
   exec::CastOperatorPtr getCastOperator() const override {
     return nullptr;
   }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& /*config*/) const override {
+    return nullptr;
+  }
 };
 
 void registerHyperLogLogType();

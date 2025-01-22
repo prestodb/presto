@@ -18,6 +18,8 @@ add_test(velox_vector_fuzzer_test velox_vector_fuzzer_test)
 target_link_libraries(
   velox_vector_fuzzer_test
   velox_vector_fuzzer
+  velox_presto_types
+  velox_constrained_input_generators
   velox_memory
   GTest::gtest
   GTest::gtest_main

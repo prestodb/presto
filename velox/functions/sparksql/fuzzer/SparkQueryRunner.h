@@ -20,11 +20,14 @@
 #include "grpc++/create_channel.h"
 #include "grpc++/security/credentials.h"
 #include "spark/connect/base.grpc.pb.h"
+#include "velox/common/fuzzer/Utils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::functions::sparksql::fuzzer {
+
+using facebook::velox::fuzzer::DataSpec;
 
 /// Query runner that uses Spark as a reference database. It converts Velox
 /// query plan to Spark SQL and executes it in Spark. The results are returned

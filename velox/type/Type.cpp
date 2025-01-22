@@ -977,6 +977,21 @@ exec::CastOperatorPtr getCustomTypeCastOperator(const std::string& name) {
   return nullptr;
 }
 
+CustomTypeFactories::~CustomTypeFactories() = default;
+
+AbstractInputGenerator::~AbstractInputGenerator() = default;
+
+AbstractInputGeneratorPtr getCustomTypeInputGenerator(
+    const std::string& name,
+    const InputGeneratorConfig& config) {
+  auto factories = getTypeFactories(name);
+  if (factories) {
+    return factories->getInputGenerator(config);
+  }
+
+  return nullptr;
+}
+
 void toTypeSql(const TypePtr& type, std::ostream& out) {
   switch (type->kind()) {
     case TypeKind::ARRAY:

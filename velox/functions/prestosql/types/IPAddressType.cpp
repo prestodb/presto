@@ -265,6 +265,11 @@ class IPAddressTypeFactories : public CustomTypeFactories {
   exec::CastOperatorPtr getCastOperator() const override {
     return std::make_shared<IPAddressCastOperator>();
   }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& /*config*/) const override {
+    return nullptr;
+  }
 };
 
 } // namespace

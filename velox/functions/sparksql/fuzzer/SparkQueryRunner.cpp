@@ -16,6 +16,8 @@
 #include <memory>
 #include <string>
 
+#include "velox/functions/sparksql/fuzzer/SparkQueryRunner.h"
+
 #include "arrow/buffer.h"
 #include "arrow/c/bridge.h"
 #include "arrow/io/api.h"
@@ -32,7 +34,6 @@
 #include "velox/exec/fuzzer/ToSQLUtil.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
-#include "velox/functions/sparksql/fuzzer/SparkQueryRunner.h"
 #include "velox/vector/arrow/Bridge.h"
 
 using namespace spark::connect;

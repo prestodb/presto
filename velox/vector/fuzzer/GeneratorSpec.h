@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/common/fuzzer/Utils.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/ComplexVector.h"
@@ -258,7 +259,7 @@ class EncoderSpec : public GeneratorSpec {
     switch (encodingCode) {
       case EncoderSpecCodes::CONSTANT: {
         auto index = getRandomIndex(rng, curSize - 1);
-        if (coinToss(rng, nullProbability_)) {
+        if (fuzzer::coinToss(rng, nullProbability_)) {
           ret = BaseVector::createNullConstant(type_, nextSize, pool);
         } else {
           ret = BaseVector::wrapInConstant(nextSize, index, vec);

@@ -18,7 +18,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/TypeEncodingUtil.h"
 #include "velox/vector/DictionaryVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -27,10 +29,15 @@ using namespace facebook::velox;
 
 namespace {
 
+using facebook::velox::fuzzer::JsonInputGenerator;
+using facebook::velox::fuzzer::RandomInputGenerator;
+using facebook::velox::fuzzer::SetConstrainedGenerator;
+
 class VectorFuzzerTest : public testing::Test {
  public:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
+    registerJsonType();
   }
 
   memory::MemoryPool* pool() const {
@@ -982,6 +989,86 @@ TEST_F(VectorFuzzerTest, randTypeByWidth) {
     const auto width = folly::Random::rand32(rng) % 128;
     type = fuzzer.randRowTypeByWidth(width);
     ASSERT_GE(approximateTypeEncodingwidth(type), width);
+  }
+}
+
+TEST_F(VectorFuzzerTest, json) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  const uint32_t kSize = 10;
+  for (auto i = 0; i < 10; ++i) {
+    auto result = fuzzer.fuzz(JSON(), kSize);
+    EXPECT_TRUE(result != nullptr);
+    EXPECT_TRUE(isJsonType(result->type()));
+    EXPECT_EQ(result->size(), kSize);
+
+    DecodedVector decoded;
+    decoded.decode(*result, SelectivityVector(kSize));
+    folly::dynamic json;
+    folly::json::serialization_opts opts;
+    opts.allow_non_string_keys = true;
+    opts.allow_nan_inf = true;
+    for (auto j = 0; j < kSize; ++j) {
+      if (decoded.isNullAt(j)) {
+        continue;
+      }
+      std::string value = decoded.valueAt<StringView>(j);
+      try {
+        json = folly::parseJson(value, opts);
+      } catch (...) {
+        EXPECT_TRUE(false);
+      }
+    }
+  }
+}
+
+TEST_F(VectorFuzzerTest, jsonConstrained) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  const TypePtr type = ARRAY(ROW({BIGINT()}));
+  std::shared_ptr<JsonInputGenerator> generator =
+      std::make_shared<JsonInputGenerator>(
+          0,
+          JSON(),
+          0.2,
+          std::make_unique<RandomInputGenerator<ArrayType>>(0, type, 0.3));
+
+  const uint32_t kSize = 1000;
+  const auto& jsonOpts = generator->serializationOptions();
+  DecodedVector decoded;
+  for (auto i = 0; i < 10; ++i) {
+    auto vector = fuzzer.fuzz(JSON(), kSize, generator);
+    VELOX_CHECK_NOT_NULL(vector);
+    VELOX_CHECK_EQ(vector->type()->kind(), TypeKind::VARCHAR);
+    decoded.decode(*vector, SelectivityVector(kSize));
+    for (auto j = 0; j < kSize; ++j) {
+      if (decoded.isNullAt(j)) {
+        continue;
+      }
+      std::string value = decoded.valueAt<StringView>(j);
+      folly::dynamic json;
+      EXPECT_NO_THROW(json = folly::parseJson(value, jsonOpts));
+      EXPECT_TRUE(json.isNull() || json.isArray());
+    }
+  }
+}
+
+TEST_F(VectorFuzzerTest, setConstrained) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  std::shared_ptr<SetConstrainedGenerator> generator =
+      std::make_shared<SetConstrainedGenerator>(
+          0, VARCHAR(), std::vector<variant>{variant("a"), variant("b")});
+  const uint32_t kSize = 1000;
+  auto vector = fuzzer.fuzz(VARCHAR(), kSize, generator);
+
+  DecodedVector decoded(*vector, SelectivityVector(kSize));
+  for (auto i = 0; i < kSize; ++i) {
+    std::string value = decoded.valueAt<StringView>(i);
+    EXPECT_TRUE(value == "a" || value == "b");
   }
 }
 } // namespace

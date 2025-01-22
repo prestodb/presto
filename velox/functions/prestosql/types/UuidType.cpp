@@ -147,6 +147,11 @@ class UuidTypeFactories : public CustomTypeFactories {
   exec::CastOperatorPtr getCastOperator() const override {
     return std::make_shared<UuidCastOperator>();
   }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& /*config*/) const override {
+    return nullptr;
+  }
 };
 
 } // namespace

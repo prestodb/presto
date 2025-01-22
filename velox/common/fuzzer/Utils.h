@@ -27,7 +27,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/Type.h"
 
-namespace facebook::velox {
+namespace facebook::velox::fuzzer {
 
 using FuzzerGenerator = folly::detail::DefaultGenerator;
 
@@ -39,6 +39,21 @@ enum UTF8CharList {
 };
 
 bool coinToss(FuzzerGenerator& rng, double threshold);
+
+TypePtr randType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth);
+
+TypePtr randMapType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth);
+
+RowTypePtr randRowType(
+    FuzzerGenerator& rng,
+    const std::vector<TypePtr>& scalarTypes,
+    int maxDepth);
 
 struct DataSpec {
   bool includeNaN;
@@ -161,4 +176,4 @@ std::string randString(
     std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t>& converter);
 #pragma GCC diagnostic pop
 
-} // namespace facebook::velox
+} // namespace facebook::velox::fuzzer

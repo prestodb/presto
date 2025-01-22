@@ -22,6 +22,7 @@ add_library(
 
 target_link_libraries(
   velox_fuzzer_util
+  velox_common_fuzzer_util
   velox_vector_fuzzer
   velox_core
   velox_exec_test_lib
@@ -122,6 +123,7 @@ add_library(velox_memory_arbitration_fuzzer MemoryArbitrationFuzzer.cpp)
 
 target_link_libraries(
   velox_memory_arbitration_fuzzer
+  velox_common_fuzzer_util
   velox_fuzzer_util
   velox_type
   velox_vector_fuzzer

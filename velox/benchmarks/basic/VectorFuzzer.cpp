@@ -19,6 +19,7 @@
 
 #include <gflags/gflags.h>
 
+#include "velox/common/fuzzer/Utils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -66,7 +67,7 @@ BENCHMARK_RELATIVE_MULTI(flatBool, n) {
 
 BENCHMARK_RELATIVE_MULTI(flatVarcharAscii, n) {
   auto opts = getOpts(n);
-  opts.charEncodings = {UTF8CharList::ASCII};
+  opts.charEncodings = {fuzzer::UTF8CharList::ASCII};
 
   VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzFlat(VARCHAR()));
@@ -75,7 +76,7 @@ BENCHMARK_RELATIVE_MULTI(flatVarcharAscii, n) {
 
 BENCHMARK_RELATIVE_MULTI(flatVarcharUtf8, n) {
   auto opts = getOpts(n);
-  opts.charEncodings = {UTF8CharList::EXTENDED_UNICODE};
+  opts.charEncodings = {fuzzer::UTF8CharList::EXTENDED_UNICODE};
 
   VectorFuzzer fuzzer(opts, pool(), FLAGS_fuzzer_seed);
   folly::doNotOptimizeAway(fuzzer.fuzzFlat(VARCHAR()));

@@ -19,11 +19,14 @@
 #include <set>
 #include <unordered_map>
 
+#include "velox/common/fuzzer/Utils.h"
 #include "velox/core/PlanNode.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::exec::test {
+
+using fuzzer::DataSpec;
 
 enum ReferenceQueryErrorCode {
   kSuccess,

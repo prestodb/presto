@@ -25,6 +25,7 @@
 #include "folly/json.h"
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/expression/EvalCtx.h"
 #include "velox/expression/PeeledEncoding.h"
 #include "velox/expression/StringWriter.h"
@@ -1287,6 +1288,30 @@ class JsonTypeFactories : public CustomTypeFactories {
 
   exec::CastOperatorPtr getCastOperator() const override {
     return std::make_shared<JsonCastOperator>();
+  }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& config) const override {
+    static const std::vector<TypePtr> kScalarTypes{
+        BOOLEAN(),
+        TINYINT(),
+        SMALLINT(),
+        INTEGER(),
+        BIGINT(),
+        REAL(),
+        DOUBLE(),
+        VARCHAR(),
+    };
+    fuzzer::FuzzerGenerator rng(config.seed_);
+    return std::make_shared<fuzzer::JsonInputGenerator>(
+        config.seed_,
+        JSON(),
+        config.nullRatio_,
+        fuzzer::getRandomInputGenerator(
+            config.seed_,
+            fuzzer::randType(rng, kScalarTypes, 3),
+            config.nullRatio_),
+        false);
   }
 };
 

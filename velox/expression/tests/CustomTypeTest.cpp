@@ -62,6 +62,11 @@ class FancyIntTypeFactories : public CustomTypeFactories {
   exec::CastOperatorPtr getCastOperator() const override {
     VELOX_UNSUPPORTED();
   }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& /*config*/) const override {
+    return nullptr;
+  }
 };
 
 class ToFancyIntFunction : public exec::VectorFunction {
@@ -145,6 +150,11 @@ class AlwaysFailingTypeFactories : public CustomTypeFactories {
   }
 
   exec::CastOperatorPtr getCastOperator() const override {
+    VELOX_UNSUPPORTED();
+  }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& /*config*/) const override {
     VELOX_UNSUPPORTED();
   }
 };

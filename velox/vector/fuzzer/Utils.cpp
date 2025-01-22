@@ -32,7 +32,7 @@ BufferPtr generateNullsBuffer(
     double nullProbability) {
   NullsBuilder builder{vectorSize, pool};
   for (size_t i = 0; i < vectorSize; ++i) {
-    if (coinToss(rng, nullProbability)) {
+    if (fuzzer::coinToss(rng, nullProbability)) {
       builder.setNull(i);
     }
   }

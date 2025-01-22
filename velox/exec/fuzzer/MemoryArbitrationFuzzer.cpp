@@ -19,6 +19,7 @@
 
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/file/tests/FaultyFileSystem.h"
+#include "velox/common/fuzzer/Utils.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h" // @manual
@@ -98,6 +99,8 @@ using namespace facebook::velox::tests::utils;
 
 namespace facebook::velox::exec::test {
 namespace {
+
+using fuzzer::coinToss;
 
 class MemoryArbitrationFuzzer {
  public:

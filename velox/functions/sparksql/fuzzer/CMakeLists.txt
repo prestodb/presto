@@ -89,6 +89,7 @@ target_include_directories(velox_spark_query_runner
 target_link_libraries(
   velox_spark_query_runner
   velox_dwio_arrow_parquet_writer
+  velox_common_fuzzer_util
   velox_fuzzer_util
   velox_exec_test_lib
   velox_arrow_bridge
