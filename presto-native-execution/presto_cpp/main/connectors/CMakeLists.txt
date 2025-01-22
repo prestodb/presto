@@ -27,4 +27,4 @@ if(PRESTO_ENABLE_CUDF)
 endif()
 
 target_link_libraries(presto_connectors presto_velox_expr_conversion
-                      velox_type_fbhive)
+                      velox_type_fbhive velox_tpcds_connector)
