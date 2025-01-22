@@ -150,6 +150,10 @@ class SimpleVector : public BaseVector {
       vector_size_t index,
       vector_size_t otherIndex,
       CompareFlags flags) const override {
+    // By design `this` is not a lazy vector (or it would not be a
+    // SimpleVector), but it may be a dictionary wrapped around a lazy, so we
+    // need to ensure it is loaded.
+    loadedVector();
     other = other->loadedVector();
     DCHECK(dynamic_cast<const SimpleVector<T>*>(other) != nullptr)
         << "Attempting to compare vectors not of the same type";
