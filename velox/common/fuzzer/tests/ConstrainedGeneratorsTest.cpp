@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-#include "velox/vector/fuzzer/ConstrainedGenerators.h"
+#include "velox/common/fuzzer/ConstrainedGenerators.h"
 
 #include <gtest/gtest.h>
 
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/Variant.h"
-#include "velox/vector/fuzzer/ConstrainedVectorGenerator.h"
-#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::fuzzer::test {
 
-class ConstrainedGeneratorsTest : public testing::Test,
-                                  public velox::test::VectorTestBase {
+class ConstrainedGeneratorsTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
@@ -284,54 +281,6 @@ class ConstrainedGeneratorsTest : public testing::Test,
       EXPECT_NE(setOfVariants.count(value), 0);
     }
   }
-
-  template <TypeKind KIND>
-  void testGenerateVectorsPrimitive(
-      const TypePtr& type,
-      const variant& excludedValue) {
-    using T = typename TypeTraits<KIND>::NativeType;
-    const uint32_t kSize = 1000;
-    std::shared_ptr<AbstractInputGenerator> generator =
-        std::make_shared<NotEqualConstrainedGenerator>(
-            0,
-            type,
-            excludedValue,
-            std::make_unique<RandomInputGenerator<T>>(0, type, 0.5));
-    auto vector =
-        ConstrainedVectorGenerator::generateConstant(generator, kSize, pool());
-    EXPECT_EQ(vector->size(), kSize);
-    EXPECT_EQ(vector->typeKind(), KIND);
-    EXPECT_TRUE(vector->isConstantEncoding());
-    EXPECT_TRUE(
-        vector->isNullAt(0) ||
-        vector->as<ConstantVector<T>>()->valueAt(0) != excludedValue);
-
-    vector = ConstrainedVectorGenerator::generateFlat(generator, kSize, pool());
-    EXPECT_EQ(vector->size(), kSize);
-    EXPECT_EQ(vector->typeKind(), KIND);
-    EXPECT_TRUE(vector->isFlatEncoding());
-    bool hasNull = false;
-    for (auto i = 0; i < kSize; ++i) {
-      if (vector->isNullAt(i)) {
-        hasNull = true;
-      } else {
-        EXPECT_NE(vector->as<FlatVector<T>>()->valueAt(i), excludedValue);
-      }
-    }
-    EXPECT_TRUE(hasNull);
-  }
-
-  template <TypeKind KIND>
-  void testGenerateVectorsComplex(const TypePtr& type) {
-    using T = typename TypeTraits<KIND>::ImplType;
-    const uint32_t kSize = 1000;
-    std::shared_ptr<AbstractInputGenerator> generator =
-        std::make_shared<RandomInputGenerator<T>>(0, type, 0.5);
-    auto vector =
-        ConstrainedVectorGenerator::generateFlat(generator, kSize, pool());
-    EXPECT_EQ(vector->size(), kSize);
-    EXPECT_EQ(vector->type(), type);
-  }
 };
 
 TEST_F(ConstrainedGeneratorsTest, randomPrimitive) {
@@ -431,16 +380,6 @@ TEST_F(ConstrainedGeneratorsTest, json) {
       EXPECT_TRUE(json.isNull() || json.isArray());
     }
   }
-}
-
-TEST_F(ConstrainedGeneratorsTest, generateVectors) {
-  testGenerateVectorsPrimitive<TypeKind::BIGINT>(BIGINT(), variant(0));
-  testGenerateVectorsPrimitive<TypeKind::VARCHAR>(VARCHAR(), variant(""));
-
-  testGenerateVectorsComplex<TypeKind::ARRAY>(
-      ARRAY(ROW({MAP(VARCHAR(), BIGINT())})));
-  testGenerateVectorsComplex<TypeKind::MAP>(
-      MAP(ARRAY(BIGINT()), ROW({VARCHAR()})));
 }
 
 } // namespace facebook::velox::fuzzer::test

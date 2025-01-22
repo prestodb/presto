@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/vector/fuzzer/ConstrainedGenerators.h"
+#include "velox/common/fuzzer/ConstrainedGenerators.h"
 
 #include <boost/random/uniform_int_distribution.hpp>
 
-#include "velox/vector/fuzzer/Utils.h"
+#include "velox/common/fuzzer/Utils.h"
 
 namespace facebook::velox::fuzzer {
 

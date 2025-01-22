@@ -20,9 +20,9 @@
 
 #include "folly/json.h"
 
+#include "velox/common/fuzzer/Utils.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
-#include "velox/vector/fuzzer/Utils.h"
 
 namespace facebook::velox::fuzzer {
 
