@@ -369,6 +369,9 @@ void testRe2Extract(F&& regexExtract) {
   EXPECT_EQ(regexExtract(std::nullopt, "\\d+", 0), std::nullopt);
   EXPECT_EQ(regexExtract(" 123 ", std::nullopt, 0), std::nullopt);
   EXPECT_EQ(regexExtract(" 123 ", "\\d+", std::nullopt), std::nullopt);
+  // Group case that mismatch.
+  EXPECT_EQ(
+      regexExtract("rat cat\nbat dog", "ra(.)|blah(.)(.)", 2), std::nullopt);
 }
 
 TEST_F(Re2FunctionsTest, regexExtract) {
