@@ -33,6 +33,20 @@
         <tag>HEAD</tag>
     </scm>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </pluginRepository>
+    </pluginRepositories>
+
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
 
@@ -56,7 +70,7 @@
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.7</dep.joda.version>
-        <dep.tempto.version>1.53</dep.tempto.version>
+        <dep.tempto.version>gradleUpgrade810_jdk8-SNAPSHOT</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>8.10.0</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
@@ -1978,7 +1992,7 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.aaneja.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -1990,11 +2004,15 @@
                         <groupId>com.google.code.findbugs</groupId>
                         <artifactId>annotations</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.aaneja.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2002,11 +2020,15 @@
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.aaneja.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
@@ -2018,17 +2040,25 @@
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.aaneja.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
                 <version>${dep.tempto.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
