@@ -118,9 +118,9 @@ SsdFile::SsdFile(const Config& config)
   process::TraceContext trace("SsdFile::SsdFile");
   filesystems::FileOptions fileOptions;
   fileOptions.shouldThrowOnFileAlreadyExists = false;
-  fileOptions.bufferWrite = !FLAGS_ssd_odirect;
+  fileOptions.bufferIo = !FLAGS_ssd_odirect;
   writeFile_ = fs_->openFileForWrite(fileName_, fileOptions);
-  readFile_ = fs_->openFileForRead(fileName_);
+  readFile_ = fs_->openFileForRead(fileName_, fileOptions);
 
   const uint64_t size = writeFile_->size();
   numRegions_ = std::min<int32_t>(size / kRegionSize, maxRegions_);

@@ -97,8 +97,8 @@ class LocalFileSystem : public FileSystem {
 
   std::unique_ptr<ReadFile> openFileForRead(
       std::string_view path,
-      const FileOptions& /*unused*/) override {
-    return std::make_unique<LocalReadFile>(extractPath(path));
+      const FileOptions& options) override {
+    return std::make_unique<LocalReadFile>(extractPath(path), options.bufferIo);
   }
 
   std::unique_ptr<WriteFile> openFileForWrite(
@@ -108,7 +108,7 @@ class LocalFileSystem : public FileSystem {
         extractPath(path),
         options.shouldCreateParentDirectories,
         options.shouldThrowOnFileAlreadyExists,
-        options.bufferWrite);
+        options.bufferIo);
   }
 
   void remove(std::string_view path) override {

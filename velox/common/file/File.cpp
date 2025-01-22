@@ -129,8 +129,15 @@ uint64_t InMemoryWriteFile::size() const {
   return file_->size();
 }
 
-LocalReadFile::LocalReadFile(std::string_view path) : path_(path) {
-  fd_ = open(path_.c_str(), O_RDONLY);
+LocalReadFile::LocalReadFile(std::string_view path, bool bufferIo)
+    : path_(path) {
+  int32_t flags = O_RDONLY;
+#ifdef linux
+  if (!bufferIo) {
+    flags |= O_DIRECT;
+  }
+#endif // linux
+  fd_ = open(path_.c_str(), flags);
   if (fd_ < 0) {
     if (errno == ENOENT) {
       VELOX_FILE_NOT_FOUND_ERROR("No such file or directory: {}", path);
@@ -259,7 +266,7 @@ LocalWriteFile::LocalWriteFile(
     std::string_view path,
     bool shouldCreateParentDirectories,
     bool shouldThrowOnFileAlreadyExists,
-    bool bufferWrite)
+    bool bufferIo)
     : path_(path) {
   const auto dir = fs::path(path_).parent_path();
   if (shouldCreateParentDirectories && !fs::exists(dir)) {
@@ -274,7 +281,7 @@ LocalWriteFile::LocalWriteFile(
     flags |= O_EXCL;
   }
 #ifdef linux
-  if (!bufferWrite) {
+  if (!bufferIo) {
     flags |= O_DIRECT;
   }
 #endif // linux

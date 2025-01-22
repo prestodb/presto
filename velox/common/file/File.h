@@ -266,7 +266,7 @@ class InMemoryWriteFile final : public WriteFile {
 /// files match against any filepath starting with '/'.
 class LocalReadFile final : public ReadFile {
  public:
-  explicit LocalReadFile(std::string_view path);
+  explicit LocalReadFile(std::string_view path, bool bufferIo = true);
 
   /// TODO: deprecate this after creating local file all through velox fs
   /// interface.
@@ -327,7 +327,7 @@ class LocalWriteFile final : public WriteFile {
       std::string_view path,
       bool shouldCreateParentDirectories = false,
       bool shouldThrowOnFileAlreadyExists = true,
-      bool bufferWrite = true);
+      bool bufferIo = true);
 
   ~LocalWriteFile();
 

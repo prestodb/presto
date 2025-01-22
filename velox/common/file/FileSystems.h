@@ -58,12 +58,10 @@ struct FileOptions {
   /// NOTE: this only applies for write open file.
   bool shouldThrowOnFileAlreadyExists{true};
 
-  /// Whether to buffer the write data in file system client or not. For local
+  /// Whether to buffer the data in file system client or not. For local
   /// filesystem on Unix-like operating system, this corresponds to the direct
   /// IO mode if set.
-  ///
-  /// NOTE: this only applies for write open file.
-  bool bufferWrite{true};
+  bool bufferIo{true};
 };
 
 /// Defines directory options
