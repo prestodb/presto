@@ -139,8 +139,8 @@ class NinjaLogAdapter(BenchmarkAdapter):
             end = int(end)
             duration = ms2sec(end - start)
 
-            # Don't track dependency times (refine check potentially?)
-            if not object_path.startswith("velox"):
+            # Mono build places library in lib/
+            if not object_path.startswith(("velox", "lib/libvelox")):
                 continue
 
             _, ext = splitext(object_path)

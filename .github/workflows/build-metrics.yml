@@ -72,6 +72,7 @@ jobs:
             "-DVELOX_ENABLE_GCS=ON"
             "-DVELOX_ENABLE_ABFS=ON"
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
+            "-DVELOX_MONO_LIBRARY=ON"
           )
           make '${{ matrix.type }}'
 
@@ -100,7 +101,8 @@ jobs:
           sizes_file=/tmp/metrics/object_sizes
           pushd '_build/${{ matrix.type }}'
 
-          find velox -type f -name '*.so' -o -name '*.a' -exec ls -l -BB {} \; |
+          # . to also check in lib for mono build
+          find . -type f -name 'libvelox*.so' -o -name 'libvelox*.a' -exec ls -l -BB {} \; |
             awk '{print $5, $9; total += $5} END {print total," total_lib_size"}' > $sizes_file
 
           find velox -type f -name '*.o' -exec ls -l -BB {} \; |
