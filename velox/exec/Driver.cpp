@@ -615,23 +615,24 @@ StopReason Driver::runInternal(
             });
             pushdownFilters(i);
             if (intermediateResult) {
-              withDeltaCpuWallTimer(op, &OperatorStats::addInputTiming, [&]() {
-                {
-                  auto lockedStats = nextOp->stats().wlock();
-                  lockedStats->addInputVector(
-                      resultBytes, intermediateResult->size());
-                }
-                nextOp->traceInput(intermediateResult);
-                TestValue::adjust(
-                    "facebook::velox::exec::Driver::runInternal::addInput",
-                    nextOp);
+              withDeltaCpuWallTimer(
+                  nextOp, &OperatorStats::addInputTiming, [&]() {
+                    {
+                      auto lockedStats = nextOp->stats().wlock();
+                      lockedStats->addInputVector(
+                          resultBytes, intermediateResult->size());
+                    }
+                    nextOp->traceInput(intermediateResult);
+                    TestValue::adjust(
+                        "facebook::velox::exec::Driver::runInternal::addInput",
+                        nextOp);
 
-                CALL_OPERATOR(
-                    nextOp->addInput(intermediateResult),
-                    nextOp,
-                    curOperatorId_ + 1,
-                    kOpMethodAddInput);
-              });
+                    CALL_OPERATOR(
+                        nextOp->addInput(intermediateResult),
+                        nextOp,
+                        curOperatorId_ + 1,
+                        kOpMethodAddInput);
+                  });
               // The next iteration will see if operators_[i + 1] has
               // output now that it got input.
               i += 2;
