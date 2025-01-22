@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/file/FileSystems.h"
+#include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/synchronization/CallOnce.h>
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/file/File.h"
@@ -79,10 +80,27 @@ folly::once_flag localFSInstantiationFlag;
 // Implement Local FileSystem.
 class LocalFileSystem : public FileSystem {
  public:
-  explicit LocalFileSystem(std::shared_ptr<const config::ConfigBase> config)
-      : FileSystem(config) {}
+  LocalFileSystem(
+      std::shared_ptr<const config::ConfigBase> config,
+      const FileSystemOptions& options)
+      : FileSystem(config),
+        executor_(
+            options.readAheadEnabled
+                ? std::make_unique<folly::CPUThreadPoolExecutor>(
+                      std::max(
+                          1,
+                          static_cast<int32_t>(
+                              std::thread::hardware_concurrency() / 2)),
+                      std::make_shared<folly::NamedThreadFactory>(
+                          "LocalReadahead"))
+                : nullptr) {}
 
-  ~LocalFileSystem() override {}
+  ~LocalFileSystem() override {
+    if (executor_) {
+      executor_->stop();
+      LOG(INFO) << "Executor " << executor_->getName() << " stopped.";
+    }
+  }
 
   std::string name() const override {
     return "Local FS";
@@ -98,7 +116,8 @@ class LocalFileSystem : public FileSystem {
   std::unique_ptr<ReadFile> openFileForRead(
       std::string_view path,
       const FileOptions& options) override {
-    return std::make_unique<LocalReadFile>(extractPath(path), options.bufferIo);
+    return std::make_unique<LocalReadFile>(
+        extractPath(path), executor_.get(), options.bufferIo);
   }
 
   std::unique_ptr<WriteFile> openFileForWrite(
@@ -216,23 +235,28 @@ class LocalFileSystem : public FileSystem {
 
   static std::function<std::shared_ptr<
       FileSystem>(std::shared_ptr<const config::ConfigBase>, std::string_view)>
-  fileSystemGenerator() {
-    return [](std::shared_ptr<const config::ConfigBase> properties,
-              std::string_view filePath) {
+  fileSystemGenerator(const FileSystemOptions& options) {
+    return [options](
+               std::shared_ptr<const config::ConfigBase> properties,
+               std::string_view filePath) {
       // One instance of Local FileSystem is sufficient.
       // Initialize on first access and reuse after that.
       static std::shared_ptr<FileSystem> lfs;
-      folly::call_once(localFSInstantiationFlag, [&properties]() {
-        lfs = std::make_shared<LocalFileSystem>(properties);
+      folly::call_once(localFSInstantiationFlag, [properties, options]() {
+        lfs = std::make_shared<LocalFileSystem>(properties, options);
       });
       return lfs;
     };
   }
+
+ private:
+  const std::unique_ptr<folly::CPUThreadPoolExecutor> executor_;
 };
 } // namespace
 
-void registerLocalFileSystem() {
+void registerLocalFileSystem(const FileSystemOptions& options) {
   registerFileSystem(
-      LocalFileSystem::schemeMatcher(), LocalFileSystem::fileSystemGenerator());
+      LocalFileSystem::schemeMatcher(),
+      LocalFileSystem::fileSystemGenerator(options));
 }
 } // namespace facebook::velox::filesystems

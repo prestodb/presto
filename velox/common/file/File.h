@@ -34,6 +34,7 @@
 #include <string>
 #include <string_view>
 
+#include <folly/Executor.h>
 #include <folly/Range.h>
 #include <folly/futures/Future.h>
 
@@ -266,11 +267,14 @@ class InMemoryWriteFile final : public WriteFile {
 /// files match against any filepath starting with '/'.
 class LocalReadFile final : public ReadFile {
  public:
-  explicit LocalReadFile(std::string_view path, bool bufferIo = true);
+  LocalReadFile(
+      std::string_view path,
+      folly::Executor* executor = nullptr,
+      bool bufferIo = true);
 
   /// TODO: deprecate this after creating local file all through velox fs
   /// interface.
-  explicit LocalReadFile(int32_t fd);
+  LocalReadFile(int32_t fd, folly::Executor* executor = nullptr);
 
   ~LocalReadFile();
 
@@ -282,6 +286,14 @@ class LocalReadFile final : public ReadFile {
   uint64_t preadv(
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers) const final;
+
+  folly::SemiFuture<uint64_t> preadvAsync(
+      uint64_t offset,
+      const std::vector<folly::Range<char*>>& buffers) const override;
+
+  bool hasPreadvAsync() const override {
+    return executor_ != nullptr;
+  }
 
   uint64_t memoryUsage() const final;
 
@@ -303,6 +315,7 @@ class LocalReadFile final : public ReadFile {
  private:
   void preadInternal(uint64_t offset, uint64_t length, char* pos) const;
 
+  folly::Executor* const executor_;
   std::string path_;
   int32_t fd_;
   long size_;

@@ -15,6 +15,7 @@
  */
 
 #include <fcntl.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
@@ -66,7 +67,10 @@ void writeDataWithOffset(WriteFile* writeFile) {
   ASSERT_EQ(writeFile->size(), 15 + kOneMB);
 }
 
-void readData(ReadFile* readFile, bool checkFileSize = true) {
+void readData(
+    ReadFile* readFile,
+    bool checkFileSize = true,
+    bool testReadAsync = false) {
   if (checkFileSize) {
     ASSERT_EQ(readFile->size(), 15 + kOneMB);
   }
@@ -105,6 +109,30 @@ void readData(ReadFile* readFile, bool checkFileSize = true) {
   ASSERT_EQ(std::string_view(head, sizeof(head)), "aaaaabbbbbcc");
   ASSERT_EQ(std::string_view(middle, sizeof(middle)), "cccc");
   ASSERT_EQ(std::string_view(tail, sizeof(tail)), "ccddddd");
+  if (testReadAsync) {
+    std::vector<folly::Range<char*>> buffers1 = {
+        folly::Range<char*>(head, sizeof(head)),
+        folly::Range<char*>(nullptr, (char*)(uint64_t)500000)};
+    auto future1 = readFile->preadvAsync(0, buffers1);
+    const auto offset1 = sizeof(head) + 500000;
+    std::vector<folly::Range<char*>> buffers2 = {
+        folly::Range<char*>(middle, sizeof(middle)),
+        folly::Range<char*>(
+            nullptr,
+            (char*)(uint64_t)(15 + kOneMB - offset1 - sizeof(middle) -
+                              sizeof(tail)))};
+    auto future2 = readFile->preadvAsync(offset1, buffers2);
+    std::vector<folly::Range<char*>> buffers3 = {
+        folly::Range<char*>(tail, sizeof(tail))};
+    const auto offset2 = 15 + kOneMB - sizeof(tail);
+    auto future3 = readFile->preadvAsync(offset2, buffers3);
+    ASSERT_EQ(offset1, future1.wait().value());
+    ASSERT_EQ(offset2 - offset1, future2.wait().value());
+    ASSERT_EQ(sizeof(tail), future3.wait().value());
+    ASSERT_EQ(std::string_view(head, sizeof(head)), "aaaaabbbbbcc");
+    ASSERT_EQ(std::string_view(middle, sizeof(middle)), "cccc");
+    ASSERT_EQ(std::string_view(tail, sizeof(tail)), "ccddddd");
+  }
 }
 
 // We could templated this test, but that's kinda overkill for how simple it is.
@@ -157,6 +185,13 @@ class LocalFileTest : public ::testing::TestWithParam<bool> {
   }
 
   const bool useFaultyFs_;
+  const std::unique_ptr<folly::CPUThreadPoolExecutor> executor_ =
+      std::make_unique<folly::CPUThreadPoolExecutor>(
+          std::max(
+              1,
+              static_cast<int32_t>(std::thread::hardware_concurrency() / 2)),
+          std::make_shared<folly::NamedThreadFactory>(
+              "LocalFileReadAheadTest"));
 };
 
 TEST_P(LocalFileTest, writeAndRead) {
@@ -184,6 +219,14 @@ TEST_P(LocalFileTest, writeAndRead) {
       }
       writeFile->close();
       ASSERT_EQ(writeFile->size(), 15 + kOneMB);
+    }
+    // Test read async.
+    if (!useFaultyFs_) {
+      auto readFile =
+          std::make_shared<LocalReadFile>(filename, executor_.get());
+      readData(readFile.get(), true, true);
+      auto readFileWithoutExecutor = std::make_shared<LocalReadFile>(filename);
+      readData(readFileWithoutExecutor.get(), true, true);
     }
     auto readFile = fs->openFileForRead(filename);
     readData(readFile.get());
