@@ -1003,7 +1003,8 @@ class Task : public std::enable_shared_from_this<Task> {
   // pipeline.
   void createExchangeClientLocked(
       int32_t pipelineId,
-      const core::PlanNodeId& planNodeId);
+      const core::PlanNodeId& planNodeId,
+      int32_t numberOfConsumers);
 
   // Get a shared reference to the exchange client with the specified exchange
   // plan node 'planNodeId'. The function returns null if there is no client

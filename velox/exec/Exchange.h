@@ -89,6 +89,8 @@ class Exchange : public SourceOperator {
   /// and passing these to ExchangeClient.
   const bool processSplits_;
 
+  const int driverId_;
+
   bool noMoreSplits_ = false;
 
   std::shared_ptr<ExchangeClient> exchangeClient_;

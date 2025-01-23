@@ -113,6 +113,15 @@ class QueryConfig {
   static constexpr const char* kMaxMergeExchangeBufferSize =
       "merge_exchange.max_buffer_size";
 
+  /// The minimum number of bytes to accumulate in the ExchangeQueue
+  /// before unblocking a consumer. This is used to avoid creating tiny
+  /// batches which may have a negative impact on performance when the
+  /// cost of creating vectors is high (for example, when there are many
+  /// columns). To avoid latency degradation, the exchange client unblocks a
+  /// consumer when 1% of the data size observed so far is accumulated.
+  static constexpr const char* kMinExchangeOutputBatchBytes =
+      "min_exchange_output_batch_bytes";
+
   static constexpr const char* kMaxPartialAggregationMemory =
       "max_partial_aggregation_memory";
 
@@ -592,6 +601,11 @@ class QueryConfig {
   uint64_t maxMergeExchangeBufferSize() const {
     static constexpr uint64_t kDefault = 128UL << 20;
     return get<uint64_t>(kMaxMergeExchangeBufferSize, kDefault);
+  }
+
+  uint64_t minExchangeOutputBatchBytes() const {
+    static constexpr uint64_t kDefault = 2UL << 20;
+    return get<uint64_t>(kMinExchangeOutputBatchBytes, kDefault);
   }
 
   uint64_t preferredOutputBatchBytes() const {

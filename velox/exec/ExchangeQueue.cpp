@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/ExchangeQueue.h"
+#include <algorithm>
 
 namespace facebook::velox::exec {
 
@@ -64,6 +65,15 @@ void ExchangeQueue::close() {
   clearPromises(promises);
 }
 
+int64_t ExchangeQueue::minOutputBatchBytesLocked() const {
+  // always allow to unblock when at end
+  if (atEnd_) {
+    return 0;
+  }
+  // At most 1% of received bytes so far to minimize latency for small exchanges
+  return std::min<int64_t>(minOutputBatchBytes_, receivedBytes_ / 100);
+}
+
 void ExchangeQueue::enqueueLocked(
     std::unique_ptr<SerializedPage>&& page,
     std::vector<ContinuePromise>& promises) {
@@ -86,17 +96,45 @@ void ExchangeQueue::enqueueLocked(
   receivedBytes_ += page->size();
 
   queue_.push_back(std::move(page));
-  if (!promises_.empty()) {
+  const auto minBatchSize = minOutputBatchBytesLocked();
+  while (!promises_.empty()) {
+    VELOX_CHECK_LE(promises_.size(), numberOfConsumers_);
+    const int32_t unblockedConsumers = numberOfConsumers_ - promises_.size();
+    const int64_t unasignedBytes =
+        totalBytes_ - unblockedConsumers * minBatchSize;
+    if (unasignedBytes < minBatchSize) {
+      break;
+    }
     // Resume one of the waiting drivers.
-    promises.push_back(std::move(promises_.back()));
-    promises_.pop_back();
+    auto it = promises_.begin();
+    promises.push_back(std::move(it->second));
+    promises_.erase(it);
   }
 }
 
+void ExchangeQueue::addPromiseLocked(
+    int consumerId,
+    ContinueFuture* future,
+    ContinuePromise* stalePromise) {
+  ContinuePromise promise{"ExchangeQueue::dequeue"};
+  *future = promise.getSemiFuture();
+  auto it = promises_.find(consumerId);
+  if (it != promises_.end()) {
+    // resolve stale promises outside the lock to avoid broken promises
+    *stalePromise = std::move(it->second);
+    it->second = std::move(promise);
+  } else {
+    promises_[consumerId] = std::move(promise);
+  }
+  VELOX_CHECK_LE(promises_.size(), numberOfConsumers_);
+}
+
 std::vector<std::unique_ptr<SerializedPage>> ExchangeQueue::dequeueLocked(
+    int consumerId,
     uint32_t maxBytes,
     bool* atEnd,
-    ContinueFuture* future) {
+    ContinueFuture* future,
+    ContinuePromise* stalePromise) {
   VELOX_CHECK_NOT_NULL(future);
   if (!error_.empty()) {
     *atEnd = true;
@@ -105,6 +143,13 @@ std::vector<std::unique_ptr<SerializedPage>> ExchangeQueue::dequeueLocked(
 
   *atEnd = false;
 
+  // If we don't have enough bytes to return, we wait for more data to be
+  // available
+  if (totalBytes_ < minOutputBatchBytesLocked()) {
+    addPromiseLocked(consumerId, future, stalePromise);
+    return {};
+  }
+
   std::vector<std::unique_ptr<SerializedPage>> pages;
   uint32_t pageBytes = 0;
   for (;;) {
@@ -112,8 +157,7 @@ std::vector<std::unique_ptr<SerializedPage>> ExchangeQueue::dequeueLocked(
       if (atEnd_) {
         *atEnd = true;
       } else if (pages.empty()) {
-        promises_.emplace_back("ExchangeQueue::dequeue");
-        *future = promises_.back().getSemiFuture();
+        addPromiseLocked(consumerId, future, stalePromise);
       }
       return pages;
     }

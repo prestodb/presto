@@ -89,6 +89,13 @@ Generic Configuration
      - Size of buffer in the exchange client that holds data fetched from other nodes before it is processed.
        A larger buffer can increase network throughput for larger clusters and thus decrease query processing time
        at the expense of reducing the amount of memory available for other usage.
+   * - min_exchange_output_batch_bytes
+     - integer
+     - 2MB
+     - The minimum number of bytes to accumulate in the ExchangeQueue before unblocking a consumer. This is used to avoid
+       creating tiny batches which may have a negative impact on performance when the cost of creating vectors is high
+       (for example, when there are many columns). To avoid latency degradation, the exchange client unblocks a consumer
+       when 1% of the data size observed so far is accumulated.
    * - merge_exchange.max_buffer_size
      - integer
      - 128MB
@@ -670,13 +677,13 @@ Each query can override the config by setting corresponding query session proper
      - Default AWS secret key to use.
    * - hive.s3.endpoint
      - string
-     - 
+     -
      - The S3 storage endpoint server. This can be used to connect to an S3-compatible storage system instead of AWS.
    * - hive.s3.endpoint.region
      - string
      - us-east-1
      - The S3 storage endpoint server region. Default is set by the AWS SDK. If not configured, region will be attempted
-       to be parsed from the hive.s3.endpoint value. 
+       to be parsed from the hive.s3.endpoint value.
    * - hive.s3.path-style-access
      - bool
      - false

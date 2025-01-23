@@ -1451,14 +1451,16 @@ TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, outOfOrderAcks) {
 }
 
 TEST_F(OutputBufferManagerTest, errorInQueue) {
-  auto queue = std::make_shared<ExchangeQueue>();
+  auto queue = std::make_shared<ExchangeQueue>(1, 0);
   queue->setError("Forced failure");
 
   std::lock_guard<std::mutex> l(queue->mutex());
   ContinueFuture future;
   bool atEnd = false;
+  ContinuePromise stalePromise = ContinuePromise::makeEmpty();
   VELOX_ASSERT_THROW(
-      queue->dequeueLocked(1, &atEnd, &future), "Forced failure");
+      queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise),
+      "Forced failure");
 }
 
 TEST_P(
@@ -1473,7 +1475,7 @@ TEST_P(
 
   auto page = std::make_unique<SerializedPage>(std::move(iobuf));
 
-  auto queue = std::make_shared<ExchangeQueue>();
+  auto queue = std::make_shared<ExchangeQueue>(1, 0);
   std::vector<ContinuePromise> promises;
   {
     std::lock_guard<std::mutex> l(queue->mutex());
@@ -1486,8 +1488,10 @@ TEST_P(
   std::lock_guard<std::mutex> l(queue->mutex());
   ContinueFuture future;
   bool atEnd = false;
+  ContinuePromise stalePromise = ContinuePromise::makeEmpty();
   VELOX_ASSERT_THROW(
-      queue->dequeueLocked(1, &atEnd, &future), "Forced failure");
+      queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise),
+      "Forced failure");
 }
 
 TEST_P(OutputBufferManagerWithDifferentSerdeKindsTest, getDataOnFailedTask) {

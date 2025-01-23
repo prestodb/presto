@@ -52,6 +52,7 @@ Exchange::Exchange(
           operatorCtx_->driverCtx()->queryConfig(),
           serdeKind_)},
       processSplits_{operatorCtx_->driverCtx()->driverId == 0},
+      driverId_{driverCtx->driverId},
       exchangeClient_{std::move(exchangeClient)} {}
 
 void Exchange::addTaskIds(std::vector<std::string>& taskIds) {
@@ -111,8 +112,8 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
   }
 
   ContinueFuture dataFuture;
-  currentPages_ =
-      exchangeClient_->next(preferredOutputBatchBytes_, &atEnd_, &dataFuture);
+  currentPages_ = exchangeClient_->next(
+      driverId_, preferredOutputBatchBytes_, &atEnd_, &dataFuture);
   if (!currentPages_.empty() || atEnd_) {
     if (atEnd_ && noMoreSplits_) {
       const auto numSplits = stats_.rlock()->numSplits;
