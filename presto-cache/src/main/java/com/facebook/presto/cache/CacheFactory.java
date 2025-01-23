@@ -21,7 +21,7 @@ import org.apache.hadoop.conf.Configuration;
 import java.io.IOException;
 import java.net.URI;
 
-import static alluxio.shaded.client.com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 public class CacheFactory
 {
