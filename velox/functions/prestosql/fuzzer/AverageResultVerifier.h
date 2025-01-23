@@ -52,6 +52,20 @@ class AverageResultVerifier : public ResultVerifier {
     }
   }
 
+  void initializeWindow(
+      const std::vector<RowVectorPtr>& input,
+      const std::vector<std::string>& /*partitionByKeys*/,
+      const std::vector<SortingKeyAndOrder>& /*sortingKeysAndOrders*/,
+      const core::WindowNode::Function& function,
+      const std::string& /*frame*/,
+      const std::string& windowName) override {
+    if (function.functionCall->type()->isIntervalDayTime()) {
+      projections_ = asRowType(input[0]->type())->names();
+      projections_.push_back(
+          fmt::format("cast(to_milliseconds({}) as double)", windowName));
+    }
+  }
+
   bool compare(const RowVectorPtr& result, const RowVectorPtr& altResult)
       override {
     if (projections_.empty()) {

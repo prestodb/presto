@@ -677,6 +677,34 @@ void initializeVerifier(
       frame,
       "w0");
 }
+
+template <typename T, bool resultAsVector>
+T getReferenceResult(
+    const core::PlanNodePtr& plan,
+    core::PlanNodeId windowNodeId,
+    const std::string& prestoFrameClause,
+    ReferenceQueryRunner* referenceQueryRunner) {
+  auto prestoQueryRunner =
+      dynamic_cast<PrestoQueryRunner*>(referenceQueryRunner);
+  bool isPrestoQueryRunner = (prestoQueryRunner != nullptr);
+  if (isPrestoQueryRunner) {
+    prestoQueryRunner->queryRunnerContext()
+        ->windowFrames_[windowNodeId]
+        .push_back(prestoFrameClause);
+  }
+
+  T referenceResult;
+  if constexpr (resultAsVector) {
+    referenceResult =
+        computeReferenceResultsAsVector(plan, referenceQueryRunner);
+  } else {
+    referenceResult = computeReferenceResults(plan, referenceQueryRunner);
+  }
+  if (isPrestoQueryRunner) {
+    prestoQueryRunner->queryRunnerContext()->windowFrames_.clear();
+  }
+  return referenceResult;
+}
 } // namespace
 
 bool WindowFuzzer::verifyWindow(
@@ -689,12 +717,6 @@ bool WindowFuzzer::verifyWindow(
     const std::shared_ptr<ResultVerifier>& customVerifier,
     bool enableWindowVerification,
     const std::string& prestoFrameClause) {
-  SCOPE_EXIT {
-    if (customVerifier) {
-      customVerifier->reset();
-    }
-  };
-
   core::PlanNodeId windowNodeId;
   auto frame = getFrame(partitionKeys, sortingKeysAndOrders, frameClause);
   auto plan = PlanBuilder()
@@ -707,6 +729,28 @@ bool WindowFuzzer::verifyWindow(
     persistReproInfo({{plan, {}}}, reproPersistPath_);
   }
 
+  bool customVerifierInitialized = false;
+  if (customVerifier) {
+    try {
+      initializeVerifier(
+          plan,
+          customVerifier,
+          input,
+          partitionKeys,
+          sortingKeysAndOrders,
+          frame);
+      customVerifierInitialized = true;
+    } catch (...) {
+      LOG(WARNING) << "Custom verifier initialization failed";
+    }
+  }
+
+  SCOPE_EXIT {
+    if (customVerifier) {
+      customVerifier->reset();
+    }
+  };
+
   velox::fuzzer::ResultOrError resultOrError;
   try {
     resultOrError = execute(plan);
@@ -714,51 +758,68 @@ bool WindowFuzzer::verifyWindow(
       ++stats_.numFailed;
     }
 
-    if (!customVerification) {
-      if (resultOrError.result && enableWindowVerification) {
-        auto prestoQueryRunner =
-            dynamic_cast<PrestoQueryRunner*>(referenceQueryRunner_.get());
-        bool isPrestoQueryRunner = (prestoQueryRunner != nullptr);
-        if (isPrestoQueryRunner) {
-          prestoQueryRunner->queryRunnerContext()
-              ->windowFrames_[windowNodeId]
-              .push_back(prestoFrameClause);
+    if (resultOrError.result) {
+      if (!customVerification) {
+        if (enableWindowVerification) {
+          auto referenceResult = getReferenceResult<
+              std::pair<
+                  std::optional<MaterializedRowMultiset>,
+                  ReferenceQueryErrorCode>,
+              false>(
+              plan,
+              windowNodeId,
+              prestoFrameClause,
+              referenceQueryRunner_.get());
+          stats_.updateReferenceQueryStats(referenceResult.second);
+          if (auto expectedResult = referenceResult.first) {
+            ++stats_.numVerified;
+            stats_.verifiedFunctionNames.insert(
+                retrieveWindowFunctionName(plan)[0]);
+            VELOX_CHECK(
+                assertEqualResults(
+                    expectedResult.value(),
+                    plan->outputType(),
+                    {resultOrError.result}),
+                "Velox and reference DB results don't match");
+            LOG(INFO) << "Verified results against reference DB";
+          }
         }
-        auto referenceResult =
-            computeReferenceResults(plan, referenceQueryRunner_.get());
-        if (isPrestoQueryRunner) {
-          prestoQueryRunner->queryRunnerContext()->windowFrames_.clear();
-        }
-        stats_.updateReferenceQueryStats(referenceResult.second);
-        if (auto expectedResult = referenceResult.first) {
-          ++stats_.numVerified;
-          stats_.verifiedFunctionNames.insert(
-              retrieveWindowFunctionName(plan)[0]);
-          VELOX_CHECK(
-              assertEqualResults(
-                  expectedResult.value(),
-                  plan->outputType(),
-                  {resultOrError.result}),
-              "Velox and reference DB results don't match");
-          LOG(INFO) << "Verified results against reference DB";
-        }
-      }
-    } else {
-      LOG(INFO) << "Verification through custom verifier";
-      ++stats_.numVerificationSkipped;
+      } else if (referenceQueryRunner_->supportsVeloxVectorResults()) {
+        if (enableWindowVerification) {
+          auto referenceResult = getReferenceResult<
+              std::pair<
+                  std::optional<std::vector<RowVectorPtr>>,
+                  ReferenceQueryErrorCode>,
+              true>(
+              plan,
+              windowNodeId,
+              prestoFrameClause,
+              referenceQueryRunner_.get());
+          stats_.updateReferenceQueryStats(referenceResult.second);
+          if (auto expectedResult = referenceResult.first) {
+            ++stats_.numVerified;
+            stats_.verifiedFunctionNames.insert(
+                retrieveWindowFunctionName(plan)[0]);
+            velox::fuzzer::ResultOrError expected;
+            expected.result = fuzzer::mergeRowVectors(
+                referenceResult.first.value(), pool_.get());
 
-      if (customVerifier && resultOrError.result) {
-        VELOX_CHECK(
-            customVerifier->supportsVerify(),
-            "Window fuzzer only uses custom verify() methods.");
-        initializeVerifier(
-            plan,
-            customVerifier,
-            input,
-            partitionKeys,
-            sortingKeysAndOrders,
-            frame);
+            if (customVerifier) {
+              VELOX_CHECK(customVerifierInitialized);
+            }
+            compare(
+                resultOrError, customVerification, {customVerifier}, expected);
+            LOG(INFO) << "Verified results against reference DB";
+          }
+        }
+      } else if (customVerifier && customVerifier->supportsVerify()) {
+        LOG(INFO) << "Verification through custom verifier";
+        ++stats_.numVerificationSkipped;
+
+        VELOX_CHECK(customVerifierInitialized);
         customVerifier->verify(resultOrError.result);
+      } else {
+        LOG(WARNING) << "No Verification Performed";
       }
     }
 

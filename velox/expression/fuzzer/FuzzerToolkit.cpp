@@ -157,6 +157,23 @@ void compareVectors(
   LOG(INFO) << "Two vectors match.";
 }
 
+RowVectorPtr mergeRowVectors(
+    const std::vector<RowVectorPtr>& results,
+    velox::memory::MemoryPool* pool) {
+  auto totalCount = 0;
+  for (const auto& result : results) {
+    totalCount += result->size();
+  }
+  auto copy =
+      BaseVector::create<RowVector>(results[0]->type(), totalCount, pool);
+  auto copyCount = 0;
+  for (const auto& result : results) {
+    copy->copy(result.get(), copyCount, 0, result->size());
+    copyCount += result->size();
+  }
+  return copy;
+}
+
 void InputRowMetadata::saveToFile(const char* filePath) const {
   std::ofstream outputFile(filePath, std::ofstream::binary);
   saveStdVector(columnsToWrapInLazy, outputFile);

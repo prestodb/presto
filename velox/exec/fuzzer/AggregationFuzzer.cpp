@@ -1052,27 +1052,6 @@ void AggregationFuzzer::Stats::print(size_t numIterations) const {
   AggregationFuzzerBase::Stats::print(numIterations);
 }
 
-namespace {
-// Merges a vector of RowVectors into one RowVector.
-RowVectorPtr mergeRowVectors(
-    const std::vector<RowVectorPtr>& results,
-    velox::memory::MemoryPool* pool) {
-  auto totalCount = 0;
-  for (const auto& result : results) {
-    totalCount += result->size();
-  }
-  auto copy =
-      BaseVector::create<RowVector>(results[0]->type(), totalCount, pool);
-  auto copyCount = 0;
-  for (const auto& result : results) {
-    copy->copy(result.get(), copyCount, 0, result->size());
-    copyCount += result->size();
-  }
-  return copy;
-}
-
-} // namespace
-
 bool AggregationFuzzer::compareEquivalentPlanResults(
     const std::vector<PlanWithSplits>& plans,
     bool customVerification,
@@ -1123,8 +1102,8 @@ bool AggregationFuzzer::compareEquivalentPlanResults(
 
           if (referenceResult.first) {
             velox::fuzzer::ResultOrError expected;
-            expected.result =
-                mergeRowVectors(referenceResult.first.value(), pool_.get());
+            expected.result = fuzzer::mergeRowVectors(
+                referenceResult.first.value(), pool_.get());
 
             compare(
                 resultOrError, customVerification, {customVerifier}, expected);

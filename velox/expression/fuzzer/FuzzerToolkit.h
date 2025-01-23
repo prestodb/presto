@@ -120,6 +120,11 @@ void compareVectors(
     const std::string& rightName = "right",
     const std::optional<SelectivityVector>& rows = std::nullopt);
 
+// Merges a vector of RowVectors into one RowVector.
+RowVectorPtr mergeRowVectors(
+    const std::vector<RowVectorPtr>& results,
+    velox::memory::MemoryPool* pool);
+
 struct InputRowMetadata {
   // Column indices to wrap in LazyVector (in a strictly increasing order)
   std::vector<int> columnsToWrapInLazy;

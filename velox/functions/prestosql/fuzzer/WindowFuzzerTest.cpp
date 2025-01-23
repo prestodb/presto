@@ -25,6 +25,7 @@
 #include "velox/functions/prestosql/fuzzer/ApproxDistinctResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/ApproxPercentileResultVerifier.h"
+#include "velox/functions/prestosql/fuzzer/AverageResultVerifier.h"
 #include "velox/functions/prestosql/fuzzer/ClassificationAggregationInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/MinMaxInputGenerator.h"
 #include "velox/functions/prestosql/fuzzer/WindowOffsetInputGenerator.h"
@@ -130,6 +131,7 @@ int main(int argc, char** argv) {
   // TODO: allow custom result verifiers.
   using facebook::velox::exec::test::ApproxDistinctResultVerifier;
   using facebook::velox::exec::test::ApproxPercentileResultVerifier;
+  using facebook::velox::exec::test::AverageResultVerifier;
 
   static const std::unordered_map<
       std::string,
@@ -149,6 +151,7 @@ int main(int argc, char** argv) {
           // https://github.com/facebookincubator/velox/issues/6330
           {"max_data_size_for_stats", nullptr},
           {"sum_data_size_for_stats", nullptr},
+          {"avg", std::make_shared<AverageResultVerifier>()},
       };
 
   static const std::unordered_set<std::string> orderDependentFunctions = {
