@@ -201,6 +201,7 @@ import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 
 public abstract class IcebergAbstractMetadata
@@ -719,6 +720,7 @@ public abstract class IcebergAbstractMetadata
         properties.put(METADATA_PREVIOUS_VERSIONS_MAX, IcebergUtil.getMetadataPreviousVersionsMax(icebergTable));
         properties.put(METADATA_DELETE_AFTER_COMMIT, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
         properties.put(METRICS_MAX_INFERRED_COLUMN, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
+        properties.put(SPLIT_SIZE, IcebergUtil.getSplitSize(icebergTable));
 
         SortOrder sortOrder = icebergTable.sortOrder();
         // TODO: Support sort column transforms (https://github.com/prestodb/presto/issues/24250)
@@ -1126,6 +1128,9 @@ public abstract class IcebergAbstractMetadata
             switch (entry.getKey()) {
                 case COMMIT_RETRIES:
                     updateProperties.set(TableProperties.COMMIT_NUM_RETRIES, String.valueOf(entry.getValue()));
+                    break;
+                case SPLIT_SIZE:
+                    updateProperties.set(TableProperties.SPLIT_SIZE, entry.getValue().toString());
                     break;
                 default:
                     throw new PrestoException(NOT_SUPPORTED, "Updating property " + entry.getKey() + " is not supported currently");
