@@ -238,6 +238,7 @@ class JsonParseFunction : public exec::VectorFunction {
         auto size = prepareInput(value, needNormalizes[row]);
         if (auto error = parse(size, needNormalizes[row])) {
           context.setVeloxExceptionError(row, errors_[error]);
+          clearState();
           return;
         }
         auto outputSize = concatViews(views_, output);
@@ -455,6 +456,12 @@ class JsonParseFunction : public exec::VectorFunction {
       std::sort(
           sortIndices_.begin(), sortIndices_.end(), std::forward<LessThan>(lt));
     }
+  }
+
+  void clearState() const {
+    fields_.clear();
+    sortIndices_.clear();
+    fastSortKeys_.clear();
   }
 
   mutable folly::once_flag initializeErrors_;

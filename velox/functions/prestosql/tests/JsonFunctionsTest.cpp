@@ -338,6 +338,21 @@ TEST_F(JsonFunctionsTest, jsonParse) {
       jsonParse("{\"k1\\"), "Invalid escape sequence at the end of string");
   VELOX_ASSERT_USER_THROW(
       jsonParse("{\"k1\\u"), "Invalid escape sequence at the end of string");
+
+  // Ensure state is cleared after invalid json
+  {
+    data = makeRowVector({makeFlatVector<StringView>({
+        R"({"key":1578377,"name":"Alto Ma\\u00e9 \\"A\\"","type":"cities"})", // invalid json
+        R"([{"k1": "v1" }, {"k2": "v2" }])" // valid json
+    })});
+
+    result = evaluate("try(json_parse(c0))", data);
+
+    expected = makeNullableFlatVector<StringView>(
+        {std::nullopt, R"([{"k1":"v1"},{"k2":"v2"}])"}, JSON());
+
+    velox::test::assertEqualVectors(expected, result);
+  }
 }
 
 TEST_F(JsonFunctionsTest, canonicalization) {
