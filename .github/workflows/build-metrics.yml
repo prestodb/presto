@@ -35,7 +35,7 @@ permissions:
 
 jobs:
   metrics:
-    name: Linux ${{ matrix.type }} with adapters
+    name: Linux ${{ matrix.link-type }} - ${{ matrix.type }} with adapters
     if: ${{ github.repository == 'facebookincubator/velox' }}
     runs-on: ${{ matrix.runner }}
     container: ghcr.io/facebookincubator/velox-dev:adapters
@@ -59,7 +59,6 @@ jobs:
         run: git config --global --add safe.directory ${GITHUB_WORKSPACE}
 
       - name: Make  ${{ matrix.link-type }} - ${{ matrix.type }} Build
-        if: ${{ matrix.link-type == 'static' }}
         env:
           MAKEFLAGS: 'MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4'
         run: |
@@ -73,43 +72,38 @@ jobs:
             "-DVELOX_ENABLE_ABFS=ON"
             "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
             "-DVELOX_MONO_LIBRARY=ON"
+            "-DVELOX_BUILD_SHARED=${{ matrix.link-type == 'shared' && 'ON' || 'OFF' }}"
           )
-          make '${{ matrix.type }}'
 
-      - name: Make  ${{ matrix.link-type }} - ${{ matrix.type }} Build
-        if: ${{ matrix.link-type == 'shared' }}
-        env:
-          MAKEFLAGS: 'MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=4'
-        run: |
-          EXTRA_CMAKE_FLAGS=(
-            "-DVELOX_ENABLE_BENCHMARKS=ON"
-            "-DVELOX_ENABLE_ARROW=ON"
-            "-DVELOX_ENABLE_PARQUET=ON"
-            "-DVELOX_ENABLE_HDFS=ON"
-            "-DVELOX_ENABLE_S3=ON"
-            "-DVELOX_ENABLE_GCS=ON"
-            "-DVELOX_ENABLE_ABFS=ON"
-            "-DVELOX_ENABLE_REMOTE_FUNCTIONS=ON"
-            "-DVELOX_MONO_LIBRARY=ON"
-            "-DVELOX_BUILD_SHARED=ON"
-          )
-          make '${{ matrix.type }}'
+          echo "CMake Flags: ${EXTRA_CMAKE_FLAGS[*]}"
+          make '${{ matrix.type }}' EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS[*]}"
 
       - name: Log binary sizes
         run: |
           mkdir -p /tmp/metrics
           sizes_file=/tmp/metrics/object_sizes
+          echo "sizes_file=$sizes_file" >> $GITHUB_ENV
+
           pushd '_build/${{ matrix.type }}'
 
           # . to also check in lib for mono build
-          find . -type f -name 'libvelox*.so' -o -name 'libvelox*.a' -exec ls -l -BB {} \; |
+          find . -type f \( -name 'libvelox*.so' -o -name 'libvelox*.a' \) -exec ls -l -BB {} \; |
             awk '{print $5, $9; total += $5} END {print total," total_lib_size"}' > $sizes_file
 
-          find velox -type f -name '*.o' -exec ls -l -BB {} \; |
+          find velox -type f -name '*.o' -exec ls -l -BB {} \;  |
             awk '{print $5, $9; total += $5} END {print total," total_obj_size"}' >> $sizes_file
 
           find velox -type f -name 'velox_*' -exec ls -l -BB {} \; |
             awk '{print $5, $9; total += $5} END {print total," total_exec_size"}' >> $sizes_file
+
+          echo "::group::Size file for ${{ matrix.link-type }} - ${{ matrix.type }}"
+          cat $sizes_file
+          echo "::endgroup::"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          path: ${{ env.sizes_file }}
+          name: "${{ matrix.type }}-${{ matrix.link-type }}-sizes"
 
       - name: Copy ninja_log
         run: cp _build/${{ matrix.type }}/.ninja_log /tmp/metrics/.ninja_log
