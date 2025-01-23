@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.Session;
 import com.google.common.base.Joiner;
 import org.testng.annotations.Test;
 
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 
 /**
@@ -247,6 +249,17 @@ public class TestDeltaIntegration
         assertQuery(testQuery, expResultsQuery);
     }
 
+    @Test(dataProvider = "deltaReaderVersions")
+    public void testDeltaTimezoneTypeSupport(String version)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(UTC_KEY)
+                .build();
+        String testQuery = format("SELECT tpep_dropoff_datetime FROM \"%s\".\"%s\"",
+                PATH_SCHEMA, goldenTablePathWithPrefix(version, "test-typing"));
+
+        assertQuery(session, testQuery, "SELECT CAST('2021-12-31 16:53:29' AS TIMESTAMP)");
+    }
     /**
      * Expected results for table "data-reader-primitives"
      */
