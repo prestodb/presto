@@ -652,6 +652,10 @@ PrestoQueryRunner::executeAndReturnVector(const core::PlanNodePtr& plan) {
       LOG(WARNING) << "Query failed in Presto";
       return std::make_pair(
           std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
+    } catch (...) {
+      LOG(WARNING) << "Query failed in Presto";
+      return std::make_pair(
+          std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
     }
   }
 
