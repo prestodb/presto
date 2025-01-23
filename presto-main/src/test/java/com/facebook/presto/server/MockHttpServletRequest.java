@@ -52,6 +52,7 @@ public class MockHttpServletRequest
     private final ListMultimap<String, String> headers;
     private final String remoteAddress;
     private final Map<String, Object> attributes;
+    private final String requestUrl;
 
     public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Map<String, Object> attributes)
     {
@@ -67,10 +68,11 @@ public class MockHttpServletRequest
         this(headers, DEFAULT_ADDRESS, ImmutableMap.of());
     }
 
-    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, String requestUrl)
+    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, String requestUrl, Map<String, Object> attributes)
     {
         this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
         this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
+        this.attributes = attributes;
         this.requestUrl = requireNonNull(requestUrl, "requestUrl is null");
     }
 

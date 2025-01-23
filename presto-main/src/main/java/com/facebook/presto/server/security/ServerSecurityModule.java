@@ -18,6 +18,7 @@ import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.airlift.http.server.CertificateAuthenticator;
 import com.facebook.airlift.http.server.KerberosAuthenticator;
 import com.facebook.airlift.http.server.KerberosConfig;
+import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
 import com.facebook.presto.server.security.oauth2.OAuth2AuthenticationSupportModule;
 import com.facebook.presto.server.security.oauth2.OAuth2Authenticator;
@@ -27,6 +28,8 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 
+import javax.servlet.Filter;
+
 import java.util.List;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
@@ -34,8 +37,10 @@ import static com.facebook.presto.server.security.SecurityConfig.AuthenticationT
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CUSTOM;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.JWT;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.OAUTH2;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
 public class ServerSecurityModule
         extends AbstractConfigurationAwareModule

@@ -15,6 +15,7 @@ package com.facebook.presto.server.security.oauth2;
 
 import com.facebook.presto.server.MockHttpServletRequest;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import javax.servlet.http.HttpServletRequest;
@@ -33,7 +34,8 @@ public class TestOAuth2Utils
                 ImmutableListMultimap.<String, String>builder()
                         .build(),
                 "testRemote",
-                   "http://www.example.com");
+                   "http://www.example.com",
+                ImmutableMap.of());
 
         UriBuilder builder = getSchemeUriBuilder(request);
         assertEquals(builder.build().getScheme(), "http");
@@ -47,7 +49,8 @@ public class TestOAuth2Utils
                         .put(X_FORWARDED_PROTO, "https")
                         .build(),
                 "testRemote",
-                "http://www.example.com");
+                "http://www.example.com",
+                ImmutableMap.of());
 
         UriBuilder builder = getSchemeUriBuilder(request);
         assertEquals(builder.build().getScheme(), "https");

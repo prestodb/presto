@@ -16,9 +16,9 @@ package com.facebook.presto.server.security;
 import com.facebook.airlift.http.server.AuthenticationException;
 import com.facebook.airlift.http.server.Authenticator;
 import com.facebook.presto.ClientRequestFilterManager;
+import com.facebook.presto.server.security.oauth2.OAuth2Authenticator;
 import com.facebook.presto.spi.ClientRequestFilter;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.server.security.oauth2.OAuth2Authenticator;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -49,10 +49,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.spi.StandardErrorCode.HEADER_MODIFICATION_ATTEMPT;
 import static com.facebook.presto.server.WebUiResource.UI_ENDPOINT;
 import static com.facebook.presto.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static com.facebook.presto.server.security.oauth2.OAuth2TokenExchangeResource.TOKEN_ENDPOINT;
+import static com.facebook.presto.spi.StandardErrorCode.HEADER_MODIFICATION_ATTEMPT;
 import static com.google.common.io.ByteStreams.copy;
 import static com.google.common.io.ByteStreams.nullOutputStream;
 import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
@@ -66,7 +66,7 @@ public class AuthenticationFilter
         implements Filter
 {
     private static final String HTTPS_PROTOCOL = "https";
-    private final List<Authenticator> authenticators;
+    private static List<Authenticator> authenticators;
     private static boolean allowForwardedHttps;
     private final ClientRequestFilterManager clientRequestFilterManager;
     private final List<String> headersBlockList = ImmutableList.of("X-Presto-Transaction-Id", "X-Presto-Started-Transaction-Id", "X-Presto-Clear-Transaction-Id", "X-Presto-Trace-Token");
@@ -86,10 +86,14 @@ public class AuthenticationFilter
     }
 
     @Override
-    public void init(FilterConfig filterConfig) {}
+    public void init(FilterConfig filterConfig)
+    {
+    }
 
     @Override
-    public void destroy() {}
+    public void destroy()
+    {
+    }
 
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain nextFilter)
@@ -160,6 +164,12 @@ public class AuthenticationFilter
         }
     }
 
+    private boolean isWebUiRequest(HttpServletRequest request)
+    {
+        String pathInfo = request.getPathInfo();
+        return pathInfo == null || pathInfo.equals(UI_ENDPOINT) || pathInfo.startsWith("/ui");
+    }
+
     public HttpServletRequest mergeExtraHeaders(HttpServletRequest request, Principal principal)
     {
         List<ClientRequestFilter> clientRequestFilters = clientRequestFilterManager.getClientRequestFilters();
@@ -218,8 +228,7 @@ public class AuthenticationFilter
     public static ServletRequest withPrincipal(HttpServletRequest request, Principal principal)
     {
         requireNonNull(principal, "principal is null");
-        return new HttpServletRequestWrapper(request)
-        {
+        return new HttpServletRequestWrapper(request) {
             @Override
             public Principal getUserPrincipal()
             {
@@ -284,25 +293,6 @@ public class AuthenticationFilter
                 return enumeration(ImmutableList.of(customHeaders.get(name)));
             }
             return super.getHeaders(name);
-    }
-
-    private boolean doesRequestSupportAuthentication(HttpServletRequest request)
-    {
-        if (isPublic(request)) {
-            return false;
         }
-        if (authenticators.isEmpty()) {
-            return false;
-        }
-        if (request.isSecure()) {
-            return true;
-        }
-        return allowForwardedHttps && Strings.nullToEmpty(request.getHeader(HttpHeaders.X_FORWARDED_PROTO)).equalsIgnoreCase(HTTPS_PROTOCOL);
-    }
-
-    private boolean isWebUiRequest(HttpServletRequest request)
-    {
-        String pathInfo = request.getPathInfo();
-        return pathInfo == null || pathInfo.equals(UI_ENDPOINT) || pathInfo.startsWith("/ui");
     }
 }
