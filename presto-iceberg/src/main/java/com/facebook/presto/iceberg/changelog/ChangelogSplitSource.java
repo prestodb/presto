@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergSplit;
+import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
@@ -144,7 +145,7 @@ public class ChangelogSplitSource
                 PartitionSpecParser.toJson(spec),
                 partitionData.map(PartitionData::toJson),
                 getNodeSelectionStrategy(session),
-                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
+                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / IcebergUtil.getTargetSplitSize(session, tableScan).toBytes(), minimumAssignedSplitWeight), 1.0)),
                 ImmutableList.of(),
                 Optional.of(new ChangelogSplitInfo(fromIcebergChangelogOperation(changeTask.operation()),
                         changeTask.changeOrdinal(),

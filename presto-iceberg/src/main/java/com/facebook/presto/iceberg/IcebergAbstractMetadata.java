@@ -68,6 +68,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
@@ -180,6 +181,7 @@ import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 
 public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
@@ -612,6 +614,7 @@ public abstract class IcebergAbstractMetadata
         properties.put(METADATA_PREVIOUS_VERSIONS_MAX, IcebergUtil.getMetadataPreviousVersionsMax(icebergTable));
         properties.put(METADATA_DELETE_AFTER_COMMIT, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
         properties.put(METRICS_MAX_INFERRED_COLUMN, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
+        properties.put(SPLIT_SIZE, IcebergUtil.getSplitSize(icebergTable));
 
         return properties.build();
     }
@@ -1013,6 +1016,9 @@ public abstract class IcebergAbstractMetadata
             switch (entry.getKey()) {
                 case COMMIT_RETRIES:
                     updateProperties.set(TableProperties.COMMIT_NUM_RETRIES, String.valueOf(entry.getValue()));
+                    break;
+                case SPLIT_SIZE:
+                    updateProperties.set(TableProperties.SPLIT_SIZE, entry.getValue().toString());
                     break;
                 default:
                     throw new PrestoException(NOT_SUPPORTED, "Updating property " + entry.getKey() + " is not supported currently");

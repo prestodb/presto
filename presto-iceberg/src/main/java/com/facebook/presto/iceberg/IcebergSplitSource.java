@@ -41,6 +41,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelect
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeys;
+import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static com.facebook.presto.iceberg.IcebergUtil.metadataColumnsMatchPredicates;
 import static com.facebook.presto.iceberg.IcebergUtil.partitionDataFromStructLike;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -131,7 +132,7 @@ public class IcebergSplitSource
                 PartitionSpecParser.toJson(spec),
                 partitionData.map(PartitionData::toJson),
                 getNodeSelectionStrategy(session),
-                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
+                SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / getTargetSplitSize(session, tableScan).toBytes(), minimumAssignedSplitWeight), 1.0)),
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
                 Optional.empty(),
                 getDataSequenceNumber(task.file()));
