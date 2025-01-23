@@ -64,7 +64,7 @@ public class StorageOrcFileTailSource
     }
 
     @Override
-    public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, boolean cacheable)
+    public OrcFileTail getOrcFileTail(OrcDataSource orcDataSource, MetadataReader metadataReader, Optional<OrcWriteValidation> writeValidation, boolean cacheable, long fileModificationTime)
             throws IOException
     {
         long size = orcDataSource.getSize();
@@ -162,7 +162,7 @@ public class StorageOrcFileTailSource
             dwrfStripeCacheData = Optional.of(new DwrfStripeCacheData(dwrfStripeCacheSlice, dwrfStripeCacheSize, stripeCacheMode));
         }
 
-        return new OrcFileTail(hiveWriterVersion, bufferSize, compressionKind, footerSlice, footerSize, metadataSlice, metadataSize, dwrfStripeCacheData);
+        return new OrcFileTail(hiveWriterVersion, bufferSize, compressionKind, footerSlice, footerSize, metadataSlice, metadataSize, dwrfStripeCacheData, fileModificationTime);
     }
 
     /**
