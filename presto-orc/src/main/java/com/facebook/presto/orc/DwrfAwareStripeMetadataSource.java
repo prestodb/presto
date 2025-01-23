@@ -52,23 +52,23 @@ public class DwrfAwareStripeMetadataSource
     }
 
     @Override
-    public Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, boolean cacheable)
+    public Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, boolean cacheable, long fileModificationTime)
             throws IOException
     {
         Optional<Slice> stripeFooterSlice = stripeCache.getStripeFooterSlice(stripeId, footerLength);
         if (stripeFooterSlice.isPresent()) {
             return stripeFooterSlice.get();
         }
-        return delegate.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable);
+        return delegate.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable, fileModificationTime);
     }
 
     @Override
-    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, boolean cacheable)
+    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, boolean cacheable, long fileModificationTime)
             throws IOException
     {
         Optional<Slice> stripeCacheIndexStreamsSlice = stripeCache.getIndexStreamsSlice(stripeId);
         if (!stripeCacheIndexStreamsSlice.isPresent()) {
-            return delegate.getInputs(orcDataSource, stripeId, diskRanges, cacheable);
+            return delegate.getInputs(orcDataSource, stripeId, diskRanges, cacheable, fileModificationTime);
         }
 
         Slice cacheSlice = stripeCacheIndexStreamsSlice.get();
@@ -91,7 +91,7 @@ public class DwrfAwareStripeMetadataSource
 
         ImmutableMap<StreamId, DiskRange> dataStreams = dataStreamsBuilder.build();
         if (!dataStreams.isEmpty()) {
-            Map<StreamId, OrcDataSourceInput> dataStreamInputs = delegate.getInputs(orcDataSource, stripeId, dataStreams, cacheable);
+            Map<StreamId, OrcDataSourceInput> dataStreamInputs = delegate.getInputs(orcDataSource, stripeId, dataStreams, cacheable, fileModificationTime);
             inputsBuilder.putAll(dataStreamInputs);
         }
 
@@ -106,9 +106,10 @@ public class DwrfAwareStripeMetadataSource
             StreamId streamId,
             OrcInputStream inputStream,
             List<HiveBloomFilter> bloomFilters,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            long fileModificationTime)
             throws IOException
     {
-        return delegate.getRowIndexes(metadataReader, hiveWriterVersion, stripeId, streamId, inputStream, bloomFilters, runtimeStats);
+        return delegate.getRowIndexes(metadataReader, hiveWriterVersion, stripeId, streamId, inputStream, bloomFilters, runtimeStats, fileModificationTime);
     }
 }

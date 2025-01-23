@@ -66,6 +66,7 @@ public class OrcReader
     public static final int MAX_BATCH_SIZE = 1024;
     public static final int INITIAL_BATCH_SIZE = 1;
     public static final int BATCH_SIZE_GROWTH_FACTOR = 2;
+    public static final long MODIFICATION_TIME_NOT_SET = 0L;
 
     private final OrcDataSource orcDataSource;
     private final ExceptionWrappingMetadataReader metadataReader;
@@ -86,10 +87,11 @@ public class OrcReader
     private final OrcReaderOptions orcReaderOptions;
 
     private final boolean cacheable;
+    private final long fileModificationTime;
 
     private final RuntimeStats runtimeStats;
 
-    // This is based on the Apache Hive ORC code
+    @VisibleForTesting
     public OrcReader(
             OrcDataSource orcDataSource,
             OrcEncoding orcEncoding,
@@ -108,6 +110,35 @@ public class OrcReader
                 orcEncoding,
                 orcFileTailSource,
                 StripeMetadataSourceFactory.of(stripeMetadataSource),
+                aggregatedMemoryContext,
+                orcReaderOptions,
+                cacheable,
+                dwrfEncryptionProvider,
+                dwrfKeyProvider,
+                runtimeStats,
+                MODIFICATION_TIME_NOT_SET);
+    }
+
+    // This is based on the Apache Hive ORC code
+    public OrcReader(
+            OrcDataSource orcDataSource,
+            OrcEncoding orcEncoding,
+            OrcFileTailSource orcFileTailSource,
+            StripeMetadataSource stripeMetadataSource,
+            OrcAggregatedMemoryContext aggregatedMemoryContext,
+            OrcReaderOptions orcReaderOptions,
+            boolean cacheable,
+            DwrfEncryptionProvider dwrfEncryptionProvider,
+            DwrfKeyProvider dwrfKeyProvider,
+            RuntimeStats runtimeStats,
+            long fileModificationTime)
+            throws IOException
+    {
+        this(
+                orcDataSource,
+                orcEncoding,
+                orcFileTailSource,
+                StripeMetadataSourceFactory.of(stripeMetadataSource),
                 Optional.empty(),
                 aggregatedMemoryContext,
                 orcReaderOptions,
@@ -115,7 +146,8 @@ public class OrcReader
                 dwrfEncryptionProvider,
                 dwrfKeyProvider,
                 runtimeStats,
-                Optional.empty());
+                Optional.empty(),
+                fileModificationTime);
     }
 
     public OrcReader(
@@ -128,7 +160,8 @@ public class OrcReader
             boolean cacheable,
             DwrfEncryptionProvider dwrfEncryptionProvider,
             DwrfKeyProvider dwrfKeyProvider,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            long fileModificationTime)
             throws IOException
     {
         this(
@@ -143,7 +176,8 @@ public class OrcReader
                 dwrfEncryptionProvider,
                 dwrfKeyProvider,
                 runtimeStats,
-                Optional.empty());
+                Optional.empty(),
+                fileModificationTime);
     }
 
     OrcReader(
@@ -158,7 +192,8 @@ public class OrcReader
             DwrfEncryptionProvider dwrfEncryptionProvider,
             DwrfKeyProvider dwrfKeyProvider,
             RuntimeStats runtimeStats,
-            Optional<OrcFileIntrospector> fileIntrospector)
+            Optional<OrcFileIntrospector> fileIntrospector,
+            long fileModificationTime)
             throws IOException
     {
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
@@ -170,7 +205,7 @@ public class OrcReader
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         this.fileIntrospector = requireNonNull(fileIntrospector, "fileIntrospector is null");
 
-        OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable);
+        OrcFileTail orcFileTail = orcFileTailSource.getOrcFileTail(orcDataSource, metadataReader, writeValidation, cacheable, fileModificationTime);
         fileIntrospector.ifPresent(introspector -> introspector.onFileTail(orcFileTail));
 
         this.bufferSize = orcFileTail.getBufferSize();
@@ -234,6 +269,7 @@ public class OrcReader
         }
 
         this.cacheable = requireNonNull(cacheable, "cacheable is null");
+        this.fileModificationTime = fileModificationTime;
 
         Optional<DwrfStripeCache> dwrfStripeCache = Optional.empty();
         if (orcFileTail.getDwrfStripeCacheData().isPresent() && footer.getDwrfStripeCacheOffsets().isPresent()) {
@@ -366,7 +402,8 @@ public class OrcReader
                 initialBatchSize,
                 stripeMetadataSource,
                 cacheable,
-                runtimeStats);
+                runtimeStats,
+                fileModificationTime);
     }
 
     public OrcSelectiveRecordReader createSelectiveRecordReader(
@@ -420,7 +457,8 @@ public class OrcReader
                 stripeMetadataSource,
                 cacheable,
                 runtimeStats,
-                fileIntrospector);
+                fileIntrospector,
+                fileModificationTime);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize, OrcAggregatedMemoryContext systemMemoryContext)
@@ -463,7 +501,8 @@ public class OrcReader
                     dwrfEncryptionProvider,
                     dwrfKeyProvider,
                     new RuntimeStats(),
-                    Optional.empty());
+                    Optional.empty(),
+                    MODIFICATION_TIME_NOT_SET);
             try (OrcBatchRecordReader orcRecordReader = orcReader.createBatchRecordReader(
                     readTypes.build(),
                     OrcPredicate.TRUE,

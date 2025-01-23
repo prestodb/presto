@@ -84,18 +84,18 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import io.airlift.slice.Slice;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.orc.StripeMetadataSource.CacheableRowGroupIndices;
+import static com.facebook.presto.orc.StripeMetadataSource.CacheableSlice;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -245,15 +245,15 @@ public class IcebergCommonModule
     {
         StripeMetadataSource stripeMetadataSource = new StorageStripeMetadataSource();
         if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
-            Cache<StripeReader.StripeId, Slice> footerCache = CacheBuilder.newBuilder()
+            Cache<StripeReader.StripeId, CacheableSlice> footerCache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getStripeFooterCacheSize().toBytes())
-                    .weigher((id, footer) -> toIntExact(((Slice) footer).getRetainedSize()))
+                    .weigher((id, footer) -> toIntExact(((CacheableSlice) footer).getSlice().getRetainedSize()))
                     .expireAfterAccess(orcCacheConfig.getStripeFooterCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                     .recordStats()
                     .build();
-            Cache<StripeReader.StripeStreamId, Slice> streamCache = CacheBuilder.newBuilder()
+            Cache<StripeReader.StripeStreamId, CacheableSlice> streamCache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getStripeStreamCacheSize().toBytes())
-                    .weigher((id, stream) -> toIntExact(((Slice) stream).getRetainedSize()))
+                    .weigher((id, stream) -> toIntExact(((CacheableSlice) stream).getSlice().getRetainedSize()))
                     .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                     .recordStats()
                     .build();
@@ -262,11 +262,11 @@ public class IcebergCommonModule
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
 
-            Optional<Cache<StripeReader.StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache = Optional.empty();
+            Optional<Cache<StripeReader.StripeStreamId, CacheableRowGroupIndices>> rowGroupIndexCache = Optional.empty();
             if (orcCacheConfig.isRowGroupIndexCacheEnabled()) {
                 rowGroupIndexCache = Optional.of(CacheBuilder.newBuilder()
                         .maximumWeight(orcCacheConfig.getRowGroupIndexCacheSize().toBytes())
-                        .weigher((id, rowGroupIndices) -> toIntExact(((List<RowGroupIndex>) rowGroupIndices).stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
+                        .weigher((id, rowGroupIndices) -> toIntExact(((CacheableRowGroupIndices) rowGroupIndices).getRowGroupIndices().stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
                         .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                         .recordStats()
                         .build());

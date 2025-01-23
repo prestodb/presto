@@ -959,7 +959,8 @@ public class TestColumnStatistics
                 NO_ENCRYPTION,
                 DwrfKeyProvider.EMPTY,
                 new RuntimeStats(),
-                Optional.of(introspector));
+                Optional.of(introspector),
+                file.getFile().lastModified());
 
         OrcSelectiveRecordReader recordReader = reader.createSelectiveRecordReader(
                 ImmutableMap.of(0, type),

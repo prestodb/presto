@@ -30,6 +30,7 @@ public class OrcFileTail
     private final Slice metadataSlice;
     private final int metadataSize;
     private final Optional<DwrfStripeCacheData> dwrfStripeCacheData;
+    private final long fileModificationTime;
 
     public OrcFileTail(
             HiveWriterVersion hiveWriterVersion,
@@ -39,7 +40,8 @@ public class OrcFileTail
             int footerSize,
             Slice metadataSlice,
             int metadataSize,
-            Optional<DwrfStripeCacheData> dwrfStripeCacheData)
+            Optional<DwrfStripeCacheData> dwrfStripeCacheData,
+            long fileModificationTime)
     {
         this.hiveWriterVersion = requireNonNull(hiveWriterVersion, "hiveWriterVersion is null");
         this.bufferSize = bufferSize;
@@ -49,6 +51,7 @@ public class OrcFileTail
         this.metadataSlice = requireNonNull(metadataSlice, "metadataSlice is null");
         this.metadataSize = metadataSize;
         this.dwrfStripeCacheData = requireNonNull(dwrfStripeCacheData, "dwrfStripeCacheData is null");
+        this.fileModificationTime = fileModificationTime;
     }
 
     public HiveWriterVersion getHiveWriterVersion()
@@ -103,5 +106,10 @@ public class OrcFileTail
     public int getTotalSize()
     {
         return getFooterSize() + getMetadataSize() + getDwrfStripeCacheSize();
+    }
+
+    public long getFileModificationTime()
+    {
+        return fileModificationTime;
     }
 }
