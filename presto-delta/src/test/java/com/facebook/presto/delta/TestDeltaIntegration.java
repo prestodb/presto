@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Joiner;
 import org.testng.annotations.Test;
 
@@ -25,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 /**
  * Integration tests for reading Delta tables.
@@ -214,7 +218,7 @@ public class TestDeltaIntegration
                 "  cast(0.0 as double), " +
                 "  '0', " +
                 "  DATE '2021-09-08', " +
-                "  TIMESTAMP '2021-09-08 11:11:11', " +
+                "  TIMESTAMP WITH TIME ZONE '2021-09-08 11:11:11 UTC', " +
                 "  cast(0 as decimal)," +
                 "  '0'" + // regular column
                 "), " +
@@ -227,7 +231,7 @@ public class TestDeltaIntegration
                 "  cast(1.0 as double), " +
                 "  '1', " +
                 "  DATE '2021-09-08', " +
-                "  TIMESTAMP '2021-09-08 11:11:11', " +
+                "  TIMESTAMP WITH TIME ZONE '2021-09-08 11:11:11 UTC', " +
                 "  cast(1 as decimal), " +
                 "  '1'" + // regular column
                 "), " +
@@ -247,6 +251,62 @@ public class TestDeltaIntegration
         assertQuery(testQuery, expResultsQuery);
     }
 
+    @Test(dataProvider = "deltaReaderVersions")
+    public void testDeltaTimezoneTypeSupportINT96(String version)
+    {
+        /*
+        https://docs.delta.io/3.2.1/api/java/kernel/index.html?io/delta/kernel/types/TimestampNTZType.html
+        According to delta's type specifications, the expected behaviour for TimestampNTZ
+        The timestamp without time zone type represents a local time in microsecond precision, which is independent of time zone.
+        So TimestampNTZ is independent of local timezones and should return the same value regardless of the timezone.
+        If legacy_timestamp is true, Presto TimestampNTZ (Timestamp) is adjusted to the timezone.
+        If legacy_timestamp is false, TimestampNTZ is not adjusted.
+        This test sets the timezone to UTC+3, and the original data file the timestamp is 12 AM.
+        The proper delta implementation would return 12 AM regardless of the timezone, but with
+        legacy_timestamp true we get 3 AM. legacy_timestamp set to false matches the specifications.
+         */
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("UTC+3"))
+                .setSystemProperty("legacy_timestamp", "false")
+                .build();
+        String testQuery = format("SELECT tpep_dropoff_datetime, tpep_pickup_datetime FROM \"%s\".\"%s\"",
+                PATH_SCHEMA, goldenTablePathWithPrefix(version, "test-typing"));
+
+        MaterializedResult actual = computeActual(session, testQuery);
+
+        String timestamptzField = actual.getMaterializedRows().get(0).getField(0).toString();
+
+        assertEquals(timestamptzField, "2021-12-31T16:53:29Z[UTC]", "Delta Timestamp type not being read correctly.");
+        if (version.equals("delta_v3")) {
+            String timestamptzntz = actual.getMaterializedRows().get(0).getField(1).toString();
+            assertEquals(timestamptzntz, "2022-01-01T00:35:40", "Delta TimestampNTZ type not being read correctly.");
+        }
+    }
+
+    @Test(dataProvider = "deltaReaderVersions")
+    public void testDeltaTimezoneTypeSupportINT64(String version)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("UTC+3"))
+                .setSystemProperty("legacy_timestamp", "false")
+                .build();
+        String testQuery = format("SELECT created_at_tz FROM \"%s\".\"%s\"",
+                PATH_SCHEMA, goldenTablePathWithPrefix(version, "timestamp_64"));
+
+        MaterializedResult actual = computeActual(session, testQuery);
+
+        String timestamptzField = actual.getMaterializedRows().get(0).getField(0).toString();
+
+        assertEquals(timestamptzField, "2025-05-22T09:24:11.321Z[UTC]", "Delta Timestamp type not being read correctly.");
+        if (version.equals("delta_v3")) {
+            String ntzTestQuery = format("SELECT created_at_ntz, created_at_ntz FROM \"%s\".\"%s\"",
+                    PATH_SCHEMA, goldenTablePathWithPrefix(version, "timestamp_64"));
+
+            actual = computeActual(session, ntzTestQuery);
+            String timestamptzntz = actual.getMaterializedRows().get(0).getField(0).toString();
+            assertEquals(timestamptzntz, "2025-05-22T12:25:16.544", "Delta TimestampNTZ type not being read correctly.");
+        }
+    }
     /**
      * Expected results for table "data-reader-primitives"
      */
