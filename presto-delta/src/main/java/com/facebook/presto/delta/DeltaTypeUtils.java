@@ -41,7 +41,9 @@ import io.delta.kernel.types.MapType;
 import io.delta.kernel.types.ShortType;
 import io.delta.kernel.types.StringType;
 import io.delta.kernel.types.StructType;
+import io.delta.kernel.types.TimestampNTZType;
 import io.delta.kernel.types.TimestampType;
+import org.joda.time.format.ISODateTimeFormat;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -66,6 +68,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
@@ -183,6 +186,10 @@ public class DeltaTypeUtils
                 // Delta partition serialized value contains up to the second precision
                 return Timestamp.valueOf(valueString).toLocalDateTime().toEpochSecond(ZoneOffset.UTC) * 1_000;
             }
+            if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                // Delta partition serialized value contains up to the second precision & is stored in UTC
+                return ISODateTimeFormat.date().withZoneUTC().parseMillis(valueString);
+            }
             throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
                     format("Unsupported data type '%s' for partition column %s", type, columnName));
         }
@@ -230,8 +237,11 @@ public class DeltaTypeUtils
         else if (deltaType instanceof StringType) {
             return createUnboundedVarcharType();
         }
-        else if (deltaType instanceof TimestampType) {
+        else if (deltaType instanceof TimestampNTZType) {
             return TIMESTAMP;
+        }
+        else if (deltaType instanceof TimestampType) {
+            return TIMESTAMP_WITH_TIME_ZONE;
         }
 
         throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
