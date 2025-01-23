@@ -148,6 +148,7 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
+                        "   \"read.split.target-size\" = 134217728,\n" +
                         "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
     }
@@ -430,6 +431,7 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
+                        "   \"read.split.target-size\" = 134217728,\n" +
                         "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")",
                 getSession().getCatalog().get(),
@@ -634,6 +636,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
+                "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
@@ -727,6 +730,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate'],\n" +
+                "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_original")));
 
@@ -744,6 +748,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
+                "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_copy1")));
         dropTable(session, "test_create_table_like_copy1");
@@ -757,6 +762,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
+                "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")", getLocation(schemaName, "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
@@ -772,6 +778,7 @@ public abstract class IcebergDistributedSmokeTestBase
                             "   metadata_previous_versions_max = 100,\n" +
                             "   metrics_max_inferred_column = 100,\n" +
                             "   partitioning = ARRAY['adate'],\n" +
+                            "   \"read.split.target-size\" = 134217728,\n" +
                             "   \"write.update.mode\" = 'merge-on-read'\n" +
                             ")",
                     getLocation(schemaName, "test_create_table_like_original")));
@@ -787,6 +794,7 @@ public abstract class IcebergDistributedSmokeTestBase
                             "   metadata_previous_versions_max = 100,\n" +
                             "   metrics_max_inferred_column = 100,\n" +
                             "   partitioning = ARRAY['adate'],\n" +
+                            "   \"read.split.target-size\" = 134217728,\n" +
                             "   \"write.update.mode\" = 'merge-on-read'\n" +
                             ")",
                     getLocation(schemaName, "test_create_table_like_original")));
@@ -804,6 +812,7 @@ public abstract class IcebergDistributedSmokeTestBase
                             "   metadata_previous_versions_max = 100,\n" +
                             "   metrics_max_inferred_column = 100,\n" +
                             "   partitioning = ARRAY['adate'],\n" +
+                            "   \"read.split.target-size\" = 134217728,\n" +
                             "   \"write.update.mode\" = 'merge-on-read'\n" +
                             ")",
                     getLocation(schemaName, "test_create_table_like_copy5")));
@@ -852,6 +861,7 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
+                        "   \"read.split.target-size\" = 134217728,\n" +
                         "   \"write.update.mode\" = '%s'\n" +
                         ")",
                 getSession().getCatalog().get(),

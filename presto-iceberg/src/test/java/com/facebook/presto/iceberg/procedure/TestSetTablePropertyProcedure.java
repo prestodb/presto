@@ -33,6 +33,7 @@ import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE_DEFAULT;
 import static org.testng.Assert.assertEquals;
 
 public class TestSetTablePropertyProcedure
@@ -71,8 +72,8 @@ public class TestSetTablePropertyProcedure
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 8);
-            assertEquals(table.properties().get(propertyKey), null);
+            assertEquals(table.properties().size(), 9);
+            assertEquals(Long.parseLong(table.properties().get(propertyKey)), SPLIT_SIZE_DEFAULT);
 
             assertUpdate(format("CALL system.set_table_property('%s', '%s', '%s', '%s')", TEST_SCHEMA, tableName, propertyKey, propertyValue));
             table.refresh();
@@ -99,8 +100,8 @@ public class TestSetTablePropertyProcedure
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 8);
-            assertEquals(table.properties().get(propertyKey), null);
+            assertEquals(table.properties().size(), 9);
+            assertEquals(Long.parseLong(table.properties().get(propertyKey)), SPLIT_SIZE_DEFAULT);
 
             assertUpdate(format("CALL system.set_table_property(schema => '%s', key => '%s', value => '%s', table_name => '%s')",
                     TEST_SCHEMA, propertyKey, propertyValue, tableName));
@@ -129,14 +130,14 @@ public class TestSetTablePropertyProcedure
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 8);
+            assertEquals(table.properties().size(), 9);
             assertEquals(table.properties().get(propertyKey), "4");
 
             assertUpdate(format("CALL system.set_table_property('%s', '%s', '%s', '%s')", TEST_SCHEMA, tableName, propertyKey, propertyValue));
             table.refresh();
 
             // now the table property commit.retry.num-retries should have new value
-            assertEquals(table.properties().size(), 8);
+            assertEquals(table.properties().size(), 9);
             assertEquals(table.properties().get(propertyKey), propertyValue);
         }
         finally {
