@@ -37,6 +37,8 @@ FileFormat toFileFormat(std::string_view s) {
     return FileFormat::NIMBLE;
   } else if (s == "orc") {
     return FileFormat::ORC;
+  } else if (s == "sst") {
+    return FileFormat::SST;
   }
   return FileFormat::UNKNOWN;
 }
@@ -61,6 +63,8 @@ std::string_view toString(FileFormat fmt) {
       return "nimble";
     case FileFormat::ORC:
       return "orc";
+    case FileFormat::SST:
+      return "sst";
     default:
       return "unknown";
   }
