@@ -644,7 +644,11 @@ PrestoQueryRunner::executeAndReturnVector(const core::PlanNodePtr& plan) {
 
       // Run the query.
       return std::make_pair(execute(*sql), ReferenceQueryErrorCode::kSuccess);
-    } catch (...) {
+    } catch (const VeloxRuntimeError& e) {
+      // Throw if connection to Presto server is unsuccessful.
+      if (e.message().find("Couldn't connect to server") != std::string::npos) {
+        throw;
+      }
       LOG(WARNING) << "Query failed in Presto";
       return std::make_pair(
           std::nullopt, ReferenceQueryErrorCode::kReferenceQueryFail);
