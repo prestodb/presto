@@ -109,11 +109,14 @@ void enableChecksum() {
       });
 }
 
-std::string stringifyConnectorConfig(
+// Log only the catalog keys that are configured to avoid leaking
+// secret information. Some values represent secrets used to access
+// storage backends.
+std::string logConnectorConfigPropertyKeys(
     const std::unordered_map<std::string, std::string>& configs) {
   std::stringstream out;
   for (auto const& [key, value] : configs) {
-    out << "  " << key << "=" << value << "\n";
+    out << "  " << key << "\n";
   }
   return out.str();
 }
@@ -1220,8 +1223,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
 
       auto connectorConf = util::readConfig(entry.path());
       PRESTO_STARTUP_LOG(INFO)
-          << "Registered properties from " << entry.path() << ":\n"
-          << stringifyConnectorConfig(connectorConf);
+          << "Registered catalog property keys from " << entry.path() << ":\n"
+          << logConnectorConfigPropertyKeys(connectorConf);
 
       std::shared_ptr<const velox::config::ConfigBase> properties =
           std::make_shared<const velox::config::ConfigBase>(
