@@ -22,7 +22,7 @@
     "webpack-dev-server": "^4.15.1"
   },
   "dependencies": {
-    "@prestodb/presto-js-client": "^1.0.0",
+    "@prestodb/presto-js-client": "^1.0.1",
     "antlr4": "^4.13.1-patch-1",
     "clsx": "^2.1.0",
     "copy-webpack-plugin": "^12.0.2",
