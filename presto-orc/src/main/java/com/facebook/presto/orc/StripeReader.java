@@ -257,7 +257,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : includedStreams.entrySet()) {
             if (entry.getKey().getStreamKind() == ROW_INDEX) {
-                List<RowGroupIndex> rowGroupIndexes = stripeMetadataSource.getRowIndexes(metadataReader, hiveWriterVersion, stripeId, entry.getKey(), streamsData.get(entry.getKey()), null, runtimeStats);
+                List<RowGroupIndex> rowGroupIndexes = stripeMetadataSource.getRowIndexes(metadataReader, hiveWriterVersion, stripeId, entry.getKey(), streamsData.get(entry.getKey()), null, runtimeStats, fileModificationTime);
                 checkState(rowGroupIndexes.size() == 1 || invalidCheckPoint, "expect a single row group or an invalid check point");
                 for (RowGroupIndex rowGroupIndex : rowGroupIndexes) {
                     ColumnStatistics columnStatistics = rowGroupIndex.getColumnStatistics();
