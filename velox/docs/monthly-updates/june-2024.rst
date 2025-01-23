@@ -87,61 +87,56 @@ Credits
 =======
 ::
 
-    56  Masha Basmanova <mbasmanova@meta.com>
-    20  Kevin Wilfong <kevinwilfong@meta.com>
-    17  Jimmy Lu <jimmylu@meta.com>
-    16  xiaoxmeng <xiaoxmeng@fb.com>
-    13  Deepak Majeti <deepak.majeti@ibm.com>
-     9  Pedro Eugenio Rocha Pedreira <pedroerp@meta.com>
-    11  Zac Wen <zacw@meta.com>
-     8  Bikramjeet Vig <bikramjeet@meta.com>
-     7  Ke <ke.404notfound@gmail.com>
-     7  Wei He <weihe@meta.com>
-     6  Jialiang Tan <jacob.jialiang.tan@gmail.com>
-     6  wypb <wyphao.2007@163.com>
-     5  Jacob Wujciak-Jens <jacob@wujciak.de>
-     5  PHILO-HE <feilong.he@intel.com>
-     5  zhli1142015 <zhli@microsoft.com>
-     4  Kevin Wilfong <kevinwilfong@fb.com>
-     4  Orri Erling <oerling@fb.com>
-     4  duanmeng <macduan@tencent.com>
-     4  yanngyoung <cindyyyang@tencent.com>
-     3  Jia Ke <ke.a.jia@intel.com>
-     3  Krishna Pai <kpai@fb.com>
-     3  Pramod <pramod@ahana.io>
-     3  Sandino Flores <sandino.flores.moreno@intel.com>
-     3  lingbin <lingbinlb@gmail.com>
-     3  mwish <maplewish117@gmail.com>
-     2  Andrii Rosa <andriirosa@fb.com>
-     2  Christian Zentgraf <kitgocz@gmail.com>
-     2  rui-mo <rui.mo@intel.com>
-     2  wypb <wjameswu@tencent.com>
-     1  Amit Dutta <adutta@meta.com>
-     1  Andrii Rosa <andriirosa@meta.com>
-     1  Ankita Victor <anvicto@microsoft.com>
-     1  Athmaja N <Athmaja.N@ibm.com>
-     1  Daniel Hunte <danielhunte@meta.com>
-     1  Daniel Jonathan Hunte <danielhunte@meta.com>
-     1  Deepashree Gandhi <deegandh@in.ibm.com>
-     1  Huameng (Michael) Jiang <huamengjiang@meta.com>
-     1  Jacob Khaliqi <jacobkhaliqi@gmail.com>
-     1  Jialiang Tan <jtan6@meta.com>
-     1  Kunal Kataria <kunalkataria@meta.com>
-     1  NEUpanning <emmning@163.com>
-     1  Pranjal Shankhdhar <pranjalssh@meta.com>
-     1  Pratik Joseph Dabre <pdabre12@gmail.com>
-     1  Reetika Agrawal <reetika.agrawal@ibm.com>
-     1  Yoav Helfman <ifdef@meta.com>
-     1  Zhenyuan Zhao <zzhao@meta.com>
-     1  aditi-pandit <Aditi.Pandit@ibm.com>
-     1  chenweiguo.vc <chenweiguo.vc@bytedance.com>
-     1  deepthydavis <deepthy.davis@ibm.com>
-     1  gaoyangxiaozhu <gyycoder@gmail.com>
-     1  joey.ljy <joey.ljy@alibaba-inc.com>
-     1  liangyongyuan <liangyongyuan@xiaomi.com>
-     1  lingbin <lingbin.lb@alibaba-inc.com>
-     1  rexan <rexan@apache.org>
-     1  soumyaduriseti <soumyaduriseti@ibm.com>
-     1  wjameswu <wjameswu@tencent.com>
-     1  yan ma <yan.ma@intel.com>
-     1  yangshijie.2024 <yangshijie.2024@bytedance.com>
+     1	Amit Dutta - Meta
+     3	Andrii Rosa - Meta
+     1	Ankita Victor - Microsoft
+     1	Athmaja N - IBM
+     8	Bikramjeet Vig - Meta
+     2	Christian Zentgraf - IBM
+     1	Daniel Hunte - Meta
+     1	Daniel Jonathan Hunte - Meta
+    13	Deepak Majeti - IBM
+     1	Deepashree Gandhi - IBM
+     1	Huameng (Michael) Jiang - Meta
+     1	Jacob Khaliqi
+     5	Jacob Wujciak-Jens - Voltron Data
+     3	Jia Ke - Intel
+     7	Jialiang Tan
+    17	Jimmy Lu - Meta
+     7	Ke
+    24	Kevin Wilfong - Meta
+     3	Krishna Pai - Meta
+     1	Kunal Kataria - Meta
+    56	Masha Basmanova - Meta
+     1	NEUpanning
+     4	Orri Erling - Meta
+     5	PHILO-HE - Intel
+     9	Pedro Eugenio Rocha Pedreira - Meta
+     3	Pramod Satya - IBM
+     1	Pranjal Shankhdhar - Meta
+     1	Pratik Joseph Dabre
+     1	Reetika Agrawal - IBM
+     3	Sandino Flores - Intel
+     7	Wei He - Meta
+     1	Yoav Helfman - Meta
+    11	Zac Wen - Meta
+     1	Zhenyuan Zhao - Meta
+     1	aditi-pandit - IBM
+     1	chenweiguo.vc - ByteDance
+     1	deepthydavis - IBM
+     4	duanmeng - Tencent
+     1	gaoyangxiaozhu
+     1	joey.ljy - Alibaba Inc
+     1	liangyongyuan - Xiaomi
+     4	lingbin - Alibaba Inc
+     3	mwish
+     1	rexan
+     2	rui-mo - Intel
+     1	soumyaduriseti - IBM
+     1	wjameswu - Tencent
+     8	wypb - Tencent
+    16	xiaoxmeng - Meta
+     1	yan ma - Intel
+     1	yangshijie.2024 - ByteDance
+     4	yanngyoung - Tencent
+     5	zhli1142015 - Microsoft

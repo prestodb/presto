@@ -220,6 +220,7 @@ def get_files(commit, path):
         and "build/deps" not in file
         and "cmake-build-debug" not in file
         and "NOTICE.txt" != file
+        and "velox/docs/affiliations_map.txt" != file
     ]
 
 

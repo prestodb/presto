@@ -1,0 +1,14 @@
+{
+  "ahana.io": "IBM",
+  "alibaba-inc.com": "Alibaba Inc",
+  "bytedance.com": "ByteDance",
+  "ibm.com": "IBM",
+  "in.ibm.com": "IBM",
+  "intel.com": "Intel",
+  "meta.com": "Meta",
+  "fb.com": "Meta",
+  "microsoft.com": "Microsoft",
+  "voltrondata.com": "Voltron Data",
+  "tencent.com": "Tencent",
+  "xiaomi.com": "Xiaomi"
+}
