@@ -3858,6 +3858,81 @@ TEST_F(HashJoinTest, nullAwareRightSemiProjectWithFilterNotAllowed) {
       "Null-aware right semi project join doesn't support extra filter");
 }
 
+TEST_F(HashJoinTest, leftSemiJoinWithExtraOutputCapacity) {
+  std::vector<RowVectorPtr> probeVectors;
+  std::vector<RowVectorPtr> buildVectors;
+  probeVectors.push_back(makeRowVector(
+      {"t0", "t1"},
+      {
+          makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+          makeFlatVector<int64_t>({10, 10, 10, 10, 10, 10}),
+      }));
+
+  buildVectors.push_back(makeRowVector(
+      {"u0", "u1"},
+      {
+          makeFlatVector<int32_t>({1, 1, 1, 1, 1}),
+          makeFlatVector<int64_t>({10, 10, 10, 10, 10}),
+      }));
+  buildVectors.push_back(makeRowVector(
+      {"u0", "u1"},
+      {
+          makeFlatVector<int32_t>({2, 3, 4, 5, 6}),
+          makeFlatVector<int64_t>({10, 10, 10, 10, 10}),
+      }));
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+  auto runQuery = [&](const std::string& query,
+                      const std::string& filter,
+                      core::JoinType joinType) {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    std::vector<std::string> outputLayout = {"t0", "t1"};
+    if (joinType == core::JoinType::kLeftSemiProject) {
+      outputLayout.push_back("match");
+    }
+    auto plan = PlanBuilder(planNodeIdGenerator)
+                    .values(probeVectors)
+                    .hashJoin(
+                        {"t0"},
+                        {"u0"},
+                        PlanBuilder(planNodeIdGenerator)
+                            .values(buildVectors)
+                            .planNode(),
+                        filter,
+                        outputLayout,
+                        joinType,
+                        false)
+                    .planNode();
+    HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+        .planNode(plan)
+        .config(core::QueryConfig::kPreferredOutputBatchRows, "5")
+        .referenceQuery(query)
+        .injectSpill(false)
+        .run();
+  };
+  {
+    SCOPED_TRACE("left semi filter join");
+    std::string filter = "t1 = u1";
+    runQuery(
+        fmt::format(
+            "SELECT t0, t1 FROM t WHERE EXISTS (SELECT u0 FROM u WHERE t0 = u0 AND {})",
+            filter),
+        filter,
+        core::JoinType::kLeftSemiFilter);
+  }
+
+  {
+    SCOPED_TRACE("left semi project join");
+    std::string filter = "t1 <> u1";
+    runQuery(
+        fmt::format(
+            "SELECT t0, t1, t0 IN (SELECT u0 FROM u WHERE {}) FROM t", filter),
+        filter,
+        core::JoinType::kLeftSemiProject);
+  }
+}
+
 TEST_F(HashJoinTest, nullAwareMultiKeyNotAllowed) {
   auto probe = makeRowVector(
       ROW({"t0", "t1", "t2"}, {INTEGER(), BIGINT(), VARCHAR()}), 10);

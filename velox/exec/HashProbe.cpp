@@ -1065,7 +1065,8 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
   outputTableRowsCapacity_ = outputBatchSize;
   if (filter_ &&
       (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-       isAntiJoin(joinType_))) {
+       isAntiJoin(joinType_) || isLeftSemiFilterJoin(joinType_) ||
+       isLeftSemiProjectJoin(joinType_))) {
     // If we need non-matching probe side row, there is a possibility that such
     // row exists at end of an input batch and being carried over in the next
     // output batch, so we need to make extra room of one row in output.
