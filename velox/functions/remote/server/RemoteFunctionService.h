@@ -32,8 +32,14 @@ class RemoteFunctionServiceHandler
     : virtual public apache::thrift::ServiceHandler<
           remote::RemoteFunctionService> {
  public:
-  RemoteFunctionServiceHandler(const std::string& functionPrefix = "")
-      : functionPrefix_(functionPrefix) {}
+  RemoteFunctionServiceHandler(
+      const std::string& functionPrefix = "",
+      std::shared_ptr<memory::MemoryPool> pool = nullptr)
+      : functionPrefix_(functionPrefix), pool_(std::move(pool)) {
+    if (pool_ == nullptr) {
+      pool_ = memory::memoryManager()->addLeafPool();
+    }
+  }
 
   void invokeFunction(
       remote::RemoteFunctionResponse& response,
@@ -47,9 +53,8 @@ class RemoteFunctionServiceHandler
       exec::EvalErrors* evalErrors,
       const std::unique_ptr<VectorSerde>& serde) const;
 
-  std::shared_ptr<memory::MemoryPool> pool_{
-      memory::memoryManager()->addLeafPool()};
   const std::string functionPrefix_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 };
 
 } // namespace facebook::velox::functions
