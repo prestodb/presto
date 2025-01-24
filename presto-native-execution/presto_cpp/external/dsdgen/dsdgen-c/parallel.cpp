@@ -99,7 +99,7 @@ int split_work(
  * TODO: None
  */
 int checkSeeds(tdef* pTdef, DSDGenContext& dsdGenContext) {
-  int i, nReturnCode = 0;
+  int i, res, nReturnCode = 0;
   static int bSetSeeds = 0;
 
   if (!dsdGenContext.checkSeeds_init) {
@@ -108,16 +108,17 @@ int checkSeeds(tdef* pTdef, DSDGenContext& dsdGenContext) {
   }
 
   for (i = pTdef->nFirstColumn; i <= pTdef->nLastColumn; i++) {
+    while (dsdGenContext.Streams[i].nUsed <
+           dsdGenContext.Streams[i].nUsedPerRow)
+      genrand_integer(&res, DIST_UNIFORM, 1, 100, 0, i, dsdGenContext);
     if (bSetSeeds) {
       if (dsdGenContext.Streams[i].nUsed >
           dsdGenContext.Streams[i].nUsedPerRow) {
-        auto result = fprintf(
+        fprintf(
             stderr,
             "Seed overrun on column %d. Used: %d\n",
             i,
             dsdGenContext.Streams[i].nUsed);
-        if (result < 0)
-          perror("sprintf failed");
         dsdGenContext.Streams[i].nUsedPerRow = dsdGenContext.Streams[i].nUsed;
         nReturnCode = 1;
       }

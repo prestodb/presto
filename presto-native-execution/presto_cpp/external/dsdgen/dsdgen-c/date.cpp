@@ -51,7 +51,9 @@ char* weekday_names[8] = {
  * TODO: None
  */
 date_t* mk_date(void) {
-  auto res = (date_t*)malloc(sizeof(struct DATE_T));
+  date_t* res;
+
+  res = (date_t*)malloc(sizeof(struct DATE_T));
   MALLOC_CHECK(res);
 
   res->flags = 0;
@@ -106,7 +108,9 @@ int strtotime(char* str) {
  * TODO: None
  */
 date_t* strtodate(char* str) {
-  auto res = (date_t*)(malloc(sizeof(struct DATE_T)));
+  date_t* res;
+
+  res = (date_t*)malloc(sizeof(struct DATE_T));
   MALLOC_CHECK(res);
 
   if (sscanf(str, "%d-%d-%d", &res->year, &res->month, &res->day) != 3)
@@ -139,13 +143,13 @@ int jtodt(date_t* dest, int src) {
 
   dest->julian = src;
   l = src + 68569;
-  n = static_cast<int>(floor((4 * l) / 146097));
-  l = l - static_cast<int>(floor((146097 * n + 3) / 4));
-  i = static_cast<int>(floor((4000 * (l + 1) / 1461001)));
-  l = l - static_cast<int>(floor((1461 * i) / 4) + 31);
-  j = static_cast<int>(floor((80 * l) / 2447));
-  dest->day = l - static_cast<int>(floor((2447 * j) / 80));
-  l = static_cast<int>(floor(j / 11));
+  n = (int)floor((4 * l) / 146097);
+  l = l - (int)floor((146097 * n + 3) / 4);
+  i = (int)floor((4000 * (l + 1) / 1461001));
+  l = l - (int)floor((1461 * i) / 4) + 31;
+  j = (int)floor((80 * l) / 2447);
+  dest->day = l - (int)floor((2447 * j) / 80);
+  l = (int)floor(j / 11);
   dest->month = j + 2 - 12 * l;
   dest->year = 100 * (n - 49) + i + l;
 
@@ -179,9 +183,8 @@ int dttoj(date_t* dt) {
   /*
    * added 1 to get dttoj and jtodt to match
    */
-  res = dt->day + (153 * m - 457) / 5 + 365 * y +
-      static_cast<int>(floor(y / 4)) - static_cast<int>(floor(y / 100)) +
-      static_cast<int>(floor(y / 400)) + 1721118 + 1;
+  res = dt->day + (153 * m - 457) / 5 + 365 * y + (int)floor(y / 4) -
+      (int)floor(y / 100) + (int)floor(y / 400) + 1721118 + 1;
 
   return (res);
 }
@@ -209,10 +212,7 @@ int strtodt(date_t* dest, char* s) {
   }
 
   if (sscanf(s, "%4d-%d-%d", &dest->year, &dest->month, &dest->day) != 3) {
-    auto result = fprintf(
-        stderr, "ERROR: Invalid string to date conversion in strtodt\n");
-    if (result < 0)
-      perror("sprintf failed");
+    fprintf(stderr, "ERROR: Invalid string to date conversion in strtodt\n");
     nRetCode = -1;
   }
 
@@ -236,7 +236,7 @@ int strtodt(date_t* dest, char* s) {
  * TODO: 20000110 Need to handle more than Y4MD-
  */
 char* dttostr(date_t* d) {
-  static char* res = nullptr;
+  static char* res;
   static int init = 0;
 
   if (!init) {
@@ -248,11 +248,7 @@ char* dttostr(date_t* d) {
   if (d == NULL)
     return (NULL);
 
-  if (strlen(res) == 11) {
-    auto result = sprintf(res, "%4d-%02d-%02d", d->year, d->month, d->day);
-    if (result < 0)
-      perror("sprintf failed");
-  }
+  sprintf(res, "%4d-%02d-%02d", d->year, d->month, d->day);
 
   return (res);
 }
@@ -272,9 +268,7 @@ char* dttostr(date_t* d) {
  * TODO: None
  */
 int date_init(void) {
-  auto result = printf("date_init is not yet complete\n");
-  if (result < 0)
-    perror("sprintf failed");
+  printf("date_init is not yet complete\n");
   exit(1);
   return (0);
 }
@@ -309,84 +303,58 @@ int date_t_op(date_t* dest, int op, date_t* d1, date_t* d2) {
       jtodt(dest, tJulian);
       break;
     case OP_SAME_LY:
-      if (is_leap(d1->year) && (d1->month == 2) && (d1->day == 29)) {
-        auto result = sprintf(tString, "%d-02-28", d1->year - 1);
-        if (result < 0)
-          perror("sprintf failed");
-      } else {
-        auto result =
-            sprintf(tString, "%4d-%02d-%02d", d1->year - 1, d1->month, d1->day);
-        if (result < 0)
-          perror("sprintf failed");
-      }
+      if (is_leap(d1->year) && (d1->month == 2) && (d1->day == 29))
+        sprintf(tString, "%d-02-28", d1->year - 1);
+      else
+        sprintf(tString, "%4d-%02d-%02d", d1->year - 1, d1->month, d1->day);
       strtodt(dest, tString);
       break;
     case OP_SAME_LQ:
       switch (d1->month) {
         case 1:
         case 2:
-        case 3: {
-          auto result = sprintf(tString, "%4d-%s", d1->year, qtr_start[1]);
-          if (result < 0)
-            perror("sprintf failed");
+        case 3:
+          sprintf(tString, "%4d-%s", d1->year, qtr_start[1]);
           strtodt(&tDate, tString);
           tJulian = d1->julian - tDate.julian;
           sprintf(tString, "%4d-%s", d1->year - 1, qtr_start[4]);
-          if (result < 0)
-            perror("sprintf failed");
           strtodt(&tDate, tString);
           tJulian += tDate.julian;
           jtodt(dest, tJulian);
           break;
-        }
         case 4:
         case 5:
-        case 6: {
-          auto result = sprintf(tString, "%4d-%s", d1->year, qtr_start[2]);
-          if (result < 0)
-            perror("sprintf failed");
+        case 6:
+          sprintf(tString, "%4d-%s", d1->year, qtr_start[2]);
           strtodt(&tDate, tString);
           tJulian = d1->julian - tDate.julian;
           sprintf(tString, "%4d-%s", d1->year, qtr_start[1]);
-          if (result < 0)
-            perror("sprintf failed");
           strtodt(&tDate, tString);
           tJulian += tDate.julian;
           jtodt(dest, tJulian);
           break;
-        }
         case 7:
         case 8:
-        case 9: {
-          auto result = sprintf(tString, "%4d-%s", d1->year, qtr_start[3]);
-          if (result < 0)
-            perror("sprintf failed");
+        case 9:
+          sprintf(tString, "%4d-%s", d1->year, qtr_start[3]);
           strtodt(&tDate, tString);
           tJulian = d1->julian - tDate.julian;
           sprintf(tString, "%4d-%s", d1->year, qtr_start[2]);
-          if (result < 0)
-            perror("sprintf failed");
           strtodt(&tDate, tString);
           tJulian += tDate.julian;
           jtodt(dest, tJulian);
           break;
-        }
         case 10:
         case 11:
-        case 12: {
-          auto result = sprintf(tString, "%4d-%s", d1->year, qtr_start[4]);
-          if (result < 0)
-            perror("sprintf failed");
+        case 12:
+          sprintf(tString, "%4d-%s", d1->year, qtr_start[4]);
           strtodt(&tDate, tString);
           tJulian = d1->julian - tDate.julian;
           sprintf(tString, "%4d-%s", d1->year, qtr_start[3]);
-          if (result < 0)
-            perror("sprintf failed");
           strtodt(&tDate, tString);
           tJulian += tDate.julian;
           jtodt(dest, tJulian);
           break;
-        }
       }
       break;
   }

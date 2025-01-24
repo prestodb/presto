@@ -37,9 +37,7 @@ int nullCheck(int nColumn, DSDGenContext& dsdGenContext) {
   nLastTable = getTableFromColumn(nColumn, dsdGenContext);
   pTdef = getSimpleTdefsByNumber(nLastTable, dsdGenContext);
 
-  kBitMask =
-      (static_cast<uint32_t>(kBitMask)
-       << static_cast<uint32_t>(nColumn - pTdef->nFirstColumn));
+  kBitMask <<= nColumn - pTdef->nFirstColumn;
 
   return ((pTdef->kNullBitMap & kBitMask) != 0);
 }
