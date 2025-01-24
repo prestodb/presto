@@ -13,7 +13,15 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout Presto source
+      - name: Check actor
+        if: ${{ github.actor != 'prestodb-ci' }}
+        run: echo "Unauthorized actor. Please login with prestodb-ci to run this action." && exit 1
+
+      - name: Check branch
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: echo "Invalid branch. This action can only be run on the master branch." && exit 1
+
+      - name: Checkout presto source
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PRESTODB_CI_TOKEN }}
@@ -26,14 +34,14 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Configure Git
+      - name: Configure git
         run: |
           git config --global --add safe.directory ${{github.workspace}}
           git config --global user.email "oss-release-bot@prestodb.io"
           git config --global user.name "oss-release-bot"
           git config pull.rebase false
 
-      - name: Set Maven version
+      - name: Set maven version
         run: |
           unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot -ntp
 
