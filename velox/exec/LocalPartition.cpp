@@ -319,8 +319,9 @@ RowVectorPtr LocalPartition::wrapChildren(
     vector_size_t size,
     const BufferPtr& indices,
     RowVectorPtr reusable) {
+  RowVectorPtr result;
   if (!reusable) {
-    reusable = std::make_shared<RowVector>(
+    result = std::make_shared<RowVector>(
         pool(),
         input->type(),
         nullptr,
@@ -330,10 +331,12 @@ RowVectorPtr LocalPartition::wrapChildren(
     VELOX_CHECK(!reusable->mayHaveNulls());
     VELOX_CHECK_EQ(reusable.use_count(), 1);
     reusable->unsafeResize(size);
+    result = std::move(reusable);
   }
+  VELOX_CHECK_NOT_NULL(result);
 
   for (auto i = 0; i < input->childrenSize(); ++i) {
-    auto& child = reusable->childAt(i);
+    auto& child = result->childAt(i);
     if (child && child->encoding() == VectorEncoding::Simple::DICTIONARY &&
         child.use_count() == 1) {
       child->BaseVector::resize(size);
@@ -345,8 +348,8 @@ RowVectorPtr LocalPartition::wrapChildren(
     }
   }
 
-  reusable->updateContainsLazyNotLoaded();
-  return reusable;
+  result->updateContainsLazyNotLoaded();
+  return result;
 }
 
 void LocalPartition::addInput(RowVectorPtr input) {
