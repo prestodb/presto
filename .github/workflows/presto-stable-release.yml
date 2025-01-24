@@ -16,6 +16,7 @@ jobs:
       - name: Checkout Presto source
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
           ref: master
           show-progress: false
 
@@ -30,7 +31,6 @@ jobs:
           git config --global --add safe.directory ${{github.workspace}}
           git config --global user.email "oss-release-bot@prestodb.io"
           git config --global user.name "oss-release-bot"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git config pull.rebase false
 
       - name: Set Maven version
@@ -42,6 +42,7 @@ jobs:
         run: |
           PRESTO_RELEASE_VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate \
             -Dexpression=project.version -q -ntp -DforceStdout | tail -n 1)
+          echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION"
           echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Update version in master
