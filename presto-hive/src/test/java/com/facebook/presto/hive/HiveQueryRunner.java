@@ -211,7 +211,10 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new TpcdsPlugin());
             queryRunner.installPlugin(new TestingHiveEventListenerPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            queryRunner.createCatalog("tpcds", "tpcds");
+            Map<String, String> tpcdsProperties = ImmutableMap.<String, String>builder()
+                    .put("tpcds.use-varchar-type", "true")
+                    .build();
+            queryRunner.createCatalog("tpcds", "tpcds", tpcdsProperties);
             Map<String, String> tpchProperties = ImmutableMap.<String, String>builder()
                     .put("tpch.column-naming", "standard")
                     .build();
