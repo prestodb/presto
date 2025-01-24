@@ -56,9 +56,9 @@ namespace {
 //   of the output value (true means not null, false means null); void means the
 //   function never returns null.
 //
-// - The struct/class needs to take a template parameter (T), which will be used
-//   in the next examples to define string and complex types (this is a legacy
-//   requirement and will be removed in the future).
+// - The struct/class needs to take a template parameter (TExecParams), which
+//   will be used in the next examples to define string and complex types (this
+//   is a legacy requirement and will be removed in the future).
 template <typename TExecParams>
 struct MyPlusFunction {
   FOLLY_ALWAYS_INLINE void
@@ -90,7 +90,7 @@ void register1() {
 
 // In order to make the function code more generic, simple functions can also
 // provide templated `call()` methods based on the input parameters:
-template <typename T>
+template <typename TExecParams>
 struct MyPlusTemplatedFunction {
   template <typename TInput>
   FOLLY_ALWAYS_INLINE void call(TInput& out, const TInput& a, const TInput& b) {
@@ -128,7 +128,7 @@ void register2() {
 //
 // Also, both call() and callNullabe() can be implemented returning a boolean
 // controling the nullability of the output result (true means not null).
-template <typename T>
+template <typename TExecParams>
 struct MyNullablePlusFunction {
   FOLLY_ALWAYS_INLINE bool
   callNullable(int64_t& out, const int64_t* a, const int64_t* b) {
@@ -152,7 +152,7 @@ void register3() {
 // function just once if the input column contains a constant value. If that's
 // not the case, a function can declare non-deterministic behavior by setting
 // the following flag:
-template <typename T>
+template <typename TExecParams>
 struct MyNonDeterministicFunction {
   static constexpr bool is_deterministic = false;
 
@@ -180,10 +180,11 @@ void register4() {
 // VARCHAR values need to be charset encoding aware, and properly handle UTF-8
 // characters, for instance.
 //
-// In order to define these types, use the VELOX_DEFINE_FUNCTION_TYPES(T) macro:
-template <typename T>
+// In order to define these types, use the
+// VELOX_DEFINE_FUNCTION_TYPES(TExecParams) macro:
+template <typename TExecParams>
 struct MyStringConcatFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
 
   FOLLY_ALWAYS_INLINE bool call(
       out_type<Varchar>& result,
@@ -205,9 +206,9 @@ struct MyStringConcatFunction {
 // types, it is valid to use them interchangeably while registering functions,
 // though not encouraged. We recommend users to template the `call()` function
 // to make the intention clearer:
-template <typename T>
+template <typename TExecParams>
 struct MyGenericStringConcatFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
 
   template <typename TResult, typename TInput1, typename TInput2>
   FOLLY_ALWAYS_INLINE bool
@@ -244,9 +245,9 @@ void register5() {
 // can also provide a `callAscii()` method, which will be automatically called
 // by the engine in case it detects that the input is composed of only ASCII
 // characters:
-template <typename T>
+template <typename TExecParams>
 struct MyAsciiAwareFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
 
   // Regular `call()` method, which needs to correctly handle UTF-8 input.
   FOLLY_ALWAYS_INLINE bool call(out_type<Varchar>&, const arg_type<Varchar>&) {
@@ -279,9 +280,9 @@ struct MyAsciiAwareFunction {
 // the same buffer as the first parameter (zero-copy). Check the "Complex Types"
 // section below for more examples about arrays, maps, rows and other complex
 // types.
-template <typename T>
+template <typename TExecParams>
 struct MySimpleSplitFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
 
   // Results refer to the first input strings parameter buffer.
   static constexpr int32_t reuse_strings_from_arg = 0;
@@ -326,9 +327,9 @@ void register6() {
 // The example below illustrates a toy implementation of an RE2-based regular
 // expression function, which compiles the regexp pattern only once if the
 // pattern is constant (which is the common case):
-template <typename T>
+template <typename TExecParams>
 struct MyRegexpMatchFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
 
   FOLLY_ALWAYS_INLINE void initialize(
       const std::vector<TypePtr>& /*inputTypes*/,
@@ -398,14 +399,15 @@ struct UserDefinedObject {
 
 // Define a toy function that doubles the input parameters provided as an Array,
 // Map, Row, or Opaque<UserDefinedObject> type.
-template <typename T>
+template <typename TExecParams>
 struct MyComplexTimesTwoFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
 
   // Just for fun, we'll define overloaded `call()` methods to handle different
   // complex types. This one takes and returns an Array. Arrays proxy objects
-  // are currently implemented based on std::vector. Vector elements are
-  // currently wrapped by std::optional to represent their nullability.
+  // have their APIs based on std::vector but the data is not backed by
+  // std::vector. Vector elements are currently wrapped by std::optional to
+  // represent their nullability.
   FOLLY_ALWAYS_INLINE bool call(
       out_type<Array<int64_t>>& result,
       const arg_type<Array<int64_t>>& inputArray) {
@@ -416,8 +418,9 @@ struct MyComplexTimesTwoFunction {
     return true;
   }
 
-  // This method takes and returns a Map. Map proxy objects are implemented
-  // using std::unordered_map; values are wrapped by std::optional.
+  // This method takes and returns a Map. Map proxy objects have their APIs
+  // based on std::unordered_map but the data is not actually backed by it;
+  // Values are wrapped by std::optional.
   FOLLY_ALWAYS_INLINE bool call(
       out_type<Map<int64_t, double>>& result,
       const arg_type<Map<int64_t, double>>& inputMap) {
@@ -474,9 +477,136 @@ void register8() {
       std::shared_ptr<UserDefinedObject>>({"my_opaque_func"});
 }
 
-template <typename T>
+// Define a toy function that doubles the nested input parameters provided as an
+// Array, Map, or Row type.
+//
+// For nested complex types, add_item() is the most common API to access the
+// writer for the inner type. When adding a null entry is desired, add_null()
+// for Arrays, Maps and set_null_at<index>() for Row types can be used.
+template <typename TExecParams>
+struct MyNestedComplexTimesTwoFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
+
+  // This method takes and returns an Array of Maps. The return value has the
+  // values of the inner map doubled. Both array and map proxy objects follow
+  // their API style similar to std::vector and std::unordered_map respectively,
+  // but note that they are not backed by the same. Vector elements and map
+  // values are currently wrapped by std::optional to represent their
+  // nullability.
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Array<Map<int64_t, double>>>& result,
+      const arg_type<Array<Map<int64_t, double>>>& inputArrayOfMap) {
+    result.reserve(inputArrayOfMap.size());
+    for (const auto& innerMap : inputArrayOfMap) {
+      // If the map entry is null, we set the output to null by setting a null
+      // entry in the result array.
+      // add_null() and add_item() are the APIs to be used to add an entry based
+      // on its nullability.
+      if (!innerMap.has_value()) {
+        result.add_null();
+        continue;
+      }
+      auto& mapWriter = result.add_item();
+      for (const auto& entry : innerMap.value()) {
+        mapWriter.emplace(
+            entry.first * 2,
+            entry.second.has_value() ? entry.second.value() * 2 : 0);
+      }
+    }
+    return true;
+  }
+
+  // This method takes and returns a Map of integer keys and Array values. The
+  // output returned has the values of the inner array doubled.
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Map<int64_t, Array<double>>>& result,
+      const arg_type<Map<int64_t, Array<double>>>& inputMapOfArray) {
+    result.reserve(inputMapOfArray.size());
+    for (const auto& [key, arrayVal] : inputMapOfArray) {
+      // add_item() supports struct binding and exposes individual writers for
+      // keys and values of the map. This allows us to set them independently
+      // if we have different transformation logic for keys and values.
+      // Note that Velox needs the keys of the map to be non-null, so we do not
+      // need to check for its nullability.
+      auto [keyWriter, valueWriter] = result.add_item();
+      keyWriter = key;
+      if (!arrayVal.has_value()) {
+        valueWriter.add_null();
+        continue;
+      }
+      for (const auto& val : arrayVal.value()) {
+        valueWriter.add_item() = val.has_value() ? val.value() * 2 : 0;
+      }
+    }
+    return true;
+  }
+
+  // This method takes and returns a Row of two columns of type Array and Map.
+  // The output returned contains the elements of the array and values of the
+  // map doubled.
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<Row<Array<int64_t>, Map<int64_t, double>>>& result,
+      const arg_type<Row<Array<int64_t>, Map<int64_t, double>>>& inputRow) {
+    const auto& elem0 = inputRow.template at<0>();
+    const auto& elem1 = inputRow.template at<1>();
+    // For Row types, the nullability can be set either at the "row" level or
+    // at individual element.
+    // In this case, we set the entire row to be null, if both the array and map
+    // values are null.
+    if (!elem0.has_value() && !elem1.has_value()) {
+      return false;
+    }
+
+    // When only one of the elements is null and we want to set the
+    // corresponding element in the output to be null, we use
+    // set_null_at<index>() API.
+    if (!elem0.has_value()) {
+      result.template set_null_at<0>();
+    } else {
+      // get_writer_at<index>() API returns the value writer for the `index`
+      // column in the row. This lets us set the values of individual columns
+      // separately if we do not want to construct an std::tuple() to set all at
+      // once.
+      auto& arrayWriter = result.template get_writer_at<0>();
+      arrayWriter.reserve(elem0.value().size());
+      for (const auto& value : elem0.value()) {
+        arrayWriter.add_item() = value.has_value() ? value.value() * 2 : 0;
+      }
+    }
+
+    if (!elem1.has_value()) {
+      result.template set_null_at<1>();
+    } else {
+      auto& mapWriter = result.template get_writer_at<1>();
+      mapWriter.reserve(elem1.value().size());
+      for (const auto& entry : elem1.value()) {
+        mapWriter.emplace(
+            entry.first * 2,
+            entry.second.has_value() ? entry.second.value() * 2 : 0);
+      }
+    }
+    return true;
+  }
+};
+
+void register9() {
+  registerFunction<
+      MyNestedComplexTimesTwoFunction,
+      Array<Map<int64_t, double>>,
+      Array<Map<int64_t, double>>>({"my_nested_array_func"});
+  registerFunction<
+      MyNestedComplexTimesTwoFunction,
+      Map<int64_t, Array<double>>,
+      Map<int64_t, Array<double>>>({"my_nested_map_func"});
+  registerFunction<
+      MyNestedComplexTimesTwoFunction,
+      Row<Array<int64_t>, Map<int64_t, double>>,
+      Row<Array<int64_t>, Map<int64_t, double>>>({"my_nested_row_func"});
+}
+
+template <typename TExecParams>
 struct JsonOutTest {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
+  VELOX_DEFINE_FUNCTION_TYPES(TExecParams);
   FOLLY_ALWAYS_INLINE void call(out_type<Json>& result) {
     UDFOutputString::assign(result, "hi");
     UDFOutputString::assign(result, std::string("hi"));
@@ -486,7 +616,7 @@ struct JsonOutTest {
   }
 };
 
-void register9() {
+void register10() {
   registerFunction<JsonOutTest, Json>({"json_out"});
 }
 } // namespace
@@ -503,5 +633,6 @@ int main(int argc, char** argv) {
   register7();
   register8();
   register9();
+  register10();
   return 0;
 }
