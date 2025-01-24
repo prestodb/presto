@@ -34,6 +34,19 @@ enum ReferenceQueryErrorCode {
   kReferenceQueryUnsupported
 };
 
+FOLLY_ALWAYS_INLINE std::string format_as(ReferenceQueryErrorCode errorCode) {
+  switch (errorCode) {
+    case ReferenceQueryErrorCode::kSuccess:
+      return "kSuccess";
+    case ReferenceQueryErrorCode::kReferenceQueryFail:
+      return "kReferenceQueryFail";
+    case ReferenceQueryErrorCode::kReferenceQueryUnsupported:
+      return "kReferenceQueryUnsupported";
+    default:
+      return "Unknown";
+  }
+}
+
 /// Query runner that uses reference database, i.e. DuckDB, Presto, Spark.
 class ReferenceQueryRunner {
  public:
@@ -43,8 +56,8 @@ class ReferenceQueryRunner {
     kSparkQueryRunner
   };
 
-  // @param aggregatePool Used to allocate memory needed for vectors produced by
-  // 'execute' methods.
+  // @param aggregatePool Used to allocate memory needed for vectors produced
+  // by 'execute' methods.
   explicit ReferenceQueryRunner(memory::MemoryPool* aggregatePool)
       : aggregatePool_(aggregatePool) {}
 
@@ -88,8 +101,8 @@ class ReferenceQueryRunner {
     return true;
   }
 
-  /// Returns whether types contained in a function signature are all supported
-  /// by the reference database.
+  /// Returns whether types contained in a function signature are all
+  /// supported by the reference database.
   virtual bool isSupported(const exec::FunctionSignature& /*signature*/) {
     return true;
   }
@@ -103,10 +116,10 @@ class ReferenceQueryRunner {
     VELOX_UNSUPPORTED();
   }
 
-  // Converts 'plan' into an SQL query and executes it. Result is returned as a
-  // MaterializedRowMultiset with the ReferenceQueryErrorCode::kSuccess if
-  // successful, or an std::nullopt with a ReferenceQueryErrorCode if the query
-  // fails.
+  // Converts 'plan' into an SQL query and executes it. Result is returned as
+  // a MaterializedRowMultiset with the ReferenceQueryErrorCode::kSuccess if
+  // successful, or an std::nullopt with a ReferenceQueryErrorCode if the
+  // query fails.
   virtual std::pair<
       std::optional<std::multiset<std::vector<velox::variant>>>,
       ReferenceQueryErrorCode>

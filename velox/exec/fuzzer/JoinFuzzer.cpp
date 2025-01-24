@@ -680,12 +680,8 @@ std::optional<MaterializedRowMultiset> JoinFuzzer::computeReferenceResults(
   }
 
   auto result = referenceQueryRunner_->execute(plan);
-  if (result.first) {
-    return result.first;
-  }
-
-  LOG(INFO) << "Query not supported by or failed in the reference DB";
-  return std::nullopt;
+  VELOX_CHECK_NE(result.second, ReferenceQueryErrorCode::kReferenceQueryFail);
+  return result.first;
 }
 
 std::vector<std::string> fieldNames(
@@ -1014,8 +1010,8 @@ RowVectorPtr JoinFuzzer::testCrossProduct(
       /*filter=*/"");
   const auto expected = execute(plan, /*injectSpill=*/false);
 
-  // If OOM injection is not enabled verify the results against Reference query
-  // runner.
+  // If OOM injection is not enabled verify the results against Reference
+  // query runner.
   if (!FLAGS_enable_oom_injection) {
     if (auto referenceResult =
             computeReferenceResults(plan.plan, probeInput, buildInput)) {
@@ -1170,8 +1166,8 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   const auto expected = execute(defaultPlan, /*injectSpill=*/false);
 
-  // If OOM injection is not enabled verify the results against Reference query
-  // runner.
+  // If OOM injection is not enabled verify the results against Reference
+  // query runner.
   if (!FLAGS_enable_oom_injection) {
     if (auto referenceResult =
             computeReferenceResults(defaultPlan.plan, probeInput, buildInput)) {
