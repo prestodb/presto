@@ -103,6 +103,24 @@ std::string toPrestoOperatorType(const std::string& operatorType) {
   if (operatorType == "TableWrite") {
     return "TableWriterOperator";
   }
+  if (operatorType == "HashProbe") {
+    return "LookupJoinOperator";
+  }
+  if (operatorType == "HashBuild") {
+    return "HashBuilderOperator";
+  }
+  if (operatorType == "TableWriteMerge") {
+    return "TableWriterMergeOperator";
+  }
+  if (operatorType == "Unnest") {
+    return "UnnestOperator";
+  }
+  if (operatorType == "LocalPartition") {
+    return "LocalExchangeSourceOperator";
+  }
+  if (operatorType == "LocalExchange") {
+    return "LocalExchangeSinkOperator";
+  }
   return operatorType;
 }
 
