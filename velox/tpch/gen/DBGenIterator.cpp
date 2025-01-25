@@ -37,7 +37,8 @@ class DBGenBackend {
     // structures required by dbgen are populated.
     DBGenContext dbgenCtx;
     load_dists(
-        10 * 1024 * 1024, &dbgenCtx); // 10 MB buffer size for text generation.
+        300 * 1024 * 1024,
+        &dbgenCtx); // 300 MB buffer size for text generation.
   }
   ~DBGenBackend() {
     cleanup_dists();
