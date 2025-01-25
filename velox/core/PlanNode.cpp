@@ -40,6 +40,17 @@ std::vector<PlanNodePtr> deserializeSources(
   return {};
 }
 
+std::vector<TypedExprPtr> deserializeJoinConditions(
+    const folly::dynamic& obj,
+    void* context) {
+  if (obj.count("joinConditions") == 0) {
+    return {};
+  }
+
+  return ISerializable::deserialize<std::vector<ITypedExpr>>(
+      obj["joinConditions"], context);
+}
+
 PlanNodePtr deserializeSingleSource(const folly::dynamic& obj, void* context) {
   auto sources = deserializeSources(obj, context);
   VELOX_CHECK_EQ(1, sources.size());
@@ -1405,6 +1416,75 @@ PlanNodePtr MergeJoinNode::create(const folly::dynamic& obj, void* context) {
       outputType);
 }
 
+PlanNodePtr IndexLookupJoinNode::create(
+    const folly::dynamic& obj,
+    void* context) {
+  auto sources = deserializeSources(obj, context);
+  VELOX_CHECK_EQ(2, sources.size());
+  TableScanNodePtr lookupSource =
+      std::dynamic_pointer_cast<const TableScanNode>(sources[1]);
+  VELOX_CHECK_NOT_NULL(lookupSource);
+
+  auto leftKeys = deserializeFields(obj["leftKeys"], context);
+  auto rightKeys = deserializeFields(obj["rightKeys"], context);
+
+  VELOX_CHECK_EQ(obj.count("filter"), 0);
+
+  auto joinConditions = deserializeJoinConditions(obj, context);
+
+  auto outputType = deserializeRowType(obj["outputType"]);
+
+  return std::make_shared<IndexLookupJoinNode>(
+      deserializePlanNodeId(obj),
+      joinTypeFromName(obj["joinType"].asString()),
+      std::move(leftKeys),
+      std::move(rightKeys),
+      std::move(joinConditions),
+      sources[0],
+      std::move(lookupSource),
+      std::move(outputType));
+}
+
+folly::dynamic IndexLookupJoinNode::serialize() const {
+  auto obj = serializeBase();
+  if (!joinConditions_.empty()) {
+    folly::dynamic serializedJoins = folly::dynamic::array;
+    serializedJoins.reserve(joinConditions_.size());
+    for (const auto& joinCondition : joinConditions_) {
+      serializedJoins.push_back(joinCondition->serialize());
+    }
+    obj["joinConditions"] = std::move(serializedJoins);
+  }
+  return obj;
+}
+
+void IndexLookupJoinNode::addDetails(std::stringstream& stream) const {
+  AbstractJoinNode::addDetails(stream);
+  if (joinConditions_.empty()) {
+    return;
+  }
+
+  std::vector<std::string> joinConditionStrs;
+  joinConditionStrs.reserve(joinConditions_.size());
+  for (const auto& joinCondition : joinConditions_) {
+    joinConditionStrs.push_back(joinCondition->toString());
+  }
+  stream << ", joinConditions: [" << folly::join(", ", joinConditionStrs)
+         << " ]";
+}
+
+// static
+bool IndexLookupJoinNode::isSupported(core::JoinType joinType) {
+  switch (joinType) {
+    case core::JoinType::kInner:
+      [[fallthrough]];
+    case core::JoinType::kLeft:
+      return true;
+    default:
+      return false;
+  }
+}
+
 NestedLoopJoinNode::NestedLoopJoinNode(
     const PlanNodeId& id,
     JoinType joinType,
@@ -2726,6 +2806,7 @@ void PlanNode::registerSerDe() {
   registry.Register("HashJoinNode", HashJoinNode::create);
   registry.Register("MergeExchangeNode", MergeExchangeNode::create);
   registry.Register("MergeJoinNode", MergeJoinNode::create);
+  registry.Register("IndexLookupJoinNode", IndexLookupJoinNode::create);
   registry.Register("NestedLoopJoinNode", NestedLoopJoinNode::create);
   registry.Register("LimitNode", LimitNode::create);
   registry.Register("LocalMergeNode", LocalMergeNode::create);

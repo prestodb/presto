@@ -118,6 +118,11 @@ class ConnectorTableHandle : public ISerializable {
     VELOX_UNSUPPORTED();
   }
 
+  /// Returns true if the connector table handle supports index lookup.
+  virtual bool supportsIndexLookup() const {
+    return false;
+  }
+
   virtual folly::dynamic serialize() const override;
 
  protected:
@@ -282,10 +287,10 @@ class DataSource {
   }
 };
 
-/// Collection of context data for use in a DataSource or DataSink. One instance
-/// of this per DataSource and DataSink. This may be passed between threads but
-/// methods must be invoked sequentially. Serializing use is the responsibility
-/// of the caller.
+/// Collection of context data for use in a DataSource, IndexSource or DataSink.
+/// One instance of this per DataSource and DataSink. This may be passed between
+/// threads but methods must be invoked sequentially. Serializing use is the
+/// responsibility of the caller.
 class ConnectorQueryCtx {
  public:
   ConnectorQueryCtx(
@@ -327,9 +332,9 @@ class ConnectorQueryCtx {
     return operatorPool_;
   }
 
-  /// Returns the connector's memory pool which is an aggregate kind of memory
-  /// pool, used for the data sink for table write that needs the hierarchical
-  /// memory pool management, such as HiveDataSink.
+  /// Returns the connector's memory pool which is an aggregate kind of
+  /// memory pool, used for the data sink for table write that needs the
+  /// hierarchical memory pool management, such as HiveDataSink.
   memory::MemoryPool* connectorMemoryPool() const {
     return connectorPool_;
   }
@@ -354,10 +359,10 @@ class ConnectorQueryCtx {
     return cache_;
   }
 
-  /// This is a combination of task id and the scan's PlanNodeId. This is an id
-  /// that allows sharing state between different threads of the same scan. This
-  /// is used for locating a scanTracker, which tracks the read density of
-  /// columns for prefetch and other memory hierarchy purposes.
+  /// This is a combination of task id and the scan's PlanNodeId. This is an
+  /// id that allows sharing state between different threads of the same
+  /// scan. This is used for locating a scanTracker, which tracks the read
+  /// density of columns for prefetch and other memory hierarchy purposes.
   const std::string& scanId() const {
     return scanId_;
   }
@@ -441,8 +446,8 @@ class Connector {
     VELOX_NYI("connectorConfig is not supported yet");
   }
 
-  /// Returns true if this connector would accept a filter dynamically generated
-  /// during query execution.
+  /// Returns true if this connector would accept a filter dynamically
+  /// generated during query execution.
   virtual bool canAddDynamicFilter() const {
     return false;
   }
@@ -466,6 +471,11 @@ class Connector {
   /// so that file opening and metadata operations are off the Driver'
   /// thread.
   virtual bool supportsSplitPreload() {
+    return false;
+  }
+
+  /// Returns true if the connector supports index lookup, otherwise false.
+  virtual bool supportsIndexLookup() const {
     return false;
   }
 
@@ -517,9 +527,9 @@ class ConnectorFactory {
   const std::string name_;
 };
 
-/// Adds a factory for creating connectors to the registry using connector name
-/// as the key. Throws if factor with the same name is already present. Always
-/// returns true. The return value makes it easy to use with
+/// Adds a factory for creating connectors to the registry using connector
+/// name as the key. Throws if factor with the same name is already present.
+/// Always returns true. The return value makes it easy to use with
 /// FB_ANONYMOUS_VARIABLE.
 bool registerConnectorFactory(std::shared_ptr<ConnectorFactory> factory);
 
@@ -528,12 +538,12 @@ bool registerConnectorFactory(std::shared_ptr<ConnectorFactory> factory);
 bool hasConnectorFactory(const std::string& connectorName);
 
 /// Unregister a connector factory by name.
-/// Returns true if a connector with the specified name has been unregistered,
-/// false otherwise.
+/// Returns true if a connector with the specified name has been
+/// unregistered, false otherwise.
 bool unregisterConnectorFactory(const std::string& connectorName);
 
-/// Returns a factory for creating connectors with the specified name. Throws if
-/// factory doesn't exist.
+/// Returns a factory for creating connectors with the specified name.
+/// Throws if factory doesn't exist.
 std::shared_ptr<ConnectorFactory> getConnectorFactory(
     const std::string& connectorName);
 
@@ -542,14 +552,16 @@ std::shared_ptr<ConnectorFactory> getConnectorFactory(
 /// true. The return value makes it easy to use with FB_ANONYMOUS_VARIABLE.
 bool registerConnector(std::shared_ptr<Connector> connector);
 
-/// Removes the connector with specified ID from the registry. Returns true if
-/// connector was removed and false if connector didn't exist.
+/// Removes the connector with specified ID from the registry. Returns true
+/// if connector was removed and false if connector didn't exist.
 bool unregisterConnector(const std::string& connectorId);
 
-/// Returns a connector with specified ID. Throws if connector doesn't exist.
+/// Returns a connector with specified ID. Throws if connector doesn't
+/// exist.
 std::shared_ptr<Connector> getConnector(const std::string& connectorId);
 
-/// Returns a map of all (connectorId -> connector) pairs currently registered.
+/// Returns a map of all (connectorId -> connector) pairs currently
+/// registered.
 const std::unordered_map<std::string, std::shared_ptr<Connector>>&
 getAllConnectors();
 

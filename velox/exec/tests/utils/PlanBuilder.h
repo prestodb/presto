@@ -1100,6 +1100,26 @@ class PlanBuilder {
       const std::vector<std::string>& outputLayout,
       core::JoinType joinType = core::JoinType::kInner);
 
+  /// Add an IndexLoopJoinNode to join two inputs using one or more join keys
+  /// plus optional join conditions. First input comes from the preceding plan
+  /// node. Second input is specified in 'right' parameter and must be a
+  /// table source with the connector table handle with index lookup support.
+  ///
+  /// @param right The right input source with index lookup support.
+  /// @param joinCondition SQL expressions as the join conditions. Each join
+  /// condition must use columns from both sides. For the right side, it can
+  /// only use one index column.
+  /// @param joinType Type of the join supported: inner, left.
+  ///
+  /// See hashJoin method for the description of the other parameters.
+  PlanBuilder& indexLookupJoin(
+      const std::vector<std::string>& leftKeys,
+      const std::vector<std::string>& rightKeys,
+      const core::TableScanNodePtr& right,
+      const std::vector<std::string>& joinCondition,
+      const std::vector<std::string>& outputLayout,
+      core::JoinType joinType = core::JoinType::kInner);
+
   /// Add an UnnestNode to unnest one or more columns of type array or map.
   ///
   /// The output will contain 'replicatedColumns' followed by unnested columns,

@@ -1572,6 +1572,39 @@ PlanBuilder& PlanBuilder::nestedLoopJoin(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::indexLookupJoin(
+    const std::vector<std::string>& leftKeys,
+    const std::vector<std::string>& rightKeys,
+    const core::TableScanNodePtr& right,
+    const std::vector<std::string>& joinConditions,
+    const std::vector<std::string>& outputLayout,
+    core::JoinType joinType) {
+  VELOX_CHECK_NOT_NULL(planNode_, "indexLookupJoin cannot be the source node");
+  const auto inputType = concat(planNode_->outputType(), right->outputType());
+  auto outputType = extract(inputType, outputLayout);
+
+  auto leftKeyFields = fields(planNode_->outputType(), leftKeys);
+  auto rightKeyFields = fields(right->outputType(), rightKeys);
+
+  std::vector<core::TypedExprPtr> joinConditionExprs{};
+  joinConditionExprs.reserve(joinConditions.size());
+  for (const auto& joinCondition : joinConditions) {
+    joinConditionExprs.push_back(
+        parseExpr(joinCondition, inputType, options_, pool_));
+  }
+
+  planNode_ = std::make_shared<core::IndexLookupJoinNode>(
+      nextPlanNodeId(),
+      joinType,
+      std::move(leftKeyFields),
+      std::move(rightKeyFields),
+      std::move(joinConditionExprs),
+      std::move(planNode_),
+      right,
+      std::move(outputType));
+  return *this;
+}
+
 PlanBuilder& PlanBuilder::unnest(
     const std::vector<std::string>& replicateColumns,
     const std::vector<std::string>& unnestColumns,

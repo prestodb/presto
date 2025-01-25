@@ -1762,10 +1762,116 @@ class MergeJoinNode : public AbstractJoinNode {
 
   folly::dynamic serialize() const override;
 
-  /// If merge join supports this join type.
+  /// Returns true if the merge join supports this join type, otherwise false.
   static bool isSupported(JoinType joinType);
 
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
+};
+
+/// Represents index lookup join. Translates to an exec::IndexLookupJoin
+/// operator. Assumes the right input is a table scan source node that provides
+/// indexed table lookup for the left input with the specified join keys and
+/// conditions. The join keys must be a prefix of the index columns of the
+/// lookup table. Each join condition must use columns from both sides. For the
+/// right side, it can only use one index column. Each index column can either
+/// be a join key or a join condition once. The table scan node of the right
+/// input is translated to a connector::IndexSource within
+/// exec::IndexLookupJoin.
+///
+///    Only INNER and LEFT joins are supported.
+///
+/// Take the following query for example, t is left table, r is the right table
+/// with indexed columns. 'sid' is the join keys. 'u.event_type in t.event_list'
+/// is the join condition.
+///
+/// SELECT t.sid, t.day_ts, u.event_type
+/// FROM t LEFT JOIN u
+/// ON t.sid = u.sid
+///  AND contains(t.event_list, u.event_type)
+///  AND t.ds BETWEEN '2024-01-01' AND '2024-01-07'
+///
+/// Here,
+/// - 'joinType' is JoinType::kLeft
+/// - 'left' describes scan of t with a filter on 'ds':t.ds BETWEEN '2024-01-01'
+///    AND '2024-01-07'
+/// - 'right' describes indexed table 'u' with ndex keys sid, event_type(and
+///    maybe some more)
+/// - 'leftKeys' is a list of one key 't.sid'
+/// - 'rightKeys' is a list of one key 'u.sid'
+/// - 'joinConditions' is a list of one expression: contains(t.event_list,
+///    u.event_type)
+/// - 'outputType' contains 3 columns : t.sid, t.day_ts, u.event_type
+///
+class IndexLookupJoinNode : public AbstractJoinNode {
+ public:
+  /// @param joinType Specifies the lookup join type. Only INNER and LEFT joins
+  /// are supported.
+  IndexLookupJoinNode(
+      const PlanNodeId& id,
+      JoinType joinType,
+      const std::vector<FieldAccessTypedExprPtr>& leftKeys,
+      const std::vector<FieldAccessTypedExprPtr>& rightKeys,
+      const std::vector<TypedExprPtr>& joinConditions,
+      PlanNodePtr left,
+      TableScanNodePtr right,
+      RowTypePtr outputType)
+      : AbstractJoinNode(
+            id,
+            joinType,
+            leftKeys,
+            rightKeys,
+            /*filter=*/nullptr,
+            std::move(left),
+            right,
+            outputType),
+        lookupSourceNode_(std::move(right)),
+        joinConditions_(joinConditions) {
+    VELOX_USER_CHECK(
+        !leftKeys.empty(),
+        "The lookup join node requires at least one join key");
+    VELOX_USER_CHECK_EQ(
+        leftKeys_.size(),
+        rightKeys_.size(),
+        "The lookup join node requires same number of join keys on left and right sides");
+    // TODO: add check that (1) 'rightKeys_' form an index prefix. each of
+    // 'joinConditions_' uses columns from both sides and uses exactly one index
+    // column from the right side.
+    VELOX_USER_CHECK(
+        lookupSourceNode_->tableHandle()->supportsIndexLookup(),
+        "The lookup table handle {} from connector {} doesn't support index lookup",
+        lookupSourceNode_->tableHandle()->name(),
+        lookupSourceNode_->tableHandle()->connectorId());
+    VELOX_USER_CHECK(
+        isSupported(joinType_),
+        "Unsupported index lookup join type {}",
+        joinTypeName(joinType_));
+  }
+
+  const TableScanNodePtr& lookupSource() const {
+    return lookupSourceNode_;
+  }
+
+  const std::vector<TypedExprPtr>& joinConditions() const {
+    return joinConditions_;
+  }
+
+  std::string_view name() const override {
+    return "IndexLookupJoin";
+  }
+
+  folly::dynamic serialize() const override;
+
+  static PlanNodePtr create(const folly::dynamic& obj, void* context);
+
+  /// Returns true if the lookup join supports this join type, otherwise false.
+  static bool isSupported(JoinType joinType);
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const TableScanNodePtr lookupSourceNode_;
+
+  const std::vector<TypedExprPtr> joinConditions_;
 };
 
 /// Represents inner/outer nested loop joins. Translates to an
