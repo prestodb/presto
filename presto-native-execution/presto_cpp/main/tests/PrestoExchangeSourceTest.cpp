@@ -424,12 +424,14 @@ std::unique_ptr<exec::SerializedPage> waitForNextPage(
     const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
   facebook::velox::ContinueFuture future;
-  auto pages = queue->dequeueLocked(1, &atEnd, &future);
+  ContinuePromise stalePromise = ContinuePromise::makeEmpty();
+  auto pages = queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise);
   EXPECT_LE(pages.size(), 1);
   EXPECT_FALSE(atEnd);
   if (pages.empty()) {
     std::move(future).get();
-    pages = queue->dequeueLocked(1, &atEnd, &future);
+    ContinuePromise stalePromise = ContinuePromise::makeEmpty();
+    pages = queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise);
     EXPECT_EQ(pages.size(), 1);
   }
   return std::move(pages.front());
@@ -438,11 +440,13 @@ std::unique_ptr<exec::SerializedPage> waitForNextPage(
 void waitForEndMarker(const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
   facebook::velox::ContinueFuture future;
-  auto pages = queue->dequeueLocked(1, &atEnd, &future);
+  ContinuePromise stalePromise = ContinuePromise::makeEmpty();
+  auto pages = queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise);
   ASSERT_TRUE(pages.empty());
   if (!atEnd) {
     std::move(future).get();
-    pages = queue->dequeueLocked(1, &atEnd, &future);
+    ContinuePromise stalePromise = ContinuePromise::makeEmpty();
+    pages = queue->dequeueLocked(0, 1, &atEnd, &future, &stalePromise);
     ASSERT_TRUE(pages.empty());
     ASSERT_TRUE(atEnd);
   }
@@ -525,7 +529,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   }
 
   std::shared_ptr<exec::ExchangeQueue> makeSingleSourceQueue() {
-    auto queue = std::make_shared<exec::ExchangeQueue>();
+    auto queue = std::make_shared<exec::ExchangeQueue>(1, 0);
     queue->addSourceLocked();
     queue->noMoreSources();
     return queue;
