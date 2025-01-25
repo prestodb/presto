@@ -404,10 +404,10 @@ void RowNumberFuzzer::addPlansWithTableScan(
 void RowNumberFuzzer::verify() {
   const auto [keyNames, keyTypes] = generatePartitionKeys();
   const auto input = generateInput(keyNames, keyTypes);
-  // Flatten inputs.
-  const auto flatInput = flatten(input);
 
   if (VLOG_IS_ON(1)) {
+    // Flatten inputs.
+    const auto flatInput = flatten(input);
     VLOG(1) << "Input: " << input[0]->toString();
     for (const auto& v : flatInput) {
       VLOG(1) << std::endl << v->toString(0, v->size());
