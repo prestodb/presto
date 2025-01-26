@@ -45,6 +45,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -197,6 +198,7 @@ import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE_DEFAULT;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
@@ -495,17 +497,6 @@ public final class IcebergUtil
         }
         catch (TableNotFoundException e) {
             log.warn(String.format("Unable to fetch snapshot for table %s: %s", table.name(), e.getMessage()));
-            return Optional.empty();
-        }
-    }
-
-    public static Optional<String> tryGetLocation(Table table)
-    {
-        try {
-            return Optional.ofNullable(table.location());
-        }
-        catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
         }
     }
@@ -1135,9 +1126,20 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat, ConnectorSession session)
+    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat, ConnectorSession session, CatalogType catalogType)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+
+        String writeDataLocation = IcebergTableProperties.getWriteDataLocation(tableMetadata.getProperties());
+        if (!Strings.isNullOrEmpty(writeDataLocation)) {
+            if (catalogType.equals(CatalogType.HADOOP)) {
+                propertiesBuilder.put(WRITE_DATA_LOCATION, writeDataLocation);
+            }
+            else {
+                throw new PrestoException(NOT_SUPPORTED, "Not support set write_data_path on catalog: " + catalogType);
+            }
+        }
+
         Integer commitRetries = getCommitRetries(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
         propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
@@ -1274,7 +1276,7 @@ public final class IcebergUtil
     public static String dataLocation(Table icebergTable)
     {
         Map<String, String> properties = icebergTable.properties();
-        String dataLocation = properties.get(TableProperties.WRITE_DATA_LOCATION);
+        String dataLocation = properties.get(WRITE_DATA_LOCATION);
         if (dataLocation == null) {
             dataLocation = properties.get(TableProperties.OBJECT_STORE_PATH);
             if (dataLocation == null) {
