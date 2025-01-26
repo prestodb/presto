@@ -30,6 +30,8 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
@@ -148,6 +150,34 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
+    }
+
+    @Test
+    public void testTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String dataWriteLocation = Files.createTempDirectory("test_table_with_specified_write_data_location2").toAbsolutePath().toString();
+        assertQueryFails(String.format("create table test_table_with_specified_write_data_location2(a int, b varchar) with (write_data_path = '%s')", dataWriteLocation),
+                "Not support set write_data_path on catalog: " + catalogType);
+    }
+
+    @Test
+    public void testPartitionedTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String dataWriteLocation = Files.createTempDirectory("test_table_with_specified_write_data_location3").toAbsolutePath().toString();
+        assertQueryFails(String.format("create table test_table_with_specified_write_data_location3(a int, b varchar) with (write_data_path = '%s')", dataWriteLocation),
+                "Not support set write_data_path on catalog: " + catalogType);
+    }
+
+    @Test
+    public void testShowCreateTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location";
+        String dataWriteLocation = java.nio.file.Files.createTempDirectory("test1").toAbsolutePath().toString();
+        assertQueryFails(format("CREATE TABLE %s(a int, b varchar) with (write_data_path = '%s')", tableName, dataWriteLocation),
+                "Not support set write_data_path on catalog: " + catalogType);
     }
 
     @Test
