@@ -271,7 +271,7 @@ Configuration Properties
 .. note::
 
     The Iceberg connector supports configuration options for
-    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html##amazon-s3-configuration>`_
+    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
     as a Hive connector.
 
 The following configuration properties are available for all catalog types:
