@@ -94,9 +94,8 @@ class AsyncCompiledKernel : public CompiledKernel {
 
 class KernelGenerator {
  public:
-  std::unique_ptr<ModulePtr> operator()(
-      const std::string,
-      const KernelGenFunc* gen) {
+  std::unique_ptr<ModulePtr>
+  operator()(const std::string, const KernelGenFunc* gen, const void* stats) {
     using ModulePromise = folly::Promise<ModulePtr>;
     struct PromiseHolder {
       ModulePromise promise;

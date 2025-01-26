@@ -30,7 +30,8 @@ namespace {
 struct DoublerGenerator {
   std::unique_ptr<int> operator()(
       const int& value,
-      const void* properties = nullptr) {
+      const void* properties = nullptr,
+      const void* stats = nullptr) {
     ++generated;
     return std::make_unique<int>(value * 2);
   }
@@ -40,7 +41,8 @@ struct DoublerGenerator {
 struct IdentityGenerator {
   std::unique_ptr<int> operator()(
       const int& value,
-      const void* properties = nullptr) {
+      const void* properties = nullptr,
+      const void* stats = nullptr) {
     return std::make_unique<int>(value);
   }
 };
@@ -113,7 +115,8 @@ TEST(CachedFactoryTest, basicGeneration) {
 struct DoublerWithExceptionsGenerator {
   std::unique_ptr<int> operator()(
       const int& value,
-      const void* properties = nullptr) {
+      const void* properties = nullptr,
+      const void* stats = nullptr) {
     if (value == 3) {
       VELOX_FAIL("3 is bad");
     }

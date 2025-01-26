@@ -513,6 +513,11 @@ std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
   if (numBucketConversion_ > 0) {
     res.insert({"numBucketConversion", RuntimeCounter(numBucketConversion_)});
   }
+  for (const auto& storageStats : ioStats_->storageStats()) {
+    res.emplace(
+        storageStats.first,
+        RuntimeCounter(storageStats.second.sum, storageStats.second.unit));
+  }
   return res;
 }
 

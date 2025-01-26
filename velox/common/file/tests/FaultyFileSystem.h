@@ -54,7 +54,8 @@ class FaultyFileSystem : public FileSystem {
 
   std::unique_ptr<ReadFile> openFileForRead(
       std::string_view path,
-      const FileOptions& options = {}) override;
+      const FileOptions& options = {},
+      io::IoStatistics* ioStats = nullptr) override;
 
   std::unique_ptr<WriteFile> openFileForWrite(
       std::string_view path,
