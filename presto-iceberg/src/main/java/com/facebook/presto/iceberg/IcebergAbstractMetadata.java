@@ -62,6 +62,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
+import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -134,6 +135,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_DELETE
 import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static com.facebook.presto.iceberg.IcebergTableProperties.METRICS_MAX_INFERRED_COLUMN;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.WRITE_DATA_LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
@@ -150,7 +152,6 @@ import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
 import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
-import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
@@ -179,6 +180,7 @@ import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 
 public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
@@ -486,7 +488,7 @@ public abstract class IcebergAbstractMetadata
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
-                icebergTable.location(),
+                getWriteDataLocation(icebergTable).get(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),
                 icebergTable.properties());
@@ -605,6 +607,11 @@ public abstract class IcebergAbstractMetadata
 
         if (!icebergTable.location().isEmpty()) {
             properties.put(LOCATION_PROPERTY, icebergTable.location());
+        }
+
+        String writeDataLocation = icebergTable.properties().get(WRITE_DATA_LOCATION);
+        if (!Strings.isNullOrEmpty(writeDataLocation)) {
+            properties.put(WRITE_DATA_LOCATION_PROPERTY, writeDataLocation);
         }
 
         properties.put(DELETE_MODE, IcebergUtil.getDeleteMode(icebergTable));
@@ -819,7 +826,7 @@ public abstract class IcebergAbstractMetadata
                 tableName.getSchemaName(),
                 new IcebergTableName(name.getTableName(), name.getTableType(), tableSnapshotId, name.getChangelogEndSnapshot()),
                 name.getSnapshotId().isPresent(),
-                tryGetLocation(table),
+                getWriteDataLocation(table),
                 tryGetProperties(table),
                 tableSchemaJson,
                 Optional.empty(),
@@ -1075,5 +1082,16 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(NOT_SUPPORTED, "Unsupported table version expression type: " + tableVersion.getVersionExpressionType());
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported table version type: " + tableVersion.getVersionType());
+    }
+
+    protected Optional<String> getWriteDataLocation(Table table)
+    {
+        try {
+            String writeDataLocation = table.properties().get(WRITE_DATA_LOCATION);
+            return Optional.of(Strings.isNullOrEmpty(writeDataLocation) ? table.location() : writeDataLocation);
+        }
+        catch (TableNotFoundException e) {
+            return Optional.empty();
+        }
     }
 }

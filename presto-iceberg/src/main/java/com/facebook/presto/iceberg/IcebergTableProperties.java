@@ -38,6 +38,7 @@ public class IcebergTableProperties
     public static final String FILE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String LOCATION_PROPERTY = "location";
+    public static final String WRITE_DATA_LOCATION_PROPERTY = "write_data_path";
     public static final String FORMAT_VERSION = "format_version";
     public static final String COMMIT_RETRIES = "commit_retries";
     public static final String DELETE_MODE = "delete_mode";
@@ -76,6 +77,11 @@ public class IcebergTableProperties
                 .add(stringProperty(
                         LOCATION_PROPERTY,
                         "File system location URI for the table",
+                        null,
+                        false))
+                .add(stringProperty(
+                        WRITE_DATA_LOCATION_PROPERTY,
+                        "File system location URI for the table's data",
                         null,
                         false))
                 .add(stringProperty(
@@ -146,6 +152,11 @@ public class IcebergTableProperties
     public static String getTableLocation(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(LOCATION_PROPERTY);
+    }
+
+    public static String getWriteDataLocation(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(WRITE_DATA_LOCATION_PROPERTY);
     }
 
     public static String getFormatVersion(Map<String, Object> tableProperties)

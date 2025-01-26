@@ -319,14 +319,14 @@ public class IcebergNativeMetadata
                         schema,
                         partitionSpec,
                         targetPath,
-                        populateTableProperties(tableMetadata, fileFormat, session));
+                        populateTableProperties(tableMetadata, fileFormat, session, catalogType));
             }
             else {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
-                        populateTableProperties(tableMetadata, fileFormat, session));
+                        populateTableProperties(tableMetadata, fileFormat, session, catalogType));
             }
         }
         catch (AlreadyExistsException e) {
@@ -340,7 +340,7 @@ public class IcebergNativeMetadata
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
-                icebergTable.location(),
+                getWriteDataLocation(icebergTable).get(),
                 fileFormat,
                 getCompressionCodec(session),
                 icebergTable.properties());
