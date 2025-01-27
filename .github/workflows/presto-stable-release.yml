@@ -13,9 +13,18 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout Presto source
+      - name: Check actor
+        if: ${{ github.actor != 'prestodb-ci' }}
+        run: echo "Unauthorized actor. Please login with prestodb-ci to run this action." && exit 1
+
+      - name: Check branch
+        if: ${{ github.ref != 'refs/heads/master' }}
+        run: echo "Invalid branch. This action can only be run on the master branch." && exit 1
+
+      - name: Checkout presto source
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
           ref: master
           show-progress: false
 
@@ -25,15 +34,14 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Configure Git
+      - name: Configure git
         run: |
           git config --global --add safe.directory ${{github.workspace}}
           git config --global user.email "oss-release-bot@prestodb.io"
           git config --global user.name "oss-release-bot"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git config pull.rebase false
 
-      - name: Set Maven version
+      - name: Set maven version
         run: |
           unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot -ntp
 
@@ -42,6 +50,7 @@ jobs:
         run: |
           PRESTO_RELEASE_VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:3.2.0:evaluate \
             -Dexpression=project.version -q -ntp -DforceStdout | tail -n 1)
+          echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION"
           echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION" >> $GITHUB_OUTPUT
 
       - name: Update version in master
