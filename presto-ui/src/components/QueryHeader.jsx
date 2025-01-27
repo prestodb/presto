@@ -13,6 +13,7 @@
  */
 
 import React from "react";
+import { clsx } from 'clsx';
 
 import {getHumanReadableState, getProgressBarPercentage, getProgressBarTitle, getQueryStateColor, isQueryEnded} from "../utils";
 
@@ -83,17 +84,24 @@ export class QueryHeader extends React.Component {
         );
     }
 
-    renderTab(path, name) {
+    isActive(path) {
         const queryId = this.props.query.queryId;
         if (window.location.pathname.includes(path)) {
-            return  <a href={path + '?' + queryId} className="btn btn-info navbar-btn nav-disabled">{name}</a>;
+            return  true;
         }
 
-        return <a href={path + '?' + queryId} className="btn btn-info navbar-btn">{name}</a>;
+        return false;
     }
 
     render() {
         const query = this.props.query;
+        const queryId = this.props.query.queryId;
+        const tabs = [
+            {path: 'query.html', label: 'Overview'},
+            {path: 'plan.html', label: 'Live Plan'},
+            {path: 'stage.html', label: 'Stage Performance'},
+            {path: 'timeline.html', label: 'Splits'},
+        ];
         return (
             <div>
                 <div className="row">
@@ -106,23 +114,15 @@ export class QueryHeader extends React.Component {
                         </h3>
                     </div>
                     <div className="col-6">
-                        <table className="header-inline-links">
-                            <tbody>
-                            <tr>
-                                <td>
-                                    {this.renderTab("query.html", "Overview")}
+                        <nav className="nav nav-tabs">
+                            {tabs.map((page, _) => (
+                                <>
+                                    <a className={clsx('nav-link', 'navbar-btn', this.isActive(page.path) && 'active')} href={page.path + '?' + queryId} >{page.label}</a>
                                     &nbsp;
-                                    {this.renderTab("plan.html", "Live Plan")}
-                                    &nbsp;
-                                    {this.renderTab("stage.html", "Stage Performance")}
-                                    &nbsp;
-                                    {this.renderTab("timeline.html", "Splits")}
-                                    &nbsp;
-                                    <a href={"/v1/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn rounded-0" target="_blank">JSON</a>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+                                </>
+                            ))}
+                            <a className="nav-link navbar-btn" href={"/v1/query/" + query.queryId + "?pretty"} target="_blank">JSON</a>
+                        </nav>
                     </div>
                 </div>
                 <hr className="h2-hr"/>

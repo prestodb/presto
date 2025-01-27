@@ -354,28 +354,27 @@ class StageOperatorGraph extends React.Component {
         this.updateD3Graph();
     }
 
-    handleOperatorClick(operatorCssId) {
-        if(operatorCssId.target.hasOwnProperty("__data__") && operatorCssId.target.__data__ !== undefined){
-        $('#operator-detail-modal').modal("show")
+    handleOperatorClick(event) {
+        if (event.target.hasOwnProperty("__data__") && event.target.__data__ !== undefined) {
+            $('#operator-detail-modal').modal("show")
 
-        const pipelineId = (operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt((operatorCssId?.target?.__data__ || '').split('-')[1] || '0') : 0;
-        const operatorId =(operatorCssId?.target?.__data__ || "").split('-').length > 0 ? parseInt((operatorCssId?.target?.__data__ || '').split('-')[2] || '0') : 0;
-       
-        const stage = this.props.stage;
+            const pipelineId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[1] || '0') : 0;
+            const operatorId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[2] || '0') : 0;
+            const stage = this.props.stage;
 
-        let operatorStageSummary = null;
-        const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
-        for (let i = 0; i < operatorSummaries.length; i++) {
-            if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
-                operatorStageSummary = operatorSummaries[i];
+            let operatorStageSummary = null;
+            const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
+            for (let i = 0; i < operatorSummaries.length; i++) {
+                if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
+                    operatorStageSummary = operatorSummaries[i];
+                }
             }
+            const container = document.getElementById('operator-detail');
+            const root = createRoot(container);
+            root.render(<OperatorDetail key={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
+        } else {
+            return;
         }
-        const container = document.getElementById('operator-detail');
-        const root = createRoot(container);
-        root.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>);
-    }else {
-        return;
-    }
     }
 
     computeOperatorGraphs() {

@@ -1218,7 +1218,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
     const elapsedTime = (parseDuration(data.queryStats.elapsedTime) || 0) / 1000.0;
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div className="row">
                 <div className="col-6">
                     <h3>Session</h3>

@@ -24,7 +24,6 @@ import {
     formatCount,
     formatDataSize,
     formatDuration,
-    getChildren,
     getTaskNumber,
     parseDataSize,
     parseDuration
@@ -395,23 +394,29 @@ function StageOperatorGraph({ id, stage }) {
         }
     }, [stage]);
 
-    const handleOperatorClick = (operatorCssId) => {
-        $('#operator-detail-modal').modal();
+    const handleOperatorClick = (event) => {
+        // fix this: need to figure out how to get the proper <div> node
+        if (event.target.hasOwnProperty("__data__") && event.target.__data__ !== undefined) {
+            $('#operator-detail-modal').modal("show")
 
-        const pipelineId = parseInt(operatorCssId.split('-')[1]);
-        const operatorId = parseInt(operatorCssId.split('-')[2]);
-        let operatorStageSummary = null;
-        const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
-        for (let i = 0; i < operatorSummaries.length; i++) {
-            if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
-                operatorStageSummary = operatorSummaries[i];
+            const pipelineId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[1] || '0') : 0;
+            const operatorId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[2] || '0') : 0;
+
+            let operatorStageSummary = null;
+            const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
+            for (let i = 0; i < operatorSummaries.length; i++) {
+                if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
+                    operatorStageSummary = operatorSummaries[i];
+                }
             }
-        }
 
-        if (!detailContainer.current) {
-            detailContainer.current = createRoot(document.getElementById('operator-detail'));
+            if (!detailContainer.current) {
+                detailContainer.current = createRoot(document.getElementById('operator-detail'));
+            }
+            detailContainer.current.render(<OperatorDetail index={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
+        } else {
+            return;
         }
-        detailContainer.current.render(<OperatorDetail index={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
     }
 
     const computeD3StageOperatorGraph = (graph, operator, sink, pipelineNode) => {
@@ -511,7 +516,7 @@ export default function StageView({ data, show }) {
     const stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage} />;
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div className="row">
                 <div className="col-12">
                     <div className="row">

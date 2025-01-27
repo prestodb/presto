@@ -340,11 +340,9 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             )
         }
 
-        // TODO: Refactor components to move refreshLoop to parent rather than using this property
-        const queryHeader = this.props.isEmbedded ? null : <QueryHeader query={query}/>;
         return (
             <div>
-                {queryHeader}
+                {!this.props.isEmbedded && <QueryHeader query={query}/>}
                 <div className="row">
                     <div className="col-12">
                         {loadingMessage}

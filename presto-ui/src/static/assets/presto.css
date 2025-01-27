@@ -107,6 +107,7 @@ pre {
 }
 
 .navbar-btn {
+    padding: 6px 12px !important;
     border-bottom: none;
     margin: 0;
     color: #ffffff !important;

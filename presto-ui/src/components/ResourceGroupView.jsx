@@ -13,6 +13,7 @@
  */
 
 import React from 'react';
+import { clsx } from 'clsx';
 import { addToHistory, formatDataSizeBytes, parseDataSize, truncateString } from "../utils";
 import { QueryListItem } from "./QueryList";
 
@@ -69,8 +70,7 @@ function NoGroupIdWidget({groupId, error, groups}) {
 
     if (groups.length > 0) {
         docView = (
-            <>
-            <div className="col-4 col-offset-4">
+            <div className="col-4">
                 <h4 className="text-center res-heading">Available resource groups:</h4>
                 <div className="list-group">
                     {groups.map(grp => (
@@ -78,7 +78,6 @@ function NoGroupIdWidget({groupId, error, groups}) {
                     ))}
                 </div>
             </div>
-            </>
         );
     } else if (error) {
         docView = (
@@ -90,7 +89,7 @@ function NoGroupIdWidget({groupId, error, groups}) {
     }
 
     return (
-        <div className="col-12">{docView}</div>
+        <div className="row justify-content-md-center">{docView}</div>
     );
 }
 
@@ -253,12 +252,10 @@ export default function ResourceGroupView() {
 
     return (
         <>
-            <div className={values.showDoc ? 'container' : 'hide container'}>
-                <div className="row">
-                    <NoGroupIdWidget groupId={group} error={values.error} groups={values.rootGroups} />
-                </div>
+            <div className={clsx('container', !values.showDoc && 'visually-hidden')}>
+                <NoGroupIdWidget groupId={group} error={values.error} groups={values.rootGroups} />
             </div>
-            <div className={values.showResource ? 'container' : 'hide container'}>
+            <div className={clsx('container', !values.showResource && 'visually-hidden')}>
                 <div className="row">
                     {values.id.length > 0 && (
                         <div className="row">
@@ -310,7 +307,7 @@ export default function ResourceGroupView() {
                             </tbody>
                         </table>
                     </div>
-                    <div className={ values.runningQueries.length ? "col-12" : "hide col-12"}>
+                    <div className={clsx('col-12', !values.runningQueries.length && 'visually-hidden')}>
                         <h3>Running Queries</h3>
                         <hr className="h3-hr"/>
                         { values.runningQueries.map( query => (
