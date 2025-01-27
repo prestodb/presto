@@ -2240,7 +2240,7 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP SCHEMA ICEBERG.TEST_SCHEMA1");
         assertQuerySucceeds("DROP SCHEMA ICEBERG.TEST_SCHEMA2");
     }
-    
+
     /**
      * Test cases for updates against non-partitioned tables. The table schema
      * is fixed: (id int, name varchar)
