@@ -20,7 +20,9 @@ import SqlBaseListener from '../sql-parser/SqlBaseListener.js';
 import Editor from 'react-simple-code-editor';
 import { highlight, languages } from 'prismjs/components/prism-core';
 import 'prismjs/components/prism-sql';
-import 'prismjs/themes/prism-okaidia.css';
+// Remove primsjs theme to avoid loading error with dynamic import
+// move import 'prismjs/themes/prism.css' to sql-client.jsx
+// import 'prismjs/themes/prism-okaidia.css';
 import { clsx } from 'clsx';
 import PrestoClient from "@prestodb/presto-js-client";
 

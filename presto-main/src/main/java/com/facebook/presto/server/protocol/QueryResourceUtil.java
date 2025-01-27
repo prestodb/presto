@@ -424,7 +424,8 @@ public final class QueryResourceUtil
             Optional<Duration> queuedTime,
             Duration waitingForPrerequisitesTime)
     {
-        QueryState state = queryError.map(error -> FAILED).orElse(queuedTime.isPresent() ? QUEUED : WAITING_FOR_PREREQUISITES);
+        QueryState state = queryError.map(error -> FAILED)
+                .orElseGet(() -> queuedTime.isPresent() ? QUEUED : WAITING_FOR_PREREQUISITES);
         return new QueryResults(
                 queryId.toString(),
                 getQueryHtmlUri(queryId, uriInfo, xForwardedProto, xPrestoPrefixUrl),

@@ -179,13 +179,22 @@ Native Execution only. Enable row number spilling on native engine.
 Native Execution only. Enable simplified path in expression evaluation.
 
 ``native_expression_max_array_size_in_reduce``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``100000``
 
 Native Execution only. The `reduce <https://prestodb.io/docs/current/functions/array.html#reduce-array-T-initialState-S-inputFunction-S-T-S-outputFunction-S-R-R>`_ 
 function will throw an error if it encounters an array of size greater than this value.
+
+``native_expression_max_compiled_regexes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``100``
+
+Native Execution only. Controls maximum number of compiled regular expression patterns per
+regular expression function instance per thread of execution.
 
 ``native_spill_compression_codec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -369,11 +378,64 @@ The fragment id to be traced. If not specified, all fragments will be matched.
 
 The shard id to be traced. If not specified, all shards will be matched.
 
-``native_query_trace_task_reg_exp``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``native_scaled_writer_rebalance_max_memory_usage_ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* **Type:** ``varchar``
-* **Default value:** ``""``
+* **Type:** ``double``
+* **Minimum value:** ``0``
+* **Maximum value:** ``1``
+* **Default value:** ``0.7``
 
-The regular expression to match a task for tracing. It will be deprecated if there is
-no issue with native_query_trace_fragment_id and native_query_trace_shard_id.
+The max ratio of a query used memory to its max capacity, and the scale
+writer exchange stops scaling writer processing if the query's current
+memory usage exceeds this ratio. The value is in the range of (0, 1].
+
+``native_scaled_writer_max_partitions_per_writer``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``128``
+
+The max number of logical table partitions that can be assigned to a
+single table writer thread. The logical table partition is used by local
+exchange writer for writer scaling, and multiple physical table
+partitions can be mapped to the same logical table partition based on the
+hash value of calculated partitioned ids.
+
+``native_scaled_writer_min_partition_processed_bytes_rebalance_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``134217728``
+
+Minimum amount of data processed by a logical table partition to trigger
+writer scaling if it is detected as overloaded by scale writer exchange.
+
+``native_scaled_writer_min_processed_bytes_rebalance_threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``268435456``
+
+Minimum amount of data processed by all the logical table partitions to
+trigger skewed partition rebalancing by scale writer exchange.
+
+``native_table_scan_scaled_processing_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+If set to ``true``, enables scaling the table scan concurrency on each worker.
+
+``native_table_scan_scale_up_memory_usage_ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Minimum value:** ``0``
+* **Maximum value:** ``1``
+* **Default value:** ``0.7``
+
+Controls the ratio of available memory that can be used for scaling up table scans.
+A higher value allows more memory to be allocated for scaling up table scans,
+while a lower value limits the amount of memory used.

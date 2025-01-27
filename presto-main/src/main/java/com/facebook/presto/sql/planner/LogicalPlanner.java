@@ -90,6 +90,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.spi.PartitionedTableWritePolicy.MULTIPLE_WRITERS_PER_PARTITION_ALLOWED;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
@@ -239,7 +240,7 @@ public class LogicalPlanner
                 .putAll(tableScanOutputs.stream().collect(toImmutableMap(identity(), identity())))
                 .putAll(tableStatisticAggregation.getAdditionalVariables())
                 .build();
-        TableScanNode scanNode = new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all());
+        TableScanNode scanNode = new TableScanNode(getSourceLocation(analyzeStatement), idAllocator.getNextId(), targetTable, tableScanOutputs, variableToColumnHandle.build(), TupleDomain.all(), TupleDomain.all(), Optional.empty());
         PlanNode project = PlannerUtils.addProjections(scanNode, idAllocator, assignments);
         PlanNode planNode = new StatisticsWriterNode(
                 getSourceLocation(analyzeStatement),
@@ -441,7 +442,8 @@ public class LogicalPlanner
                     // final aggregation is run within the TableFinishOperator to summarize collected statistics
                     // by the partial aggregation from all of the writer nodes
                     Optional.of(aggregations.getFinalAggregation()),
-                    Optional.of(result.getDescriptor()));
+                    Optional.of(result.getDescriptor()),
+                    Optional.empty());
 
             return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
         }
@@ -467,6 +469,7 @@ public class LogicalPlanner
                 Optional.of(target),
                 variableAllocator.newVariable("rows", BIGINT),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
         return new RelationPlan(commitNode, analysis.getRootScope(), commitNode.getOutputVariables());
     }
@@ -485,6 +488,7 @@ public class LogicalPlanner
                 deleteNode,
                 Optional.of(deleteHandle),
                 variableAllocator.newVariable("rows", BIGINT),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
@@ -526,6 +530,7 @@ public class LogicalPlanner
                 updateNode,
                 Optional.of(updateTarget),
                 variableAllocator.newVariable("rows", BIGINT),
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
 
@@ -633,7 +638,8 @@ public class LogicalPlanner
 
             partitioningScheme = Optional.of(new PartitioningScheme(
                     Partitioning.create(tableLayout.get().getPartitioning(), partitionFunctionArguments),
-                    outputLayout));
+                    outputLayout,
+                    tableLayout.get().getWriterPolicy() == MULTIPLE_WRITERS_PER_PARTITION_ALLOWED));
         }
         return partitioningScheme;
     }

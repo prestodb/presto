@@ -524,7 +524,8 @@ public class RowExpressionRewriteRuleSet
                         node.getTarget(),
                         node.getRowCountVariable(),
                         rewrittenStatisticsAggregation,
-                        node.getStatisticsAggregationDescriptor()));
+                        node.getStatisticsAggregationDescriptor(),
+                        node.getCteMaterializationInfo()));
             }
             return Result.empty();
         }

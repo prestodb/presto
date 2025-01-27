@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.SmallintType;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
@@ -81,7 +82,7 @@ public class LongDictionaryBatchStreamReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        verifyStreamType(streamDescriptor, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof TimeType);
         this.type = type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");

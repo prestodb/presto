@@ -20,11 +20,17 @@ import java.util.function.Function;
 public interface ExpressionOptimizer
 {
     /**
-     * Optimize a RowExpression to
+     * Optimize a RowExpression to its simplest equivalent form.
      */
-    RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session);
+    default RowExpression optimize(RowExpression rowExpression, Level level, ConnectorSession session)
+    {
+        return optimize(rowExpression, level, session, variable -> variable);
+    }
 
-    Object optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver);
+    /**
+     * Optimize a RowExpression to its simplest equivalent form, replacing VariableReferenceExpressions with their associated values.
+     */
+    RowExpression optimize(RowExpression expression, Level level, ConnectorSession session, Function<VariableReferenceExpression, Object> variableResolver);
 
     enum Level
     {

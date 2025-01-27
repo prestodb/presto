@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
+import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignPartitioningVariables;
 import static com.facebook.presto.sql.TemporaryTableUtil.assignTemporaryTableColumnNames;
@@ -174,6 +175,10 @@ public abstract class BasePlanFragmenter
             context.get().setSingleNodeDistribution();
         }
 
+        if (isSingleNodeExecutionEnabled(session)) {
+            context.get().setSingleNodeDistribution();
+        }
+
         return context.defaultRewrite(node, context.get());
     }
 
@@ -252,7 +257,7 @@ public abstract class BasePlanFragmenter
     @Override
     public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
     {
-        if (node.getTablePartitioningScheme().isPresent()) {
+        if (node.isSingleWriterPerPartitionRequired()) {
             context.get().setDistribution(node.getTablePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
         }
         return context.defaultRewrite(node, context.get());
@@ -268,6 +273,10 @@ public abstract class BasePlanFragmenter
     @Override
     public PlanNode visitExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
+        if (isSingleNodeExecutionEnabled(session)) {
+            context.get().setSingleNodeDistribution();
+        }
+
         switch (exchange.getScope()) {
             case LOCAL:
                 return context.defaultRewrite(exchange, context.get());
@@ -283,6 +292,7 @@ public abstract class BasePlanFragmenter
     private PlanNode createRemoteStreamingExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)
     {
         checkArgument(exchange.getScope() == REMOTE_STREAMING, "Unexpected exchange scope: %s", exchange.getScope());
+        checkArgument(!exchange.getPartitioningScheme().isScaleWriters(), "task scaling for partitioned tables is not yet supported");
 
         PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
 
@@ -329,6 +339,8 @@ public abstract class BasePlanFragmenter
         checkArgument(exchange.getType() == REPARTITION, "Unexpected exchange type: %s", exchange.getType());
         checkArgument(exchange.getScope() == REMOTE_MATERIALIZED, "Unexpected exchange scope: %s", exchange.getScope());
 
+        checkArgument(!exchange.getPartitioningScheme().isScaleWriters(), "task scaling for partitioned tables is not yet supported");
+
         PartitioningScheme partitioningScheme = exchange.getPartitioningScheme();
 
         PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
@@ -374,7 +386,8 @@ public abstract class BasePlanFragmenter
                 temporaryTableHandle,
                 exchange.getOutputVariables(),
                 variableToColumnMap,
-                Optional.of(partitioningMetadata));
+                Optional.of(partitioningMetadata),
+                Optional.empty());
 
         checkArgument(
                 !exchange.getPartitioningScheme().isReplicateNullsAndAny(),

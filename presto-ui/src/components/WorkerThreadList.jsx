@@ -281,3 +281,5 @@ export class WorkerThreadList extends React.Component {
         );
     }
 }
+
+export default WorkerThreadList;

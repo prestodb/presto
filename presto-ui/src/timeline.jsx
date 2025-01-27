@@ -1,6 +1,8 @@
-import Splits from "./components/Splits";
 import { PageTitle } from "./components/PageTitle";
 import { createRoot } from 'react-dom/client';
+import lazy from "./lazy";
+
+const Splits = lazy('Splits');
 
 const title = createRoot(document.getElementById('title'));
 title.render(<PageTitle titles={["Timeline"]} />);

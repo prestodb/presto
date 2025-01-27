@@ -250,7 +250,7 @@ public class RewriteCaseExpressionPredicate
         {
             return elseValue.map(
                     elseVal -> comparisonExpressionGenerator.apply(castExpression.map(castExp -> replaceArguments(castExp, elseVal)).orElse(elseVal)
-                    )).orElse(new SpecialFormExpression(IS_NULL, BOOLEAN, value));
+                    )).orElseGet(() -> new SpecialFormExpression(IS_NULL, BOOLEAN, value));
         }
 
         private Optional<RowExpression> getCaseOperand(RowExpression expression)

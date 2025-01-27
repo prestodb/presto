@@ -79,7 +79,15 @@ public class StageId
     @JsonValue
     public String toString()
     {
-        return queryId + "." + id;
+        StringBuilder builder = new StringBuilder();
+        appendString(builder);
+        return builder.toString();
+    }
+
+    public void appendString(StringBuilder builder)
+    {
+        queryId.appendString(builder);
+        builder.append(".").append(id);
     }
 
     @Override

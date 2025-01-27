@@ -214,6 +214,14 @@ class SystemConfig : public ConfigBase {
       "https-client-cert-key-path"};
 
   /// Floating point number used in calculating how many threads we would use
+  /// for CPU executor for connectors mainly for async operators:
+  /// hw_concurrency x multiplier.
+  /// If 0.0 then connector CPU executor would not be created.
+  /// 0.0 is default.
+  static constexpr std::string_view kConnectorNumCpuThreadsHwMultiplier{
+      "connector.num-cpu-threads-hw-multiplier"};
+
+  /// Floating point number used in calculating how many threads we would use
   /// for IO executor for connectors mainly to do preload/prefetch:
   /// hw_concurrency x multiplier.
   /// If 0.0 then connector preload/prefetch is disabled.
@@ -319,12 +327,6 @@ class SystemConfig : public ConfigBase {
 
   static constexpr std::string_view kAsyncDataCacheEnabled{
       "async-data-cache-enabled"};
-  /// If true, SSD cache is enabled by default and is disabled only if
-  /// `node_selection_strategy` is present and set to `NO_PREFERENCE`.
-  /// Otherwise, SSD cache is disabled by default and is enabled if
-  /// `node_selection_strategy` is present and set to `SOFT_AFFINITY`.
-  static constexpr std::string_view kQueryDataCacheEnabledDefault{
-      "query-data-cache-enabled-default"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
   static constexpr std::string_view kAsyncCacheSsdCheckpointGb{
       "async-cache-ssd-checkpoint-gb"};
@@ -723,6 +725,8 @@ class SystemConfig : public ConfigBase {
   double exchangeHttpClientNumIoThreadsHwMultiplier() const;
 
   double exchangeHttpClientNumCpuThreadsHwMultiplier() const;
+
+  double connectorNumCpuThreadsHwMultiplier() const;
 
   double connectorNumIoThreadsHwMultiplier() const;
 

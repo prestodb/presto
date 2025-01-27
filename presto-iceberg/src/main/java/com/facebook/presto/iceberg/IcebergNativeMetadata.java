@@ -59,6 +59,7 @@ import java.util.stream.Stream;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
@@ -76,6 +77,7 @@ import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toPr
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toPrestoSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -85,7 +87,6 @@ import static java.util.stream.Collectors.toMap;
 public class IcebergNativeMetadata
         extends IcebergAbstractMetadata
 {
-    private static final String INFORMATION_SCHEMA = "information_schema";
     private static final String VIEW_DIALECT = "presto";
 
     private final IcebergNativeCatalogFactory catalogFactory;
@@ -313,11 +314,23 @@ public class IcebergNativeMetadata
         FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
 
         try {
-            transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
-                    toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()),
-                    schema,
-                    partitionSpec,
-                    populateTableProperties(tableMetadata, fileFormat, session));
+            TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
+            String targetPath = getTableLocation(tableMetadata.getProperties());
+            if (!isNullOrEmpty(targetPath)) {
+                transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
+                        tableIdentifier,
+                        schema,
+                        partitionSpec,
+                        targetPath,
+                        populateTableProperties(tableMetadata, fileFormat, session));
+            }
+            else {
+                transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
+                        tableIdentifier,
+                        schema,
+                        partitionSpec,
+                        populateTableProperties(tableMetadata, fileFormat, session));
+            }
         }
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(schemaTableName);

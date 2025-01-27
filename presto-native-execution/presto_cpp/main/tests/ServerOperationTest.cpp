@@ -175,6 +175,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
             taskId,
             {},
             planFragment,
+            true,
             taskManager->getQueryContextManager()->findOrCreateQueryCtx(
                 taskId, updateRequest.session),
             0);
@@ -215,7 +216,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
 
   // Cleanup and shutdown
   for (const auto& taskId : taskIds) {
-    taskManager->deleteTask(taskId, true);
+    taskManager->deleteTask(taskId, true, true);
   }
   taskManager->shutdown();
   connector::unregisterConnector("test-hive");

@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.EncryptionInformation;
@@ -155,6 +156,7 @@ import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositi
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static com.facebook.presto.orc.OrcReader.MODIFICATION_TIME_NOT_SET;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
@@ -282,7 +284,7 @@ public class IcebergPageSourceProvider
                     .map(type -> new MessageType(fileSchema.getName(), type))
                     .reduce(MessageType::union);
 
-            MessageType requestedSchema = messageType.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
+            MessageType requestedSchema = messageType.orElseGet(() -> new MessageType(fileSchema.getName(), ImmutableList.of()));
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
@@ -504,7 +506,8 @@ public class IcebergPageSourceProvider
                     isCacheable,
                     dwrfEncryptionProvider,
                     dwrfKeyProvider,
-                    runtimeStats);
+                    runtimeStats,
+                    MODIFICATION_TIME_NOT_SET);
 
             List<HiveColumnHandle> physicalColumnHandles = new ArrayList<>(regularColumns.size());
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -572,6 +575,15 @@ public class IcebergPageSourceProvider
                 isRowPositionList.add(column.isRowPositionColumn());
             }
 
+            // Skip the time type columns in predicate, converted on page source level
+            ImmutableMap.Builder<IcebergColumnHandle, Domain> predicateExcludeTimeType = ImmutableMap.builder();
+            effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
+                if (!(columnHandle.getType() instanceof TimeType)) {
+                    predicateExcludeTimeType.put(columnHandle, domain);
+                }
+            });
+
+            effectivePredicate = TupleDomain.withColumnDomains(predicateExcludeTimeType.build());
             TupleDomain<HiveColumnHandle> hiveColumnHandleTupleDomain = effectivePredicate.transform(column -> {
                 IcebergOrcColumn icebergOrcColumn;
                 if (fileOrcColumnByIcebergId.isEmpty()) {

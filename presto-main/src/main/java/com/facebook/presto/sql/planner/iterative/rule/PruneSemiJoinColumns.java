@@ -48,7 +48,7 @@ public class PruneSemiJoinColumns
                         referencedOutputs.stream()
                                 .filter(variable -> !variable.equals(semiJoinNode.getSemiJoinOutput())),
                         Stream.of(semiJoinNode.getSourceJoinVariable()),
-                        semiJoinNode.getSourceHashVariable().map(Stream::of).orElse(Stream.empty()))
+                        semiJoinNode.getSourceHashVariable().map(Stream::of).orElseGet(Stream::empty))
                 .collect(toImmutableSet());
 
         return restrictOutputs(idAllocator, semiJoinNode.getSource(), requiredSourceInputs)

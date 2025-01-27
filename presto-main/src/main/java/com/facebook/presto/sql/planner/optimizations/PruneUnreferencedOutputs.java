@@ -169,6 +169,7 @@ public class PruneUnreferencedOutputs
                     newOutputVariables,
                     node.getPartitioningScheme().getHashColumn(),
                     node.getPartitioningScheme().isReplicateNullsAndAny(),
+                    node.getPartitioningScheme().isScaleWriters(),
                     node.getPartitioningScheme().getEncoding(),
                     node.getPartitioningScheme().getBucketToPartition());
 
@@ -482,7 +483,8 @@ public class PruneUnreferencedOutputs
                     newAssignments,
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.getCteMaterializationInfo());
         }
 
         @Override
@@ -795,7 +797,8 @@ public class PruneUnreferencedOutputs
                     node.getTarget(),
                     node.getRowCountVariable(),
                     node.getStatisticsAggregation(),
-                    node.getStatisticsAggregationDescriptor());
+                    node.getStatisticsAggregationDescriptor(),
+                    node.getCteMaterializationInfo());
         }
 
         @Override

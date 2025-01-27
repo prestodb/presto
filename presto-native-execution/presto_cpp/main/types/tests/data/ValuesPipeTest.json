@@ -35,6 +35,7 @@
 	            }
 	          ],
 	          "replicateNullsAndAny": false,
+			  "scaleWriters": false,
               "encoding":"COLUMNAR"
 	        },
 	        "sources": [
@@ -203,6 +204,7 @@
 	      }
 	    ],
 	    "replicateNullsAndAny": false,
+		"scaleWriters": false,
 		"encoding":"COLUMNAR",
 	    "bucketToPartition": [
 	      0

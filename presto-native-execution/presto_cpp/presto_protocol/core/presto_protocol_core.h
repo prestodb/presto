@@ -1308,6 +1308,7 @@ struct PartitioningScheme {
   List<VariableReferenceExpression> outputLayout = {};
   std::shared_ptr<VariableReferenceExpression> hashColumn = {};
   bool replicateNullsAndAny = {};
+  bool scaleWriters = {};
   ExchangeEncoding encoding = {};
   std::shared_ptr<List<int>> bucketToPartition = {};
 };
@@ -2025,6 +2026,7 @@ struct SortNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   OrderingScheme orderingScheme = {};
   bool isPartial = {};
+  List<VariableReferenceExpression> partitionBy = {};
 
   SortNode() noexcept;
 };

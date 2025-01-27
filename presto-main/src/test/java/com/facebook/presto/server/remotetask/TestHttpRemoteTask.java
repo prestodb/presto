@@ -68,6 +68,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -220,6 +221,9 @@ public class TestHttpRemoteTask
         remoteTask.start();
         // just need to run a TaskUpdateRequest to increment the decay counter
         remoteTask.cancel();
+
+        waitUntilTaskFinish(remoteTask);
+
         httpRemoteTaskFactory.stop();
 
         assertTrue(httpRemoteTaskFactory.getTaskUpdateRequestSize() > 0);
@@ -242,7 +246,9 @@ public class TestHttpRemoteTask
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
-        waitUntilIdle(lastActivityNanos);
+
+        waitUntilTaskFinish(remoteTask);
+
         httpRemoteTaskFactory.stop();
 
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
@@ -299,7 +305,7 @@ public class TestHttpRemoteTask
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
 
-        waitUntilIdle(lastActivityNanos);
+        waitUntilTaskFinish(remoteTask);
 
         httpRemoteTaskFactory.stop();
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
@@ -449,24 +455,17 @@ public class TestHttpRemoteTask
         }
     }
 
-    private static void waitUntilIdle(AtomicLong lastActivityNanos)
-            throws InterruptedException
+    private static void waitUntilTaskFinish(RemoteTask task)
+            throws Exception
     {
-        long startTimeNanos = System.nanoTime();
+        SettableFuture<?> taskFinished = SettableFuture.create();
 
-        while (true) {
-            long millisSinceLastActivity = (System.nanoTime() - lastActivityNanos.get()) / 1_000_000L;
-            long millisSinceStart = (System.nanoTime() - startTimeNanos) / 1_000_000L;
-            long millisToIdleTarget = IDLE_TIMEOUT.toMillis() - millisSinceLastActivity;
-            long millisToFailTarget = FAIL_TIMEOUT.toMillis() - millisSinceStart;
-            if (millisToFailTarget < millisToIdleTarget) {
-                throw new AssertionError(format("Activity doesn't stop after %s", FAIL_TIMEOUT));
+        task.addStateChangeListener(status -> {
+            if (status.getState().isDone()) {
+                taskFinished.set(null);
             }
-            if (millisToIdleTarget < 0) {
-                return;
-            }
-            Thread.sleep(millisToIdleTarget);
-        }
+        });
+        taskFinished.get();
     }
 
     private enum FailureScenario

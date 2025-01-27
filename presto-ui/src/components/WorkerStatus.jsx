@@ -426,3 +426,5 @@ export class WorkerStatus extends React.Component {
         );
     }
 }
+
+export default WorkerStatus;

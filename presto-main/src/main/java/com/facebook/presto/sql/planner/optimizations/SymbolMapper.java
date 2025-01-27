@@ -283,7 +283,8 @@ public class SymbolMapper
                 node.getTarget(),
                 map(node.getRowCountVariable()),
                 node.getStatisticsAggregation().map(this::map),
-                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)),
+                node.getCteMaterializationInfo());
     }
 
     public TableWriterMergeNode map(TableWriterMergeNode node, PlanNode source)
@@ -304,6 +305,7 @@ public class SymbolMapper
                 mapAndDistinctVariable(source.getOutputVariables()),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
+                scheme.isScaleWriters(),
                 scheme.getEncoding(),
                 scheme.getBucketToPartition());
     }

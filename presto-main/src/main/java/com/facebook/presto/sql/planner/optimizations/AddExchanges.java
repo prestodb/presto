@@ -116,6 +116,7 @@ import static com.facebook.presto.SystemSessionProperties.isPreferDistributedUni
 import static com.facebook.presto.SystemSessionProperties.isPrestoSparkAssignBucketToPartitionForPartitionedTableWriteEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRedistributeWrites;
 import static com.facebook.presto.SystemSessionProperties.isScaleWriters;
+import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseStreamingExchangeForMarkDistinctEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferStreamingOperators;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -171,11 +172,20 @@ public class AddExchanges
     }
 
     @Override
+    public boolean isEnabled(Session session)
+    {
+        return !isSingleNodeExecutionEnabled(session);
+    }
+
+    @Override
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, nativeExecution).accept(plan, PreferredProperties.any());
-        boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()).findFirst().isPresent();
-        return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
+        if (isEnabled(session)) {
+            PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, nativeExecution).accept(plan, PreferredProperties.any());
+            boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()).findFirst().isPresent();
+            return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
+        }
+        return PlanOptimizerResult.optimizerResult(plan, false);
     }
 
     private class Rewriter
@@ -727,12 +737,17 @@ public class AddExchanges
             PlanWithProperties source = accept(node.getSource(), preferredProperties);
 
             Optional<PartitioningScheme> shufflePartitioningScheme = node.getTablePartitioningScheme();
-            if (!shufflePartitioningScheme.isPresent()) {
+            if (!node.isSingleWriterPerPartitionRequired()) {
+                // prefer scale writers if single writer per partition is not required
+                // TODO: take into account partitioning scheme in scale writer tasks implementation
                 if (scaleWriters) {
                     shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
                 }
                 else if (redistributeWrites) {
                     shufflePartitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputVariables()));
+                }
+                else {
+                    return rebaseAndDeriveProperties(node, source);
                 }
             }
 
@@ -1108,6 +1123,7 @@ public class AddExchanges
                                         filteringSource.getNode().getOutputVariables(),
                                         Optional.empty(),
                                         true,
+                                        false,
                                         COLUMNAR,
                                         Optional.empty())),
                                 filteringSource.getProperties());
@@ -1150,6 +1166,7 @@ public class AddExchanges
                                     filteringSource.getNode().getOutputVariables(),
                                     Optional.empty(),
                                     true,
+                                    false,
                                     COLUMNAR,
                                     Optional.empty())),
                             filteringSource.getProperties());
@@ -1326,6 +1343,7 @@ public class AddExchanges
                                                 source.getNode().getOutputVariables(),
                                                 Optional.empty(),
                                                 nullsAndAnyReplicated,
+                                                false,
                                                 COLUMNAR,
                                                 Optional.empty())),
                                 source.getProperties());

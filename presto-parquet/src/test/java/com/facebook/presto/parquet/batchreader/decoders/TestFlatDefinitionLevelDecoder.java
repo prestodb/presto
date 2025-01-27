@@ -21,11 +21,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.addDLRLEBlock;
 import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.addDLValues;
-import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.randomValues;
+import static com.facebook.presto.parquet.batchreader.decoders.TestParquetUtils.fillValues;
 import static java.lang.Math.min;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -35,19 +34,18 @@ public class TestFlatDefinitionLevelDecoder
     private static int valueCount;
     private static int nonNullCount;
     private static byte[] pageBytes;
-    private static List<Integer> expectedValues = new ArrayList<>();
+    private static final List<Integer> expectedValues = new ArrayList<>();
 
     @BeforeClass
     public void setup()
             throws IOException
     {
-        Random random = new Random(200);
         RunLengthBitPackingHybridEncoder encoder = TestParquetUtils.getSimpleDLEncoder();
 
         addDLRLEBlock(1, 50, encoder, expectedValues);
-        addDLValues(randomValues(random, 457, 1), encoder, expectedValues);
+        addDLValues(fillValues(457, 1), encoder, expectedValues);
         addDLRLEBlock(0, 37, encoder, expectedValues);
-        addDLValues(randomValues(random, 186, 1), encoder, expectedValues);
+        addDLValues(fillValues(186, 1), encoder, expectedValues);
 
         valueCount = expectedValues.size();
         for (Integer value : expectedValues) {

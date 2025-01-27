@@ -23,7 +23,7 @@ HTTP endpoints related to tasks are registered to Proxygen in
 Other HTTP endpoints include:
 
 * POST: v1/memory: Reports memory, but no assignments are adjusted unlike in Java workers
-* GET: v1/info/metrics: Returns worker level metrics in Prometheus Data format. Refer section `Worker Metrics Collection <#worker-metrics-collection>`_ for more info. Here is a sample Metrics data returned by this API.
+* GET: v1/info/metrics: Returns worker level metrics in Prometheus Data format. See `Worker Metrics Collection`_ for more information. Here is a sample Metrics data returned by this API.
 
    .. code-block:: text
 
@@ -183,17 +183,6 @@ disabled if ``connector.num-io-threads-hw-multiplier`` is set to zero.
 * **Presto on Spark default value:** ``false``
 
 Whether async data cache is enabled.
-
-``query-data-cache-enabled-default``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type** ``bool``
-* **Default value:** ``true``
-
-If ``true``, SSD cache is enabled by default and is disabled only if
-``node_selection_strategy`` is present and set to ``NO_PREFERENCE``.
-Otherwise, SSD cache is disabled by default and is enabled if
-``node_selection_strategy`` is present and set to ``SOFT_AFFINITY`` or ``HARD_AFFINITY``.
 
 ``async-cache-ssd-gb``
 ^^^^^^^^^^^^^^^^^^^^^^

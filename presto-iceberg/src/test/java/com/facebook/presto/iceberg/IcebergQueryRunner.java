@@ -215,7 +215,7 @@ public final class IcebergQueryRunner
             queryRunner.createCatalog("jmx", "jmx");
         }
 
-        if (catalogType == HIVE.name()) {
+        if (catalogType.equals(HIVE.name())) {
             ExtendedHiveMetastore metastore = getFileHiveMetastore(icebergDataDirectory);
             if (!metastore.getDatabase(METASTORE_CONTEXT, "tpch").isPresent()) {
                 queryRunner.execute("CREATE SCHEMA tpch");
@@ -290,6 +290,7 @@ public final class IcebergQueryRunner
         logging.setLevel("parquet.hadoop", WARN);
         logging.setLevel("org.apache.iceberg", WARN);
         logging.setLevel("com.facebook.airlift.bootstrap", WARN);
+        logging.setLevel("Bootstrap", WARN);
         logging.setLevel("org.apache.hadoop.io.compress", WARN);
     }
 

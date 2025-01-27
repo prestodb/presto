@@ -168,11 +168,7 @@ HttpResponse::nextAllocationSize(uint64_t dataLength) const {
 }
 
 std::string HttpResponse::dumpBodyChain() const {
-  std::string responseBody;
-  if (!bodyChain_.empty()) {
-    responseBody = util::extractMessageBody(bodyChain_);
-  }
-  return responseBody;
+  return bodyChain_.empty() ? "Empty response" : util::extractMessageBody(bodyChain_);
 }
 
 class ResponseHandler : public proxygen::HTTPTransactionHandler {

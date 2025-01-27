@@ -182,7 +182,7 @@ public class IcebergEqualityDeleteAsJoin
             TupleDomain<IcebergColumnHandle> predicate = icebergTableLayoutHandle
                     .map(IcebergTableLayoutHandle::getValidPredicate)
                     .map(IcebergUtil::getNonMetadataColumnConstraints)
-                    .orElse(TupleDomain.all());
+                    .orElseGet(TupleDomain::all);
 
             // Collect info about each unique delete schema to join by
             ImmutableMap<Set<Integer>, DeleteSetInfo> deleteSchemas = collectDeleteInformation(icebergTable, predicate, tableName.getSnapshotId().get());
@@ -341,7 +341,8 @@ public class IcebergEqualityDeleteAsJoin
                     outputs,
                     deleteColumnAssignments,
                     TupleDomain.all(),
-                    TupleDomain.all());
+                    TupleDomain.all(),
+                    Optional.empty());
         }
 
         /**
@@ -382,7 +383,8 @@ public class IcebergEqualityDeleteAsJoin
                     assignmentsBuilder.build(),
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.getCteMaterializationInfo());
         }
 
         /**

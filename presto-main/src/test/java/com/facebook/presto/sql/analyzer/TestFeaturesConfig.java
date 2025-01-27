@@ -203,6 +203,7 @@ public class TestFeaturesConfig
                 .setNativeExecutionExecutablePath("./presto_server")
                 .setNativeExecutionProgramArguments("")
                 .setNativeExecutionProcessReuseEnabled(true)
+                .setNativeEnforceJoinBuildInputPartition(true)
                 .setRandomizeOuterJoinNullKeyEnabled(false)
                 .setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy.DISABLED)
                 .setShardedJoinStrategy(FeaturesConfig.ShardedJoinStrategy.DISABLED)
@@ -247,7 +248,10 @@ public class TestFeaturesConfig
                 .setIncludeValuesNodeInConnectorOptimizer(true)
                 .setEagerPlanValidationEnabled(false)
                 .setEagerPlanValidationThreadPoolSize(20)
-                .setPrestoSparkExecutionEnvironment(false));
+                .setPrestoSparkExecutionEnvironment(false)
+                .setSingleNodeExecutionEnabled(false)
+                .setNativeExecutionScaleWritersThreadsEnabled(false)
+                .setEnhancedCTESchedulingEnabled(true));
     }
 
     @Test
@@ -399,6 +403,7 @@ public class TestFeaturesConfig
                 .put("native-execution-executable-path", "/bin/echo")
                 .put("native-execution-program-arguments", "--v 1")
                 .put("native-execution-process-reuse-enabled", "false")
+                .put("native-enforce-join-build-input-partition", "false")
                 .put("optimizer.randomize-outer-join-null-key", "true")
                 .put("optimizer.randomize-outer-join-null-key-strategy", "key_from_outer_join")
                 .put("optimizer.sharded-join-strategy", "cost_based")
@@ -444,6 +449,9 @@ public class TestFeaturesConfig
                 .put("eager-plan-validation-enabled", "true")
                 .put("eager-plan-validation-thread-pool-size", "2")
                 .put("presto-spark-execution-environment", "true")
+                .put("single-node-execution-enabled", "true")
+                .put("native-execution-scale-writer-threads-enabled", "true")
+                .put("enhanced-cte-scheduling-enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -593,6 +601,7 @@ public class TestFeaturesConfig
                 .setNativeExecutionExecutablePath("/bin/echo")
                 .setNativeExecutionProgramArguments("--v 1")
                 .setNativeExecutionProcessReuseEnabled(false)
+                .setNativeEnforceJoinBuildInputPartition(false)
                 .setRandomizeOuterJoinNullKeyEnabled(true)
                 .setRandomizeOuterJoinNullKeyStrategy(RandomizeOuterJoinNullKeyStrategy.KEY_FROM_OUTER_JOIN)
                 .setShardedJoinStrategy(FeaturesConfig.ShardedJoinStrategy.COST_BASED)
@@ -637,7 +646,10 @@ public class TestFeaturesConfig
                 .setIncludeValuesNodeInConnectorOptimizer(false)
                 .setEagerPlanValidationEnabled(true)
                 .setEagerPlanValidationThreadPoolSize(2)
-                .setPrestoSparkExecutionEnvironment(true);
+                .setPrestoSparkExecutionEnvironment(true)
+                .setSingleNodeExecutionEnabled(true)
+                .setNativeExecutionScaleWritersThreadsEnabled(true)
+                .setEnhancedCTESchedulingEnabled(false);
         assertFullMapping(properties, expected);
     }
 

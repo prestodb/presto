@@ -81,6 +81,18 @@ Number of local parallel table writer threads per worker for partitioned writes.
 set, the number set by ``task_writer_count`` will be used. It is required to be a power
 of two for a Java query engine.
 
+``single_node_execution_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+This property ensures that queries scheduled in this cluster use only a single
+node for execution, which may improve performance for small queries which can
+be executed within a single node.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`single-node-execution-enabled\`\``.
+
 Spilling Properties
 -------------------
 
@@ -325,3 +337,52 @@ The corresponding configuration property is :ref:`admin/properties:\`\`optimizer
 Enable retry for failed queries who can potentially be helped by HBO. 
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.retry-query-with-history-based-optimization\`\``. 
+
+JDBC Properties
+---------------
+
+
+``useJdbcMetadataCache``
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Cache the result of the JDBC queries that fetch metadata about tables and columns.
+
+``allowDropTable``
+^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Allow connector to drop tables.
+
+``metadataCacheTtl``
+^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Duration``
+* **Default value:** ``0``
+
+Setting a duration controls how long to cache data.
+
+``metadataCacheRefreshInterval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``Duration``
+* **Default value:** ``0``
+
+``metadataCacheMaximumSize``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``long``
+* **Default value:** ``1``
+
+``metadataCacheThreadPoolSize``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``int``
+* **Default value:** ``1``
+
+The value represents the max background fetch threads for refreshing metadata.
+

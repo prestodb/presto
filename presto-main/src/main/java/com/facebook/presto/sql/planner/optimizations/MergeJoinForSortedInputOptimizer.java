@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.preferMergeJoinForSortedInputs;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
@@ -55,7 +56,7 @@ public class MergeJoinForSortedInputOptimizer
     @Override
     public boolean isEnabled(Session session)
     {
-        return isEnabledForTesting || isGroupedExecutionEnabled(session) && preferMergeJoinForSortedInputs(session);
+        return isEnabledForTesting || isGroupedExecutionEnabled(session) && preferMergeJoinForSortedInputs(session) && !isSingleNodeExecutionEnabled(session);
     }
 
     @Override

@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
@@ -162,6 +163,10 @@ public class ClickHousePageSink
         else if (DATE.equals(type)) {
             // convert to midnight in default time zone
             statement.setDate(parameter, convertZonedDaysToDate(type.getLong(block, position)));
+        }
+        else if (type instanceof TimestampType) {
+            // setTimestamp doesn't work, so we use setLong as described at https://github.com/ClickHouse/clickhouse-java/issues/608
+            statement.setLong(parameter, type.getLong(block, position));
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());

@@ -32,10 +32,12 @@
 #include <sys/resource.h>
 
 namespace {
-#define REPORT_IF_NOT_ZERO(name, counter)   \
-  if ((counter) != 0) {                     \
-    RECORD_METRIC_VALUE((name), (counter)); \
-  }
+#define REPORT_IF_NOT_ZERO(name, counter)     \
+  do {                                        \
+    if ((counter) != 0) {                     \
+      RECORD_METRIC_VALUE((name), (counter)); \
+    }                                         \
+  } while (0)
 } // namespace
 
 namespace facebook::presto {
@@ -426,15 +428,15 @@ void PeriodicTaskManager::updateOperatingSystemStats() {
   getrusage(RUSAGE_SELF, &usage);
 
   const int64_t userCpuTimeUs{
-      (int64_t)usage.ru_utime.tv_sec * 1'000'000 +
-      (int64_t)usage.ru_utime.tv_usec};
+      static_cast<int64_t>(usage.ru_utime.tv_sec) * 1'000'000 +
+      static_cast<int64_t>(usage.ru_utime.tv_usec)};
   RECORD_METRIC_VALUE(
       kCounterOsUserCpuTimeMicros, userCpuTimeUs - lastUserCpuTimeUs_);
   lastUserCpuTimeUs_ = userCpuTimeUs;
 
   const int64_t systemCpuTimeUs{
-      (int64_t)usage.ru_stime.tv_sec * 1'000'000 +
-      (int64_t)usage.ru_stime.tv_usec};
+      static_cast<int64_t>(usage.ru_stime.tv_sec) * 1'000'000 +
+      static_cast<int64_t>(usage.ru_stime.tv_usec)};
   RECORD_METRIC_VALUE(
       kCounterOsSystemCpuTimeMicros, systemCpuTimeUs - lastSystemCpuTimeUs_);
   lastSystemCpuTimeUs_ = systemCpuTimeUs;

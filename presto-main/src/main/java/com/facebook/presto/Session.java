@@ -803,6 +803,11 @@ public final class Session
             return this.identity;
         }
 
+        public Optional getSchema()
+        {
+            return Optional.ofNullable(this.schema);
+        }
+
         public Optional<String> getSource()
         {
             return Optional.ofNullable(this.source);
@@ -845,7 +850,8 @@ public final class Session
                     Optional.ofNullable(userAgent),
                     Optional.ofNullable(clientInfo),
                     clientTags,
-                    Optional.ofNullable(resourceEstimates).orElse(new ResourceEstimateBuilder().build()),
+                    Optional.ofNullable(resourceEstimates)
+                            .orElseGet(new ResourceEstimateBuilder()::build),
                     startTime,
                     systemProperties,
                     connectorProperties,

@@ -310,6 +310,9 @@ public final class TypeConverter
         if (DOUBLE.equals(type)) {
             return HIVE_DOUBLE.getTypeInfo();
         }
+        if (TimeType.TIME.equals(type)) {
+            return HIVE_LONG.getTypeInfo();
+        }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;
             if (varcharType.isUnbounded()) {

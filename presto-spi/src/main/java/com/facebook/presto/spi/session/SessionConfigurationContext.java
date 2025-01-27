@@ -25,6 +25,7 @@ import static java.util.Objects.requireNonNull;
 public final class SessionConfigurationContext
 {
     private final String user;
+    private final Optional<String> schema;
     private final Optional<String> source;
     private final Set<String> clientTags;
     private final Optional<String> queryType;
@@ -34,6 +35,7 @@ public final class SessionConfigurationContext
 
     public SessionConfigurationContext(
             String user,
+            Optional<String> schema,
             Optional<String> source,
             Set<String> clientTags,
             Optional<String> queryType,
@@ -42,6 +44,7 @@ public final class SessionConfigurationContext
             String prestoServerVersion)
     {
         this.user = requireNonNull(user, "user is null");
+        this.schema = requireNonNull(schema, "schema is null");
         this.source = requireNonNull(source, "source is null");
         this.clientTags = unmodifiableSet(new HashSet<>(requireNonNull(clientTags, "clientTags is null")));
         this.queryType = requireNonNull(queryType, "queryType is null");
@@ -53,6 +56,11 @@ public final class SessionConfigurationContext
     public String getUser()
     {
         return user;
+    }
+
+    public Optional<String> getSchema()
+    {
+        return schema;
     }
 
     public Optional<String> getSource()

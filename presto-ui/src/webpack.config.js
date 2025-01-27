@@ -13,16 +13,16 @@ module.exports = (env) => {
     const outputDir = 'target/webapp';
     return {
         entry: {
-            'index': path.join(__dirname, 'index.jsx'),
-            'query': path.join(__dirname, 'query.jsx'),
-            'plan': path.join(__dirname, 'plan.jsx'),
-            'query_viewer': {import: path.join(__dirname, 'query_viewer.jsx'), filename: path.join(outputDir, 'dev', '[name].js')},
-            'embedded_plan': path.join(__dirname, 'embedded_plan.jsx'),
-            'stage': path.join(__dirname, 'stage.jsx'),
-            'worker': path.join(__dirname, 'worker.jsx'),
-            'timeline': path.join(__dirname, 'timeline.jsx'),
-            'res_groups': path.join(__dirname, 'res_groups.jsx'),
-            'sql_client': path.join(__dirname, 'sql_client.jsx'),
+            'index': './index.jsx',
+            'query': './query.jsx',
+            'plan': './plan.jsx',
+            'query_viewer': {import: './query_viewer.jsx', filename: path.join(outputDir, 'dev', '[name].js')},
+            'embedded_plan': './embedded_plan.jsx',
+            'stage': './stage.jsx',
+            'worker': './worker.jsx',
+            'timeline': './timeline.jsx',
+            'res_groups': './res_groups.jsx',
+            'sql_client': './sql_client.jsx',
             'bootstrap_css': path.join(__dirname, 'static', 'vendor', 'bootstrap', 'css', 'bootstrap.min.external-fonts.css'),
             'css_loader': path.join(__dirname, 'static', 'vendor', 'css-loaders', 'loader.css'),
             'css_presto': path.join(__dirname, 'static', 'assets', 'presto.css'),
@@ -34,7 +34,7 @@ module.exports = (env) => {
                 plugins: [
                     new CopyPlugin({
                         patterns: [
-                            {from: "static", to: outputDir},
+                            {from: "static", to: path.join(__dirname, "..", outputDir)},
                         ]
                     }),
                     new HtmlWebpackPlugin({
@@ -82,8 +82,9 @@ module.exports = (env) => {
             extensions: ['.*', '.js', '.jsx']
         },
         output: {
-            path: path.join(__dirname, '..'),
-            filename: path.join(outputDir, '[name].js'),
+            path: path.join(__dirname, '..', outputDir),
+            filename: '[name].js',
+            chunkFilename: '[name].chunk.js',
         },
         optimization: {
             minimize: mode === 'production',
@@ -98,6 +99,24 @@ module.exports = (env) => {
                     extractComments: false,
                 }),
                 '...'],
+            splitChunks: {
+                chunks: 'async',
+                maxSize: 244000,
+                minRemainingSize: 0,
+                minChunks: 1,
+                cacheGroups: {
+                    defaultVendors: {
+                        test: /[\\/]node_modules[\\/]/,
+                        priority: -10,
+                        reuseExistingChunk: true,
+                    },
+                    default: {
+                        minChunks: 2,
+                        priority: -20,
+                        reuseExistingChunk: true,
+                    },
+                },
+            },
         },
         devServer: {
             static: {

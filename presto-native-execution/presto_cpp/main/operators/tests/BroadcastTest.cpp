@@ -83,9 +83,10 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         std::dynamic_pointer_cast<const BroadcastWriteNode>(writerPlan)
             ->serdeRowType();
 
-    exec::test::CursorParameters params;
+    exec::CursorParameters params;
     params.planNode = writerPlan;
-    auto [taskCursor, results] = readCursor(params, [](auto /*task*/) {});
+    auto [taskCursor, results] =
+        exec::test::readCursor(params, [](auto /*task*/) {});
 
     std::vector<std::string> broadcastFilePaths;
     for (auto result : results) {
@@ -96,9 +97,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     return {serdeRowType, broadcastFilePaths};
   }
 
-  std::pair<
-      std::unique_ptr<velox::exec::test::TaskCursor>,
-      std::vector<RowVectorPtr>>
+  std::pair<std::unique_ptr<velox::exec::TaskCursor>, std::vector<RowVectorPtr>>
   executeBroadcastRead(
       RowTypePtr dataType,
       const std::string& basePath,
@@ -107,7 +106,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     auto readerPlan = exec::test::PlanBuilder()
                           .exchange(dataType, velox::VectorSerde::Kind::kPresto)
                           .planNode();
-    exec::test::CursorParameters broadcastReadParams;
+    exec::CursorParameters broadcastReadParams;
     broadcastReadParams.planNode = readerPlan;
 
     std::vector<std::string> fileInfos;
@@ -118,7 +117,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
 
     uint8_t splitIndex = 0;
     // Read back result using BroadcastExchangeSource.
-    return readCursor(broadcastReadParams, [&](auto* task) {
+    return exec::test::readCursor(broadcastReadParams, [&](auto* task) {
       if (splitIndex >= broadcastFilePaths.size()) {
         task->noMoreSplits("0");
         return;
@@ -206,7 +205,9 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     std::vector<ByteRange> ranges;
     for (const auto& range : *ioBuf) {
       ranges.emplace_back(ByteRange{
-          const_cast<uint8_t*>(range.data()), (int32_t)range.size(), 0});
+          const_cast<uint8_t*>(range.data()),
+          static_cast<int32_t>(range.size()),
+          0});
     }
     auto byteStream = std::make_unique<BufferInputStream>(std::move(ranges));
 
@@ -216,7 +217,8 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         pool(),
         dataType,
         velox::getNamedVectorSerde(velox::VectorSerde::Kind::kPresto),
-        &result);
+        &result,
+        nullptr);
     return result;
   }
 };
@@ -360,11 +362,11 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
   auto readerPlan = exec::test::PlanBuilder()
                         .exchange(dataType, velox::VectorSerde::Kind::kPresto)
                         .planNode();
-  exec::test::CursorParameters broadcastReadParams;
+  exec::CursorParameters broadcastReadParams;
   broadcastReadParams.planNode = readerPlan;
 
   VELOX_ASSERT_THROW(
-      readCursor(
+      exec::test::readCursor(
           broadcastReadParams,
           [&](auto* task) {
             auto fileInfos =

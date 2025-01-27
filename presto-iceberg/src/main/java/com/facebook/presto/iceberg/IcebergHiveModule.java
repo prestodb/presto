@@ -29,6 +29,7 @@ import com.google.inject.Scopes;
 import java.util.Optional;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.common.base.Preconditions.checkArgument;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -52,6 +53,10 @@ public class IcebergHiveModule
         configBinder(binder).bindConfig(IcebergHiveTableOperationsConfig.class);
 
         configBinder(binder).bindConfig(MetastoreClientConfig.class);
+
+        long metastoreCacheTtl = buildConfigObject(MetastoreClientConfig.class).getMetastoreCacheTtl().toMillis();
+        checkArgument(metastoreCacheTtl == 0, "In-memory hive metastore caching must not be enabled for Iceberg");
+
         binder.bind(PartitionMutator.class).to(HivePartitionMutator.class).in(Scopes.SINGLETON);
 
         binder.bind(MetastoreCacheStats.class).to(HiveMetastoreCacheStats.class).in(Scopes.SINGLETON);

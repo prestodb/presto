@@ -17,7 +17,10 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.DisjointRangeDomainHistogram;
 import com.facebook.presto.spi.statistics.Estimate;
+import com.facebook.presto.spi.statistics.HistogramCalculator;
+import com.facebook.presto.spi.statistics.UniformDistributionHistogram;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 
 import java.util.Optional;
@@ -156,7 +159,7 @@ public final class ComparisonStatsCalculator
                             .setStatisticsRange(intersectRange)
                             .setNullsFraction(0.0);
             if (useHistograms) {
-                symbolNewEstimate.setHistogram(expressionStatistics.getHistogram().map(expressionHistogram -> DisjointRangeDomainHistogram.addConjunction(expressionHistogram, intersectRange)));
+                symbolNewEstimate.setHistogram(expressionStatistics.getHistogram().map(expressionHistogram -> DisjointRangeDomainHistogram.addConjunction(expressionHistogram, intersectRange.toPrestoRange())));
             }
 
             estimate = estimate.mapVariableColumnStatistics(expressionVariable.get(), oldStats -> symbolNewEstimate.build());
@@ -171,7 +174,8 @@ public final class ComparisonStatsCalculator
         Estimate filterEstimate;
         if (useHistograms) {
             Estimate distinctEstimate = isNaN(variableStatistics.getDistinctValuesCount()) ? Estimate.unknown() : Estimate.of(variableRange.getDistinctValuesCount());
-            filterEstimate = HistogramCalculator.calculateFilterFactor(intersectRange, variableStatistics.getHistogram().orElse(new UniformDistributionHistogram(variableStatistics.getLowValue(), variableStatistics.getHighValue())), distinctEstimate, true);
+            filterEstimate = HistogramCalculator.calculateFilterFactor(intersectRange.toPrestoRange(), intersectRange.getDistinctValuesCount(),
+                    variableStatistics.getHistogram().orElseGet(() -> new UniformDistributionHistogram(variableStatistics.getLowValue(), variableStatistics.getHighValue())), distinctEstimate, true);
             if (log.isDebugEnabled()) {
                 double expressionFilter = variableRange.overlapPercentWith(intersectRange);
                 if (!Double.isNaN(expressionFilter) &&

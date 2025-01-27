@@ -38,6 +38,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
@@ -753,35 +754,54 @@ public abstract class IcebergDistributedSmokeTestBase
                 ")", getLocation(schemaName, "test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
 
-        assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
-                "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
-                "   partitioning = ARRAY['adate']\n" +
-                ")", catalogType.equals(CatalogType.HIVE) ?
-                getLocation(schemaName, "test_create_table_like_original") :
-                getLocation(schemaName, "test_create_table_like_copy3")));
-        dropTable(session, "test_create_table_like_copy3");
+        if (!catalogType.equals(HADOOP)) {
+            assertUpdate(session, "CREATE TABLE test_create_table_like_copy3 (LIKE test_create_table_like_original INCLUDING PROPERTIES)");
+            assertEquals(getTablePropertiesString("test_create_table_like_copy3"), format("WITH (\n" +
+                            "   delete_mode = 'merge-on-read',\n" +
+                            "   format = 'PARQUET',\n" +
+                            "   format_version = '2',\n" +
+                            "   location = '%s',\n" +
+                            "   metadata_delete_after_commit = false,\n" +
+                            "   metadata_previous_versions_max = 100,\n" +
+                            "   metrics_max_inferred_column = 100,\n" +
+                            "   partitioning = ARRAY['adate']\n" +
+                            ")",
+                    getLocation(schemaName, "test_create_table_like_original")));
+            dropTable(session, "test_create_table_like_copy3");
 
-        assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
-        assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2',\n" +
-                "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
-                "   partitioning = ARRAY['adate']\n" +
-                ")", catalogType.equals(CatalogType.HIVE) ?
-                getLocation(schemaName, "test_create_table_like_original") :
-                getLocation(schemaName, "test_create_table_like_copy4")));
-        dropTable(session, "test_create_table_like_copy4");
+            assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
+            assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
+                    "   delete_mode = 'merge-on-read',\n" +
+                    "   format = 'ORC',\n" +
+                    "   format_version = '2',\n" +
+                    "   location = '%s',\n" +
+                    "   metadata_delete_after_commit = false,\n" +
+                    "   metadata_previous_versions_max = 100,\n" +
+                    "   metrics_max_inferred_column = 100,\n" +
+                    "   partitioning = ARRAY['adate']\n" +
+                    ")",
+                    getLocation(schemaName, "test_create_table_like_original")));
+            dropTable(session, "test_create_table_like_copy4");
+        }
+        else {
+            assertUpdate(session, "CREATE TABLE test_create_table_like_copy5 (LIKE test_create_table_like_original INCLUDING PROPERTIES)" +
+                    " WITH (location = '', format = 'ORC')");
+            assertEquals(getTablePropertiesString("test_create_table_like_copy5"), format("WITH (\n" +
+                            "   delete_mode = 'merge-on-read',\n" +
+                            "   format = 'ORC',\n" +
+                            "   format_version = '2',\n" +
+                            "   location = '%s',\n" +
+                            "   metadata_delete_after_commit = false,\n" +
+                            "   metadata_previous_versions_max = 100,\n" +
+                            "   metrics_max_inferred_column = 100,\n" +
+                            "   partitioning = ARRAY['adate']\n" +
+                            ")",
+                    getLocation(schemaName, "test_create_table_like_copy5")));
+            dropTable(session, "test_create_table_like_copy5");
+
+            assertQueryFails(session, "CREATE TABLE test_create_table_like_copy6 (LIKE test_create_table_like_original INCLUDING PROPERTIES)",
+                    "Cannot set a custom location for a path-based table.*");
+        }
 
         dropTable(session, "test_create_table_like_original");
     }
@@ -1032,6 +1052,42 @@ public abstract class IcebergDistributedSmokeTestBase
 
         dropTable(session, "test_nested_table");
         dropTable(session, "test_nested_table2");
+    }
+
+    @DataProvider(name = "testPartitionedByTimeProvider")
+    public Object[][] testPartitionedByTimeProvider()
+    {
+        return new Object[][] {
+                {false, FileFormat.PARQUET},
+                {false, FileFormat.ORC},
+                {true, FileFormat.PARQUET},
+                {true, FileFormat.ORC}
+        };
+    }
+
+    @Test(dataProvider = "testPartitionedByTimeProvider")
+    private void testSelectOrPartitionedByTime(boolean partitioned, FileFormat format)
+    {
+        String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
+        try {
+            String partitioning = partitioned ? ", partitioning = ARRAY['x']" : "";
+            assertUpdate(format("CREATE TABLE %s (x TIME, y BIGINT) WITH (format = '%s'%s)", tableName, format, partitioning));
+            assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 12345)", tableName), 1);
+            assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 1");
+            assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('10:12:34' AS TIME)");
+            assertUpdate(format("INSERT INTO %s VALUES (TIME '9:00:00', 67890)", tableName), 1);
+            assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 2");
+            assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('10:12:34' AS TIME)");
+            assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('9:00:00' AS TIME)");
+            assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 54321)", tableName), 1);
+            assertQuery(
+                    format("SELECT x, COUNT(*) FROM %s GROUP BY x ORDER BY x", tableName),
+                    "SELECT CAST('9:00:00' AS TIME), 1 UNION ALL SELECT CAST('10:12:34' AS TIME), 2");
+            assertQuery(format("SELECT y FROM %s WHERE x = time '10:12:34'", tableName), "values 12345, 54321");
+        }
+        finally {
+            dropTable(getSession(), tableName);
+        }
     }
 
     @Test

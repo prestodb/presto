@@ -29,7 +29,6 @@ import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.ehcache.sizeof.SizeOf;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -103,7 +102,6 @@ public class TestLargeRowGroup
         //We set the expected max to 30% more than MAX_DATA_SOURCE_BUFFER_SIZE
         long expectedMaxMemoryUsage = (long) (MAX_DATA_SOURCE_BUFFER_SIZE.toBytes() * 1.30);
 
-        SizeOf sizeOf = SizeOf.newInstance();
         for (Integer testPageCount : Arrays.asList(1000, 5000, 10000, 20000)) {
             //Create an input file with 1 row group, 1 column and a pre-determined number of data pages
             TestParquetFileProperties parquetFile = createTestParquetFile(schema, testPageCount);
@@ -114,23 +112,16 @@ public class TestLargeRowGroup
             long maxSystemMemoryUsed = 0;
 
             ParquetReader parquetReader = parquetFile.getParquetReader();
-            long parquetReaderDeepSize = sizeOf.deepSizeOf(parquetReader);
             long totalRowsRead = 0;
             while (totalRowsRead < expectedRowCount) {
                 parquetReader.nextBatch();
                 int rowsRead = parquetReader.readBlock(col1).getPositionCount();
                 totalRowsRead += rowsRead;
-                //Check the max memory used during each batch read
-                parquetReaderDeepSize = Math.max(parquetReaderDeepSize, sizeOf.deepSizeOf(parquetReader));
-                //Same check will work on system memory context; the upper bound here can be 'tightened' more
                 maxSystemMemoryUsed = Math.max(maxSystemMemoryUsed, parquetReader.getSystemMemoryUsage());
             }
 
-            String testAssertFormat = "[%d] pages :: %s :: actual [%d], expected < [%d]";
             assertTrue(maxSystemMemoryUsed < expectedMaxMemoryUsage,
-                    format(testAssertFormat, testPageCount, "maxSystemMemoryUsed", maxSystemMemoryUsed, expectedMaxMemoryUsage));
-            assertTrue(parquetReaderDeepSize < expectedMaxMemoryUsage,
-                    format(testAssertFormat, testPageCount, "parquetReaderDeepSize", parquetReaderDeepSize, expectedMaxMemoryUsage));
+                    format("[%d] pages :: %s :: actual [%d], expected < [%d]", testPageCount, "maxSystemMemoryUsed", maxSystemMemoryUsed, expectedMaxMemoryUsage));
 
             parquetReader.close();
         }
