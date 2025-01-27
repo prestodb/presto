@@ -45,6 +45,7 @@ velox_link_libraries(
   velox_parse_expression
   velox_exec_test_lib
   velox_dwio_dwrf_reader
+  velox_dwio_dwrf_common
   velox_dwio_dwrf_writer
   Folly::folly
   pybind11::module)
