@@ -181,8 +181,13 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
   VELOX_DCHECK(end == returnType.data() + returnType.size() - 1);
 
   VELOX_DCHECK_EQ(args.size(), 1);
-  const auto arg = args[0];
 
+  auto arg = args[0];
+  // If the argument is of JSON type, convert it to VARCHAR before applying
+  // substr.
+  if (velox::isJsonType(arg->type())) {
+    arg = std::make_shared<CastTypedExpr>(velox::VARCHAR(), arg, false);
+  }
   return std::make_shared<CallTypedExpr>(
       arg->type(),
       std::vector<TypedExprPtr>{
@@ -256,8 +261,8 @@ std::optional<TypedExprPtr> tryConvertCast(
   }
 
   // When the return type is varchar with max length, truncate if only the
-  // argument type is varchar (or varchar with max length). Non-varchar argument
-  // types are not truncated.
+  // argument type is varchar, or varchar with max length or json. Non-varchar
+  // argument types are not truncated.
   if (returnType.find(kVarchar) == 0 &&
       args[0]->type()->kind() == TypeKind::VARCHAR &&
       returnType.size() > strlen(kVarchar)) {
