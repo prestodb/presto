@@ -357,9 +357,9 @@ connector using a WITH clause:
 
 The following table properties are available, which are specific to the Presto Iceberg connector:
 
-=======================================   ===============================================================   ============
+=======================================   ===============================================================   =========================
 Property Name                             Description                                                       Default
-=======================================   ===============================================================   ============
+=======================================   ===============================================================   =========================
 ``format``                                 Optionally specifies the format of table data files,             ``PARQUET``
                                            either ``PARQUET`` or ``ORC``.
 
@@ -388,7 +388,10 @@ Property Name                             Description                           
 
 ``metrics_max_inferred_column``            Optionally specifies the maximum number of columns for which     ``100``
                                            metrics are collected.
-=======================================   ===============================================================   ============
+
+``read.target.split-size``                 The target size for an individual split when generating splits     ``134217728`` (128MB)
+                                           for a table scan. Must be specified in bytes.
+=======================================   ===============================================================   =========================
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
 and a file system location of ``s3://test_bucket/test_schema/test_table``:
@@ -421,6 +424,9 @@ Property Name                                         Description
 ``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
                                                       ``iceberg.rows-for-metadata-optimization-threshold`` in the current
                                                       session.
+``iceberg.target_split_size``                         Overrides the target split size for all tables in a query in bytes.
+                                                      Set to 0 to use the value in each Iceberg table's
+                                                      ``read.target.split-size`` property.
 ===================================================== ======================================================================
 
 Caching Support
