@@ -56,6 +56,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
@@ -66,7 +67,6 @@ import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewPropertie
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergView;
-import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
@@ -88,6 +88,7 @@ public class IcebergNativeMetadata
 {
     private static final String VIEW_DIALECT = "presto";
 
+    private final Optional<String> warehouseDataDir;
     private final IcebergNativeCatalogFactory catalogFactory;
     private final CatalogType catalogType;
     private final ConcurrentMap<SchemaTableName, View> icebergViews = new ConcurrentHashMap<>();
@@ -106,6 +107,7 @@ public class IcebergNativeMetadata
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
+        this.warehouseDataDir = Optional.ofNullable(catalogFactory.getCatalogWarehouseDataDir());
     }
 
     @Override
@@ -313,20 +315,21 @@ public class IcebergNativeMetadata
         try {
             TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
             String targetPath = getTableLocation(tableMetadata.getProperties());
+            Map<String, String> tableProperties = populateTableProperties(tableMetadata, fileFormat, session, catalogType);
             if (!isNullOrEmpty(targetPath)) {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
                         targetPath,
-                        populateTableProperties(tableMetadata, fileFormat, session, catalogType));
+                        tableProperties);
             }
             else {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
-                        populateTableProperties(tableMetadata, fileFormat, session, catalogType));
+                        tableProperties);
             }
         }
         catch (AlreadyExistsException e) {
@@ -375,5 +378,14 @@ public class IcebergNativeMetadata
     public void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName)
     {
         catalogFactory.getCatalog(clientSession).dropTable(toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled()), false);
+    }
+
+    protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
+    {
+        if (!catalogType.equals(HADOOP)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(warehouseDataDir.map(base -> base + schemaTableName.getSchemaName() + "/" + schemaTableName.getTableName())
+                .orElse(null));
     }
 }

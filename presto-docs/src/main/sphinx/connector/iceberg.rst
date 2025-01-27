@@ -260,10 +260,33 @@ Property Name                                           Description             
                                                         This property is required if the ``iceberg.catalog.type`` is
                                                         ``hadoop``.
 
+``iceberg.catalog.warehouse.datadir``                   The catalog warehouse root data path for Iceberg tables.
+                                                        Example: ``s3://iceberg_bucket/warehouse``.
+                                                        If set, all tables in this Hadoop catalog will default to
+                                                        saving their data and delete files in the specified root
+                                                        data directory.
+
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
+
+Configure the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+properties to specify a S3 location as the warehouse data directory for the Hadoop catalog. This way,
+the data and delete files of Iceberg tables are stored in S3. An example configuration includes:
+
+.. code-block:: none
+
+    connector.name=iceberg
+    iceberg.catalog.type=hadoop
+    iceberg.catalog.warehouse=hdfs://nn:8020/warehouse/path
+    iceberg.catalog.warehouse.datadir=s3://iceberg_bucket/warehouse
+
+    hive.s3.use-instance-credentials=false
+    hive.s3.aws-access-key=accesskey
+    hive.s3.aws-secret-key=secretkey
+    hive.s3.endpoint=http://192.168.0.103:9878
+    hive.s3.path-style-access=true
 
 Configuration Properties
 ------------------------
