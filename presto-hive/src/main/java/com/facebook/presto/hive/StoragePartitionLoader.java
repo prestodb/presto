@@ -105,6 +105,12 @@ public class StoragePartitionLoader
     private final Cache<HiveFileInfo, List<Path>> symlinkPathCache = CacheBuilder.newBuilder()
             .maximumSize(500)
             .build();
+    private final Cache<Integer, JobConf> jobConfCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .build();
+    private final Cache<Integer, Configuration> configurationCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .build();
     private final Table table;
     private final Map<Integer, Domain> infoColumnConstraints;
     private final Optional<BucketSplitInfo> tableBucketInfo;
@@ -189,7 +195,8 @@ public class StoragePartitionLoader
             // the splits must be generated using the file system for the target path
             // get the configuration for the target path -- it may be a different hdfs instance
             ExtendedFileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
-            JobConf targetJob = toJobConf(targetFilesystem.getConf());
+            Configuration targetConf = configurationCache.asMap().computeIfAbsent(targetFilesystem.hashCode(), ignored -> targetFilesystem.getConf());
+            JobConf targetJob = jobConfCache.asMap().computeIfAbsent(targetConf.hashCode(), ignored -> toJobConf(targetConf));
             targetJob.setInputFormat(TextInputFormat.class);
             targetInputFormat.configure(targetJob);
             targetJob.set(SPLIT_MINSIZE, Long.toString(getMaxSplitSize(session).toBytes()));
