@@ -165,9 +165,9 @@ class HiveConfig {
       "hive.reader.timestamp_unit";
 
   static constexpr const char* kReadStatsBasedFilterReorderDisabled =
-      "hive.reader.stats-based-filter-reorder-disabaled";
+      "hive.reader.stats-based-filter-reorder-disabled";
   static constexpr const char* kReadStatsBasedFilterReorderDisabledSession =
-      "hive.reader.stats_based_filter_reorder_disabaled";
+      "hive.reader.stats_based_filter_reorder_disabled";
 
   static constexpr const char* kLocalDataPath = "hive_local_data_path";
   static constexpr const char* kLocalFileFormat = "hive_local_file_format";
