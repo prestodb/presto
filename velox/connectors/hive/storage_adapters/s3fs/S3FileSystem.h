@@ -37,8 +37,7 @@ class S3FileSystem : public FileSystem {
 
   std::unique_ptr<ReadFile> openFileForRead(
       std::string_view s3Path,
-      const FileOptions& options = {},
-      io::IoStatistics* ioStats = nullptr) override;
+      const FileOptions& options = {}) override;
 
   std::unique_ptr<WriteFile> openFileForWrite(
       std::string_view s3Path,

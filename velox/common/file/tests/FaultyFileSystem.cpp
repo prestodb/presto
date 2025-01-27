@@ -55,8 +55,7 @@ fileSystemGenerator() {
 
 std::unique_ptr<ReadFile> FaultyFileSystem::openFileForRead(
     std::string_view path,
-    const FileOptions& options,
-    io::IoStatistics* ioStats) {
+    const FileOptions& options) {
   const std::string delegatedPath = std::string(extractPath(path));
   auto delegatedFile = getFileSystem(delegatedPath, config_)
                            ->openFileForRead(delegatedPath, options);

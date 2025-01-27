@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/io/IoStatistics.h"
 #include "velox/common/memory/MemoryPool.h"
 
 #include <functional>
@@ -104,8 +103,7 @@ class FileSystem {
   /// Returns a ReadFile handle for a given file path
   virtual std::unique_ptr<ReadFile> openFileForRead(
       std::string_view path,
-      const FileOptions& options = {},
-      io::IoStatistics* ioStats = nullptr) = 0;
+      const FileOptions& options = {}) = 0;
 
   /// Returns a WriteFile handle for a given file path
   virtual std::unique_ptr<WriteFile> openFileForWrite(

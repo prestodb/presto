@@ -340,8 +340,7 @@ void GcsFileSystem::initializeClient() {
 
 std::unique_ptr<ReadFile> GcsFileSystem::openFileForRead(
     std::string_view path,
-    const FileOptions& options,
-    io::IoStatistics* ioStats) {
+    const FileOptions& options) {
   const auto gcspath = gcsPath(path);
   auto gcsfile = std::make_unique<GcsReadFile>(gcspath, impl_->getClient());
   gcsfile->initialize(options);

@@ -29,7 +29,6 @@
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/config/Config.h"
 #include "velox/common/file/File.h"
-#include "velox/common/io/IoStatistics.h"
 #include "velox/connectors/hive/FileProperties.h"
 
 namespace facebook::velox {
@@ -70,8 +69,7 @@ class FileHandleGenerator {
       : properties_(std::move(properties)) {}
   std::unique_ptr<FileHandle> operator()(
       const std::string& filename,
-      const FileProperties* properties,
-      io::IoStatistics* ioStats);
+      const FileProperties* properties);
 
  private:
   const std::shared_ptr<const config::ConfigBase> properties_;
@@ -82,7 +80,6 @@ using FileHandleFactory = CachedFactory<
     FileHandle,
     FileHandleGenerator,
     FileProperties,
-    io::IoStatistics,
     FileHandleSizer>;
 
 using FileHandleCachedPtr = CachedPtr<std::string, FileHandle>;

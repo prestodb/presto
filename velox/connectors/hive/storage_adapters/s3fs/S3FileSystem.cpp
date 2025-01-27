@@ -740,8 +740,7 @@ std::string S3FileSystem::getLogLevelName() const {
 
 std::unique_ptr<ReadFile> S3FileSystem::openFileForRead(
     std::string_view s3Path,
-    const FileOptions& options,
-    io::IoStatistics* ioStats) {
+    const FileOptions& options) {
   const auto path = getPath(s3Path);
   auto s3file = std::make_unique<S3ReadFile>(path, impl_->s3Client());
   s3file->initialize(options);
