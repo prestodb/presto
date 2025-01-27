@@ -16,23 +16,18 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.TableProperties;
 
 import javax.inject.Inject;
 
-import java.lang.reflect.AccessibleObject;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
-import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;

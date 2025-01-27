@@ -64,21 +64,21 @@ public class TestSetTablePropertyProcedure
         String tableName = "table_property_table_test";
         createTable(tableName);
         try {
-            String propertyKey = "read.split.target-size";
+            String propertyKey = "read.split.planning-lookback";
             String propertyValue = "268435456";
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
 
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 7);
+            assertEquals(table.properties().size(), 8);
             assertEquals(table.properties().get(propertyKey), null);
 
             assertUpdate(format("CALL system.set_table_property('%s', '%s', '%s', '%s')", TEST_SCHEMA, tableName, propertyKey, propertyValue));
             table.refresh();
 
             // now the table property read.split.target-size should have new value
-            assertEquals(table.properties().size(), 8);
+            assertEquals(table.properties().size(), 9);
             assertEquals(table.properties().get(propertyKey), propertyValue);
         }
         finally {
@@ -92,14 +92,14 @@ public class TestSetTablePropertyProcedure
         String tableName = "table_property_table_arg_test";
         createTable(tableName);
         try {
-            String propertyKey = "read.split.target-size";
+            String propertyKey = "read.split.planning-lookback";
             String propertyValue = "268435456";
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
 
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 7);
+            assertEquals(table.properties().size(), 8);
             assertEquals(table.properties().get(propertyKey), null);
 
             assertUpdate(format("CALL system.set_table_property(schema => '%s', key => '%s', value => '%s', table_name => '%s')",
@@ -107,7 +107,7 @@ public class TestSetTablePropertyProcedure
             table.refresh();
 
             // now the table property read.split.target-size should have new value
-            assertEquals(table.properties().size(), 8);
+            assertEquals(table.properties().size(), 9);
             assertEquals(table.properties().get(propertyKey), propertyValue);
         }
         finally {
@@ -129,14 +129,14 @@ public class TestSetTablePropertyProcedure
             Table table = loadTable(tableName);
             table.refresh();
 
-            assertEquals(table.properties().size(), 7);
+            assertEquals(table.properties().size(), 8);
             assertEquals(table.properties().get(propertyKey), "4");
 
             assertUpdate(format("CALL system.set_table_property('%s', '%s', '%s', '%s')", TEST_SCHEMA, tableName, propertyKey, propertyValue));
             table.refresh();
 
             // now the table property commit.retry.num-retries should have new value
-            assertEquals(table.properties().size(), 7);
+            assertEquals(table.properties().size(), 8);
             assertEquals(table.properties().get(propertyKey), propertyValue);
         }
         finally {

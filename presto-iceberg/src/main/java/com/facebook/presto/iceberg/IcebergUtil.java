@@ -132,7 +132,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
@@ -1269,7 +1268,8 @@ public final class IcebergUtil
         return dataLocation;
     }
 
-    public static Long getSplitSize(Table table) {
+    public static Long getSplitSize(Table table)
+    {
         return Long.parseLong(table.properties()
                 .getOrDefault(SPLIT_SIZE,
                         String.valueOf(SPLIT_SIZE_DEFAULT)));
