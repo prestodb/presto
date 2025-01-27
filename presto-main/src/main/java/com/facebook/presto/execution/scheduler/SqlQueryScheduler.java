@@ -73,6 +73,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -104,6 +105,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Streams.stream;
 import static com.google.common.graph.Traverser.forTree;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -434,6 +436,7 @@ public class SqlQueryScheduler
                         .map(stages -> executionPolicy.createExecutionSchedule(session, stages))
                         .forEach(sectionExecutionSchedules::add);
 
+                HashSet<StageId> finishedStageExecution = new HashSet<>();
                 while (sectionExecutionSchedules.stream().noneMatch(ExecutionSchedule::isFinished)) {
                     List<ListenableFuture<?>> blockedStages = new ArrayList<>();
 
@@ -446,30 +449,40 @@ public class SqlQueryScheduler
                         long startWallNanos = System.nanoTime();
 
                         SqlStageExecution stageExecution = stageExecutionAndScheduler.getStageExecution();
+                        StageId stageId = stageExecution.getStageExecutionId().getStageId();
+
+                        // If stage scheduling already completes, don't schedule it again.
+                        if (finishedStageExecution.contains(stageId)) {
+                            continue;
+                        }
                         stageExecution.beginScheduling();
 
                         // perform some scheduling work
-                        ScheduleResult result = stageExecutionAndScheduler.getStageScheduler()
-                                .schedule();
+                        ScheduleResult result = stageExecutionAndScheduler.getStageScheduler().schedule();
 
                         // Track leaf tasks if partial results are enabled
                         if (isPartialResultsEnabled(session) && stageExecutionAndScheduler.getStageExecution().getFragment().isLeaf()) {
-                            for (RemoteTask task : result.getNewTasks()) {
-                                partialResultQueryTaskTracker.trackTask(task);
-                                task.addFinalTaskInfoListener(partialResultQueryTaskTracker::recordTaskFinish);
-                            }
+                            ListenableFuture<Set<RemoteTask>> newTasks = result.getNewFutureTasks();
+                            addSuccessCallback(newTasks, taskSet -> {
+                                for (RemoteTask task : taskSet) {
+                                    partialResultQueryTaskTracker.trackTask(task);
+                                    task.addFinalTaskInfoListener(partialResultQueryTaskTracker::recordTaskFinish);
+                                }
+                            });
                         }
-
                         // modify parent and children based on the results of the scheduling
                         if (result.isFinished()) {
                             stageExecution.schedulingComplete();
+                            finishedStageExecution.add(stageId);
                         }
                         else if (!result.getBlocked().isDone()) {
                             blockedStages.add(result.getBlocked());
                         }
+
                         stageExecutionAndScheduler.getStageLinkage()
-                                .processScheduleResults(stageExecution.getState(), result.getNewTasks());
+                                .processScheduleResults(result.getNewFutureTasks());
                         schedulerStats.getSplitsScheduledPerIteration().add(result.getSplitsScheduled());
+
                         if (result.getBlockedReason().isPresent()) {
                             ScheduleResult.BlockedReason blockedReason = result.getBlockedReason().get();
                             switch (blockedReason) {
@@ -513,7 +526,7 @@ public class SqlQueryScheduler
                         StageId stageId = stageExecution.getStageExecutionId().getStageId();
                         if (!completedStages.contains(stageId) && stageExecution.getState().isDone()) {
                             stageExecutionInfo.getStageLinkage()
-                                    .processScheduleResults(stageExecution.getState(), ImmutableSet.of());
+                                    .processScheduleResults(immediateFuture(ImmutableSet.of()));
                             completedStages.add(stageId);
                             stageFinishedExecution = true;
                         }
@@ -537,10 +550,12 @@ public class SqlQueryScheduler
             }
 
             for (StageExecutionAndScheduler stageExecutionInfo : scheduledStageExecutions) {
-                StageExecutionState state = stageExecutionInfo.getStageExecution().getState();
-                if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage execution %s is in state %s", stageExecutionInfo.getStageExecution().getStageExecutionId(), state));
-                }
+                ListenableFuture<StageExecutionState> futureState = stageExecutionInfo.getStageExecution().getFutureState();
+                addSuccessCallback(futureState, state -> {
+                    if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
+                        throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage execution %s is in state %s", stageExecutionInfo.getStageExecution().getStageExecutionId(), state));
+                    }
+                });
             }
 
             scheduling.set(false);

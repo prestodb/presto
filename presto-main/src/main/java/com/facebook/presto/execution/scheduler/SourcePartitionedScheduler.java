@@ -54,6 +54,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static java.util.Objects.requireNonNull;
 
@@ -140,7 +141,8 @@ public class SourcePartitionedScheduler
         SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
 
-        return new StageScheduler() {
+        return new StageScheduler()
+        {
             @Override
             public ScheduleResult schedule()
             {
@@ -204,7 +206,7 @@ public class SourcePartitionedScheduler
         dropListenersFromWhenFinishedOrNewLifespansAdded();
 
         int overallSplitAssignmentCount = 0;
-        ImmutableSet.Builder<RemoteTask> overallNewTasks = ImmutableSet.builder();
+        ImmutableSet.Builder<ListenableFuture<RemoteTask>> overallNewTasks = ImmutableSet.builder();
         List<ListenableFuture<?>> overallBlockedFutures = new ArrayList<>();
         boolean anyBlockedOnPlacements = false;
         boolean anyBlockedOnNextSplitBatch = false;
@@ -446,9 +448,9 @@ public class SourcePartitionedScheduler
         whenFinishedOrNewLifespanAdded.set(null);
     }
 
-    private Set<RemoteTask> assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification)
+    private Set<ListenableFuture<RemoteTask>> assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification)
     {
-        ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
+        ImmutableSet.Builder<ListenableFuture<RemoteTask>> newFutureTasks = ImmutableSet.builder();
 
         ImmutableSet<InternalNode> nodes = ImmutableSet.<InternalNode>builder()
                 .addAll(splitAssignment.keySet())
@@ -464,15 +466,17 @@ public class SourcePartitionedScheduler
                 noMoreSplits.putAll(partitionedNode, noMoreSplitsNotification.get(node));
             }
 
-            newTasks.addAll(stage.scheduleSplits(
+            ListenableFuture<RemoteTask> futureTasks = stage.scheduleSplits(
                     node,
                     splits,
-                    noMoreSplits.build()));
+                    noMoreSplits.build());
+            newFutureTasks.add(futureTasks);
         }
-        return newTasks.build();
+
+        return newFutureTasks.build();
     }
 
-    private Set<RemoteTask> finalizeTaskCreationIfNecessary()
+    private Set<ListenableFuture<RemoteTask>> finalizeTaskCreationIfNecessary()
     {
         // only lock down tasks if there is a sub stage that could block waiting for this stage to create all tasks
         if (stage.getFragment().isLeaf()) {
@@ -482,9 +486,10 @@ public class SourcePartitionedScheduler
         splitPlacementPolicy.lockDownNodes();
 
         Set<InternalNode> scheduledNodes = stage.getScheduledNodes();
-        Set<RemoteTask> newTasks = splitPlacementPolicy.getActiveNodes().stream()
+        Set<ListenableFuture<RemoteTask>> newTasks = splitPlacementPolicy.getActiveNodes().stream()
                 .filter(node -> !scheduledNodes.contains(node))
-                .flatMap(node -> stage.scheduleSplits(node, ImmutableMultimap.of(), ImmutableMultimap.of()).stream())
+                .map(node -> stage.scheduleSplits(node, ImmutableMultimap.of(), ImmutableMultimap.of()))
+                .filter(remoteTask -> !remoteTask.isDone() || getUnchecked(remoteTask) != null)
                 .collect(toImmutableSet());
 
         // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits

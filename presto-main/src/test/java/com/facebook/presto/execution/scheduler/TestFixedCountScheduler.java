@@ -25,14 +25,15 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -60,7 +61,7 @@ public class TestFixedCountScheduler
     public void testSingleNode()
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition) -> Optional.of(taskFactory.createTableScanTask(
+                (node, partition) -> immediateFuture(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 0, 1, 0),
                         node, ImmutableList.of(),
                         new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}))),
@@ -69,15 +70,15 @@ public class TestFixedCountScheduler
         ScheduleResult result = nodeScheduler.schedule();
         assertTrue(result.isFinished());
         assertTrue(result.getBlocked().isDone());
-        assertEquals(result.getNewTasks().size(), 1);
-        assertTrue(result.getNewTasks().iterator().next().getNodeId().equals("other 0"));
+        assertEquals(getFutureValue(result.getNewFutureTasks()).size(), 1);
+        assertTrue(getFutureValue(result.getNewFutureTasks()).iterator().next().getNodeId().equals("other 0"));
     }
 
     @Test
     public void testMultipleNodes()
     {
         FixedCountScheduler nodeScheduler = new FixedCountScheduler(
-                (node, partition) -> Optional.of(taskFactory.createTableScanTask(
+                (node, partition) -> immediateFuture(taskFactory.createTableScanTask(
                         new TaskId("test", 1, 0, 1, 0),
                         node, ImmutableList.of(),
                         new NodeTaskMap.NodeStatsTracker(delta -> {}, delta -> {}, (age, delta) -> {}))),
@@ -86,8 +87,8 @@ public class TestFixedCountScheduler
         ScheduleResult result = nodeScheduler.schedule();
         assertTrue(result.isFinished());
         assertTrue(result.getBlocked().isDone());
-        assertEquals(result.getNewTasks().size(), 5);
-        assertEquals(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 5);
+        assertEquals(getFutureValue(result.getNewFutureTasks()).size(), 5);
+        assertEquals(getFutureValue(result.getNewFutureTasks()).stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 5);
     }
 
     private static List<InternalNode> generateRandomNodes(int count)

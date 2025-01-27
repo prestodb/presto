@@ -17,7 +17,6 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
-import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.drift.codec.ThriftCodec;
@@ -30,6 +29,7 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.SafeEventLoopGroup;
 import com.facebook.presto.execution.SchedulerStatsTracker;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -50,16 +50,11 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
-import io.netty.channel.DefaultEventLoop;
-import io.netty.channel.DefaultEventLoopGroup;
-import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
-
-import java.util.concurrent.Executor;
 
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.wrapThriftCodec;
 import static java.lang.Math.toIntExact;
@@ -68,7 +63,6 @@ import static java.util.Objects.requireNonNull;
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private static final Logger log = Logger.get(HttpRemoteTaskFactory.class);
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final Codec<TaskStatus> taskStatusCodec;
@@ -94,15 +88,8 @@ public class HttpRemoteTaskFactory
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
     private final DecayCounter taskUpdateRequestSize;
-    private final EventLoopGroup eventLoopGroup = new DefaultEventLoopGroup(Runtime.getRuntime().availableProcessors(),
-            new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build())
-    {
-        @Override
-        protected EventLoop newChild(Executor executor, Object... args)
-        {
-            return new SafeEventLoop(this, executor);
-        }
-    };
+    private final EventLoopGroup eventLoopGroup = new SafeEventLoopGroup(Runtime.getRuntime().availableProcessors(),
+            new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build());
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -242,37 +229,6 @@ public class HttpRemoteTaskFactory
                 handleResolver,
                 connectorTypeSerdeManager,
                 schedulerStatsTracker,
-                (SafeEventLoop) eventLoopGroup.next());
-    }
-
-    /***
-     *  One observation about event loop is if submitted task fails, it could kill the thread but the event loop group will not create a new one.
-     *  Here, we wrap it as safe event loop so that if any submitted job fails, we chose to log the error and fail the entire task.
-     */
-    static class SafeEventLoop
-            extends DefaultEventLoop
-    {
-        public SafeEventLoop(EventLoopGroup parent, Executor executor)
-        {
-            super(parent, executor);
-        }
-
-        @Override
-        protected void run()
-        {
-            do {
-                Runnable task = takeTask();
-                if (task != null) {
-                    try {
-                        runTask(task);
-                    }
-                    catch (Throwable t) {
-                        log.error("Error executing task on event loop", t);
-                    }
-                    updateLastExecutionTime();
-                }
-            }
-            while (!this.confirmShutdown());
-        }
+                (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.next());
     }
 }

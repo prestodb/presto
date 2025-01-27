@@ -42,11 +42,10 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -58,13 +57,9 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxFailedTaskPercentage;
@@ -81,15 +76,33 @@ import static com.facebook.presto.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.ConcurrentHashMap.newKeySet;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-@ThreadSafe
+/**
+ * Represents a stage execution for a plan fragment.
+ * <p>
+ * This class now uses an event loop concurrency model to eliminate the need for explicit synchronization:
+ * <ul>
+ * <li>All mutable state access and modifications are performed on a single dedicated event loop thread</li>
+ * <li>External threads submit operations to the event loop using {@code SafeEventLoop.execute()}</li>
+ * <li>The event loop serializes all operations, eliminating race conditions without using locks</li>
+ * </ul>
+ * <p>
+ * Key benefits of this approach:
+ * <ul>
+ * <li>Improved performance by creating fewer event processing threads to support running more tasks</li>
+ * <li>Simplified reasoning about concurrent operations since they are serialized</li>
+ * </ul>
+ */
+
 public final class SqlStageExecution
 {
     public static final Set<ErrorCode> RECOVERABLE_ERROR_CODES = ImmutableSet.of(
@@ -107,7 +120,6 @@ public final class SqlStageExecution
     private final RemoteTaskFactory remoteTaskFactory;
     private final NodeTaskMap nodeTaskMap;
     private final boolean summarizeTaskInfo;
-    private final Executor executor;
     private final FailureDetector failureDetector;
     private final double maxFailedTaskPercentage;
 
@@ -117,36 +129,34 @@ public final class SqlStageExecution
 
     private final Map<InternalNode, Set<RemoteTask>> tasks = new ConcurrentHashMap<>();
 
-    @GuardedBy("this")
-    private final AtomicInteger nextTaskId = new AtomicInteger();
-    @GuardedBy("this")
-    private final Set<TaskId> allTasks = newConcurrentHashSet();
-    @GuardedBy("this")
-    private final Set<TaskId> finishedTasks = newConcurrentHashSet();
-    @GuardedBy("this")
-    private final Set<TaskId> failedTasks = newConcurrentHashSet();
-    @GuardedBy("this")
-    private final Set<TaskId> runningTasks = newConcurrentHashSet();
+    private int nextTaskId;
 
-    private final Set<Lifespan> finishedLifespans = ConcurrentHashMap.newKeySet();
+    private final Set<TaskId> allTasks = new HashSet<>();
+
+    private final Set<TaskId> finishedTasks = new HashSet<>();
+
+    private final Set<TaskId> failedTasks = new HashSet<>();
+
+    private final Set<TaskId> runningTasks = new HashSet<>();
+
+    private final Set<Lifespan> finishedLifespans = newKeySet();
     private final int totalLifespans;
 
-    @GuardedBy("this")
-    private final AtomicBoolean splitsScheduled = new AtomicBoolean();
+    private boolean splitsScheduled;
 
-    @GuardedBy("this")
     private final Multimap<PlanNodeId, RemoteTask> sourceTasks = HashMultimap.create();
-    @GuardedBy("this")
-    private final Set<PlanNodeId> completeSources = newConcurrentHashSet();
-    @GuardedBy("this")
-    private final Set<PlanFragmentId> completeSourceFragments = newConcurrentHashSet();
 
-    private final AtomicReference<OutputBuffers> outputBuffers = new AtomicReference<>();
+    private final Set<PlanNodeId> completeSources = new HashSet<>();
+
+    private final Set<PlanFragmentId> completeSourceFragments = new HashSet<>();
+
+    private OutputBuffers outputBuffers;
 
     private final ListenerManager<Set<Lifespan>> completedLifespansChangeListeners = new ListenerManager<>();
 
-    @GuardedBy("this")
     private Optional<StageTaskRecoveryCallback> stageTaskRecoveryCallback = Optional.empty();
+
+    private final SafeEventLoopGroup.SafeEventLoop stageEventLoop;
 
     public static SqlStageExecution createSqlStageExecution(
             StageExecutionId stageExecutionId,
@@ -155,32 +165,32 @@ public final class SqlStageExecution
             Session session,
             boolean summarizeTaskInfo,
             NodeTaskMap nodeTaskMap,
-            ExecutorService executor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            SafeEventLoopGroup.SafeEventLoop stageEventLoop)
     {
         requireNonNull(stageExecutionId, "stageId is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         requireNonNull(session, "session is null");
         requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        requireNonNull(executor, "executor is null");
         requireNonNull(failureDetector, "failureDetector is null");
         requireNonNull(schedulerStats, "schedulerStats is null");
         requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        requireNonNull(stageEventLoop, "stageEventLoop is null");
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
                 session,
-                new StageExecutionStateMachine(stageExecutionId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
+                new StageExecutionStateMachine(stageExecutionId, stageEventLoop, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
                 fragment,
                 remoteTaskFactory,
                 nodeTaskMap,
                 summarizeTaskInfo,
-                executor,
                 failureDetector,
                 getMaxFailedTaskPercentage(session),
-                tableWriteInfo);
+                tableWriteInfo,
+                stageEventLoop);
         sqlStageExecution.initialize();
         return sqlStageExecution;
     }
@@ -192,10 +202,10 @@ public final class SqlStageExecution
             RemoteTaskFactory remoteTaskFactory,
             NodeTaskMap nodeTaskMap,
             boolean summarizeTaskInfo,
-            Executor executor,
             FailureDetector failureDetector,
             double maxFailedTaskPercentage,
-            TableWriteInfo tableWriteInfo)
+            TableWriteInfo tableWriteInfo,
+            SafeEventLoopGroup.SafeEventLoop stageEventLoop)
     {
         this.session = requireNonNull(session, "session is null");
         this.stateMachine = stateMachine;
@@ -203,10 +213,10 @@ public final class SqlStageExecution
         this.remoteTaskFactory = requireNonNull(remoteTaskFactory, "remoteTaskFactory is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
-        this.executor = requireNonNull(executor, "executor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.tableWriteInfo = requireNonNull(tableWriteInfo);
         this.maxFailedTaskPercentage = maxFailedTaskPercentage;
+        this.stageEventLoop = requireNonNull(stageEventLoop, "stageEventLoop is null");
 
         ImmutableMap.Builder<PlanFragmentId, RemoteSourceNode> fragmentToExchangeSource = ImmutableMap.builder();
         for (RemoteSourceNode remoteSourceNode : planFragment.getRemoteSourceNodes()) {
@@ -222,16 +232,22 @@ public final class SqlStageExecution
     private void initialize()
     {
         stateMachine.addStateChangeListener(newState -> {
+            verify(stageEventLoop.inEventLoop());
             if (newState.isDone()) {
                 checkAllTaskFinal();
             }
         });
-        completedLifespansChangeListeners.addListener(lifespans -> finishedLifespans.addAll(lifespans));
+        completedLifespansChangeListeners.addListener(finishedLifespans::addAll);
     }
 
     public StageExecutionId getStageExecutionId()
     {
         return stateMachine.getStageExecutionId();
+    }
+
+    public ListenableFuture<StageExecutionState> getFutureState()
+    {
+        return safeExecuteOnEventLoopWithResult(stateMachine::getFutureState);
     }
 
     public StageExecutionState getState()
@@ -264,10 +280,12 @@ public final class SqlStageExecution
         completedLifespansChangeListeners.addListener(newlyCompletedDriverGroupConsumer);
     }
 
-    public synchronized void registerStageTaskRecoveryCallback(StageTaskRecoveryCallback stageTaskRecoveryCallback)
+    public void registerStageTaskRecoveryCallback(StageTaskRecoveryCallback stageTaskRecoveryCallback)
     {
-        checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
-        this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+        safeExecuteOnEventLoop(() -> {
+            checkState(!this.stageTaskRecoveryCallback.isPresent(), "stageTaskRecoveryCallback should be registered only once");
+            this.stageTaskRecoveryCallback = Optional.of(requireNonNull(stageTaskRecoveryCallback, "stageTaskRecoveryCallback is null"));
+        });
     }
 
     public PlanFragment getFragment()
@@ -277,57 +295,64 @@ public final class SqlStageExecution
 
     public OutputBuffers getOutputBuffers()
     {
-        return outputBuffers.get();
+        return outputBuffers;
     }
 
     public void beginScheduling()
     {
-        stateMachine.transitionToScheduling();
+        safeExecuteOnEventLoopWithResult(stateMachine::transitionToScheduling);
     }
 
-    public synchronized void transitionToFinishedTaskScheduling()
+    public ListenableFuture<Boolean> transitionToFinishedTaskScheduling()
     {
-        stateMachine.transitionToFinishedTaskScheduling();
+        return safeExecuteOnEventLoopWithResult(stateMachine::transitionToFinishedTaskScheduling);
     }
 
-    public synchronized void transitionToSchedulingSplits()
+    public ListenableFuture<Boolean> transitionToSchedulingSplits()
     {
-        stateMachine.transitionToSchedulingSplits();
+        return safeExecuteOnEventLoopWithResult(stateMachine::transitionToSchedulingSplits);
     }
 
-    public synchronized void schedulingComplete()
+    public void schedulingComplete()
     {
-        if (!stateMachine.transitionToScheduled()) {
-            return;
-        }
+        safeExecuteOnEventLoop(() -> {
+            if (!stateMachine.transitionToScheduled()) {
+                return;
+            }
 
-        if (finishedTasks.size() == allTasks.size()) {
-            stateMachine.transitionToFinished();
-        }
+            if (finishedTasks.size() == allTasks.size()) {
+                stateMachine.transitionToFinished();
+            }
 
-        for (PlanNodeId tableScanPlanNodeId : planFragment.getTableScanSchedulingOrder()) {
-            schedulingComplete(tableScanPlanNodeId);
-        }
+            for (PlanNodeId tableScanPlanNodeId : planFragment.getTableScanSchedulingOrder()) {
+                schedulingComplete(tableScanPlanNodeId);
+            }
+        });
     }
 
-    public synchronized void schedulingComplete(PlanNodeId partitionedSource)
+    public void schedulingComplete(PlanNodeId partitionedSource)
     {
+        verify(stageEventLoop.inEventLoop());
         for (RemoteTask task : getAllTasks()) {
             task.noMoreSplits(partitionedSource);
         }
         completeSources.add(partitionedSource);
     }
 
-    public synchronized void cancel()
+    public void cancel()
     {
-        stateMachine.transitionToCanceled();
-        getAllTasks().forEach(RemoteTask::cancel);
+        safeExecuteOnEventLoop(() -> {
+            stateMachine.transitionToCanceled();
+            getAllTasks().forEach(RemoteTask::cancel);
+        });
     }
 
-    public synchronized void abort()
+    public void abort()
     {
-        stateMachine.transitionToAborted();
-        getAllTasks().forEach(RemoteTask::abort);
+        safeExecuteOnEventLoop(() -> {
+            stateMachine.transitionToAborted();
+            getAllTasks().forEach(RemoteTask::abort);
+        });
     }
 
     public long getUserMemoryReservation()
@@ -348,7 +373,7 @@ public final class SqlStageExecution
         return new Duration(millis, TimeUnit.MILLISECONDS);
     }
 
-    public synchronized DataSize getRawInputDataSize()
+    public DataSize getRawInputDataSize()
     {
         if (planFragment.getTableScanSchedulingOrder().isEmpty()) {
             return new DataSize(0, BYTE);
@@ -359,7 +384,7 @@ public final class SqlStageExecution
         return DataSize.succinctBytes(datasize);
     }
 
-    public synchronized DataSize getWrittenIntermediateDataSize()
+    public DataSize getWrittenIntermediateDataSize()
     {
         long datasize = getAllTasks().stream()
                 .filter(remoteTask -> remoteTask instanceof HttpRemoteTask)
@@ -387,58 +412,63 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
-    public synchronized void addExchangeLocations(PlanFragmentId fragmentId, Set<RemoteTask> sourceTasks, boolean noMoreExchangeLocations)
+    public void addExchangeLocations(PlanFragmentId fragmentId, Set<RemoteTask> sourceTasks, boolean noMoreExchangeLocations)
     {
         requireNonNull(fragmentId, "fragmentId is null");
         requireNonNull(sourceTasks, "sourceTasks is null");
 
-        RemoteSourceNode remoteSource = exchangeSources.get(fragmentId);
-        checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", fragmentId, exchangeSources.keySet());
+        safeExecuteOnEventLoop(() -> {
+            RemoteSourceNode remoteSource = exchangeSources.get(fragmentId);
+            checkArgument(remoteSource != null, "Unknown remote source %s. Known sources are %s", fragmentId, exchangeSources.keySet());
 
-        this.sourceTasks.putAll(remoteSource.getId(), sourceTasks);
+            this.sourceTasks.putAll(remoteSource.getId(), sourceTasks);
 
-        for (RemoteTask task : getAllTasks()) {
-            ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
-            for (RemoteTask sourceTask : sourceTasks) {
-                TaskStatus sourceTaskStatus = sourceTask.getTaskStatus();
-                newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), sourceTask.getRemoteTaskLocation(), sourceTask.getTaskId()));
+            for (RemoteTask task : getAllTasks()) {
+                ImmutableMultimap.Builder<PlanNodeId, Split> newSplits = ImmutableMultimap.builder();
+                for (RemoteTask sourceTask : sourceTasks) {
+                    newSplits.put(remoteSource.getId(), createRemoteSplitFor(task.getTaskId(), sourceTask.getRemoteTaskLocation(), sourceTask.getTaskId()));
+                }
+                task.addSplits(newSplits.build());
             }
-            task.addSplits(newSplits.build());
-        }
 
-        if (noMoreExchangeLocations) {
-            completeSourceFragments.add(fragmentId);
+            if (noMoreExchangeLocations) {
+                completeSourceFragments.add(fragmentId);
 
-            // is the source now complete?
-            if (completeSourceFragments.containsAll(remoteSource.getSourceFragmentIds())) {
-                completeSources.add(remoteSource.getId());
-                for (RemoteTask task : getAllTasks()) {
-                    task.noMoreSplits(remoteSource.getId());
+                // is the source now complete?
+                if (completeSourceFragments.containsAll(remoteSource.getSourceFragmentIds())) {
+                    completeSources.add(remoteSource.getId());
+                    for (RemoteTask task : getAllTasks()) {
+                        task.noMoreSplits(remoteSource.getId());
+                    }
                 }
             }
-        }
+        });
     }
 
-    public synchronized void setOutputBuffers(OutputBuffers outputBuffers)
+    public void setOutputBuffers(OutputBuffers outputBuffers)
     {
         requireNonNull(outputBuffers, "outputBuffers is null");
 
-        while (true) {
-            OutputBuffers currentOutputBuffers = this.outputBuffers.get();
-            if (currentOutputBuffers != null) {
-                if (outputBuffers.getVersion() <= currentOutputBuffers.getVersion()) {
+        safeExecuteOnEventLoop(() -> {
+            while (true) {
+                OutputBuffers currentOutputBuffers = this.outputBuffers;
+                if (currentOutputBuffers != null) {
+                    if (outputBuffers.getVersion() <= currentOutputBuffers.getVersion()) {
+                        return;
+                    }
+                    currentOutputBuffers.checkValidTransition(outputBuffers);
+                }
+
+                if (this.outputBuffers == currentOutputBuffers) {
+                    this.outputBuffers = outputBuffers;
+
+                    for (RemoteTask task : getAllTasks()) {
+                        task.setOutputBuffers(outputBuffers);
+                    }
                     return;
                 }
-                currentOutputBuffers.checkValidTransition(outputBuffers);
             }
-
-            if (this.outputBuffers.compareAndSet(currentOutputBuffers, outputBuffers)) {
-                for (RemoteTask task : getAllTasks()) {
-                    task.setOutputBuffers(outputBuffers);
-                }
-                return;
-            }
-        }
+        });
     }
 
     // do not synchronize
@@ -468,57 +498,69 @@ public final class SqlStageExecution
         getOnlyElement(allTasks).removeRemoteSource(remoteSourceTaskId);
     }
 
-    public synchronized Optional<RemoteTask> scheduleTask(InternalNode node, int partition)
+    public ListenableFuture<RemoteTask> scheduleTask(InternalNode node, int partition)
     {
         requireNonNull(node, "node is null");
 
-        if (stateMachine.getState().isDone()) {
-            return Optional.empty();
-        }
-        checkState(!splitsScheduled.get(), "scheduleTask can not be called once splits have been scheduled");
-        return Optional.of(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition, DEFAULT_TASK_ATTEMPT_NUMBER), ImmutableMultimap.of()));
+        SettableFuture<RemoteTask> future = SettableFuture.create();
+        safeExecuteOnEventLoop(() -> {
+            if (stateMachine.getState().isDone()) {
+                future.set(null);
+                return;
+            }
+            checkState(!splitsScheduled, "scheduleTask can not be called once splits have been scheduled");
+            future.set(scheduleTask(node, new TaskId(stateMachine.getStageExecutionId(), partition, DEFAULT_TASK_ATTEMPT_NUMBER), ImmutableMultimap.of()));
+        });
+        return future;
     }
 
-    public synchronized Set<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
+    public ListenableFuture<RemoteTask> scheduleSplits(InternalNode node, Multimap<PlanNodeId, Split> splits, Multimap<PlanNodeId, Lifespan> noMoreSplitsNotification)
     {
         requireNonNull(node, "node is null");
         requireNonNull(splits, "splits is null");
 
-        if (stateMachine.getState().isDone()) {
-            return ImmutableSet.of();
-        }
-        splitsScheduled.set(true);
+        SettableFuture<RemoteTask> future = SettableFuture.create();
+        safeExecuteOnEventLoop(() -> {
+            if (stateMachine.getState().isDone()) {
+                future.set(null);
+                return;
+            }
 
-        checkArgument(planFragment.getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
+            splitsScheduled = true;
 
-        ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
-        Collection<RemoteTask> tasks = this.tasks.get(node);
-        RemoteTask task;
-        if (tasks == null) {
-            // The output buffer depends on the task id starting from 0 and being sequential, since each
-            // task is assigned a private buffer based on task id.
-            TaskId taskId = new TaskId(stateMachine.getStageExecutionId(), nextTaskId.getAndIncrement(), DEFAULT_TASK_ATTEMPT_NUMBER);
-            task = scheduleTask(node, taskId, splits);
-            newTasks.add(task);
-        }
-        else {
-            task = tasks.iterator().next();
-            task.addSplits(splits);
-        }
-        if (noMoreSplitsNotification.size() > 1) {
-            // The assumption that `noMoreSplitsNotification.size() <= 1` currently holds.
-            // If this assumption no longer holds, we should consider calling task.noMoreSplits with multiple entries in one shot.
-            // These kind of methods can be expensive since they are grabbing locks and/or sending HTTP requests on change.
-            throw new UnsupportedOperationException("This assumption no longer holds: noMoreSplitsNotification.size() < 1");
-        }
-        for (Entry<PlanNodeId, Lifespan> entry : noMoreSplitsNotification.entries()) {
-            task.noMoreSplits(entry.getKey(), entry.getValue());
-        }
-        return newTasks.build();
+            checkArgument(planFragment.getTableScanSchedulingOrder().containsAll(splits.keySet()), "Invalid splits");
+
+            Collection<RemoteTask> tasks = this.tasks.get(node);
+            RemoteTask task;
+            if (tasks == null) {
+                // The output buffer depends on the task id starting from 0 and being sequential, since each
+                // task is assigned a private buffer based on task id.
+                TaskId taskId = new TaskId(stateMachine.getStageExecutionId(), nextTaskId++, DEFAULT_TASK_ATTEMPT_NUMBER);
+                task = scheduleTask(node, taskId, splits);
+                future.set(task);
+            }
+            else {
+                task = tasks.iterator().next();
+                task.addSplits(splits);
+                future.set(null);
+            }
+            if (noMoreSplitsNotification.size() > 1) {
+                // The assumption that `noMoreSplitsNotification.size() <= 1` currently holds.
+                // If this assumption no longer holds, we should consider calling task.noMoreSplits with multiple entries in one shot.
+                // These kind of methods can be expensive since they are grabbing locks and/or sending HTTP requests on change.
+                throw new UnsupportedOperationException("This assumption no longer holds: noMoreSplitsNotification.size() < 1");
+            }
+            for (Entry<PlanNodeId, Lifespan> entry : noMoreSplitsNotification.entries()) {
+                task.noMoreSplits(entry.getKey(), entry.getValue());
+            }
+        });
+
+        return future;
     }
 
-    private synchronized RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
+    private RemoteTask scheduleTask(InternalNode node, TaskId taskId, Multimap<PlanNodeId, Split> sourceSplits)
     {
+        verify(stageEventLoop.inEventLoop());
         checkArgument(!allTasks.contains(taskId), "A task with id %s already exists", taskId);
 
         ImmutableMultimap.Builder<PlanNodeId, Split> initialSplits = ImmutableMultimap.builder();
@@ -531,7 +573,7 @@ public final class SqlStageExecution
             }
         });
 
-        OutputBuffers outputBuffers = this.outputBuffers.get();
+        OutputBuffers outputBuffers = this.outputBuffers;
         checkState(outputBuffers != null, "Initial output buffers must be set before a task can be scheduled");
 
         RemoteTask task = remoteTaskFactory.createRemoteTask(
@@ -653,8 +695,14 @@ public final class SqlStageExecution
                 .collect(Collectors.toList());
     }
 
+    public SafeEventLoopGroup.SafeEventLoop getStageEventLoop()
+    {
+        return stageEventLoop;
+    }
+
     private void updateTaskStatus(TaskId taskId, TaskStatus taskStatus)
     {
+        verify(stageEventLoop.inEventLoop());
         StageExecutionState stageExecutionState = getState();
         if (stageExecutionState.isDone()) {
             return;
@@ -718,14 +766,17 @@ public final class SqlStageExecution
                 failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
-    private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
+    private void updateFinalTaskInfo(TaskInfo finalTaskInfo)
     {
-        runningTasks.remove(finalTaskInfo.getTaskId());
-        checkAllTaskFinal();
+        safeExecuteOnEventLoop(() -> {
+            runningTasks.remove(finalTaskInfo.getTaskId());
+            checkAllTaskFinal();
+        });
     }
 
-    private synchronized void checkAllTaskFinal()
+    private void checkAllTaskFinal()
     {
+        verify(stageEventLoop.inEventLoop());
         if (stateMachine.getState().isDone() && runningTasks.isEmpty()) {
             if (getFragment().getStageExecutionDescriptor().isStageGroupedExecution()) {
                 // in case stage is CANCELLED/ABORTED/FAILED, number of finished lifespans can be less than total lifespans
@@ -783,17 +834,20 @@ public final class SqlStageExecution
         @Override
         public void stateChanged(TaskStatus taskStatus)
         {
-            try {
-                updateMemoryUsage(taskStatus);
-                updateCompletedDriverGroups(taskStatus);
-            }
-            finally {
-                updateTaskStatus(taskId, taskStatus);
-            }
+            safeExecuteOnEventLoop(() -> {
+                try {
+                    updateMemoryUsage(taskStatus);
+                    updateCompletedDriverGroups(taskStatus);
+                }
+                finally {
+                    updateTaskStatus(taskId, taskStatus);
+                }
+            });
         }
 
-        private synchronized void updateMemoryUsage(TaskStatus taskStatus)
+        private void updateMemoryUsage(TaskStatus taskStatus)
         {
+            verify(stageEventLoop.inEventLoop());
             long currentUserMemory = taskStatus.getMemoryReservationInBytes();
             long currentSystemMemory = taskStatus.getSystemMemoryReservationInBytes();
             long deltaUserMemoryInBytes = currentUserMemory - previousUserMemory;
@@ -803,8 +857,9 @@ public final class SqlStageExecution
             stateMachine.updateMemoryUsage(deltaUserMemoryInBytes, deltaTotalMemoryInBytes, taskStatus.getPeakNodeTotalMemoryReservationInBytes());
         }
 
-        private synchronized void updateCompletedDriverGroups(TaskStatus taskStatus)
+        private void updateCompletedDriverGroups(TaskStatus taskStatus)
         {
+            verify(stageEventLoop.inEventLoop());
             // Sets.difference returns a view.
             // Once we add the difference into `completedDriverGroups`, the view will be empty.
             // `completedLifespansChangeListeners.invoke` happens asynchronously.
@@ -814,7 +869,7 @@ public final class SqlStageExecution
             if (newlyCompletedDriverGroups.isEmpty()) {
                 return;
             }
-            completedLifespansChangeListeners.invoke(newlyCompletedDriverGroups, executor);
+            completedLifespansChangeListeners.invoke(newlyCompletedDriverGroups);
             // newlyCompletedDriverGroups is a view.
             // Making changes to completedDriverGroups will change newlyCompletedDriverGroups.
             completedDriverGroups.addAll(newlyCompletedDriverGroups);
@@ -827,23 +882,37 @@ public final class SqlStageExecution
         void recover(TaskId taskId);
     }
 
-    private static class ListenerManager<T>
+    private class ListenerManager<T>
     {
         private final List<Consumer<T>> listeners = new ArrayList<>();
         private boolean frozen;
 
-        public synchronized void addListener(Consumer<T> listener)
+        public void addListener(Consumer<T> listener)
         {
-            checkState(!frozen, "Listeners have been invoked");
-            listeners.add(listener);
+            safeExecuteOnEventLoop(() -> {
+                checkState(!frozen, "Listeners have been invoked");
+                listeners.add(listener);
+            });
         }
 
-        public synchronized void invoke(T payload, Executor executor)
+        public void invoke(T payload)
         {
             frozen = true;
             for (Consumer<T> listener : listeners) {
-                executor.execute(() -> listener.accept(payload));
+                safeExecuteOnEventLoop(() -> listener.accept(payload));
             }
         }
+    }
+
+    private void safeExecuteOnEventLoop(Runnable r)
+    {
+        stageEventLoop.execute(r, null);
+    }
+
+    private <T> ListenableFuture<T> safeExecuteOnEventLoopWithResult(Supplier<T> task)
+    {
+        SettableFuture<T> future = SettableFuture.create();
+        stageEventLoop.execute(task, future::set, null);
+        return future;
     }
 }
