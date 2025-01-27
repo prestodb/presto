@@ -107,6 +107,7 @@ pre {
 }
 
 .navbar-btn {
+    padding: 6px 12px !important;
     border-bottom: none;
     margin: 0;
     color: #ffffff !important;
@@ -450,7 +451,7 @@ pre {
 }
 
 .query-snippet {
-    height: 138px;
+    height: 162px;
     overflow: hidden;
     font-size: 13px;
 }
@@ -490,7 +491,7 @@ pre {
 }
 
 .query-header-queryid {
-    margin-left: -15px;
+    margin-left: -12px;
     margin-right: -35px;
     padding: 8px 0 8px 0;
 }
@@ -498,10 +499,12 @@ pre {
 .query-header-timestamp {
     text-align: right;
     color: #b1b1b1;
+    margin-left: -12px;
+    margin-right: -35px;
 }
 
 .query-progress-container {
-    padding: 0;
+    padding: 2px 0px 2px 0px;
 }
 .text-btn-default{
     color: rgb(51,51,51);
@@ -513,14 +516,13 @@ pre {
 /** ================== **/
 
 .toolbar-row {
-    padding-right: 15px;
+    padding-right: 12px;
 }
 
 .toolbar-col {
     background-color: #454a58;
     margin-top: -5px;
     padding: 5px;
-    max-width: 1176px;
 }
 
 .toolbar-row .form-control {

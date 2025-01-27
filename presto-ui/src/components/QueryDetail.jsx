@@ -157,7 +157,7 @@ function TaskList({tasks}) {
         },
         {
             name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
-                data-bs-toggle="tooltip" data-placement="top"
+                data-bs-toggle="tooltip" data-bs-placement="top"
                 title="Pending splits"/>),
             selector: row => row.stats.queuedDrivers,
             sortable: true,
@@ -166,7 +166,7 @@ function TaskList({tasks}) {
         },
         {
             name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
-                data-bs-toggle="tooltip" data-placement="top"
+                data-bs-toggle="tooltip" data-bs-placement="top"
                 title="Running splits"/>),
             selector: row => row.stats.runningDrivers,
             sortable: true,
@@ -176,7 +176,7 @@ function TaskList({tasks}) {
         {
             name: (<span className="bi bi-bookmark-check-fill"
                 style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
-                data-placement="top"
+                data-bs-placement="top"
                 title="Blocked splits"/>),
             selector: row => row.stats.blockedDrivers,
             sortable: true,
@@ -185,7 +185,7 @@ function TaskList({tasks}) {
         },
         {
             name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
-                data-bs-toggle="tooltip" data-placement="top"
+                data-bs-toggle="tooltip" data-bs-placement="top"
                 title="Completed splits"/>),
             selector: row => row.stats.completedDrivers,
             sortable: true,
@@ -321,7 +321,7 @@ class RuntimeStatsList extends React.Component {
                      <th className="info-text">Max</th>
                      <th className="expand-charts-container">
                          <a onClick={this.toggleExpanded.bind(this)} className="expand-stats-button">
-                             <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-placement="top" title="Show metrics" />
+                             <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="Show metrics" />
                          </a>
                      </th>
                  </tr>
@@ -457,7 +457,7 @@ class StageSummary extends React.Component {
 
     renderTaskFilterListItem(taskFilter) {
         return (
-            <li><a href="#" className={this.state.taskFilter === taskFilter ? "selected" : ""}
+            <li><a href="#" className={`dropdown-item text-dark ${this.state.taskFilter === taskFilter ? "selected" : ""}`}
                    onClick={this.handleTaskFilterClick.bind(this, taskFilter)}>{taskFilter.text}</a></li>
         );
     }
@@ -479,13 +479,13 @@ class StageSummary extends React.Component {
                     <tbody>
                     <tr>
                         <td>
-                            <div className="input-group-btn text-right">
-                                <button type="button" className="btn btn-default dropdown-toggle pull-right text-right"
+                            <div className="btn-group text-right">
+                                <button type="button" className="btn dropdown-toggle bg-white text-dark float-end text-right rounded-0"
                                         data-bs-toggle="dropdown" aria-haspopup="true"
                                         aria-expanded="false">
                                     Show: {this.state.taskFilter.text} <span className="caret"/>
                                 </button>
-                                <ul className="dropdown-menu">
+                                <ul className="dropdown-menu bg-white text-dark rounded-0">
                                     {this.renderTaskFilterListItem(TASK_FILTER.ALL)}
                                     {this.renderTaskFilterListItem(TASK_FILTER.PLANNED)}
                                     {this.renderTaskFilterListItem(TASK_FILTER.RUNNING)}
@@ -702,7 +702,7 @@ class StageSummary extends React.Component {
                             </td>
                             <td className="expand-charts-container">
                                 <a onClick={this.toggleExpanded.bind(this)} className="expand-charts-button">
-                                    <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-placement="top" title="More"/>
+                                    <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="More"/>
                                 </a>
                             </td>
                         </tr>
@@ -1043,7 +1043,7 @@ export class QueryDetail extends React.Component {
             });
         }
 
-        $('[data-bs-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="tooltip"]')?.tooltip();
         new Clipboard('.copy-button');
     }
 
@@ -1089,7 +1089,7 @@ export class QueryDetail extends React.Component {
             <div className="col-12">
                 <h3>
                     Prepared Query
-                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
                             <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                         </a>
                 </h3>
@@ -1224,7 +1224,7 @@ export class QueryDetail extends React.Component {
                             <tr>
                                 <td className="info-title">
                                     Stack Trace
-                                    <a className="btn copy-button" data-clipboard-target="#stack-trace" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                    <a className="btn copy-button" data-clipboard-target="#stack-trace" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
                                         <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                                     </a>
                                 </td>
@@ -1263,7 +1263,7 @@ export class QueryDetail extends React.Component {
         return (
             <div>
                 <QueryHeader query={query}/>
-                <div className="row">
+                <div className="row mt-3">
                     <div className="col-6">
                         <h3>Session</h3>
                         <hr className="h3-hr"/>
@@ -1276,7 +1276,7 @@ export class QueryDetail extends React.Component {
                                 <td className="info-text wrap-text">
                                     <span id="query-user">{query.session.user}</span>
                                     &nbsp;&nbsp;
-                                    <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                                    <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
                                         <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                                     </a>
                                 </td>
@@ -1495,7 +1495,7 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                    <tr>
                                         <td className="info-title">
-                                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="The total number of rows shuffled across all query stages">
+                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right" title="The total number of rows shuffled across all query stages">
                                                 Shuffled Rows
                                             </span>
                                         </td>
@@ -1505,7 +1505,7 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="The total number of bytes shuffled across all query stages">
+                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right" title="The total number of bytes shuffled across all query stages">
                                                 Shuffled Data
                                             </span>
                                         </td>
@@ -1699,7 +1699,7 @@ export class QueryDetail extends React.Component {
                     <div className="col-12">
                         <h3>
                             Query
-                            <a className="btn copy-button" data-clipboard-target="#query-text" data-bs-toggle="tooltip" data-placement="right" title="Copy to clipboard">
+                            <a className="btn copy-button" data-clipboard-target="#query-text" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
                                 <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                             </a>
                         </h3>

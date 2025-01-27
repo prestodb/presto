@@ -180,7 +180,7 @@ export function SessionProps({ show, changeHandler }) {
     }, []);
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div className="row">
                 <div className='col-12'>
                     <DataTable
