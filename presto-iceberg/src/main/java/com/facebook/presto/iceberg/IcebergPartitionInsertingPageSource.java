@@ -54,6 +54,8 @@ public class IcebergPartitionInsertingPageSource
     private final ConnectorPageSourceWithRowPositions delegateWithPositions;
     private final ConnectorPageSource delegate;
     private final Block[] partitionValueBlocks;
+    private final long partitionValuesMemoryUsage;
+    // maps output array index to index of input page from delegate provider.
     private final int[] outputIndexes;
 
     public IcebergPartitionInsertingPageSource(
@@ -63,10 +65,22 @@ public class IcebergPartitionInsertingPageSource
             Function<List<IcebergColumnHandle>, ConnectorPageSourceWithRowPositions> delegateSupplier)
     {
         this.nonPartitionColumnIndexes = new IcebergColumnHandle[fullColumnList.size()];
-
-        int delegateIndex = 0;
-        // maps output array index to index of input page from delegate provider.
         this.outputIndexes = new int[fullColumnList.size()];
+        populateIndexes(fullColumnList, partitionKeys);
+        this.partitionValueBlocks = generatePartitionValueBlocks(fullColumnList, metadataValues, partitionKeys);
+        this.partitionValuesMemoryUsage = Arrays.stream(partitionValueBlocks).filter(Objects::nonNull).mapToLong(Block::getRetainedSizeInBytes).sum();
+
+        List<IcebergColumnHandle> delegateColumns = Arrays.stream(nonPartitionColumnIndexes)
+                .filter(Objects::nonNull)
+                .collect(toImmutableList());
+
+        this.delegateWithPositions = delegateSupplier.apply(delegateColumns);
+        this.delegate = delegateWithPositions.getDelegate();
+    }
+
+    private void populateIndexes(List<IcebergColumnHandle> fullColumnList, Map<Integer, HivePartitionKey> partitionKeys)
+    {
+        int delegateIndex = 0;
         // generate array of non-partition column indexes
         for (int i = 0; i < fullColumnList.size(); i++) {
             IcebergColumnHandle handle = fullColumnList.get(i);
@@ -80,38 +94,37 @@ public class IcebergPartitionInsertingPageSource
             outputIndexes[i] = delegateIndex;
             delegateIndex++;
         }
-        List<IcebergColumnHandle> delegateColumns = Arrays.stream(nonPartitionColumnIndexes)
-                .filter(Objects::nonNull)
-                .collect(toImmutableList());
+    }
 
-        this.partitionValueBlocks = IntStream.range(0, fullColumnList.size())
+    private Block[] generatePartitionValueBlocks(
+            List<IcebergColumnHandle> fullColumnList,
+            Map<Integer, Object> metadataValues,
+            Map<Integer, HivePartitionKey> partitionKeys)
+    {
+        return IntStream.range(0, fullColumnList.size())
                 .mapToObj(idx -> {
                     IcebergColumnHandle column = fullColumnList.get(idx);
                     if (nonPartitionColumnIndexes[idx] != null) {
                         return null;
                     }
 
+                    Type type = column.getType();
                     if (partitionKeys.containsKey(column.getId())) {
                         HivePartitionKey icebergPartition = partitionKeys.get(column.getId());
-                        Type type = column.getType();
                         Object prefilledValue = deserializePartitionValue(type, icebergPartition.getValue().orElse(null), column.getName());
                         return nativeValueToBlock(type, prefilledValue);
                     }
                     else if (column.getColumnType() == PARTITION_KEY) {
                         // Partition key with no value. This can happen after partition evolution
-                        Type type = column.getType();
                         return nativeValueToBlock(type, null);
                     }
                     else if (isMetadataColumnId(column.getId())) {
-                        return nativeValueToBlock(column.getType(), metadataValues.get(column.getColumnIdentity().getId()));
+                        return nativeValueToBlock(type, metadataValues.get(column.getColumnIdentity().getId()));
                     }
 
                     return null;
                 })
                 .toArray(Block[]::new);
-
-        this.delegateWithPositions = delegateSupplier.apply(delegateColumns);
-        this.delegate = delegateWithPositions.getDelegate();
     }
 
     public ConnectorPageSourceWithRowPositions getRowPositionDelegate()
@@ -154,12 +167,9 @@ public class IcebergPartitionInsertingPageSource
             int batchSize = dataPage.getPositionCount();
             Block[] blocks = new Block[nonPartitionColumnIndexes.length];
             for (int i = 0; i < nonPartitionColumnIndexes.length; i++) {
-                if (partitionValueBlocks[i] != null) {
-                    blocks[i] = new RunLengthEncodedBlock(partitionValueBlocks[i], batchSize);
-                }
-                else {
-                    blocks[i] = dataPage.getBlock(outputIndexes[i]);
-                }
+                blocks[i] = partitionValueBlocks[i] == null ?
+                        dataPage.getBlock(outputIndexes[i]) :
+                        new RunLengthEncodedBlock(partitionValueBlocks[i], batchSize);
             }
 
             return new Page(batchSize, blocks);
@@ -188,7 +198,7 @@ public class IcebergPartitionInsertingPageSource
     @Override
     public long getSystemMemoryUsage()
     {
-        return delegate.getSystemMemoryUsage();
+        return delegate.getSystemMemoryUsage() + partitionValuesMemoryUsage;
     }
 
     @Override

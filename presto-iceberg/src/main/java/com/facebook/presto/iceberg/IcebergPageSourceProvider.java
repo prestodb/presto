@@ -97,7 +97,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Conversions;
-import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.Types.NestedField;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -150,8 +150,8 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.getPushedDownSubfi
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_COLUMN;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
-import static com.facebook.presto.iceberg.IcebergMetadataColumn.UPDATE_ROW_DATA;
 import static com.facebook.presto.iceberg.IcebergOrcColumn.ROOT_COLUMN_ID;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
@@ -797,7 +797,10 @@ public class IcebergPageSourceProvider
                             columnsToReadFromStorage.add(handle);
                         }
                         else {
-                            Types.NestedField column = tableSchema.findField(colId.getId());
+                            NestedField column = tableSchema.findField(colId.getId());
+                            if (column == null) {
+                                throw new PrestoException(ICEBERG_MISSING_COLUMN, "Could not find field " + colId + " in table schema: " + tableSchema);
+                            }
                             IcebergColumnHandle handle = IcebergColumnHandle.create(column, typeManager, REGULAR);
                             columnsToReadFromStorage.add(handle);
                         }

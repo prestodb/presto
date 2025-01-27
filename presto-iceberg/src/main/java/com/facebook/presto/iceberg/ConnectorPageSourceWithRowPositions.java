@@ -30,7 +30,7 @@ public class ConnectorPageSourceWithRowPositions
             Optional<Long> startRowPosition,
             Optional<Long> endRowPosition)
     {
-        this.delegate = requireNonNull(delegate, "connectorPageSource is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
         this.startRowPosition = requireNonNull(startRowPosition, "startRowPosition is null");
         this.endRowPosition = requireNonNull(endRowPosition, "endRowPosition is null");
     }
