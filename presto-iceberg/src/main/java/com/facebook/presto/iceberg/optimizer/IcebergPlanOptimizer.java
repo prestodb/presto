@@ -238,7 +238,8 @@ public class IcebergPlanOptimizer
                             .intersect(tableScan.getCurrentConstraint()),
                     predicateNotChangedBySimplification ?
                             identityPartitionColumnPredicate.intersect(tableScan.getEnforcedConstraint()) :
-                            tableScan.getEnforcedConstraint());
+                            tableScan.getEnforcedConstraint(),
+                    tableScan.getCteMaterializationInfo());
 
             if (TRUE_CONSTANT.equals(remainingFilterExpression) && predicateNotChangedBySimplification) {
                 return newTableScan;

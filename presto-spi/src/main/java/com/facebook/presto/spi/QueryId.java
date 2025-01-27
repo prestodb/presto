@@ -58,6 +58,11 @@ public final class QueryId
         return id;
     }
 
+    public void appendString(StringBuilder builder)
+    {
+        builder.append(id);
+    }
+
     @Override
     public int hashCode()
     {

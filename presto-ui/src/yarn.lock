@@ -1098,10 +1098,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@prestodb/presto-js-client@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@prestodb/presto-js-client/-/presto-js-client-1.0.0.tgz#fa458866581a6ec4e0b9be7f8ab5bae3097f8c8a"
-  integrity sha512-B8d0Wl8XMrtqotRTTM45GVk6bV7GER1Pbt4vUb2Ex5dUP1/WkqKMuD0LMWoO9zaiSS70DtBpvwu372BS1GjNgQ==
+"@prestodb/presto-js-client@^1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@prestodb/presto-js-client/-/presto-js-client-1.0.1.tgz#978c9c22c17677f3157df80383efb23412d4aa70"
+  integrity sha512-6NHcpSi9EQZKgfYgOUYgyTuC4PAjs+23o9ANym5wZ/Omu8m586OplRVmels0MrzPC5LdHA94FWkscuunaEvcDg==
 
 "@sindresorhus/merge-streams@^2.1.0":
   version "2.3.0"
@@ -1669,9 +1669,9 @@ camelize@^1.0.0:
   integrity sha512-dU+Tx2fsypxTgtLoE36npi3UqcjSSMNYfkqgmoEhtZrraP5VWq0K7FkWVTYa8eMPtnU/G2txVsfdCJTn9uzpuQ==
 
 caniuse-lite@^1.0.30001541:
-  version "1.0.30001561"
-  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001561.tgz#752f21f56f96f1b1a52e97aae98c57c562d5d9da"
-  integrity sha512-NTt0DNoKe958Q0BE0j0c1V9jbUzhBxHIEJy7asmGrpE0yG63KTV7PLHPnK2E1O9RsQrQ081I3NLuXGS6zht3cw==
+  version "1.0.30001692"
+  resolved "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001692.tgz"
+  integrity sha512-A95VKan0kdtrsnMubMKxEKUKImOPSuCpYgxSQBo036P5YYgVIcOYJEgt/txJWqObiRQeISNCfef9nvlQ0vbV7A==
 
 chalk@^2.4.2:
   version "2.4.2"

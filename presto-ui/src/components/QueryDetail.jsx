@@ -1706,3 +1706,5 @@ export class QueryDetail extends React.Component {
         );
     }
 }
+
+export default QueryDetail;

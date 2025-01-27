@@ -26,16 +26,19 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Objects.requireNonNull;
+
 public interface StripeMetadataSource
 {
-    Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, boolean cacheable)
+    Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, boolean cacheable, long fileModificationTime)
             throws IOException;
 
     Map<StreamId, OrcDataSourceInput> getInputs(
             OrcDataSource orcDataSource,
             StripeId stripeId,
             Map<StreamId, DiskRange> diskRanges,
-            boolean cacheable)
+            boolean cacheable,
+            long fileModificationTime)
             throws IOException;
 
     List<RowGroupIndex> getRowIndexes(
@@ -45,6 +48,50 @@ public interface StripeMetadataSource
             StreamId streamId,
             OrcInputStream inputStream,
             List<HiveBloomFilter> bloomFilters,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            long fileModificationTime)
             throws IOException;
+
+    class CacheableSlice
+    {
+        private final Slice slice;
+        private final long fileModificationTime;
+
+        CacheableSlice(Slice slice, long fileModificationTime)
+        {
+            this.slice = requireNonNull(slice, "slice is null");
+            this.fileModificationTime = fileModificationTime;
+        }
+
+        public Slice getSlice()
+        {
+            return slice;
+        }
+
+        public long getFileModificationTime()
+        {
+            return fileModificationTime;
+        }
+    }
+
+    class CacheableRowGroupIndices
+    {
+        private final List<RowGroupIndex> rowGroupIndices;
+        private final long fileModificationTime;
+
+        public CacheableRowGroupIndices(List<RowGroupIndex> rowGroupIndices, long fileModificationTime)
+        {
+            this.rowGroupIndices = requireNonNull(rowGroupIndices, "rowGroupIndices is null");
+            this.fileModificationTime = fileModificationTime;
+        }
+        public List<RowGroupIndex> getRowGroupIndices()
+        {
+            return rowGroupIndices;
+        }
+
+        public long getFileModificationTime()
+        {
+            return fileModificationTime;
+        }
+    }
 }

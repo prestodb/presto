@@ -69,7 +69,8 @@ std::string extractMessageBody(
   // TODO Avoid copy
   std::ostringstream oss;
   for (auto& buf : body) {
-    oss << std::string((const char*)buf->data(), buf->length());
+    oss << std::string(
+        reinterpret_cast<const char*>(buf->data()), buf->length());
   }
   return oss.str();
 }

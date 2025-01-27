@@ -1,8 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import {WorkerStatus} from "./components/WorkerStatus";
-import {WorkerThreadList} from "./components/WorkerThreadList";
+import lazy from "./lazy";
 import {PageTitle} from "./components/PageTitle";
+
+const WorkerStatus = lazy('WorkerStatus');
+const WorkerThreadList = lazy('WorkerThreadList');
 
 ReactDOM.render(
     <PageTitle titles={["Worker Status"]} />,

@@ -271,7 +271,7 @@ Configuration Properties
 .. note::
 
     The Iceberg connector supports configuration options for
-    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html##amazon-s3-configuration>`_
+    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
     as a Hive connector.
 
 The following configuration properties are available for all catalog types:
@@ -515,19 +515,7 @@ JMX queries to get the metrics and verify the cache usage::
 Metastore Cache
 ^^^^^^^^^^^^^^^
 
-Metastore Cache only caches the schema, table, and table statistics. The table object cached in the `tableCache`
-is only used for reading the table metadata location and table properties and, the rest of the table metadata
-is fetched from the filesystem/object storage metadata location.
-
-.. note::
-
-    Metastore Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
-
-.. code-block:: none
-
-    hive.metastore-cache-ttl=2d
-    hive.metastore-refresh-interval=3d
-    hive.metastore-cache-maximum-size=10000000
+Iceberg Connector does not support Metastore Caching.
 
 Extra Hidden Metadata Columns
 -----------------------------

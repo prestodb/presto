@@ -234,6 +234,7 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_MAX_EXECUTION_TIME = "query_retry_max_execution_time";
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
     public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
+    public static final String ENHANCED_CTE_SCHEDULING_ENABLED = "enhanced-cte-scheduling-enabled";
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
     public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
@@ -1282,6 +1283,11 @@ public final class SystemSessionProperties
                         "Minimum query completion ratio threshold for partial results",
                         featuresConfig.getPartialResultsCompletionRatioThreshold(),
                         false),
+                booleanProperty(
+                        ENHANCED_CTE_SCHEDULING_ENABLED,
+                        "Applicable for CTE Materialization. If enabled, only tablescans of the pending tablewriters are blocked and other stages can continue.",
+                        featuresConfig.getEnhancedCTESchedulingEnabled(),
+                        true),
                 booleanProperty(
                         OFFSET_CLAUSE_ENABLED,
                         "Enable support for OFFSET clause",
@@ -2688,6 +2694,11 @@ public final class SystemSessionProperties
     public static double getPartialResultsCompletionRatioThreshold(Session session)
     {
         return session.getSystemProperty(PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD, Double.class);
+    }
+
+    public static boolean isEnhancedCTESchedulingEnabled(Session session)
+    {
+        return isCteMaterializationApplicable(session) & session.getSystemProperty(ENHANCED_CTE_SCHEDULING_ENABLED, Boolean.class);
     }
 
     public static double getPartialResultsMaxExecutionTimeMultiplier(Session session)

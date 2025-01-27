@@ -26,10 +26,10 @@ import {
     formatDuration,
     getChildren,
     getTaskNumber,
-    initializeGraph,
     parseDataSize,
     parseDuration
 } from "../utils";
+import { initializeGraph } from '../d3utils';
 
 function getTotalWallTime(operator) {
     return parseDuration(operator.addInputWall) +

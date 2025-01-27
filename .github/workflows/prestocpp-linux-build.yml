@@ -11,7 +11,7 @@ jobs:
   prestocpp-linux-build-engine:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.290-20241014120930-e1fc090
+      image: prestodb/presto-native-dependency:0.291-20250108164449-87d82ed
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:
@@ -40,6 +40,15 @@ jobs:
       - name: Zero ccache statistics
         run: ccache -sz
 
+      - name: Remove files not needed for the build
+        run: |
+          find . -name data | xargs rm -r
+          find . -name tests | xargs rm -r
+          find . -name test | xargs rm -rf
+
+      - name: Disk space consumption before build
+        run: df
+
       - name: Build engine
         run: |
           source /opt/rh/gcc-toolset-12/enable
@@ -65,6 +74,9 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DMAX_LINK_JOBS=4
           ninja -C _build/debug -j 4
+
+      - name: Disk space consumption after build
+        run: df
 
       - name: Ccache after
         run: ccache -s

@@ -32,7 +32,7 @@ public class StorageStripeMetadataSource
         implements StripeMetadataSource
 {
     @Override
-    public Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, boolean cacheable)
+    public Slice getStripeFooterSlice(OrcDataSource orcDataSource, StripeId stripeId, long footerOffset, int footerLength, boolean cacheable, long fileModificationTime)
             throws IOException
     {
         byte[] tailBuffer = new byte[footerLength];
@@ -41,7 +41,7 @@ public class StorageStripeMetadataSource
     }
 
     @Override
-    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, boolean cacheable)
+    public Map<StreamId, OrcDataSourceInput> getInputs(OrcDataSource orcDataSource, StripeId stripeId, Map<StreamId, DiskRange> diskRanges, boolean cacheable, long fileModificationTime)
             throws IOException
     {
         //
@@ -68,7 +68,8 @@ public class StorageStripeMetadataSource
             StreamId streamId,
             OrcInputStream inputStream,
             List<HiveBloomFilter> bloomFilters,
-            RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats,
+            long fileModificationTime)
             throws IOException
     {
         return metadataReader.readRowIndexes(hiveWriterVersion, inputStream, bloomFilters);

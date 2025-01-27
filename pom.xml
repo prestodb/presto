@@ -44,7 +44,7 @@
         <air.maven.version>3.3.9</air.maven.version>
 
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.215</dep.airlift.version>
+        <dep.airlift.version>0.216</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
@@ -52,7 +52,7 @@
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
-        <dep.drift.version>1.38</dep.drift.version>
+        <dep.drift.version>1.40</dep.drift.version>
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.7</dep.joda.version>
@@ -76,7 +76,7 @@
         <dep.docker-java.version>3.3.0</dep.docker-java.version>
         <dep.jayway.version>2.9.0</dep.jayway.version>
         <dep.ratis.version>2.2.0</dep.ratis.version>
-        <dep.errorprone.version>2.18.0</dep.errorprone.version>
+        <dep.errorprone.version>2.28.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.15.4</dep.jackson.version>
         <dep.j2objc.version>2.8</dep.j2objc.version>
@@ -85,6 +85,10 @@
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
         <dep.netty.version>4.1.115.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
+        <dep.jetty.version>9.4.56.v20240826</dep.jetty.version>
+        <dep.gson.version>2.11.0</dep.gson.version>
+        <dep.commons.lang3.version>3.14.0</dep.commons.lang3.version>
+        <dep.guice.version>5.1.0</dep.guice.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -210,11 +214,25 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-bom</artifactId>
+                <version>${dep.jetty.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
                 <version>${dep.netty.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-transport</artifactId>
+                <version>${dep.netty.version}</version>
             </dependency>
 
             <dependency>
@@ -549,6 +567,26 @@
 
             <dependency>
                 <groupId>io.grpc</groupId>
+                <artifactId>grpc-netty</artifactId>
+                <version>${grpc.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>animal-sniffer-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
                 <artifactId>grpc-netty-shaded</artifactId>
                 <version>${grpc.version}</version>
                 <exclusions>
@@ -569,8 +607,30 @@
 
             <dependency>
                 <groupId>io.grpc</groupId>
+                <artifactId>grpc-services</artifactId>
+                <version>${grpc.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.google.errorprone</groupId>
+                        <artifactId>error_prone_annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
                 <artifactId>grpc-core</artifactId>
                 <version>${grpc.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>animal-sniffer-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -1460,24 +1520,136 @@
 
             <dependency>
                 <groupId>org.alluxio</groupId>
-                <artifactId>alluxio-shaded-client</artifactId>
+                <artifactId>alluxio-core-client-hdfs</artifactId>
                 <version>${dep.alluxio.version}</version>
                 <exclusions>
+                    <exclusion>
+                        <groupId>org.alluxio</groupId>
+                        <artifactId>alluxio-core-transport</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.hadoop</groupId>
+                        <artifactId>hadoop-client</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-slf4j-impl</artifactId>
+                    </exclusion>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-core-client-fs</artifactId>
+                <version>${dep.alluxio.version}</version>
+                <exclusions>
                     <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
+                        <groupId>com.github.stateless4j</groupId>
+                        <artifactId>stateless4j</artifactId>
                     </exclusion>
                     <exclusion>
-                        <groupId>log4j</groupId>
-                        <artifactId>log4j</artifactId>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-slf4j-impl</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.rocksdb</groupId>
+                        <artifactId>rocksdbjni</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.alluxio</groupId>
+                <artifactId>alluxio-core-common</artifactId>
+                <version>${dep.alluxio.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.rabbitmq</groupId>
+                        <artifactId>amqp-client</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-cli</groupId>
+                        <artifactId>commons-cli</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>commons-logging</groupId>
                         <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.etcd</groupId>
+                        <artifactId>jetcd-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.netty</groupId>
+                        <artifactId>netty-tcnative-boringssl-static</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.prometheus</groupId>
+                        <artifactId>prometheus-metrics-exporter-servlet-jakarta</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>io.swagger</groupId>
+                        <artifactId>swagger-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.curator</groupId>
+                        <artifactId>curator-client</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.curator</groupId>
+                        <artifactId>curator-framework</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.logging.log4j</groupId>
+                        <artifactId>log4j-slf4j-impl</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.zookeeper</groupId>
+                        <artifactId>zookeeper</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-servlet</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.reflections</groupId>
+                        <artifactId>reflections</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -1636,6 +1808,10 @@
                         <artifactId>jackson-dataformat-smile</artifactId>
                     </exclusion>
                     <exclusion>
+                        <groupId>com.google.inject.extensions</groupId>
+                        <artifactId>guice-multibindings</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>it.unimi.dsi</groupId>
                         <artifactId>fastutil</artifactId>
                     </exclusion>
@@ -1685,13 +1861,13 @@
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpclient</artifactId>
-                <version>4.5.5</version>
+                <version>4.5.14</version>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.httpcomponents</groupId>
                 <artifactId>httpcore</artifactId>
-                <version>4.4.9</version>
+                <version>4.4.16</version>
             </dependency>
 
             <dependency>
@@ -1975,6 +2151,10 @@
                         <groupId>com.google.code.findbugs</groupId>
                         <artifactId>annotations</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.google.inject.extensions</groupId>
+                        <artifactId>guice-multibindings</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2203,6 +2383,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>${dep.gson.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
@@ -2233,6 +2419,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${dep.commons.lang3.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.datastax.cassandra</groupId>
                 <artifactId>cassandra-driver-core</artifactId>
                 <version>3.11.5</version>
@@ -2243,6 +2435,13 @@
                 <artifactId>snakeyaml</artifactId>
                 <version>${dep.snakeyaml.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-dbcp2</artifactId>
+                <version>2.12.0</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -2324,7 +2523,6 @@
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
                                     <!-- TODO: fix this in Airlift resolver -->
-                                    <exclude>org.alluxio:alluxio-shaded-client</exclude>
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
@@ -2341,6 +2539,7 @@
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
                         <ignoredClassPatterns combine.children="append">
+                            <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by commons-io & log4j-api -->
                             <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
                             <!-- Duplicate class is being brought in by several netty dependencies-->
@@ -2348,6 +2547,9 @@
                             <!-- Ignore duplicate classes related to lucene-core and ranger-apache -->
                             <ignoredClassPattern>META-INF.versions.9.org.apache.lucene.*</ignoredClassPattern>
                         </ignoredClassPatterns>
+                        <ignoredResourcePatterns combine.children="append">
+                            <ignoredResourcePattern>git.properties</ignoredResourcePattern>
+                        </ignoredResourcePatterns>
                     </configuration>
                 </plugin>
 
@@ -2644,7 +2846,9 @@
                         <executions>
                             <execution>
                                 <id>unlink-out-of-tree-build-directory</id>
-                                <goals><goal>exec</goal></goals>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
                                 <phase>pre-clean</phase>
                                 <configuration>
                                     <executable>rm</executable>
@@ -2656,7 +2860,9 @@
                             </execution>
                             <execution>
                                 <id>remove-out-of-tree-build-directory</id>
-                                <goals><goal>exec</goal></goals>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
                                 <phase>pre-clean</phase>
                                 <configuration>
                                     <executable>rm</executable>
@@ -2668,7 +2874,9 @@
                             </execution>
                             <execution>
                                 <id>create-out-of-tree-build-directory</id>
-                                <goals><goal>exec</goal></goals>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
                                 <phase>validate</phase>
                                 <configuration>
                                     <executable>mkdir</executable>
@@ -2680,7 +2888,9 @@
                             </execution>
                             <execution>
                                 <id>link-out-of-tree-build-directory</id>
-                                <goals><goal>exec</goal></goals>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
                                 <phase>validate</phase>
                                 <configuration>
                                     <executable>ln</executable>

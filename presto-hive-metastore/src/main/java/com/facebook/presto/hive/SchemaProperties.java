@@ -22,7 +22,7 @@ import java.util.Optional;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 
-public final class HiveSchemaProperties
+public final class SchemaProperties
 {
     public static final String LOCATION_PROPERTY = "location";
 
@@ -33,7 +33,7 @@ public final class HiveSchemaProperties
                     null,
                     false));
 
-    private HiveSchemaProperties() {}
+    private SchemaProperties() {}
 
     public static Optional<String> getLocation(Map<String, Object> schemaProperties)
     {

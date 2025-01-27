@@ -83,7 +83,15 @@ public class TaskId
     @JsonValue
     public String toString()
     {
-        return stageExecutionId + "." + id + "." + attemptNumber;
+        StringBuilder builder = new StringBuilder();
+        appendString(builder);
+        return builder.toString();
+    }
+
+    public void appendString(StringBuilder builder)
+    {
+        stageExecutionId.appendString(builder);
+        builder.append(".").append(id).append(".").append(attemptNumber);
     }
 
     @Override

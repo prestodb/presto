@@ -96,6 +96,7 @@ public class StripeReader
     private final Optional<OrcWriteValidation> writeValidation;
     private final StripeMetadataSource stripeMetadataSource;
     private final boolean cacheable;
+    private final long fileModificationTime;
     private final Multimap<Integer, Integer> dwrfEncryptionGroupColumns;
     private final RuntimeStats runtimeStats;
     private final Optional<OrcFileIntrospector> fileIntrospector;
@@ -114,7 +115,8 @@ public class StripeReader
             boolean cacheable,
             Map<Integer, Integer> dwrfEncryptionGroupMap,
             RuntimeStats runtimeStats,
-            Optional<OrcFileIntrospector> fileIntrospector)
+            Optional<OrcFileIntrospector> fileIntrospector,
+            long fileModificationTime)
     {
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
         this.decompressor = requireNonNull(decompressor, "decompressor is null");
@@ -130,6 +132,7 @@ public class StripeReader
         this.dwrfEncryptionGroupColumns = invertEncryptionGroupMap(requireNonNull(dwrfEncryptionGroupMap, "dwrfEncryptionGroupMap is null"));
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.fileIntrospector = requireNonNull(fileIntrospector, "fileIntrospector is null");
+        this.fileModificationTime = fileModificationTime;
     }
 
     private Multimap<Integer, Integer> invertEncryptionGroupMap(Map<Integer, Integer> dwrfEncryptionGroupMap)
@@ -254,7 +257,7 @@ public class StripeReader
         ImmutableMap.Builder<StreamId, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
         for (Entry<StreamId, Stream> entry : includedStreams.entrySet()) {
             if (entry.getKey().getStreamKind() == ROW_INDEX) {
-                List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(hiveWriterVersion, streamsData.get(entry.getKey()), null);
+                List<RowGroupIndex> rowGroupIndexes = stripeMetadataSource.getRowIndexes(metadataReader, hiveWriterVersion, stripeId, entry.getKey(), streamsData.get(entry.getKey()), null, runtimeStats, fileModificationTime);
                 checkState(rowGroupIndexes.size() == 1 || invalidCheckPoint, "expect a single row group or an invalid check point");
                 for (RowGroupIndex rowGroupIndex : rowGroupIndexes) {
                     ColumnStatistics columnStatistics = rowGroupIndex.getColumnStatistics();
@@ -346,7 +349,7 @@ public class StripeReader
         //
 
         // read ranges
-        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges, cacheable);
+        Map<StreamId, OrcDataSourceInput> streamsData = stripeMetadataSource.getInputs(orcDataSource, stripeId, diskRanges, cacheable, fileModificationTime);
 
         // transform streams to OrcInputStream
         ImmutableMap.Builder<StreamId, OrcInputStream> streamsBuilder = ImmutableMap.builder();
@@ -484,7 +487,7 @@ public class StripeReader
         int footerLength = toIntExact(stripe.getFooterLength());
 
         // read the footer
-        Slice footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable);
+        Slice footerSlice = stripeMetadataSource.getStripeFooterSlice(orcDataSource, stripeId, footerOffset, footerLength, cacheable, fileModificationTime);
         try (InputStream inputStream = new OrcInputStream(
                 orcDataSource.getId(),
                 // Memory is not accounted as the buffer is expected to be tiny and will be immediately discarded
@@ -531,7 +534,7 @@ public class StripeReader
             if (stream.getStreamKind() == ROW_INDEX) {
                 OrcInputStream inputStream = streamsData.get(streamId);
                 List<HiveBloomFilter> bloomFilters = bloomFilterIndexes.get(streamId.getColumn());
-                List<RowGroupIndex> rowGroupIndexes = stripeMetadataSource.getRowIndexes(metadataReader, hiveWriterVersion, stripeId, streamId, inputStream, bloomFilters, runtimeStats);
+                List<RowGroupIndex> rowGroupIndexes = stripeMetadataSource.getRowIndexes(metadataReader, hiveWriterVersion, stripeId, streamId, inputStream, bloomFilters, runtimeStats, fileModificationTime);
                 columnIndexes.put(entry.getKey(), rowGroupIndexes);
             }
         }

@@ -51,19 +51,29 @@ target_link_libraries(
   presto_http
   presto_operators
   presto_velox_conversion
+  velox_abfs
   velox_aggregates
   velox_caching
   velox_common_base
   velox_core
   velox_dwio_common_exception
+  velox_dwio_dwrf_reader
+  velox_dwio_dwrf_writer
+  velox_dwio_orc_reader
+  velox_dwio_parquet_reader
+  velox_dwio_parquet_writer
   velox_encode
   velox_exec
+  velox_file
   velox_functions_lib
   velox_functions_prestosql
+  velox_gcs
+  velox_hdfs
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_hive_partition_function
   velox_presto_serializer
+  velox_s3fs
   velox_serialization
   velox_time
   velox_type_parser

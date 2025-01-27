@@ -31,6 +31,8 @@ import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.presto.ClientRequestFilterManager;
+import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -49,6 +51,7 @@ import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -116,6 +119,7 @@ public class PrestoServer
                 new NodeModule(),
                 new DiscoveryModule(),
                 new HttpServerModule(),
+                new ClientRequestFilterModule(),
                 new JsonModule(),
                 installModuleIf(
                         FeaturesConfig.class,
@@ -175,6 +179,7 @@ public class PrestoServer
                 injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             }
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
+            injector.getInstance(PrestoAuthenticatorManager.class).loadPrestoAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
             injector.getInstance(TempStorageManager.class).loadTempStorages();
             injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();
@@ -190,6 +195,7 @@ public class PrestoServer
             PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
             planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
 
+            injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

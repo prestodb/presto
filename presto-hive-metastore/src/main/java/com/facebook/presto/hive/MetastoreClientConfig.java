@@ -52,6 +52,7 @@ public class MetastoreClientConfig
     private int partitionCacheColumnCountLimit = 500;
     private HiveMetastoreAuthenticationType hiveMetastoreAuthenticationType = HiveMetastoreAuthenticationType.NONE;
     private boolean deleteFilesOnTableDrop;
+    private boolean invalidateMetastoreCacheProcedureEnabled;
 
     public HostAndPort getMetastoreSocksProxy()
     {
@@ -301,6 +302,19 @@ public class MetastoreClientConfig
     public MetastoreClientConfig setDeleteFilesOnTableDrop(boolean deleteFilesOnTableDrop)
     {
         this.deleteFilesOnTableDrop = deleteFilesOnTableDrop;
+        return this;
+    }
+
+    public boolean isInvalidateMetastoreCacheProcedureEnabled()
+    {
+        return invalidateMetastoreCacheProcedureEnabled;
+    }
+
+    @Config("hive.invalidate-metastore-cache-procedure-enabled")
+    @ConfigDescription("When enabled, users will be able to invalidate metastore cache on demand")
+    public MetastoreClientConfig setInvalidateMetastoreCacheProcedureEnabled(boolean invalidateMetastoreCacheProcedureEnabled)
+    {
+        this.invalidateMetastoreCacheProcedureEnabled = invalidateMetastoreCacheProcedureEnabled;
         return this;
     }
 }

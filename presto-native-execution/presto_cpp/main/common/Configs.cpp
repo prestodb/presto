@@ -182,7 +182,6 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kNativeSidecar, false),
           BOOL_PROP(kAsyncDataCacheEnabled, true),
           NUM_PROP(kAsyncCacheSsdGb, 0),
-          BOOL_PROP(kQueryDataCacheEnabledDefault, true),
           NUM_PROP(kAsyncCacheSsdCheckpointGb, 0),
           STR_PROP(kAsyncCacheSsdPath, "/mnt/flash/async_cache."),
           NUM_PROP(kAsyncCacheMaxSsdWriteRatio, 0.7),
@@ -475,10 +474,6 @@ uint64_t SystemConfig::asyncCacheSsdGb() const {
 
 bool SystemConfig::asyncDataCacheEnabled() const {
   return optionalProperty<bool>(kAsyncDataCacheEnabled).value();
-}
-
-bool SystemConfig::queryDataCacheEnabledDefault() const {
-  return optionalProperty<bool>(kQueryDataCacheEnabledDefault).value();
 }
 
 uint64_t SystemConfig::asyncCacheSsdCheckpointGb() const {
