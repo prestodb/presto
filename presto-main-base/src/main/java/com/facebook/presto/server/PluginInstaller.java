@@ -15,10 +15,13 @@ package com.facebook.presto.server;
 
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.RouterPlugin;
 
 public interface PluginInstaller
 {
     void installPlugin(Plugin plugin);
 
     void installCoordinatorPlugin(CoordinatorPlugin plugin);
+
+    default void installRouterPlugin(RouterPlugin plugin){};
 }

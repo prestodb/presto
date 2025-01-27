@@ -35,12 +35,14 @@ public class RequestInfo
     private final String user;
     private final Optional<String> source;
     private final List<String> clientTags;
+    private final String query;
 
     public RequestInfo(HttpServletRequest servletRequest, String query)
     {
         this.user = parseHeader(servletRequest, PRESTO_USER);
         this.source = Optional.ofNullable(parseHeader(servletRequest, PRESTO_SOURCE));
         this.clientTags = requireNonNull(parseClientTags(servletRequest), "clientTags is null");
+        this.query = query;
     }
 
     public String getUser()
@@ -51,6 +53,11 @@ public class RequestInfo
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    public String getQuery()
+    {
+        return query;
     }
 
     public List<String> getClientTags()

@@ -124,7 +124,7 @@ public class TestSelectors
                 .add(new JsonModule())
                 .add(new JaxrsModule(true))
                 .add(new ServerSecurityModule())
-                .add(new RouterModule())
+                .add(new RouterModule(Optional.empty()))
                 .build());
 
         Injector injector = app.doNotInitializeLogging()

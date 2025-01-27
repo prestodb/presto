@@ -27,6 +27,8 @@ import com.facebook.presto.jdbc.PrestoResultSet;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
+import com.facebook.presto.router.cluster.RemoteStateConfig;
+import com.facebook.presto.router.scheduler.CustomSchedulerManager;
 import com.facebook.presto.router.security.RouterSecurityModule;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -38,6 +40,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -70,6 +73,9 @@ public class TestClusterManager
     private ClusterStatusTracker clusterStatusTracker;
     private File configFile;
     private RemoteInfoFactory remoteInfoFactory;
+    private RemoteStateConfig remoteStateConfig;
+    private CustomSchedulerManager schedulerManager;
+    private URI httpServerUri;
 
     @BeforeClass
     public void setup()
@@ -92,7 +98,7 @@ public class TestClusterManager
                 new JsonModule(),
                 new JaxrsModule(true),
                 new RouterSecurityModule(),
-                new RouterModule());
+                new RouterModule(Optional.empty()));
 
         Injector injector = app.doNotInitializeLogging()
                 .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
@@ -102,6 +108,8 @@ public class TestClusterManager
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
         httpServerInfo = injector.getInstance(HttpServerInfo.class);
         clusterStatusTracker = injector.getInstance(ClusterStatusTracker.class);
+        schedulerManager = injector.getInstance(CustomSchedulerManager.class);
+        httpServerUri = httpServerInfo.getHttpUri();
         remoteInfoFactory = injector.getInstance(RemoteInfoFactory.class);
     }
 
@@ -115,30 +123,36 @@ public class TestClusterManager
         lifeCycleManager.stop();
     }
 
+    @Test
     public void testQuery()
             throws Exception
     {
-        String sql = "SELECT row_number() OVER () n FROM tpch.tiny.orders";
         for (int i = 0; i < NUM_QUERIES; ++i) {
-            try (Connection connection = createConnection(httpServerInfo.getHttpUri());
-                    Statement statement = connection.createStatement();
-                    ResultSet rs = statement.executeQuery(sql)) {
-                long count = 0;
-                long sum = 0;
-                while (rs.next()) {
-                    count++;
-                    sum += rs.getLong("n");
-                }
-                assertEquals(count, 15000);
-                assertEquals(sum, (count / 2) * (1 + count));
-            }
+            runAndAssertQueryResults(httpServerUri);
         }
-
         sleepUninterruptibly(10, SECONDS);
         assertEquals(clusterStatusTracker.getAllQueryInfos().size(), NUM_QUERIES);
         assertQueryState();
     }
 
+    static void runAndAssertQueryResults(URI uri) throws SQLException
+    {
+        String sql = "SELECT row_number() OVER () n FROM tpch.tiny.orders";
+        try (Connection connection = createConnection(uri);
+                 Statement statement = connection.createStatement();
+                 ResultSet rs = statement.executeQuery(sql)) {
+            long count = 0;
+            long sum = 0;
+            while (rs.next()) {
+                count++;
+                sum += rs.getLong("n");
+            }
+            assertEquals(count, 15000);
+            assertEquals(sum, (count / 2) * (1 + count));
+        }
+    }
+
+    @Test
     public void testConfigReload()
             throws IOException, InterruptedException, BrokenBarrierException, TimeoutException
     {
@@ -149,7 +163,7 @@ public class TestClusterManager
         newRouterConfig.setConfigFile(newConfig.getAbsolutePath());
 
         CyclicBarrier barrier = new CyclicBarrier(2);
-        ClusterManager barrierClusterManager = new BarrierClusterManager(newRouterConfig, remoteInfoFactory, barrier, lifeCycleManager);
+        ClusterManager barrierClusterManager = new BarrierClusterManager(newRouterConfig, remoteInfoFactory, barrier, lifeCycleManager, schedulerManager);
         assertEquals(barrierClusterManager.getAllClusters().size(), 3);
 
         while (!barrierClusterManager.getIsWatchServiceStarted()) {
