@@ -24,13 +24,12 @@ import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -117,15 +116,15 @@ public class TestIcebergSmokeHadoop
     @Override
     protected String getLocation(String schema, String table)
     {
-        File tempLocation = getCatalogDirectory().toFile();
-        return format("%s%s/%s", tempLocation.toURI(), schema, table);
+        Path tempLocation = getCatalogDirectory();
+        return format("%s%s/%s", tempLocation.toUri(), schema, table);
     }
 
     @Override
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
-        Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false);
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        Path catalogDirectory = new Path(getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false).toFile().toURI());
         return catalogDirectory;
     }
 
@@ -134,7 +133,7 @@ public class TestIcebergSmokeHadoop
     {
         IcebergConfig icebergConfig = new IcebergConfig();
         icebergConfig.setCatalogType(HADOOP);
-        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toFile().getPath());
+        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toString());
 
         IcebergNativeCatalogFactory catalogFactory = new IcebergNativeCatalogFactory(icebergConfig,
                 new IcebergCatalogName(ICEBERG_CATALOG),
