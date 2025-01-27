@@ -16,17 +16,20 @@ package com.facebook.presto.router.cluster;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
-import com.facebook.presto.router.scheduler.Scheduler;
+import com.facebook.presto.router.scheduler.CustomSchedulerManager;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
 import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.router.Scheduler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.sun.nio.file.SensitivityWatchEventModifier;
 import io.airlift.units.Duration;
 import org.weakref.jmx.Managed;
@@ -56,6 +59,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
+import static com.facebook.presto.router.scheduler.SchedulerType.CUSTOM_PLUGIN_SCHEDULER;
 import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_ROUND_ROBIN;
@@ -82,13 +86,16 @@ public class ClusterManager
     private final RemoteInfoFactory remoteInfoFactory;
     private final LifeCycleManager lifeCycleManager;
     private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final CustomSchedulerManager schedulerManager;
 
     @Inject
-    public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, LifeCycleManager lifeCycleManager)
+    public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, LifeCycleManager lifeCycleManager,
+                          CustomSchedulerManager schedulerManager)
     {
         this.routerConfig = requireNonNull(config, "config is null");
         this.remoteInfoFactory = requireNonNull(remoteInfoFactory, "remoteInfoFactory is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifecycleManager is null");
+        this.schedulerManager = schedulerManager;
         onConfigChangeDetection();
         this.initializeServerWeights();
     }
@@ -99,7 +106,7 @@ public class ClusterManager
                 .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         Map<String, GroupSpec> newGroups = newRouterSpec.getGroups().stream().collect(toImmutableMap(GroupSpec::getName, group -> group));
         List<SelectorRuleSpec> newGroupSelectors = ImmutableList.copyOf(newRouterSpec.getSelectors());
-        Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType()).create();
+        Scheduler newScheduler = new SchedulerFactory(newRouterSpec.getSchedulerType(), schedulerManager).create();
         SchedulerType newSchedulerType = newRouterSpec.getSchedulerType();
 
         List<URI> updatedAllClusters = newGroups.values().stream()
@@ -206,6 +213,19 @@ public class ClusterManager
         config.getScheduler().setCandidates(healthyClusterURIs);
         if (config.getSchedulerType() == WEIGHTED_RANDOM_CHOICE || config.getSchedulerType() == WEIGHTED_ROUND_ROBIN) {
             config.getScheduler().setWeights(config.getServerWeights().get(groupSpec.getName()));
+        }
+        else if (config.getSchedulerType() == CUSTOM_PLUGIN_SCHEDULER) {
+            try {
+                //Set remote cluster infos in the custom plugin scheduler
+                Map<URI, RemoteClusterInfo> healthyRemoteClusterInfos = Maps.filterValues(remoteClusterInfos, RemoteState::isHealthy);
+                config.getScheduler().setClusterInfos(ImmutableMap.copyOf(healthyRemoteClusterInfos));
+
+                return config.getScheduler().getDestination(requestInfo.getUser(), requestInfo.getQuery());
+            }
+            catch (Exception e) {
+                log.error("Custom Plugin Scheduler failed to schedule the query!", e);
+                return Optional.empty();
+            }
         }
 
         if (config.getSchedulerType() == ROUND_ROBIN || config.getSchedulerType() == WEIGHTED_ROUND_ROBIN) {

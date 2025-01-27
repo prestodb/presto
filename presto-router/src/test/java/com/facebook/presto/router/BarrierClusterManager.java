@@ -16,6 +16,7 @@ package com.facebook.presto.router;
 import com.facebook.airlift.bootstrap.LifeCycleManager;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
+import com.facebook.presto.router.scheduler.CustomSchedulerManager;
 
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
@@ -27,9 +28,9 @@ public class BarrierClusterManager
 {
     private final CyclicBarrier barrier;
 
-    public BarrierClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, CyclicBarrier barrier, LifeCycleManager lifeCycleManager)
+    public BarrierClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, CyclicBarrier barrier, LifeCycleManager lifeCycleManager, CustomSchedulerManager schedulerManager)
     {
-        super(config, remoteInfoFactory, lifeCycleManager);
+        super(config, remoteInfoFactory, lifeCycleManager, schedulerManager);
         this.barrier = barrier;
         startConfigReloadTaskFileWatcher();
     }

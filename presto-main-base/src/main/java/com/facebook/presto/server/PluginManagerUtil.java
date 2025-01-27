@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.RouterPlugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -139,6 +140,7 @@ public class PluginManagerUtil
                 pluginServicesFile,
                 parent);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(pluginClassLoader)) {
+            loadPlugin(pluginClassLoader, RouterPlugin.class, pluginInstaller);
             loadPlugin(pluginClassLoader, CoordinatorPlugin.class, pluginInstaller);
             loadPlugin(pluginClassLoader, Plugin.class, pluginInstaller);
         }
@@ -164,6 +166,9 @@ public class PluginManagerUtil
             }
             else if (plugin instanceof CoordinatorPlugin) {
                 pluginInstaller.installCoordinatorPlugin((CoordinatorPlugin) plugin);
+            }
+            else if (plugin instanceof RouterPlugin) {
+                pluginInstaller.installRouterPlugin((RouterPlugin) plugin);
             }
             else {
                 log.warn("Unknown plugin type: %s", plugin.getClass().getName());

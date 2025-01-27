@@ -21,6 +21,8 @@ import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.RouterPlugin;
+import com.facebook.presto.spi.router.SchedulerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +32,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -51,6 +54,13 @@ public class RouterPluginManager
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
     private final PluginInstaller pluginInstaller;
     private final PrestoAuthenticatorManager prestoAuthenticatorManager;
+
+    List<SchedulerFactory> registeredSchedulerFactoryList = new ArrayList<>();
+
+    public List<SchedulerFactory> getRegisteredSchedulerFactoryList()
+    {
+        return registeredSchedulerFactoryList;
+    }
 
     @Inject
     public RouterPluginManager(
@@ -103,6 +113,14 @@ public class RouterPluginManager
         }
     }
 
+    public void installRouterPlugin(RouterPlugin plugin)
+    {
+        for (SchedulerFactory schedulerFactory : plugin.getSchedulerFactories()) {
+            log.info("Registering router scheduler  %s", schedulerFactory.getName());
+            registeredSchedulerFactoryList.add(schedulerFactory);
+        }
+    }
+
     private static class RouterPluginInstaller
             implements PluginInstaller
     {
@@ -123,6 +141,12 @@ public class RouterPluginManager
         public void installCoordinatorPlugin(CoordinatorPlugin plugin)
         {
             throw new UnsupportedOperationException("Cannot install coordinator plugins on router");
+        }
+
+        @Override
+        public void installRouterPlugin(RouterPlugin plugin)
+        {
+            pluginManager.installRouterPlugin(plugin);
         }
     }
 }
