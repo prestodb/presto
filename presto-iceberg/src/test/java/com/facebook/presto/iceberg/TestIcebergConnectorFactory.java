@@ -18,6 +18,7 @@ import com.facebook.presto.testing.TestingConnectorContext;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.lang.management.ManagementFactory;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -38,7 +39,7 @@ public class TestIcebergConnectorFactory
 
     private static void createConnector(Map<String, String> config)
     {
-        ConnectorFactory factory = new IcebergConnectorFactory();
+        ConnectorFactory factory = new IcebergConnectorFactory(ManagementFactory.getPlatformMBeanServer());
         factory.create("iceberg-test", config, new TestingConnectorContext())
                 .shutdown();
     }
