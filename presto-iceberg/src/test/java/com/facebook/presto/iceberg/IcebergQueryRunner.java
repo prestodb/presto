@@ -38,6 +38,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.tpch.TpchTable;
 
+import javax.management.MBeanServer;
+import javax.management.MBeanServerFactory;
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -197,7 +200,13 @@ public final class IcebergQueryRunner
         queryRunner.installPlugin(new TpcdsPlugin());
         queryRunner.createCatalog("tpcds", "tpcds");
 
-        queryRunner.installPlugin(new IcebergPlugin());
+        queryRunner.getServers().forEach(server -> {
+            MBeanServer mBeanServer = MBeanServerFactory.newMBeanServer();
+            server.installPlugin(new IcebergPlugin(mBeanServer));
+            if (addJmxPlugin) {
+                server.installPlugin(new JmxPlugin(mBeanServer));
+            }
+        });
 
         String catalogType = extraConnectorProperties.getOrDefault("iceberg.catalog.type", HIVE.name());
         Path icebergDataDirectory = getIcebergDataDirectoryPath(queryRunner.getCoordinator().getDataDirectory(), catalogType, format, addStorageFormatToPath);
@@ -211,7 +220,6 @@ public final class IcebergQueryRunner
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
 
         if (addJmxPlugin) {
-            queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
         }
 

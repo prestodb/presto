@@ -45,7 +45,7 @@ public class TestIcebergParquetMetadataCaching
                 PARQUET,
                 false,
                 true,
-                OptionalInt.of(1),
+                OptionalInt.of(2),
                 Optional.empty());
     }
 
