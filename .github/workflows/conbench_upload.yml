@@ -108,7 +108,7 @@ jobs:
           --run_id "GHA-${{ github.run_id }}-${{ github.run_attempt }}" \
           --pr_number "${{ steps.extract.outputs.pr_number }}" \
           --sha "${{ steps.download.outputs.contender_sha }}" \
-          --output_dir "/tmp/artifacts/benchmark-results/contender/"
+          --output_dir "/tmp/artifacts/contender/"
 
     - name: "Check the status of the upload"
       # Status functions like failure() only work in `if:`
