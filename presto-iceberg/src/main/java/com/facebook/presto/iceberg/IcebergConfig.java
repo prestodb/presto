@@ -50,6 +50,7 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private CatalogType catalogType = HIVE;
     private String catalogWarehouse;
+    private String catalogWarehouseDataDir;
     private int catalogCacheSize = 10;
     private int maxPartitionsPerWriter = 100;
     private List<String> hadoopConfigResources = ImmutableList.of();
@@ -124,6 +125,19 @@ public class IcebergConfig
     public IcebergConfig setCatalogWarehouse(String catalogWarehouse)
     {
         this.catalogWarehouse = catalogWarehouse;
+        return this;
+    }
+
+    public String getCatalogWarehouseDataDir()
+    {
+        return catalogWarehouseDataDir;
+    }
+
+    @Config("iceberg.catalog.warehouse.datadir")
+    @ConfigDescription("Iceberg catalog default root data writing directory")
+    public IcebergConfig setCatalogWarehouseDataDir(String catalogWarehouseDataDir)
+    {
+        this.catalogWarehouseDataDir = catalogWarehouseDataDir;
         return this;
     }
 
