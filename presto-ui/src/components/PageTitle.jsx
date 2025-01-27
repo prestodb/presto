@@ -72,7 +72,7 @@ export class PageTitle extends React.Component<Props, State> {
                     lastSuccess: Date.now(),
                     modalShown: false,
                 });
-                //$FlowFixMe$ Bootstrap 3 plugin
+                //$FlowFixMe$ Bootstrap 5 plugin
                 $('#no-connection-modal').hide();
                 this.resetTimer();
             })
@@ -85,7 +85,7 @@ export class PageTitle extends React.Component<Props, State> {
                 this.resetTimer();
 
                 if (!this.state.modalShown && (error || (Date.now() - this.state.lastSuccess) > 30 * 1000)) {
-                    //$FlowFixMe$ Bootstrap 3 plugin
+                    //$FlowFixMe$ Bootstrap 5 plugin
                     $('#no-connection-modal').modal();
                     this.setState({modalShown: true});
                 }
@@ -139,7 +139,7 @@ export class PageTitle extends React.Component<Props, State> {
                             <span className="navbar-toggler-icon"></span>
                             </button>
                         <div id="navbar" className="navbar-collapse collapse">
-                            <ul className="nav navbar-nav navbar-right">
+                            <ul className="nav navbar-nav navbar-right ms-auto">
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Version</span><br/>
@@ -155,7 +155,7 @@ export class PageTitle extends React.Component<Props, State> {
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Uptime</span><br/>
-                                        <span data-bs-toggle="tooltip" data-placement="bottom" title="Connection status">
+                                        <span data-bs-toggle="tooltip" data-bs-placement="bottom" title="Connection status">
                                         {this.renderStatusLight()}
                                          </span>
                                         &nbsp;

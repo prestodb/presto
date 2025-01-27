@@ -554,7 +554,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
 
     const renderTaskFilterListItem = (taskFilter: TaskFilter) => {
         return (
-            <li><a href="#" className={state.taskFilter === taskFilter ? "selected" : ""}
+            <li><a href="#" className={`dropdown-item text-dark ${state.taskFilter === taskFilter ? "selected" : ""}`}
                 onClick={(event) => handleTaskFilterClick(taskFilter, event)}>{taskFilter.text}</a></li>
         );
     }
@@ -570,13 +570,13 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                         <tbody>
                             <tr>
                                 <td>
-                                    <div className="input-group-btn text-right">
-                                        <button type="button" className="btn btn-default dropdown-toggle pull-right text-right"
+                                    <div className="btn-group text-right">
+                                        <button type="button" className="btn dropdown-toggle bg-white text-dark float-end text-right rounded-0"
                                             data-bs-toggle="dropdown" aria-haspopup="true"
                                             aria-expanded="false">
                                             Show: {state.taskFilter.text} <span className="caret" />
                                         </button>
-                                        <ul className="dropdown-menu">
+                                        <ul className="dropdown-menu bg-white text-dark rounded-0">
                                             {renderTaskFilterListItem(TASK_FILTER.ALL)}
                                             {renderTaskFilterListItem(TASK_FILTER.PLANNED)}
                                             {renderTaskFilterListItem(TASK_FILTER.RUNNING)}
@@ -1215,10 +1215,18 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
         return;
     }
 
+    useEffect(() => {
+        /* $FlowIgnore[cannot-resolve-name] */
+        $('#query').each((i, block) => {
+            /* $FlowIgnore[cannot-resolve-name] */
+            hljs.highlightBlock(block);
+        });
+    }, [data]);
+
     const elapsedTime = (parseDuration(data.queryStats.elapsedTime) || 0) / 1000.0;
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div className="row">
                 <div className="col-6">
                     <h3>Session</h3>

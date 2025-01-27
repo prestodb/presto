@@ -99,8 +99,8 @@ export default function PlanView({show, data}) {
 
         // Zoom doesn't deal well with DOM changes
         const initialScale = Math.min(width / graphWidth, height / graphHeight);
-        const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom", function () {
-            inner.attr("transform", d3.event.transform);
+        const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom",(event) => {
+            inner.attr("transform", event.transform);
         });
 
         svg.call(zoom);
@@ -114,11 +114,11 @@ export default function PlanView({show, data}) {
             widgets.current.svg = d3.select("#plan-canvas");
         }
         updateD3Graph();
-        $('[data-bs-toggle="tooltip"]').tooltip()
+        $('[data-bs-toggle="tooltip"]')?.tooltip()
     }, [data, show]);
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div className="row">
             <div className="col-12">
                 <div id="plan-viewer" className="graph-container">

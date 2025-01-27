@@ -133,7 +133,7 @@ export class PlanNode extends React.Component<PlanNodeProps, PlanNodeState> {
 
     render(): any {
         return (
-            <div style={{color: "#000"}} data-bs-toggle="tooltip" data-placement="bottom" data-container="body" data-html="true"
+            <div style={{color: "#000"}} data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-container="body" data-bs-html="true"
                  title={"<h4>" + this.props.name + "</h4>" + this.props.identifier}>
                 <strong>{this.props.name}</strong>
                 <div>
@@ -310,7 +310,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
     componentDidUpdate() {
         this.updateD3Graph();
         //$FlowFixMe
-        $('[data-bs-toggle="tooltip"]').tooltip()
+        $('[data-bs-toggle="tooltip"]')?.tooltip()
     }
 
     render(): any {
@@ -340,16 +340,14 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
             )
         }
 
-        // TODO: Refactor components to move refreshLoop to parent rather than using this property
-        const queryHeader = this.props.isEmbedded ? null : <QueryHeader query={query}/>;
         return (
             <div>
-                {queryHeader}
+                {!this.props.isEmbedded && <QueryHeader query={query}/>}
                 <div className="row">
                     <div className="col-12">
                         {loadingMessage}
                         <div id="live-plan" className="graph-container">
-                            <div className="pull-right">
+                            <div className="float-end">
                                 {this.state.ended ? "Scroll to zoom." : "Zoom disabled while query is running." } Click stage to view additional statistics
                             </div>
                             <svg id="plan-canvas"/>
