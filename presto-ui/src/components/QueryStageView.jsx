@@ -24,7 +24,6 @@ import {
     formatCount,
     formatDataSize,
     formatDuration,
-    getChildren,
     getTaskNumber,
     parseDataSize,
     parseDuration
@@ -47,7 +46,7 @@ function OperatorSummary({ operator }) {
     const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
     return (
-        <div>
+        <div className="header-data">
             <div className="highlight-row">
                 <div className="header-row">
                     {operator.operatorType}
@@ -107,6 +106,7 @@ function OperatorSummary({ operator }) {
 const BAR_CHART_PROPERTIES = {
     barColor: '#747F96',
     barSpacing: '0',
+    chartRangeMin: 0,
     disableHiddenCheck: true,
     height: '80px',
     tooltipClassname: 'sparkline-tooltip',
@@ -210,121 +210,123 @@ function OperatorDetail({ index, operator, tasks }) {
     const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.outputDataSize)) / (totalWallTime / 1000.0);
 
     return (
-        <div className="row" key={index}>
-            <div className="col-12">
-                <div className="modal-header">
-                    <button type="button" className="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                    <h3>
-                        <small>Pipeline {operator.pipelineId}</small>
-                        <br />
-                        {operator.operatorType}
-                    </h3>
+        <div className="col-12 container mx-2">
+            <div className="modal-header">
+                <h3 className="modal-title fs-5">
+                    <small>Pipeline {operator.pipelineId}</small>
+                    <br />
+                    {operator.operatorType}
+                </h3>
+                <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="row modal-body">
+                <div className="col-12">
+                    <div className="row">
+                        <div className="col-6">
+                            <table className="table">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            Input
+                                        </td>
+                                        <td>
+                                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Input Rate
+                                        </td>
+                                        <td>
+                                            {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Output
+                                        </td>
+                                        <td>
+                                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Output Rate
+                                        </td>
+                                        <td>
+                                            {formatCount(rowOutputRate) + " rows/s (" + formatDataSize(byteOutputRate) + "/s)"}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="col-6">
+                            <table className="table">
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            Wall Time
+                                        </td>
+                                        <td>
+                                            {formatDuration(totalWallTime)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Blocked
+                                        </td>
+                                        <td>
+                                            {formatDuration(parseDuration(operator.blockedWall))}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Drivers
+                                        </td>
+                                        <td>
+                                            {operator.totalDrivers}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Tasks
+                                        </td>
+                                        <td>
+                                            {operatorTasks.length}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div className="row font-white">
+                        <div className="col-2 italic-uppercase">
+                            <strong>
+                                Statistic
+                            </strong>
+                        </div>
+                        <div className="col-10 italic-uppercase">
+                            <strong>
+                                Tasks
+                            </strong>
+                        </div>
+                    </div>
+                    {
+                        selectedStatistics.map((statistic) => {
+                            return (
+                                <OperatorStatistic
+                                    key={statistic.id}
+                                    id={statistic.id}
+                                    name={statistic.name}
+                                    supplier={statistic.supplier}
+                                    renderer={statistic.renderer}
+                                    operators={operatorTasks} />
+                            );
+                        })
+                    }
+                    <p />
+                    <p />
                 </div>
-                <div className="row">
-                    <div className="col-6">
-                        <table className="table">
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        Input
-                                    </td>
-                                    <td>
-                                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Input Rate
-                                    </td>
-                                    <td>
-                                        {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Output
-                                    </td>
-                                    <td>
-                                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Output Rate
-                                    </td>
-                                    <td>
-                                        {formatCount(rowOutputRate) + " rows/s (" + formatDataSize(byteOutputRate) + "/s)"}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="col-6">
-                        <table className="table">
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        Wall Time
-                                    </td>
-                                    <td>
-                                        {formatDuration(totalWallTime)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Blocked
-                                    </td>
-                                    <td>
-                                        {formatDuration(parseDuration(operator.blockedWall))}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Drivers
-                                    </td>
-                                    <td>
-                                        {operator.totalDrivers}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Tasks
-                                    </td>
-                                    <td>
-                                        {operatorTasks.length}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div className="row font-white">
-                    <div className="col-2 italic-uppercase">
-                        <strong>
-                            Statistic
-                        </strong>
-                    </div>
-                    <div className="col-10 italic-uppercase">
-                        <strong>
-                            Tasks
-                        </strong>
-                    </div>
-                </div>
-                {
-                    selectedStatistics.map((statistic) => {
-                        return (
-                            <OperatorStatistic
-                                key={statistic.id}
-                                id={statistic.id}
-                                name={statistic.name}
-                                supplier={statistic.supplier}
-                                renderer={statistic.renderer}
-                                operators={operatorTasks} />
-                        );
-                    })
-                }
-                <p />
-                <p />
             </div>
         </div>
     );
@@ -395,23 +397,29 @@ function StageOperatorGraph({ id, stage }) {
         }
     }, [stage]);
 
-    const handleOperatorClick = (operatorCssId) => {
-        $('#operator-detail-modal').modal();
+    const handleOperatorClick = (event) => {
+        // fix this: need to figure out how to get the proper <div> node
+        if (event.target.hasOwnProperty("__data__") && event.target.__data__ !== undefined) {
+            $('#operator-detail-modal').modal("show")
 
-        const pipelineId = parseInt(operatorCssId.split('-')[1]);
-        const operatorId = parseInt(operatorCssId.split('-')[2]);
-        let operatorStageSummary = null;
-        const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
-        for (let i = 0; i < operatorSummaries.length; i++) {
-            if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
-                operatorStageSummary = operatorSummaries[i];
+            const pipelineId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[1] || '0') : 0;
+            const operatorId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[2] || '0') : 0;
+
+            let operatorStageSummary = null;
+            const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
+            for (let i = 0; i < operatorSummaries.length; i++) {
+                if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
+                    operatorStageSummary = operatorSummaries[i];
+                }
             }
-        }
 
-        if (!detailContainer.current) {
-            detailContainer.current = createRoot(document.getElementById('operator-detail'));
+            if (!detailContainer.current) {
+                detailContainer.current = createRoot(document.getElementById('operator-detail'));
+            }
+            detailContainer.current.render(<OperatorDetail index={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
+        } else {
+            return;
         }
-        detailContainer.current.render(<OperatorDetail index={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
     }
 
     const computeD3StageOperatorGraph = (graph, operator, sink, pipelineNode) => {
@@ -511,22 +519,31 @@ export default function StageView({ data, show }) {
     const stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage} />;
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div className="row">
                 <div className="col-12">
-                    <div className="row">
-                        <div className="col-2">
+                    <div className="row justify-content-between">
+                        <div className="col-2 align-self-end">
                             <h3>Stage {stage.plan.id}</h3>
                         </div>
-                        <div className="col-8" />
-                        <div className="col-2 stage-dropdown">
-                            <div className="input-group-btn">
-                                <button type="button" className="btn btn-default dropdown-toggle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                    Select Stage <span className="caret" />
-                                </button>
-                                <ul className="dropdown-menu">
-                                    {allStages.map(stageId => (<li key={stageId}><a onClick={() => setState({ selectedStageId: stageId })}>{stageId}</a></li>))}
-                                </ul>
+                        <div className="col-2 align-self-end">
+                            <div className="stage-dropdown" role="group">
+                                <div className="btn-group">
+                                    <button type="button" className="btn btn-secondary dropdown-toggle"
+                                        data-bs-toggle="dropdown" aria-haspopup="true"
+                                        aria-expanded="false">Select Stage<span className="caret"/>
+                                    </button>
+                                    <ul className="dropdown-menu">
+                                        {
+                                            allStages.map(stageId => (
+                                                <li key={stageId}>
+                                                    <a className={clsx('dropdown-item', stage.plan.id === stageId && 'active')}
+                                                        onClick={() => setState({selectedStageId: stageId})}>{stageId}</a>
+                                                </li>
+                                            ))
+                                        }
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -538,11 +555,9 @@ export default function StageView({ data, show }) {
                     <svg id="operator-canvas" />
                     {stageOperatorGraph}
                 </div>
-                <div id="operator-detail-modal" className="modal" tabIndex="-1" role="dialog">
+                <div id="operator-detail-modal" className="modal fade" tabIndex="-1" role="dialog" aria-hidden="true">
                     <div className="modal-dialog modal-lg" role="document">
-                        <div className="modal-content">
-                            <div id="operator-detail" className="container"></div>
-                        </div>
+                        <div id="operator-detail" className="row modal-content"></div>
                     </div>
                 </div>
             </div>

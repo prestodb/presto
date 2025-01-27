@@ -104,13 +104,13 @@ function SQLDropDown({ text, values, onSelect }) {
     }
 
     return (
-        <div className="btn-group dropdown">
-            <button type="button" className="btn btn-default dropdown-toggle"
+        <div className="btn-group">
+            <button type="button" className="btn btn-secondary dropdown-toggle"
                 data-bs-toggle="dropdown" aria-haspopup="true"
                 aria-expanded="false">{text}</button>
             <ul className="dropdown-menu">
                 {items.map((item, idx) => (
-                    <li key={idx}><a href="#" className={clsx(data.current === item && 'selected')} onClick={() => selectItem(item)}>{item}</a></li>
+                    <li key={idx}><a href="#" className={clsx('dropdown-item', data.current === item && 'active')} onClick={() => selectItem(item)}>{item}</a></li>
                 ))}
             </ul>
         </div>
@@ -204,12 +204,14 @@ export function SQLInput({ handleSQL, show, enabled, initialSQL, errorHandler })
     }, [initialSQL]);
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div className="row">
                 <div className="col-12">
                     <div className='input-group' role='group'>
                         <SQLDropDown text='Catalog' values={data.catalogs} onSelect={setCatalog} />
+                        &nbsp;
                         <SQLDropDown text='Schema' values={data.schemas} onSelect={setSchema} />
+                        &nbsp;
                         <div className="btn-group">
                             <button className={clsx('btn', 'btn-success', !enabled && 'disabled')} type="button" onClick={checkValue}>Run</button>
                         </div>

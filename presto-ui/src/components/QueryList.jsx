@@ -144,15 +144,15 @@ export class QueryListItem extends React.Component {
 
         const splitDetails = (
             <div className="col-12 tinystat-row">
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="Completed splits">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
                     <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatCount(query.progress.completedDrivers)}
                 </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="Running splits">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
                     <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
                 </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="Queued splits">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
                     <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
                     </span>
@@ -160,15 +160,15 @@ export class QueryListItem extends React.Component {
 
         const timingDetails = (
             <div className="col-12 tinystat-row">
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="Wall time spent executing the query (not including queued time)">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Wall time spent executing the query (not including queued time)">
                     <span className="bi bi-hourglass-split" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDuration(query.progress.executionTimeMillis)}
                 </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="Total query wall time">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Total query wall time">
                     <span className="bi bi-clock" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDuration(query.progress.elapsedTimeMillis)}
                 </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="CPU time spent by this query">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="CPU time spent by this query">
                     <span className="bi bi-speedometer2" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDuration(query.progress.cpuTimeMillis)}
                 </span>
@@ -176,15 +176,15 @@ export class QueryListItem extends React.Component {
 
         const memoryDetails = (
             <div className="col-12 tinystat-row">
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="Current reserved memory">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Current reserved memory">
                     <span className="bi bi-calendar2-event" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDataSize(query.progress.currentMemoryBytes)}
                 </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="Peak memory">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Peak memory">
                     <span className="bi bi-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDataSize(query.progress.peakMemoryBytes)}
                 </span>
-                <span className="tinystat" data-bs-toggle="tooltip" data-placement="top" title="Cumulative user memory">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Cumulative user memory">
                     <span className="bi bi-reception-3" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDataSizeBytes(query.progress.cumulativeUserMemory / 1000.0)}
                 </span>
@@ -202,17 +202,17 @@ export class QueryListItem extends React.Component {
                 <div className="row">
                     <div className="col-4">
                         <div className="row stat-row query-header query-header-queryid">
-                            <div className="col-9" data-placement="bottom">
+                            <div className="col-9" data-bs-placement="bottom">
                                 <a href={"query.html?" + query.queryId} target="_blank" data-bs-toggle="tooltip" data-trigger="hover" title="Query ID">{query.queryId}</a>
                                 {this.renderWarning()}
                             </div>
-                            <div className="col-3 query-header-timestamp" data-bs-toggle="tooltip" data-placement="bottom" title="Submit time">
+                            <div className="col-3 query-header-timestamp" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Submit time">
                                 <span>{formatShortTime(new Date(Date.parse(query.createTime)))}</span>
                             </div>
                         </div>
                         <div className="row stat-row">
                             <div className="col-12">
-                                <span data-bs-toggle="tooltip" data-placement="right" title="User">
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="User">
                                     <span className="bi bi-person-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
                                     <span>{user}</span>
                                 </span>
@@ -220,7 +220,7 @@ export class QueryListItem extends React.Component {
                         </div>
                         <div className="row stat-row">
                             <div className="col-12">
-                                <span data-bs-toggle="tooltip" data-placement="right" title="Source">
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Source">
                                     <span className="bi bi-arrow-right-square-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
                                     <span>{truncateString(query.source, 35)}</span>
                                 </span>
@@ -228,7 +228,7 @@ export class QueryListItem extends React.Component {
                         </div>
                         <div className="row stat-row">
                             <div className="col-12">
-                                <span data-bs-toggle="tooltip" data-placement="right" title="Resource Group">
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Resource Group">
                                     <span className="bi bi-sign-merge-left-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
                                     <span>
                                         <ResourceGroupLinks groupId={query.resourceGroupId} length="35"/>
@@ -538,7 +538,7 @@ export class QueryList extends React.Component {
             return (
                 <li>
                     <a href="#" className="dropdown-item text-dark" onClick={this.handleSortClick.bind(this, sortType)}>
-                        {sortText} 
+                        {sortText}
                     </a>
                 </li>);
         }
@@ -648,18 +648,15 @@ export class QueryList extends React.Component {
 
         return (
             <div>
-                <div className="row toolbar-row justify-content-center">
-                    <div className="col-12 input-group gap-1 toolbar-col">    
-                        <div className="input-group-prepend">
+                <div className="row toolbar-row">
+                    <div className="col-12 input-group gap-1 toolbar-col d-flex">
+                        <div className="input-group-prepend flex-grow-1">
                             <input type="text" className="form-control search-bar rounded-0" placeholder="User, source, query ID, resource group, or query text"
+                                onChange={this.handleSearchStringChange} value={this.state.searchString} style={{backgroundColor: "white" ,color: 'black', fontSize: '12px', borderColor:"#CCCCCC"}} />
+                        </div>
 
-                                onChange={this.handleSearchStringChange} value={this.state.searchString} style={{backgroundColor: "white", flex:"0 1 500.586px", width:"500.586px" ,color: 'black', fontSize: '12px', borderColor:"#CCCCCC"}} />
-                                   </div> 
-                            <div className="input-group-prepend">
-                            <span className="input-group-text rounded-0" style={{backgroundColor: "white", color: 'black', height:"2rem", fontSize:'12px', borderColor:"#454A58" }}>State:</span>
-
-                            </div>
-                            <div className="input-group-btn">
+                            <div className="input-group-btn d-flex align-items-center ms-auto">
+                                 <span className="input-group-text input-group-prepend rounded-0" style={{backgroundColor: "white", color: 'black', height:"2rem", fontSize:'12px', borderColor:"#454A58" }}>State:</span>
                                 {this.renderFilterButton(FILTER_TYPE.RUNNING, "Running")}
                                 {this.renderFilterButton(FILTER_TYPE.QUEUED, "Queued")}
                                 {this.renderFilterButton(FILTER_TYPE.FINISHED, "Finished")}
@@ -672,7 +669,7 @@ export class QueryList extends React.Component {
                                     {this.renderErrorTypeListItem(ERROR_TYPE.INSUFFICIENT_RESOURCES, "Resources Error")}
                                     {this.renderErrorTypeListItem(ERROR_TYPE.USER_ERROR, "User Error")}
                                 </ul>
-                            
+
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
@@ -717,7 +714,7 @@ export class QueryList extends React.Component {
                             </div>
                         </div>
                     </div>
-                
+
                 {queryList}
             </div>
         );
