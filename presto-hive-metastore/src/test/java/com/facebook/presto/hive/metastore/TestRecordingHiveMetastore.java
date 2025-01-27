@@ -97,6 +97,7 @@ public class TestRecordingHiveMetastore
             ImmutableMap.of("param", "value2"),
             ImmutableMap.of());
     private static final Table TABLE = new Table(
+            Optional.of("catalog"),
             "database",
             "table",
             "owner",

@@ -85,6 +85,7 @@ public class TestHudiDirectoryLister
     private Table getMockTable()
     {
         return new Table(
+                Optional.of("catalog"),
                 "schema",
                 "hudi_non_part_cow",
                 "user",
@@ -167,6 +168,7 @@ public class TestHudiDirectoryLister
     public void testDirectoryListerForNonHudiTable()
     {
         Table mockTable = new Table(
+                Optional.of("catalog"),
                 "schema",
                 "non_hudi_table",
                 "user",

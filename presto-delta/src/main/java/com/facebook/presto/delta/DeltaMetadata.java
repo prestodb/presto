@@ -16,6 +16,7 @@ package com.facebook.presto.delta;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -69,6 +70,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_SEPARATOR;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_THRIFT_NAME_MARKER;
 
 public class DeltaMetadata
         implements ConnectorMetadata
@@ -87,6 +90,7 @@ public class DeltaMetadata
     private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final DeltaConfig config;
+    private final String catalogName;
 
     @Inject
     public DeltaMetadata(
@@ -94,13 +98,14 @@ public class DeltaMetadata
             DeltaClient deltaClient,
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
-            DeltaConfig config)
+            DeltaConfig config, HiveCommonClientConfig commonConfig)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.deltaClient = requireNonNull(deltaClient, "deltaClient is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.config = requireNonNull(config, "config is null");
+        this.catalogName = commonConfig.getCatalogName();
     }
 
     @Override
@@ -131,15 +136,16 @@ public class DeltaMetadata
     {
         DeltaTableHandle handle = (DeltaTableHandle) tableHandle;
         MetastoreContext metastoreContext = metastoreContext(session);
+        String schemaName = constructSchemaName(handle.getDeltaTable().getSchemaName());
 
-        Optional<Table> target = metastore.getTable(metastoreContext, handle.getDeltaTable().getSchemaName(), handle.getDeltaTable().getTableName());
+        Optional<Table> target = metastore.getTable(metastoreContext, schemaName, handle.getDeltaTable().getTableName());
         if (!target.isPresent()) {
             throw new TableNotFoundException(handle.toSchemaTableName());
         }
 
         metastore.dropTable(
                 metastoreContext,
-                handle.getDeltaTable().getSchemaName(),
+                schemaName,
                 handle.getDeltaTable().getTableName(),
                 false);
     }
@@ -164,6 +170,7 @@ public class DeltaMetadata
         }
 
         Table.Builder tableBuilder = Table.builder()
+                .setCatalogName(Optional.ofNullable(catalogName))
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setOwner(session.getUser())
@@ -195,7 +202,7 @@ public class DeltaMetadata
             tableLocation = deltaTableName.getTableNameOrPath();
         }
         else {
-            Optional<Table> metastoreTable = metastore.getTable(metastoreContext(session), schemaName, deltaTableName.getTableNameOrPath());
+            Optional<Table> metastoreTable = metastore.getTable(metastoreContext(session), constructSchemaName(schemaName), deltaTableName.getTableNameOrPath());
             if (!metastoreTable.isPresent()) {
                 return null; // indicates table doesn't exist
             }
@@ -283,7 +290,7 @@ public class DeltaMetadata
         List<String> schemaNames = schemaName.<List<String>>map(ImmutableList::of).orElse(listSchemaNames(session));
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schema : schemaNames) {
-            for (String tableName : metastore.getAllTables(metastoreContext(session), schema).orElse(emptyList())) {
+            for (String tableName : metastore.getAllTables(metastoreContext(session), constructSchemaName(schema)).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schema, tableName));
             }
         }
@@ -381,5 +388,24 @@ public class DeltaMetadata
     private void checkConnectorId(DeltaTableHandle tableHandle)
     {
         checkArgument(tableHandle.getConnectorId().equals(connectorId), "table handle is not for this connector");
+    }
+
+    /**
+     * Constructs the schema name, including catalog name if applicable.
+     *
+     * @param schemaName the original schema name
+     * @return the formatted schema name
+     */
+    private String constructSchemaName(String schemaName)
+    {
+        if (catalogName != null && schemaName != null && !schemaName.contains(CATALOG_DB_SEPARATOR)) {
+            return String.format(
+                    "%s%s%s%s",
+                    CATALOG_DB_THRIFT_NAME_MARKER,
+                    catalogName,
+                    CATALOG_DB_SEPARATOR,
+                    schemaName);
+        }
+        return schemaName;
     }
 }

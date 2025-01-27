@@ -161,6 +161,7 @@ public class TestQuickStatsProvider
                 0,
                 Optional.empty());
         Table mockTable = new Table(
+                Optional.of("test_catalog"),
                 TEST_SCHEMA,
                 TEST_TABLE,
                 "owner",

@@ -77,7 +77,7 @@ public class TestIcebergDistributedHive
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
-                SchemaTableName.valueOf("tpch." + tableName));
+                SchemaTableName.valueOf("tpch." + tableName), "hive");
     }
 
     protected ExtendedHiveMetastore getFileHiveMetastore()

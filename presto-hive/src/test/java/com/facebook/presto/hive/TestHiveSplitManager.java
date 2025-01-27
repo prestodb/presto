@@ -163,7 +163,8 @@ public class TestHiveSplitManager
 
     private static Table createTestTable(StorageFormat storageFormat, Map<String, String> parameters)
     {
-        return new Table("test_db",
+        return new Table(Optional.of("test_catalog"),
+                "test_db",
                 "test_table",
                 "test_owner",
                 MANAGED_TABLE,

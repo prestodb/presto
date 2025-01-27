@@ -139,6 +139,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_SEPARATOR;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_THRIFT_NAME_MARKER;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
@@ -165,7 +167,7 @@ public class IcebergHiveMetadata
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
             StatisticsFileCache statisticsFileCache,
-             String catalogName)
+            String catalogName)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -180,9 +182,16 @@ public class IcebergHiveMetadata
     }
 
     @Override
+    public boolean schemaExists(ConnectorSession session, String schemaName)
+    {
+        Optional<Database> database = metastore.getDatabase(getMetastoreContext(session), constructSchemaName(schemaName));
+        return database.isPresent();
+    }
+
+    @Override
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, session, schemaTableName);
+        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, session, schemaTableName, catalogName);
     }
 
     @Override
@@ -195,7 +204,7 @@ public class IcebergHiveMetadata
     protected boolean tableExists(ConnectorSession session, SchemaTableName schemaTableName)
     {
         IcebergTableName name = IcebergTableName.from(schemaTableName.getTableName());
-        Optional<Table> hiveTable = metastore.getTable(getMetastoreContext(session), schemaTableName.getSchemaName(), name.getTableName());
+        Optional<Table> hiveTable = metastore.getTable(getMetastoreContext(session), constructSchemaName(schemaTableName.getSchemaName()), name.getTableName());
         if (!hiveTable.isPresent()) {
             return false;
         }
@@ -216,7 +225,7 @@ public class IcebergHiveMetadata
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
         // If schema name is not present, list tables from all schemas
-        List<String> schemaNames = schemaName
+        List<String> schemaNames = Optional.of(constructSchemaName(schemaName.get()))
                 .map(ImmutableList::of)
                 .orElseGet(() -> ImmutableList.copyOf(listSchemaNames(session)));
         return schemaNames.stream()
@@ -256,20 +265,23 @@ public class IcebergHiveMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
+        String finalSchemaName = constructSchemaName(schemaName);
         // basic sanity check to provide a better error message
-        if (!listTables(session, Optional.of(schemaName)).isEmpty() ||
-                !listViews(session, Optional.of(schemaName)).isEmpty()) {
+        if (!listTables(session, Optional.of(finalSchemaName)).isEmpty() ||
+                !listViews(session, Optional.of(finalSchemaName)).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.dropDatabase(metastoreContext, schemaName);
+
+        //TODO: throw error in case of exception
+        metastore.dropDatabase(metastoreContext, finalSchemaName);
     }
 
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.renameDatabase(metastoreContext, source, target);
+        metastore.renameDatabase(metastoreContext, constructSchemaName(source), target);
     }
 
     @Override
@@ -286,7 +298,7 @@ public class IcebergHiveMetadata
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Database database = metastore.getDatabase(metastoreContext, schemaName)
+        Database database = metastore.getDatabase(metastoreContext, constructSchemaName(schemaName))
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
@@ -308,6 +320,7 @@ public class IcebergHiveMetadata
                 hdfsEnvironment,
                 hdfsContext,
                 hiveTableOeprationsConfig,
+                catalogName,
                 schemaName,
                 tableName,
                 session.getUser(),
@@ -348,7 +361,7 @@ public class IcebergHiveMetadata
                 throw new PrestoException(NOT_SUPPORTED, "Table " + handle.getSchemaTableName() + " contains Iceberg path override properties and cannot be dropped from Presto");
             }
         }
-        metastore.dropTable(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName(), true);
+        metastore.dropTable(getMetastoreContext(session), constructSchemaName(handle.getSchemaName()), handle.getIcebergTableName().getTableName(), true);
     }
 
     @Override
@@ -356,7 +369,7 @@ public class IcebergHiveMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can be renamed");
-        metastore.renameTable(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName(), newTable.getSchemaName(), newTable.getTableName());
+        metastore.renameTable(getMetastoreContext(session), constructSchemaName(handle.getSchemaName()), handle.getIcebergTableName().getTableName(), newTable.getSchemaName(), newTable.getTableName());
     }
 
     @Override
@@ -364,22 +377,22 @@ public class IcebergHiveMetadata
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
         SchemaTableName viewName = viewMetadata.getTable();
+        String schemaName = constructSchemaName(viewName.getSchemaName());
         Table table = createTableObjectForViewCreation(
                 session,
                 viewMetadata,
                 createIcebergViewProperties(session, nodeVersion.toString()),
                 new HiveTypeTranslator(),
                 metastoreContext,
-                encodeViewData(viewData));
+                encodeViewData(viewData),
+                Optional.ofNullable(catalogName));
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
-
-        Optional<Table> existing = metastore.getTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName());
+        Optional<Table> existing = metastore.getTable(metastoreContext, schemaName, viewName.getTableName());
         if (existing.isPresent()) {
             if (!replace || !isPrestoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
-
-            metastore.replaceTable(metastoreContext, viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+            metastore.replaceTable(metastoreContext, schemaName, viewName.getTableName(), table, principalPrivileges);
             return;
         }
 
@@ -396,7 +409,7 @@ public class IcebergHiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        for (String schema : listSchemas(session, schemaName.orElse(null))) {
+        for (String schema : listSchemas(session, Optional.ofNullable(constructSchemaName(schemaName.get())).orElse(null))) {
             for (String tableName : metastore.getAllViews(metastoreContext, schema).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schema, tableName));
             }
@@ -409,11 +422,12 @@ public class IcebergHiveMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
         List<SchemaTableName> tableNames;
+        String schemaName = constructSchemaName(prefix.getSchemaName());
         if (prefix.getTableName() != null) {
-            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+            tableNames = ImmutableList.of(new SchemaTableName(schemaName, prefix.getTableName()));
         }
         else {
-            tableNames = listViews(session, Optional.of(prefix.getSchemaName()));
+            tableNames = listViews(session, Optional.of(schemaName));
         }
         MetastoreContext metastoreContext = getMetastoreContext(session);
         for (SchemaTableName schemaTableName : tableNames) {
@@ -430,11 +444,10 @@ public class IcebergHiveMetadata
     {
         ConnectorViewDefinition view = getViews(session, viewName.toSchemaTablePrefix()).get(viewName);
         checkIfNullView(view, viewName);
-
         try {
             metastore.dropTable(
                     getMetastoreContext(session),
-                    viewName.getSchemaName(),
+                    constructSchemaName(viewName.getSchemaName()),
                     viewName.getTableName(),
                     true);
         }
@@ -466,7 +479,7 @@ public class IcebergHiveMetadata
         TableStatistics mergedStatistics = Optional.of(mergeFlags)
                 .filter(set -> !set.isEmpty())
                 .map(flags -> {
-                    PartitionStatistics hiveStatistics = metastore.getTableStatistics(getMetastoreContext(session), handle.getSchemaName(), handle.getIcebergTableName().getTableName());
+                    PartitionStatistics hiveStatistics = metastore.getTableStatistics(getMetastoreContext(session), constructSchemaName(handle.getSchemaName()), handle.getIcebergTableName().getTableName());
                     return mergeHiveStatistics(icebergStatistics, hiveStatistics, mergeFlags, icebergTable.spec());
                 })
                 .orElse(icebergStatistics);
@@ -514,7 +527,7 @@ public class IcebergHiveMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Table table = metastore.getTable(metastoreContext, icebergTableHandle.getSchemaTableName().getSchemaName(), icebergTableHandle.getSchemaTableName().getTableName())
+        Table table = metastore.getTable(metastoreContext, constructSchemaName(icebergTableHandle.getSchemaTableName().getSchemaName()), icebergTableHandle.getSchemaTableName().getTableName())
                 .orElseThrow(() -> new TableNotFoundException(icebergTableHandle.getSchemaTableName()));
 
         List<Column> partitionColumns = table.getPartitionColumns();
@@ -531,7 +544,7 @@ public class IcebergHiveMetadata
         // commit analyze to unpartitioned table
         PartitionStatistics tableStatistics = createPartitionStatistics(session, columnTypes, computedStatisticsMap.get(ImmutableList.<String>of()), timeZone);
         metastore.updateTableStatistics(metastoreContext,
-                table.getDatabaseName(),
+                constructSchemaName(table.getDatabaseName()),
                 table.getTableName(),
                 oldStats -> updatePartitionStatistics(oldStats, tableStatistics));
     }
@@ -557,6 +570,7 @@ public class IcebergHiveMetadata
         }
 
         Table.Builder builder = Table.builder()
+                .setCatalogName(Optional.of(catalogName))
                 .setDatabaseName(schemaTableName.getSchemaName())
                 .setTableName(schemaTableName.getTableName())
                 .setOwner(clientSession.getUser())
@@ -587,6 +601,25 @@ public class IcebergHiveMetadata
     public void unregisterTable(ConnectorSession clientSession, SchemaTableName schemaTableName)
     {
         MetastoreContext metastoreContext = getMetastoreContext(clientSession);
-        metastore.dropTableFromMetastore(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        metastore.dropTableFromMetastore(metastoreContext, constructSchemaName(schemaTableName.getSchemaName()), schemaTableName.getTableName());
+    }
+
+    /**
+     * Constructs the schema name, including catalog name if applicable.
+     *
+     * @param schemaName the original schema name
+     * @return the formatted schema name
+     */
+    private String constructSchemaName(String schemaName)
+    {
+        if (catalogName != null && schemaName != null && !schemaName.contains(CATALOG_DB_SEPARATOR)) {
+            return String.format(
+                    "%s%s%s%s",
+                    CATALOG_DB_THRIFT_NAME_MARKER,
+                    catalogName,
+                    CATALOG_DB_SEPARATOR,
+                    schemaName);
+        }
+        return schemaName;
     }
 }

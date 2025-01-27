@@ -158,6 +158,7 @@ public final class ThriftMetastoreUtil
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
 
+        table.getCatalogName().ifPresent(result::setCatName);
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
         result.setOwner(table.getOwner());

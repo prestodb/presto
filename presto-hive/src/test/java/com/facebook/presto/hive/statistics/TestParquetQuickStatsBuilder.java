@@ -191,6 +191,7 @@ public class TestParquetQuickStatsBuilder
     private void setUp()
     {
         Table table = new Table(
+                Optional.of("test_catalog"),
                 TEST_SCHEMA,
                 TEST_TABLE,
                 "owner",
