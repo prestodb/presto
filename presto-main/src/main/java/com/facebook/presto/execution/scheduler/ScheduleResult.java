@@ -14,15 +14,18 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public class ScheduleResult
 {
@@ -84,26 +87,29 @@ public class ScheduleResult
         }
     }
 
-    private final Set<RemoteTask> newTasks;
+    private final ListenableFuture<Set<RemoteTask>> newFutureTasks;
     private final ListenableFuture<?> blocked;
     private final Optional<BlockedReason> blockedReason;
     private final boolean finished;
     private final int splitsScheduled;
 
-    public static ScheduleResult nonBlocked(boolean finished, Iterable<? extends RemoteTask> newTasks, int splitsScheduled)
+    public static ScheduleResult nonBlocked(boolean finished, Set<ListenableFuture<RemoteTask>> newTasks, int splitsScheduled)
     {
         return new ScheduleResult(finished, newTasks, immediateFuture(null), Optional.empty(), splitsScheduled);
     }
 
-    public static ScheduleResult blocked(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, BlockedReason blockedReason, int splitsScheduled)
+    public static ScheduleResult blocked(boolean finished, Set<ListenableFuture<RemoteTask>> newTasks, ListenableFuture<?> blocked, BlockedReason blockedReason, int splitsScheduled)
     {
         return new ScheduleResult(finished, newTasks, blocked, Optional.of(requireNonNull(blockedReason, "blockedReason is null")), splitsScheduled);
     }
 
-    private ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, Optional<BlockedReason> blockedReason, int splitsScheduled)
+    private ScheduleResult(boolean finished, Set<ListenableFuture<RemoteTask>> newFutureTasks, ListenableFuture<?> blocked, Optional<BlockedReason> blockedReason, int splitsScheduled)
     {
         this.finished = finished;
-        this.newTasks = ImmutableSet.copyOf(requireNonNull(newTasks, "newTasks is null"));
+        this.newFutureTasks = Futures.transform(
+                Futures.allAsList(requireNonNull(newFutureTasks, "newTasks is null")),
+                tasks -> tasks.stream().filter(Objects::nonNull).collect(toSet()),
+                directExecutor());
         this.blocked = requireNonNull(blocked, "blocked is null");
         this.blockedReason = requireNonNull(blockedReason, "blockedReason is null");
         this.splitsScheduled = splitsScheduled;
@@ -114,9 +120,9 @@ public class ScheduleResult
         return finished;
     }
 
-    public Set<RemoteTask> getNewTasks()
+    public ListenableFuture<Set<RemoteTask>> getNewFutureTasks()
     {
-        return newTasks;
+        return newFutureTasks;
     }
 
     public ListenableFuture<?> getBlocked()
@@ -139,7 +145,7 @@ public class ScheduleResult
     {
         return toStringHelper(this)
                 .add("finished", finished)
-                .add("newTasks", newTasks.size())
+                .add("newFutureTasks", newFutureTasks.isDone())
                 .add("blocked", !blocked.isDone())
                 .add("splitsScheduled", splitsScheduled)
                 .add("blockedReason", blockedReason)
