@@ -298,6 +298,7 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayHasDuplicatesFunctions<int64_t>(prefix);
   registerArrayHasDuplicatesFunctions<int128_t>(prefix);
   registerArrayHasDuplicatesFunctions<Varchar>(prefix);
+  registerArrayHasDuplicatesFunctions<Json>(prefix);
 
   registerArrayFrequencyFunctions<bool>(prefix);
   registerArrayFrequencyFunctions<int8_t>(prefix);
