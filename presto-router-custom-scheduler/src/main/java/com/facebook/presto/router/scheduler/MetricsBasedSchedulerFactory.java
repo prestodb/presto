@@ -13,11 +13,23 @@
  */
 package com.facebook.presto.router.scheduler;
 
-public enum SchedulerType
+import com.facebook.presto.spi.router.Scheduler;
+import com.facebook.presto.spi.router.SchedulerFactory;
+
+import java.util.Map;
+
+public class MetricsBasedSchedulerFactory
+        implements SchedulerFactory
 {
-    RANDOM_CHOICE,
-    ROUND_ROBIN,
-    USER_HASH,
-    WEIGHTED_RANDOM_CHOICE,
-    CUSTOM_PLUGIN_SCHEDULER
+    @Override
+    public String getName()
+    {
+        return CustomSchedulerConstants.METRICS_BASED;
+    }
+
+    @Override
+    public Scheduler create(Map<String, String> config)
+    {
+        return new MetricsBasedScheduler();
+    }
 }
