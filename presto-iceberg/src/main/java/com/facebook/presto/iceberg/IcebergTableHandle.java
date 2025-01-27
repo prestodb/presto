@@ -33,7 +33,6 @@ public class IcebergTableHandle
     private final Optional<String> outputPath;
     private final Optional<Map<String, String>> storageProperties;
     private final Optional<String> tableSchemaJson;
-    private final Optional<String> partitionSpecJson;
     private final Optional<Set<Integer>> partitionFieldIds;
     private final Optional<Set<Integer>> equalityFieldIds;
     private final List<IcebergColumnHandle> updatedColumns;
@@ -46,7 +45,6 @@ public class IcebergTableHandle
             @JsonProperty("outputPath") Optional<String> outputPath,
             @JsonProperty("storageProperties") Optional<Map<String, String>> storageProperties,
             @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
-            @JsonProperty("partitionSpecJson") Optional<String> partitionSpecJson,
             @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
             @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
             @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
@@ -58,7 +56,6 @@ public class IcebergTableHandle
         this.outputPath = requireNonNull(outputPath, "filePrefix is null");
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
-        this.partitionSpecJson = requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         this.partitionFieldIds = requireNonNull(partitionFieldIds, "partitionFieldIds is null");
         this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
@@ -80,12 +77,6 @@ public class IcebergTableHandle
     public Optional<String> getTableSchemaJson()
     {
         return tableSchemaJson;
-    }
-
-    @JsonProperty
-    public Optional<String> getPartitionSpecJson()
-    {
-        return partitionSpecJson;
     }
 
     @JsonProperty
@@ -127,7 +118,6 @@ public class IcebergTableHandle
                 outputPath,
                 storageProperties,
                 tableSchemaJson,
-                partitionSpecJson,
                 partitionFieldIds,
                 equalityFieldIds,
                 updatedColumns);

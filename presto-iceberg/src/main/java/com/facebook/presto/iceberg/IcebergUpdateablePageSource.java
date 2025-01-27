@@ -76,7 +76,7 @@ public class IcebergUpdateablePageSource
     // An array with one element per field in the $row_id column. The value in the array points to the
     // channel where the data can be read from within the input page
     private final int[] updateRowIdChildColumnIndexes;
-    // The $row_id's index in 'expectedColumns', or -1 if there isn't one
+    // The $row_id's index in 'outputColumns', or -1 if there isn't one
     private final int updateRowIdColumnIndex;
     // Maps the Iceberg field ids of unmodified columns to their indexes in updateRowIdChildColumnIndexes
     private final Map<ColumnIdentity, Integer> columnIdToRowIdColumnIndex = new HashMap<>();
@@ -177,7 +177,7 @@ public class IcebergUpdateablePageSource
         // strategy
         // 1. retrieve rows from delegate
         // 2. apply delete filter to page
-        // 4. transform page for update (turn flat blocks into nested update row)
+        // 3. transform page for update (turn flat blocks into nested update row)
         try {
             Page dataPage = delegate.getNextPage();
             if (dataPage == null) {
@@ -246,7 +246,6 @@ public class IcebergUpdateablePageSource
                 fullPage[targetChannel] = page.getBlock(columnChannelMapping.get(columnIdentityToUpdatedColumnIndex.get(columnIdentity)));
             }
             else {
-                // Plus one because the first field is the row position column
                 fullPage[targetChannel] = rowIdColumns.getField(columnIdToRowIdColumnIndex.get(columnIdentity));
             }
         }

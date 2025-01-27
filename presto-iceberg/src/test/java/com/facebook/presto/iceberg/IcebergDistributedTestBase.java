@@ -2241,32 +2241,6 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP SCHEMA ICEBERG.TEST_SCHEMA2");
     }
 
-    /**
-     * Test cases for updates against non-partitioned tables. The table schema
-     * is fixed: (id int, name varchar)
-     * <p>
-     * The 1st argument is a SQL VALUES string representing initial data to insert
-     * The 2nd argument is a set of queries to run.
-     * The 3rd argument is the 2nd part of an update query (omitting the name) e.g. SET x = ... WHERE y ...
-     * The 4th argument is the expected number of updated rows
-     * The 5th argument is a predicate for a WHERE clause on a SELECT * query
-     * The 6th argument is a SQL VALUES string representing the expected return values
-     * </p>
-     */
-    public Object[][] updateTestCases()
-    {
-        return new Object[][] {
-                {
-                        "VALUES (1, 'a'), (2, 'b'), (3, 'c')",
-                        new Object[] {},
-                        "SET name = 'A' WHERE id = 1",
-                        1,
-                        "name = 'A'",
-                        "VALUES (1, 'A')"
-                }
-        };
-    }
-
     @Test
     public void testUpdateWithPredicates()
     {

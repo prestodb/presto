@@ -769,7 +769,7 @@ public class IcebergPageSourceProvider
         // the update row isn't a valid column that can be read from storage.
         // Filter it out from columns passed to the storage page source.
         Set<IcebergColumnHandle> columnsToReadFromStorage = icebergColumns.stream()
-                .filter(column -> UPDATE_ROW_DATA.getId() != column.getId())
+                .filter(not(IcebergColumnHandle::isUpdateRowIdColumn))
                 .collect(Collectors.toSet());
 
         // add any additional columns which may need to be read from storage
