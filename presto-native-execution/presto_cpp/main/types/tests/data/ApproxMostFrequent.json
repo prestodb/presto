@@ -122,6 +122,26 @@
     },
     {
       "aggregateMetadata": {
+        "intermediateType": "row(bigint,bigint,array(json),array(bigint))",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.approx_most_frequent",
+      "functionKind": "AGGREGATE",
+      "outputType": "map(json,bigint)",
+      "paramTypes": [
+        "bigint",
+        "json",
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    },
+    {
+      "aggregateMetadata": {
         "intermediateType": "row(bigint,bigint,array(boolean),array(bigint))",
         "isOrderSensitive": true
       },
@@ -231,6 +251,26 @@
       "paramTypes": [
         "bigint",
         "varchar",
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default"
+    },
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(bigint,bigint,array(json),array(bigint))",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.approx_most_frequent",
+      "functionKind": "WINDOW",
+      "outputType": "map(json,bigint)",
+      "paramTypes": [
+        "bigint",
+        "json",
         "bigint"
       ],
       "routineCharacteristics": {
