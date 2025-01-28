@@ -54,7 +54,7 @@ option(PRESTO_ENABLE_GCS "Build GCS support" OFF)
 option(PRESTO_ENABLE_ABFS "Build ABFS support" OFF)
 
 # Forwards user input to VELOX_ENABLE_PARQUET.
-option(PRESTO_ENABLE_PARQUET "Enable Parquet support" OFF)
+option(PRESTO_ENABLE_PARQUET "Enable Parquet support" ON)
 
 # Forwards user input to VELOX_ENABLE_REMOTE_FUNCTIONS.
 option(PRESTO_ENABLE_REMOTE_FUNCTIONS "Enable remote function support" OFF)
@@ -204,6 +204,7 @@ include_directories(${CMAKE_BINARY_DIR})
 # set this for backwards compatibility, will be overwritten in velox/
 set(VELOX_GTEST_INCUDE_DIR "velox/third_party/googletest/googletest/include")
 
+set(VELOX_MONO_LIBRARY ON)
 add_subdirectory(velox)
 
 if(PRESTO_ENABLE_TESTING)
