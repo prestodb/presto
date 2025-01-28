@@ -166,6 +166,11 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         return queryActions.getHelperAction();
     }
 
+    protected PrestoAction getChecksumAction()
+    {
+        return queryActions.getChecksumAction();
+    }
+
     protected boolean isControlEnabled()
     {
         return !skipControl || saveSnapshot;

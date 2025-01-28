@@ -107,7 +107,7 @@ public class DataVerification
             ChecksumQueryContext controlChecksumQueryContext,
             ChecksumQueryContext testChecksumQueryContext)
     {
-        List<Column> testColumns = getColumns(getHelperAction(), typeManager, test.getObjectName());
+        List<Column> testColumns = getColumns(getChecksumAction(), typeManager, test.getObjectName());
         Query testChecksumQuery = checksumValidator.generateChecksumQuery(test.getObjectName(), testColumns, test.getPartitionsPredicate());
         testChecksumQueryContext.setChecksumQuery(formatSql(testChecksumQuery));
 
@@ -115,12 +115,12 @@ public class DataVerification
         ChecksumResult controlChecksumResult = null;
 
         if (isControlEnabled()) {
-            controlColumns = getColumns(getHelperAction(), typeManager, control.getObjectName());
+            controlColumns = getColumns(getChecksumAction(), typeManager, control.getObjectName());
             Query controlChecksumQuery = checksumValidator.generateChecksumQuery(control.getObjectName(), controlColumns, control.getPartitionsPredicate());
             controlChecksumQueryContext.setChecksumQuery(formatSql(controlChecksumQuery));
 
             QueryResult<ChecksumResult> controlChecksum = callAndConsume(
-                    () -> getHelperAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
+                    () -> getChecksumAction().execute(controlChecksumQuery, CONTROL_CHECKSUM, ChecksumResult::fromResultSet),
                     stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(controlChecksumQueryContext::setChecksumQueryId));
             controlChecksumResult = getOnlyElement(controlChecksum.getResults());
 
@@ -151,7 +151,7 @@ public class DataVerification
         }
 
         QueryResult<ChecksumResult> testChecksum = callAndConsume(
-                () -> getHelperAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
+                () -> getChecksumAction().execute(testChecksumQuery, TEST_CHECKSUM, ChecksumResult::fromResultSet),
                 stats -> stats.getQueryStats().map(QueryStats::getQueryId).ifPresent(testChecksumQueryContext::setChecksumQueryId));
         ChecksumResult testChecksumResult = getOnlyElement(testChecksum.getResults());
 

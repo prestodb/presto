@@ -14,6 +14,7 @@
 package com.facebook.presto.verifier.prestoaction;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.verifier.annotation.ForChecksum;
 import com.facebook.presto.verifier.annotation.ForControl;
 import com.facebook.presto.verifier.annotation.ForHelper;
 import com.facebook.presto.verifier.annotation.ForTest;
@@ -83,6 +84,14 @@ public class QueryActionsModule
         else {
             configBinder(binder).bindConfig(PrestoActionConfig.class, ForHelper.class, "helper");
             binder.bind(PrestoActionFactory.class).annotatedWith(ForHelper.class).toProvider(new JdbcPrestoActionFactoryProvider(ForHelper.class)).in(SINGLETON);
+        }
+        if (config.isRunChecksumQueriesOnControl()) {
+            checkArgument(controlQueryActionType.equals(JdbcPrestoAction.QUERY_ACTION_TYPE), "Cannot run checksum queries on control cluster because it is not a presto-jdbc action");
+            binder.bind(PrestoActionFactory.class).annotatedWith(ForChecksum.class).toProvider(new JdbcPrestoActionFactoryProvider(ForControl.class)).in(SINGLETON);
+        }
+        else {
+            checkArgument(testQueryActionType.equals(JdbcPrestoAction.QUERY_ACTION_TYPE), "Cannot run checksum queries on test cluster because it is not a presto-jdbc action");
+            binder.bind(PrestoActionFactory.class).annotatedWith(ForChecksum.class).toProvider(new JdbcPrestoActionFactoryProvider(ForTest.class)).in(SINGLETON);
         }
     }
 

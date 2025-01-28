@@ -23,12 +23,14 @@ import static java.util.Objects.requireNonNull;
 public class QueryActions
 {
     private final PrestoAction helperAction;
+    private final PrestoAction checksumAction;
     private final QueryAction controlAction;
     private final QueryAction testAction;
 
-    public QueryActions(PrestoAction helperAction, QueryAction controlAction, QueryAction testAction)
+    public QueryActions(PrestoAction helperAction, PrestoAction checksumAction, QueryAction controlAction, QueryAction testAction)
     {
         this.helperAction = requireNonNull(helperAction, "helperAction is null");
+        this.checksumAction = requireNonNull(helperAction, "checksumAction is null");
         this.controlAction = requireNonNull(controlAction, "controlAction is null");
         this.testAction = requireNonNull(testAction, "testAction is null");
     }
@@ -36,6 +38,11 @@ public class QueryActions
     public PrestoAction getHelperAction()
     {
         return helperAction;
+    }
+
+    public PrestoAction getChecksumAction()
+    {
+        return checksumAction;
     }
 
     public QueryAction getControlAction()
