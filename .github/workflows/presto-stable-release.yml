@@ -7,16 +7,13 @@ jobs:
   presto-release:
     name: Presto Stable Release Workflow
     runs-on: ubuntu-latest
+    environment: release
 
     permissions:
       contents: write
       packages: write
 
     steps:
-      - name: Check actor
-        if: ${{ github.actor != 'prestodb-ci' }}
-        run: echo "Unauthorized actor. Please login with prestodb-ci to run this action." && exit 1
-
       - name: Check branch
         if: ${{ github.ref != 'refs/heads/master' }}
         run: echo "Invalid branch. This action can only be run on the master branch." && exit 1
@@ -37,8 +34,8 @@ jobs:
       - name: Configure git
         run: |
           git config --global --add safe.directory ${{github.workspace}}
-          git config --global user.email "oss-release-bot@prestodb.io"
-          git config --global user.name "oss-release-bot"
+          git config --global user.email "ci@lists.prestodb.io"
+          git config --global user.name "prestodb-ci"
           git config pull.rebase false
 
       - name: Set maven version
