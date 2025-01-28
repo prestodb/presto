@@ -74,19 +74,18 @@ public abstract class RemoteState
         if (nanosSince(lastWarningLogged.get()).toMillis() > 1_000 &&
                 sinceUpdate.toMillis() > 10_000 &&
                 future.get() != null) {
-            log.warn("Coordinator update request to %s has not returned in %s", remoteUri, sinceUpdate.toString(SECONDS));
+            log.warn("Coordinator update request to %s has not returned in %s", remoteUri.getHost(), sinceUpdate.toString(SECONDS));
             lastWarningLogged.set(System.nanoTime());
         }
 
         if (nanosSince(lastHealthyResponseTime).toMillis() >= (secondsToUnhealthy * 1_000) && isHealthy) {
             isHealthy = false;
-            log.warn("%s marked as unhealthy", remoteUri);
+            log.warn("%s marked as unhealthy", remoteUri.getHost());
         }
 
         if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
             Request request = prepareGet()
                     .setUri(remoteUri)
-                    .addHeader("Authorization", "Basic " + System.getenv("ROUTER_USER_CREDENTIALS"))
                     .build();
 
             HttpClient.HttpResponseFuture<FullJsonResponseHandler.JsonResponse<JsonNode>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(JSON_CODEC));
@@ -104,11 +103,11 @@ public abstract class RemoteState
                             handleResponse(result.getValue());
                         }
                         if (result.getStatusCode() != OK.code()) {
-                            log.warn("Error fetching node state from %s returned status %d: %s", remoteUri, result.getStatusCode(), result.getStatusMessage());
+                            log.warn("Error fetching node state from %s returned status code %d", remoteUri, result.getStatusCode());
                         }
                         else {
                             if (!isHealthy) {
-                                log.info("%s marked as healthy", remoteUri);
+                                log.info("%s marked as healthy", remoteUri.getHost());
                                 isHealthy = true;
                             }
                             lastHealthyResponseTime = System.nanoTime();

@@ -30,22 +30,18 @@ import com.facebook.presto.router.predictor.RemoteQueryFactory;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.WebUiResource;
-import com.facebook.presto.server.security.oauth2.ForOAuth2;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.units.Duration;
 
 import java.lang.annotation.Annotation;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -71,7 +67,7 @@ public class RouterModule
         configBinder(binder).bindConfig(RouterConfig.class);
 
         configBinder(binder).bindConfig(RemoteStateConfig.class);
-        configBinder(binder).bindConfigDefaults(RemoteStateConfig.class, config -> config.setSecondsToUnhealthy(60));
+        configBinder(binder).bindConfigDefaults(RemoteStateConfig.class, config -> config.setSecondsToUnhealthy(30));
 
         // resource for serving static content
         jaxrsBinder(binder).bind(WebUiResource.class);
@@ -93,7 +89,6 @@ public class RouterModule
         binder.bind(PredictorManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteQueryFactory.class).in(Scopes.SINGLETON);
 
-        binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PluginManagerConfig.class);
 
         bindHttpClient(binder, QUERY_PREDICTOR, ForQueryCpuPredictor.class, IDLE_TIMEOUT_SECOND, PREDICTOR_REQUEST_TIMEOUT_SECOND);
@@ -101,9 +96,6 @@ public class RouterModule
 
         jaxrsBinder(binder).bind(RouterResource.class);
         jaxrsBinder(binder).bind(ClusterStatusResource.class);
-
-        //binder.bind(Executor.class).annotatedWith(ForOAuth2.class).toInstance(executor);
-        binder.bind(ExecutorService.class).annotatedWith(ForOAuth2.class).toInstance(newCachedThreadPool(daemonThreadsNamed("oauth-executor-%s")));
     }
 
     private void bindHttpClient(Binder binder, String name, Class<? extends Annotation> annotation, int idleTimeout, int requestTimeout)
