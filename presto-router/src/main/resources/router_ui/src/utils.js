@@ -13,8 +13,8 @@
  */
 //@flow
 
-import * as dagreD3 from "dagre-d3";
 import * as d3 from "d3";
+import { Graph } from "@dagrejs/graphlib";
 
 // Query display
 // =============
@@ -198,9 +198,9 @@ export function addExponentiallyWeightedToHistory (value: number, valuesArray: n
 
 export function initializeGraph()
 {
-    return new dagreD3.graphlib.Graph({compound: true})
+    return new Graph({compound: true})
         .setGraph({rankdir: 'BT'})
-        .setDefaultEdgeLabel(function () { return {}; });
+        .setDefaultEdgeLabel(() => { return {};});
 }
 
 export function initializeSvg(selector: any)
@@ -485,4 +485,10 @@ export function formatShortDateTime(date: Date): string {
     const month = "" + (date.getMonth() + 1);
     const dayOfMonth = "" + date.getDate();
     return year + "-" + (month[1] ? month : "0" + month[0]) + "-" + (dayOfMonth[1] ? dayOfMonth: "0" + dayOfMonth[0]) + " " + formatShortTime(date);
+}
+
+export function getLastUrl(): string {
+    const path = window.location.pathname;
+    const queryString = window.location.search;
+    return path + queryString;
 }
