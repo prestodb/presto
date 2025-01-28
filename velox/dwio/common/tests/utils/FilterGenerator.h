@@ -32,8 +32,6 @@ namespace facebook::velox::dwio::common {
 
 using namespace facebook::velox::common;
 
-using SubfieldFilters = std::unordered_map<Subfield, std::unique_ptr<Filter>>;
-
 struct FilterSpec {
   FilterSpec() {}
 

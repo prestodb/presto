@@ -19,9 +19,6 @@
 
 namespace facebook::velox::common::test {
 
-using SubfieldFilters =
-    std::unordered_map<common::Subfield, std::unique_ptr<common::Filter>>;
-
 class SubfieldFiltersBuilder {
  public:
   SubfieldFiltersBuilder& add(

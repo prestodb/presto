@@ -182,7 +182,7 @@ core::PlanNodePtr PlanBuilder::TableScanBuilder::build(core::PlanNodeId id) {
 
   const RowTypePtr& parseType = dataColumns_ ? dataColumns_ : outputType_;
 
-  SubfieldFilters filters;
+  common::SubfieldFilters filters;
   filters.reserve(subfieldFilters_.size());
   auto queryCtx = core::QueryCtx::create();
   exec::SimpleExpressionEvaluator evaluator(queryCtx.get(), planBuilder_.pool_);

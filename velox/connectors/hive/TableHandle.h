@@ -23,9 +23,6 @@
 
 namespace facebook::velox::connector::hive {
 
-using SubfieldFilters =
-    std::unordered_map<common::Subfield, std::unique_ptr<common::Filter>>;
-
 class HiveColumnHandle : public ColumnHandle {
  public:
   enum class ColumnType {
@@ -126,7 +123,7 @@ class HiveTableHandle : public ConnectorTableHandle {
       std::string connectorId,
       const std::string& tableName,
       bool filterPushdownEnabled,
-      SubfieldFilters subfieldFilters,
+      common::SubfieldFilters subfieldFilters,
       const core::TypedExprPtr& remainingFilter,
       const RowTypePtr& dataColumns = nullptr,
       const std::unordered_map<std::string, std::string>& tableParameters = {});
@@ -143,7 +140,7 @@ class HiveTableHandle : public ConnectorTableHandle {
     return filterPushdownEnabled_;
   }
 
-  const SubfieldFilters& subfieldFilters() const {
+  const common::SubfieldFilters& subfieldFilters() const {
     return subfieldFilters_;
   }
 
@@ -173,7 +170,7 @@ class HiveTableHandle : public ConnectorTableHandle {
  private:
   const std::string tableName_;
   const bool filterPushdownEnabled_;
-  const SubfieldFilters subfieldFilters_;
+  const common::SubfieldFilters subfieldFilters_;
   const core::TypedExprPtr remainingFilter_;
   const RowTypePtr dataColumns_;
   const std::unordered_map<std::string, std::string> tableParameters_;

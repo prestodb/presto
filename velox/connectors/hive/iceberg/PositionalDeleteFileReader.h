@@ -30,9 +30,6 @@ namespace facebook::velox::connector::hive::iceberg {
 struct IcebergDeleteFile;
 struct IcebergMetadataColumn;
 
-using SubfieldFilters =
-    std::unordered_map<common::Subfield, std::unique_ptr<common::Filter>>;
-
 class PositionalDeleteFileReader {
  public:
   PositionalDeleteFileReader(

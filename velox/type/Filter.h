@@ -29,6 +29,7 @@
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/serialization/Serializable.h"
 #include "velox/type/StringView.h"
+#include "velox/type/Subfield.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::common {
@@ -60,6 +61,8 @@ enum class FilterKind {
 
 class Filter;
 using FilterPtr = std::unique_ptr<Filter>;
+
+using SubfieldFilters = std::unordered_map<Subfield, std::unique_ptr<Filter>>;
 
 /**
  * A simple filter (e.g. comparison with literal) that can be applied

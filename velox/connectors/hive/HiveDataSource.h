@@ -32,9 +32,6 @@ namespace facebook::velox::connector::hive {
 
 class HiveConfig;
 
-using SubfieldFilters =
-    std::unordered_map<common::Subfield, std::unique_ptr<common::Filter>>;
-
 class HiveDataSource : public DataSource {
  public:
   HiveDataSource(
@@ -162,7 +159,7 @@ class HiveDataSource : public DataSource {
   SpecialColumnNames specialColumns_{};
   folly::F14FastMap<std::string, std::vector<const common::Subfield*>>
       subfields_;
-  SubfieldFilters filters_;
+  common::SubfieldFilters filters_;
   std::shared_ptr<common::MetadataFilter> metadataFilter_;
   std::unique_ptr<exec::ExprSet> remainingFilterExprSet_;
   RowVectorPtr emptyOutput_;

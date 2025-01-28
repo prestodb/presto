@@ -1242,7 +1242,7 @@ TEST_F(TableScanTest, missingColumns) {
   assertQuery(op, filePaths, "SELECT count(*) FROM tmp WHERE c1 <= 4000.1", 0);
 
   // Use missing column 'c1' in 'is null' filter, while not selecting 'c1'.
-  SubfieldFilters filters;
+  common::SubfieldFilters filters;
   filters[common::Subfield("c1")] = lessThanOrEqualDouble(1050.0, true);
   auto tableHandle = std::make_shared<HiveTableHandle>(
       kHiveConnectorId, "tmp", true, std::move(filters), nullptr, dataColumns);
@@ -1975,7 +1975,7 @@ TEST_F(TableScanTest, partitionedTableDateKey) {
         {"c0", regularColumn("c0", BIGINT())},
         {"c1", regularColumn("c1", DOUBLE())}};
 
-    SubfieldFilters filters;
+    common::SubfieldFilters filters;
     // pkey > 2020-09-01.
     filters[common::Subfield("pkey")] = std::make_unique<common::BigintRange>(
         18506, std::numeric_limits<int64_t>::max(), false);
@@ -2015,7 +2015,7 @@ TEST_F(TableScanTest, partitionedTableTimestampKey) {
         {"c0", regularColumn("c0", BIGINT())},
         {"c1", regularColumn("c1", DOUBLE())}};
 
-    SubfieldFilters filters;
+    common::SubfieldFilters filters;
     // pkey = 2023-10-27 00:12:35.
     auto lower = util::fromTimestampString(
                      StringView("2023-10-27 00:12:35"),
@@ -2709,7 +2709,7 @@ TEST_F(TableScanTest, filterPushdown) {
   createDuckDbTable(vectors);
 
   // c1 >= 0 or null and c3 is true
-  SubfieldFilters subfieldFilters =
+  common::SubfieldFilters subfieldFilters =
       SubfieldFiltersBuilder()
           .add("c1", greaterThanOrEqual(0, true))
           .add("c3", std::make_unique<common::BoolValue>(true, false))
@@ -2805,7 +2805,7 @@ TEST_F(TableScanTest, path) {
 
   // use $path in a filter, but don't project it out
   auto tableHandle = makeTableHandle(
-      SubfieldFilters{},
+      common::SubfieldFilters{},
       parseExpr(fmt::format("\"{}\" = '{}'", kPath, pathValue), typeWithPath));
   op = PlanBuilder()
            .startTableScan()
@@ -2862,7 +2862,7 @@ TEST_F(TableScanTest, fileSizeAndModifiedTime) {
 
   auto filterTest = [&](const std::string& filter) {
     auto tableHandle = makeTableHandle(
-        SubfieldFilters{},
+        common::SubfieldFilters{},
         parseExpr(filter, allColumns),
         "hive_table",
         allColumns);
@@ -5280,7 +5280,8 @@ TEST_F(TableScanTest, rowNumberInRemainingFilter) {
   writeToFile(file->getPath(), {vector});
   auto outputType = ROW({"c0"}, {BIGINT()});
   auto remainingFilter = parseExpr("r1 % 2 == 0", ROW({"r1"}, {BIGINT()}));
-  auto tableHandle = makeTableHandle(SubfieldFilters{}, remainingFilter);
+  auto tableHandle =
+      makeTableHandle(common::SubfieldFilters{}, remainingFilter);
   auto plan = PlanBuilder()
                   .startTableScan()
                   .outputType(outputType)
