@@ -23,9 +23,9 @@ import StaticQueryHeader from './StaticQueryHeader';
 // A form to select a JSON file and read
 const FileForm = ({ onChange }) => (
     <div className="row">
-        <div className="col-4 offset-1 input-group navbar-cluster-info">
-            <div id="title" className="text">Select a JSON file of SQL query to process</div>
-            <form id='form' className="text form-inline">
+        <div className="col-4 offset-1 fs-6">
+            <div id="title">Select a JSON file of SQL query to process</div>
+            <form id='form' className="form-inline">
                 <div className="form-group">
                     <input id='file' type="file" name="file" accept='.json, application/json' onChange={onChange}/>
                 </div>
