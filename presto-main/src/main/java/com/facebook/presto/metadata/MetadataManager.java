@@ -1051,7 +1051,7 @@ public class MetadataManager
         ConnectorId connectorId = materializedViewHandle.get().getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
 
-        return session.getRuntimeStats().profileNanos(
+        return session.getRuntimeStats().recordWallTime(
                 GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
                 () -> metadata.getMaterializedViewStatus(session.toConnectorSession(connectorId), toSchemaTableName(materializedViewName), baseQueryDomain));
     }

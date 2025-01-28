@@ -60,7 +60,7 @@ public class MetadataUtils
             return metadataHandle.getViewDefinition(viewName);
         }
 
-        return session.getRuntimeStats().profileNanos(
+        return session.getRuntimeStats().recordWallTime(
                 GET_VIEW_TIME_NANOS,
                 () -> metadataResolver.getView(viewName));
     }
@@ -71,14 +71,14 @@ public class MetadataUtils
             return metadataHandle.getMaterializedViewDefinition(viewName);
         }
 
-        return session.getRuntimeStats().profileNanos(
+        return session.getRuntimeStats().recordWallTime(
                 GET_MATERIALIZED_VIEW_TIME_NANOS,
                 () -> metadataResolver.getMaterializedView(viewName));
     }
 
     public static TableColumnMetadata getTableColumnMetadata(Session session, MetadataResolver metadataResolver, QualifiedObjectName tableName)
     {
-        Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(
+        Optional<TableHandle> tableHandle = session.getRuntimeStats().recordWallTime(
                 GET_TABLE_HANDLE_TIME_NANOS,
                 () -> metadataResolver.getTableHandle(tableName));
 
@@ -92,11 +92,11 @@ public class MetadataUtils
             throw new SemanticException(MISSING_TABLE, "Table %s does not exist", tableName);
         }
 
-        Map<String, ColumnHandle> columnHandles = session.getRuntimeStats().profileNanos(
+        Map<String, ColumnHandle> columnHandles = session.getRuntimeStats().recordWallTime(
                 GET_COLUMN_HANDLE_TIME_NANOS,
                 () -> metadataResolver.getColumnHandles(tableHandle.get()));
 
-        List<ColumnMetadata> columnsMetadata = session.getRuntimeStats().profileNanos(
+        List<ColumnMetadata> columnsMetadata = session.getRuntimeStats().recordWallTime(
                 GET_COLUMN_METADATA_TIME_NANOS,
                 () -> metadataResolver.getColumns(tableHandle.get()));
 
