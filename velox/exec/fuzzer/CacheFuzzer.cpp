@@ -28,7 +28,6 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/dwio/common/CachedBufferedInput.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/vector/fuzzer/Utils.h"
 
 DEFINE_int32(steps, 10, "Number of plans to generate and test.");
 
@@ -498,6 +497,12 @@ void CacheFuzzer::go() {
       FLAGS_steps > 0 || FLAGS_duration_sec > 0,
       "Either --steps or --duration_sec needs to be greater than zero.");
 
+  // O_DIRECT requires I/O size to be the same as a disk file block size which
+  // is not handled in SSD cache. Misalignment can lead to EINVAL in some
+  // filesystem and kernel version.
+  //
+  // TODO: add this support if needed later.
+  FLAGS_ssd_odirect = false;
   auto startTime = std::chrono::system_clock::now();
   size_t iteration = 0;
 
