@@ -202,7 +202,7 @@ public class SemiTransactionalHiveMetastore
         checkReadable();
         Action<TableAndMore> tableAction = tableActions.get(hiveTableHandle.getSchemaTableName());
         if (tableAction == null) {
-            return metastoreContext.getRuntimeStats().profileNanos(GET_TABLE_TIME_NANOS, () -> delegate.getTable(metastoreContext, hiveTableHandle));
+            return metastoreContext.getRuntimeStats().recordWallTime(GET_TABLE_TIME_NANOS, () -> delegate.getTable(metastoreContext, hiveTableHandle));
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -761,7 +761,7 @@ public class SemiTransactionalHiveMetastore
                 resultBuilder.put(partitionNameWithVersion.getPartitionName(), getPartitionFromPartitionAction(partitionAction));
             }
         }
-        Map<String, Optional<Partition>> delegateResult = metastoreContext.getRuntimeStats().profileNanos(GET_PARTITIONS_BY_NAMES_TIME_NANOS, () -> delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNamesToQuery.build()));
+        Map<String, Optional<Partition>> delegateResult = metastoreContext.getRuntimeStats().recordWallTime(GET_PARTITIONS_BY_NAMES_TIME_NANOS, () -> delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNamesToQuery.build()));
         resultBuilder.putAll(delegateResult);
 
         cacheLastDataCommitTimes(delegateResult, databaseName, tableName);

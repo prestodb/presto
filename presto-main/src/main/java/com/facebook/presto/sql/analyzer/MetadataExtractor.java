@@ -84,7 +84,7 @@ public class MetadataExtractor
             }
 
             metadataHandle.addViewDefinition(tableName, executor.get().submit(() -> {
-                Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
+                Optional<ViewDefinition> optionalView = session.getRuntimeStats().recordWallTime(
                         GET_VIEW_TIME_NANOS,
                         () -> metadataResolver.getView(tableName));
                 if (optionalView.isPresent()) {
@@ -109,7 +109,7 @@ public class MetadataExtractor
             }));
 
             metadataHandle.addMaterializedViewDefinition(tableName, executor.get().submit(() -> {
-                Optional<MaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
+                Optional<MaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().recordWallTime(
                         GET_MATERIALIZED_VIEW_TIME_NANOS,
                         () -> metadataResolver.getMaterializedView(tableName));
                 if (optionalMaterializedView.isPresent()) {
