@@ -39,7 +39,7 @@ jobs:
 
       - name: Add git upstream
         run: |
-          git remote add upstream ${{ github.repositoryUrl }}
+          git remote add upstream https://github.com/${{ github.repository }}.git
           git fetch upstream
 
       - name: Create release notes pull request
