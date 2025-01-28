@@ -6857,6 +6857,29 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(getSession(), dropTableStmt);
     }
 
+    @Test
+    public void testNoneAutoCommitTransactionWithFailAndRollback()
+    {
+        assertUpdate("create table test_non_autocommit_table(a int, b varchar)");
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(getQueryRunner().getDefaultSession(),
+                        txnSession -> {
+                            // simulate failure of SQL statement execution
+                            assertQueryFails(txnSession, "SELECT fail('forced failure')", "forced failure");
+
+                            // cannot execute any SQLs except `rollback` in current session
+                            assertQueryFails(txnSession, "select count(*) from test_non_autocommit_table", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "show tables", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "create table test_create(a int, b varchar)", "Current transaction is aborted, commands ignored until end of transaction block");
+                            assertQueryFails(txnSession, "insert into test_non_autocommit_table values(1, '1001')", "Current transaction is aborted, commands ignored until end of transaction block");
+
+                            // execute `rollback` successfully
+                            assertUpdate(txnSession, "rollback");
+                        });
+        assertQuery("select count(*) from test_non_autocommit_table", "values(0)");
+        assertUpdate("drop table if exists test_non_autocommit_table");
+    }
+
     protected String retentionDays(int days)
     {
         return "";
