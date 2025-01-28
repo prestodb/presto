@@ -475,6 +475,7 @@ public class TestHiveSplitManager
         // Prepare partition with stats
         PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
                 new Partition(
+                        Optional.of("catalogname"),
                         "test_db",
                         "test_table",
                         ImmutableList.of(PARTITION_VALUE),
@@ -621,6 +622,7 @@ public class TestHiveSplitManager
                         DWRF_ENCRYPTION_PROVIDER_KEY, testEncryptionProvider));
         PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
                 new Partition(
+                        Optional.of("catalogname"),
                         "test_db",
                         "test_table",
                         ImmutableList.of(PARTITION_VALUE),

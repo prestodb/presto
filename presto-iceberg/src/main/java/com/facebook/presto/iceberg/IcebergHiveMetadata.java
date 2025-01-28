@@ -227,7 +227,7 @@ public class IcebergHiveMetadata
         IcebergTableName name = IcebergTableName.from(schemaTableName.getTableName());
         try {
             return tableCache.get(schemaTableName, () ->
-                    metastore.getTable(getMetastoreContext(session), schemaTableName.getSchemaName(), name.getTableName()));
+                    metastore.getTable(getMetastoreContext(session), constructSchemaName(schemaTableName.getSchemaName()), name.getTableName()));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -637,7 +637,7 @@ public class IcebergHiveMetadata
         }
 
         Table.Builder builder = Table.builder()
-                .setCatalogName(Optional.of(catalogName))
+                .setCatalogName(Optional.ofNullable(catalogName))
                 .setDatabaseName(schemaTableName.getSchemaName())
                 .setTableName(schemaTableName.getTableName())
                 .setOwner(clientSession.getUser())

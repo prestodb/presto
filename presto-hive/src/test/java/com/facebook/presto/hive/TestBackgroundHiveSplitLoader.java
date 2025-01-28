@@ -259,6 +259,7 @@ public class TestBackgroundHiveSplitLoader
     private static Partition orcPartition()
     {
         return new Partition(
+                Optional.of("catalogname"),
                 "test_db",
                 "test_table",
                 PARTITION_COLUMNS.stream().map(x -> "Partition_Value").collect(Collectors.toList()),

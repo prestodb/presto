@@ -373,6 +373,7 @@ public final class ThriftMetastoreUtil
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition, ColumnConverter columnConverter)
     {
         org.apache.hadoop.hive.metastore.api.Partition result = new org.apache.hadoop.hive.metastore.api.Partition();
+        partition.getCatalogName().ifPresent(result::setCatName);
         result.setDbName(partition.getDatabaseName());
         result.setTableName(partition.getTableName());
         result.setValues(partition.getValues());
@@ -508,6 +509,7 @@ public final class ThriftMetastoreUtil
         }
 
         Partition.Builder partitionBuilder = Partition.builder()
+                .setCatalogName(Optional.ofNullable(partition.getCatName()))
                 .setDatabaseName(partition.getDbName())
                 .setTableName(partition.getTableName())
                 .setValues(partition.getValues())

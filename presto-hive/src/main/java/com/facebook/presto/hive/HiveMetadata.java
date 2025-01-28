@@ -1065,7 +1065,7 @@ public class HiveMetadata
 
         return buildTableObject(
                 session.getQueryId(),
-                Optional.of(catalogName),
+                Optional.ofNullable(catalogName),
                 schemaName,
                 tableName,
                 session.getUser(),

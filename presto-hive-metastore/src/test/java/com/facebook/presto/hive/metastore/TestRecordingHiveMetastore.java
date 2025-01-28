@@ -109,6 +109,7 @@ public class TestRecordingHiveMetastore
             Optional.of("original_text"),
             Optional.of("expanded_text"));
     private static final Partition PARTITION = new Partition(
+            Optional.of("catalog"),
             "database",
             "table",
             ImmutableList.of("value"),
