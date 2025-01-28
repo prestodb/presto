@@ -13,6 +13,7 @@
  */
 //@flow
 import React from "react";
+import { getLastUrl } from '../utils'
 
 type Props = {
     title: string
@@ -45,7 +46,14 @@ export class PageTitle extends React.Component<Props, State> {
     refreshLoop() {
         clearTimeout(this.timeoutId);
         fetch("/v1/info")
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 401) {
+                    const lastUrl = encodeURIComponent(getLastUrl());
+                    window.location.href = window.location.origin + '/?lastURL=' + lastUrl;
+                } else {
+                    return response.json();
+                }
+            })
             .then(info => {
                 this.setState({
                     info: info,
@@ -120,7 +128,7 @@ export class PageTitle extends React.Component<Props, State> {
                             </table>
                         </div>
                         <div id="navbar" className="navbar-collapse collapse">
-                            <ul className="nav navbar-nav navbar-right">
+                            <ul className="nav navbar-nav navbar-cluster-info-right">
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Environment</span><br/>
