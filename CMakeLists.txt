@@ -149,6 +149,8 @@ option(
   VELOX_ENABLE_INT64_BUILD_PARTITION_BOUND
   "make buildPartitionBounds_ a vector int64 instead of int32 to avoid integer overflow when the hashtable has billions of records"
   OFF)
+option(VELOX_SIMDJSON_SKIPUTF8VALIDATION
+       "Skip simdjson utf8 validation in JSON parsing" OFF)
 
 # Explicitly force compilers to generate colored output. Compilers usually do
 # this by default if they detect the output is a terminal, but this assumption
