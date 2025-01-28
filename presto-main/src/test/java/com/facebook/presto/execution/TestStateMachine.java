@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -37,10 +38,10 @@ public class TestStateMachine
         BREAKFAST, LUNCH, DINNER
     }
 
-    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
+    private static final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-%s"));
 
     @AfterClass(alwaysRun = true)
-    public void tearDown()
+    public static void tearDown()
     {
         executor.shutdownNow();
     }
@@ -50,13 +51,13 @@ public class TestStateMachine
             throws Exception
     {
         try {
-            new StateMachine<>("test", executor, null);
+            new StateMachine<>("test", null);
             fail("expected a NullPointerException");
         }
         catch (NullPointerException ignored) {
         }
 
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST);
+        StateMachine<State> stateMachine = new StateMachine<>("test", State.BREAKFAST);
 
         assertNoStateChange(stateMachine, () -> {
             try {
@@ -108,7 +109,7 @@ public class TestStateMachine
     public void testSet()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         assertNoStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.BREAKFAST), State.BREAKFAST));
@@ -136,7 +137,7 @@ public class TestStateMachine
     public void testCompareAndSet()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         // no match with new state
@@ -172,7 +173,7 @@ public class TestStateMachine
     public void testSetIf()
             throws Exception
     {
-        StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
+        StateMachine<State> stateMachine = new StateMachine<>("test", State.BREAKFAST, ImmutableSet.of(State.DINNER));
         assertEquals(stateMachine.get(), State.BREAKFAST);
 
         // false predicate with new state
@@ -238,7 +239,7 @@ public class TestStateMachine
         // listeners should not be retained if we are in a terminal state
         boolean isTerminalState = stateMachine.isTerminalState(expectedState);
         if (isTerminalState) {
-            assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
+            assertEquals(stateMachine.getStateChangeListeners(), ImmutableMap.of());
         }
     }
 
@@ -252,7 +253,7 @@ public class TestStateMachine
         // listeners should not be added if we are in a terminal state, but listener should fire
         boolean isTerminalState = stateMachine.isTerminalState(initialState);
         if (isTerminalState) {
-            assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
+            assertEquals(stateMachine.getStateChangeListeners(), ImmutableMap.of());
         }
 
         stateChange.run();
@@ -288,7 +289,7 @@ public class TestStateMachine
             else {
                 stateChanged.set(newState);
             }
-        });
+        }, executor);
 
         assertTrue(tryGetFutureValue(initialStateNotified, 10, SECONDS).isPresent(), "Initial state notification not fired");
 

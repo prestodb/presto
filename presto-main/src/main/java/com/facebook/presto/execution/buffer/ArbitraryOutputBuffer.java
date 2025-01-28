@@ -85,6 +85,8 @@ public class ArbitraryOutputBuffer
 
     private final LifespanSerializedPageTracker pageTracker;
 
+    private final Executor executor;
+
     public ArbitraryOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
@@ -93,13 +95,14 @@ public class ArbitraryOutputBuffer
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.executor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.state = requireNonNull(state, "state is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
         checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
         this.memoryManager = new OutputBufferMemoryManager(
                 maxBufferSize.toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
-                requireNonNull(notificationExecutor, "notificationExecutor is null"));
+                notificationExecutor);
         this.pageTracker = new LifespanSerializedPageTracker(memoryManager);
         this.masterBuffer = new MasterBuffer(pageTracker);
     }
@@ -107,7 +110,7 @@ public class ArbitraryOutputBuffer
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override

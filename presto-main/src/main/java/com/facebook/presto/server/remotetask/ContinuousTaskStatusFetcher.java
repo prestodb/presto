@@ -101,7 +101,7 @@ class ContinuousTaskStatusFetcher
 
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.onFail = requireNonNull(onFail, "onFail is null");
-        this.taskStatus = new StateMachine<>("task-" + taskId, taskEventLoop, initialTaskStatus);
+        this.taskStatus = new StateMachine<>("task-" + taskId, initialTaskStatus);
 
         this.refreshMaxWait = requireNonNull(refreshMaxWait, "refreshMaxWait is null");
         this.taskStatusCodec = requireNonNull(taskStatusCodec, "taskStatusCodec is null");
@@ -298,7 +298,7 @@ class ContinuousTaskStatusFetcher
      */
     public void addStateChangeListener(StateMachine.StateChangeListener<TaskStatus> stateChangeListener)
     {
-        taskStatus.addStateChangeListener(stateChangeListener);
+        taskStatus.addStateChangeListener(stateChangeListener, taskEventLoop);
     }
 
     private void updateStats(long currentRequestStartNanos)

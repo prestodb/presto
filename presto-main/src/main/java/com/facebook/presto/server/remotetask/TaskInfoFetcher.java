@@ -133,8 +133,8 @@ public class TaskInfoFetcher
 
         this.taskId = initialTask.getTaskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
-        this.taskInfo = new StateMachine<>("task " + taskId, taskEventLoop, initialTask);
-        this.finalTaskInfo = new StateMachine<>("task-" + taskId, taskEventLoop, Optional.empty());
+        this.taskInfo = new StateMachine<>("task " + taskId, initialTask);
+        this.finalTaskInfo = new StateMachine<>("task-" + taskId, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
 
         this.metadataUpdatesCodec = requireNonNull(metadataUpdatesCodec, "metadataUpdatesCodec is null");
@@ -204,7 +204,7 @@ public class TaskInfoFetcher
                 stateChangeListener.stateChanged(finalTaskInfo.get());
             }
         };
-        finalTaskInfo.addStateChangeListener(fireOnceStateChangeListener);
+        finalTaskInfo.addStateChangeListener(fireOnceStateChangeListener, taskEventLoop);
         fireOnceStateChangeListener.stateChanged(finalTaskInfo.get());
     }
 

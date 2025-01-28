@@ -73,6 +73,7 @@ public class BroadcastOutputBuffer
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
     private final AtomicLong totalBufferedPages = new AtomicLong();
+    private final Executor executor;
 
     public BroadcastOutputBuffer(
             String taskInstanceId,
@@ -82,11 +83,12 @@ public class BroadcastOutputBuffer
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
+        this.executor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.state = requireNonNull(state, "state is null");
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
-                requireNonNull(notificationExecutor, "notificationExecutor is null"));
+                notificationExecutor);
         this.pageTracker = new LifespanSerializedPageTracker(memoryManager, Optional.of((lifespan, releasedPageCount, releasedSizeInBytes) -> {
             checkState(totalBufferedPages.addAndGet(-releasedPageCount) >= 0);
         }));
@@ -95,7 +97,7 @@ public class BroadcastOutputBuffer
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override
