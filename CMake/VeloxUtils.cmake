@@ -77,9 +77,9 @@ function(velox_add_library TARGET)
       # Create the target if this is the first invocation.
       add_library(velox ${_type} ${ARGN})
       set_target_properties(velox PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                             ${CMAKE_BINARY_DIR}/lib)
+                                             ${PROJECT_BINARY_DIR}/lib)
       set_target_properties(velox PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
-                                             ${CMAKE_BINARY_DIR}/lib)
+                                             ${PROJECT_BINARY_DIR}/lib)
       install(TARGETS velox DESTINATION lib/velox)
     endif()
     # create alias for compatability
