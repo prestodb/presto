@@ -86,10 +86,14 @@ public class ArrayType
         }
 
         for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            if (!elementType.equalTo(leftArray, i, rightArray, i)) {
-                return false;
+            if (leftArray.isNull(i) == rightArray.isNull(i)) {
+                if (!elementType.equalTo(leftArray, i, rightArray, i)) {
+                    return false;
+                }
+            }
+            else {
+                checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
+                checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
             }
         }
 

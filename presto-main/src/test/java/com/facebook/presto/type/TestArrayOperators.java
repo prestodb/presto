@@ -1295,6 +1295,8 @@ public class TestArrayOperators
         assertFunction("ARRAYS_OVERLAP(ARRAY [NULL, 3], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
         assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1])", BooleanType.BOOLEAN, null);
         assertFunction("ARRAYS_OVERLAP(ARRAY [3, NULL], ARRAY [2, 1, NULL])", BooleanType.BOOLEAN, null);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [ARRAY [1, 2], ARRAY [1, NULL]], ARRAY [ARRAY [1, 2]])", BooleanType.BOOLEAN, true);
+        assertFunction("ARRAYS_OVERLAP(ARRAY [ARRAY [1, NULL], ARRAY [1, 2]], ARRAY [ARRAY [1, 2]])", BooleanType.BOOLEAN, true);
 
         assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [NULL, CAST(2 AS BIGINT)])", BooleanType.BOOLEAN, true);
         assertFunction("ARRAYS_OVERLAP(ARRAY [CAST(1 AS BIGINT), 2], ARRAY [CAST(2 AS BIGINT), NULL])", BooleanType.BOOLEAN, true);
@@ -1405,8 +1407,8 @@ public class TestArrayOperators
         assertFunction("ARRAY [1, 2, null] != ARRAY [1, 2, null]", BOOLEAN, null);
         assertFunction("ARRAY [1, 2, null] != ARRAY [1, null]", BOOLEAN, true);
         assertFunction("ARRAY [1, 3, null] != ARRAY [1, 2, null]", BOOLEAN, true);
-        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[2]] != ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, true);
-        assertFunction("ARRAY [ARRAY[1], ARRAY[null], ARRAY[3]] != ARRAY [ARRAY[1], ARRAY[2], ARRAY[3]]", BOOLEAN, null);
+        assertFunction("ARRAY [ARRAY [1], ARRAY [null], ARRAY [2]] != ARRAY [ARRAY [1], ARRAY [2], ARRAY [3]]", BOOLEAN, true);
+        assertFunction("ARRAY [ARRAY [1], ARRAY [null], ARRAY [3]] != ARRAY [ARRAY [1], ARRAY [2], ARRAY [3]]", BOOLEAN, null);
 
         assertFunction("ARRAY [10, 20, 30] < ARRAY [10, 20, 40, 50]", BOOLEAN, true);
         assertFunction("ARRAY [10, 20, 30] >= ARRAY [10, 20, 40, 50]", BOOLEAN, false);
