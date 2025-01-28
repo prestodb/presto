@@ -157,8 +157,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
+            <groupId>com.github.namya28</groupId>
+            <artifactId>presto-hive-dwrf</artifactId>
             <scope>test</scope>
         </dependency>
 
