@@ -1170,7 +1170,7 @@ public class LocalQueryRunner
         QueryAnalysis queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
         checkAccessPermissions(queryAnalysis.getAccessControlReferences());
 
-        PlanNode planNode = session.getRuntimeStats().profileNanos(
+        PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,
                 () -> queryAnalyzer.plan(analyzerContext, queryAnalysis));
 
@@ -1186,7 +1186,7 @@ public class LocalQueryRunner
                 costCalculator,
                 preparedQuery.getWrappedStatement() instanceof Explain);
 
-        return session.getRuntimeStats().profileNanos(
+        return session.getRuntimeStats().recordWallAndCpuTime(
                 OPTIMIZER_TIME_NANOS,
                 () -> optimizer.validateAndOptimizePlan(planNode, stage));
     }
