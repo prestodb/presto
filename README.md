@@ -131,6 +131,12 @@ subsequent Velox builds can use the installed packages.
 *You can reuse `DEPENDENCY_INSTALL` and `INSTALL_PREFIX` for Velox clients such as Prestissimo
 by specifying a common shared directory.`*
 
+The build parallelism for dependencies can be controlled by the `BUILD_THREADS` environment
+variable and overrides the default number of parallel processes used for compiling and linking.
+The default value is the number of cores on your machine.
+This is useful if your machine has lots of cores but no matching memory to process all
+compile and link processes in parallel resulting in OOM kills by the kernel.
+
 ### Setting up on macOS
 
 On a macOS machine (either Intel or Apple silicon) you can setup and then build like so:

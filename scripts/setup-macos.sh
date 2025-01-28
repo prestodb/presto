@@ -36,7 +36,7 @@ PYTHON_VENV=${PYTHON_VENV:-"${SCRIPTDIR}/../.venv"}
 # by tagging the brew packages to be system packages.
 # This is used during package builds.
 export OS_CXXFLAGS=" -isystem $(brew --prefix)/include "
-NPROC=$(getconf _NPROCESSORS_ONLN)
+NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
 
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
 VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly shared for use in libvelox.so.

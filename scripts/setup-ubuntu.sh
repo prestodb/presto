@@ -34,7 +34,7 @@ source $SCRIPTDIR/setup-helper-functions.sh
 # are the same size.
 COMPILER_FLAGS=$(get_cxx_flags)
 export COMPILER_FLAGS
-NPROC=$(getconf _NPROCESSORS_ONLN)
+NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
 export CMAKE_BUILD_TYPE=Release
 VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly shared for use in libvelox.so.

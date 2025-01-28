@@ -18,6 +18,7 @@
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)/deps-download}
 OS_CXXFLAGS=""
+NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
 
 function run_and_time {
   time "$@" || (echo "Failed to run $* ." ; exit 1 )
@@ -214,7 +215,7 @@ function cmake_install {
     -DBUILD_TESTING=OFF \
     "$@"
   # Exit if the build fails.
-  cmake --build "${BINARY_DIR}" || { echo 'build failed' ; exit 1; }
+  cmake --build "${BINARY_DIR}" "-j ${NPROC}" || { echo 'build failed' ; exit 1; }
   ${SUDO} cmake --install "${BINARY_DIR}"
 }
 
