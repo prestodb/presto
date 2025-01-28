@@ -48,6 +48,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.Utils.constructSchemaName;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.REGULAR;
@@ -58,8 +59,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_SEPARATOR;
-import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_THRIFT_NAME_MARKER;
 
 public class HudiMetadata
         implements ConnectorMetadata
@@ -91,7 +90,7 @@ public class HudiMetadata
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<Table> hiveTable = metastore.getTable(toMetastoreContext(session), constructSchemaName(tableName.getSchemaName()), tableName.getTableName());
+        Optional<Table> hiveTable = metastore.getTable(toMetastoreContext(session), constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()), tableName.getTableName());
         if (!hiveTable.isPresent()) {
             return null;
         }
@@ -150,7 +149,7 @@ public class HudiMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         MetastoreContext metastoreContext = toMetastoreContext(session);
-        String catalogAndSchemaName = constructSchemaName(schemaName.get());
+        String catalogAndSchemaName = constructSchemaName(Optional.ofNullable(catalogName), schemaName.get());
         return metastore
                 .getAllTables(metastoreContext, catalogAndSchemaName)
                 .orElseGet(() -> metastore.getAllDatabases(metastoreContext))
@@ -175,7 +174,7 @@ public class HudiMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        List<SchemaTableName> tables = prefix.getTableName() != null ? singletonList(prefix.toSchemaTableName()) : listTables(session, Optional.of(constructSchemaName(prefix.getSchemaName())));
+        List<SchemaTableName> tables = prefix.getTableName() != null ? singletonList(prefix.toSchemaTableName()) : listTables(session, Optional.of(constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName())));
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName table : tables) {
@@ -198,7 +197,7 @@ public class HudiMetadata
     {
         MetastoreContext metastoreContext = toMetastoreContext(connectorSession);
         HudiTableHandle handle = (HudiTableHandle) tableHandle;
-        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(handle.getSchemaName()), handle.getTableName());
+        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()), handle.getTableName());
         checkArgument(table.isPresent());
         return table.get();
     }
@@ -207,7 +206,7 @@ public class HudiMetadata
     {
         Table table = metastore.getTable(
                 toMetastoreContext(session),
-                constructSchemaName(tableName.getSchemaName()),
+                constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()),
                 tableName.getTableName()).orElseThrow(() -> new TableNotFoundException(tableName));
 
         List<ColumnMetadata> columnMetadatas = allColumnHandles(table)
@@ -273,24 +272,5 @@ public class HudiMetadata
     private static HudiColumnHandle fromPartitionColumn(int index, Column column)
     {
         return new HudiColumnHandle(index, column.getName(), column.getType(), column.getComment(), PARTITION_KEY);
-    }
-
-    /**
-     * Constructs the schema name, including catalog name if applicable.
-     *
-     * @param schemaName the original schema name
-     * @return the formatted schema name
-     */
-    private String constructSchemaName(String schemaName)
-    {
-        if (catalogName != null && schemaName != null && !schemaName.contains(CATALOG_DB_SEPARATOR)) {
-            return String.format(
-                    "%s%s%s%s",
-                    CATALOG_DB_THRIFT_NAME_MARKER,
-                    catalogName,
-                    CATALOG_DB_SEPARATOR,
-                    schemaName);
-        }
-        return schemaName;
     }
 }

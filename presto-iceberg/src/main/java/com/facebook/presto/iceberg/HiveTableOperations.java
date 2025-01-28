@@ -61,6 +61,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static com.facebook.presto.common.Utils.constructSchemaName;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
@@ -77,8 +78,6 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
-import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_SEPARATOR;
-import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_THRIFT_NAME_MARKER;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
@@ -325,7 +324,7 @@ public class HiveTableOperations
                 metastore.createTable(metastoreContext, table, privileges, emptyList());
             }
             else {
-                String schemaName = constructSchemaName(database);
+                String schemaName = constructSchemaName(catalogName, database);
                 PartitionStatistics tableStats = metastore.getTableStatistics(metastoreContext, schemaName, tableName);
                 metastore.replaceTable(metastoreContext, schemaName, tableName, table, privileges);
 
@@ -381,7 +380,7 @@ public class HiveTableOperations
 
     private Table getTable()
     {
-        return metastore.getTable(metastoreContext, constructSchemaName(database), tableName)
+        return metastore.getTable(metastoreContext, constructSchemaName(catalogName, database), tableName)
                 .orElseThrow(() -> new TableNotFoundException(getSchemaTableName()));
     }
 
@@ -508,24 +507,5 @@ public class HiveTableOperations
                             log.warn("Delete failed for previous metadata file: %s", previousMetadataFile, exc))
                     .run(previousMetadataFile -> io().deleteFile(previousMetadataFile.file()));
         }
-    }
-
-    /**
-     * Constructs the schema name, including catalog name if applicable.
-     *
-     * @param schemaName the original schema name
-     * @return the formatted schema name
-     */
-    private String constructSchemaName(String schemaName)
-    {
-        if (catalogName.isPresent() && schemaName != null && !schemaName.contains(CATALOG_DB_SEPARATOR)) {
-            return String.format(
-                    "%s%s%s%s",
-                    CATALOG_DB_THRIFT_NAME_MARKER,
-                    catalogName.get(),
-                    CATALOG_DB_SEPARATOR,
-                    schemaName);
-        }
-        return schemaName;
     }
 }

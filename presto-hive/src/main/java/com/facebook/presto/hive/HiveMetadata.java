@@ -148,6 +148,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.common.Utils.constructSchemaName;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -375,8 +376,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_SEPARATOR;
-import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CATALOG_DB_THRIFT_NAME_MARKER;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
 public class HiveMetadata
@@ -497,7 +496,7 @@ public class HiveMetadata
     @Override
     public boolean schemaExists(ConnectorSession session, String schemaName)
     {
-        Optional<Database> database = metastore.getDatabase(getMetastoreContext(session), constructSchemaName(schemaName));
+        Optional<Database> database = metastore.getDatabase(getMetastoreContext(session), constructSchemaName(Optional.ofNullable(catalogName), schemaName));
         return database.isPresent();
     }
 
@@ -518,7 +517,7 @@ public class HiveMetadata
     {
         requireNonNull(tableName, "tableName is null");
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        String schemaName = constructSchemaName(tableName.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName());
         Optional<Table> table = metastore.getTable(metastoreContext, schemaName, tableName.getTableName());
         if (!table.isPresent()) {
             return null;
@@ -570,7 +569,7 @@ public class HiveMetadata
     private Optional<SystemTable> getPropertiesSystemTable(ConnectorSession session, SchemaTableName tableName, SchemaTableName sourceTableName)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(sourceTableName.getSchemaName()), sourceTableName.getTableName());
+        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), sourceTableName.getSchemaName()), sourceTableName.getTableName());
         if (!table.isPresent() || table.get().getTableType().equals(VIRTUAL_VIEW)) {
             throw new TableNotFoundException(tableName);
         }
@@ -595,7 +594,7 @@ public class HiveMetadata
         }
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Table sourceTable = metastore.getTable(metastoreContext, constructSchemaName(sourceTableName.getSchemaName()), sourceTableName.getTableName())
+        Table sourceTable = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), sourceTableName.getSchemaName()), sourceTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(sourceTableName));
         List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(sourceTable);
         if (partitionColumns.isEmpty()) {
@@ -651,7 +650,7 @@ public class HiveMetadata
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(tableName.getSchemaName()), tableName.getTableName());
+        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()), tableName.getTableName());
         return getTableMetadata(table, tableName, metastoreContext, session);
     }
 
@@ -665,7 +664,7 @@ public class HiveMetadata
             throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Not a Hive table '%s'", tableName));
         }
 
-        List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(metastoreContext, constructSchemaName(tableName.getSchemaName()), tableName.getTableName());
+        List<TableConstraint<String>> tableConstraints = metastore.getTableConstraints(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()), tableName.getTableName());
         List<String> notNullColumns = tableConstraints.stream()
                 .filter(NotNullConstraint.class::isInstance)
                 .map(constraint -> constraint.getColumns().stream()
@@ -807,7 +806,7 @@ public class HiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        for (String schemaName : listSchemas(session, constructSchemaName(schemaNameOrNull))) {
+        for (String schemaName : listSchemas(session, constructSchemaName(Optional.ofNullable(catalogName), schemaNameOrNull))) {
             for (String tableName : metastore.getAllTables(metastoreContext, schemaName).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }
@@ -916,9 +915,9 @@ public class HiveMetadata
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
-            return listTables(session, constructSchemaName(prefix.getSchemaName()));
+            return listTables(session, constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName()));
         }
-        return ImmutableList.of(new SchemaTableName(constructSchemaName(prefix.getSchemaName()), prefix.getTableName()));
+        return ImmutableList.of(new SchemaTableName(constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName()), prefix.getTableName()));
     }
 
     /**
@@ -968,7 +967,7 @@ public class HiveMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        String catalogAndSchemaName = constructSchemaName(schemaName);
+        String catalogAndSchemaName = constructSchemaName(Optional.ofNullable(catalogName), schemaName);
         // basic sanity check to provide a better error message
         if (!listTables(session, catalogAndSchemaName).isEmpty() ||
                 !listViews(session, catalogAndSchemaName).isEmpty()) {
@@ -980,7 +979,7 @@ public class HiveMetadata
     @Override
     public void renameSchema(ConnectorSession session, String source, String target)
     {
-        metastore.renameDatabase(getMetastoreContext(session), constructSchemaName(source), target);
+        metastore.renameDatabase(getMetastoreContext(session), constructSchemaName(Optional.ofNullable(catalogName), source), target);
     }
 
     @Override
@@ -1084,7 +1083,7 @@ public class HiveMetadata
     @Override
     public ConnectorTableHandle createTemporaryTable(ConnectorSession session, List<ColumnMetadata> columns, Optional<ConnectorPartitioningMetadata> partitioningMetadata)
     {
-        String schemaName = constructSchemaName(getTemporaryTableSchema(session));
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), getTemporaryTableSchema(session));
         HiveStorageFormat storageFormat = getTemporaryTableStorageFormat(session);
 
         Optional<HiveBucketProperty> bucketProperty = partitioningMetadata.map(partitioning -> {
@@ -1439,7 +1438,7 @@ public class HiveMetadata
         }
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.addColumn(metastoreContext, constructSchemaName(handle.getSchemaName()), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
+        metastore.addColumn(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()), handle.getTableName(), column.getName(), toHiveType(typeTranslator, column.getType()), column.getComment());
     }
 
     @Override
@@ -1450,7 +1449,7 @@ public class HiveMetadata
         HiveColumnHandle sourceHandle = (HiveColumnHandle) source;
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.renameColumn(metastoreContext, constructSchemaName(hiveTableHandle.getSchemaName()), hiveTableHandle.getTableName(), sourceHandle.getName(), target);
+        metastore.renameColumn(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), hiveTableHandle.getSchemaName()), hiveTableHandle.getTableName(), sourceHandle.getName(), target);
     }
 
     @Override
@@ -1461,14 +1460,14 @@ public class HiveMetadata
         HiveColumnHandle columnHandle = (HiveColumnHandle) column;
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.dropColumn(metastoreContext, constructSchemaName(hiveTableHandle.getSchemaName()), hiveTableHandle.getTableName(), columnHandle.getName());
+        metastore.dropColumn(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), hiveTableHandle.getSchemaName()), hiveTableHandle.getTableName(), columnHandle.getName());
     }
 
     private void failIfAvroSchemaIsSet(ConnectorSession session, HiveTableHandle handle)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
 
-        Table table = metastore.getTable(metastoreContext, constructSchemaName(handle.getSchemaName()), handle.getTableName())
+        Table table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
 
         if (table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null) {
@@ -1481,14 +1480,14 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.renameTable(metastoreContext, constructSchemaName(handle.getSchemaName()), handle.getTableName(), newTableName.getSchemaName(), newTableName.getTableName());
+        metastore.renameTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()), handle.getTableName(), newTableName.getSchemaName(), newTableName.getTableName());
     }
 
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        HiveTableHandle handle = new HiveTableHandle(constructSchemaName(hiveTableHandle.getSchemaName()), hiveTableHandle.getTableName());
+        HiveTableHandle handle = new HiveTableHandle(constructSchemaName(Optional.ofNullable(catalogName), hiveTableHandle.getSchemaName()), hiveTableHandle.getTableName());
         MetastoreContext metastoreContext = getMetastoreContext(session);
 
         Optional<Table> target = metastore.getTable(metastoreContext, handle);
@@ -1520,7 +1519,7 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = handle.getSchemaTableName();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Table table = metastore.getTable(metastoreContext, constructSchemaName(tableName.getSchemaName()), tableName.getTableName())
+        Table table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
 
         List<Column> partitionColumns = table.getPartitionColumns();
@@ -1544,7 +1543,7 @@ public class HiveMetadata
                 partitionValuesList = handle.getAnalyzePartitionValues().get();
             }
             else {
-                partitionValuesList = metastore.getPartitionNames(metastoreContext, constructSchemaName(handle.getSchemaName()), handle.getTableName())
+                partitionValuesList = metastore.getPartitionNames(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()), handle.getTableName())
                         .orElseThrow(() -> new TableNotFoundException(((HiveTableHandle) tableHandle).getSchemaTableName()))
                         .stream()
                         .map(partitionNameWithVersion -> toPartitionValues(partitionNameWithVersion.getPartitionName()))
@@ -1594,7 +1593,7 @@ public class HiveMetadata
 
         // get the root directory for the database
         SchemaTableName schemaTableName = tableMetadata.getTable();
-        String schemaName = constructSchemaName(schemaTableName.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), schemaTableName.getSchemaName());
         String tableName = schemaTableName.getTableName();
 
         Optional<TableEncryptionProperties> tableEncryptionProperties = getTableEncryptionPropertiesFromTableProperties(tableMetadata, tableStorageFormat, partitionedBy);
@@ -1686,7 +1685,7 @@ public class HiveMetadata
         WriteInfo writeInfo = locationService.getQueryWriteInfo(handle.getLocationHandle());
         MetastoreContext metastoreContext = getMetastoreContext(session);
 
-        String schemaName = constructSchemaName(handle.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName());
         Table table = buildTableObject(
                 session.getQueryId(),
                 Optional.ofNullable(catalogName),
@@ -1921,7 +1920,7 @@ public class HiveMetadata
         MetastoreContext metastoreContext = getMetastoreContext(session);
 
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
-        String schemaName = constructSchemaName(tableName.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName());
         Table table = metastore.getTable(metastoreContext, schemaName, tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
@@ -2035,7 +2034,7 @@ public class HiveMetadata
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
 
-        String schemaName = constructSchemaName(handle.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName());
         Table table = metastore.getTable(metastoreContext, schemaName, handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
         if (!table.getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && isRespectTableFormat(session)) {
@@ -2286,7 +2285,7 @@ public class HiveMetadata
                 Optional.ofNullable(catalogName));
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
 
-        String schemaName = constructSchemaName(viewName.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), viewName.getSchemaName());
         Optional<Table> existing = metastore.getTable(metastoreContext, schemaName, viewName.getTableName());
         if (existing.isPresent()) {
             if (!replace || !isPrestoView(existing.get())) {
@@ -2312,7 +2311,7 @@ public class HiveMetadata
         checkIfNullView(view, viewName);
 
         try {
-            String schemaName = constructSchemaName(viewName.getSchemaName());
+            String schemaName = constructSchemaName(Optional.ofNullable(catalogName), viewName.getSchemaName());
             metastore.dropTable(
                     new HdfsContext(session, schemaName),
                     schemaName,
@@ -2328,7 +2327,7 @@ public class HiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        for (String schemaName : listSchemas(session, constructSchemaName(schemaNameOrNull))) {
+        for (String schemaName : listSchemas(session, constructSchemaName(Optional.ofNullable(catalogName), schemaNameOrNull))) {
             for (String tableName : metastore.getAllViews(metastoreContext, schemaName).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }
@@ -2341,7 +2340,7 @@ public class HiveMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
         List<SchemaTableName> tableNames;
-        String schemaName = constructSchemaName(prefix.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName());
         if (prefix.getTableName() != null) {
             tableNames = ImmutableList.of(new SchemaTableName(schemaName, prefix.getTableName()));
         }
@@ -2365,7 +2364,7 @@ public class HiveMetadata
         requireNonNull(viewName, "viewName is null");
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(viewName.getSchemaName()), viewName.getTableName());
+        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), viewName.getSchemaName()), viewName.getTableName());
 
         if (table.isPresent() && MetastoreUtil.isPrestoMaterializedView(table.get())) {
             try {
@@ -2388,7 +2387,7 @@ public class HiveMetadata
                 .orElseThrow(() -> new MaterializedViewNotFoundException(materializedViewName));
 
         List<Table> baseTables = viewDefinition.getBaseTables().stream()
-                .map(baseTableName -> metastore.getTable(metastoreContext, constructSchemaName(baseTableName.getSchemaName()), baseTableName.getTableName())
+                .map(baseTableName -> metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), baseTableName.getSchemaName()), baseTableName.getTableName())
                         .orElseThrow(() -> new TableNotFoundException(baseTableName)))
                 .collect(toImmutableList());
 
@@ -2396,7 +2395,7 @@ public class HiveMetadata
                 table.getTableType().equals(MANAGED_TABLE),
                 format("base table %s is not a managed table", table.getTableName())));
 
-        Table materializedViewTable = metastore.getTable(metastoreContext, constructSchemaName(materializedViewName.getSchemaName()), materializedViewName.getTableName())
+        Table materializedViewTable = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), materializedViewName.getSchemaName()), materializedViewName.getTableName())
                 .orElseThrow(() -> new MaterializedViewNotFoundException(materializedViewName));
 
         checkState(
@@ -2505,7 +2504,7 @@ public class HiveMetadata
         }
 
         try {
-            String schemaName = constructSchemaName(viewName.getSchemaName());
+            String schemaName = constructSchemaName(Optional.ofNullable(catalogName), viewName.getSchemaName());
             metastore.dropTable(
                     new HdfsContext(session, schemaName, viewName.getTableName()),
                     schemaName,
@@ -2533,7 +2532,7 @@ public class HiveMetadata
     {
         requireNonNull(tableName, "tableName is null");
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Table table = metastore.getTable(metastoreContext, constructSchemaName(tableName.getSchemaName()), tableName.getTableName()).orElseThrow(() -> new TableNotFoundException(tableName));
+        Table table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()), tableName.getTableName()).orElseThrow(() -> new TableNotFoundException(tableName));
         if (!table.getTableType().equals(MANAGED_TABLE) || MetastoreUtil.isPrestoMaterializedView(table)) {
             return Optional.empty();
         }
@@ -2561,7 +2560,7 @@ public class HiveMetadata
     {
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) tableLayoutHandle;
-        String schemaName = constructSchemaName(handle.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName());
         MetastoreContext metastoreContext = getMetastoreContext(session);
         Optional<Table> table = metastore.getTable(metastoreContext, handle);
         if (!table.isPresent()) {
@@ -3141,7 +3140,7 @@ public class HiveMetadata
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(tableMetadata.getTable().getSchemaName()), tableMetadata.getTable().getTableName());
+        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), tableMetadata.getTable().getSchemaName()), tableMetadata.getTable().getTableName());
         return getStatisticsCollectionMetadata(session, tableMetadata.getColumns(), partitionedBy, false, table.isPresent() && table.get().getTableType() == TEMPORARY_TABLE);
     }
 
@@ -3252,7 +3251,7 @@ public class HiveMetadata
                 .collect(toSet());
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.grantTablePrivileges(metastoreContext, constructSchemaName(schemaTableName.getSchemaName()), tableName, grantee, hivePrivilegeInfos);
+        metastore.grantTablePrivileges(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schemaTableName.getSchemaName()), tableName, grantee, hivePrivilegeInfos);
     }
 
     @Override
@@ -3265,7 +3264,7 @@ public class HiveMetadata
                 .collect(toSet());
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.revokeTablePrivileges(metastoreContext, constructSchemaName(schemaTableName.getSchemaName()), tableName, grantee, hivePrivilegeInfos);
+        metastore.revokeTablePrivileges(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schemaTableName.getSchemaName()), tableName, grantee, hivePrivilegeInfos);
     }
 
     @Override
@@ -3295,7 +3294,7 @@ public class HiveMetadata
         HiveOutputTableHandle handle = (HiveOutputTableHandle) tableHandle;
         return toCompletableFuture(stagingFileCommitter.commitFiles(
                 session,
-                constructSchemaName(handle.getSchemaName()),
+                constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()),
                 handle.getTableName(),
                 handle.getLocationHandle().getTargetPath().toString(),
                 true,
@@ -3308,7 +3307,7 @@ public class HiveMetadata
         HiveInsertTableHandle handle = (HiveInsertTableHandle) tableHandle;
         return toCompletableFuture(stagingFileCommitter.commitFiles(
                 session,
-                constructSchemaName(handle.getSchemaName()),
+                constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()),
                 handle.getTableName(),
                 handle.getLocationHandle().getTargetPath().toString(),
                 false,
@@ -3331,7 +3330,7 @@ public class HiveMetadata
     {
         ImmutableList.Builder<GrantInfo> result = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(metastoreContext, constructSchemaName(tableName.getSchemaName()), tableName.getTableName(), principal);
+        Set<HivePrivilegeInfo> hivePrivileges = metastore.listTablePrivileges(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()), tableName.getTableName(), principal);
         for (HivePrivilegeInfo hivePrivilege : hivePrivileges) {
             Set<PrivilegeInfo> prestoPrivileges = hivePrivilege.toPrivilegeInfo();
             for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
@@ -3754,7 +3753,7 @@ public class HiveMetadata
     public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        String schemaName = constructSchemaName(hiveTableHandle.getSchemaName());
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), hiveTableHandle.getSchemaName());
         MetastoreContext metastoreContext = getMetastoreContext(session);
         checkArgument((constraintName.isPresent() && !columnName.isPresent()) || (!constraintName.isPresent() && columnName.isPresent()));
         String constraintToDrop;
@@ -3783,7 +3782,7 @@ public class HiveMetadata
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        metastore.addConstraint(metastoreContext, constructSchemaName(hiveTableHandle.getSchemaName()), hiveTableHandle.getTableName(), tableConstraint);
+        metastore.addConstraint(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), hiveTableHandle.getSchemaName()), hiveTableHandle.getTableName(), tableConstraint);
     }
 
     private enum SystemTableHandler
@@ -3819,24 +3818,5 @@ public class HiveMetadata
             }
         }
         return Optional.empty();
-    }
-
-    /**
-     * Constructs the schema name, including catalog name if applicable.
-     *
-     * @param schemaName the original schema name
-     * @return the formatted schema name
-     */
-    private String constructSchemaName(String schemaName)
-    {
-        if (catalogName != null && schemaName != null && !schemaName.contains(CATALOG_DB_SEPARATOR)) {
-            return format(
-                    "%s%s%s%s",
-                    CATALOG_DB_THRIFT_NAME_MARKER,
-                    catalogName,
-                    CATALOG_DB_SEPARATOR,
-                    schemaName);
-        }
-        return schemaName;
     }
 }
