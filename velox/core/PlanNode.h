@@ -1776,9 +1776,7 @@ class MergeJoinNode : public AbstractJoinNode {
 /// right side, it can only use one index column. Each index column can either
 /// be a join key or a join condition once. The table scan node of the right
 /// input is translated to a connector::IndexSource within
-/// exec::IndexLookupJoin.
-///
-///    Only INNER and LEFT joins are supported.
+/// exec::IndexLookupJoin. Only INNER and LEFT joins are supported.
 ///
 /// Take the following query for example, t is left table, r is the right table
 /// with indexed columns. 'sid' is the join keys. 'u.event_type in t.event_list'
