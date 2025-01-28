@@ -283,6 +283,7 @@ public class FeaturesConfig
     private boolean removeCrossJoinWithSingleConstantRow = true;
     private CreateView.Security defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
+    private HistoryBasedOptimizerInputStatisticsCheckStrategy historyBasedOptimizerInputStatisticsCheckStrategy = HistoryBasedOptimizerInputStatisticsCheckStrategy.ALWAYS;
 
     private boolean isInlineProjectionsOnValuesEnabled;
     private boolean includeValuesNodeInConnectorOptimizer = true;
@@ -441,6 +442,12 @@ public class FeaturesConfig
     {
         DISABLED,
         ALWAYS_ENABLED
+    }
+
+    public enum HistoryBasedOptimizerInputStatisticsCheckStrategy
+    {
+        ALWAYS,
+        NEVER,
     }
 
     public double getCpuCostWeight()
@@ -2913,6 +2920,19 @@ public class FeaturesConfig
     public FeaturesConfig setNativeExecutionScaleWritersThreadsEnabled(boolean nativeExecutionScaleWritersThreadsEnabled)
     {
         this.nativeExecutionScaleWritersThreadsEnabled = nativeExecutionScaleWritersThreadsEnabled;
+        return this;
+    }
+
+    public HistoryBasedOptimizerInputStatisticsCheckStrategy getHistoryBasedOptimizerInputStatisticsCheckStrategy()
+    {
+        return historyBasedOptimizerInputStatisticsCheckStrategy;
+    }
+
+    @Config("optimizer.history-based-optimizer-input-statistics-check-strategy")
+    @ConfigDescription("Set when to check input table statistics in history based optimizer")
+    public FeaturesConfig setHistoryBasedOptimizerInputStatisticsCheckStrategy(HistoryBasedOptimizerInputStatisticsCheckStrategy historyBasedOptimizerInputStatisticsCheckStrategy)
+    {
+        this.historyBasedOptimizerInputStatisticsCheckStrategy = historyBasedOptimizerInputStatisticsCheckStrategy;
         return this;
     }
 }
