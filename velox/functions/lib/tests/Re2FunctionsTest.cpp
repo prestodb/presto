@@ -1103,6 +1103,20 @@ TEST_F(Re2FunctionsTest, regexExtractAllConstantPatternConstantGroupId) {
   testRe2ExtractAll(inputs, constantPattern, bigGroupIds, expectedOutputs);
 }
 
+TEST_F(Re2FunctionsTest, regexExtractAllMismatchedGroup) {
+  auto sourceVector =
+      makeFlatVector<std::string>({"rat cat\nbat dog"}, VARCHAR());
+  auto patternVector =
+      makeFlatVector<std::string>({"ra(.)|blah(.)(.)"}, VARCHAR());
+  auto groupIdVector = makeFlatVector<int>(std::vector{2}, INTEGER());
+  auto expectedVector = makeNullableArrayVector<std::string>(
+      std::vector<std::vector<std::optional<std::string>>>{{std::nullopt}});
+  auto result = evaluate(
+      "regexp_extract_all(c0, c1, c2)",
+      makeRowVector({sourceVector, patternVector, groupIdVector}));
+  assertEqualVectors(expectedVector, result);
+}
+
 TEST_F(Re2FunctionsTest, regexExtractAllConstantPatternVariableGroupId) {
   const std::vector<std::optional<std::string>> inputs = {
       "  123a   2b   14m  ",
