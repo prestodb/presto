@@ -718,7 +718,7 @@ TEST_P(AsyncDataCacheTest, pin) {
 
 TEST_P(AsyncDataCacheTest, replace) {
   constexpr int64_t kMaxBytes = 64 << 20;
-  FLAGS_velox_exception_user_stacktrace_enabled = false;
+  config::globalConfig.exceptionUserStacktraceEnabled = false;
   initializeCache(kMaxBytes);
   // Load 10x the max size, inject an error every 21 batches.
   loadLoop(0, kMaxBytes * 10, 21);
@@ -736,7 +736,7 @@ TEST_P(AsyncDataCacheTest, replace) {
 
 TEST_P(AsyncDataCacheTest, evictAccounting) {
   constexpr int64_t kMaxBytes = 64 << 20;
-  FLAGS_velox_exception_user_stacktrace_enabled = false;
+  config::globalConfig.exceptionUserStacktraceEnabled = false;
   initializeCache(kMaxBytes);
   auto pool = manager_->addLeafPool("test");
 
@@ -760,7 +760,7 @@ TEST_P(AsyncDataCacheTest, evictAccounting) {
 TEST_P(AsyncDataCacheTest, largeEvict) {
   constexpr int64_t kMaxBytes = 256 << 20;
   constexpr int32_t kNumThreads = 24;
-  FLAGS_velox_exception_user_stacktrace_enabled = false;
+  config::globalConfig.exceptionUserStacktraceEnabled = false;
   initializeCache(kMaxBytes);
   // Load 10x the max size, inject an allocation of 1/8 the capacity every 4
   // batches.
@@ -839,7 +839,7 @@ TEST_P(AsyncDataCacheTest, DISABLED_ssd) {
   constexpr uint64_t kRamBytes = 32 << 20;
   constexpr uint64_t kSsdBytes = 512UL << 20;
 #endif
-  FLAGS_velox_exception_user_stacktrace_enabled = false;
+  config::globalConfig.exceptionUserStacktraceEnabled = false;
   initializeCache(kRamBytes, kSsdBytes);
   cache_->setVerifyHook(
       [&](const AsyncDataCacheEntry& entry) { checkContents(entry); });

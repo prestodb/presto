@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace facebook::velox::config {
 
@@ -53,6 +54,29 @@ struct GlobalConfiguration {
   /// Min time interval in milliseconds between stack traces captured in
   /// system type of VeloxException; off when set to 0 (the default).
   int32_t exceptionSystemStacktraceRateLimitMs{0};
+  /// Whether to overwrite queryCtx and force the use of simplified expression
+  /// evaluation path.
+  bool forceEvalSimplified{false};
+  /// This is an experimental flag only to be used for debugging purposes. If
+  /// set to true, serializes the input vector data and all the SQL expressions
+  /// in the ExprSet that is currently executing, whenever a fatal signal is
+  /// encountered. Enabling this flag makes the signal handler async signal
+  /// unsafe, so it should only be used for debugging purposes. The vector and
+  /// SQLs are serialized to files in directories specified by either
+  /// 'saveInputOnExpressionAnyFailurePath' or
+  /// 'saveInputOnExpressionSystemFailurePath'
+  bool experimentalSaveInputOnFatalSignal{false};
+  /// Used to enable saving input vector and expression SQL on disk in case
+  /// of any (user or system) error during expression evaluation. The value
+  /// specifies a path to a directory where the vectors will be saved. That
+  /// directory must exist and be writable.
+  std::string saveInputOnExpressionAnyFailurePath;
+  /// Used to enable saving input vector and expression SQL on disk in case
+  /// of a system error during expression evaluation. The value specifies a path
+  /// to a directory where the vectors will be saved. That directory must exist
+  /// and be writable. This flag is ignored if
+  /// saveInputOnExpressionAnyFailurePath flag is set.
+  std::string saveInputOnExpressionSystemFailurePath;
 };
 
 extern GlobalConfiguration globalConfig;

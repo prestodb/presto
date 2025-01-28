@@ -40,8 +40,8 @@ void testTraceCollectionSwitchControl(bool enabled) {
     SCOPED_TRACE(fmt::format(
         "enabled: {}, user flag: {}, sys flag: {}",
         enabled,
-        FLAGS_velox_exception_user_stacktrace_enabled,
-        FLAGS_velox_exception_system_stacktrace_enabled));
+        config::globalConfig.exceptionUserStacktraceEnabled,
+        config::globalConfig.exceptionSystemStacktraceEnabled));
     ASSERT_TRUE(e.exceptionType() == VeloxException::Type::kSystem);
     ASSERT_EQ(enabled, e.stackTrace() != nullptr);
   }

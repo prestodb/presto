@@ -76,6 +76,25 @@ DEFINE_string(
     "vectors and expression SQL strings. This flag is ignored if "
     "velox_save_input_on_expression_any_failure_path is set.");
 
+DEFINE_bool(
+    force_eval_simplified,
+    false,
+    "Whether to overwrite queryCtx and force the "
+    "use of simplified expression evaluation path.");
+
+DEFINE_bool(
+    velox_experimental_save_input_on_fatal_signal,
+    false,
+    "This is an experimental flag only to be used for debugging "
+    "purposes. If set to true, serializes the input vector data and "
+    "all the SQL expressions in the ExprSet that is currently "
+    "executing, whenever a fatal signal is encountered. Enabling "
+    "this flag makes the signal handler async signal unsafe, so it "
+    "should only be used for debugging purposes. The vector and SQLs "
+    "are serialized to files in directories specified by either "
+    "'velox_save_input_on_expression_any_failure_path' or "
+    "'velox_save_input_on_expression_system_failure_path'");
+
 // TODO: deprecate this once all the memory leak issues have been fixed in
 // existing meta internal use cases.
 DEFINE_bool(
@@ -138,5 +157,12 @@ void translateFlagsToGlobalConfig() {
       FLAGS_velox_exception_user_stacktrace_enabled;
   config::globalConfig.exceptionUserStacktraceRateLimitMs =
       FLAGS_velox_exception_user_stacktrace_rate_limit_ms;
+  config::globalConfig.forceEvalSimplified = FLAGS_force_eval_simplified;
+  config::globalConfig.experimentalSaveInputOnFatalSignal =
+      FLAGS_velox_experimental_save_input_on_fatal_signal;
+  config::globalConfig.saveInputOnExpressionAnyFailurePath =
+      FLAGS_velox_save_input_on_expression_any_failure_path;
+  config::globalConfig.saveInputOnExpressionSystemFailurePath =
+      FLAGS_velox_save_input_on_expression_system_failure_path;
 }
 } // namespace facebook::velox
