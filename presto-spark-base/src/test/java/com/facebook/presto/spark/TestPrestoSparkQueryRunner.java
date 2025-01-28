@@ -753,7 +753,7 @@ public class TestPrestoSparkQueryRunner
     @Test
     public void testFailures()
     {
-        assertQueryFails("SELECT * FROM orders WHERE custkey / (orderkey - orderkey) = 0", "/ by zero");
+        assertQueryFails("SELECT * FROM orders WHERE custkey / (orderkey - orderkey) = 0", "Division by zero");
         assertQueryFails(
                 "CREATE TABLE hive.hive_test.hive_orders_test_failures AS " +
                         "(SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
@@ -762,7 +762,7 @@ public class TestPrestoSparkQueryRunner
                         "(SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
                         "FROM orders " +
                         "WHERE custkey / (orderkey - orderkey) = 0 )",
-                "/ by zero");
+                "Division by zero");
     }
 
     @Test
