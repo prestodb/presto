@@ -16,11 +16,14 @@ ENV PROMPT_ALWAYS_RESPOND=n
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
-RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
 COPY velox/scripts /velox/scripts
 RUN mkdir build && \
     (cd build && ../scripts/setup-centos.sh && \
                  ../velox/scripts/setup-adapters.sh && \
                  ../scripts/setup-adapters.sh ) && \
-    rm -rf build
+    rm -rf build && \
+    dnf install -y -q 'dnf-command(config-manager)' && \
+    dnf config-manager --add-repo 'https://cli.github.com/packages/rpm/gh-cli.repo' && \
+    dnf install -y -q gh jq && \
+    dnf clean all
