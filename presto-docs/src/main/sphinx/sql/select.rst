@@ -7,14 +7,14 @@ Synopsis
 
 .. code-block:: none
 
-    [ WITH with_query [, ...] ]
-    SELECT [ ALL | DISTINCT ] select_expr [, ...]
-    [ FROM from_item [, ...] ]
+    [ WITH with_query [, ...] [,] ]
+    SELECT [ ALL | DISTINCT ] select_expr [, ...] [,]
+    [ FROM from_item [, ...] [,] ]
     [ WHERE condition ]
-    [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] ]
+    [ GROUP BY [ ALL | DISTINCT ] grouping_element [, ...] [,] ]
     [ HAVING condition]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
-    [ ORDER BY expression [ ASC | DESC ] [, ...] ]
+    [ ORDER BY expression [ ASC | DESC ] [, ...] [,] ]
     [ OFFSET count [ { ROW | ROWS } ] ]
     [ { LIMIT [ count | ALL ] } ]
 
@@ -22,11 +22,11 @@ where ``from_item`` is one of
 
 .. code-block:: none
 
-    table_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+    table_name [ [ AS ] alias [ ( column_alias [, ...] [,] ) ] ]
 
 .. code-block:: none
 
-    from_item join_type from_item [ ON join_condition | USING ( join_column [, ...] ) ]
+    from_item join_type from_item [ ON join_condition | USING ( join_column [, ...] [,] ) ]
 
 and ``join_type`` is one of
 
@@ -44,9 +44,9 @@ and ``grouping_element`` is one of
 
     ()
     expression
-    GROUPING SETS ( ( column [, ...] ) [, ...] )
-    CUBE ( column [, ...] )
-    ROLLUP ( column [, ...] )
+    GROUPING SETS ( ( column [, ...] [,] ) [, ...] [,] )
+    CUBE ( column [, ...] [,])
+    ROLLUP ( column [, ...] [,])
 
 Description
 -----------
@@ -574,7 +574,7 @@ output expressions:
 
 .. code-block:: none
 
-    ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...]
+    ORDER BY expression [ ASC | DESC ] [ NULLS { FIRST | LAST } ] [, ...] [,]
 
 Each expression may be composed of output columns or it may be an ordinal
 number selecting an output column by position (starting at one). The
