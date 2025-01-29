@@ -46,3 +46,14 @@ Example configuration file:
     event-listener.name=custom-event-listener
     custom-property1=custom-value1
     custom-property2=custom-value2
+
+Multiple Event Listeners
+------------------------
+
+Multiple instances of the same, or different event listeners can be
+installed and configured by setting ``event-listener.config-files``
+to a comma separated list of config files.
+
+.. code-block:: none
+
+    event-listener.config-files=etc/event-listener.properties,etc/event-listener-second.properties
