@@ -134,7 +134,7 @@ public final class Utils
 
     /**
      * Constructs the schema name, including catalog name if applicable.
-     *
+     * @catalog_name#schema_name
      * @param schemaName the original schema name
      * @return the formatted schema name
      */

@@ -37,7 +37,7 @@ import static org.testng.Assert.assertFalse;
 public class TestHiveEncryptionInformationProvider
 {
     private static final Table TEST_TABLE = new Table(
-            Optional.of("test_catalog"),
+            Optional.of("catalogName"),
             "test_db",
             "test_table",
             "test_owner",

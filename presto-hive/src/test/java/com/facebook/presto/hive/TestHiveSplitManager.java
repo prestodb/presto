@@ -163,7 +163,7 @@ public class TestHiveSplitManager
 
     private static Table createTestTable(StorageFormat storageFormat, Map<String, String> parameters)
     {
-        return new Table(Optional.of("test_catalog"),
+        return new Table(Optional.of("catalogName"),
                 "test_db",
                 "test_table",
                 "test_owner",
@@ -475,7 +475,7 @@ public class TestHiveSplitManager
         // Prepare partition with stats
         PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
                 new Partition(
-                        Optional.of("catalogname"),
+                        Optional.of("catalogName"),
                         "test_db",
                         "test_table",
                         ImmutableList.of(PARTITION_VALUE),
@@ -622,7 +622,7 @@ public class TestHiveSplitManager
                         DWRF_ENCRYPTION_PROVIDER_KEY, testEncryptionProvider));
         PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
                 new Partition(
-                        Optional.of("catalogname"),
+                        Optional.of("catalogName"),
                         "test_db",
                         "test_table",
                         ImmutableList.of(PARTITION_VALUE),

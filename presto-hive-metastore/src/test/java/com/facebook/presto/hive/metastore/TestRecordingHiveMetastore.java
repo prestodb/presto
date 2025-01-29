@@ -97,7 +97,7 @@ public class TestRecordingHiveMetastore
             ImmutableMap.of("param", "value2"),
             ImmutableMap.of());
     private static final Table TABLE = new Table(
-            Optional.of("catalog"),
+            Optional.of("catalogName"),
             "database",
             "table",
             "owner",
@@ -109,7 +109,7 @@ public class TestRecordingHiveMetastore
             Optional.of("original_text"),
             Optional.of("expanded_text"));
     private static final Partition PARTITION = new Partition(
-            Optional.of("catalog"),
+            Optional.of("catalogName"),
             "database",
             "table",
             ImmutableList.of("value"),

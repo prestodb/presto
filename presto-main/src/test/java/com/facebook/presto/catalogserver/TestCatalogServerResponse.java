@@ -146,7 +146,7 @@ public class TestCatalogServerResponse
         QualifiedObjectName key = new QualifiedObjectName("hive", "tpch", "eric");
         actualViewsMap.put(key, new ViewDefinition(
                 "SELECT name\nFROM\n  tpch.sf1.nation\n",
-                Optional.of("hive"),
+                Optional.of("catalogName"),
                 Optional.of("tpch"),
                 new ArrayList<>(),
                 Optional.of("ericn576"),
@@ -169,7 +169,7 @@ public class TestCatalogServerResponse
         ViewDefinition viewDefinition = objectMapper.readValue(viewDefinitionJson, ViewDefinition.class);
         ViewDefinition actualViewDefinition = new ViewDefinition(
                 "SELECT name\nFROM\n  tpch.sf1.nation\n",
-                Optional.of("hive"),
+                Optional.of("catalogName"),
                 Optional.of("tpch"),
                 new ArrayList<>(),
                 Optional.of("ericn576"),
