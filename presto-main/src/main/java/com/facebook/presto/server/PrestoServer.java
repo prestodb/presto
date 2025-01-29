@@ -181,7 +181,7 @@ public class PrestoServer
             }
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
             injector.getInstance(PrestoAuthenticatorManager.class).loadPrestoAuthenticator();
-            injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
+            injector.getInstance(EventListenerManager.class).loadConfiguredEventListeners();
             injector.getInstance(TempStorageManager.class).loadTempStorages();
             injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();
             injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();

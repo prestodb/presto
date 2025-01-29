@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -30,6 +32,12 @@ public class TestingEventListenerManager
         extends EventListenerManager
 {
     private final AtomicReference<Optional<EventListener>> configuredEventListener = new AtomicReference<>(Optional.empty());
+
+    @Inject
+    public TestingEventListenerManager(EventListenerConfig config)
+    {
+        super(config);
+    }
 
     @Override
     public void addEventListenerFactory(EventListenerFactory eventListenerFactory)
