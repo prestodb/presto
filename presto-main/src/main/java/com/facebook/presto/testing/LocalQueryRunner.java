@@ -51,6 +51,7 @@ import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
+import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.AlterFunctionTask;
 import com.facebook.presto.execution.CommitTask;
@@ -542,7 +543,7 @@ public class LocalQueryRunner
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new PrestoAuthenticatorManager(new SecurityConfig()),
-                new EventListenerManager(),
+                new EventListenerManager(new EventListenerConfig()),
                 blockEncodingManager,
                 new TestingTempStorageManager(),
                 new QueryPrerequisitesManager(),

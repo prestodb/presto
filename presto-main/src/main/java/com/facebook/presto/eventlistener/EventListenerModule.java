@@ -17,12 +17,17 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
+
 public class EventListenerModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
+        configBinder(binder).bindConfig(EventListenerConfig.class);
         binder.bind(EventListenerManager.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(EventListenerManager.class).withGeneratedName();
     }
 }
