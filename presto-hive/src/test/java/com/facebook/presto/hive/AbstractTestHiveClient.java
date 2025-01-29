@@ -3889,6 +3889,7 @@ public abstract class AbstractTestHiveClient
     {
         byte[] rowIdPartitionComponent = {98, 45};
         return Partition.builder()
+                .setCatalogName(table.getCatalogName())
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())
