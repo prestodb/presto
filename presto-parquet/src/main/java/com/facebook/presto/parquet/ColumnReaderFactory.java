@@ -63,8 +63,8 @@ public class ColumnReaderFactory
 
     public static ColumnReader createReader(RichColumnDescriptor descriptor, boolean batchReadEnabled)
     {
-        if (batchReadEnabled) {
-            final boolean isNested = descriptor.getPath().length > 1;
+        final boolean isNested = descriptor.getPath().length > 1;
+        if (batchReadEnabled && (!(isNested && isDecimalType(descriptor)))) {
             switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
                 case BOOLEAN:
                     return isNested ? new BooleanNestedBatchReader(descriptor) : new BooleanFlatBatchReader(descriptor);
