@@ -27,13 +27,13 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.facebook.presto.orc.stream.LongInputStream;
 import com.google.common.io.Closer;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.LENGTH;
@@ -76,7 +76,6 @@ public class MapDirectBatchStreamReader
     public MapDirectBatchStreamReader(
             Type type,
             StreamDescriptor streamDescriptor,
-            DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
@@ -86,8 +85,8 @@ public class MapDirectBatchStreamReader
         verifyStreamType(streamDescriptor, type, MapType.class::isInstance);
         this.type = (MapType) type;
         this.streamDescriptor = requireNonNull(streamDescriptor, "stream is null");
-        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), hiveStorageTimeZone, options, systemMemoryContext);
-        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), hiveStorageTimeZone, options, systemMemoryContext);
+        this.keyStreamReader = createStreamReader(this.type.getKeyType(), streamDescriptor.getNestedStreams().get(0), options, systemMemoryContext);
+        this.valueStreamReader = createStreamReader(this.type.getValueType(), streamDescriptor.getNestedStreams().get(1), options, systemMemoryContext);
     }
 
     @Override
@@ -231,7 +230,7 @@ public class MapDirectBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         presentStreamSource = getBooleanMissingStreamSource();
@@ -245,8 +244,8 @@ public class MapDirectBatchStreamReader
 
         rowGroupOpen = false;
 
-        keyStreamReader.startStripe(stripe);
-        valueStreamReader.startStripe(stripe);
+        keyStreamReader.startStripe(timeZone, stripe);
+        valueStreamReader.startStripe(timeZone, stripe);
     }
 
     @Override

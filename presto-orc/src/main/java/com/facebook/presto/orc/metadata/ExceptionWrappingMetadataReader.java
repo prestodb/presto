@@ -79,7 +79,7 @@ public class ExceptionWrappingMetadataReader
         try {
             return delegate.readFooter(hiveWriterVersion, inputStream, dwrfEncryptionProvider, dwrfKeyProvider, orcDataSource, decompressor);
         }
-        catch (IOException | RuntimeException e) {
+        catch (IOException e) {
             throw propagate(e, "Invalid file footer");
         }
     }

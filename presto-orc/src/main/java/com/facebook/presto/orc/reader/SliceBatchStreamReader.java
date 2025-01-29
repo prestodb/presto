@@ -30,6 +30,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 
 import static com.facebook.presto.common.type.Chars.byteCountWithoutTrailingSpace;
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -79,7 +80,7 @@ public class SliceBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timeZone, Stripe stripe)
             throws IOException
     {
         ColumnEncodingKind columnEncodingKind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
@@ -95,7 +96,7 @@ public class SliceBatchStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + columnEncodingKind);
         }
 
-        currentReader.startStripe(stripe);
+        currentReader.startStripe(timeZone, stripe);
     }
 
     @Override
