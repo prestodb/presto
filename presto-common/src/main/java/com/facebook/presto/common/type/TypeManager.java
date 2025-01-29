@@ -14,6 +14,7 @@
 package com.facebook.presto.common.type;
 
 import java.util.List;
+import java.util.Map;
 
 public interface TypeManager
 {
@@ -28,4 +29,13 @@ public interface TypeManager
     Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters);
 
     boolean canCoerce(Type actualType, Type expectedType);
+
+    default Type instantiateParametricType(TypeSignature typeSignature)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    List<Type> getTypes();
+
+    Map<String, ParametricType> getParametricTypes();
 }
