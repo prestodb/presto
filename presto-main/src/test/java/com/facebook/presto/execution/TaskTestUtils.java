@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.event.SplitMonitor;
+import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
@@ -201,7 +202,7 @@ public final class TaskTestUtils
     public static SplitMonitor createTestSplitMonitor()
     {
         return new SplitMonitor(
-                new EventListenerManager(),
+                new EventListenerManager(new EventListenerConfig()),
                 new JsonObjectMapperProvider().get());
     }
 
