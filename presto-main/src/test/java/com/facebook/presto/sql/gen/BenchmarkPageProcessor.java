@@ -307,7 +307,9 @@ public class BenchmarkPageProcessor
             return new PageProcessor(
                     Optional.of(filter),
                     ImmutableList.of(createInputPageProjectionWithOutputs(0, metadataManager.getType(parseTypeSignature(projectionDataType)), 0)),
-                    OptionalInt.of(MAX_BATCH_SIZE));
+                    OptionalInt.of(MAX_BATCH_SIZE),
+                    Optional.empty(),
+                    Optional.empty());
         }
 
         private PageProjectionWithOutputs createInputPageProjectionWithOutputs(int inputChannel, Type type, int outputChannel)

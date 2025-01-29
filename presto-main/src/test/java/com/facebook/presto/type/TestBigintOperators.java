@@ -193,7 +193,7 @@ public class TestBigintOperators
         assertFunction("cast(100000000017 as varchar)", VARCHAR, "100000000017");
         assertFunction("cast(100000000017 as varchar(13))", createVarcharType(13), "100000000017");
         assertFunction("cast(100000000017 as varchar(50))", createVarcharType(50), "100000000017");
-        assertInvalidCast("cast(100000000017 as varchar(2))", "Value 100000000017 cannot be represented as varchar(2)");
+        assertInvalidCast("cast(100000000017 as varchar(2))", "Cannot cast BIGINT '100000000017' to varchar(2).");
     }
 
     @Test
