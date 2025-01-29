@@ -41,8 +41,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerationResult;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator;
 import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.JoinCondition;
-import com.facebook.presto.sql.planner.iterative.rule.ReorderJoins.MultiJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.sql.planner.plan.MultiJoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.tree.SymbolReference;
@@ -139,7 +139,9 @@ public class TestJoinEnumerator
                 new LinkedHashSet<>(ImmutableList.of(p.values(a1), p.values(b1))),
                 TRUE_CONSTANT,
                 ImmutableList.of(a1, b1),
-                Assignments.of());
+                Assignments.of(),
+                false,
+                Optional.empty());
         JoinEnumerator joinEnumerator = new JoinEnumerator(
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),

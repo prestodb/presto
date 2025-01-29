@@ -150,6 +150,7 @@ import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.CteProjectionAndPredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.GroupInnerJoinsByConnector;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
 import com.facebook.presto.sql.planner.optimizations.HistoricalStatisticsEquivalentPlanMarkingOptimizer;
 import com.facebook.presto.sql.planner.optimizations.ImplementIntersectAndExceptAsUnion;
@@ -197,6 +198,7 @@ import java.util.Set;
 
 import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.LOGICAL;
 import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.PHYSICAL;
+import static com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager.PlanPhase.STRUCTURAL;
 
 public class PlanOptimizers
 {
@@ -716,7 +718,6 @@ public class PlanOptimizers
                 new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
                 projectionPushDown,
                 new PruneUnreferencedOutputs());
-
         // Pass after connector optimizer, as it relies on connector optimizer to identify empty input tables and convert them to empty ValuesNode
         builder.add(new SimplifyPlanWithEmptyInput(),
                 new PruneUnreferencedOutputs());
@@ -759,6 +760,10 @@ public class PlanOptimizers
         // After this step, nodes with same `statsEquivalentPlanNode` will share same history based statistics.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
 
+        builder.add(new GroupInnerJoinsByConnector(metadata));
+        builder.add(new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(STRUCTURAL)));
+        builder.add(predicatePushDown, simplifyRowExpressionOptimizer);
+
         builder.add(new IterativeOptimizer(
                 metadata,
                 // Because ReorderJoins runs only once,
@@ -768,7 +773,8 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                ImmutableSet.of(new ReorderJoins(costComparator, metadata))));
+                ImmutableSet.of(
+                        new ReorderJoins(costComparator, metadata))));
 
         // After ReorderJoins, `statsEquivalentPlanNode` will be unassigned to intermediate join nodes.
         // We run it again to mark this for intermediate join nodes.
