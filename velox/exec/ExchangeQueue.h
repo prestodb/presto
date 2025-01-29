@@ -81,10 +81,6 @@ class SerializedPage {
 /// for input.
 class ExchangeQueue {
  public:
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  explicit ExchangeQueue() : ExchangeQueue(1, 0) {}
-#endif
-
   explicit ExchangeQueue(
       int32_t numberOfConsumers,
       uint64_t minOutputBatchBytes)
@@ -137,14 +133,6 @@ class ExchangeQueue {
       bool* atEnd,
       ContinueFuture* future,
       ContinuePromise* stalePromise);
-
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  std::vector<std::unique_ptr<SerializedPage>>
-  dequeueLocked(uint32_t maxBytes, bool* atEnd, ContinueFuture* future) {
-    ContinuePromise stalePromise = ContinuePromise::makeEmpty();
-    return dequeueLocked(0, maxBytes, atEnd, future, &stalePromise);
-  }
-#endif
 
   /// Returns the total bytes held by SerializedPages in 'this'.
   int64_t totalBytes() const {
