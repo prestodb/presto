@@ -30,47 +30,62 @@ import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLE
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.util.Failures.checkCondition;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ParametricScalar
         extends SqlScalarFunction
 {
-    private final ScalarHeader details;
+    private final ScalarHeader scalarHeader;
     private final ParametricImplementationsGroup<ParametricScalarImplementation> implementations;
 
     public ParametricScalar(
             Signature signature,
-            ScalarHeader details,
+            ScalarHeader scalarHeader,
             ParametricImplementationsGroup<ParametricScalarImplementation> implementations)
     {
         super(signature);
-        this.details = requireNonNull(details);
+        this.scalarHeader = requireNonNull(scalarHeader);
         this.implementations = requireNonNull(implementations);
     }
 
     @Override
     public SqlFunctionVisibility getVisibility()
     {
-        return details.getVisibility();
+        return scalarHeader.getVisibility();
+    }
+
+    public ScalarHeader getScalarHeader()
+    {
+        return scalarHeader;
     }
 
     @Override
     public boolean isDeterministic()
     {
-        return details.isDeterministic();
+        return scalarHeader.isDeterministic();
     }
 
     @Override
     public boolean isCalledOnNullInput()
     {
-        return details.isCalledOnNullInput();
+        return scalarHeader.isCalledOnNullInput();
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("signature", getSignature())
+                .add("implementation", implementations)
+                .add("scalarHeader", scalarHeader).toString();
     }
 
     @Override
     public String getDescription()
     {
-        return details.getDescription().isPresent() ? details.getDescription().get() : "";
+        return scalarHeader.getDescription().isPresent() ? scalarHeader.getDescription().get() : "";
     }
 
     @VisibleForTesting
