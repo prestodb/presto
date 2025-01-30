@@ -556,7 +556,7 @@ class Connector {
   /// @param numJoinKeys The number of key columns used in join equi-clauses.
   /// The first 'numJoinKeys' columns in 'inputType' form a prefix of the
   /// index, and the rest of the columns in inputType are expected to be used in
-  /// 'joinCondition'.
+  /// 'joinConditions'.
   /// @param joinConditions The join conditions. It expects inputs columns from
   /// the 'tail' of 'inputType' and from 'columnHandles'.
   /// @param outputType The lookup output type from index source.

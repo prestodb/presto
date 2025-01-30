@@ -1778,9 +1778,9 @@ class MergeJoinNode : public AbstractJoinNode {
 /// input is translated to a connector::IndexSource within
 /// exec::IndexLookupJoin. Only INNER and LEFT joins are supported.
 ///
-/// Take the following query for example, t is left table, r is the right table
-/// with indexed columns. 'sid' is the join keys. 'u.event_type in t.event_list'
-/// is the join condition.
+/// Take the following query for example, 't' is left table, 'u' is the right
+/// table with indexed columns. 'sid' is the join keys. 'u.event_type in
+/// t.event_list' is the join condition.
 ///
 /// SELECT t.sid, t.day_ts, u.event_type
 /// FROM t LEFT JOIN u
@@ -1792,7 +1792,7 @@ class MergeJoinNode : public AbstractJoinNode {
 /// - 'joinType' is JoinType::kLeft
 /// - 'left' describes scan of t with a filter on 'ds':t.ds BETWEEN '2024-01-01'
 ///    AND '2024-01-07'
-/// - 'right' describes indexed table 'u' with ndex keys sid, event_type(and
+/// - 'right' describes indexed table 'u' with index keys sid, event_type(and
 ///    maybe some more)
 /// - 'leftKeys' is a list of one key 't.sid'
 /// - 'rightKeys' is a list of one key 'u.sid'
