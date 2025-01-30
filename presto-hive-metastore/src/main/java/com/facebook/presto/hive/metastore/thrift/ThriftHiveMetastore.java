@@ -183,6 +183,9 @@ public class ThriftHiveMetastore
     private final boolean isMetastoreAuthenticationEnabled;
     private final boolean deleteFilesOnTableDrop;
 
+    private volatile boolean metastoreKnownToSupportTableParamEqualsPredicate;
+    private volatile boolean metastoreKnownToSupportTableParamLikePredicate;
+
     @Inject
     public ThriftHiveMetastore(HiveCluster hiveCluster, MetastoreClientConfig config, HdfsEnvironment hdfsEnvironment)
     {
@@ -896,11 +899,9 @@ public class ThriftHiveMetastore
             return retry()
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
-                    .run("getAllViews", stats.getGetAllViews().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> {
-                                String filter = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
-                                return Optional.of(client.getTableNamesByFilter(databaseName, filter));
-                            })));
+                    .run("getAllViews", stats.getGetAllViews().wrap(() -> {
+                        return Optional.of(getPrestoViews(databaseName));
+                    }));
         }
         catch (UnknownDBException e) {
             return Optional.empty();
@@ -1207,6 +1208,46 @@ public class ThriftHiveMetastore
             storePartitionColumnStatistics(metastoreContext, databaseName, tableName, partitionWithStatistics.getPartitionName(), partitionWithStatistics);
         }
         return EMPTY_RESULT;
+    }
+
+    private List<String> getPrestoViews(String databaseName)
+            throws TException
+    {
+        /*
+         * Thrift call `get_table_names_by_filter` may be translated by Metastore to a SQL query against Metastore database.
+         * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
+         * CLOB values. At the same time, they allow `LIKE` predicates over them.
+         */
+        String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " = \"true\"";
+        String filterWithLike = HIVE_FILTER_FIELD_PARAMS + PRESTO_VIEW_FLAG + " LIKE \"true\"";
+        if (metastoreKnownToSupportTableParamEqualsPredicate) {
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+                return client.getTableNamesByFilter(databaseName, filterWithEquals);
+            }
+        }
+        if (metastoreKnownToSupportTableParamLikePredicate) {
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+                return client.getTableNamesByFilter(databaseName, filterWithLike);
+            }
+        }
+        try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+            List<String> views = client.getTableNamesByFilter(databaseName, filterWithEquals);
+            metastoreKnownToSupportTableParamEqualsPredicate = true;
+            return views;
+        }
+        catch (TException | RuntimeException firstException) {
+            try (HiveMetastoreClient client = clientProvider.createMetastoreClient(Optional.empty())) {
+                List<String> views = client.getTableNamesByFilter(databaseName, filterWithLike);
+                metastoreKnownToSupportTableParamLikePredicate = true;
+                return views;
+            }
+            catch (TException | RuntimeException secondException) {
+                if (firstException != secondException) {
+                    firstException.addSuppressed(secondException);
+                }
+            }
+            throw firstException;
+        }
     }
 
     private void addPartitionsWithoutStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, List<Partition> partitions)
