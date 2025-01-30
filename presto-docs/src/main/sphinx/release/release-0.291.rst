@@ -53,28 +53,6 @@ _______________
 
 Security Changes
 ________________
-* Fix `CVE-2015-3192 <https://www.mend.io/vulnerability-database/CVE-2015-3192>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2015-5211 <https://www.mend.io/vulnerability-database/CVE-2015-5211>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2016-1000027 <https://www.mend.io/vulnerability-database/CVE-2016-1000027>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2018-1199 <https://www.mend.io/vulnerability-database/CVE-2018-1199>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2018-1272 <https://www.mend.io/vulnerability-database/CVE-2018-1272>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2020-5421 <https://www.mend.io/vulnerability-database/CVE-2020-5421>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2021-0170 <https://www.mend.io/vulnerability-database/CVE-2021-0170>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2021-22060 <https://www.mend.io/vulnerability-database/CVE-2021-22060>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2021-22096 <https://www.mend.io/vulnerability-database/CVE-2021-22096>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2021-22096 <https://www.mend.io/vulnerability-database/CVE-2021-22096>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2022-22965 <https://www.mend.io/vulnerability-database/CVE-2022-22965>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2022-22970 <https://www.mend.io/vulnerability-database/CVE-2022-22970>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2022-22970 <https://www.mend.io/vulnerability-database/CVE-2022-22970>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2022-27772 <https://www.mend.io/vulnerability-database/CVE-2022-27772>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2023-20883 <https://www.mend.io/vulnerability-database/CVE-2023-20883>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2024-22243 <https://www.mend.io/vulnerability-database/CVE-2024-22243>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2024-22259 <https://www.mend.io/vulnerability-database/CVE-2024-22259>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2024-22262 <https://www.mend.io/vulnerability-database/CVE-2024-22262>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2024-38809 <https://www.mend.io/vulnerability-database/CVE-2024-38809>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2024-6763 <https://www.mend.io/vulnerability-database/CVE-2024-6763>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2024-6763 <https://www.mend.io/vulnerability-database/CVE-2024-6763>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2024-8184 <https://www.mend.io/vulnerability-database/CVE-2024-8184>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
 * Fix security vulnerability in presto-pinot-toolkit and presto-product-tests in response to `CVE-2020-0287 <https://nvd.nist.gov/vuln/detail/CVE-2020-0287>`_. `#24249 <https://github.com/prestodb/presto/pull/24249>`_
 * Fix security vulnerability in swagger-ui jar in response to `CVE-2018-25031 <https://nvd.nist.gov/vuln/detail/CVE-2018-25031>`_.  `#24153 <https://github.com/prestodb/presto/pull/24153>`_
 * Fix security vulnerability in swagger-ui jar in response to `CVE-2018-25031 <https://nvd.nist.gov/vuln/detail/CVE-2018-25031>`_. `#24199 <https://github.com/prestodb/presto/pull/24199>`_
