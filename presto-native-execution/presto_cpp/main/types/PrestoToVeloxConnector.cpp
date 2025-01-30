@@ -94,7 +94,7 @@ dwio::common::FileFormat toVeloxFileFormat(
     return dwio::common::FileFormat::NIMBLE;
   }
   VELOX_UNSUPPORTED(
-      "Unsupported file format: {} {}", format.inputFormat, format.serDe);
+      "Unsupported file format123: {} {}", format.inputFormat, format.serDe);
 }
 
 dwio::common::FileFormat toVeloxFileFormat(
@@ -104,7 +104,7 @@ dwio::common::FileFormat toVeloxFileFormat(
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return dwio::common::FileFormat::PARQUET;
   }
-  VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
+  VELOX_UNSUPPORTED("Unsupported file format123: {}", fmt::underlying(format));
 }
 
 template <typename T>
@@ -805,7 +805,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::Map<protocol::String, protocol::String>& tableParameters,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) {
-  common::SubfieldFilters subfieldFilters;
+  velox::connector::hive::SubfieldFilters subfieldFilters;
   auto domains = domainPredicate.domains;
   for (const auto& domain : *domains) {
     auto filter = domain.second;
@@ -905,6 +905,8 @@ dwio::common::FileFormat toFileFormat(
     case protocol::hive::HiveStorageFormat::ALPHA:
       // This has been renamed in Velox from ALPHA to NIMBLE.
       return dwio::common::FileFormat::NIMBLE;
+    case protocol::hive::HiveStorageFormat::PAGEFILE:
+      return dwio::common::FileFormat::PAGEFILE;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported file format in {}: {}.",
