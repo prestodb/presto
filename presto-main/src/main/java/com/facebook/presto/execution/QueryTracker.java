@@ -49,10 +49,9 @@ import static com.facebook.presto.execution.QueryLimit.Source.RESOURCE_GROUP;
 import static com.facebook.presto.execution.QueryLimit.createDurationLimit;
 import static com.facebook.presto.execution.QueryLimit.getMinimum;
 import static com.facebook.presto.spi.StandardErrorCode.ABANDONED_QUERY;
+import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_HAS_TOO_MANY_RUNNING_TASKS;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
-import static com.facebook.presto.sql.planner.PlanFragmenterUtils.TOO_MANY_STAGES_MESSAGE;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
@@ -296,9 +295,9 @@ public class QueryTracker<T extends TrackedQuery>
 
         while (runningTaskCountAfterKills > maxTotalRunningTaskCountToKillQuery && !taskCountQueue.isEmpty()) {
             QueryAndTaskCount<T> queryAndTaskCount = taskCountQueue.poll();
-            queryAndTaskCount.getQuery().fail(new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
-                    "Query killed because the cluster is overloaded with too many tasks (%s) and this query was running with the highest number of tasks (%s). %s Otherwise, please try again later.",
-                    totalRunningTaskCount, queryAndTaskCount.getTaskCount(), TOO_MANY_STAGES_MESSAGE)));
+            queryAndTaskCount.getQuery().fail(new PrestoException(CLUSTER_HAS_TOO_MANY_RUNNING_TASKS, format(
+                    "Query killed because the cluster is overloaded with too many tasks (%s) and this query was running with the highest number of tasks (%s). Please try again later.",
+                    totalRunningTaskCount, queryAndTaskCount.getTaskCount())));
             runningTaskCountAfterKills -= queryAndTaskCount.getTaskCount();
             queriesKilledDueToTooManyTask.incrementAndGet();
         }
