@@ -24,7 +24,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
+import static com.facebook.presto.spi.StandardErrorCode.CLUSTER_HAS_TOO_MANY_RUNNING_TASKS;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -60,11 +60,11 @@ public class TestQueryTrackerHighTaskCountKill
             assertTrue(largeQueryToBeKilled1.getFailureReason().isPresent(), "Query should be killed");
             Throwable failureReason1 = largeQueryToBeKilled1.getFailureReason().get();
             assertTrue(failureReason1 instanceof PrestoException);
-            assertEquals(((PrestoException) failureReason1).getErrorCode(), QUERY_HAS_TOO_MANY_STAGES.toErrorCode());
+            assertEquals(((PrestoException) failureReason1).getErrorCode(), CLUSTER_HAS_TOO_MANY_RUNNING_TASKS.toErrorCode());
             assertTrue(largeQueryToBeKilled2.getFailureReason().isPresent(), "Query should be killed");
             Throwable failureReason2 = largeQueryToBeKilled2.getFailureReason().get();
             assertTrue(failureReason2 instanceof PrestoException);
-            assertEquals(((PrestoException) failureReason2).getErrorCode(), QUERY_HAS_TOO_MANY_STAGES.toErrorCode());
+            assertEquals(((PrestoException) failureReason2).getErrorCode(), CLUSTER_HAS_TOO_MANY_RUNNING_TASKS.toErrorCode());
         }
         finally {
             scheduledExecutorService.shutdownNow();
@@ -93,7 +93,7 @@ public class TestQueryTrackerHighTaskCountKill
             assertFalse(smallQuery.getFailureReason().isPresent(), "small query should not be killed");
             Throwable failureReason = largeQueryToBeKilled.getFailureReason().get();
             assertTrue(failureReason instanceof PrestoException);
-            assertEquals(((PrestoException) failureReason).getErrorCode(), QUERY_HAS_TOO_MANY_STAGES.toErrorCode());
+            assertEquals(((PrestoException) failureReason).getErrorCode(), CLUSTER_HAS_TOO_MANY_RUNNING_TASKS.toErrorCode());
         }
         finally {
             scheduledExecutorService.shutdownNow();
