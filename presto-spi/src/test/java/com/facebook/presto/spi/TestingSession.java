@@ -130,6 +130,12 @@ public final class TestingSession
         {
             return new RuntimeStats();
         }
+
+        @Override
+        public ConnectorSession forConnectorId(ConnectorId connectorId)
+        {
+            return this;
+        }
     };
 
     private TestingSession() {}

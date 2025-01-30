@@ -66,4 +66,10 @@ public interface ConnectorSession
     WarningCollector getWarningCollector();
 
     RuntimeStats getRuntimeStats();
+
+    /**
+     * returns a ConnectorSession for a specific ConnectorId
+     * @return
+     */
+    ConnectorSession forConnectorId(ConnectorId connectorId);
 }

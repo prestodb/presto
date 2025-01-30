@@ -17,6 +17,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.execution.QueryIdGenerator;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
@@ -222,6 +223,26 @@ public class TestingConnectorSession
     public RuntimeStats getRuntimeStats()
     {
         return new RuntimeStats();
+    }
+
+    @Override
+    public ConnectorSession forConnectorId(ConnectorId connectorId)
+    {
+        return new TestingConnectorSession(
+                sqlFunctionProperties.getSessionUser(),
+                identity,
+                source,
+                traceToken,
+                timeZoneKey,
+                locale,
+                startTime,
+                ImmutableList.copyOf(properties.values()),
+                propertyValues,
+                sqlFunctionProperties.isLegacyRowFieldOrdinalAccessEnabled(),
+                clientInfo,
+                clientTags,
+                schema,
+                sessionFunctions);
     }
 
     @Override
