@@ -357,9 +357,11 @@ TEST_F(E2EFilterTest, floatAndDouble) {
 }
 
 TEST_F(E2EFilterTest, shortDecimalDictionary) {
+  // decimal(8, 5) maps to 4 bytes FLBA in Parquet.
   // decimal(10, 5) maps to 5 bytes FLBA in Parquet.
   // decimal(17, 5) maps to 8 bytes FLBA in Parquet.
   for (const auto& type : {
+           "shortdecimal_val:decimal(8, 5)",
            "shortdecimal_val:decimal(10, 5)",
            "shortdecimal_val:decimal(17, 5)",
        }) {
@@ -386,9 +388,11 @@ TEST_F(E2EFilterTest, shortDecimalDirect) {
   options_.enableDictionary = false;
   options_.dataPageSize = 4 * 1024;
 
+  // decimal(8, 5) maps to 4 bytes FLBA in Parquet.
   // decimal(10, 5) maps to 5 bytes FLBA in Parquet.
   // decimal(17, 5) maps to 8 bytes FLBA in Parquet.
   for (const auto& type : {
+           "shortdecimal_val:decimal(8, 5)",
            "shortdecimal_val:decimal(10, 5)",
            "shortdecimal_val:decimal(17, 5)",
        }) {

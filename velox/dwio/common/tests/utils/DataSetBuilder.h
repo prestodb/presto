@@ -98,7 +98,7 @@ class DataSetBuilder {
         if (counter % 100 < repeats) {
           numbers->set(row, T(counter % repeats));
         } else if (counter % 100 > 90 && row > 0) {
-          numbers->copy(numbers, row - 1, row, 1);
+          numbers->copy(numbers, row, row - 1, 1);
         } else {
           int64_t value;
           if (rareFrequency && counter % rareFrequency == 0) {
