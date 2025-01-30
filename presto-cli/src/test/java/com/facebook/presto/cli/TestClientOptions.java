@@ -115,8 +115,8 @@ public class TestClientOptions
 
         ClientOptions options = console.clientOptions;
         assertEquals(options.sessionProperties, ImmutableList.of(
-                new ClientSessionProperty(Optional.of("catalogName"), "system", "system-value"),
-                new ClientSessionProperty(Optional.of("catalogName"), "name", "catalog-property")));
+                new ClientSessionProperty(Optional.empty(), "system", "system-value"),
+                new ClientSessionProperty(Optional.of("catalog"), "name", "catalog-property")));
 
         // special characters are allowed in the value
         assertEquals(new ClientSessionProperty("foo=bar:=baz"), new ClientSessionProperty(Optional.empty(), "foo", "bar:=baz"));
