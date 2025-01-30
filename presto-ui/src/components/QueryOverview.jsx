@@ -1215,6 +1215,12 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
         return;
     }
 
+    useEffect(() => {
+        $('#query').each((i, block) => {
+            hljs.highlightBlock(block);
+        });
+    }, [data]);
+
     const elapsedTime = (parseDuration(data.queryStats.elapsedTime) || 0) / 1000.0;
 
     return (
