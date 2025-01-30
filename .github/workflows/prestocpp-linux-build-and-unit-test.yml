@@ -16,7 +16,7 @@ jobs:
   prestocpp-linux-build-for-test:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.290-20241014120930-e1fc090
+      image: ghcr.io/pdabre12/tpcds-connector-test:v1.0
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:
@@ -58,6 +58,7 @@ jobs:
             -DPRESTO_ENABLE_PARQUET=ON \
             -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON \
             -DPRESTO_ENABLE_JWT=ON \
+            -DPRESTO_ENABLE_TPCDS_CONNECTOR=ON \
             -DPRESTO_STATS_REPORTER_TYPE=PROMETHEUS \
             -DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER \
             -DCMAKE_PREFIX_PATH=/usr/local \
