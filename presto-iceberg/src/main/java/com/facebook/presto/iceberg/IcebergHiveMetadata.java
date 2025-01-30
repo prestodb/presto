@@ -240,7 +240,7 @@ public class IcebergHiveMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases(getMetastoreContext(session));
+        return metastore.getDatabases(getMetastoreContext(session), catalogName);
     }
 
     @Override
@@ -248,7 +248,7 @@ public class IcebergHiveMetadata
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
         if (schemaName.isPresent() && INFORMATION_SCHEMA.equals(schemaName.get())) {
-            return metastore.getAllDatabases(metastoreContext)
+            return metastore.getDatabases(metastoreContext, catalogName)
                     .stream()
                     .map(table -> new SchemaTableName(INFORMATION_SCHEMA, table))
                     .collect(toImmutableList());

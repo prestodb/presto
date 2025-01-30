@@ -319,6 +319,23 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public List<String> getDatabases(MetastoreContext context, String pattern)
+    {
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getDatabases", stats.getGetDatabases().wrap(() ->
+                            getMetastoreClientThenCall(context, client -> client.getDatabases(pattern))));
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
     public List<String> getAllDatabases(MetastoreContext context)
     {
         try {

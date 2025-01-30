@@ -170,6 +170,11 @@ public class SemiTransactionalHiveMetastore
         return columnConverterProvider;
     }
 
+    public synchronized List<String> getDatabases(MetastoreContext metastoreContext, String pattern)
+    {
+        checkReadable();
+        return delegate.getDatabases(metastoreContext, pattern);
+    }
     public synchronized List<String> getAllDatabases(MetastoreContext metastoreContext)
     {
         checkReadable();

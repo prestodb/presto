@@ -509,7 +509,7 @@ public class HiveMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases(getMetastoreContext(session));
+        return metastore.getDatabases(getMetastoreContext(session), catalogName);
     }
 
     @Override

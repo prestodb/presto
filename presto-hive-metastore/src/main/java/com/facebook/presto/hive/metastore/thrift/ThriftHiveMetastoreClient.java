@@ -53,6 +53,7 @@ import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.apache.hadoop.hive.metastore.api.UniqueConstraintsRequest;
 import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.UnlockRequest;
+import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -97,6 +98,12 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_delegation_token(owner, renewer);
+    }
+    @Override
+    public List<String> getDatabases(String pattern)
+            throws TException
+    {
+        return client.get_databases(pattern);
     }
 
     @Override
@@ -194,7 +201,9 @@ public class ThriftHiveMetastoreClient
     public List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
             throws TException
     {
-        TableStatsRequest tableStatsRequest = new TableStatsRequest(databaseName, tableName, columnNames);
+        String[] parseDbName = MetaStoreUtils.parseDbName(databaseName, null);
+        TableStatsRequest tableStatsRequest = new TableStatsRequest(parseDbName[MetaStoreUtils.DB_NAME], tableName, columnNames);
+        tableStatsRequest.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
         return client.get_table_statistics_req(tableStatsRequest).getTableStats();
     }
 
@@ -218,7 +227,9 @@ public class ThriftHiveMetastoreClient
     public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> partitionNames, List<String> columnNames)
             throws TException
     {
-        PartitionsStatsRequest partitionsStatsRequest = new PartitionsStatsRequest(databaseName, tableName, columnNames, partitionNames);
+        String[] parseDbName = MetaStoreUtils.parseDbName(databaseName, null);
+        PartitionsStatsRequest partitionsStatsRequest = new PartitionsStatsRequest(parseDbName[MetaStoreUtils.DB_NAME], tableName, columnNames, partitionNames);
+        partitionsStatsRequest.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
         return client.get_partitions_statistics_req(partitionsStatsRequest).getPartStats();
     }
 

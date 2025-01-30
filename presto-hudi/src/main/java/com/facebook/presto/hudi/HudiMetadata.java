@@ -84,7 +84,7 @@ public class HudiMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases(toMetastoreContext(session));
+        return metastore.getDatabases(toMetastoreContext(session), catalogName);
     }
 
     @Override
@@ -152,7 +152,7 @@ public class HudiMetadata
         String catalogAndSchemaName = constructSchemaName(Optional.ofNullable(catalogName), schemaName.get());
         return metastore
                 .getAllTables(metastoreContext, catalogAndSchemaName)
-                .orElseGet(() -> metastore.getAllDatabases(metastoreContext))
+                .orElseGet(() -> metastore.getDatabases(metastoreContext, catalogName))
                 .stream()
                 .map(table -> new SchemaTableName(catalogAndSchemaName, table))
                 .collect(toList());
