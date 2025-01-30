@@ -30,11 +30,6 @@ class HiveTableHandle;
 class HiveConfig;
 struct HiveConnectorSplit;
 
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-using SubfieldFilters =
-    std::unordered_map<common::Subfield, std::unique_ptr<common::Filter>>;
-#endif
-
 const std::string& getColumnName(const common::Subfield& subfield);
 
 void checkColumnNameLowerCase(const std::shared_ptr<const Type>& type);
