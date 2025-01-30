@@ -37,19 +37,9 @@ _______________
 * Add support for time type partitioning in the ORC file format for Iceberg. `#24091 <https://github.com/prestodb/presto/pull/24091>`_
 * Add testing for partitioning using time type in Iceberg. `#24091 <https://github.com/prestodb/presto/pull/24091>`_
 * Added catalog and schema level access checks in USE statement. `#23882 <https://github.com/prestodb/presto/pull/23882>`_
-* Remove ``query-data-cache-enabled-default`` configuration property, which is no longer needed as per-split fine-grained cache control has been introduced. `#24372 <https://github.com/prestodb/presto/pull/24372>`_
-* Remove the ``experimental.table-writer-merge-operator-enabled`` configuration property and the ``table_writer_merge_operator_enabled`` session property. `#24145 <https://github.com/prestodb/presto/pull/24145>`_
-* Deprecated  ``native_query_trace_task_reg_exp session`` property from Prestissimo. `#24270 <https://github.com/prestodb/presto/pull/24270>`_
 * Enable ``scale-writers`` by default. `#24107 <https://github.com/prestodb/presto/pull/24107>`_
-* Support automatic scaling of writer threads for partitioned tables. Can be enabled with the ``native_execution_scale_partitioned_writer_threads_enabled`` session property. Native execution only. `#24155 <https://github.com/prestodb/presto/pull/24155>`_
 * Improve HTTP responses from async page transport servlet, by sanitizing the URI before use. `#24004 <https://github.com/prestodb/presto/pull/24004>`_
 * Update usage of MD5 to SHA256. `#23903 <https://github.com/prestodb/presto/pull/23903>`_
-* Upgrade avro to version 1.11.4 in response to `CVE-2024-47561 <https://github.com/advisories/GHSA-r7pg-v2c8-mfg3>`_. `#23943 <https://github.com/prestodb/presto/pull/23943>`_
-* Upgrade grpc dependencies to version 1.68.0 in response to `CVE-2022-25647 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-25647>`_. `#24051 <https://github.com/prestodb/presto/pull/24051>`_
-* Upgrade gson from version 2.8.9 to v2.11.0. `#24247 <https://github.com/prestodb/presto/pull/24247>`_
-* Upgrade gson to version 2.8.9 in response to `CVE-2022-25647 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-25647>`_. `#24051 <https://github.com/prestodb/presto/pull/24051>`_
-* Upgrade jetty dependencies to version 9.4.56.v20240826 in response to `CVE-2024-8184 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-8184>`_. `#24184 <https://github.com/prestodb/presto/pull/24184>`_
-* Upgrade netty dependencies to version 4.1.115.Final in response to `CVE-2024-47535 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-47535>`_. `#24137 <https://github.com/prestodb/presto/pull/24137>`_
 
 Security Changes
 ________________
@@ -61,6 +51,12 @@ ________________
 * Add security-related headers to the static resources serving from the Presto UI, including: ``Content-Security-Policy``, ``X-Content-Type-Options``. See reference docs `Content-Security-Policy <https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP>`_ and `X-Content-Type-Options <https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/compatibility/gg622941(v=vs.85)>`_. `#24272 <https://github.com/prestodb/presto/pull/24272>`_
 * Add support for pluggable Custom Presto Authenticators. `#24111 <https://github.com/prestodb/presto/pull/24111>`_
 * Replace `alluxio-shaded-client` with `alluxio-core` libraries in response to `CVE-2023-44981 <https://github.com/advisories/GHSA-7286-pgfv-vxvh>`_. `#24231 <https://github.com/prestodb/presto/pull/24231>`_
+* Upgrade avro to version 1.11.4 in response to `CVE-2024-47561 <https://github.com/advisories/GHSA-r7pg-v2c8-mfg3>`_. `#23943 <https://github.com/prestodb/presto/pull/23943>`_
+* Upgrade grpc dependencies to version 1.68.0 in response to `CVE-2022-25647 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-25647>`_. `#24051 <https://github.com/prestodb/presto/pull/24051>`_
+* Upgrade gson from version 2.8.9 to v2.11.0. `#24247 <https://github.com/prestodb/presto/pull/24247>`_
+* Upgrade gson to version 2.8.9 in response to `CVE-2022-25647 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-25647>`_. `#24051 <https://github.com/prestodb/presto/pull/24051>`_
+* Upgrade jetty dependencies to version 9.4.56.v20240826 in response to `CVE-2024-8184 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-8184>`_. `#24184 <https://github.com/prestodb/presto/pull/24184>`_
+* Upgrade netty dependencies to version 4.1.115.Final in response to `CVE-2024-47535 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-47535>`_. `#24137 <https://github.com/prestodb/presto/pull/24137>`_
 
 Bigquery Connector Changes
 __________________________
@@ -114,6 +110,10 @@ ______________________________________
 * Improve partitioned remote exchanges for wide data sets (more than 500 columns) to use row wise encoding. `#23929 <https://github.com/prestodb/presto/pull/23929>`_
 * Add native plan checker to the native sidecar plugin and native endpoint for Velox plan conversion. `#23596 <https://github.com/prestodb/presto/pull/23596>`_
 * Add session properties ``native_spill_prefixsort_enabled``, ``native_prefixsort_normalized_key_max_bytes``, and ``native_prefixsort_min_rows``. `#24043 <https://github.com/prestodb/presto/pull/24043>`_
+* Remove the ``experimental.table-writer-merge-operator-enabled`` configuration property and the ``table_writer_merge_operator_enabled`` session property. `#24145 <https://github.com/prestodb/presto/pull/24145>`_
+* Deprecated  ``native_query_trace_task_reg_exp session`` property from Prestissimo. `#24270 <https://github.com/prestodb/presto/pull/24270>`_
+* Support automatic scaling of writer threads for partitioned tables. Can be enabled with the ``native_execution_scale_partitioned_writer_threads_enabled`` session property. Native execution only. `#24155 <https://github.com/prestodb/presto/pull/24155>`_
+* Remove ``query-data-cache-enabled-default`` configuration property, which is no longer needed as per-split fine-grained cache control has been introduced. `#24372 <https://github.com/prestodb/presto/pull/24372>`_
 
 **Credits**
 ===========
