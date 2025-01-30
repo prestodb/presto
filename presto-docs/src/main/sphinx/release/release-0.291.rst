@@ -16,20 +16,20 @@ _______________
 * Improve coordinator task management performance. `#24369 <https://github.com/prestodb/presto/pull/24369>`_
 * Improve efficiency of coordinator when running a large number of tasks. `#24288 <https://github.com/prestodb/presto/pull/24288>`_
 * Improve scheduling for CTE materialization: Now, only the stages containing CTE table scans that reference CTE table write stages are blocked till the write is complete, instead of the entire query being blocked as was the case previously. This is controlled by the session property ``enhanced_cte_scheduling_enabled`` (on by default). `#24108 <https://github.com/prestodb/presto/pull/24108>`_
-* Add :doc:`/sql/alter-table` SET PROPERTIES statement `#21495 <https://github.com/prestodb/presto/pull/21495>`_
+* Add :doc:`/sql/alter-table` SET PROPERTIES statement. `#21495 <https://github.com/prestodb/presto/pull/21495>`_
 * Add :func:`google_polyline_decode` function to convert Google polyline to Presto ST_Geometry types. `#23999 <https://github.com/prestodb/presto/pull/23999>`_
 * Add :func:`google_polyline_encode` function to convert Presto ST_Geometry to Google polyline types. `#23999 <https://github.com/prestodb/presto/pull/23999>`_
 * Add Delete TableWriter TableFinish node to SPI. `#24088 <https://github.com/prestodb/presto/pull/24088>`_
 * Add SemiJoin Join TableWriter Delete TableFinish node to connector optimizer. `#24154 <https://github.com/prestodb/presto/pull/24154>`_
 * Add ``ClientRequestFilter.java`` interface in Presto-spi. `#23380 <https://github.com/prestodb/presto/pull/23380>`_
-* Add ``query-data-cache-enabled-default`` configuration property to align C++ cache behavior with Java. Set it to ``true``(default) for current C++ behavior or to ``false`` to match Java's cache logic. `#24076 <https://github.com/prestodb/presto/pull/24076>`_
+* Add ``query-data-cache-enabled-default`` configuration property to align C++ cache behavior with Java. Set it to ``true`` (default) for current C++ behavior or to ``false`` to match Java's cache logic. `#24076 <https://github.com/prestodb/presto/pull/24076>`_
 * Add a configuration property ``plan-checker.config-dir`` to set the configuration directory for PlanCheckerProvider configurations. `#23955 <https://github.com/prestodb/presto/pull/23955>`_
-* Add a session property `include_values_node_in_connector_optimizer` to enable connector optimizer optimize plans with values node  `#24227 <https://github.com/prestodb/presto/pull/24227>`_
+* Add a session property ``include_values_node_in_connector_optimizer`` to enable connector optimizer optimize plans with values node.  `#24227 <https://github.com/prestodb/presto/pull/24227>`_
 * Add an optional input distribution constraint to DeleteNode. `#24104 <https://github.com/prestodb/presto/pull/24104>`_
 * Add ``native_enforce_join_build_input_partition`` session property to not enforce input partition for join build. `#24163 <https://github.com/prestodb/presto/pull/24163>`_
 * Add catalog and schema level access checks in :doc:`/sql/use` statement. `#24182 <https://github.com/prestodb/presto/pull/24182>`_
 * Add delete node in subfield pruning optimizer. `#24206 <https://github.com/prestodb/presto/pull/24206>`_
-* Add single worker execution. To improve latency of tiny queries running on a large cluster, we introduce single worker execution mode: query will only use one node to execute and plan would be optimized accordingly. This feature can be turned on by config `single-node-execution-enabled` or session property `single_node_execution_enabled`. `#24172 <https://github.com/prestodb/presto/pull/24172>`_
+* Add single worker execution. To improve latency of tiny queries running on a large cluster, we introduce single worker execution mode: query will only use one node to execute and plan would be optimized accordingly. This feature can be turned on by the configuration property ``single-node-execution-enabled`` or the session property ``single_node_execution_enabled``. `#24172 <https://github.com/prestodb/presto/pull/24172>`_
 * Add support for ORC metadata cache invalidation based on file modification time. `#24346 <https://github.com/prestodb/presto/pull/24346>`_
 * Add support for ``ALTER VIEW RENAME TO`` operation, including the necessary infrastructure for connector implementations. `#23749 <https://github.com/prestodb/presto/pull/23749>`_
 * Add support for ``BigInt`` data type in the SQL Client on Presto UI on supported browsers. See `compatibility <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse#browser_compatibility>`_ for the supported browsers. `#24336 <https://github.com/prestodb/presto/pull/24336>`_
@@ -38,10 +38,10 @@ _______________
 * Add testing for partitioning using time type in Iceberg. `#24091 <https://github.com/prestodb/presto/pull/24091>`_
 * Added catalog and schema level access checks in USE statement. `#23882 <https://github.com/prestodb/presto/pull/23882>`_
 * Remove ``query-data-cache-enabled-default`` configuration property, which is no longer needed as per-split fine-grained cache control has been introduced. `#24372 <https://github.com/prestodb/presto/pull/24372>`_
-* Remove the ``experimental.table-writer-merge-operator-enabled` config property and the ``table_writer_merge_operator_enabled`` session property. `#24145 <https://github.com/prestodb/presto/pull/24145>`_
-* Deprecated  native_query_trace_task_reg_exp session property from Prestissimo. `#24270 <https://github.com/prestodb/presto/pull/24270>`_
+* Remove the ``experimental.table-writer-merge-operator-enabled`` configuration property and the ``table_writer_merge_operator_enabled`` session property. `#24145 <https://github.com/prestodb/presto/pull/24145>`_
+* Deprecated  ``native_query_trace_task_reg_exp session`` property from Prestissimo. `#24270 <https://github.com/prestodb/presto/pull/24270>`_
 * Enable ``scale-writers`` by default. `#24107 <https://github.com/prestodb/presto/pull/24107>`_
-* Support automatic scaling of writer threads for partitioned tables. Can be enabled with the `native_execution_scale_partitioned_writer_threads_enabled` session property. Native execution only. `#24155 <https://github.com/prestodb/presto/pull/24155>`_
+* Support automatic scaling of writer threads for partitioned tables. Can be enabled with the ``native_execution_scale_partitioned_writer_threads_enabled`` session property. Native execution only. `#24155 <https://github.com/prestodb/presto/pull/24155>`_
 * Improve HTTP responses from async page transport servlet, by sanitizing the URI before use. `#24004 <https://github.com/prestodb/presto/pull/24004>`_
 * Update usage of MD5 to SHA256. `#23903 <https://github.com/prestodb/presto/pull/23903>`_
 * Upgrade avro to version 1.11.4 in response to `CVE-2024-47561 <https://github.com/advisories/GHSA-r7pg-v2c8-mfg3>`_. `#23943 <https://github.com/prestodb/presto/pull/23943>`_
@@ -67,7 +67,7 @@ ________________
 * Fix `CVE-2022-22970 <https://www.mend.io/vulnerability-database/CVE-2022-22970>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
 * Fix `CVE-2022-22970 <https://www.mend.io/vulnerability-database/CVE-2022-22970>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
 * Fix `CVE-2022-27772 <https://www.mend.io/vulnerability-database/CVE-2022-27772>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
-* Fix `CVE-2023-20883 <https://www.mend.io/vulnerability-database/CVE-2023-20883>`_. :pr:`24112`. (`#24112 <https://github.com/prestodb/presto/pull/24112>`_)
+* Fix `CVE-2023-20883 <https://www.mend.io/vulnerability-database/CVE-2023-20883>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
 * Fix `CVE-2024-22243 <https://www.mend.io/vulnerability-database/CVE-2024-22243>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
 * Fix `CVE-2024-22259 <https://www.mend.io/vulnerability-database/CVE-2024-22259>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
 * Fix `CVE-2024-22262 <https://www.mend.io/vulnerability-database/CVE-2024-22262>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
@@ -76,12 +76,12 @@ ________________
 * Fix `CVE-2024-6763 <https://www.mend.io/vulnerability-database/CVE-2024-6763>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
 * Fix `CVE-2024-8184 <https://www.mend.io/vulnerability-database/CVE-2024-8184>`_. `#24112 <https://github.com/prestodb/presto/pull/24112>`_
 * Fix security vulnerability in presto-pinot-toolkit and presto-product-tests in response to `CVE-2020-0287 <https://nvd.nist.gov/vuln/detail/CVE-2020-0287>`_. `#24249 <https://github.com/prestodb/presto/pull/24249>`_
-* Fix security vulnerability in swagger-ui jar in response to 'CVE-2018-25031 <https://nvd.nist.gov/vuln/detail/CVE-2018-25031>' .  `#24153 <https://github.com/prestodb/presto/pull/24153>`_
-* Fix security vulnerability in swagger-ui jar in response to 'CVE-2018-25031 <https://nvd.nist.gov/vuln/detail/CVE-2018-25031>' . `#24199 <https://github.com/prestodb/presto/pull/24199>`_
+* Fix security vulnerability in swagger-ui jar in response to `CVE-2018-25031 <https://nvd.nist.gov/vuln/detail/CVE-2018-25031>`_.  `#24153 <https://github.com/prestodb/presto/pull/24153>`_
+* Fix security vulnerability in swagger-ui jar in response to `CVE-2018-25031 <https://nvd.nist.gov/vuln/detail/CVE-2018-25031>`_. `#24199 <https://github.com/prestodb/presto/pull/24199>`_
 * Improve pbkdf2 hashing using SHA-256 cipher in response to `CWE-759 <https://cwe.mitre.org/data/definitions/759.htm>`_. `#24132 <https://github.com/prestodb/presto/pull/24132>`_
 * Add re2j regex matching in QueryStateInfoResource to protect from ReDoS attacks in response to `CVE-2024-45296 <https://www.cve.org/CVERecord?id=CVE-2024-45296>`_. `#24048 <https://github.com/prestodb/presto/pull/24048>`_
 * Add security-related headers to the static resources serving from the Presto UI, including: ``Content-Security-Policy``, ``X-Content-Type-Options``. See reference docs `Content-Security-Policy <https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP>`_ and `X-Content-Type-Options <https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/compatibility/gg622941(v=vs.85)>`_. `#24272 <https://github.com/prestodb/presto/pull/24272>`_
-* Add support for pluggable Custom Presto Authenticators `#24111 <https://github.com/prestodb/presto/pull/24111>`_
+* Add support for pluggable Custom Presto Authenticators. `#24111 <https://github.com/prestodb/presto/pull/24111>`_
 * Replace `alluxio-shaded-client` with `alluxio-core` libraries in response to `CVE-2023-44981 <https://github.com/advisories/GHSA-7286-pgfv-vxvh>`_. `#24231 <https://github.com/prestodb/presto/pull/24231>`_
 
 Bigquery Connector Changes
@@ -90,7 +90,7 @@ __________________________
 
 Cassandra Connector Changes
 ___________________________
-* Improve cryptographic protocol in response to `java:S4423 <https://sonarqube.ow2.org/coding_rules?open=java%3AS4423&rule_key=java%3AS4423>`_. `#24436 <https://github.com/prestodb/presto/pull/24436>`_
+* Improve cryptographic protocol in response to `Weak SSL/TLS protocols should not be used <https://sonarqube.ow2.org/coding_rules?open=java%3AS4423&rule_key=java%3AS4423>`_. `#24436 <https://github.com/prestodb/presto/pull/24436>`_
 
 Delta Connector Changes
 _______________________
@@ -135,7 +135,7 @@ Prestissimo (native Execution) Changes
 ______________________________________
 * Improve partitioned remote exchanges for wide data sets (more than 500 columns) to use row wise encoding. `#23929 <https://github.com/prestodb/presto/pull/23929>`_
 * Add native plan checker to the native sidecar plugin and native endpoint for Velox plan conversion. `#23596 <https://github.com/prestodb/presto/pull/23596>`_
-* Add session properties ``native_spill_prefixsort_enabled``, ``native_prefixsort_normalized_key_max_bytes ``, and ``native_prefixsort_min_rows ``. `#24043 <https://github.com/prestodb/presto/pull/24043>`_
+* Add session properties ``native_spill_prefixsort_enabled``, ``native_prefixsort_normalized_key_max_bytes``, and ``native_prefixsort_min_rows``. `#24043 <https://github.com/prestodb/presto/pull/24043>`_
 
 **Credits**
 ===========
