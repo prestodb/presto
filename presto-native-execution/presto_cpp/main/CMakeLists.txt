@@ -86,7 +86,8 @@ target_link_libraries(
   ${FOLLY_WITH_DEPENDENCIES}
   ${GLOG}
   ${GFLAGS_LIBRARIES}
-  pthread)
+  pthread
+  velox_dynamic_function_loader)
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
 # likely due to a conflict between Arrow Thrift from velox_hive_connector and
@@ -99,6 +100,7 @@ set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
                                                presto_link_job_pool)
 
 add_executable(presto_server PrestoMain.cpp)
+target_link_options(presto_server BEFORE PUBLIC "-Wl,-export-dynamic")
 
 # Moving velox_hive_connector and velox_tpch_connector to presto_server_lib
 # results in multiple link errors similar to the one below only on GCC.
