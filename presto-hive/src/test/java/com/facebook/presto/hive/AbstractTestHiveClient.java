@@ -1235,6 +1235,12 @@ public abstract class AbstractTestHiveClient
             {
                 return session.getRuntimeStats();
             }
+
+            @Override
+            public ConnectorSession forConnectorId(ConnectorId connectorId)
+            {
+                return this;
+            }
         };
     }
 

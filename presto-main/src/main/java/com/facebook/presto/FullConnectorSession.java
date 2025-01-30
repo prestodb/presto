@@ -199,4 +199,10 @@ public class FullConnectorSession
     {
         return session.getRuntimeStats();
     }
+
+    @Override
+    public ConnectorSession forConnectorId(ConnectorId connectorId)
+    {
+        return new FullConnectorSession(session, identity);
+    }
 }
