@@ -1035,7 +1035,7 @@ public abstract class IcebergAbstractMetadata
 
     protected Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, com.facebook.presto.iceberg.FileFormat fileFormat, ConnectorSession session, CatalogType catalogType)
     {
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(16);
 
         String writeDataLocation = IcebergTableProperties.getWriteDataLocation(tableMetadata.getProperties());
         if (!Strings.isNullOrEmpty(writeDataLocation)) {
@@ -1043,7 +1043,7 @@ public abstract class IcebergAbstractMetadata
                 propertiesBuilder.put(WRITE_DATA_LOCATION, writeDataLocation);
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, "Not support set write_data_path on catalog: " + catalogType);
+                throw new PrestoException(NOT_SUPPORTED, "Table property write_data_path is not supported with catalog type: " + catalogType);
             }
         }
         else {

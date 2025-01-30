@@ -134,7 +134,7 @@ public class IcebergConfig
     }
 
     @Config("iceberg.catalog.warehouse.datadir")
-    @ConfigDescription("Iceberg catalog default root data writing directory")
+    @ConfigDescription("Iceberg catalog default root data writing directory. This is only supported with Hadoop catalog.")
     public IcebergConfig setCatalogWarehouseDataDir(String catalogWarehouseDataDir)
     {
         this.catalogWarehouseDataDir = catalogWarehouseDataDir;
