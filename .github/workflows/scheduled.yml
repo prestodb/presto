@@ -320,6 +320,13 @@ jobs:
           path: velox/_build/debug/velox/exec/tests/velox_cache_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
+      - name: Upload table evolution fuzzer
+        uses: actions/upload-artifact@v4
+        with:
+          name: table_evolution_fuzzer
+          path: velox/_build/debug/velox/exec/tests/velox_table_evolution_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
+
       - name: Upload row number fuzzer
         uses: actions/upload-artifact@v4
         with:
@@ -763,6 +770,40 @@ jobs:
             name: cache-fuzzer-test-logs
             path: |
               /tmp/cache_fuzzer_test
+
+  table-evolution-fuzzer-run:
+    name: Table Evolution Fuzzer
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos9
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: Download table evolution fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: table_evolution_fuzzer
+
+      - name: Run Table Evolution Fuzzer
+        run: |
+          mkdir -p /tmp/table_evolution_fuzzer_test/logs/
+          chmod -R 777 /tmp/table_evolution_fuzzer_test
+          chmod +x velox_table_evolution_fuzzer_test
+          ./velox_table_evolution_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/table_evolution_fuzzer_test/logs \
+            && echo -e "\n\Table evolution fuzzer run finished successfully."
+
+      - name: Archive table evolution production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+            name: table-evolution-fuzzer-test-logs
+            path: |
+              /tmp/table_evolution_fuzzer_test
 
   presto-java-aggregation-fuzzer-run:
     name: Aggregation Fuzzer with Presto as source of truth
