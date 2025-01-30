@@ -19,7 +19,8 @@ target_link_libraries(
   velox_functions_lib
   velox_core
   velox_expression
-  re2::re2)
+  re2::re2
+  simdjson::simdjson)
 
 add_executable(velox_example_expression_eval ExpressionEval.cpp)
 

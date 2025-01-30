@@ -474,6 +474,49 @@ class JsonParseFunction : public exec::VectorFunction {
   mutable std::vector<FastSortKey> fastSortKeys_;
 };
 
+// This function is called when $internal$json_string_to_array/map/row
+// is called. It is used for expressions like 'Cast(json_parse(x) as
+// ARRAY<...>)' etc. This is an optimization to avoid parsing the json string
+// twice.
+class JsonInternalCastFunction : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& resultType,
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    VELOX_CHECK_EQ(args.size(), 1);
+    const auto& arg = *args[0];
+    jsonCastOperator_.castFrom(arg, context, rows, resultType, result);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>>
+  signaturesArray() {
+    return {exec::FunctionSignatureBuilder()
+                .argumentType("varchar")
+                .returnType("array(unknown)")
+                .build()};
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signaturesMap() {
+    return {exec::FunctionSignatureBuilder()
+                .argumentType("varchar")
+                .returnType("map(unknown, unknown)")
+                .build()};
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signaturesRow() {
+    return {exec::FunctionSignatureBuilder()
+                .argumentType("varchar")
+                .returnType("row(unknown)")
+                .build()};
+  }
+
+ private:
+  mutable JsonCastOperator jsonCastOperator_;
+};
+
 } // namespace
 
 VELOX_DECLARE_VECTOR_FUNCTION(
@@ -489,5 +532,20 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
        const velox::core::QueryConfig&) {
       return std::make_shared<JsonParseFunction>();
     });
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_$internal$_json_string_to_array,
+    JsonInternalCastFunction::signaturesArray(),
+    std::make_unique<JsonInternalCastFunction>());
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_$internal$_json_string_to_map,
+    JsonInternalCastFunction::signaturesMap(),
+    std::make_unique<JsonInternalCastFunction>());
+
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_$internal$_json_string_to_row,
+    JsonInternalCastFunction::signaturesRow(),
+    std::make_unique<JsonInternalCastFunction>());
 
 } // namespace facebook::velox::functions

@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/expression/CastExpr.h"
+#include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 
@@ -71,5 +72,47 @@ struct JsonT {
 using Json = CustomType<JsonT>;
 
 void registerJsonType();
+
+/// Custom operator for casts from and to Json type.
+class JsonCastOperator : public exec::CastOperator {
+ public:
+  bool isSupportedFromType(const TypePtr& other) const override;
+
+  bool isSupportedToType(const TypePtr& other) const override;
+
+  void castTo(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override;
+
+  void castTo(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result,
+      const std::shared_ptr<exec::CastHooks>& hooks) const override;
+
+  void castFrom(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override;
+
+ private:
+  template <TypeKind kind>
+  void castFromJson(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      BaseVector& result) const;
+
+  mutable folly::once_flag initializeErrors_;
+  mutable std::exception_ptr errors_[simdjson::NUM_ERROR_CODES];
+  mutable std::string paddedInput_;
+};
 
 } // namespace facebook::velox

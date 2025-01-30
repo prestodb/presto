@@ -71,6 +71,18 @@ void registerJsonFunctions(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_json_format, prefix + "json_format");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_json_parse, prefix + "json_parse");
+
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_$internal$_json_string_to_array,
+      prefix + "$internal$json_string_to_array_cast");
+
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_$internal$_json_string_to_map,
+      prefix + "$internal$json_string_to_map_cast");
+
+  VELOX_REGISTER_VECTOR_FUNCTION(
+      udf_$internal$_json_string_to_row,
+      prefix + "$internal$json_string_to_row_cast");
 }
 
 } // namespace facebook::velox::functions
