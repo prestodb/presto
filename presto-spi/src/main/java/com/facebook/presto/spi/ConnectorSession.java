@@ -42,8 +42,6 @@ public interface ConnectorSession
 
     Locale getLocale();
 
-    Optional<String> getTraceToken();
-
     Optional<String> getClientInfo();
 
     Set<String> getClientTags();

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TestingGcMonitor;
+import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.execution.TestSqlTaskManager.MockExchangeClientSupplier;
 import com.facebook.presto.execution.buffer.BufferInfo;
@@ -28,6 +29,7 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.MemoryPool;
 import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -35,16 +37,22 @@ import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner;
+import com.facebook.presto.telemetry.TracingManager;
+import com.facebook.presto.testing.TestingTracingManager;
 import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -84,8 +92,33 @@ public class TestSqlTask
     private final ScheduledExecutorService taskNotificationExecutor;
     private final ScheduledExecutorService driverYieldExecutor;
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
+    private TestingTracingManager testingTracingManager;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
+
+    @BeforeMethod
+    public void setup() throws Exception
+    {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("tracing-enabled", "true");
+        properties.put("tracing-backend-url", "http://localhost:4317");
+        properties.put("max-exporter-batch-size", "256");
+        properties.put("max-queue-size", "1024");
+        properties.put("exporter-timeout", "5000");
+        properties.put("schedule-delay", "1000");
+        properties.put("trace-sampling-ratio", "1.0");
+        properties.put("span-sampling", "true");
+        TelemetryConfig.getTelemetryConfig().setTelemetryProperties(properties);
+
+        TestingPrestoServer testingPrestoServer = new TestingPrestoServer(
+                ImmutableMap.<String, String>builder()
+                        .put("plugin.bundles", "../presto-open-telemetry/pom.xml")
+                        .build());
+        testingPrestoServer.getPluginManager().loadPlugins();
+
+        testingTracingManager = testingPrestoServer.getTestingTracingManager();
+        testingTracingManager.loadConfiguredOpenTelemetry();
+    }
 
     public TestSqlTask()
     {
@@ -125,7 +158,7 @@ public class TestSqlTask
                 ImmutableList.of(),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())), TracingManager.getRootSpan());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -136,11 +169,50 @@ public class TestSqlTask
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())), TracingManager.getRootSpan());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+    }
+
+    @Test
+    public void testSqlTaskUpdateTaskTracingEnabled() throws Exception
+    {
+        SqlTask sqlTask = createInitialTask();
+        sqlTask.updateTask(TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT),
+                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withNoMoreBufferIds(),
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())), TracingManager.getRootSpan());
+
+        Thread.sleep(5000);
+        assertFalse(testingTracingManager.isSpansEmpty());
+        assertTrue(testingTracingManager.spansAnyMatch("task"));
+
+        testingTracingManager.clearSpanList();
+    }
+
+    @Test
+    public void testSqlTaskUpdateTaskTracingDisabled() throws InterruptedException
+    {
+        TelemetryConfig.getTelemetryConfig().setTracingEnabled(false);
+
+        SqlTask sqlTask = createInitialTask();
+        sqlTask.updateTask(TEST_SESSION,
+                Optional.of(PLAN_FRAGMENT),
+                ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
+                createInitialEmptyOutputBuffers(PARTITIONED)
+                        .withNoMoreBufferIds(),
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                TracingManager.getInvalidSpan());
+
+        Thread.sleep(5000);
+        assertTrue(testingTracingManager.isSpansEmpty());
+        assertFalse(testingTracingManager.spansAnyMatch("task"));
+
+        testingTracingManager.clearSpanList();
     }
 
     @Test
@@ -153,7 +225,7 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())), TracingManager.getRootSpan());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();
@@ -203,7 +275,7 @@ public class TestSqlTask
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())), TracingManager.getRootSpan());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
@@ -230,7 +302,7 @@ public class TestSqlTask
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())), TracingManager.getRootSpan());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
         taskInfo = sqlTask.getTaskInfo();

@@ -41,7 +41,6 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
@@ -254,13 +253,6 @@ class Query
     public boolean isSlugValid(String slug)
     {
         return this.slug.equals(slug);
-    }
-
-    public Tracer getTracer()
-    {
-        Optional<Tracer> tracer = session.getTracer();
-        checkArgument(tracer.isPresent(), "tracer is not present");
-        return tracer.get();
     }
 
     public synchronized Optional<String> getSetCatalog()

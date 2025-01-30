@@ -180,7 +180,6 @@ public class ClientOptions
                 parseServer(server),
                 user,
                 source,
-                Optional.empty(),
                 parseClientTags(clientTags),
                 clientInfo,
                 catalog,

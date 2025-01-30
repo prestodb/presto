@@ -102,6 +102,7 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.storage.TempStorageManager;
+import com.facebook.presto.telemetry.TracingManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
@@ -614,7 +615,7 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
-        SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
+        SessionBuilder sessionBuilder = sessionSupplier.createSessionBuilder(queryId, TracingManager.getInvalidSpan(), TracingManager.getInvalidSpan(), sessionContext, warningCollectorFactory);
         sessionPropertyDefaults.applyDefaultProperties(sessionBuilder, Optional.empty(), Optional.empty());
 
         if (!executionStrategies.isEmpty()) {

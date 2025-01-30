@@ -28,6 +28,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.drift.transport.netty.codec.Protocol;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.execution.FutureStateChange;
 import com.facebook.presto.execution.Lifespan;
@@ -61,10 +62,13 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.telemetry.TracingManager;
 import com.google.common.base.Ticker;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.ObjectArrays;
@@ -160,6 +164,8 @@ public final class HttpRemoteTask
     private static final ThreadMXBean THREAD_MX_BEAN = (ThreadMXBean) ManagementFactory.getThreadMXBean();
 
     private final TaskId taskId;
+    private final BaseSpan stageSpan;
+    private final BaseSpan span;
     private final URI taskLocation;
     private final URI remoteTaskLocation;
 
@@ -266,7 +272,8 @@ public final class HttpRemoteTask
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
             SchedulerStatsTracker schedulerStatsTracker,
-            HttpRemoteTaskFactory.SafeEventLoop taskEventLoop)
+            HttpRemoteTaskFactory.SafeEventLoop taskEventLoop,
+            BaseSpan stageSpan)
     {
         HttpRemoteTask task = new HttpRemoteTask(session,
                 taskId,
@@ -302,7 +309,8 @@ public final class HttpRemoteTask
                 handleResolver,
                 connectorTypeSerdeManager,
                 schedulerStatsTracker,
-                taskEventLoop);
+                taskEventLoop,
+                stageSpan);
         task.initialize();
         return task;
     }
@@ -341,7 +349,8 @@ public final class HttpRemoteTask
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
             SchedulerStatsTracker schedulerStatsTracker,
-            HttpRemoteTaskFactory.SafeEventLoop taskEventLoop)
+            HttpRemoteTaskFactory.SafeEventLoop taskEventLoop,
+            BaseSpan stageSpan)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -371,6 +380,8 @@ public final class HttpRemoteTask
 
         this.taskEventLoop = taskEventLoop;
         this.taskId = taskId;
+        this.stageSpan = stageSpan;
+        this.span = TracingManager.getSpan(stageSpan, TracingEnum.REMOTE_TASK.getName(), ImmutableMap.of("QUERY_ID", taskId.getQueryId().toString(), "STAGE_ID", taskId.getStageId().toString(), "TASK_ID", taskId.toString()));
         this.taskLocation = location;
         this.remoteTaskLocation = remoteLocation;
         this.session = session;
@@ -441,7 +452,8 @@ public final class HttpRemoteTask
                 stats,
                 binaryTransportEnabled,
                 thriftTransportEnabled,
-                thriftProtocol);
+                thriftProtocol,
+                span);
 
         this.taskInfoFetcher = new TaskInfoFetcher(
                 this::failTask,
@@ -462,7 +474,8 @@ public final class HttpRemoteTask
                 queryManager,
                 handleResolver,
                 connectorTypeSerdeManager,
-                thriftProtocol);
+                thriftProtocol,
+                span);
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
@@ -1000,11 +1013,19 @@ public final class HttpRemoteTask
                 }
             }
 
+            //extract current context and pass it to worker nodes by injecting in http header for some of the TaskResource endpoints
+            Map<String, String> headersMap = TracingManager.getHeadersMap(stageSpan);
+
             HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus);
-            Request request = setContentTypeHeaders(binaryTransportEnabled, preparePost())
+            Request.Builder requestBuilder = setContentTypeHeaders(binaryTransportEnabled, preparePost())
                     .setUri(uriBuilder.build())
-                    .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
-                    .build();
+                    .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson));
+
+            for (Map.Entry<String, String> entry : headersMap.entrySet()) {
+                requestBuilder.addHeader(entry.getKey(), entry.getValue());
+            }
+
+            Request request = requestBuilder.build();
 
             ResponseHandler responseHandler;
             if (binaryTransportEnabled) {
@@ -1071,9 +1092,17 @@ public final class HttpRemoteTask
                 return;
             }
 
+            //extract remote-write span context and pass it to worker nodes on GET /v1/task/{taskId}/status endpoint
+            Map<String, String> headersMap = TracingManager.getHeadersMap(span);
+
             // send cancel to task and ignore response
             HttpUriBuilder uriBuilder = getHttpUriBuilder(taskStatus).addParameter("abort", "false");
             Request.Builder builder = setContentTypeHeaders(binaryTransportEnabled, prepareDelete());
+
+            for (Map.Entry<String, String> entry : headersMap.entrySet()) {
+                builder.addHeader(entry.getKey(), entry.getValue());
+            }
+
             if (taskInfoThriftTransportEnabled) {
                 builder = ThriftRequestUtils.prepareThriftDelete(thriftProtocol);
             }

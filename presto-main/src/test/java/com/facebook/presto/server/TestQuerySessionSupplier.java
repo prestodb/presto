@@ -104,7 +104,7 @@ public class TestQuerySessionSupplier
                 return WarningCollector.NOOP;
             }
         };
-        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory);
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), null, null, context, warningCollectorFactory);
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -178,6 +178,6 @@ public class TestQuerySessionSupplier
                 return WarningCollector.NOOP;
             }
         };
-        sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory);
+        sessionSupplier.createSession(new QueryId("test_query_id"), null, null, context, warningCollectorFactory);
     }
 }

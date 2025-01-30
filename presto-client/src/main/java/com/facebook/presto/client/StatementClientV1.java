@@ -69,7 +69,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -162,8 +161,6 @@ class StatementClientV1
         if (session.getSource() != null) {
             builder.addHeader(PRESTO_SOURCE, session.getSource());
         }
-
-        session.getTraceToken().ifPresent(token -> builder.addHeader(PRESTO_TRACE_TOKEN, token));
 
         if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
             builder.addHeader(PRESTO_CLIENT_TAGS, Joiner.on(",").join(session.getClientTags()));

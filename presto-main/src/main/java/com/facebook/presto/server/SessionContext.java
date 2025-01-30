@@ -20,7 +20,6 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.spi.tracing.Tracer;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;
@@ -72,8 +71,6 @@ public interface SessionContext
     @Nullable
     String getLanguage();
 
-    Optional<Tracer> getTracer();
-
     Map<String, String> getSystemProperties();
 
     Map<String, Map<String, String>> getCatalogSessionProperties();
@@ -81,8 +78,6 @@ public interface SessionContext
     Map<String, String> getPreparedStatements();
 
     Optional<TransactionId> getTransactionId();
-
-    Optional<String> getTraceToken();
 
     boolean supportClientTransaction();
 

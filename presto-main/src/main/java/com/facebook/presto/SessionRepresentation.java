@@ -30,6 +30,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.telemetry.TracingManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
@@ -54,7 +55,6 @@ public final class SessionRepresentation
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
-    private final Optional<String> traceToken;
     private final TimeZoneKey timeZoneKey;
     private final Locale locale;
     private final Optional<String> remoteUserAddress;
@@ -81,7 +81,6 @@ public final class SessionRepresentation
             @JsonProperty("source") Optional<String> source,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
-            @JsonProperty("traceToken") Optional<String> traceToken,
             @JsonProperty("timeZoneKey") TimeZoneKey timeZoneKey,
             @JsonProperty("locale") Locale locale,
             @JsonProperty("remoteUserAddress") Optional<String> remoteUserAddress,
@@ -105,7 +104,6 @@ public final class SessionRepresentation
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
@@ -186,13 +184,6 @@ public final class SessionRepresentation
     public Optional<String> getSchema()
     {
         return schema;
-    }
-
-    @ThriftField(9)
-    @JsonProperty
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
     }
 
     @ThriftField(10)
@@ -307,6 +298,8 @@ public final class SessionRepresentation
     {
         return new Session(
                 new QueryId(queryId),
+                TracingManager.getInvalidSpan(),
+                TracingManager.getInvalidSpan(),
                 transactionId,
                 clientTransactionSupport,
                 new Identity(
@@ -320,7 +313,6 @@ public final class SessionRepresentation
                 source,
                 catalog,
                 schema,
-                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -335,8 +327,6 @@ public final class SessionRepresentation
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
-                Optional.empty(),
-                // we use NOOP to create a session from the representation as worker does not require warning collectors
                 WarningCollector.NOOP,
                 new RuntimeStats(),
                 Optional.empty());

@@ -218,8 +218,6 @@ import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.statusservice.NodeStatusService;
-import com.facebook.presto.tracing.TracerProviderManager;
-import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.util.FinalizerService;
@@ -796,10 +794,6 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
-
-        // Distributed tracing
-        configBinder(binder).bindConfig(TracingConfig.class);
-        binder.bind(TracerProviderManager.class).in(Scopes.SINGLETON);
 
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);

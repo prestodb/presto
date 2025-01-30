@@ -24,15 +24,10 @@ import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.spi.tracing.Tracer;
-import com.facebook.presto.spi.tracing.TracerHandle;
-import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
-import com.facebook.presto.tracing.NoopTracerProvider;
-import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,7 +55,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.SystemSessionProperties.DISTRIBUTED_TRACING_MODE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_INFO;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLIENT_TAGS;
@@ -74,7 +68,6 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.server.security.ServletSecurityUtils.authorizedIdentity;
@@ -105,7 +98,6 @@ public final class HttpRequestSessionContext
     private final List<X509Certificate> certificates;
 
     private final String source;
-    private final Optional<String> traceToken;
     private final String userAgent;
     private final String remoteUserAddress;
     private final String timeZoneId;
@@ -124,24 +116,22 @@ public final class HttpRequestSessionContext
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
 
     private final Optional<SessionPropertyManager> sessionPropertyManager;
-    private final Optional<Tracer> tracer;
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions)
     {
-        this(servletRequest, sqlParserOptions, NoopTracerProvider.NOOP_TRACER_PROVIDER, Optional.empty());
+        this(servletRequest, sqlParserOptions, Optional.empty());
     }
 
     /**
      * @param servletRequest
      * @param sqlParserOptions
-     * @param tracerProvider This passed-in {@link TracerProvider} will only be used when isTracingEnabled() returns true.
      * @param sessionPropertyManager is used to provide with some default session values. In some scenarios we need
      * those default values even before session for a query is created. This is how we can get it at this
      * session context creation stage.
      * @throws WebApplicationException
      */
-    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, TracerProvider tracerProvider, Optional<SessionPropertyManager> sessionPropertyManager)
+    public HttpRequestSessionContext(HttpServletRequest servletRequest, SqlParserOptions sqlParserOptions, Optional<SessionPropertyManager> sessionPropertyManager)
             throws WebApplicationException
     {
         catalog = trimEmptyToNull(servletRequest.getHeader(PRESTO_CATALOG));
@@ -220,26 +210,6 @@ public final class HttpRequestSessionContext
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
 
         Map<String, String> requestHeaders = getRequestHeaders(servletRequest);
-        TracerHandle tracerHandle = tracerProvider.getHandleGenerator().apply(requestHeaders);
-
-        if (isTracingEnabled()) {
-            this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(tracerHandle), "tracer is null"));
-            traceToken = Optional.ofNullable(this.tracer.get().getTracerId());
-        }
-        else {
-            this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
-
-            // If tunnel trace token is null, we expose the Presto tracing id.
-            // Otherwise we preserve the ability of trace token tunneling but
-            // still trace Presto internally for aggregation purposes.
-            String tunnelTraceId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN));
-            if (tunnelTraceId != null) {
-                traceToken = Optional.of(tunnelTraceId);
-            }
-            else {
-                traceToken = Optional.ofNullable(tracerHandle.getTraceToken());
-            }
-        }
     }
 
     private static Map<String, String> getRequestHeaders(HttpServletRequest servletRequest)
@@ -517,18 +487,6 @@ public final class HttpRequestSessionContext
     }
 
     @Override
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
-    }
-
-    @Override
-    public Optional<Tracer> getTracer()
-    {
-        return tracer;
-    }
-
-    @Override
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
@@ -539,26 +497,6 @@ public final class HttpRequestSessionContext
      * as highest priority. If client does not provide any session enabling property, we then take the system
      * default session value for determining if we should trace this query.
      */
-    private boolean isTracingEnabled()
-    {
-        String clientValue = systemProperties.getOrDefault(DISTRIBUTED_TRACING_MODE, "");
-
-        // Client session setting overrides everything.
-        if (clientValue.equalsIgnoreCase(TracingConfig.DistributedTracingMode.ALWAYS_TRACE.name())) {
-            return true;
-        }
-        if (clientValue.equalsIgnoreCase(TracingConfig.DistributedTracingMode.NO_TRACE.name())) {
-            return false;
-        }
-        if (clientValue.equalsIgnoreCase(TracingConfig.DistributedTracingMode.SAMPLE_BASED.name())) {
-            return true;
-        }
-
-        // Client not set, we then take system default value if ALWAYS_TRACE (SAMPLE_BASED disabled). If property manager not provided then false.
-        return sessionPropertyManager
-                .map(manager -> manager.decodeSystemPropertyValue(DISTRIBUTED_TRACING_MODE, null, String.class).equalsIgnoreCase(TracingConfig.DistributedTracingMode.ALWAYS_TRACE.name()))
-                .orElse(false);
-    }
 
     private Set<String> parseClientTags(HttpServletRequest servletRequest)
     {

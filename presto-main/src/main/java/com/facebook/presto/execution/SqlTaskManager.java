@@ -43,6 +43,7 @@ import com.facebook.presto.operator.TaskMemoryReservationSummary;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
@@ -399,7 +400,8 @@ public class SqlTaskManager
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            Optional<TableWriteInfo> tableWriteInfo)
+            Optional<TableWriteInfo> tableWriteInfo,
+            BaseSpan span)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -431,7 +433,7 @@ public class SqlTaskManager
         queryContext.setHeapDumpFilePath(heapDumpFilePath);
 
         sqlTask.recordHeartbeat();
-        return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo);
+        return sqlTask.updateTask(session, fragment, sources, outputBuffers, tableWriteInfo, span);
     }
 
     @Override

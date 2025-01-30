@@ -105,6 +105,9 @@
         <grpc.version>1.68.0</grpc.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <opentelemetry.version>1.38.0</opentelemetry.version>
+        <opentelemetry-alpha.version>1.38.0-alpha</opentelemetry-alpha.version>
+        <kotlin-stdlib-jdk8.version>1.9.10</kotlin-stdlib-jdk8.version>
     </properties>
 
     <modules>
@@ -2321,19 +2324,19 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-api</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-context</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-exporter-otlp</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.squareup.okhttp3</groupId>
@@ -2345,31 +2348,37 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-extension-trace-propagators</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-sdk-testing</artifactId>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk-common</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-sdk-trace</artifactId>
-                <version>1.19.0</version>
+                <version>${opentelemetry.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-semconv</artifactId>
-                <version>1.19.0-alpha</version>
+                <version>${opentelemetry-alpha.version}</version>
             </dependency>
 
             <dependency>
@@ -2468,6 +2477,12 @@
                 <version>${dep.arrow.version}</version>
             </dependency>
 
+            
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib-jdk8</artifactId>
+                <version>${kotlin-stdlib-jdk8.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

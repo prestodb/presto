@@ -48,7 +48,6 @@ import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingTransactionHandle;
-import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -104,7 +103,6 @@ public class TestAdaptivePhasedExecutionPolicy
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig(),
                 new CompilerConfig(),
                 new HistoryBasedOptimizationConfig()))).build();
         AdaptivePhasedExecutionPolicy policy = new AdaptivePhasedExecutionPolicy();
@@ -143,7 +141,8 @@ public class TestAdaptivePhasedExecutionPolicy
                 newDirectExecutorService(),
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                null);
         StageLinkage stageLinkage = new StageLinkage(fragmentId, (id, tasks, noMoreExchangeLocations) -> {}, ImmutableSet.of());
         StageScheduler stageScheduler = new FixedCountScheduler(stageExecution, ImmutableList.of());
         StageExecutionAndScheduler scheduler = new StageExecutionAndScheduler(stageExecution, stageLinkage, stageScheduler);

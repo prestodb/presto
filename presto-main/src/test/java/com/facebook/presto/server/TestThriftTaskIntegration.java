@@ -43,6 +43,7 @@ import com.facebook.presto.memory.MemoryPoolAssignmentsRequest;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
@@ -223,7 +224,7 @@ public class TestThriftTaskIntegration
                 }
 
                 @Override
-                public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, Optional<TableWriteInfo> tableWriteInfo)
+                public TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, Optional<TableWriteInfo> tableWriteInfo, BaseSpan span)
                 {
                     throw new UnsupportedOperationException();
                 }

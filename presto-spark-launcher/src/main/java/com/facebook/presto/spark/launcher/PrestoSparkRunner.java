@@ -94,7 +94,6 @@ public class PrestoSparkRunner
             Optional<String> sqlLocation,
             Optional<String> sqlFileHexHash,
             Optional<String> sqlFileSizeInBytes,
-            Optional<String> traceToken,
             Optional<String> sparkQueueName,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation)
@@ -116,7 +115,6 @@ public class PrestoSparkRunner
                 sqlLocation,
                 sqlFileHexHash,
                 sqlFileSizeInBytes,
-                traceToken,
                 sparkQueueName,
                 queryStatusInfoOutputLocation,
                 queryDataOutputLocation,
@@ -161,8 +159,7 @@ public class PrestoSparkRunner
                 Optional.empty(),
                 Optional.empty(),
                 prestoSparkRunnerContext.getSessionProperties(),
-                prestoSparkRunnerContext.getCatalogSessionProperties(),
-                prestoSparkRunnerContext.getTraceToken());
+                prestoSparkRunnerContext.getCatalogSessionProperties());
 
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),

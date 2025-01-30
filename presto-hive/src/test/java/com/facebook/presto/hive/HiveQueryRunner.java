@@ -193,8 +193,6 @@ public final class HiveQueryRunner
         Map<String, String> systemProperties = ImmutableMap.<String, String>builder()
                 .put("task.writer-count", "2")
                 .put("task.partitioned-writer-count", "4")
-                .put("tracing.tracer-type", "simple")
-                .put("tracing.enable-distributed-tracing", "simple")
                 .putAll(extraProperties)
                 .build();
 

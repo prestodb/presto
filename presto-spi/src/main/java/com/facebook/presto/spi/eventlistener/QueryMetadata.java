@@ -25,7 +25,6 @@ public class QueryMetadata
 {
     private final String queryId;
     private final Optional<String> transactionId;
-    private final Optional<String> tracingId;
 
     private final String query;
     private final String queryHash;
@@ -55,8 +54,7 @@ public class QueryMetadata
             Optional<String> jsonPlan,
             Optional<String> graphvizPlan,
             Optional<String> payload,
-            List<String> runtimeOptimizedStages,
-            Optional<String> tracingId)
+            List<String> runtimeOptimizedStages)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
@@ -70,7 +68,6 @@ public class QueryMetadata
         this.graphvizPlan = requireNonNull(graphvizPlan, "graphvizPlan is null");
         this.payload = requireNonNull(payload, "payload is null");
         this.runtimeOptimizedStages = requireNonNull(runtimeOptimizedStages, "runtimeOptimizedStages is null");
-        this.tracingId = requireNonNull(tracingId, "tracingId is null");
     }
 
     @JsonProperty
@@ -143,11 +140,5 @@ public class QueryMetadata
     public List<String> getRuntimeOptimizedStages()
     {
         return runtimeOptimizedStages;
-    }
-
-    @JsonProperty
-    public Optional<String> getTracingId()
-    {
-        return tracingId;
     }
 }

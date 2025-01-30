@@ -1352,7 +1352,6 @@ public class PrestoDatabaseMetaData
                         "        ('ApplicationName', %s, 'presto-jdbc', 'Sets the source of the session'),%n" +
                         "        ('ClientInfo', %s, NULL, 'Sets the client info of the session'),        %n" +
                         "        ('ClientTags', %s, NULL, 'Comma-delimited string of tags for the session'),        %n" +
-                        "        ('TraceToken', %s, NULL, 'Sets the trace token of the session')        %n" +
                         ") AS t (NAME, MAX_LEN, DEFAULT_VALUE, DESCRIPTION)",
                 MAX_LENGTH,
                 MAX_LENGTH,
