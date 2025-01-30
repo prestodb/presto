@@ -71,6 +71,12 @@ bool mustStartNewPipeline(
   return sourceId != 0;
 }
 
+bool isIndexLookupJoin(core::PlanNodePtr planNode) {
+  const auto indexLookupJoin =
+      std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(planNode);
+  return indexLookupJoin != nullptr;
+}
+
 // Creates the customized local partition operator for table writer scaling.
 std::unique_ptr<Operator> createScaleWriterLocalPartition(
     const std::shared_ptr<const core::LocalPartitionNode>& localPartitionNode,
@@ -174,7 +180,9 @@ void plan(
   if (sources.empty()) {
     driverFactories->back()->inputDriver = true;
   } else {
-    for (int32_t i = 0; i < sources.size(); ++i) {
+    const auto numSourcesToPlan =
+        isIndexLookupJoin(planNode) ? 1 : sources.size();
+    for (int32_t i = 0; i < numSourcesToPlan; ++i) {
       plan(
           sources[i],
           mustStartNewPipeline(planNode, i) ? nullptr : currentPlanNodes,

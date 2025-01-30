@@ -331,9 +331,13 @@ class IndexSource {
     /// Contains the lookup result rows.
     RowVectorPtr output;
 
+    size_t size() const {
+      return output->size();
+    }
+
     LookupResult(BufferPtr _inputHits, RowVectorPtr _output)
         : inputHits(std::move(_inputHits)), output(std::move(_output)) {
-      VELOX_CHECK_EQ(inputHits->size() / sizeof(int32_t), output->size());
+      VELOX_CHECK_EQ(inputHits->size() / sizeof(vector_size_t), output->size());
     }
   };
 
@@ -343,17 +347,18 @@ class IndexSource {
    public:
     virtual ~LookupResultIterator() = default;
 
-    /// Invoked to fetch update to 'size' number of output rows. Returns nullptr
-    /// if all the lookup results have been fetched. Returns std::nullopt and
-    /// sets the 'future' if started asynchronous work and needs to wait for it
-    /// to complete to continue processing. The caller will wait for the
-    /// 'future' to complete before calling 'next' again.
-    virtual std::optional<std::shared_ptr<LookupResult>> next(
+    /// Invoked to fetch up to 'size' number of output rows. Returns nullptr if
+    /// all the lookup results have been fetched. Returns std::nullopt and sets
+    /// the 'future' if started asynchronous work and needs to wait for it to
+    /// complete to continue processing. The caller will wait for the 'future'
+    /// to complete before calling 'next' again.
+    virtual std::optional<std::unique_ptr<LookupResult>> next(
         vector_size_t size,
         velox::ContinueFuture& future) = 0;
   };
 
-  virtual LookupResultIterator lookup(const LookupRequest& request) = 0;
+  virtual std::unique_ptr<LookupResultIterator> lookup(
+      const LookupRequest& request) = 0;
 
   virtual std::unordered_map<std::string, RuntimeCounter> runtimeStats() = 0;
 };
@@ -586,7 +591,7 @@ class Connector {
   ///   index table.
   /// - 'connectorQueryCtx' provide the connector query execution context.
   ///
-  virtual std::unique_ptr<IndexSource> createIndexSource(
+  virtual std::shared_ptr<IndexSource> createIndexSource(
       const RowTypePtr& inputType,
       size_t numJoinKeys,
       const std::vector<std::shared_ptr<const core::ITypedExpr>>&

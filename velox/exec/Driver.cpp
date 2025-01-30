@@ -1131,6 +1131,8 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kWaitForArbitration";
     case BlockingReason::kWaitForScanScaleUp:
       return "kWaitForScanScaleUp";
+    case BlockingReason::kWaitForIndexLookup:
+      return "kWaitForIndexLookup";
     default:
       VELOX_UNREACHABLE(
           fmt::format("Unknown blocking reason {}", static_cast<int>(reason)));

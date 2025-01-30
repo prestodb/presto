@@ -214,6 +214,9 @@ enum class BlockingReason {
   /// to increase the number of table scan processing threads to start
   /// processing.
   kWaitForScanScaleUp,
+  /// Used by IndexLookupJoin operator, indicating that it was blocked by the
+  /// async index lookup.
+  kWaitForIndexLookup,
 };
 
 std::string blockingReasonToString(BlockingReason reason);
