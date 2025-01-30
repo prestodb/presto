@@ -99,7 +99,7 @@ public class TestIcebergSmokeHadoop
     public void testPartitionedTableWithSpecifiedWriteDataLocation()
             throws IOException
     {
-        String tableName = "test_table_with_specified_write_data_location3";
+        String tableName = "test_partitioned_table_with_specified_write_data_location";
         String dataWriteLocation = Files.createTempDirectory(tableName).toAbsolutePath().toString();
         try {
             assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], write_data_path = '%s')", tableName, dataWriteLocation));
