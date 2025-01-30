@@ -36,7 +36,7 @@ public interface ExtendedHiveMetastore
 {
     default List<String> getDatabases(MetastoreContext metastoreContext, String pattern)
     {
-        return getAllDatabases(metastoreContext);
+        return ImmutableList.of();
     }
 
     Optional<Database> getDatabase(MetastoreContext metastoreContext, String databaseName);

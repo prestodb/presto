@@ -84,7 +84,12 @@ public class HudiMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getDatabases(toMetastoreContext(session), catalogName);
+        if (catalogName != null) {
+            return metastore.getDatabases(toMetastoreContext(session), constructSchemaName(Optional.of(catalogName), ""));
+        }
+        else {
+            return metastore.getAllDatabases(toMetastoreContext(session));
+        }
     }
 
     @Override

@@ -240,7 +240,12 @@ public class IcebergHiveMetadata
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getDatabases(getMetastoreContext(session), catalogName);
+        if (catalogName != null) {
+            return metastore.getDatabases(getMetastoreContext(session), constructSchemaName(Optional.of(catalogName), ""));
+        }
+        else {
+            return metastore.getAllDatabases(getMetastoreContext(session));
+        }
     }
 
     @Override
