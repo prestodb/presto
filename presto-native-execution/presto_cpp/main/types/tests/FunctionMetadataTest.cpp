@@ -61,7 +61,7 @@ class FunctionMetadataTest : public ::testing::Test {
 };
 
 TEST_F(FunctionMetadataTest, approxMostFrequent) {
-  testFunction("approx_most_frequent", "ApproxMostFrequent.json", 12);
+  testFunction("approx_most_frequent", "ApproxMostFrequent.json", 14);
 }
 
 TEST_F(FunctionMetadataTest, arrayFrequency) {
