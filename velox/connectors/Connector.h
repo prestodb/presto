@@ -357,7 +357,7 @@ class IndexSource {
         velox::ContinueFuture& future) = 0;
   };
 
-  virtual std::unique_ptr<LookupResultIterator> lookup(
+  virtual std::shared_ptr<LookupResultIterator> lookup(
       const LookupRequest& request) = 0;
 
   virtual std::unordered_map<std::string, RuntimeCounter> runtimeStats() = 0;

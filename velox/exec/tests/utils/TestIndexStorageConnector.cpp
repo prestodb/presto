@@ -48,7 +48,7 @@ TestIndexSource::TestIndexSource(
   initOutputProjections();
 }
 
-std::unique_ptr<connector::IndexSource::LookupResultIterator>
+std::shared_ptr<connector::IndexSource::LookupResultIterator>
 TestIndexSource::lookup(const LookupRequest& request) {
   const auto numInputRows = request.input->size();
   auto& hashTable = tableHandle_->indexTable()->table;
@@ -67,7 +67,7 @@ TestIndexSource::lookup(const LookupRequest& request) {
   auto& rows = lookup->rows;
   rows.resize(request.input->size());
   std::iota(rows.begin(), rows.end(), 0);
-  return std::make_unique<ResultIterator>(
+  return std::make_shared<ResultIterator>(
       this->shared_from_this(),
       request,
       std::move(lookup),

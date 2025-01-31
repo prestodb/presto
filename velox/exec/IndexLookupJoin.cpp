@@ -64,7 +64,6 @@ IndexLookupJoin::IndexLookupJoin(
       expressionEvaluator_(connectorQueryCtx_->expressionEvaluator()),
       connector_(connector::getConnector(lookupTableHandle_->connectorId())),
       joinNode_{joinNode} {
-  VELOX_CHECK_EQ(joinNode_->sources()[1], joinNode_->lookupSource());
   duplicateJoinKeyCheck(joinNode_->leftKeys());
   duplicateJoinKeyCheck(joinNode_->rightKeys());
 }
@@ -159,8 +158,8 @@ void IndexLookupJoin::initLookupInput() {
           lookupIndexOpt.has_value(),
           "Lookup condition column {} is not found",
           columnName);
-      // A lookup column can only be used in on lookup condition.
-      VELOX_CHECK(
+      // A lookup column can only be used in one lookup condition.
+      VELOX_CHECK_EQ(
           lookupConditionColumnNames.count(columnName),
           0,
           "Lookup condition column {} from lookup table used in more than one lookup conditions",

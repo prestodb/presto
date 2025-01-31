@@ -114,7 +114,7 @@ class TestIndexSource : public connector::IndexSource,
       connector::ConnectorQueryCtx* connectorQueryCtx,
       folly::Executor* executor);
 
-  std::unique_ptr<LookupResultIterator> lookup(
+  std::shared_ptr<LookupResultIterator> lookup(
       const LookupRequest& request) override;
 
   std::unordered_map<std::string, RuntimeCounter> runtimeStats() override {

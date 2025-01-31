@@ -125,7 +125,7 @@ class IndexLookupJoin : public Operator {
   ContinueFuture lookupFuture_{ContinueFuture::makeEmpty()};
   // Used to fetch lookup results for each input batch, and reset after
   // processing all the outputs from the result.
-  std::unique_ptr<connector::IndexSource::LookupResultIterator>
+  std::shared_ptr<connector::IndexSource::LookupResultIterator>
       lookupResultIter_;
   // Used to store the lookup result fetched from 'lookupResultIter_' for output
   // processing. We might split the output result into multiple output batches
