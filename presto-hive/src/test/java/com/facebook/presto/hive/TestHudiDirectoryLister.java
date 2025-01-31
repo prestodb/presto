@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
@@ -171,6 +172,62 @@ public class TestHudiDirectoryLister
                 // not expected to have the older version of the base file in p1
                 assertFalse(fileName.startsWith("c0bbff31-67b3-4660-99ba-d388b8bb8c3c-0_0-32-192"));
             }
+        }
+        finally {
+            hadoopConf = null;
+        }
+    }
+
+    @Test
+    public void testDirectoryListerForMORTableWithoutTableNames()
+            throws IOException
+    {
+        Table mockTable = getMockMORTableWithPartition();
+        Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteDisabled();
+        try {
+            ConnectorSession session = new TestingConnectorSession(
+                    getAllSessionProperties(
+                            new HiveClientConfig()
+                                    .setHudiMetadataEnabled(true),
+                            //.setHudiTablesUseMergedView(mockTable.getSchemaTableName().toString()),
+                            new HiveCommonClientConfig()),
+                    TEST_CLIENT_TAGS);
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
+            HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
+            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            Path path = new Path(mockTable.getStorage().getLocation(), "p1");
+            ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
+            Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
+                    IGNORED,
+                    false,
+                    false,
+                    new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
+                    ImmutableMap.of(),
+                    new RuntimeStats()));
+            String partition1OldFileId = "c0bbff31-67b3-4660-99ba-d388b8bb8c3c-0_0-32-192";
+            String partition1NewFileId = "37c2b860-eea6-4142-8bda-257b2562e4b4-0_1-338-594";
+            // expected to have the latest base file in p1 as well as older version because the table is not configured to use merged view
+            List<HiveFileInfo> fileInfoList = ImmutableList.copyOf(fileInfoIterator);
+            assertEquals(fileInfoList.size(), 2);
+            assertTrue(fileInfoList.stream()
+                    .map(fileInfo -> fileInfo.getPath().getName())
+                    .allMatch(fileName -> fileName.startsWith(partition1OldFileId) || fileName.startsWith(partition1NewFileId)));
+
+            Path path2 = new Path(mockTable.getStorage().getLocation(), "p2");
+            fileInfoIterator = directoryLister.list(fs, mockTable, path2, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
+                    IGNORED,
+                    false,
+                    false,
+                    new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
+                    ImmutableMap.of(),
+                    new RuntimeStats()));
+            String partition2OldFileId = "7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0_1-149-341";
+            // expected to have only the latest base file in p2
+            List<HiveFileInfo> fileInfoList2 = ImmutableList.copyOf(fileInfoIterator);
+            assertEquals(fileInfoList2.size(), 1);
+            assertTrue(fileInfoList2.stream()
+                    .map(fileInfo -> fileInfo.getPath().getName())
+                    .allMatch(fileName -> fileName.startsWith(partition2OldFileId)));
         }
         finally {
             hadoopConf = null;

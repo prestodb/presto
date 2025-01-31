@@ -50,6 +50,7 @@ import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
 import static com.facebook.presto.hive.HiveSessionProperties.getHudiTablesUseMergedView;
 import static com.facebook.presto.hive.HiveSessionProperties.isHudiMetadataEnabled;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DEFAULT_PORT;
+import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
 
 public class HudiDirectoryLister
         implements DirectoryLister
@@ -80,22 +81,16 @@ public class HudiDirectoryLister
                 .setConf(actualConfig)
                 .setBasePath(table.getStorage().getLocation())
                 .build();
-        String latestCompactionInstantTime = metaClient.getActiveTimeline()
+        this.latestInstant = metaClient.getActiveTimeline()
                 .getCommitsAndCompactionTimeline()
                 .filterCompletedInstants()
-                .filter(instant -> HoodieTableType.MERGE_ON_READ.equals(metaClient.getTableType()) && instant.getAction().equals(HoodieTimeline.COMPACTION_ACTION))
+                .filter(instant -> MERGE_ON_READ.equals(metaClient.getTableType()) && instant.getAction().equals(HoodieTimeline.COMPACTION_ACTION))
                 .lastInstant()
-                .map(HoodieInstant::getTimestamp).orElse(null);
-        if (latestCompactionInstantTime != null) {
-            this.latestInstant = latestCompactionInstantTime;
-        }
-        else {
-            this.latestInstant = metaClient.getActiveTimeline()
-                    .getCommitsTimeline()
-                    .filterCompletedInstants()
-                    .lastInstant()
-                    .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found"));
-        }
+                .map(HoodieInstant::getTimestamp).orElseGet(() -> metaClient.getActiveTimeline()
+                        .getCommitsTimeline()
+                        .filterCompletedInstants()
+                        .lastInstant()
+                        .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found")));
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(actualConfig);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
@@ -154,7 +149,7 @@ public class HudiDirectoryLister
             }
             else {
                 if (shouldUseMergedView) {
-                    Stream<FileSlice> fileSlices = HoodieTableType.MERGE_ON_READ.equals(tableType) ?
+                    Stream<FileSlice> fileSlices = MERGE_ON_READ.equals(tableType) ?
                             fileSystemView.getLatestMergedFileSlicesBeforeOrOn(partition, latestInstant) :
                             fileSystemView.getLatestFileSlicesBeforeOrOn(partition, latestInstant, false);
                     this.hoodieBaseFileIterator = fileSlices.map(FileSlice::getBaseFile).filter(Option::isPresent).map(Option::get).iterator();
