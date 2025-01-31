@@ -706,6 +706,7 @@ struct SqlInvokedFunction {
   String description = {};
   RoutineCharacteristics routineCharacteristics = {};
   String body = {};
+  bool variableArity = {};
   Signature signature = {};
   SqlFunctionId functionId = {};
 };

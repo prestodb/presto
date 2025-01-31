@@ -11,37 +11,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package com.facebook.presto.hive.functions;
+package com.facebook.presto.sidecar.functionNamespace;
 
 import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.FunctionHandle;
+import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
+import com.facebook.presto.spi.function.SqlFunctionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-public class HiveFunctionHandle
-        implements FunctionHandle
+public class NativeFunctionHandle
+        extends SqlFunctionHandle
 {
     private final Signature signature;
 
     @JsonCreator
-    public HiveFunctionHandle(@JsonProperty("signature") Signature signature)
+    public NativeFunctionHandle(@JsonProperty("signature") Signature signature)
     {
+        // Todo: hardcoding version as "1"
+        super(new SqlFunctionId(signature.getName(), signature.getArgumentTypes()), "1");
         this.signature = requireNonNull(signature, "signature is null");
+        checkArgument(signature.getTypeVariableConstraints().isEmpty(), "%s has unbound type parameters", signature);
     }
 
-    @Override
-    public CatalogSchemaName getCatalogSchemaName()
+    @JsonProperty
+    public Signature getSignature()
     {
-        return signature.getName().getCatalogSchemaName();
+        return signature;
     }
 
     @Override
@@ -57,15 +61,9 @@ public class HiveFunctionHandle
     }
 
     @Override
-    public List<TypeSignature> getArgumentTypes()
+    public CatalogSchemaName getCatalogSchemaName()
     {
-        return signature.getArgumentTypes();
-    }
-
-    @JsonProperty
-    public Signature getSignature()
-    {
-        return signature;
+        return signature.getName().getCatalogSchemaName();
     }
 
     @Override
@@ -77,7 +75,7 @@ public class HiveFunctionHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        HiveFunctionHandle that = (HiveFunctionHandle) o;
+        NativeFunctionHandle that = (NativeFunctionHandle) o;
         return Objects.equals(signature, that.signature);
     }
 
@@ -91,5 +89,15 @@ public class HiveFunctionHandle
     public String toString()
     {
         return signature.toString();
+    }
+
+    public static class Resolver
+            implements FunctionHandleResolver
+    {
+        @Override
+        public Class<? extends FunctionHandle> getFunctionHandleClass()
+        {
+            return NativeFunctionHandle.class;
+        }
     }
 }

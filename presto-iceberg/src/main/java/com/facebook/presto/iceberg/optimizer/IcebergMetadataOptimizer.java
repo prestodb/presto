@@ -13,8 +13,6 @@
  */
 package com.facebook.presto.iceberg.optimizer;
 
-import com.facebook.presto.common.CatalogSchemaName;
-import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.TupleDomain.ColumnDomain;
@@ -58,7 +56,6 @@ import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
@@ -67,7 +64,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getRowsForMetadataOptimizationThreshold;
@@ -81,16 +78,10 @@ import static java.util.Objects.requireNonNull;
 public class IcebergMetadataOptimizer
         implements ConnectorPlanOptimizer
 {
-    public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
-    private static final Set<QualifiedObjectName> ALLOWED_FUNCTIONS = ImmutableSet.of(
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "max"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "min"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"));
-
     // Min/Max could be folded into LEAST/GREATEST
-    private static final Map<QualifiedObjectName, QualifiedObjectName> AGGREGATION_SCALAR_MAPPING = ImmutableMap.of(
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "max"), QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "greatest"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "min"), QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "least"));
+    private static final Map<String, String> AGGREGATION_SCALAR_MAPPING = ImmutableMap.of(
+            "max", "greatest",
+            "min", "least");
 
     private final FunctionMetadataManager functionMetadataManager;
     private final TypeManager typeManager;
@@ -137,6 +128,7 @@ public class IcebergMetadataOptimizer
         private final RowExpressionService rowExpressionService;
         private final StandardFunctionResolution functionResolution;
         private final int rowsForMetadataOptimizationThreshold;
+        private final List<Predicate<FunctionHandle>> allowedFunctionsPredicates;
 
         private Optimizer(ConnectorSession connectorSession,
                           PlanNodeIdAllocator idAllocator,
@@ -156,6 +148,10 @@ public class IcebergMetadataOptimizer
             this.functionResolution = functionResolution;
             this.typeManager = typeManager;
             this.rowsForMetadataOptimizationThreshold = rowsForMetadataOptimizationThreshold;
+            this.allowedFunctionsPredicates = ImmutableList.of(
+                    functionResolution::isMaxFunction,
+                    functionResolution::isMinFunction,
+                    functionResolution::isApproximateCountDistinctFunction);
         }
 
         @Override
@@ -163,8 +159,8 @@ public class IcebergMetadataOptimizer
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
-                QualifiedObjectName functionName = functionMetadataManager.getFunctionMetadata(aggregation.getFunctionHandle()).getName();
-                if (!ALLOWED_FUNCTIONS.contains(functionName) && !aggregation.isDistinct()) {
+                if (allowedFunctionsPredicates.stream().noneMatch(
+                        pred -> pred.test(aggregation.getFunctionHandle())) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }
             }
@@ -270,7 +266,7 @@ public class IcebergMetadataOptimizer
             }
             for (Aggregation aggregation : node.getAggregations().values()) {
                 FunctionMetadata functionMetadata = functionMetadataManager.getFunctionMetadata(aggregation.getFunctionHandle());
-                if (!AGGREGATION_SCALAR_MAPPING.containsKey(functionMetadata.getName()) ||
+                if (!AGGREGATION_SCALAR_MAPPING.containsKey(functionMetadata.getName().getObjectName()) ||
                         functionMetadata.getArgumentTypes().size() > 1 ||
                         !inputs.containsAll(aggregation.getCall().getArguments())) {
                     return false;
@@ -340,7 +336,7 @@ public class IcebergMetadataOptimizer
                 return new ConstantExpression(Optional.empty(), null, returnType);
             }
 
-            String scalarFunctionName = AGGREGATION_SCALAR_MAPPING.get(aggregationFunctionMetadata.getName()).getObjectName();
+            String scalarFunctionName = AGGREGATION_SCALAR_MAPPING.get(aggregationFunctionMetadata.getName().getObjectName());
             while (arguments.size() > 1) {
                 List<RowExpression> reducedArguments = new ArrayList<>();
                 // We fold for every 100 values because GREATEST/LEAST has argument count limit

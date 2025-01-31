@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -62,7 +63,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.evaluateConstantRowExpression;
 import static com.facebook.presto.sql.relational.Expressions.call;
@@ -78,16 +78,8 @@ import static java.util.Objects.requireNonNull;
 public class MetadataQueryOptimizer
         implements PlanOptimizer
 {
-    private static final Set<QualifiedObjectName> ALLOWED_FUNCTIONS = ImmutableSet.of(
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "max"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "min"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"));
-
-    // Min/Max could be folded into LEAST/GREATEST
-    private static final Map<QualifiedObjectName, QualifiedObjectName> AGGREGATION_SCALAR_MAPPING = ImmutableMap.of(
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "max"), QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "greatest"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "min"), QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "least"));
-
+    private final Set<QualifiedObjectName> allowedFunctions;
+    private final Map<QualifiedObjectName, QualifiedObjectName> aggregationScalarMapping;
     private final Metadata metadata;
 
     public MetadataQueryOptimizer(Metadata metadata)
@@ -95,6 +87,15 @@ public class MetadataQueryOptimizer
         requireNonNull(metadata, "metadata is null");
 
         this.metadata = metadata;
+        CatalogSchemaName defaultNamespace = metadata.getFunctionAndTypeManager().getDefaultNamespace();
+        this.allowedFunctions = ImmutableSet.of(
+                QualifiedObjectName.valueOf(defaultNamespace, "max"),
+                QualifiedObjectName.valueOf(defaultNamespace, "min"),
+                QualifiedObjectName.valueOf(defaultNamespace, "approx_distinct"));
+        // Min/Max could be folded into LEAST/GREATEST
+        this.aggregationScalarMapping = ImmutableMap.of(
+                QualifiedObjectName.valueOf(defaultNamespace, "max"), QualifiedObjectName.valueOf(defaultNamespace, "greatest"),
+                QualifiedObjectName.valueOf(defaultNamespace, "min"), QualifiedObjectName.valueOf(defaultNamespace, "least"));
     }
 
     @Override
@@ -108,6 +109,16 @@ public class MetadataQueryOptimizer
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, optimizer.isPlanChanged());
     }
 
+    public Set<QualifiedObjectName> getAllowedFunctions()
+    {
+        return allowedFunctions;
+    }
+
+    public Map<QualifiedObjectName, QualifiedObjectName> getAggregationScalarMapping()
+    {
+        return aggregationScalarMapping;
+    }
+
     private static class Optimizer
             extends SimplePlanRewriter<Void>
     {
@@ -118,6 +129,7 @@ public class MetadataQueryOptimizer
         private final boolean ignoreMetadataStats;
         private final int metastoreCallNumThreshold;
         private boolean planChanged;
+        private final MetadataQueryOptimizer metadataQueryOptimizer;
 
         private Optimizer(Session session, Metadata metadata, PlanNodeIdAllocator idAllocator)
         {
@@ -127,6 +139,7 @@ public class MetadataQueryOptimizer
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(metadata);
             this.ignoreMetadataStats = SystemSessionProperties.isOptimizeMetadataQueriesIgnoreStats(session);
             this.metastoreCallNumThreshold = SystemSessionProperties.getOptimizeMetadataQueriesCallThreshold(session);
+            this.metadataQueryOptimizer = new MetadataQueryOptimizer(metadata);
         }
 
         public boolean isPlanChanged()
@@ -140,7 +153,7 @@ public class MetadataQueryOptimizer
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
             for (Aggregation aggregation : node.getAggregations().values()) {
                 QualifiedObjectName functionName = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle()).getName();
-                if (!ALLOWED_FUNCTIONS.contains(functionName) && !aggregation.isDistinct()) {
+                if (!metadataQueryOptimizer.getAllowedFunctions().contains(functionName) && !aggregation.isDistinct()) {
                     return context.defaultRewrite(node);
                 }
             }
@@ -261,7 +274,7 @@ public class MetadataQueryOptimizer
             }
             for (Aggregation aggregation : node.getAggregations().values()) {
                 FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(aggregation.getFunctionHandle());
-                if (!AGGREGATION_SCALAR_MAPPING.containsKey(functionMetadata.getName()) ||
+                if (!metadataQueryOptimizer.getAggregationScalarMapping().containsKey(functionMetadata.getName()) ||
                         functionMetadata.getArgumentTypes().size() > 1 ||
                         !inputs.containsAll(aggregation.getCall().getArguments())) {
                     return false;
@@ -355,7 +368,7 @@ public class MetadataQueryOptimizer
                 return constant(null, returnType);
             }
 
-            String scalarFunctionName = AGGREGATION_SCALAR_MAPPING.get(aggregationFunctionMetadata.getName()).getObjectName();
+            String scalarFunctionName = metadataQueryOptimizer.getAggregationScalarMapping().get(aggregationFunctionMetadata.getName()).getObjectName();
             ConnectorSession connectorSession = session.toConnectorSession();
             while (arguments.size() > 1) {
                 List<RowExpression> reducedArguments = new ArrayList<>();

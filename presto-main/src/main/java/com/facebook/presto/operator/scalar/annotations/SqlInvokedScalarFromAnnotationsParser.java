@@ -173,6 +173,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
                         functionDescription,
                         routineCharacteristics,
                         body,
+                        false,
                         notVersioned(),
                         SCALAR,
                         Optional.empty()))
