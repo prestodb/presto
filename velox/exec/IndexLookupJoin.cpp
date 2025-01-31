@@ -508,7 +508,6 @@ RowVectorPtr IndexLookupJoin::produceRemainingOutputForLeftJoin() {
   VELOX_CHECK_NULL(lookupResult_);
   VELOX_CHECK(hasRemainingOutputForLeftJoin());
   VELOX_CHECK_NULL(rawLookupInputHitIndices_);
-
   prepareOutputRowMappings(outputBatchSize_);
   VELOX_CHECK_NOT_NULL(rawLookupOutputNulls_);
 
