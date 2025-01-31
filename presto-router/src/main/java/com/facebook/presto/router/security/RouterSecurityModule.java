@@ -42,7 +42,6 @@ import static com.facebook.presto.server.security.SecurityConfig.AuthenticationT
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.JWT;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.TEST_EXTERNAL;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
@@ -76,13 +75,6 @@ public class RouterSecurityModule
             else if (authType == JWT) {
                 configBinder(binder).bindConfig(JsonWebTokenConfig.class);
                 authBinder.addBinding().to(JsonWebTokenAuthenticator.class).in(Scopes.SINGLETON);
-            }
-            else {
-                // TEST_EXTERNAL is an authentication type used for testing the external auth flow for the JDBC driver.
-                // This is here as a guard since it's not a real authenticator but if I exclude it from the checks then teh error is thrown.
-                if (authType != TEST_EXTERNAL) {
-                    throw new AssertionError("Unhandled auth type: " + authType);
-                }
             }
         }
     }
