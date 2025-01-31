@@ -12,16 +12,58 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include <unordered_set>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/exec/Aggregate.h"
+#include "velox/exec/Window.h"
+#include "velox/functions/FunctionRegistry.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 namespace facebook::presto::test {
 
 using namespace velox;
+
+namespace {
+
+template <typename FunctionMap>
+bool validateDefaultNamespacePrefix(
+    const FunctionMap& functionMap,
+    const std::string& prestoDefaultNamespacePrefix) {
+  static const std::unordered_set<std::string> kBlockList = {
+      "row_constructor", "in", "is_null"};
+
+  std::vector<std::string> prestoDefaultNamespacePrefixParts;
+  folly::split(
+      '.',
+      prestoDefaultNamespacePrefix,
+      prestoDefaultNamespacePrefixParts,
+      true);
+  VELOX_CHECK_EQ(prestoDefaultNamespacePrefixParts.size(), 2);
+  for (const auto& [functionName, _] : functionMap) {
+    // Skip internal functions. They don't have any prefix.
+    if ((kBlockList.count(functionName) != 0) ||
+        (functionName.find("$internal$") != std::string::npos)) {
+      continue;
+    }
+
+    std::vector<std::string> parts;
+    folly::split('.', functionName, parts, true);
+    VELOX_CHECK_EQ(parts.size(), 3);
+    if ((parts[0] != prestoDefaultNamespacePrefixParts[0]) ||
+        (parts[1] != prestoDefaultNamespacePrefixParts[1])) {
+      return false;
+    }
+  }
+  return true;
+}
+} // namespace
 
 class ConfigTest : public testing::Test {
  protected:
@@ -310,4 +352,35 @@ TEST_F(ConfigTest, readConfigEnvVarTest) {
   unsetenv(kEmptyEnvVarName.c_str());
 }
 
+TEST_F(ConfigTest, prestoDefaultNamespacePrefix) {
+  SystemConfig config;
+  init(
+      config,
+      {{std::string(SystemConfig::kPrestoDefaultNamespacePrefix),
+        "presto.default"}});
+  std::string prestoBuiltinFunctionPrefix =
+      config.prestoDefaultNamespacePrefix();
+
+  velox::functions::prestosql::registerAllScalarFunctions(
+      prestoBuiltinFunctionPrefix);
+  velox::aggregate::prestosql::registerAllAggregateFunctions(
+      prestoBuiltinFunctionPrefix);
+  velox::window::prestosql::registerAllWindowFunctions(
+      prestoBuiltinFunctionPrefix);
+
+  // Get all registered scalar functions in Velox
+  auto scalarFunctions = getFunctionSignatures();
+  ASSERT_TRUE(validateDefaultNamespacePrefix(
+      scalarFunctions, prestoBuiltinFunctionPrefix));
+
+  // Get all registered aggregate functions in Velox
+  auto aggregateFunctions = exec::aggregateFunctions().copy();
+  ASSERT_TRUE(validateDefaultNamespacePrefix(
+      aggregateFunctions, prestoBuiltinFunctionPrefix));
+
+  // Get all registered window functions in Velox
+  auto windowFunctions = exec::windowFunctions();
+  ASSERT_TRUE(validateDefaultNamespacePrefix(
+      windowFunctions, prestoBuiltinFunctionPrefix));
+}
 } // namespace facebook::presto::test
