@@ -245,8 +245,8 @@ uint64_t LzoAndLz4DecompressorCommon::decompress(
     DWIO_ENSURE_GE(
         compressedSize,
         dwio::common::INT_BYTE_SIZE,
-        "{} decompression failed, input len is too small: {}",
-        kind_,
+        ::facebook::velox::common::compressionKindToString(kind_),
+        " decompression failed, input len is too small: ",
         compressedSize);
 
     uint32_t decompressedBlockSize =
@@ -258,11 +258,11 @@ uint64_t LzoAndLz4DecompressorCommon::decompress(
     DWIO_ENSURE_GE(
         remainingOutputSize,
         decompressedBlockSize,
-        "{} decompression failed, remainingOutputSize is less than "
-        "decompressedBlockSize, remainingOutputSize: {}, "
-        "decompressedBlockSize: {}",
-        kind_,
+        ::facebook::velox::common::compressionKindToString(kind_),
+        " decompression failed, remainingOutputSize is less than "
+        "decompressedBlockSize, remainingOutputSize: ",
         remainingOutputSize,
+        ", decompressedBlockSize: ",
         decompressedBlockSize);
 
     if (compressedSize <= 0) {
@@ -274,8 +274,8 @@ uint64_t LzoAndLz4DecompressorCommon::decompress(
       DWIO_ENSURE_GE(
           compressedSize,
           dwio::common::INT_BYTE_SIZE,
-          "{} decompression failed, input len is too small: {}",
-          kind_,
+          ::facebook::velox::common::compressionKindToString(kind_),
+          " decompression failed, input len is too small: ",
           compressedSize);
       // Read the length of the next lz4/lzo compressed block.
       uint32_t compressedBlockSize =
@@ -286,14 +286,14 @@ uint64_t LzoAndLz4DecompressorCommon::decompress(
       if (compressedBlockSize == 0) {
         continue;
       }
-
       DWIO_ENSURE_LE(
           compressedBlockSize,
           compressedSize,
-          "{} decompression failed, compressedBlockSize is greater than compressedSize, "
-          "compressedBlockSize: {}, compressedSize: {}",
-          kind_,
+          ::facebook::velox::common::compressionKindToString(kind_),
+          " decompression failed, compressedBlockSize is greater than "
+          "compressedSize, compressedBlockSize: ",
           compressedBlockSize,
+          ", compressedSize: ",
           compressedSize);
 
       // Decompress this block.
@@ -307,10 +307,11 @@ uint64_t LzoAndLz4DecompressorCommon::decompress(
       DWIO_ENSURE_LE(
           decompressedSize,
           remainingOutputSize,
-          "{} decompression failed, decompressedSize is not less than or equal to remainingOutputSize, "
-          "decompressedSize: {}, remainingOutputSize: {}",
           ::facebook::velox::common::compressionKindToString(kind_),
+          " decompression failed, decompressedSize is not less than "
+          "or equal to remainingOutputSize, decompressedSize: ",
           decompressedSize,
+          ", remainingOutputSize: ",
           remainingOutputSize);
 
       outPtr += decompressedSize;
@@ -324,10 +325,11 @@ uint64_t LzoAndLz4DecompressorCommon::decompress(
   DWIO_ENSURE_EQ(
       decompressedTotalSize,
       uncompressedSize,
-      "{} decompression failed, decompressedTotalSize is not equal to uncompressedSize, "
-      "decompressedTotalSize: {}, uncompressedSize: {}",
-      kind_,
+      ::facebook::velox::common::compressionKindToString(kind_),
+      " decompression failed, decompressedTotalSize is not equal to "
+      "uncompressedSize, decompressedTotalSize: ",
       decompressedTotalSize,
+      ", uncompressedSize: ",
       uncompressedSize);
 
   return decompressedTotalSize;
