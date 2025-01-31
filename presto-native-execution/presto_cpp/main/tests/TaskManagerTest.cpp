@@ -1221,6 +1221,11 @@ TEST_P(TaskManagerTest, timeoutOutOfOrderRequests) {
           .getVia(eventBase));
 }
 
+TEST_P(TaskManagerTest, getBaseSpillDirectory) {
+  taskManager_->setBaseSpillDirectory("dummy");
+  EXPECT_EQ("dummy", taskManager_->getBaseSpillDirectory());
+}
+
 TEST_P(TaskManagerTest, aggregationSpill) {
   // NOTE: we need to write more than one batches to each file (source split) to
   // trigger spill.

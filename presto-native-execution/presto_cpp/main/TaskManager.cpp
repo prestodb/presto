@@ -351,6 +351,11 @@ void TaskManager::setBaseSpillDirectory(const std::string& baseSpillDirectory) {
       [&](auto& baseSpillDir) { baseSpillDir = baseSpillDirectory; });
 }
 
+std::string TaskManager::getBaseSpillDirectory() const {
+  return baseSpillDir_.withRLock(
+      [](const auto& baseSpillDir) { return baseSpillDir; });
+}
+
 bool TaskManager::emptyBaseSpillDirectory() const {
   return baseSpillDir_.withRLock(
       [](const auto& baseSpillDir) { return baseSpillDir.empty(); });
