@@ -47,4 +47,9 @@ void installSignalHandler();
 std::string extractMessageBody(
     const std::vector<std::unique_ptr<folly::IOBuf>>& body);
 
+inline std::string addDefaultNamespacePrefix(
+    const std::string& prestoDefaultNamespacePrefix,
+    const std::string& functionName) {
+  return fmt::format("{}{}", prestoDefaultNamespacePrefix, functionName);
+}
 } // namespace facebook::presto::util
