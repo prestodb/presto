@@ -328,6 +328,13 @@ jobs:
           path: velox/_build/debug/velox/exec/tests/velox_table_evolution_fuzzer_test
           retention-days: "${{ env.RETENTION }}"
 
+      - name: Upload memory arbitration fuzzer
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory_arbitration_fuzzer
+          path: velox/_build/debug/velox/exec/tests/velox_memory_arbitration_fuzzer_test
+          retention-days: "${{ env.RETENTION }}"
+
       - name: Upload row number fuzzer
         uses: actions/upload-artifact@v4
         with:
@@ -751,7 +758,7 @@ jobs:
         with:
           name: cache_fuzzer
 
-      - name: Run cache Fuzzer
+      - name: Run Cache Fuzzer
         run: |
           mkdir -p /tmp/cache_fuzzer_test/logs/
           chmod -R 777 /tmp/cache_fuzzer_test
@@ -805,6 +812,40 @@ jobs:
             name: table-evolution-fuzzer-test-logs
             path: |
               /tmp/table_evolution_fuzzer_test
+
+  memory-arbitration-fuzzer-run:
+    name: Memory Arbitration Fuzzer
+    runs-on: ubuntu-latest
+    container: ghcr.io/facebookincubator/velox-dev:centos9
+    needs: compile
+    timeout-minutes: 120
+    steps:
+
+      - name: Download memory arbitration fuzzer
+        uses: actions/download-artifact@v4
+        with:
+          name: memory_arbitration_fuzzer
+
+      - name: Run Memory Arbitration Fuzzer
+        run: |
+          mkdir -p /tmp/memory_arbitration_fuzzer_test/logs/
+          chmod -R 777 /tmp/memory_arbitration_fuzzer_test
+          chmod +x velox_memory_arbitration_fuzzer_test
+          ./velox_memory_arbitration_fuzzer_test \
+                --seed ${RANDOM} \
+                --duration_sec $DURATION \
+                --minloglevel=0 \
+                --stderrthreshold=2 \
+                --log_dir=/tmp/memory_arbitration_fuzzer_test/logs \
+            && echo -e "\n\Memory arbitration fuzzer run finished successfully."
+
+      - name: Archive memory arbitration production artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+            name: memory-arbitration-fuzzer-test-logs
+            path: |
+              /tmp/memory_arbitration_fuzzer_test
 
   presto-java-aggregation-fuzzer-run:
     name: Aggregation Fuzzer with Presto as source of truth
