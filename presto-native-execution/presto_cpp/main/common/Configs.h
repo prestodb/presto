@@ -655,6 +655,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPlanValidatorFailOnNestedLoopJoin{
       "velox-plan-validator-fail-on-nested-loop-join"};
 
+  // Specifies the default Presto namespace prefix.
+  static constexpr std::string_view kPrestoDefaultNamespacePrefix{
+      "presto.default-namespace"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -893,6 +897,7 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
+  std::string prestoDefaultNamespacePrefix() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
