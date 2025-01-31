@@ -17,11 +17,14 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -56,16 +59,17 @@ public final class FunctionResolution
         implements StandardFunctionResolution
 {
     private final FunctionAndTypeResolver functionAndTypeResolver;
-    private final List<QualifiedObjectName> windowValueFunctions = ImmutableList.of(
-            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "lead"),
-            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "lag"),
-            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "first_value"),
-            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "last_value"),
-            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "nth_value"));
+    private final List<QualifiedObjectName> windowValueFunctions;
 
     public FunctionResolution(FunctionAndTypeResolver functionAndTypeResolver)
     {
         this.functionAndTypeResolver = requireNonNull(functionAndTypeResolver, "functionManager is null");
+        this.windowValueFunctions = ImmutableList.of(
+                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("lead")),
+                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("lag")),
+                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("first_value")),
+                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("last_value")),
+                functionAndTypeResolver.qualifyObjectName(QualifiedName.of("nth_value")));
     }
 
     @Override
@@ -83,6 +87,30 @@ public final class FunctionResolution
     public FunctionHandle likeVarcharFunction()
     {
         return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, LIKE_PATTERN));
+    }
+
+    public boolean supportsLikePatternFunction()
+    {
+        try {
+            functionAndTypeResolver.lookupFunction("LIKE_PATTERN", fromTypes(VARCHAR, VARCHAR));
+            return true;
+        }
+        catch (PrestoException e) {
+            if (e.getErrorCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode()) {
+                return false;
+            }
+            throw e;
+        }
+    }
+
+    public FunctionHandle likeVarcharVarcharFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, VARCHAR));
+    }
+
+    public FunctionHandle likeVarcharVarcharVarcharFunction()
+    {
+        return functionAndTypeResolver.lookupFunction("LIKE", fromTypes(VARCHAR, VARCHAR, VARCHAR));
     }
 
     @Override
@@ -107,7 +135,11 @@ public final class FunctionResolution
     @Override
     public boolean isLikePatternFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "LIKE_PATTERN"));
+        QualifiedObjectName name =
+                supportsLikePatternFunction() ?
+                        functionAndTypeResolver.qualifyObjectName(QualifiedName.of("LIKE_PATTERN")) :
+                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "LIKE_PATTERN");
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(name);
     }
 
     @Override
@@ -123,7 +155,7 @@ public final class FunctionResolution
 
     public boolean isArrayConstructor(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, ARRAY_CONSTRUCTOR));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of(ARRAY_CONSTRUCTOR)));
     }
 
     @Override
@@ -271,13 +303,13 @@ public final class FunctionResolution
 
     public boolean isFailFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "fail"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("fail")));
     }
 
     @Override
     public boolean isCountFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "count"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("count")));
     }
 
     @Override
@@ -295,7 +327,7 @@ public final class FunctionResolution
     @Override
     public boolean isMaxFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "max"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("max")));
     }
 
     @Override
@@ -313,7 +345,7 @@ public final class FunctionResolution
     @Override
     public boolean isMinFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "min"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("min")));
     }
 
     @Override
@@ -331,7 +363,7 @@ public final class FunctionResolution
     @Override
     public boolean isApproximateCountDistinctFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "approx_distinct"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("approx_distinct")));
     }
 
     @Override
@@ -343,7 +375,7 @@ public final class FunctionResolution
     @Override
     public boolean isApproximateSetFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "approx_set"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("approx_set")));
     }
 
     @Override
@@ -359,12 +391,12 @@ public final class FunctionResolution
 
     public boolean isArrayContainsFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "contains"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("contains")));
     }
 
     public boolean isElementAtFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "element_at"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(functionAndTypeResolver.qualifyObjectName(QualifiedName.of("element_at")));
     }
 
     public boolean isWindowValueFunction(FunctionHandle functionHandle)

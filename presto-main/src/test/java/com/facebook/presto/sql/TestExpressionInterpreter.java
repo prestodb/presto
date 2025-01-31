@@ -59,6 +59,7 @@ import com.facebook.presto.sql.tree.LikePredicate;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -433,7 +434,8 @@ public class TestExpressionInterpreter
         functionAndTypeManager.loadFunctionNamespaceManager(
                 JsonFileBasedFunctionNamespaceManagerFactory.NAME,
                 "json",
-                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"));
+                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"),
+                new TestingNodeManager());
     }
 
     @Test

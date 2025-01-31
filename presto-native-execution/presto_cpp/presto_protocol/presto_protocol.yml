@@ -174,6 +174,7 @@ AbstractClasses:
       subclasses:
         - { name: BuiltInFunctionHandle,      key: $static }
         - { name: SqlFunctionHandle,          key: json_file }
+        - { name: SqlFunctionHandle,          key: native }
 
 JavaClasses:
   - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
@@ -364,4 +365,4 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTableLayoutHandle.java
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
-  - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java
+  - presto-function-namespace-managers-common/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java

@@ -130,6 +130,7 @@ import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.Plugin;
@@ -356,6 +357,7 @@ public class LocalQueryRunner
 
     private final PlanChecker distributedPlanChecker;
     private final PlanChecker singleNodePlanChecker;
+    private final NodeManager pluginNodeManager;
 
     private static ExecutorService metadataExtractorExecutor = newCachedThreadPool(threadsNamed("query-execution-%s"));
 
@@ -477,6 +479,7 @@ public class LocalQueryRunner
         this.pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
         this.expressionCompiler = new ExpressionCompiler(metadata, pageFunctionCompiler);
         this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(metadata);
+        this.pluginNodeManager = new PluginNodeManager(nodeManager, "test");
 
         NodeVersion nodeVersion = new NodeVersion("testversion");
         this.connectorManager = new ConnectorManager(
@@ -772,7 +775,7 @@ public class LocalQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, pluginNodeManager);
     }
 
     public LocalQueryRunner printPlan()

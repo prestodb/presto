@@ -44,6 +44,7 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAccessControlCheckerExecution;
 import com.facebook.presto.spark.classloader_interface.ExecutionStrategy;
@@ -57,6 +58,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
@@ -174,6 +176,8 @@ public class PrestoSparkQueryRunner
     private final String instanceId;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
+
+    private final NodeManager nodeManager;
 
     protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
@@ -346,6 +350,7 @@ public class PrestoSparkQueryRunner
         sparkContext = sparkContextHolder.get(additionalSparkProperties, availableCpuCount);
         prestoSparkService = injector.getInstance(PrestoSparkService.class);
         testingAccessControlManager = injector.getInstance(TestingAccessControlManager.class);
+        nodeManager = injector.getInstance(PluginNodeManager.class);
 
         // Install tpch Plugin
         pluginManager.installPlugin(new TpchPlugin());
@@ -678,7 +683,7 @@ public class PrestoSparkQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, nodeManager);
     }
 
     @Override

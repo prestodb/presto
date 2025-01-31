@@ -108,6 +108,10 @@ void to_json(json& j, const std::shared_ptr<FunctionHandle>& p) {
     j = *std::static_pointer_cast<BuiltInFunctionHandle>(p);
     return;
   }
+  if (type == "native") {
+    j = *std::static_pointer_cast<SqlFunctionHandle>(p);
+    return;
+  }
   if (type == "json_file") {
     j = *std::static_pointer_cast<SqlFunctionHandle>(p);
     return;
@@ -127,6 +131,13 @@ void from_json(const json& j, std::shared_ptr<FunctionHandle>& p) {
   if (type == "$static") {
     std::shared_ptr<BuiltInFunctionHandle> k =
         std::make_shared<BuiltInFunctionHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<FunctionHandle>(k);
+    return;
+  }
+  if (type == "native") {
+    std::shared_ptr<SqlFunctionHandle> k =
+        std::make_shared<SqlFunctionHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<FunctionHandle>(k);
     return;
@@ -1862,6 +1873,13 @@ void to_json(json& j, const SqlInvokedFunction& p) {
   to_json_key(j, "body", p.body, "SqlInvokedFunction", "String", "body");
   to_json_key(
       j,
+      "variableArity",
+      p.variableArity,
+      "SqlInvokedFunction",
+      "bool",
+      "variableArity");
+  to_json_key(
+      j,
       "signature",
       p.signature,
       "SqlInvokedFunction",
@@ -1899,6 +1917,13 @@ void from_json(const json& j, SqlInvokedFunction& p) {
       "RoutineCharacteristics",
       "routineCharacteristics");
   from_json_key(j, "body", p.body, "SqlInvokedFunction", "String", "body");
+  from_json_key(
+      j,
+      "variableArity",
+      p.variableArity,
+      "SqlInvokedFunction",
+      "bool",
+      "variableArity");
   from_json_key(
       j,
       "signature",

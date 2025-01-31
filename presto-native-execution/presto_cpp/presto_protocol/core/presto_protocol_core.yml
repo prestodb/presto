@@ -174,6 +174,7 @@ AbstractClasses:
     super: JsonEncodedSubclass
     subclasses:
       - { name: BuiltInFunctionHandle,      key: $static }
+      - { name: SqlFunctionHandle,          key: native }
       - { name: SqlFunctionHandle,          key: json_file }
 
 
@@ -314,7 +315,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTableLayoutHandle.java
   - presto-main/src/main/java/com/facebook/presto/connector/system/SystemTransactionHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/AggregationFunctionMetadata.java
-  - presto-function-namespace-managers/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/ExchangeEncoding.java
   - presto-native-sidecar-plugin/src/main/java/com/facebook/presto/sidecar/nativechecker/PlanConversionFailureInfo.java
   - presto-native-sidecar-plugin/src/main/java/com/facebook/presto/sidecar/nativechecker/PlanConversionResponse.java
+  - presto-function-namespace-managers-common/src/main/java/com/facebook/presto/functionNamespace/JsonBasedUdfFunctionMetadata.java

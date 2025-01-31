@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.function;
 
-public interface FunctionMetadataManager
+package com.facebook.presto.sidecar.functionNamespace;
+
+import com.facebook.presto.functionNamespace.UdfFunctionSignatureMap;
+import com.facebook.presto.spi.NodeManager;
+
+public interface FunctionDefinitionProvider
 {
-    FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle);
-
-    SqlFunctionSupplier getSpecializedFunctionKey(Signature signature);
+    UdfFunctionSignatureMap getUdfDefinition(NodeManager nodeManager);
 }

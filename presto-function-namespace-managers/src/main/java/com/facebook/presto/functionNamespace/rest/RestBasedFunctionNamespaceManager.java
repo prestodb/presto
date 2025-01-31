@@ -143,6 +143,7 @@ public class RestBasedFunctionNamespaceManager
                 jsonBasedUdfFunctionMetaData.getDocString(),
                 jsonBasedUdfFunctionMetaData.getRoutineCharacteristics(),
                 "",
+                jsonBasedUdfFunctionMetaData.getVariableArity(),
                 functionVersion,
                 jsonBasedUdfFunctionMetaData.getFunctionKind(),
                 functionId,

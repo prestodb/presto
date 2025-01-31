@@ -48,6 +48,7 @@ import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
+import com.facebook.presto.metadata.BuiltInFunctionHandle;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -137,6 +138,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.aggregation.LambdaProvider;
@@ -282,6 +284,7 @@ import static com.facebook.presto.execution.FragmentResultCacheContext.createFra
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
@@ -322,6 +325,7 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
 import static com.facebook.presto.sql.planner.SortExpressionExtractor.getSortExpressionContext;
@@ -2856,12 +2860,21 @@ public class LocalExecutionPlanner
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMapping = ImmutableMap.builder();
 
+            // Todo: Fix this
+            // When switching the default function namespace manager, column statistics functions still need to use the presto.default functions,
+            // because the column statistics functions build an aggregation factory that depends on an instance of BuiltInAggregationImplementation.
             OperatorFactory statisticsAggregation = node.getStatisticsAggregation().map(aggregation -> {
                 List<VariableReferenceExpression> groupingVariables = aggregation.getGroupingVariables();
+                Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregationMap =
+                        aggregation.getAggregations().entrySet()
+                                .stream().collect(
+                                        ImmutableMap.toImmutableMap(
+                                                Map.Entry::getKey,
+                                                entry -> createAggregation(entry.getValue())));
                 if (groupingVariables.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
-                            aggregation.getAggregations(),
+                            aggregationMap,
                             FINAL,
                             0,
                             outputMapping,
@@ -2871,7 +2884,7 @@ public class LocalExecutionPlanner
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
-                        aggregation.getAggregations(),
+                        aggregationMap,
                         ImmutableSet.of(),
                         groupingVariables,
                         ImmutableList.of(),
@@ -2952,6 +2965,45 @@ public class LocalExecutionPlanner
                     .build();
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
+        }
+
+        private Aggregation createAggregation(Aggregation aggregation)
+        {
+            CallExpression callExpression = aggregation.getCall();
+            List<TypeSignature> argumentTypes;
+            FunctionHandle functionHandle = callExpression.getFunctionHandle();
+            checkState(functionHandle instanceof BuiltInFunctionHandle || functionHandle instanceof SqlFunctionHandle);
+            if (functionHandle instanceof BuiltInFunctionHandle) {
+                return aggregation;
+            }
+            else {
+                argumentTypes = ((SqlFunctionHandle) functionHandle).getFunctionId().getArgumentTypes();
+            }
+
+            return new Aggregation(
+                    createCallExpression(callExpression, argumentTypes),
+                    aggregation.getFilter(),
+                    aggregation.getOrderBy(),
+                    aggregation.isDistinct(),
+                    aggregation.getMask());
+        }
+
+        private CallExpression createCallExpression(CallExpression callExpression, List<TypeSignature> argumentTypes)
+        {
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            List<Type> types =
+                    argumentTypes
+                            .stream()
+                            .map(functionAndTypeManager::getType)
+                            .collect(ImmutableList.toImmutableList());
+            return new CallExpression(
+                    callExpression.getSourceLocation(),
+                    callExpression.getDisplayName(),
+                    functionAndTypeManager.lookupFunction(
+                            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, callExpression.getDisplayName()),
+                            fromTypes(types)),
+                    callExpression.getType(),
+                    callExpression.getArguments());
         }
 
         private List<Integer> createColumnValueAndRowIdChannels(List<VariableReferenceExpression> variableReferenceExpressions, List<VariableReferenceExpression> columnValueAndRowIdSymbols)
