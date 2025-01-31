@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -144,4 +145,48 @@ TEST_F(ArrayHasDuplicatesTest, nullFreeStrings) {
       });
   auto expected = makeFlatVector<bool>({false, true, false, true});
   testExpr(expected, "array_has_duplicates(C0)", {array});
+}
+
+TEST_F(ArrayHasDuplicatesTest, json) {
+  auto result = evaluate(
+      "array_has_duplicates(C0)",
+      makeRowVector({makeNullableArrayVector<StringView>(
+          {{R"({"key":"value"})", R"({"key":"value"})"},
+           {R"({"key":"value"})", R"({"key":"another_value"})"},
+           {R"({"key":"value"})"},
+           {R"({"key":"same_value"})",
+            R"({"key":"another_value"})",
+            R"({"key":"same_value"})"},
+           {std::nullopt, std::nullopt},
+           {R"({"key":"value"})",
+            R"({"key":"another_value"})",
+            R"({"another_key":"value"})"},
+           {R"({"key": "value\with\backslash"})",
+            R"({"key": "value\with\backslash"})"},
+           {R"({"key": "value\nwith\nnewline"})",
+            R"({"key": "value\nwith\nnewline"})"},
+           {R"({"key": "value with \u00A9 and \u20AC"})",
+            R"({"key": "value with \u00A9 and \u20AC"})"},
+           {R"({"key": "!@#$%^&*()_+-={}:<>?,./~`"})",
+            R"({"key": "!@#$%^&*()_+-={}:<>?,./~`"})"},
+           {R"({"key":"value"})",
+            std::nullopt,
+            R"({"key":"another_value"})",
+            R"({"another_key":"value"})",
+            std::nullopt}},
+          ARRAY(JSON()))}));
+  assertEqualVectors(
+      makeFlatVector<bool>(
+          {true,
+           false,
+           false,
+           true,
+           true,
+           false,
+           true,
+           true,
+           true,
+           true,
+           true}),
+      result);
 }
