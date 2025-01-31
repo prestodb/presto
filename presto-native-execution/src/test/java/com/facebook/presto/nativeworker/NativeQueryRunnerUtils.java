@@ -59,6 +59,7 @@ public class NativeQueryRunnerUtils
     {
         return ImmutableMap.<String, String>builder()
                 .put("coordinator-sidecar-enabled", "true")
+                .put("presto.default-namespace", "native.default")
                 .build();
     }
 
@@ -431,7 +432,8 @@ public class NativeQueryRunnerUtils
             try {
                 TimeUnit.SECONDS.sleep(2);
             }
-            catch (InterruptedException e) { }
+            catch (InterruptedException e) {
+            }
             queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 1");
         }
     }

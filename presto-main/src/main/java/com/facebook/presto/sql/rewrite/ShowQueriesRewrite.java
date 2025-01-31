@@ -698,8 +698,10 @@ final class ShowQueriesRewrite
 
                 boolean builtIn = signature.getName().getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE);
                 boolean temporary = signature.getName().getCatalogSchemaName().equals(SESSION_NAMESPACE);
+                boolean current = signature.getName().getCatalogSchemaName().equals(
+                        metadata.getFunctionAndTypeManager().getDefaultNamespace());
                 rows.add(row(
-                        builtIn || temporary ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),
+                        builtIn || temporary || current ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),
                         new StringLiteral(signature.getReturnType().toString()),
                         new StringLiteral(Joiner.on(", ").join(signature.getArgumentTypes())),
                         new StringLiteral(getFunctionType(function)),

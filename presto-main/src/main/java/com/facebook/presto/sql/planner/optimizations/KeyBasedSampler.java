@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.Varchars;
@@ -54,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.isKeyBasedSamplingEnab
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SAMPLED_FIELDS;
@@ -148,9 +150,9 @@ public class KeyBasedSampler
             try {
                 sampledArg = call(
                         functionAndTypeManager,
-                        getKeyBasedSamplingFunction(session),
+                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, getKeyBasedSamplingFunction(session)),
                         DOUBLE,
-                        arg);
+                        ImmutableList.of(arg));
             }
             catch (PrestoException prestoException) {
                 throw new PrestoException(FUNCTION_NOT_FOUND, String.format("Sampling function: %s not cannot be resolved", getKeyBasedSamplingFunction(session)), prestoException);

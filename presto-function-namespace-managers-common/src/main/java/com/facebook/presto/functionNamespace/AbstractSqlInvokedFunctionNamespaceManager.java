@@ -18,6 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionResult;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
@@ -192,7 +193,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
     }
 
     @Override
-    public final FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
+    public FunctionHandle getFunctionHandle(Optional<? extends FunctionNamespaceTransactionHandle> transactionHandle, Signature signature)
     {
         checkCatalog(signature.getName());
         // This is the only assumption in this class that we're dealing with sql-invoked regular function.
@@ -363,10 +364,13 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
                         "Need aggregationMetadata to get aggregation function implementation");
 
                 AggregationFunctionMetadata aggregationMetadata = function.getAggregationMetadata().get();
+                List<Type> parameters = function.getSignature().getArgumentTypes().stream().map(
+                        (typeManager::getType)).collect(toImmutableList());
                 return new SqlInvokedAggregationFunctionImplementation(
                         typeManager.getType(aggregationMetadata.getIntermediateType()),
                         typeManager.getType(function.getSignature().getReturnType()),
-                        aggregationMetadata.isOrderSensitive());
+                        aggregationMetadata.isOrderSensitive(),
+                        parameters);
             default:
                 throw new IllegalStateException(format("Unknown function implementation type: %s", implementationType));
         }
