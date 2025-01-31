@@ -513,7 +513,8 @@ public class PrestoNativeQueryRunnerUtils
 
                         if (isCoordinatorSidecarEnabled) {
                             configProperties = format("%s%n" +
-                                    "native-sidecar=true%n", configProperties);
+                                    "native-sidecar=true%n" +
+                                    "presto.default-namespace=native.default%n", configProperties);
                         }
 
                         if (remoteFunctionServerUds.isPresent()) {
