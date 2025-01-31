@@ -93,7 +93,7 @@ import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsFro
 import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.common.Subfield.noSubfield;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.google.common.base.Preconditions.checkState;
@@ -107,9 +107,9 @@ import static java.util.stream.Collectors.toList;
 public class PushdownSubfields
         implements PlanOptimizer
 {
-    public static final QualifiedObjectName CARDINALITY = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "cardinality");
-    public static final QualifiedObjectName ELEMENT_AT = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at");
-    public static final QualifiedObjectName CAST = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "$operator$cast");
+    public static final QualifiedObjectName CARDINALITY = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "cardinality");
+    public static final QualifiedObjectName ELEMENT_AT = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "element_at");
+    public static final QualifiedObjectName CAST = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "$operator$cast");
     private final Metadata metadata;
     private final ExpressionOptimizerProvider expressionOptimizerProvider;
     private boolean isEnabledForTesting;
@@ -156,7 +156,7 @@ public class PushdownSubfields
         private final StandardFunctionResolution functionResolution;
         private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
-        private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "arbitrary");
+        private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "arbitrary");
         private boolean planChanged;
 
         public Rewriter(Session session, Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)

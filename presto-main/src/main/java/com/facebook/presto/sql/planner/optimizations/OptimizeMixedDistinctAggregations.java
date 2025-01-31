@@ -51,7 +51,7 @@ import static com.facebook.presto.SystemSessionProperties.isOptimizeDistinctAggr
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
@@ -215,9 +215,9 @@ public class OptimizeMixedDistinctAggregations
                             false,
                             Optional.empty());
                     QualifiedObjectName functionName = metadata.getFunctionAndTypeManager().getFunctionMetadata(entry.getValue().getFunctionHandle()).getName();
-                    if (functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "count")) ||
-                            functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "count_if")) ||
-                            functionName.equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"))) {
+                    if (functionName.equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "count")) ||
+                            functionName.equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "count_if")) ||
+                            functionName.equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "approx_distinct"))) {
                         VariableReferenceExpression newVariable = variableAllocator.newVariable(entry.getValue().getCall().getSourceLocation(), "expr", entry.getKey().getType());
                         aggregations.put(newVariable, aggregation);
                         coalesceVariablesBuilder.put(newVariable, entry.getKey());
