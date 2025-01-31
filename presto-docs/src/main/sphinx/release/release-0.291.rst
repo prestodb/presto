@@ -36,7 +36,7 @@ _______________
 * Add support for the histogram statistic type. `#22365 <https://github.com/prestodb/presto/pull/22365>`_
 * Add support for time type partitioning in the ORC file format for Iceberg. `#24091 <https://github.com/prestodb/presto/pull/24091>`_
 * Add testing for partitioning using time type in Iceberg. `#24091 <https://github.com/prestodb/presto/pull/24091>`_
-* Added catalog and schema level access checks in USE statement. `#23882 <https://github.com/prestodb/presto/pull/23882>`_
+* Add catalog and schema level access checks in USE statement. `#23882 <https://github.com/prestodb/presto/pull/23882>`_
 * Enable ``scale-writers`` by default. `#24107 <https://github.com/prestodb/presto/pull/24107>`_
 * Improve HTTP responses from async page transport servlet, by sanitizing the URI before use. `#24004 <https://github.com/prestodb/presto/pull/24004>`_
 * Update usage of MD5 to SHA256. `#23903 <https://github.com/prestodb/presto/pull/23903>`_
@@ -58,7 +58,7 @@ ________________
 * Upgrade jetty dependencies to version 9.4.56.v20240826 in response to `CVE-2024-8184 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-8184>`_. `#24184 <https://github.com/prestodb/presto/pull/24184>`_
 * Upgrade netty dependencies to version 4.1.115.Final in response to `CVE-2024-47535 <https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-47535>`_. `#24137 <https://github.com/prestodb/presto/pull/24137>`_
 
-Bigquery Connector Changes
+BigQuery Connector Changes
 __________________________
 * Fix for BigQuery ``SELECT``. `#23957 <https://github.com/prestodb/presto/pull/23957>`_
 
@@ -86,13 +86,13 @@ _________________________
 * Add support of ``view`` for Iceberg connector when configured with ``REST`` and ``NESSIE``. `#23793 <https://github.com/prestodb/presto/pull/23793>`_
 * Add support of specifying table location on creation for Iceberg connector when configured with ``REST`` and ``NESSIE``. `#24218 <https://github.com/prestodb/presto/pull/24218>`_
 * Remove in-memory hive metastore cache in Iceberg connector. `#24326 <https://github.com/prestodb/presto/pull/24326>`_
-* Optimize redundant getTable calls in Iceberg Connector. `#24376 <https://github.com/prestodb/presto/pull/24376>`_
+* Improve redundant getTable calls in Iceberg Connector. `#24376 <https://github.com/prestodb/presto/pull/24376>`_
 
 Memory Connector Changes
 ________________________
 * Add support for ``ALTER VIEW RENAME TO``. `#23749 <https://github.com/prestodb/presto/pull/23749>`_
 
-Mongodb Connector Changes
+MongoDB Connector Changes
 _________________________
 * Add steps to connect to MongoDB cluster with TLS CA File to :doc:`/connector/mongodb`. `#24352 <https://github.com/prestodb/presto/pull/24352>`_
 
@@ -111,8 +111,8 @@ ______________________________________
 * Add native plan checker to the native sidecar plugin and native endpoint for Velox plan conversion. `#23596 <https://github.com/prestodb/presto/pull/23596>`_
 * Add session properties ``native_spill_prefixsort_enabled``, ``native_prefixsort_normalized_key_max_bytes``, and ``native_prefixsort_min_rows``. `#24043 <https://github.com/prestodb/presto/pull/24043>`_
 * Remove the ``experimental.table-writer-merge-operator-enabled`` configuration property and the ``table_writer_merge_operator_enabled`` session property. `#24145 <https://github.com/prestodb/presto/pull/24145>`_
-* Deprecated  ``native_query_trace_task_reg_exp session`` property from Prestissimo. `#24270 <https://github.com/prestodb/presto/pull/24270>`_
-* Support automatic scaling of writer threads for partitioned tables. Can be enabled with the ``native_execution_scale_partitioned_writer_threads_enabled`` session property. Native execution only. `#24155 <https://github.com/prestodb/presto/pull/24155>`_
+* Remove deprecated  ``native_query_trace_task_reg_exp session`` property from Prestissimo. `#24270 <https://github.com/prestodb/presto/pull/24270>`_
+* Add support for automatic scaling of writer threads for partitioned tables. Can be enabled with the ``native_execution_scale_partitioned_writer_threads_enabled`` session property. Native execution only. `#24155 <https://github.com/prestodb/presto/pull/24155>`_
 * Remove ``query-data-cache-enabled-default`` configuration property, which is no longer needed as per-split fine-grained cache control has been introduced. `#24372 <https://github.com/prestodb/presto/pull/24372>`_
 
 **Credits**
