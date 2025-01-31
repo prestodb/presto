@@ -26,6 +26,7 @@
 #include "velox/exec/HashAggregation.h"
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/HashProbe.h"
+#include "velox/exec/IndexLookupJoin.h"
 #include "velox/exec/Limit.h"
 #include "velox/exec/MarkDistinct.h"
 #include "velox/exec/Merge.h"
@@ -531,6 +532,12 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
                 planNode)) {
       operators.push_back(
           std::make_unique<NestedLoopJoinProbe>(id, ctx.get(), joinNode));
+    } else if (
+        auto joinNode =
+            std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(
+                planNode)) {
+      operators.push_back(
+          std::make_unique<IndexLookupJoin>(id, ctx.get(), joinNode));
     } else if (
         auto aggregationNode =
             std::dynamic_pointer_cast<const core::AggregationNode>(planNode)) {
