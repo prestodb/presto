@@ -18,6 +18,7 @@ import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlFunctionId;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -63,6 +64,15 @@ public class JsonBasedUdfFunctionMetadata
      * Optional Aggregate-specific metadata (required for aggregation functions)
      */
     private final Optional<AggregationFunctionMetadata> aggregateMetadata;
+    /**
+     * Marked to indicate whether it is a variable arity function.
+     * A variable arity function can have a variable number of arguments of the specified type.
+     */
+    private final boolean variableArity;
+    /**
+     * Optional list of the typeVariableConstraints.
+     */
+    private final Optional<List<TypeVariableConstraint>> typeVariableConstraints;
     private final Optional<SqlFunctionId> functionId;
     private final Optional<String> version;
 
@@ -73,16 +83,19 @@ public class JsonBasedUdfFunctionMetadata
             @JsonProperty("outputType") TypeSignature outputType,
             @JsonProperty("paramTypes") List<TypeSignature> paramTypes,
             @JsonProperty("schema") String schema,
+            @JsonProperty("variableArity") boolean variableArity,
             @JsonProperty("routineCharacteristics") RoutineCharacteristics routineCharacteristics,
             @JsonProperty("aggregateMetadata") Optional<AggregationFunctionMetadata> aggregateMetadata,
             @JsonProperty("functionId") Optional<SqlFunctionId> functionId,
-            @JsonProperty("version") Optional<String> version)
+            @JsonProperty("version") Optional<String> version,
+            @JsonProperty("typeVariableConstraints") Optional<List<TypeVariableConstraint>> typeVariableConstraints)
     {
         this.docString = requireNonNull(docString, "docString is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.outputType = requireNonNull(outputType, "outputType is null");
         this.paramTypes = ImmutableList.copyOf(requireNonNull(paramTypes, "paramTypes is null"));
         this.schema = requireNonNull(schema, "schema is null");
+        this.variableArity = variableArity;
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
         this.aggregateMetadata = requireNonNull(aggregateMetadata, "aggregateMetadata is null");
         checkArgument(
@@ -90,6 +103,7 @@ public class JsonBasedUdfFunctionMetadata
                 "aggregateMetadata must be present for aggregation functions and absent otherwise");
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.version = requireNonNull(version, "version is null");
+        this.typeVariableConstraints = requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
     }
 
     @JsonProperty
@@ -129,6 +143,12 @@ public class JsonBasedUdfFunctionMetadata
     }
 
     @JsonProperty
+    public boolean getVariableArity()
+    {
+        return variableArity;
+    }
+
+    @JsonProperty
     public RoutineCharacteristics getRoutineCharacteristics()
     {
         return routineCharacteristics;
@@ -150,5 +170,11 @@ public class JsonBasedUdfFunctionMetadata
     public Optional<String> getVersion()
     {
         return version;
+    }
+
+    @JsonProperty
+    public Optional<List<TypeVariableConstraint>> getTypeVariableConstraints()
+    {
+        return typeVariableConstraints;
     }
 }

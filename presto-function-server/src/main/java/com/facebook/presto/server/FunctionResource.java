@@ -129,6 +129,7 @@ public class FunctionResource
                 function.getSignature().getReturnType(),
                 function.getSignature().getArgumentTypes(),
                 function.getSignature().getName().getSchemaName(),
+                function.getSignature().isVariableArity(),
                 new RoutineCharacteristics(
                         JAVA,
                         function.isDeterministic() ? DETERMINISTIC : NOT_DETERMINISTIC,
@@ -138,7 +139,8 @@ public class FunctionResource
                         new SqlFunctionId(
                                 function.getSignature().getName(),
                                 function.getSignature().getArgumentTypes())),
-                Optional.of("1"));
+                Optional.of("1"),
+                Optional.of(function.getSignature().getTypeVariableConstraints()));
     }
 
     @GET
