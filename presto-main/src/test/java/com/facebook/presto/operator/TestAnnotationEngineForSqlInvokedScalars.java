@@ -34,7 +34,7 @@ import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -46,7 +46,7 @@ public class TestAnnotationEngineForSqlInvokedScalars
     public void testParseFunctionDefinition()
     {
         Signature expectedSignature = new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "sample_sql_invoked_scalar_function"),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "sample_sql_invoked_scalar_function"),
                 FunctionKind.SCALAR,
                 new ArrayType(BIGINT).getTypeSignature(),
                 ImmutableList.of(INTEGER.getTypeSignature()));
@@ -67,7 +67,7 @@ public class TestAnnotationEngineForSqlInvokedScalars
     public void testParseFunctionDefinitionWithTypeParameter()
     {
         Signature expectedSignature = new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "sample_sql_invoked_scalar_function_with_type_parameter"),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "sample_sql_invoked_scalar_function_with_type_parameter"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(new TypeVariableConstraint("T", false, false, null, false)),
                 Collections.emptyList(),

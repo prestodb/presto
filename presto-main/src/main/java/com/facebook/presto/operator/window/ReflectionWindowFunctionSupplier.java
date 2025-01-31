@@ -25,7 +25,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.util.List;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
@@ -36,7 +36,7 @@ public class ReflectionWindowFunctionSupplier<T extends WindowFunction>
 
     public ReflectionWindowFunctionSupplier(String name, Type returnType, List<? extends Type> argumentTypes, Class<T> type)
     {
-        this(new Signature(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name), WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
+        this(new Signature(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name), WINDOW, returnType.getTypeSignature(), Lists.transform(argumentTypes, Type::getTypeSignature)), type);
     }
 
     public ReflectionWindowFunctionSupplier(Signature signature, Class<T> type)

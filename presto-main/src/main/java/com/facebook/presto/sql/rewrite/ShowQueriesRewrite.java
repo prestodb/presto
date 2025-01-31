@@ -107,7 +107,7 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_SCHEMATA;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLE_PRIVILEGES;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
@@ -696,7 +696,7 @@ final class ShowQueriesRewrite
             for (SqlFunction function : metadata.getFunctionAndTypeManager().listFunctions(session, node.getLikePattern(), node.getEscape())) {
                 Signature signature = function.getSignature();
 
-                boolean builtIn = signature.getName().getCatalogSchemaName().equals(DEFAULT_NAMESPACE);
+                boolean builtIn = signature.getName().getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE);
                 boolean temporary = signature.getName().getCatalogSchemaName().equals(SESSION_NAMESPACE);
                 rows.add(row(
                         builtIn || temporary ? new StringLiteral(signature.getNameSuffix()) : new StringLiteral(signature.getName().toString()),

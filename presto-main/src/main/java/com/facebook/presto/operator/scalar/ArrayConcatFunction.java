@@ -33,7 +33,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -58,7 +58,7 @@ public final class ArrayConcatFunction
     private ArrayConcatFunction()
     {
         super(new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, FUNCTION_NAME),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, FUNCTION_NAME),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("E")),
                 ImmutableList.of(),

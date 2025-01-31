@@ -44,7 +44,7 @@ import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static com.facebook.presto.type.LikePatternType.LIKE_PATTERN;
@@ -57,11 +57,11 @@ public final class FunctionResolution
 {
     private final FunctionAndTypeResolver functionAndTypeResolver;
     private final List<QualifiedObjectName> windowValueFunctions = ImmutableList.of(
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "lead"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "lag"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "first_value"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "last_value"),
-            QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "nth_value"));
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "lead"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "lag"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "first_value"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "last_value"),
+            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "nth_value"));
 
     public FunctionResolution(FunctionAndTypeResolver functionAndTypeResolver)
     {
@@ -95,7 +95,7 @@ public final class FunctionResolution
     @Override
     public boolean isLikeFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "LIKE"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "LIKE"));
     }
 
     @Override
@@ -107,7 +107,7 @@ public final class FunctionResolution
     @Override
     public boolean isLikePatternFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "LIKE_PATTERN"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "LIKE_PATTERN"));
     }
 
     @Override
@@ -118,12 +118,12 @@ public final class FunctionResolution
 
     public boolean isTryCastFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "TRY_CAST"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "TRY_CAST"));
     }
 
     public boolean isArrayConstructor(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, ARRAY_CONSTRUCTOR));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, ARRAY_CONSTRUCTOR));
     }
 
     @Override
@@ -271,13 +271,13 @@ public final class FunctionResolution
 
     public boolean isFailFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "fail"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "fail"));
     }
 
     @Override
     public boolean isCountFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "count"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "count"));
     }
 
     @Override
@@ -295,7 +295,7 @@ public final class FunctionResolution
     @Override
     public boolean isMaxFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "max"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "max"));
     }
 
     @Override
@@ -313,7 +313,7 @@ public final class FunctionResolution
     @Override
     public boolean isMinFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "min"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "min"));
     }
 
     @Override
@@ -331,7 +331,7 @@ public final class FunctionResolution
     @Override
     public boolean isApproximateCountDistinctFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_distinct"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "approx_distinct"));
     }
 
     @Override
@@ -343,7 +343,7 @@ public final class FunctionResolution
     @Override
     public boolean isApproximateSetFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "approx_set"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "approx_set"));
     }
 
     @Override
@@ -359,12 +359,12 @@ public final class FunctionResolution
 
     public boolean isArrayContainsFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "contains"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "contains"));
     }
 
     public boolean isElementAtFunction(FunctionHandle functionHandle)
     {
-        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at"));
+        return functionAndTypeResolver.getFunctionMetadata(functionHandle).getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "element_at"));
     }
 
     public boolean isWindowValueFunction(FunctionHandle functionHandle)

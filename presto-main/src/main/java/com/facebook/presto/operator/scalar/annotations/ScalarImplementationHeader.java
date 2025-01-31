@@ -26,7 +26,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseDescription;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.google.common.base.CaseFormat.LOWER_CAMEL;
@@ -42,7 +42,7 @@ public class ScalarImplementationHeader
 
     private ScalarImplementationHeader(String name, ScalarHeader header)
     {
-        this.name = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, requireNonNull(name));
+        this.name = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, requireNonNull(name));
         this.operatorType = Optional.empty();
         this.header = requireNonNull(header);
     }

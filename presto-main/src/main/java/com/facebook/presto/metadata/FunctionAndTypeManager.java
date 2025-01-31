@@ -84,7 +84,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.facebook.presto.SystemSessionProperties.isExperimentalFunctionsEnabled;
 import static com.facebook.presto.SystemSessionProperties.isListBuiltInFunctionsOnly;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.toOperatorType;
 import static com.facebook.presto.metadata.FunctionSignatureMatcher.constructFunctionNotFoundErrorMessage;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
@@ -142,11 +142,11 @@ public class FunctionAndTypeManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this);
-        this.functionNamespaceManagers.put(DEFAULT_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
+        this.functionNamespaceManagers.put(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
-        transactionManager.registerFunctionNamespaceManager(DEFAULT_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
+        transactionManager.registerFunctionNamespaceManager(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.functionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(1000)
@@ -247,7 +247,7 @@ public class FunctionAndTypeManager
             public QualifiedObjectName qualifyObjectName(QualifiedName name)
             {
                 if (!name.getPrefix().isPresent()) {
-                    return QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name.getSuffix());
+                    return QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name.getSuffix());
                 }
                 if (name.getOriginalParts().size() != 3) {
                     throw new PrestoException(FUNCTION_NOT_FOUND, format("Functions that are not temporary or builtin must be referenced by 'catalog.schema.function_name', found: %s", name));
@@ -384,7 +384,7 @@ public class FunctionAndTypeManager
 
     public Collection<? extends SqlFunction> getFunctions(Session session, QualifiedObjectName functionName)
     {
-        if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE) &&
+        if (functionName.getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE) &&
                 SessionFunctionUtils.listFunctionNames(session.getSessionFunctions()).contains(functionName.getObjectName())) {
             return SessionFunctionUtils.getFunctions(session.getSessionFunctions(), functionName);
         }
@@ -442,7 +442,7 @@ public class FunctionAndTypeManager
             QualifiedObjectName functionName,
             List<TypeSignatureProvider> parameterTypes)
     {
-        if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE)) {
+        if (functionName.getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE)) {
             if (sessionFunctions.isPresent()) {
                 Collection<SqlFunction> candidates = SessionFunctionUtils.getFunctions(sessionFunctions.get(), functionName);
                 Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
@@ -698,7 +698,7 @@ public class FunctionAndTypeManager
 
     private FunctionHandle resolveBuiltInFunction(QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
-        checkArgument(functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE), "Expect built-in functions");
+        checkArgument(functionName.getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE), "Expect built-in functions");
         checkArgument(parameterTypes.stream().noneMatch(TypeSignatureProvider::hasDependency), "Expect parameter types not to have dependency");
         return resolveFunctionInternal(Optional.empty(), functionName, parameterTypes);
     }
