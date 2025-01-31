@@ -476,7 +476,7 @@ public class IcebergHiveMetadata
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
         // Not checking if source view exists as this is already done in RenameViewTask
-        metastore.renameTable(getMetastoreContext(session), source.getSchemaName(), source.getTableName(), target.getSchemaName(), target.getTableName());
+        metastore.renameTable(getMetastoreContext(session), constructSchemaName(Optional.ofNullable(catalogName), source.getSchemaName()), source.getTableName(), target.getSchemaName(), target.getTableName());
     }
 
     @Override

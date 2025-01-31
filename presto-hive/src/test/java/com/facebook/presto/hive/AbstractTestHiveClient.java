@@ -1043,7 +1043,7 @@ public abstract class AbstractTestHiveClient
                 new HiveFileRenamer(),
                 DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(metastoreClient, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false), "catalogName");
+                new HiveTableWritabilityChecker(false), "hive");
 
         transactionManager = new HiveTransactionManager();
         encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of());
