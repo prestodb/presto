@@ -112,7 +112,7 @@ Map Functions
     ``n`` must be a non-negative BIGINT value.::
 
         SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}
-        SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[NULL, 3, NULL]), 2) --- {'b' -> 3, 'a' -> NULL}
+        SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[NULL, 3, NULL]), 2) --- {'b' -> 3, 'c' -> NULL}
 
 .. function:: map_top_n_keys(map(K,V), n) -> array(K)
 

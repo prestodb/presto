@@ -129,6 +129,16 @@ TEST_F(MapTopNTest, equalValues) {
   auto expectedResults = makeMapVector({0, 3}, expectedKeys, expectedValues);
 
   assertEqualVectors(expectedResults, result);
+
+  auto dataWithStrKey =
+      makeRowVector({makeMapVectorFromJson<std::string, int64_t>(
+          {R"({"a":2, "b":3, "c":1})", R"({"a":null, "b":3, "c":null})"})});
+
+  auto resultWithStrKey = evaluate("map_top_n(c0, 2)", dataWithStrKey);
+
+  auto expectedWithStrKey = makeMapVectorFromJson<std::string, int64_t>(
+      {R"({"b":3, "a":2})", R"({"b":3, "c":null})"});
+  assertEqualVectors(expectedWithStrKey, resultWithStrKey);
 }
 
 TEST_F(MapTopNTest, timestampWithTimeZone) {
