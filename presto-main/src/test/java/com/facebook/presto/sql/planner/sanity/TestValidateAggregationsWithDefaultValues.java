@@ -188,7 +188,7 @@ public class TestValidateAggregationsWithDefaultValues
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
-            new ValidateAggregationsWithDefaultValues(noExchange).validate(root, session, metadata, WarningCollector.NOOP);
+            new ValidateAggregationsWithDefaultValues(noExchange, false).validate(root, session, metadata, WarningCollector.NOOP);
             return null;
         });
     }

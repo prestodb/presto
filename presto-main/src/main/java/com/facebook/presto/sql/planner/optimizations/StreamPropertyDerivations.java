@@ -41,6 +41,7 @@ import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
@@ -65,8 +66,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -97,20 +96,20 @@ public final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
 
-    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session)
+    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, boolean nativeExecution)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, session))
+                .map(source -> derivePropertiesRecursively(source, metadata, session, nativeExecution))
                 .collect(toImmutableList());
-        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session);
+        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, nativeExecution);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session)
+    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, boolean nativeExecution)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session);
+        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, nativeExecution);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session)
+    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, boolean nativeExecution)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
@@ -128,7 +127,7 @@ public final class StreamPropertyDerivations
                 metadata,
                 session);
 
-        StreamProperties result = node.accept(new Visitor(metadata, session), inputProperties)
+        StreamProperties result = node.accept(new Visitor(metadata, session, nativeExecution), inputProperties)
                 .withOtherActualProperties(otherProperties);
 
         result.getPartitioningColumns().ifPresent(columns ->
@@ -148,11 +147,13 @@ public final class StreamPropertyDerivations
     {
         private final Metadata metadata;
         private final Session session;
+        private final boolean nativeExecution;
 
-        private Visitor(Metadata metadata, Session session)
+        private Visitor(Metadata metadata, Session session, boolean nativeExecution)
         {
             this.metadata = metadata;
             this.session = session;
+            this.nativeExecution = nativeExecution;
         }
 
         @Override
@@ -292,13 +293,16 @@ public final class StreamPropertyDerivations
             Optional<Set<VariableReferenceExpression>> streamPartitionSymbols = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> getNonConstantVariables(columns, assignments, constants));
 
+            // Native execution creates a fixed number of drivers for TableScan pipelines
+            StreamDistribution streamDistribution = nativeExecution ? FIXED : MULTIPLE;
+
             // if we are partitioned on empty set, we must say multiple of unknown partitioning, because
             // the connector does not guarantee a single split in this case (since it might not understand
             // that the value is a constant).
             if (streamPartitionSymbols.isPresent() && streamPartitionSymbols.get().isEmpty()) {
-                return new StreamProperties(MULTIPLE, Optional.empty(), false);
+                return new StreamProperties(streamDistribution, Optional.empty(), false);
             }
-            return new StreamProperties(MULTIPLE, streamPartitionSymbols, false);
+            return new StreamProperties(streamDistribution, streamPartitionSymbols, false);
         }
 
         private Optional<Set<VariableReferenceExpression>> getNonConstantVariables(Set<ColumnHandle> columnHandles, Map<ColumnHandle, VariableReferenceExpression> assignments, Set<ColumnHandle> globalConstants)
@@ -641,7 +645,6 @@ public final class StreamPropertyDerivations
         }
     }
 
-    @Immutable
     public static final class StreamProperties
     {
         public enum StreamDistribution

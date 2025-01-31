@@ -100,7 +100,7 @@ public class ValidateStreamingJoins
                 else {
                     requiredBuildProperty = singleStream();
                 }
-                StreamProperties buildProperties = derivePropertiesRecursively(node.getRight(), metadata, session);
+                StreamProperties buildProperties = derivePropertiesRecursively(node.getRight(), metadata, session, nativeExecutionEnabled);
                 checkArgument(requiredBuildProperty.isSatisfiedBy(buildProperties), "Build side needs an additional local exchange for join: %s", node.getId());
 
                 StreamPreferredProperties requiredProbeProperty;
@@ -110,7 +110,7 @@ public class ValidateStreamingJoins
                 else {
                     requiredProbeProperty = defaultParallelism(session);
                 }
-                StreamProperties probeProperties = derivePropertiesRecursively(node.getLeft(), metadata, session);
+                StreamProperties probeProperties = derivePropertiesRecursively(node.getLeft(), metadata, session, nativeExecutionEnabled);
                 checkArgument(requiredProbeProperty.isSatisfiedBy(probeProperties), "Probe side needs an additional local exchange for join: %s", node.getId());
             }
             return null;
