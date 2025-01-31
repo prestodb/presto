@@ -19,6 +19,7 @@ import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.TransactionalMetadata;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -26,9 +27,12 @@ import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
+import com.facebook.presto.spi.security.ViewExpression;
 
 import javax.inject.Inject;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -285,5 +289,17 @@ public class LegacyAccessControl
         if (!allowAddConstraint) {
             denyAddConstraint(tableName.toString());
         }
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public Map<ColumnMetadata, ViewExpression> getColumnMasks(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, List<ColumnMetadata> columns)
+    {
+        return Collections.emptyMap();
     }
 }
