@@ -9,17 +9,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+add_library(presto_exception Exception.cpp Exception.h)
 
-add_library(presto_exception Exception.cpp)
-add_library(presto_common Counters.cpp Utils.cpp ConfigReader.cpp Configs.cpp)
+add_library(presto_common_Counters Counters.cpp Counters.h)
+add_library(presto_common_Utils Utils.cpp Utils.h)
+add_library(presto_common_ConfigReader ConfigReader.cpp ConfigReader.h)
+add_library(presto_common_Configs Configs.cpp Configs.h)
+
+target_link_libraries(presto_common_ConfigReader velox_common_config velox_exception)
+
+target_link_libraries(presto_common_Configs velox_common_config velox_core velox_exception)
+
+target_link_libraries(presto_common_Counters velox_common_config)
+
+target_link_libraries(presto_common_Utils velox_common_config)
 
 target_link_libraries(presto_exception velox_exception)
-set_property(TARGET presto_exception PROPERTY JOB_POOL_LINK
-                                              presto_link_job_pool)
-
-target_link_libraries(presto_common velox_common_config velox_core
-                      velox_exception)
-set_property(TARGET presto_common PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
