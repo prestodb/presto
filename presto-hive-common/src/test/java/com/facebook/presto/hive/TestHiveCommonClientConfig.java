@@ -48,7 +48,7 @@ public class TestHiveCommonClientConfig
                 .setParquetBatchReaderVerificationEnabled(false)
                 .setParquetBatchReadOptimizationEnabled(false)
                 .setReadNullMaskedParquetEncryptedValue(false)
-                .setCatalogName("catalogName"));
+                .setCatalogName(null));
     }
 
     @Test

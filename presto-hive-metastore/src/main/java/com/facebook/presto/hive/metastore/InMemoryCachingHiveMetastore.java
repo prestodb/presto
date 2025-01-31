@@ -363,7 +363,7 @@ public class InMemoryCachingHiveMetastore
     @Override
     public List<String> getDatabases(MetastoreContext metastoreContext, String pattern)
     {
-        return get(catalogDatabaseNames, getCachingKey(metastoreContext, pattern));
+        return get(catalogDatabaseNames, getCachingKey(metastoreContext, "*"));
     }
 
     private List<String> loadDatabases(KeyAndContext<String> pattern)
