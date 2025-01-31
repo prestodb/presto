@@ -21,7 +21,6 @@ import com.facebook.airlift.http.server.JsonWebTokenConfig;
 import com.facebook.airlift.http.server.KerberosAuthenticator;
 import com.facebook.airlift.http.server.KerberosConfig;
 import com.facebook.airlift.http.server.TheServlet;
-import com.facebook.presto.router.security.oauth2.OAuth2AuthenticationSupportModule;
 import com.facebook.presto.server.InternalCommunicationModule;
 import com.facebook.presto.server.security.AuthenticationFilter;
 import com.facebook.presto.server.security.DefaultWebUiAuthenticationManager;
@@ -30,9 +29,6 @@ import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
 import com.facebook.presto.server.security.WebUiAuthenticationManager;
-import com.facebook.presto.server.security.oauth2.OAuth2Authenticator;
-import com.facebook.presto.server.security.oauth2.OAuth2Config;
-import com.facebook.presto.server.security.oauth2.Oauth2WebUiAuthenticationManager;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
@@ -45,7 +41,6 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.JWT;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
-import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.OAUTH2;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.TEST_EXTERNAL;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -81,13 +76,6 @@ public class RouterSecurityModule
             else if (authType == JWT) {
                 configBinder(binder).bindConfig(JsonWebTokenConfig.class);
                 authBinder.addBinding().to(JsonWebTokenAuthenticator.class).in(Scopes.SINGLETON);
-            }
-            else if (authType == OAUTH2) {
-                newOptionalBinder(binder, WebUiAuthenticationManager.class).setBinding().to(Oauth2WebUiAuthenticationManager.class).in(Scopes.SINGLETON);
-                install(new OAuth2AuthenticationSupportModule());
-                binder.bind(OAuth2Authenticator.class).in(Scopes.SINGLETON);
-                configBinder(binder).bindConfig(OAuth2Config.class);
-                authBinder.addBinding().to(OAuth2Authenticator.class).in(Scopes.SINGLETON);
             }
             else {
                 // TEST_EXTERNAL is an authentication type used for testing the external auth flow for the JDBC driver.
