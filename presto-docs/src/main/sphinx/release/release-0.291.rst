@@ -23,7 +23,6 @@ _______________
 * Add Delete TableWriter TableFinish node to SPI. `#24088 <https://github.com/prestodb/presto/pull/24088>`_
 * Add SemiJoin Join TableWriter Delete TableFinish node to connector optimizer. `#24154 <https://github.com/prestodb/presto/pull/24154>`_
 * Add ``ClientRequestFilter.java`` interface in Presto-spi. `#23380 <https://github.com/prestodb/presto/pull/23380>`_
-* Add ``query-data-cache-enabled-default`` configuration property to align C++ cache behavior with Java. Set it to ``true`` (default) for current C++ behavior or to ``false`` to match Java's cache logic. `#24076 <https://github.com/prestodb/presto/pull/24076>`_
 * Add a configuration property ``plan-checker.config-dir`` to set the configuration directory for PlanCheckerProvider configurations. `#23955 <https://github.com/prestodb/presto/pull/23955>`_
 * Add a session property ``include_values_node_in_connector_optimizer`` to enable connector optimizer optimize plans with values node.  `#24227 <https://github.com/prestodb/presto/pull/24227>`_
 * Add an optional input distribution constraint to DeleteNode. `#24104 <https://github.com/prestodb/presto/pull/24104>`_
@@ -49,7 +48,6 @@ ______________________________________
 * Add support for automatic scaling of writer threads for partitioned tables. Can be enabled with the ``native_execution_scale_partitioned_writer_threads_enabled`` session property. Native execution only. `#24155 <https://github.com/prestodb/presto/pull/24155>`_
 * Remove the ``experimental.table-writer-merge-operator-enabled`` configuration property and the ``table_writer_merge_operator_enabled`` session property. `#24145 <https://github.com/prestodb/presto/pull/24145>`_
 * Remove deprecated  ``native_query_trace_task_reg_exp session`` property from Prestissimo. `#24270 <https://github.com/prestodb/presto/pull/24270>`_
-* Remove ``query-data-cache-enabled-default`` configuration property, which is no longer needed as per-split fine-grained cache control has been introduced. `#24372 <https://github.com/prestodb/presto/pull/24372>`_
 
 Security Changes
 ________________
