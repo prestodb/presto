@@ -453,7 +453,7 @@ RowVectorPtr IndexLookupJoin::produceOutputForLeftJoin() {
       bits::fillBits(
           rawLookupOutputNulls_,
           numOutputRows,
-          numOutputMissedInputRows,
+          numOutputRows + numOutputMissedInputRows,
           bits::kNull);
       for (auto i = 0; i < numOutputMissedInputRows; ++i) {
         rawProbeOutputRowIndices_[numOutputRows++] = ++lastProcessedInputRow;
