@@ -211,7 +211,9 @@ public class ThriftHiveMetastoreClient
     public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
             throws TException
     {
-        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, databaseName, tableName);
+        String[] parseDbName = MetaStoreUtils.parseDbName(databaseName, null);
+        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, parseDbName[MetaStoreUtils.DB_NAME], tableName);
+        statisticsDescription.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
         ColumnStatistics request = new ColumnStatistics(statisticsDescription, statistics);
         client.update_table_column_statistics(request);
     }
@@ -237,8 +239,10 @@ public class ThriftHiveMetastoreClient
     public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
             throws TException
     {
-        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, databaseName, tableName);
+        String[] parseDbName = MetaStoreUtils.parseDbName(databaseName, null);
+        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, parseDbName[MetaStoreUtils.DB_NAME], tableName);
         statisticsDescription.setPartName(partitionName);
+        statisticsDescription.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
         ColumnStatistics request = new ColumnStatistics(statisticsDescription, statistics);
         client.update_partition_column_statistics(request);
     }
@@ -464,8 +468,9 @@ public class ThriftHiveMetastoreClient
     public Optional<PrimaryKeysResponse> getPrimaryKey(String dbName, String tableName)
             throws TException
     {
-        PrimaryKeysRequest pkRequest = new PrimaryKeysRequest(dbName, tableName);
-        PrimaryKeysResponse pkResponse;
+        String[] parseDbName = MetaStoreUtils.parseDbName(dbName, null);
+        PrimaryKeysRequest pkRequest = new PrimaryKeysRequest(parseDbName[MetaStoreUtils.DB_NAME], tableName);
+        pkRequest.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
 
         try {
             return Optional.of(client.get_primary_keys(pkRequest));
@@ -485,7 +490,6 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         UniqueConstraintsRequest uniqueConstraintsRequest = new UniqueConstraintsRequest(catName, dbName, tableName);
-        UniqueConstraintsResponse uniqueConstraintsResponse;
 
         try {
             return Optional.of(client.get_unique_constraints(uniqueConstraintsRequest));
@@ -503,7 +507,6 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         NotNullConstraintsRequest notNullConstraintsRequest = new NotNullConstraintsRequest(catName, dbName, tableName);
-        NotNullConstraintsResponse notNullConstraintsResponse;
 
         try {
             return Optional.of(client.get_not_null_constraints(notNullConstraintsRequest));
@@ -520,7 +523,9 @@ public class ThriftHiveMetastoreClient
     public void dropConstraint(String dbName, String tableName, String constraintName)
             throws TException
     {
-        DropConstraintRequest dropConstraintRequest = new DropConstraintRequest(dbName, tableName, constraintName);
+        String[] parseDbName = MetaStoreUtils.parseDbName(dbName, null);
+        DropConstraintRequest dropConstraintRequest = new DropConstraintRequest(parseDbName[MetaStoreUtils.DB_NAME], tableName, constraintName);
+        dropConstraintRequest.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
         client.drop_constraint(dropConstraintRequest);
     }
 

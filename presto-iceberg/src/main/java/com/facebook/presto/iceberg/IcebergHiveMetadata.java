@@ -259,12 +259,12 @@ public class IcebergHiveMetadata
                     .collect(toImmutableList());
         }
         // If schema name is not present, list tables from all schemas
-        List<String> schemaNames = Optional.of(constructSchemaName(Optional.ofNullable(catalogName), schemaName.get()))
+        List<String> schemaNames = Optional.of(schemaName.get())
                 .map(ImmutableList::of)
                 .orElseGet(() -> ImmutableList.copyOf(listSchemaNames(session)));
         return schemaNames.stream()
                 .flatMap(schema -> metastore
-                        .getAllTables(metastoreContext, schema)
+                        .getAllTables(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schema))
                         .orElseGet(() -> ImmutableList.of())
                         .stream()
                         .map(table -> new SchemaTableName(schema, table)))
@@ -443,8 +443,8 @@ public class IcebergHiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        for (String schema : listSchemas(session, Optional.ofNullable(constructSchemaName(Optional.ofNullable(catalogName), schemaName.get())).orElse(null))) {
-            for (String tableName : metastore.getAllViews(metastoreContext, schema).orElse(emptyList())) {
+        for (String schema : listSchemas(session, Optional.ofNullable(schemaName.get()).orElse(null))) {
+            for (String tableName : metastore.getAllViews(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schema)).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schema, tableName));
             }
         }
@@ -456,12 +456,11 @@ public class IcebergHiveMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
         List<SchemaTableName> tableNames;
-        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName());
         if (prefix.getTableName() != null) {
-            tableNames = ImmutableList.of(new SchemaTableName(schemaName, prefix.getTableName()));
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         else {
-            tableNames = listViews(session, Optional.of(schemaName));
+            tableNames = listViews(session, Optional.of(constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName())));
         }
         MetastoreContext metastoreContext = getMetastoreContext(session);
         for (SchemaTableName schemaTableName : tableNames) {

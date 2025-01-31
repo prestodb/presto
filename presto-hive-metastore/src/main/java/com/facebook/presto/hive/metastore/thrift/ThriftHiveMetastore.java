@@ -89,6 +89,7 @@ import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.hadoop.hive.metastore.api.UnlockRequest;
+import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -258,10 +259,11 @@ public class ThriftHiveMetastore
     public List<UniqueConstraint<String>> getUniqueConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
     {
         try {
+            String[] parseDbName = MetaStoreUtils.parseDbName(dbName, null);
             Optional<UniqueConstraintsResponse> uniqueConstraintsResponse = retry()
                     .stopOnIllegalExceptions()
                     .run("getUniqueConstraints", stats.getGetUniqueConstraints().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints("hive", dbName, tableName))));
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints(parseDbName[MetaStoreUtils.CAT_NAME], parseDbName[MetaStoreUtils.DB_NAME], tableName))));
 
             if (!uniqueConstraintsResponse.isPresent() || uniqueConstraintsResponse.get().getUniqueConstraints().size() == 0) {
                 return ImmutableList.of();
@@ -295,10 +297,11 @@ public class ThriftHiveMetastore
     public List<NotNullConstraint<String>> getNotNullConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
     {
         try {
+            String[] parseDbName = MetaStoreUtils.parseDbName(dbName, null);
             Optional<NotNullConstraintsResponse> notNullConstraintsResponse = retry()
                     .stopOnIllegalExceptions()
                     .run("getNotNullConstraints", stats.getGetNotNullConstraints().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints("hive", dbName, tableName))));
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints(parseDbName[MetaStoreUtils.CAT_NAME], parseDbName[MetaStoreUtils.DB_NAME], tableName))));
 
             if (!notNullConstraintsResponse.isPresent() || notNullConstraintsResponse.get().getNotNullConstraints().size() == 0) {
                 return ImmutableList.of();
@@ -1622,15 +1625,16 @@ public class ThriftHiveMetastore
 
         if (tableConstraint instanceof PrimaryKeyConstraint) {
             for (String column : constraintColumns) {
-                primaryKeyConstraint.add(
-                        new SQLPrimaryKey(table.getDbName(),
-                                table.getTableName(),
-                                column,
-                                keySequence++,
-                                tableConstraint.getName().orElse(null),
-                                tableConstraint.isEnabled(),
-                                tableConstraint.isEnforced(),
-                                tableConstraint.isRely()));
+                SQLPrimaryKey sqlPrimaryKey = new SQLPrimaryKey(table.getDbName(),
+                        table.getTableName(),
+                        column,
+                        keySequence++,
+                        tableConstraint.getName().orElse(null),
+                        tableConstraint.isEnabled(),
+                        tableConstraint.isEnforced(),
+                        tableConstraint.isRely());
+                sqlPrimaryKey.setCatName(table.getCatName());
+                primaryKeyConstraint.add(sqlPrimaryKey);
             }
             callableName = "addPrimaryKeyConstraint";
             apiStats = stats.getAddPrimaryKeyConstraint();

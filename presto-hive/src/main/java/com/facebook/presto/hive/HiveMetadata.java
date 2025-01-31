@@ -811,8 +811,8 @@ public class HiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        for (String schemaName : listSchemas(session, constructSchemaName(Optional.ofNullable(catalogName), schemaNameOrNull))) {
-            for (String tableName : metastore.getAllTables(metastoreContext, schemaName).orElse(emptyList())) {
+        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
+            for (String tableName : metastore.getAllTables(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schemaName)).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
@@ -922,7 +922,7 @@ public class HiveMetadata
         if (prefix.getSchemaName() == null || prefix.getTableName() == null) {
             return listTables(session, constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName()));
         }
-        return ImmutableList.of(new SchemaTableName(constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName()), prefix.getTableName()));
+        return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
     }
 
     /**
@@ -972,13 +972,12 @@ public class HiveMetadata
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        String catalogAndSchemaName = constructSchemaName(Optional.ofNullable(catalogName), schemaName);
         // basic sanity check to provide a better error message
-        if (!listTables(session, catalogAndSchemaName).isEmpty() ||
-                !listViews(session, catalogAndSchemaName).isEmpty()) {
+        if (!listTables(session, schemaName).isEmpty() ||
+                !listViews(session, schemaName).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
-        metastore.dropDatabase(getMetastoreContext(session), catalogAndSchemaName);
+        metastore.dropDatabase(getMetastoreContext(session), constructSchemaName(Optional.ofNullable(catalogName), schemaName));
     }
 
     @Override
@@ -1630,7 +1629,7 @@ public class HiveMetadata
 
         LocationHandle locationHandle = locationService.forNewTable(metastore, session, schemaName, tableName, isTempPathRequired(session, bucketProperty, preferredOrderingColumns));
 
-        HdfsContext context = new HdfsContext(session, schemaName, tableName, locationHandle.getTargetPath().toString(), true);
+        HdfsContext context = new HdfsContext(session, schemaTableName.getSchemaName(), tableName, locationHandle.getTargetPath().toString(), true);
         Map<String, String> tableProperties = getEmptyTableProperties(
                 tableMetadata,
                 context,
@@ -2316,10 +2315,9 @@ public class HiveMetadata
         checkIfNullView(view, viewName);
 
         try {
-            String schemaName = constructSchemaName(Optional.ofNullable(catalogName), viewName.getSchemaName());
             metastore.dropTable(
-                    new HdfsContext(session, schemaName),
-                    schemaName,
+                    new HdfsContext(session, viewName.getSchemaName()),
+                    constructSchemaName(Optional.ofNullable(catalogName), viewName.getSchemaName()),
                     viewName.getTableName());
         }
         catch (TableNotFoundException e) {
@@ -2332,8 +2330,8 @@ public class HiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        for (String schemaName : listSchemas(session, constructSchemaName(Optional.ofNullable(catalogName), schemaNameOrNull))) {
-            for (String tableName : metastore.getAllViews(metastoreContext, schemaName).orElse(emptyList())) {
+        for (String schemaName : listSchemas(session, schemaNameOrNull)) {
+            for (String tableName : metastore.getAllViews(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schemaName)).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schemaName, tableName));
             }
         }
@@ -2345,17 +2343,16 @@ public class HiveMetadata
     {
         ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
         List<SchemaTableName> tableNames;
-        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName());
         if (prefix.getTableName() != null) {
-            tableNames = ImmutableList.of(new SchemaTableName(schemaName, prefix.getTableName()));
+            tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
         }
         else {
-            tableNames = listViews(session, schemaName);
+            tableNames = listViews(session, constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName()));
         }
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
         for (SchemaTableName schemaTableName : tableNames) {
-            Optional<Table> table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schemaTableName.getSchemaName()), schemaTableName.getTableName());
             if (table.isPresent() && isPrestoView(table.get())) {
                 verifyAndPopulateViews(table.get(), schemaTableName, decodeViewData(table.get().getViewOriginalText().get()), views);
             }
@@ -2509,10 +2506,9 @@ public class HiveMetadata
         }
 
         try {
-            String schemaName = constructSchemaName(Optional.ofNullable(catalogName), viewName.getSchemaName());
             metastore.dropTable(
-                    new HdfsContext(session, schemaName, viewName.getTableName()),
-                    schemaName,
+                    new HdfsContext(session, viewName.getSchemaName(), viewName.getTableName()),
+                    constructSchemaName(Optional.ofNullable(catalogName), viewName.getSchemaName()),
                     viewName.getTableName());
         }
         catch (TableNotFoundException e) {

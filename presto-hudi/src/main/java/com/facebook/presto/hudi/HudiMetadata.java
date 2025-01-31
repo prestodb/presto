@@ -154,12 +154,11 @@ public class HudiMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         MetastoreContext metastoreContext = toMetastoreContext(session);
-        String catalogAndSchemaName = constructSchemaName(Optional.ofNullable(catalogName), schemaName.get());
         return metastore
-                .getAllTables(metastoreContext, catalogAndSchemaName)
+                .getAllTables(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schemaName.get()))
                 .orElseGet(() -> metastore.getDatabases(metastoreContext, catalogName))
                 .stream()
-                .map(table -> new SchemaTableName(catalogAndSchemaName, table))
+                .map(table -> new SchemaTableName(schemaName.get(), table))
                 .collect(toList());
     }
 
