@@ -352,13 +352,13 @@ public final class QueryResourceUtil
         if (signature.getBase().equals(ARRAY)) {
             List<Object> parsedValue = new ArrayList<>();
             for (Object object : List.class.cast(value)) {
-                parsedValue.add(parseToJson(signature.getTypeParametersAsTypeSignatures().get(0), object));
+                parsedValue.add(parseToJson(signature.getTypeOrNamedTypeParametersAsTypeSignatures().get(0), object));
             }
             return LIST_JSON_CODEC.toJson(parsedValue);
         }
         if (signature.getBase().equals(MAP)) {
-            TypeSignature keySignature = signature.getTypeParametersAsTypeSignatures().get(0);
-            TypeSignature valueSignature = signature.getTypeParametersAsTypeSignatures().get(1);
+            TypeSignature keySignature = signature.getTypeOrNamedTypeParametersAsTypeSignatures().get(0);
+            TypeSignature valueSignature = signature.getTypeOrNamedTypeParametersAsTypeSignatures().get(1);
             Map<Object, Object> parsedValue = new HashMap<>(Map.class.cast(value).size());
             for (Map.Entry<?, ?> entry : (Set<Map.Entry<?, ?>>) Map.class.cast(value).entrySet()) {
                 parsedValue.put(parseToJson(keySignature, entry.getKey()), parseToJson(valueSignature, entry.getValue()));

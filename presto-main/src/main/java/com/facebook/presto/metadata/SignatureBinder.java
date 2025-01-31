@@ -304,7 +304,7 @@ public class SignatureBinder
         // * type with type parameter of type/named_type kind (except function type)
 
         if (FunctionType.NAME.equals(formalTypeSignature.getBase())) {
-            List<TypeSignature> formalTypeParameterTypeSignatures = formalTypeSignature.getTypeParametersAsTypeSignatures();
+            List<TypeSignature> formalTypeParameterTypeSignatures = formalTypeSignature.getTypeOrNamedTypeParametersAsTypeSignatures();
             resultBuilder.add(new FunctionSolver(
                     getLambdaArgumentTypeSignatures(formalTypeSignature),
                     formalTypeParameterTypeSignatures.get(formalTypeParameterTypeSignatures.size() - 1),
@@ -551,7 +551,7 @@ public class SignatureBinder
 
     private static List<TypeSignature> getLambdaArgumentTypeSignatures(TypeSignature lambdaTypeSignature)
     {
-        List<TypeSignature> typeParameters = lambdaTypeSignature.getTypeParametersAsTypeSignatures();
+        List<TypeSignature> typeParameters = lambdaTypeSignature.getTypeOrNamedTypeParametersAsTypeSignatures();
         return typeParameters.subList(0, typeParameters.size() - 1);
     }
 
