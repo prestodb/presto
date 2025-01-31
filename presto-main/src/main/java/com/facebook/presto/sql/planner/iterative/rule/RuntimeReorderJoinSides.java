@@ -44,10 +44,12 @@ public class RuntimeReorderJoinSides
     private static final Pattern<JoinNode> PATTERN = join();
 
     private final Metadata metadata;
+    private final boolean nativeExecution;
 
-    public RuntimeReorderJoinSides(Metadata metadata)
+    public RuntimeReorderJoinSides(Metadata metadata, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -97,7 +99,7 @@ public class RuntimeReorderJoinSides
             return Result.empty();
         }
 
-        Optional<JoinNode> rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, context.getLookup(), context.getSession(), context.getIdAllocator());
+        Optional<JoinNode> rewrittenNode = createRuntimeSwappedJoinNode(joinNode, metadata, context.getLookup(), context.getSession(), context.getIdAllocator(), nativeExecution);
         if (rewrittenNode.isPresent()) {
             log.debug(format("Probe size: %.2f is smaller than Build size: %.2f => invoke runtime join swapping on JoinNode ID: %s.", leftOutputSizeInBytes, rightOutputSizeInBytes, joinNode.getId()));
             return Result.ofPlanNode(rewrittenNode.get());

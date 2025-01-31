@@ -52,10 +52,12 @@ public class ValidateAggregationsWithDefaultValues
         implements Checker
 {
     private final boolean noExchange;
+    private final boolean nativeExecution;
 
-    public ValidateAggregationsWithDefaultValues(boolean noExchange)
+    public ValidateAggregationsWithDefaultValues(boolean noExchange, boolean nativeExecution)
     {
         this.noExchange = noExchange;
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -121,7 +123,7 @@ public class ValidateAggregationsWithDefaultValues
             if (!seenExchanges.localRepartitionExchange) {
                 // No local repartition exchange between final and partial aggregation.
                 // Make sure that final aggregation operators are executed by single thread.
-                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, metadata, session);
+                StreamProperties localProperties = StreamPropertyDerivations.derivePropertiesRecursively(node, metadata, session, nativeExecution);
                 checkArgument(localProperties.isSingleStream(),
                         "Final aggregation with default value not separated from partial aggregation by local hash exchange");
             }

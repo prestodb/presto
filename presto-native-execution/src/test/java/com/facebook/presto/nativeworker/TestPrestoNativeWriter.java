@@ -14,6 +14,7 @@
 package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
@@ -464,6 +465,23 @@ public class TestPrestoNativeWriter
                     ExchangeNode remoteExchange = (ExchangeNode) localExchange.getSources().get(0);
                     assertEquals(remoteExchange.getPartitioningScheme().getPartitioning().getHandle(), SCALED_WRITER_DISTRIBUTION);
                 });
+        // scale writers disabled and task concurrency is equal to writer count
+        testScaledWriters(
+                /*partitioned*/ false,
+                /*shufflePartitionedColumns*/ false,
+                /*bucketed*/ false,
+                /*scaleWriterTasks*/ false,
+                /*scaleWriterThreads*/ false,
+                4,
+                8,
+                4,
+                plan -> {
+                    TableWriterNode tableWriteNode = searchFrom(plan.getRoot())
+                            .where(node -> node instanceof TableWriterNode)
+                            .findOnlyElement();
+                    // no exchanges expected
+                    assertThat(tableWriteNode.getSource()).isInstanceOf(TableScanNode.class);
+                });
     }
 
     private void testScaledWriters(
@@ -472,6 +490,29 @@ public class TestPrestoNativeWriter
             boolean bucketed,
             boolean scaleWriterTasks,
             boolean scaleWriterThreads,
+            Consumer<Plan> planAssertion)
+    {
+        testScaledWriters(
+                partitioned,
+                shufflePartitionedColumns,
+                bucketed,
+                scaleWriterTasks,
+                scaleWriterThreads,
+                4,
+                8,
+                16,
+                planAssertion);
+    }
+
+    private void testScaledWriters(
+            boolean partitioned,
+            boolean shufflePartitionedColumns,
+            boolean bucketed,
+            boolean scaleWriterTasks,
+            boolean scaleWriterThreads,
+            int writerCount,
+            int partitionedWriterCount,
+            int taskConcurrency,
             Consumer<Plan> planAssertion)
     {
         String tableName = generateRandomTableName();
@@ -498,9 +539,9 @@ public class TestPrestoNativeWriter
         Session session = Session.builder(getSession())
                 .setSystemProperty(SCALE_WRITERS, scaleWriterTasks + "")
                 .setSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, scaleWriterThreads + "")
-                .setSystemProperty(TASK_WRITER_COUNT, "4")
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, "8")
-                .setSystemProperty(TASK_CONCURRENCY, "16")
+                .setSystemProperty(TASK_WRITER_COUNT, writerCount + "")
+                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, partitionedWriterCount + "")
+                .setSystemProperty(TASK_CONCURRENCY, taskConcurrency + "")
                 .setCatalogSessionProperty("hive", SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, shufflePartitionedColumns + "")
                 .build();
 
