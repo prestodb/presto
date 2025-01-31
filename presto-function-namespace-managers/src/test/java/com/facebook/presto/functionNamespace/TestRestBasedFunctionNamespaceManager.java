@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -140,20 +141,24 @@ public class TestRestBasedFunctionNamespaceManager
                 new TypeSignature("integer"),
                 Collections.singletonList(new TypeSignature("integer")),
                 "default",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.square"), ImmutableList.of(parseTypeSignature("integer")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         squareFunctions.add(new JsonBasedUdfFunctionMetadata(
                 "square a double",
                 FunctionKind.SCALAR,
                 new TypeSignature("double"),
                 Collections.singletonList(new TypeSignature("double")),
                 "test_schema",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.square"), ImmutableList.of(parseTypeSignature("double")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         udfSignatureMap.put("square", squareFunctions);
 
         // array_function_1
@@ -164,30 +169,36 @@ public class TestRestBasedFunctionNamespaceManager
                 parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"),
                 Arrays.asList(parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>")),
                 "default",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         arrayFunction1.add(new JsonBasedUdfFunctionMetadata(
                 "combines two float arrays into one",
                 FunctionKind.SCALAR,
                 parseTypeSignature("ARRAY<ARRAY<BIGINT>>"),
                 Arrays.asList(parseTypeSignature("ARRAY<ARRAY<BIGINT>>"), parseTypeSignature("ARRAY<ARRAY<BIGINT>>")),
                 "test_schema",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<ARRAY<BIGINT>>"), parseTypeSignature("ARRAY<ARRAY<BIGINT>>")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         arrayFunction1.add(new JsonBasedUdfFunctionMetadata(
                 "combines two double arrays into one",
                 FunctionKind.SCALAR,
                 parseTypeSignature("ARRAY<DOUBLE>"),
                 Arrays.asList(parseTypeSignature("ARRAY<DOUBLE>"), TypeSignature.parseTypeSignature("ARRAY<DOUBLE>")),
                 "test_schema",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_1"), ImmutableList.of(parseTypeSignature("ARRAY<DOUBLE>"), parseTypeSignature("ARRAY<DOUBLE>")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         udfSignatureMap.put("array_function_1", arrayFunction1);
 
         // array_function_2
@@ -198,20 +209,24 @@ public class TestRestBasedFunctionNamespaceManager
                 TypeSignature.parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"),
                 Arrays.asList(TypeSignature.parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), TypeSignature.parseTypeSignature("ARRAY<varchar>")),
                 "default",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.array_function_2"), ImmutableList.of(parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), parseTypeSignature("ARRAY<varchar>")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         arrayFunction2.add(new JsonBasedUdfFunctionMetadata(
                 "transforms inputs into the output",
                 FunctionKind.SCALAR,
                 TypeSignature.parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"),
                 Arrays.asList(TypeSignature.parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), TypeSignature.parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), TypeSignature.parseTypeSignature("ARRAY<varchar>")),
                 "test_schema",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.array_function_2"), ImmutableList.of(parseTypeSignature("ARRAY<map<BIGINT, DOUBLE>>"), parseTypeSignature("ARRAY<ARRAY<BOOLEAN>>"), parseTypeSignature("ARRAY<varchar>")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         udfSignatureMap.put("array_function_2", arrayFunction2);
 
         return udfSignatureMap;
@@ -229,20 +244,24 @@ public class TestRestBasedFunctionNamespaceManager
                 new TypeSignature("integer"),
                 Collections.singletonList(new TypeSignature("integer")),
                 "default",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.default.square"), ImmutableList.of(parseTypeSignature("integer")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         squareFunctions.add(new JsonBasedUdfFunctionMetadata(
                 "square a double",
                 FunctionKind.SCALAR,
                 new TypeSignature("double"),
                 Collections.singletonList(new TypeSignature("double")),
                 "test_schema",
+                false,
                 new RoutineCharacteristics(RoutineCharacteristics.Language.CPP, RoutineCharacteristics.Determinism.DETERMINISTIC, RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT),
                 Optional.empty(),
                 Optional.of(new SqlFunctionId(QualifiedObjectName.valueOf("unittest.test_schema.square"), ImmutableList.of(parseTypeSignature("double")))),
-                Optional.of("1")));
+                Optional.of("1"),
+                Optional.of(emptyList())));
         udfSignatureMap.put("square", squareFunctions);
 
         return udfSignatureMap;
