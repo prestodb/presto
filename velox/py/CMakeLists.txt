@@ -21,6 +21,15 @@ target_link_libraries(
   type
   PRIVATE velox_py_type_lib)
 
+# velox.py.file library:
+velox_add_library(velox_py_file_lib file/PyFile.cpp)
+velox_link_libraries(velox_py_file_lib velox_dwio_common pybind11::module)
+
+pybind11_add_module(file MODULE file/file.cpp)
+target_link_libraries(
+  file
+  PRIVATE velox_py_file_lib)
+
 # velox.py.vector library:
 velox_add_library(velox_py_vector_lib vector/PyVector.cpp)
 velox_link_libraries(velox_py_vector_lib velox_vector pybind11::module)
