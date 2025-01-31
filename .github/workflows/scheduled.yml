@@ -25,6 +25,7 @@ on:
       - "scripts/setup-ubuntu.sh"
       - "scripts/setup-helper-functions.sh"
       - ".github/workflows/scheduled.yml"
+      - "setup.py"
 
   push:
     branches:
