@@ -135,34 +135,34 @@ DEFINE_int32(
 
 namespace facebook::velox {
 void translateFlagsToGlobalConfig() {
-  config::globalConfig.memoryNumSharedLeafPools =
+  config::globalConfig().memoryNumSharedLeafPools =
       FLAGS_velox_memory_num_shared_leaf_pools;
-  config::globalConfig.memoryLeakCheckEnabled =
+  config::globalConfig().memoryLeakCheckEnabled =
       FLAGS_velox_memory_leak_check_enabled;
-  config::globalConfig.memoryPoolDebugEnabled =
+  config::globalConfig().memoryPoolDebugEnabled =
       FLAGS_velox_memory_pool_debug_enabled;
-  config::globalConfig.enableMemoryUsageTrackInDefaultMemoryPool =
+  config::globalConfig().enableMemoryUsageTrackInDefaultMemoryPool =
       FLAGS_velox_enable_memory_usage_track_in_default_memory_pool;
-  config::globalConfig.timeAllocations = FLAGS_velox_time_allocations;
-  config::globalConfig.memoryUseHugepages = FLAGS_velox_memory_use_hugepages;
-  config::globalConfig.suppressMemoryCapacityExceedingErrorMessage =
+  config::globalConfig().timeAllocations = FLAGS_velox_time_allocations;
+  config::globalConfig().memoryUseHugepages = FLAGS_velox_memory_use_hugepages;
+  config::globalConfig().suppressMemoryCapacityExceedingErrorMessage =
       FLAGS_velox_suppress_memory_capacity_exceeding_error_message;
-  config::globalConfig.memoryPoolCapacityTransferAcrossTasks =
+  config::globalConfig().memoryPoolCapacityTransferAcrossTasks =
       FLAGS_velox_memory_pool_capacity_transfer_across_tasks;
-  config::globalConfig.exceptionSystemStacktraceEnabled =
+  config::globalConfig().exceptionSystemStacktraceEnabled =
       FLAGS_velox_exception_system_stacktrace_enabled;
-  config::globalConfig.exceptionSystemStacktraceRateLimitMs =
+  config::globalConfig().exceptionSystemStacktraceRateLimitMs =
       FLAGS_velox_exception_system_stacktrace_rate_limit_ms;
-  config::globalConfig.exceptionUserStacktraceEnabled =
+  config::globalConfig().exceptionUserStacktraceEnabled =
       FLAGS_velox_exception_user_stacktrace_enabled;
-  config::globalConfig.exceptionUserStacktraceRateLimitMs =
+  config::globalConfig().exceptionUserStacktraceRateLimitMs =
       FLAGS_velox_exception_user_stacktrace_rate_limit_ms;
-  config::globalConfig.forceEvalSimplified = FLAGS_force_eval_simplified;
-  config::globalConfig.experimentalSaveInputOnFatalSignal =
+  config::globalConfig().forceEvalSimplified = FLAGS_force_eval_simplified;
+  config::globalConfig().experimentalSaveInputOnFatalSignal =
       FLAGS_velox_experimental_save_input_on_fatal_signal;
-  config::globalConfig.saveInputOnExpressionAnyFailurePath =
+  config::globalConfig().saveInputOnExpressionAnyFailurePath =
       FLAGS_velox_save_input_on_expression_any_failure_path;
-  config::globalConfig.saveInputOnExpressionSystemFailurePath =
+  config::globalConfig().saveInputOnExpressionSystemFailurePath =
       FLAGS_velox_save_input_on_expression_system_failure_path;
 }
 } // namespace facebook::velox

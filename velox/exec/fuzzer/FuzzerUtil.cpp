@@ -342,8 +342,8 @@ void setupMemory(
     int64_t allocatorCapacity,
     int64_t arbitratorCapacity,
     bool enableGlobalArbitration) {
-  config::globalConfig.enableMemoryUsageTrackInDefaultMemoryPool = true;
-  config::globalConfig.memoryLeakCheckEnabled = true;
+  config::globalConfig().enableMemoryUsageTrackInDefaultMemoryPool = true;
+  config::globalConfig().memoryLeakCheckEnabled = true;
   facebook::velox::memory::SharedArbitrator::registerFactory();
   facebook::velox::memory::MemoryManagerOptions options;
   options.allocatorCapacity = allocatorCapacity;

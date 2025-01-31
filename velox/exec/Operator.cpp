@@ -650,7 +650,7 @@ void Operator::MemoryReclaimer::enterArbitration() {
   }
 
   Driver* const runningDriver = driverThreadCtx->driverCtx()->driver;
-  if (!config::globalConfig.memoryPoolCapacityTransferAcrossTasks) {
+  if (!config::globalConfig().memoryPoolCapacityTransferAcrossTasks) {
     if (auto opDriver = ensureDriver()) {
       // NOTE: the current running driver might not be the driver of the
       // operator that requests memory arbitration. The reason is that an
@@ -680,7 +680,7 @@ void Operator::MemoryReclaimer::leaveArbitration() noexcept {
     return;
   }
   Driver* const runningDriver = driverThreadCtx->driverCtx()->driver;
-  if (!config::globalConfig.memoryPoolCapacityTransferAcrossTasks) {
+  if (!config::globalConfig().memoryPoolCapacityTransferAcrossTasks) {
     if (auto opDriver = ensureDriver()) {
       VELOX_CHECK_EQ(
           runningDriver->task()->taskId(),

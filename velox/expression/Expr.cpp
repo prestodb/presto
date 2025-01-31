@@ -660,10 +660,10 @@ std::string onTopLevelException(VeloxException::Type exceptionType, void* arg) {
   auto* context = static_cast<ExprExceptionContext*>(arg);
 
   const char* basePath =
-      config::globalConfig.saveInputOnExpressionAnyFailurePath.c_str();
+      config::globalConfig().saveInputOnExpressionAnyFailurePath.c_str();
   if (strlen(basePath) == 0 && exceptionType == VeloxException::Type::kSystem) {
     basePath =
-        config::globalConfig.saveInputOnExpressionSystemFailurePath.c_str();
+        config::globalConfig().saveInputOnExpressionSystemFailurePath.c_str();
   }
   if (strlen(basePath) == 0) {
     return fmt::format("Top-level Expression: {}", context->expr()->toString());
@@ -1850,10 +1850,10 @@ void printInputAndExprs(
     const BaseVector* vector,
     const std::vector<std::shared_ptr<Expr>>& exprs) {
   const char* basePath =
-      config::globalConfig.saveInputOnExpressionAnyFailurePath.c_str();
+      config::globalConfig().saveInputOnExpressionAnyFailurePath.c_str();
   if (strlen(basePath) == 0) {
     basePath =
-        config::globalConfig.saveInputOnExpressionSystemFailurePath.c_str();
+        config::globalConfig().saveInputOnExpressionSystemFailurePath.c_str();
   }
   if (strlen(basePath) == 0) {
     return;
@@ -1913,7 +1913,7 @@ void ExprSet::eval(
     context.ensureFieldLoaded(field->index(context), rows);
   }
 
-  if (config::globalConfig.experimentalSaveInputOnFatalSignal) {
+  if (config::globalConfig().experimentalSaveInputOnFatalSignal) {
     auto other = process::GetThreadDebugInfo();
     process::ThreadDebugInfo debugInfo;
     if (other) {
@@ -1977,7 +1977,7 @@ std::unique_ptr<ExprSet> makeExprSetFromFlag(
     std::vector<core::TypedExprPtr>&& source,
     core::ExecCtx* execCtx) {
   if (execCtx->queryCtx()->queryConfig().exprEvalSimplified() ||
-      config::globalConfig.forceEvalSimplified) {
+      config::globalConfig().forceEvalSimplified) {
     return std::make_unique<ExprSetSimplified>(std::move(source), execCtx);
   }
   return std::make_unique<ExprSet>(std::move(source), execCtx);

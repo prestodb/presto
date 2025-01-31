@@ -151,7 +151,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
     /// If true, tracks the allocation and free call stacks to detect the source
     /// of memory leak for testing purpose.
-    bool debugEnabled{config::globalConfig.memoryPoolDebugEnabled};
+    bool debugEnabled{config::globalConfig().memoryPoolDebugEnabled};
 
     /// Terminates the process and generates a core file on an allocation
     /// failure

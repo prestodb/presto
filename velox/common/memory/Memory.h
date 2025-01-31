@@ -61,18 +61,18 @@ struct MemoryManagerOptions {
 
   /// If true, enable memory usage tracking in the default memory pool.
   bool trackDefaultUsage{
-      config::globalConfig.enableMemoryUsageTrackInDefaultMemoryPool};
+      config::globalConfig().enableMemoryUsageTrackInDefaultMemoryPool};
 
   /// If true, check the memory pool and usage leaks on destruction.
   ///
   /// TODO: deprecate this flag after all the existing memory leak use cases
   /// have been fixed.
-  bool checkUsageLeak{config::globalConfig.memoryLeakCheckEnabled};
+  bool checkUsageLeak{config::globalConfig().memoryLeakCheckEnabled};
 
   /// If true, the memory pool will be running in debug mode to track the
   /// allocation and free call stacks to detect the source of memory leak for
   /// testing purpose.
-  bool debugEnabled{config::globalConfig.memoryPoolDebugEnabled};
+  bool debugEnabled{config::globalConfig().memoryPoolDebugEnabled};
 
   /// Terminates the process and generates a core file on an allocation failure
   bool coreOnAllocationFailureEnabled{false};

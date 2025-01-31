@@ -25,13 +25,14 @@ namespace {
 void testTraceCollectionSwitchControl(bool enabled) {
   // Logged exception is system type of velox exception.
   // Disable rate control in the test.
-  config::globalConfig.exceptionUserStacktraceRateLimitMs = 0;
-  config::globalConfig.exceptionSystemStacktraceRateLimitMs = 0;
+  config::globalConfig().exceptionUserStacktraceRateLimitMs = 0;
+  config::globalConfig().exceptionSystemStacktraceRateLimitMs = 0;
 
   // NOTE: the user config should not affect the tracing behavior of system type
   // of exception collection.
-  config::globalConfig.exceptionUserStacktraceEnabled = folly::Random::oneIn(2);
-  config::globalConfig.exceptionSystemStacktraceEnabled =
+  config::globalConfig().exceptionUserStacktraceEnabled =
+      folly::Random::oneIn(2);
+  config::globalConfig().exceptionSystemStacktraceEnabled =
       enabled ? true : false;
 
   try {
@@ -40,8 +41,8 @@ void testTraceCollectionSwitchControl(bool enabled) {
     SCOPED_TRACE(fmt::format(
         "enabled: {}, user flag: {}, sys flag: {}",
         enabled,
-        config::globalConfig.exceptionUserStacktraceEnabled,
-        config::globalConfig.exceptionSystemStacktraceEnabled));
+        config::globalConfig().exceptionUserStacktraceEnabled,
+        config::globalConfig().exceptionSystemStacktraceEnabled));
     ASSERT_TRUE(e.exceptionType() == VeloxException::Type::kSystem);
     ASSERT_EQ(enabled, e.stackTrace() != nullptr);
   }

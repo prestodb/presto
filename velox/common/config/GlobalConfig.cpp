@@ -18,6 +18,9 @@
 
 namespace facebook::velox::config {
 
-GlobalConfiguration globalConfig;
+GlobalConfiguration& globalConfig() {
+  static GlobalConfiguration config;
+  return config;
+}
 
 } // namespace facebook::velox::config

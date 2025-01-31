@@ -112,8 +112,8 @@ void testExceptionTraceCollectionControl(bool userException, bool enabled) {
     SCOPED_TRACE(fmt::format(
         "enabled: {}, user flag: {}, sys flag: {}",
         enabled,
-        config::globalConfig.exceptionUserStacktraceEnabled,
-        config::globalConfig.exceptionSystemStacktraceEnabled));
+        config::globalConfig().exceptionUserStacktraceEnabled,
+        config::globalConfig().exceptionSystemStacktraceEnabled));
     ASSERT_EQ(userException, e.exceptionType() == VeloxException::Type::kUser);
     ASSERT_EQ(enabled, e.stackTrace() != nullptr);
   }
@@ -179,8 +179,8 @@ void testExceptionTraceCollectionRateControl(
           "userException: {}, hasRateLimit: {}, user limit: {}ms, sys limit: {}ms",
           userException,
           hasRateLimit,
-          config::globalConfig.exceptionUserStacktraceRateLimitMs,
-          config::globalConfig.exceptionSystemStacktraceRateLimitMs));
+          config::globalConfig().exceptionUserStacktraceRateLimitMs,
+          config::globalConfig().exceptionSystemStacktraceRateLimitMs));
       ASSERT_EQ(
           userException, e.exceptionType() == VeloxException::Type::kUser);
       ASSERT_EQ(!hasRateLimit || ((iter % 2) == 0), e.stackTrace() != nullptr);

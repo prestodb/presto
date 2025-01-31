@@ -78,7 +78,7 @@ std::vector<std::shared_ptr<MemoryPool>> createSharedLeafMemoryPools(
   VELOX_CHECK_EQ(sysPool.name(), kSysRootName);
   std::vector<std::shared_ptr<MemoryPool>> leafPools;
   const size_t numSharedPools =
-      std::max(1, config::globalConfig.memoryNumSharedLeafPools);
+      std::max(1, config::globalConfig().memoryNumSharedLeafPools);
   leafPools.reserve(numSharedPools);
   for (size_t i = 0; i < numSharedPools; ++i) {
     leafPools.emplace_back(
@@ -129,7 +129,7 @@ MemoryManager::MemoryManager(const MemoryManagerOptions& options)
       sysRoot_->name());
   VELOX_CHECK_EQ(
       sharedLeafPools_.size(),
-      std::max(1, config::globalConfig.memoryNumSharedLeafPools));
+      std::max(1, config::globalConfig().memoryNumSharedLeafPools));
 }
 
 MemoryManager::~MemoryManager() {

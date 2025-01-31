@@ -79,6 +79,6 @@ struct GlobalConfiguration {
   std::string saveInputOnExpressionSystemFailurePath;
 };
 
-extern GlobalConfiguration globalConfig;
+GlobalConfiguration& globalConfig();
 
 } // namespace facebook::velox::config
