@@ -23,7 +23,7 @@ import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.google.common.collect.ImmutableList;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -38,7 +38,7 @@ public final class JsonStringToArrayCast
     private JsonStringToArrayCast()
     {
         super(new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, JSON_STRING_TO_ARRAY_NAME),
                 SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),

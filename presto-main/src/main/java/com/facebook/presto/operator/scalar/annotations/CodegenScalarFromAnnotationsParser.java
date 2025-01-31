@@ -49,7 +49,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
@@ -114,7 +114,7 @@ public class CodegenScalarFromAnnotationsParser
         CodegenScalarFunction codegenScalarFunction = method.getAnnotation(CodegenScalarFunction.class);
 
         Signature signature = new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, codegenScalarFunction.value()),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, codegenScalarFunction.value()),
                 FunctionKind.SCALAR,
                 Arrays.stream(method.getAnnotationsByType(TypeParameter.class)).map(t -> withVariadicBound(t.value(), t.boundedBy().isEmpty() ? null : t.boundedBy())).collect(toImmutableList()),
                 ImmutableList.of(),

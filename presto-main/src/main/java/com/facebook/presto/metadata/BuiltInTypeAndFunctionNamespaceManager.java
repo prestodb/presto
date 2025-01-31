@@ -537,7 +537,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class BuiltInTypeAndFunctionNamespaceManager
         implements FunctionNamespaceManager<SqlFunction>
 {
-    public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
+    public static final CatalogSchemaName JAVA_BUILTIN_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String ID = "builtin";
 
     private final FunctionAndTypeManager functionAndTypeManager;
@@ -1546,7 +1546,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
         {
-            super(new Signature(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
+            super(new Signature(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
             this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         }
 

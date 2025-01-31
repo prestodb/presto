@@ -39,7 +39,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -166,7 +166,7 @@ public final class SqlInvokedScalarFromAnnotationsParser
 
         return Stream.concat(Stream.of(functionHeader.value()), stream(functionHeader.alias()))
                 .map(name -> new SqlInvokedFunction(
-                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name),
                         parameters,
                         typeVariableConstraints,
                         returnType,

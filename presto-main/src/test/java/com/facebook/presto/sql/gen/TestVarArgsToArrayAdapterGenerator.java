@@ -32,7 +32,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
@@ -77,7 +77,7 @@ public class TestVarArgsToArrayAdapterGenerator
         private TestVarArgsSum()
         {
             super(new Signature(
-                    QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "var_args_sum"),
+                    QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "var_args_sum"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(),
                     ImmutableList.of(),

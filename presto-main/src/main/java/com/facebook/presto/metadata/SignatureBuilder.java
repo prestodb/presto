@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -49,7 +49,7 @@ public final class SignatureBuilder
 
     public SignatureBuilder name(String name)
     {
-        this.name = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, requireNonNull(name, "name is null"));
+        this.name = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, requireNonNull(name, "name is null"));
         return this;
     }
 

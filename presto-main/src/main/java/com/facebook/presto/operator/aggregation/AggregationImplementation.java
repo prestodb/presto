@@ -46,7 +46,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
@@ -306,7 +306,7 @@ public class AggregationImplementation
         private AggregationImplementation get()
         {
             Signature signature = new Signature(
-                    QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, header.getName()),
+                    QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, header.getName()),
                     FunctionKind.AGGREGATE,
                     typeVariableConstraints,
                     longVariableConstraints,

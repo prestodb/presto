@@ -37,7 +37,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -64,7 +64,7 @@ public class RewriteSpatialPartitioningAggregation
         implements Rule<AggregationNode>
 {
     private static final TypeSignature GEOMETRY_TYPE_SIGNATURE = parseTypeSignature("Geometry");
-    private static final QualifiedObjectName NAME = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "spatial_partitioning");
+    private static final QualifiedObjectName NAME = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "spatial_partitioning");
     private final Pattern<AggregationNode> pattern = aggregation().matching(this::hasSpatialPartitioningAggregation);
 
     private final Metadata metadata;

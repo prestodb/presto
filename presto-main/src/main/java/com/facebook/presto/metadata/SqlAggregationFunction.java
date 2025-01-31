@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -94,7 +94,7 @@ public abstract class SqlAggregationFunction
         requireNonNull(argumentTypes, "argumentTypes is null");
         checkArgument(kind == AGGREGATE, "kind must be an aggregate");
         return new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name),
                 kind,
                 ImmutableList.copyOf(typeVariableConstraints),
                 ImmutableList.copyOf(longVariableConstraints),
