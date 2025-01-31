@@ -40,11 +40,13 @@ public class MergeJoinForSortedInputOptimizer
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final boolean nativeExecution;
     private boolean isEnabledForTesting;
 
-    public MergeJoinForSortedInputOptimizer(Metadata metadata)
+    public MergeJoinForSortedInputOptimizer(Metadata metadata, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.nativeExecution = nativeExecution;
     }
 
     @Override
@@ -139,8 +141,8 @@ public class MergeJoinForSortedInputOptimizer
         private boolean meetsDataRequirement(PlanNode left, PlanNode right, JoinNode node)
         {
             // Acquire data properties for both left and right side
-            StreamPropertyDerivations.StreamProperties leftProperties = StreamPropertyDerivations.derivePropertiesRecursively(left, metadata, session);
-            StreamPropertyDerivations.StreamProperties rightProperties = StreamPropertyDerivations.derivePropertiesRecursively(right, metadata, session);
+            StreamPropertyDerivations.StreamProperties leftProperties = StreamPropertyDerivations.derivePropertiesRecursively(left, metadata, session, nativeExecution);
+            StreamPropertyDerivations.StreamProperties rightProperties = StreamPropertyDerivations.derivePropertiesRecursively(right, metadata, session, nativeExecution);
 
             List<VariableReferenceExpression> leftJoinColumns = node.getCriteria().stream().map(EquiJoinClause::getLeft).collect(toImmutableList());
             List<VariableReferenceExpression> rightJoinColumns = node.getCriteria().stream()

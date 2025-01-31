@@ -276,6 +276,6 @@ public class TestRuntimeReorderJoinSides
 
     private RuleAssert assertReorderJoinSides()
     {
-        return tester.assertThat(new RuntimeReorderJoinSides(tester.getMetadata()));
+        return tester.assertThat(new RuntimeReorderJoinSides(tester.getMetadata(), false));
     }
 }
