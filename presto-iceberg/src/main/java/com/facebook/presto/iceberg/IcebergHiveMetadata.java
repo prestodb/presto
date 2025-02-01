@@ -59,6 +59,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -161,6 +162,7 @@ public class IcebergHiveMetadata
     private final DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(TimeZone.getDefault().getID())));
     private final IcebergHiveTableOperationsConfig hiveTableOeprationsConfig;
     private final Cache<SchemaTableName, Optional<Table>> tableCache;
+    private final ManifestFileCache manifestFileCache;
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -172,13 +174,15 @@ public class IcebergHiveMetadata
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
-            StatisticsFileCache statisticsFileCache)
+            StatisticsFileCache statisticsFileCache,
+            ManifestFileCache manifestFileCache)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hiveTableOeprationsConfig = requireNonNull(hiveTableOeprationsConfig, "hiveTableOperationsConfig is null");
         this.tableCache = CacheBuilder.newBuilder().maximumSize(MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE).build();
+        this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
     }
 
     public ExtendedHiveMetastore getMetastore()
@@ -186,10 +190,16 @@ public class IcebergHiveMetadata
         return metastore;
     }
 
+    @VisibleForTesting
+    public ManifestFileCache getManifestFileCache()
+    {
+        return manifestFileCache;
+    }
+
     @Override
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, session, schemaTableName);
+        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, manifestFileCache, session, schemaTableName);
     }
 
     @Override
@@ -333,6 +343,7 @@ public class IcebergHiveMetadata
                 hdfsEnvironment,
                 hdfsContext,
                 hiveTableOeprationsConfig,
+                manifestFileCache,
                 schemaName,
                 tableName,
                 session.getUser(),
@@ -613,7 +624,7 @@ public class IcebergHiveMetadata
         InputFile inputFile = new HdfsInputFile(metadataLocation, hdfsEnvironment, hdfsContext);
         TableMetadata tableMetadata;
         try {
-            tableMetadata = TableMetadataParser.read(new HdfsFileIO(hdfsEnvironment, hdfsContext), inputFile);
+            tableMetadata = TableMetadataParser.read(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext), inputFile);
         }
         catch (Exception e) {
             throw new PrestoException(ICEBERG_INVALID_METADATA, String.format("Unable to read metadata file %s", metadataLocation), e);
