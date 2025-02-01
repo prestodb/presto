@@ -121,10 +121,11 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            ManifestFileCache manifestFileCache,
             String database,
             String table)
     {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+        this(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
                 config,
@@ -140,12 +141,13 @@ public class HiveTableOperations
             HdfsEnvironment hdfsEnvironment,
             HdfsContext hdfsContext,
             IcebergHiveTableOperationsConfig config,
+            ManifestFileCache manifestFileCache,
             String database,
             String table,
             String owner,
             String location)
     {
-        this(new HdfsFileIO(hdfsEnvironment, hdfsContext),
+        this(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext),
                 metastore,
                 metastoreContext,
                 config,

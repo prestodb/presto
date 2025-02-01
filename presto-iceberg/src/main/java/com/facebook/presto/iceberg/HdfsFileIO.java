@@ -31,17 +31,19 @@ public class HdfsFileIO
 {
     private final HdfsEnvironment environment;
     private final HdfsContext context;
+    private final ManifestFileCache manifestFileCache;
 
-    public HdfsFileIO(HdfsEnvironment environment, HdfsContext context)
+    public HdfsFileIO(ManifestFileCache manifestFileCache, HdfsEnvironment environment, HdfsContext context)
     {
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
+        this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
     }
 
     @Override
     public InputFile newInputFile(String path)
     {
-        return new HdfsInputFile(new Path(path), environment, context);
+        return new HdfsCachedInputFile(new HdfsInputFile(new Path(path), environment, context), new ManifestFileCacheKey(path), manifestFileCache);
     }
 
     @Override
