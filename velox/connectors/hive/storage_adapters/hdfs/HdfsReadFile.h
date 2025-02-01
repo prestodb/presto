@@ -34,10 +34,16 @@ class HdfsReadFile final : public ReadFile {
       std::string_view path);
   ~HdfsReadFile() override;
 
-  std::string_view pread(uint64_t offset, uint64_t length, void* buf)
-      const final;
+  std::string_view pread(
+      uint64_t offset,
+      uint64_t length,
+      void* buf,
+      io::IoStatistics* stats = nullptr) const final;
 
-  std::string pread(uint64_t offset, uint64_t length) const final;
+  std::string pread(
+      uint64_t offset,
+      uint64_t length,
+      io::IoStatistics* stats = nullptr) const final;
 
   uint64_t size() const final;
 

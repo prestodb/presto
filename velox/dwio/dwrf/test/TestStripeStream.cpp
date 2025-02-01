@@ -38,8 +38,11 @@ class RecordingInputStream : public facebook::velox::InMemoryReadFile {
  public:
   RecordingInputStream() : InMemoryReadFile(std::string()) {}
 
-  std::string_view pread(uint64_t offset, uint64_t length, void* buf)
-      const override {
+  std::string_view pread(
+      uint64_t offset,
+      uint64_t length,
+      void* buf,
+      IoStatistics* stats = nullptr) const override {
     reads_.push_back({offset, length});
     return {static_cast<char*>(buf), length};
   }

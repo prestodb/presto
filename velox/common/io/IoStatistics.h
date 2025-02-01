@@ -23,6 +23,8 @@
 #include <unordered_map>
 
 #include <folly/dynamic.h>
+#include "velox/common/base/Exceptions.h"
+#include "velox/common/base/RuntimeMetrics.h"
 
 namespace facebook::velox::io {
 
@@ -140,6 +142,9 @@ class IoStatistics {
       const uint64_t partialThrottleCount = 0);
 
   std::unordered_map<std::string, OperationCounters> operationStats() const;
+  std::unordered_map<std::string, RuntimeMetric> storageStats() const;
+
+  void addStorageStats(const std::string& name, const RuntimeCounter& counter);
 
   void merge(const IoStatistics& other);
 
@@ -172,7 +177,9 @@ class IoStatistics {
   IoCounter queryThreadIoLatency_;
 
   std::unordered_map<std::string, OperationCounters> operationStats_;
+  std::unordered_map<std::string, RuntimeMetric> storageStats_;
   mutable std::mutex operationStatsMutex_;
+  mutable std::mutex storageStatsMutex_;
 };
 
 } // namespace facebook::velox::io

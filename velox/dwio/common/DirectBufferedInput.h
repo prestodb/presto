@@ -118,7 +118,8 @@ class DirectBufferedInput : public BufferedInput {
       : BufferedInput(
             std::move(readFile),
             readerOptions.memoryPool(),
-            metricsLog),
+            metricsLog,
+            ioStats.get()),
         fileNum_(fileNum),
         tracker_(std::move(tracker)),
         groupId_(groupId),

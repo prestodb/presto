@@ -108,6 +108,24 @@ IoStatistics::operationStats() const {
   return operationStats_;
 }
 
+std::unordered_map<std::string, RuntimeMetric> IoStatistics::storageStats()
+    const {
+  std::lock_guard<std::mutex> lock{storageStatsMutex_};
+  return storageStats_;
+}
+
+void IoStatistics::addStorageStats(
+    const std::string& name,
+    const RuntimeCounter& counter) {
+  std::lock_guard<std::mutex> lock{storageStatsMutex_};
+  if (storageStats_.count(name) == 0) {
+    storageStats_.emplace(name, RuntimeMetric(counter.unit));
+  } else {
+    VELOX_CHECK_EQ(storageStats_.at(name).unit, counter.unit);
+  }
+  storageStats_.at(name).addValue(counter.value);
+}
+
 void IoStatistics::merge(const IoStatistics& other) {
   rawBytesRead_ += other.rawBytesRead_;
   rawBytesWritten_ += other.rawBytesWritten_;
@@ -119,9 +137,20 @@ void IoStatistics::merge(const IoStatistics& other) {
   ramHit_.merge(other.ramHit_);
   ssdRead_.merge(other.ssdRead_);
   queryThreadIoLatency_.merge(other.queryThreadIoLatency_);
-  std::lock_guard<std::mutex> l(operationStatsMutex_);
-  for (auto& item : other.operationStats_) {
-    operationStats_[item.first].merge(item.second);
+  {
+    const auto& otherOperationStats = other.operationStats();
+    std::lock_guard<std::mutex> l(operationStatsMutex_);
+    for (auto& item : otherOperationStats) {
+      operationStats_[item.first].merge(item.second);
+    }
+  }
+
+  {
+    const auto& otherStorageStats = other.storageStats();
+    std::lock_guard<std::mutex> storageStatsLock(storageStatsMutex_);
+    for (auto& item : otherStorageStats) {
+      storageStats_[item.first].merge(item.second);
+    }
   }
 }
 

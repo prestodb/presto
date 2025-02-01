@@ -38,8 +38,11 @@ class TestReadFile : public velox::ReadFile {
     return length_;
   }
 
-  std::string_view pread(uint64_t offset, uint64_t length, void* buffer)
-      const override {
+  std::string_view pread(
+      uint64_t offset,
+      uint64_t length,
+      void* buffer,
+      io::IoStatistics* stats = nullptr) const override {
     const uint64_t content = offset + seed_;
     const uint64_t available = std::min(length_ - offset, length);
     int fill;
@@ -51,8 +54,9 @@ class TestReadFile : public velox::ReadFile {
 
   uint64_t preadv(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) const override {
-    auto res = ReadFile::preadv(offset, buffers);
+      const std::vector<folly::Range<char*>>& buffers,
+      io::IoStatistics* stats = nullptr) const override {
+    auto res = ReadFile::preadv(offset, buffers, stats);
     ++numIos_;
     return res;
   }

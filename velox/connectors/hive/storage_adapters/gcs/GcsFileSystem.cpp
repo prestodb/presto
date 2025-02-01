@@ -97,13 +97,19 @@ class GcsReadFile final : public ReadFile {
     VELOX_CHECK_GE(length_, 0);
   }
 
-  std::string_view pread(uint64_t offset, uint64_t length, void* buffer)
-      const override {
+  std::string_view pread(
+      uint64_t offset,
+      uint64_t length,
+      void* buffer,
+      io::IoStatistics* stats = nullptr) const override {
     preadInternal(offset, length, static_cast<char*>(buffer));
     return {static_cast<char*>(buffer), length};
   }
 
-  std::string pread(uint64_t offset, uint64_t length) const override {
+  std::string pread(
+      uint64_t offset,
+      uint64_t length,
+      io::IoStatistics* stats = nullptr) const override {
     std::string result(length, 0);
     char* position = result.data();
     preadInternal(offset, length, position);
@@ -112,7 +118,8 @@ class GcsReadFile final : public ReadFile {
 
   uint64_t preadv(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) const override {
+      const std::vector<folly::Range<char*>>& buffers,
+      io::IoStatistics* stats = nullptr) const override {
     // 'buffers' contains Ranges(data, size)  with some gaps (data = nullptr) in
     // between. This call must populate the ranges (except gap ranges)
     // sequentially starting from 'offset'. If a range pointer is nullptr, the

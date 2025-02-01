@@ -58,12 +58,17 @@ class AbfsReadFile::Impl {
     VELOX_CHECK_GE(length_, 0);
   }
 
-  std::string_view pread(uint64_t offset, uint64_t length, void* buffer) const {
+  std::string_view pread(
+      uint64_t offset,
+      uint64_t length,
+      void* buffer,
+      io::IoStatistics* stats) const {
     preadInternal(offset, length, static_cast<char*>(buffer));
     return {static_cast<char*>(buffer), length};
   }
 
-  std::string pread(uint64_t offset, uint64_t length) const {
+  std::string pread(uint64_t offset, uint64_t length, io::IoStatistics* stats)
+      const {
     std::string result(length, 0);
     preadInternal(offset, length, result.data());
     return result;
@@ -71,7 +76,8 @@ class AbfsReadFile::Impl {
 
   uint64_t preadv(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) const {
+      const std::vector<folly::Range<char*>>& buffers,
+      io::IoStatistics* stats) const {
     size_t length = 0;
     auto size = buffers.size();
     for (auto& range : buffers) {
@@ -92,14 +98,15 @@ class AbfsReadFile::Impl {
 
   uint64_t preadv(
       folly::Range<const common::Region*> regions,
-      folly::Range<folly::IOBuf*> iobufs) const {
+      folly::Range<folly::IOBuf*> iobufs,
+      io::IoStatistics* stats) const {
     size_t length = 0;
     VELOX_CHECK_EQ(regions.size(), iobufs.size());
     for (size_t i = 0; i < regions.size(); ++i) {
       const auto& region = regions[i];
       auto& output = iobufs[i];
       output = folly::IOBuf(folly::IOBuf::CREATE, region.length);
-      pread(region.offset, region.length, output.writableData());
+      pread(region.offset, region.length, output.writableData(), stats);
       output.append(region.length);
       length += region.length;
     }
@@ -156,25 +163,33 @@ void AbfsReadFile::initialize(const FileOptions& options) {
   return impl_->initialize(options);
 }
 
-std::string_view
-AbfsReadFile::pread(uint64_t offset, uint64_t length, void* buffer) const {
-  return impl_->pread(offset, length, buffer);
+std::string_view AbfsReadFile::pread(
+    uint64_t offset,
+    uint64_t length,
+    void* buffer,
+    io::IoStatistics* stats) const {
+  return impl_->pread(offset, length, buffer, stats);
 }
 
-std::string AbfsReadFile::pread(uint64_t offset, uint64_t length) const {
-  return impl_->pread(offset, length);
+std::string AbfsReadFile::pread(
+    uint64_t offset,
+    uint64_t length,
+    io::IoStatistics* stats) const {
+  return impl_->pread(offset, length, stats);
 }
 
 uint64_t AbfsReadFile::preadv(
     uint64_t offset,
-    const std::vector<folly::Range<char*>>& buffers) const {
-  return impl_->preadv(offset, buffers);
+    const std::vector<folly::Range<char*>>& buffers,
+    io::IoStatistics* stats) const {
+  return impl_->preadv(offset, buffers, stats);
 }
 
 uint64_t AbfsReadFile::preadv(
     folly::Range<const common::Region*> regions,
-    folly::Range<folly::IOBuf*> iobufs) const {
-  return impl_->preadv(regions, iobufs);
+    folly::Range<folly::IOBuf*> iobufs,
+    io::IoStatistics* stats) const {
+  return impl_->preadv(regions, iobufs, stats);
 }
 
 uint64_t AbfsReadFile::size() const {

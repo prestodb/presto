@@ -32,7 +32,7 @@ class ReadFileMock : public ::facebook::velox::ReadFile {
   MOCK_METHOD(
       std::string_view,
       pread,
-      (uint64_t offset, uint64_t length, void* buf),
+      (uint64_t offset, uint64_t length, void* buf, IoStatistics* stats),
       (const, override));
 
   MOCK_METHOD(bool, shouldCoalesce, (), (const, override));
@@ -43,7 +43,9 @@ class ReadFileMock : public ::facebook::velox::ReadFile {
   MOCK_METHOD(
       uint64_t,
       preadv,
-      (folly::Range<const Region*> regions, folly::Range<folly::IOBuf*> iobufs),
+      (folly::Range<const Region*> regions,
+       folly::Range<folly::IOBuf*> iobufs,
+       IoStatistics* stats),
       (const, override));
 };
 
@@ -55,11 +57,14 @@ void expectPreads(
   EXPECT_CALL(file, size()).WillRepeatedly(Return(content.size()));
   for (auto& read : reads) {
     ASSERT_GE(content.size(), read.offset + read.length);
-    EXPECT_CALL(file, pread(read.offset, read.length, _))
+    EXPECT_CALL(file, pread(read.offset, read.length, _, nullptr))
         .Times(1)
         .WillOnce(
-            [content](uint64_t offset, uint64_t length, void* buf)
-                -> std::string_view {
+            [content](
+                uint64_t offset,
+                uint64_t length,
+                void* buf,
+                IoStatistics* stats) -> std::string_view {
               memcpy(buf, content.data() + offset, length);
               return {content.data() + offset, length};
             });
@@ -72,12 +77,13 @@ void expectPreadvs(
     std::vector<Region> reads) {
   EXPECT_CALL(file, getName()).WillRepeatedly(Return("mock_name"));
   EXPECT_CALL(file, size()).WillRepeatedly(Return(content.size()));
-  EXPECT_CALL(file, preadv(_, _))
+  EXPECT_CALL(file, preadv(_, _, nullptr))
       .Times(1)
       .WillOnce(
           [content, reads](
               folly::Range<const Region*> regions,
-              folly::Range<folly::IOBuf*> iobufs) -> uint64_t {
+              folly::Range<folly::IOBuf*> iobufs,
+              IoStatistics* stats) -> uint64_t {
             EXPECT_EQ(regions.size(), reads.size());
             uint64_t length = 0;
             for (size_t i = 0; i < reads.size(); ++i) {

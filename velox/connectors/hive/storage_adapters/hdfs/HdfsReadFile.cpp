@@ -159,12 +159,18 @@ HdfsReadFile::HdfsReadFile(
 
 HdfsReadFile::~HdfsReadFile() = default;
 
-std::string_view
-HdfsReadFile::pread(uint64_t offset, uint64_t length, void* buf) const {
+std::string_view HdfsReadFile::pread(
+    uint64_t offset,
+    uint64_t length,
+    void* buf,
+    io::IoStatistics* stats) const {
   return pImpl->pread(offset, length, buf);
 }
 
-std::string HdfsReadFile::pread(uint64_t offset, uint64_t length) const {
+std::string HdfsReadFile::pread(
+    uint64_t offset,
+    uint64_t length,
+    io::IoStatistics* stats) const {
   return pImpl->pread(offset, length);
 }
 

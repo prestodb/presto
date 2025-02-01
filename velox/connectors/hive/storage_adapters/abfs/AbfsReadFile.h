@@ -31,18 +31,26 @@ class AbfsReadFile final : public ReadFile {
 
   void initialize(const FileOptions& options);
 
-  std::string_view pread(uint64_t offset, uint64_t length, void* buf)
-      const final;
+  std::string_view pread(
+      uint64_t offset,
+      uint64_t length,
+      void* buf,
+      io::IoStatistics* stats = nullptr) const final;
 
-  std::string pread(uint64_t offset, uint64_t length) const final;
+  std::string pread(
+      uint64_t offset,
+      uint64_t length,
+      io::IoStatistics* stats = nullptr) const final;
 
   uint64_t preadv(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) const final;
+      const std::vector<folly::Range<char*>>& buffers,
+      io::IoStatistics* stats = nullptr) const final;
 
   uint64_t preadv(
       folly::Range<const common::Region*> regions,
-      folly::Range<folly::IOBuf*> iobufs) const final;
+      folly::Range<folly::IOBuf*> iobufs,
+      io::IoStatistics* stats = nullptr) const final;
 
   uint64_t size() const final;
 
