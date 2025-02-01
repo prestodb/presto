@@ -22,7 +22,7 @@ add_dependencies(presto_types presto_operators presto_type_converter velox_type
                  velox_type_fbhive)
 
 target_link_libraries(presto_types presto_type_converter velox_type_fbhive
-                      velox_hive_partition_function velox_tpch_gen)
+                      velox_hive_partition_function velox_tpch_gen velox_functions_json)
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 

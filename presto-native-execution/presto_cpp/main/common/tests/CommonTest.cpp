@@ -21,7 +21,7 @@ using namespace facebook::velox;
 using namespace facebook::presto;
 
 TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
-  config::globalConfig.exceptionUserStacktraceEnabled = true;
+  config::globalConfig().exceptionUserStacktraceEnabled = true;
   for (const bool withContext : {false, true}) {
     for (const bool withAdditionalContext : {false, true}) {
       SCOPED_TRACE(fmt::format("withContext: {}", withContext));
