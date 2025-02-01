@@ -184,5 +184,17 @@ TEST(ApproxMostFrequentStreamSummaryTest, mergeSerialized) {
   }
 }
 
+TEST(ApproxMostFrequentStreamSummaryTest, capacity) {
+  constexpr int kCapacity = 30;
+  ApproxMostFrequentStreamSummary<int> summary;
+  summary.setCapacity(kCapacity);
+  ASSERT_EQ(summary.capacity(), 30);
+}
+
+TEST(ApproxMostFrequentStreamSummaryTest, unsetCapacity) {
+  ApproxMostFrequentStreamSummary<int> summary;
+  ASSERT_EQ(summary.capacity(), 0);
+}
+
 } // namespace
 } // namespace facebook::velox::functions

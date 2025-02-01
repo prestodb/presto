@@ -68,6 +68,9 @@ struct ApproxMostFrequentStreamSummary {
   /// Return the number of distinct values currently being tracked.
   int size() const;
 
+  // Return the maximum number of distinct values that can be tracked.
+  int capacity() const;
+
   /// Return the pointer to values data.  The number of values equals to size().
   const T* values() const {
     return queue_.values();
@@ -105,6 +108,11 @@ void ApproxMostFrequentStreamSummary<T, A>::setCapacity(int capacity) {
 template <typename T, typename A>
 int ApproxMostFrequentStreamSummary<T, A>::size() const {
   return queue_.size();
+}
+
+template <typename T, typename A>
+int ApproxMostFrequentStreamSummary<T, A>::capacity() const {
+  return capacity_;
 }
 
 template <typename T, typename A>
