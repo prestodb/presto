@@ -515,7 +515,8 @@ Property Name                                          Description              
 ``iceberg.io.manifest.cache.max-total-bytes``          Maximum size of cache size in bytes.                            ``104857600``
 
 ``iceberg.io.manifest.cache.expiration-interval-ms``   Maximum time duration in milliseconds for which an entry        ``60000``
-                                                       stays in the manifest cache.
+                                                       stays in the manifest cache. Set to 0 to disable entry
+                                                       expiration.
 
 ``iceberg.io.manifest.cache.max-content-length``       Maximum length of a manifest file to be considered for          ``8388608``
                                                        caching in bytes. Manifest files with a length exceeding
