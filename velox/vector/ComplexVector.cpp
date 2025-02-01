@@ -687,24 +687,17 @@ struct Wrapper {
   BufferPtr indices;
 };
 
-void combineWrappers(
-    std::vector<Wrapper>& wrappers,
+template <typename F>
+void forEachCombinedIndex(
+    const std::vector<Wrapper>& wrappers,
     vector_size_t size,
-    memory::MemoryPool* pool) {
-  std::vector<BufferPtr> wrapInfos(wrappers.size());
+    F&& f) {
   std::vector<const vector_size_t*> sourceIndices(wrappers.size());
-  uint64_t* rawNulls = nullptr;
   for (int i = 0; i < wrappers.size(); ++i) {
-    wrapInfos[i] = wrappers[i].dictionary->wrapInfo();
-    VELOX_CHECK_NOT_NULL(wrapInfos[i]);
-    sourceIndices[i] = wrapInfos[i]->as<vector_size_t>();
-    if (!rawNulls && wrappers[i].dictionary->nulls()) {
-      wrappers.back().nulls = allocateNulls(size, pool);
-      rawNulls = wrappers.back().nulls->asMutable<uint64_t>();
-    }
+    auto& wrapInfo = wrappers[i].dictionary->wrapInfo();
+    VELOX_CHECK_NOT_NULL(wrapInfo);
+    sourceIndices[i] = wrapInfo->as<vector_size_t>();
   }
-  wrappers.back().indices = allocateIndices(size, pool);
-  auto* rawIndices = wrappers.back().indices->asMutable<vector_size_t>();
   for (vector_size_t j = 0; j < size; ++j) {
     auto index = j;
     bool isNull = false;
@@ -715,12 +708,55 @@ void combineWrappers(
       }
       index = sourceIndices[i][index];
     }
-    if (isNull) {
-      bits::setNull(rawNulls, j);
-    } else {
-      rawIndices[j] = index;
+    f(j, index, isNull);
+  }
+}
+
+void combineWrappers(
+    std::vector<Wrapper>& wrappers,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  uint64_t* rawNulls = nullptr;
+  for (int i = 0; i < wrappers.size(); ++i) {
+    if (!rawNulls && wrappers[i].dictionary->nulls()) {
+      wrappers.back().nulls = allocateNulls(size, pool);
+      rawNulls = wrappers.back().nulls->asMutable<uint64_t>();
+      break;
     }
   }
+  wrappers.back().indices = allocateIndices(size, pool);
+  auto* rawIndices = wrappers.back().indices->asMutable<vector_size_t>();
+  forEachCombinedIndex(
+      wrappers,
+      size,
+      [&](vector_size_t outer, vector_size_t inner, bool isNull) {
+        if (isNull) {
+          bits::setNull(rawNulls, outer);
+        } else {
+          rawIndices[outer] = inner;
+        }
+      });
+}
+
+BufferPtr combineNulls(
+    const std::vector<Wrapper>& wrappers,
+    vector_size_t size,
+    const uint64_t* valueNulls,
+    memory::MemoryPool* pool) {
+  if (wrappers.size() == 1 && !valueNulls) {
+    return wrappers[0].dictionary->nulls();
+  }
+  auto nulls = allocateNulls(size, pool);
+  auto* rawNulls = nulls->asMutable<uint64_t>();
+  forEachCombinedIndex(
+      wrappers,
+      size,
+      [&](vector_size_t outer, vector_size_t inner, bool isNull) {
+        if (isNull || (valueNulls && bits::isBitNull(valueNulls, inner))) {
+          bits::setNull(rawNulls, outer);
+        }
+      });
+  return nulls;
 }
 
 VectorPtr wrapInDictionary(
@@ -765,9 +801,11 @@ VectorPtr pushDictionaryToRowVectorLeavesImpl(
     }
     case VectorEncoding::Simple::ROW: {
       VELOX_CHECK_EQ(values->typeKind(), TypeKind::ROW);
+      auto nulls = values->nulls();
       for (auto& wrapper : wrappers) {
         if (wrapper.dictionary->nulls()) {
-          return wrapInDictionary(wrappers, size, values, pool);
+          nulls = combineNulls(wrappers, size, values->rawNulls(), pool);
+          break;
         }
       }
       auto children = values->asUnchecked<RowVector>()->children();
@@ -778,11 +816,7 @@ VectorPtr pushDictionaryToRowVectorLeavesImpl(
         }
       }
       return std::make_shared<RowVector>(
-          pool,
-          values->type(),
-          values->nulls(),
-          values->size(),
-          std::move(children));
+          pool, values->type(), std::move(nulls), size, std::move(children));
     }
     case VectorEncoding::Simple::DICTIONARY: {
       Wrapper wrapper{values, nullptr, nullptr};

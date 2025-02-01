@@ -246,11 +246,14 @@ class RowVector : public BaseVector {
   /// Note : If the child is null, then it will stay null after the resize.
   void resize(vector_size_t newSize, bool setNotNull = true) override;
 
-  /// Push all dictionary encoding to the leave vectors of a RowVector tree
+  /// Push all dictionary encoding to the leaf vectors of a RowVector tree
   /// (i.e. we traverse the tree consists of RowVectors, possibly wrapped in
   /// DictionaryVector, and no traverse into other complex types like array or
-  /// map children).  If the wrapper introduce nulls on RowVector, we don't push
-  /// the dictionary into that RowVector.  The input vector should not contain
+  /// map children).  When the input is not ROW, we combine adjacent DICT
+  /// layers.
+  ///
+  /// When new nulls are introduced on RowVector, we combine it
+  /// with the existing nulls on RowVector.  The input vector should not contain
   /// any unloaded lazy.
   ///
   /// This is used for example in writing Nimble ArrayWithOffsets and

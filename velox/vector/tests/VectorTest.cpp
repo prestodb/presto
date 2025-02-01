@@ -3824,20 +3824,6 @@ TEST_F(VectorTest, pushDictionaryToRowVectorLeaves) {
                 iota),
             // c3
             iota,
-            // c4
-            wrapInDictionary(
-                makeIndicesInReverse(10),
-                makeRowVector({
-                    iota,
-                    wrapInDictionary(makeIndicesInReverse(10), iota),
-                    iota,
-                })),
-            // c5
-            BaseVector::wrapInDictionary(
-                makeNulls(10, nullEvery(7)),
-                makeIndicesInReverse(10),
-                10,
-                makeRowVector({iota, iota})),
         }));
     output = RowVector::pushDictionaryToRowVectorLeaves(input);
     test::assertEqualVectors(input, output);
@@ -3857,24 +3843,51 @@ TEST_F(VectorTest, pushDictionaryToRowVectorLeaves) {
     auto& c3 = outputRow->childAt(3);
     ASSERT_EQ(c3->encoding(), VectorEncoding::Simple::DICTIONARY);
     ASSERT_EQ(c3->wrapInfo().get(), c0->wrapInfo().get());
-    auto& c4 = outputRow->childAt(4);
-    ASSERT_EQ(c4->encoding(), VectorEncoding::Simple::ROW);
-    auto* c4Row = c4->asUnchecked<RowVector>();
-    auto& c4c0 = c4Row->childAt(0);
-    ASSERT_EQ(c4c0->encoding(), VectorEncoding::Simple::DICTIONARY);
-    auto& c4c1 = c4Row->childAt(1);
-    ASSERT_EQ(c4c1->encoding(), VectorEncoding::Simple::DICTIONARY);
-    auto& c4c2 = c4Row->childAt(2);
-    ASSERT_EQ(c4c2->encoding(), VectorEncoding::Simple::DICTIONARY);
-    ASSERT_EQ(c4c0->wrapInfo().get(), c4c2->wrapInfo().get());
-    auto& c5 = outputRow->childAt(5);
-    ASSERT_EQ(c5->encoding(), VectorEncoding::Simple::DICTIONARY);
-    ASSERT_EQ(c5->valueVector()->encoding(), VectorEncoding::Simple::ROW);
-    auto* c5Row = c5->valueVector()->asUnchecked<RowVector>();
-    auto& c5c0 = c5Row->childAt(0);
-    ASSERT_EQ(c5c0->encoding(), VectorEncoding::Simple::FLAT);
-    auto& c5c1 = c5Row->childAt(1);
-    ASSERT_EQ(c5c1->encoding(), VectorEncoding::Simple::FLAT);
+  }
+  {
+    SCOPED_TRACE("Nested ROW");
+    input = wrapInDictionary(
+        makeIndicesInReverse(10),
+        makeRowVector({
+            wrapInDictionary(
+                makeIndicesInReverse(10),
+                makeRowVector({
+                    iota,
+                    wrapInDictionary(makeIndicesInReverse(10), iota),
+                    iota,
+                })),
+        }));
+    output = RowVector::pushDictionaryToRowVectorLeaves(input);
+    test::assertEqualVectors(input, output);
+    auto* c0 =
+        output->asChecked<RowVector>()->childAt(0)->asChecked<RowVector>();
+    auto& c0c0 = c0->childAt(0);
+    ASSERT_EQ(c0c0->encoding(), VectorEncoding::Simple::DICTIONARY);
+    auto& c0c1 = c0->childAt(1);
+    ASSERT_EQ(c0c1->encoding(), VectorEncoding::Simple::DICTIONARY);
+    auto& c0c2 = c0->childAt(2);
+    ASSERT_EQ(c0c2->encoding(), VectorEncoding::Simple::DICTIONARY);
+    ASSERT_EQ(c0c0->wrapInfo().get(), c0c2->wrapInfo().get());
+  }
+  {
+    SCOPED_TRACE("Nulls over ROW");
+    input = wrapInDictionary(
+        makeIndicesInReverse(10),
+        makeRowVector({
+            BaseVector::wrapInDictionary(
+                makeNulls(10, nullEvery(7)),
+                makeIndicesInReverse(10),
+                10,
+                makeRowVector({iota, iota})),
+        }));
+    output = RowVector::pushDictionaryToRowVectorLeaves(input);
+    test::assertEqualVectors(input, output);
+    auto* c0 =
+        output->asChecked<RowVector>()->childAt(0)->asChecked<RowVector>();
+    auto& c0c0 = c0->childAt(0);
+    ASSERT_EQ(c0c0->encoding(), VectorEncoding::Simple::DICTIONARY);
+    auto& c0c1 = c0->childAt(1);
+    ASSERT_EQ(c0c1->encoding(), VectorEncoding::Simple::DICTIONARY);
   }
 }
 
