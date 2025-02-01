@@ -121,7 +121,7 @@ public class IcebergNativeCatalogFactory
     {
         Map<String, String> properties = new HashMap<>();
         if (icebergConfig.getManifestCachingEnabled()) {
-            loadCachingProperties(properties, icebergConfig);
+            properties.putAll(loadCachingProperties(icebergConfig));
         }
         if (icebergConfig.getFileIOImpl() != null) {
             properties.put(FILE_IO_IMPL, icebergConfig.getFileIOImpl());

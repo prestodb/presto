@@ -44,6 +44,7 @@ import com.facebook.presto.iceberg.IcebergSessionProperties;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergTableType;
+import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -373,7 +374,8 @@ public class TestRenameTableOnFragileFileSystem
         }
     }
 
-    private void createFile(FileSystem fileSystem, Path path, byte[] content) throws IOException
+    private void createFile(FileSystem fileSystem, Path path, byte[] content)
+            throws IOException
     {
         FSDataOutputStream outputStream = fileSystem.create(path, true, 1024);
         outputStream.write(content);
@@ -411,7 +413,8 @@ public class TestRenameTableOnFragileFileSystem
                 new NodeVersion("test_node_v1"),
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new IcebergHiveTableOperationsConfig(),
-                new StatisticsFileCache(CacheBuilder.newBuilder().build()));
+                new StatisticsFileCache(CacheBuilder.newBuilder().build()),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024));
         return icebergHiveMetadataFactory.create();
     }
 
@@ -490,25 +493,29 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public FSDataInputStream open(Path f, int bufferSize) throws IOException
+        public FSDataInputStream open(Path f, int bufferSize)
+                throws IOException
         {
             return delegate.open(f, bufferSize);
         }
 
         @Override
-        public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress) throws IOException
+        public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
+                throws IOException
         {
             return delegate.create(f, permission, overwrite, bufferSize, replication, blockSize, progress);
         }
 
         @Override
-        public FSDataOutputStream append(Path f, int bufferSize, Progressable progress) throws IOException
+        public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
+                throws IOException
         {
             return delegate.append(f, bufferSize, progress);
         }
 
         @Override
-        public boolean rename(Path src, Path dst) throws IOException
+        public boolean rename(Path src, Path dst)
+                throws IOException
         {
             if (failSignal.get() == FailSignal.RENAME) {
                 return false;
@@ -517,7 +524,8 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public boolean delete(Path f, boolean recursive) throws IOException
+        public boolean delete(Path f, boolean recursive)
+                throws IOException
         {
             if (failSignal.get() == FailSignal.DELETE) {
                 return false;
@@ -526,7 +534,8 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public FileStatus[] listStatus(Path f) throws FileNotFoundException, IOException
+        public FileStatus[] listStatus(Path f)
+                throws FileNotFoundException, IOException
         {
             return delegate.listStatus(f);
         }
@@ -544,7 +553,8 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public boolean mkdirs(Path f, FsPermission permission) throws IOException
+        public boolean mkdirs(Path f, FsPermission permission)
+                throws IOException
         {
             if (this.failSignal.get() == FailSignal.MKDIRS) {
                 return false;
@@ -553,7 +563,8 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public FileStatus getFileStatus(Path f) throws IOException
+        public FileStatus getFileStatus(Path f)
+                throws IOException
         {
             return delegate.getFileStatus(f);
         }
