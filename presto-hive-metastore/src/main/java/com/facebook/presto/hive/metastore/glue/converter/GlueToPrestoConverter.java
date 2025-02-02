@@ -31,6 +31,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.hive.common.jsonexplain.Op;
 
 import java.util.List;
 import java.util.Locale;
@@ -166,6 +167,7 @@ public final class GlueToPrestoConverter
             }
 
             Partition.Builder partitionBuilder = Partition.builder()
+                    .setCatalogName(Optional.of("hive"))
                     .setDatabaseName(databaseName)
                     .setTableName(tableName)
                     .setValues(gluePartition.getValues()) // No memoization benefit

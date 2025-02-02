@@ -220,6 +220,7 @@ public class TestHiveClientFileMetastore
                 .putAll(dynamicPartitionParameters)
                 .build();
         return Partition.builder()
+                .setCatalogName(table.getCatalogName())
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())
