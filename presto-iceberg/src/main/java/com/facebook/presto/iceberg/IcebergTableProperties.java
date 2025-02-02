@@ -29,6 +29,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
@@ -44,6 +45,7 @@ public class IcebergTableProperties
     public static final String METADATA_PREVIOUS_VERSIONS_MAX = "metadata_previous_versions_max";
     public static final String METADATA_DELETE_AFTER_COMMIT = "metadata_delete_after_commit";
     public static final String METRICS_MAX_INFERRED_COLUMN = "metrics_max_inferred_column";
+    public static final String TARGET_SPLIT_SIZE = TableProperties.SPLIT_SIZE;
     private static final String DEFAULT_FORMAT_VERSION = "2";
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -112,6 +114,10 @@ public class IcebergTableProperties
                         "The maximum number of columns for which metrics are collected",
                         icebergConfig.getMetricsMaxInferredColumn(),
                         false))
+                .add(longProperty(TARGET_SPLIT_SIZE,
+                        "Desired size of split to generate during query scan planning",
+                        TableProperties.SPLIT_SIZE_DEFAULT,
+                        false))
                 .build();
 
         columnProperties = ImmutableList.of(stringProperty(
@@ -176,5 +182,10 @@ public class IcebergTableProperties
     public static Integer getMetricsMaxInferredColumn(Map<String, Object> tableProperties)
     {
         return (Integer) tableProperties.get(METRICS_MAX_INFERRED_COLUMN);
+    }
+
+    public static Long getTargetSplitSize(Map<String, Object> tableProperties)
+    {
+        return (Long) tableProperties.get(TableProperties.SPLIT_SIZE);
     }
 }

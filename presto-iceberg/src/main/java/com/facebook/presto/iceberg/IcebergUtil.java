@@ -49,6 +49,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.units.DataSize;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
@@ -61,6 +62,7 @@ import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowLevelOperationMode;
+import org.apache.iceberg.Scan;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SortOrder;
@@ -130,7 +132,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.TABLE_COMMENT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
@@ -196,6 +197,8 @@ import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEF
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
+import static org.apache.iceberg.TableProperties.SPLIT_SIZE_DEFAULT;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
@@ -856,10 +859,10 @@ public final class IcebergUtil
      * @param requestedSchema If provided, only delete files with this schema will be provided
      */
     public static CloseableIterable<DeleteFile> getDeleteFiles(Table table,
-                                                               long snapshot,
-                                                               TupleDomain<IcebergColumnHandle> filter,
-                                                               Optional<Set<Integer>> requestedPartitionSpec,
-                                                               Optional<Set<Integer>> requestedSchema)
+            long snapshot,
+            TupleDomain<IcebergColumnHandle> filter,
+            Optional<Set<Integer>> requestedPartitionSpec,
+            Optional<Set<Integer>> requestedSchema)
     {
         Expression filterExpression = toIcebergExpression(filter);
         CloseableIterable<FileScanTask> fileTasks = table.newScan().useSnapshot(snapshot).filter(filterExpression).planFiles();
@@ -1035,9 +1038,9 @@ public final class IcebergUtil
         private DeleteFile currentFile;
 
         private DeleteFilesIterator(Map<Integer, PartitionSpec> partitionSpecsById,
-                                    CloseableIterator<FileScanTask> fileTasks,
-                                    Optional<Set<Integer>> requestedPartitionSpec,
-                                    Optional<Set<Integer>> requestedSchema)
+                CloseableIterator<FileScanTask> fileTasks,
+                Optional<Set<Integer>> requestedPartitionSpec,
+                Optional<Set<Integer>> requestedSchema)
         {
             this.partitionSpecsById = partitionSpecsById;
             this.fileTasks = fileTasks;
@@ -1151,6 +1154,9 @@ public final class IcebergUtil
 
         Integer metricsMaxInferredColumn = IcebergTableProperties.getMetricsMaxInferredColumn(tableMetadata.getProperties());
         propertiesBuilder.put(METRICS_MAX_INFERRED_COLUMN_DEFAULTS, String.valueOf(metricsMaxInferredColumn));
+
+        propertiesBuilder.put(SPLIT_SIZE, String.valueOf(IcebergTableProperties.getTargetSplitSize(tableMetadata.getProperties())));
+
         return propertiesBuilder.build();
     }
 
@@ -1221,8 +1227,8 @@ public final class IcebergUtil
 
     /**
      * Get the metadata location for target {@link Table},
-     *  considering iceberg table properties {@code WRITE_METADATA_LOCATION}
-     * */
+     * considering iceberg table properties {@code WRITE_METADATA_LOCATION}
+     */
     public static String metadataLocation(Table icebergTable)
     {
         String metadataLocation = icebergTable.properties().get(TableProperties.WRITE_METADATA_LOCATION);
@@ -1237,8 +1243,8 @@ public final class IcebergUtil
 
     /**
      * Get the data location for target {@link Table},
-     *  considering iceberg table properties {@code WRITE_DATA_LOCATION}, {@code OBJECT_STORE_PATH} and {@code WRITE_FOLDER_STORAGE_LOCATION}
-     * */
+     * considering iceberg table properties {@code WRITE_DATA_LOCATION}, {@code OBJECT_STORE_PATH} and {@code WRITE_FOLDER_STORAGE_LOCATION}
+     */
     public static String dataLocation(Table icebergTable)
     {
         Map<String, String> properties = icebergTable.properties();
@@ -1253,5 +1259,24 @@ public final class IcebergUtil
             }
         }
         return dataLocation;
+    }
+
+    public static Long getSplitSize(Table table)
+    {
+        return Long.parseLong(table.properties()
+                .getOrDefault(SPLIT_SIZE,
+                        String.valueOf(SPLIT_SIZE_DEFAULT)));
+    }
+
+    public static DataSize getTargetSplitSize(long sessionValueProperty, long icebergScanTargetSplitSize)
+    {
+        return Optional.of(DataSize.succinctBytes(sessionValueProperty))
+                .filter(size -> !size.equals(DataSize.succinctBytes(0)))
+                .orElse(DataSize.succinctBytes(icebergScanTargetSplitSize));
+    }
+
+    public static DataSize getTargetSplitSize(ConnectorSession session, Scan<?, ?, ?> scan)
+    {
+        return getTargetSplitSize(IcebergSessionProperties.getTargetSplitSize(session), scan.targetSplitSize());
     }
 }

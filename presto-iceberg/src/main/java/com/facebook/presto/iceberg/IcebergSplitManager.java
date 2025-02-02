@@ -47,6 +47,7 @@ import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
+import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -95,7 +96,7 @@ public class IcebergSplitManager
             IncrementalChangelogScan scan = icebergTable.newIncrementalChangelogScan()
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
-            return new ChangelogSplitSource(session, typeManager, icebergTable, scan, scan.targetSplitSize());
+            return new ChangelogSplitSource(session, typeManager, icebergTable, scan, getTargetSplitSize(session, scan).toBytes());
         }
         else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
             CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
@@ -117,7 +118,7 @@ public class IcebergSplitManager
             IcebergSplitSource splitSource = new IcebergSplitSource(
                     session,
                     tableScan,
-                    TableScanUtil.splitFiles(tableScan.planFiles(), tableScan.targetSplitSize()),
+                    TableScanUtil.splitFiles(tableScan.planFiles(), getTargetSplitSize(session, tableScan).toBytes()),
                     getMinimumAssignedSplitWeight(session),
                     getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
             return splitSource;

@@ -41,9 +41,11 @@ import static com.facebook.presto.iceberg.IcebergUtil.REAL_NEGATIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
+import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public class TestIcebergUtil
 {
@@ -367,5 +369,12 @@ public class TestIcebergUtil
         assertThat(getAdjacentValue(DecimalType.createDecimalType(20, 2),
                 encodeScaledValue(new BigDecimal(111111111111111123.45)), false))
                 .isEmpty();
+    }
+
+    @Test
+    public void testGetTargetSplitSize()
+    {
+        assertEquals(1024, getTargetSplitSize(1024, 512).toBytes());
+        assertEquals(512, getTargetSplitSize(0, 512).toBytes());
     }
 }

@@ -180,7 +180,8 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   location = '%s',\n" +
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100\n" +
+                        "   metrics_max_inferred_column = 100,\n" +
+                        "   \"read.split.target-size\" = 134217728\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
     }
 
@@ -215,7 +216,8 @@ public class TestIcebergSmokeRestNestedNamespace
                 "   location = '%s',\n" +
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100\n" +
+                "   metrics_max_inferred_column = 100,\n" +
+                "   \"read.split.target-size\" = 134217728\n" +
                 ")";
         String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
 
@@ -255,7 +257,8 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
+                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
+                        "   \"read.split.target-size\" = 134217728\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -315,7 +318,8 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   location = '%s',\n" +
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100\n" +
+                        "   metrics_max_inferred_column = 100,\n" +
+                        "   \"read.split.target-size\" = 134217728\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),

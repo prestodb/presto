@@ -30,15 +30,19 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.TableProperties;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.TARGET_SPLIT_SIZE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -166,6 +170,36 @@ public class TestIcebergSplitManager
         assertQuerySucceeds("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testSplitSchedulingWithTablePropertyAndSession()
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", IcebergSessionProperties.TARGET_SPLIT_SIZE, "0")
+                .build();
+        assertQuerySucceeds("CREATE TABLE test_split_size as SELECT * FROM UNNEST(sequence(1, 512)) as t(i)");
+        // verify that the session property hasn't propagated into the table
+        assertEquals(getQueryRunner().execute("SELECT value FROM \"test_split_size$properties\" WHERE key = 'read.split.target-size'").getOnlyValue(),
+                Long.toString(TableProperties.SPLIT_SIZE_DEFAULT));
+        assertQuerySucceeds("ALTER TABLE test_split_size SET PROPERTIES (\"read.split.target-size\" = 1)");
+        String selectQuery = "SELECT * FROM test_split_size";
+        long maxSplits = getSplitsForSql(session, selectQuery);
+
+        IntStream.range(1, 5)
+                .mapToObj(i -> Math.pow(2, i))
+                .forEach(splitSize -> {
+                    assertQuerySucceeds("ALTER TABLE test_split_size SET PROPERTIES (\"read.split.target-size\" =" + splitSize.intValue() + ")");
+                    assertEquals(getSplitsForSql(session, selectQuery), (double) maxSplits / splitSize, 5);
+                });
+        // split size should be set to 32 on the table property.
+        // Set it to 1 with the session property to override the table value and verify we get the
+        // same number of splits as when the table value is set to 1.
+        Session minSplitSession = Session.builder(session)
+                .setCatalogSessionProperty("iceberg", TARGET_SPLIT_SIZE, "1")
+                .build();
+        assertEquals(getSplitsForSql(minSplitSession, selectQuery), maxSplits);
+        assertQuerySucceeds("DROP TABLE test_split_size");
+    }
+
     private Session sessionWithFilterPushdown(boolean pushdown)
     {
         return Session.builder(getQueryRunner().getDefaultSession())
@@ -173,11 +207,42 @@ public class TestIcebergSplitManager
                 .build();
     }
 
+    private long getSplitsForSql(Session session, String sql)
+    {
+        TransactionManager transactionManager = getQueryRunner().getTransactionManager();
+        SplitManager splitManager = getQueryRunner().getSplitManager();
+
+        List<TableScanNode> tableScanNodes = getTableScanFromOptimizedPlanOfSql(sql, session);
+        assertNotNull(tableScanNodes);
+        assertEquals(tableScanNodes.size(), 1);
+
+        TransactionId transactionId = transactionManager.beginTransaction(false);
+        session = session.beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
+        TableHandle tableHandle = tableScanNodes.get(0).getTable();
+        TableHandle newTableHandle = new TableHandle(tableHandle.getConnectorId(),
+                tableHandle.getConnectorHandle(),
+                transactionManager.getConnectorTransaction(transactionId, tableHandle.getConnectorId()),
+                tableHandle.getLayout(),
+                tableHandle.getDynamicFilter());
+
+        try (SplitSource splitSource = splitManager.getSplits(session, newTableHandle, SplitSchedulingStrategy.UNGROUPED_SCHEDULING, WarningCollector.NOOP)) {
+            int splits = 0;
+            while (!splitSource.isFinished()) {
+                splits += splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1024).get().getSplits().size();
+            }
+            assertTrue(splitSource.isFinished());
+            return splits;
+        }
+        catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private void validateSplitsPlannedForSql(SplitManager splitManager,
-                                            TransactionManager transactionManager,
-                                            boolean filterPushdown,
-                                            String sql,
-                                            int expectedSplitCount)
+            TransactionManager transactionManager,
+            boolean filterPushdown,
+            String sql,
+            int expectedSplitCount)
     {
         Session session = sessionWithFilterPushdown(filterPushdown);
         List<TableScanNode> tableScanNodes = getTableScanFromOptimizedPlanOfSql(sql, session);
