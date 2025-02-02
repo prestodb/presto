@@ -31,7 +31,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.hive.common.jsonexplain.Op;
 
 import java.util.List;
 import java.util.Locale;
