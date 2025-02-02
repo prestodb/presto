@@ -34,10 +34,6 @@ public class TestingTracingManager
      */
     public void addOpenTelemetryFactory(TelemetryFactory telemetryFactory)
     {
-/*        requireNonNull(telemetryFactory, "openTelemetryFactory is null");
-        if (openTelemetryFactories.putIfAbsent(telemetryFactory.getName(), telemetryFactory) != null) {
-            throw new IllegalArgumentException(format("openTelemetry factory '%s' is already registered", telemetryFactory.getName()));
-        }*/
         if ("oteltest".equals(telemetryFactory.getName())) {
             configuredTelemetryTracing.set((TestingTelemetryTracing) telemetryFactory.create());
         }
@@ -49,11 +45,6 @@ public class TestingTracingManager
 
     public void loadConfiguredOpenTelemetry()
     {
-/*        TelemetryFactory openTelemetryFactory = openTelemetryFactories.get("oteltest");
-        this.configuredTelemetryTracing.set((TestingTelemetryTracing) openTelemetryFactory.create());*/
-
-        //log.debug("setting telemetry properties");
-        //TelemetryConfig.getTelemetryConfig().setTelemetryProperties(properties);
         configuredTelemetryTracing.get().loadConfiguredOpenTelemetry();
     }
 
