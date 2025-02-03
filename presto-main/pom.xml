@@ -467,6 +467,12 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-function-namespace-managers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers-common</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -520,11 +526,6 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-function-namespace-managers</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
