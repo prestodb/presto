@@ -288,7 +288,7 @@ public class IndexLookup
     {
         double ratio = ((double) smallestCardinality / (double) numRows);
         double threshold = getIndexSmallCardThreshold(session);
-        LOG.debug("Smallest cardinality is %d, num rows is %d, ratio is %2f with threshold of %f", smallestCardinality, numRows, ratio, threshold);
+        LOG.debug("Smallest cardinality is %d, num rows is %d, ratio is %.2f with threshold of %f", smallestCardinality, numRows, ratio, threshold);
         return ratio > threshold;
     }
 
