@@ -815,7 +815,7 @@ public class TestHiveSplitManager
                 return ImmutableList.of(
                         createHiveFileInfo(
                                 new LocatedFileStatus(
-                                        new FileStatus(0, false, 1, 0, 0, path),
+                                        new FileStatus(0, false, 1, 0, 0, new Path(path.toString() + "/" + "test_file_name")),
                                         new BlockLocation[] {}),
                                 Optional.empty()))
                         .iterator();
