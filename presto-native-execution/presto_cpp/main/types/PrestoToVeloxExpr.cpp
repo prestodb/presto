@@ -21,8 +21,16 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/JsonSignatureParser.h"
+#include "velox/expression/FunctionSignature.h"
+#include "velox/functions/remote/client/Remote.h"
+#endif
 
 using namespace facebook::velox::core;
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+using facebook::velox::functions::remote::PageFormat;
+#endif
 using facebook::velox::TypeKind;
 
 namespace facebook::presto {
@@ -126,6 +134,61 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
 }
 
 } // namespace
+
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+TypedExprPtr VeloxExprConverter::registerRestRemoteFunction(
+    const protocol::RestFunctionHandle& restFunctionHandle,
+    const std::vector<TypedExprPtr>& args,
+    const velox::TypePtr& returnType) const {
+  const auto* systemConfig = SystemConfig::instance();
+
+  velox::functions::RemoteVectorFunctionMetadata metadata;
+  const auto& serdeName = systemConfig->remoteFunctionServerSerde();
+  if (serdeName == "presto_page") {
+    metadata.serdeFormat = PageFormat::PRESTO_PAGE;
+  } else {
+    VELOX_FAIL(
+        "presto_page serde is expected by remote function server but got : '{}'",
+        serdeName);
+  }
+  metadata.location = systemConfig->remoteFunctionRestUrl();
+  metadata.functionId = restFunctionHandle.functionId;
+  metadata.version = restFunctionHandle.version;
+
+  const auto& prestoSignature = restFunctionHandle.signature;
+  velox::exec::FunctionSignatureBuilder signatureBuilder;
+
+  for (const auto& typeVar : prestoSignature.typeVariableConstraints) {
+    signatureBuilder.typeVariable(typeVar.name);
+  }
+
+  for (const auto& longVar : prestoSignature.longVariableConstraints) {
+    signatureBuilder.integerVariable(longVar.name);
+  }
+
+  signatureBuilder.returnType(prestoSignature.returnType);
+
+  for (const auto& argType : prestoSignature.argumentTypes) {
+    signatureBuilder.argumentType(argType);
+  }
+
+  if (prestoSignature.variableArity) {
+    signatureBuilder.variableArity();
+  }
+
+  auto signature = signatureBuilder.build();
+  std::vector<velox::exec::FunctionSignaturePtr> veloxSignatures = {signature};
+
+  velox::functions::registerRemoteFunction(
+      getFunctionName(restFunctionHandle.functionId),
+      veloxSignatures,
+      metadata,
+      false);
+
+  return std::make_shared<CallTypedExpr>(
+      returnType, args, getFunctionName(restFunctionHandle.functionId));
+}
+#endif
 
 velox::variant VeloxExprConverter::getConstantValue(
     const velox::TypePtr& type,
@@ -504,10 +567,22 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
               pexpr.functionHandle)) {
     auto args = toVeloxExpr(pexpr.arguments);
     auto returnType = typeParser_->parse(pexpr.returnType);
+
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  else if (
+      auto restFunctionHandle =
+          std::dynamic_pointer_cast<protocol::RestFunctionHandle>(
+              pexpr.functionHandle)) {
+    // Defer to our new helper function for restFunctionHandle.
+    auto args = toVeloxExpr(pexpr.arguments);
+    auto returnType = typeParser_->parse(pexpr.returnType);
 
+    return registerRestRemoteFunction(*restFunctionHandle, args, returnType);
+  }
+#endif
   VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
 
