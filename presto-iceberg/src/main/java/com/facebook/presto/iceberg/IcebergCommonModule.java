@@ -195,9 +195,9 @@ public class IcebergCommonModule
                 .<StatisticsFileCacheKey, ColumnStatistics>weigher((key, entry) -> (int) entry.getEstimatedSize())
                 .recordStats()
                 .build();
-        CacheStatsMBean bean = new CacheStatsMBean(delegate);
-        exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), bean);
-        return new StatisticsFileCache(delegate);
+        StatisticsFileCache statisticsFileCache = new StatisticsFileCache(delegate);
+        exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), statisticsFileCache);
+        return statisticsFileCache;
     }
 
     @ForCachingHiveMetastore
