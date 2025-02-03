@@ -264,7 +264,12 @@ class Re2Match final : public exec::VectorFunction {
     exec::LocalDecodedVector toSearch(context, *args[0], rows);
     exec::LocalDecodedVector pattern(context, *args[1], rows);
     context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-      auto& re = *cache_.findOrCompile(pattern->valueAt<StringView>(row));
+      auto tryRe = cache_.tryFindOrCompile(pattern->valueAt<StringView>(row));
+      if (tryRe.hasError()) {
+        context.setStatus(row, tryRe.error());
+        return;
+      }
+      const auto& re = *tryRe.value();
       result.set(row, Fn(toSearch->valueAt<StringView>(row), re));
     });
   }
@@ -394,7 +399,13 @@ class Re2SearchAndExtract final : public exec::VectorFunction {
     if (args.size() == 2) {
       groups.resize(1);
       context.applyToSelectedNoThrow(rows, [&](vector_size_t i) {
-        auto& re = *cache_.findOrCompile(pattern->valueAt<StringView>(i));
+        auto tryRe = cache_.tryFindOrCompile(pattern->valueAt<StringView>(i));
+        if (tryRe.hasError()) {
+          context.setStatus(i, tryRe.error());
+          return;
+        }
+        const auto& re = *tryRe.value();
+
         mustRefSourceStrings |=
             re2Extract(result, i, re, toSearch, groups, 0, emptyNoMatch_);
       });
@@ -402,7 +413,13 @@ class Re2SearchAndExtract final : public exec::VectorFunction {
       exec::LocalDecodedVector groupIds(context, *args[2], rows);
       context.applyToSelectedNoThrow(rows, [&](vector_size_t i) {
         const auto groupId = groupIds->valueAt<T>(i);
-        auto& re = *cache_.findOrCompile(pattern->valueAt<StringView>(i));
+        auto tryRe = cache_.tryFindOrCompile(pattern->valueAt<StringView>(i));
+        if (tryRe.hasError()) {
+          context.setStatus(i, tryRe.error());
+          return;
+        }
+
+        const auto& re = *tryRe.value();
         checkForBadGroupId(groupId, re);
         groups.resize(groupId + 1);
         mustRefSourceStrings |=
@@ -1195,7 +1212,12 @@ class Re2ExtractAll final : public exec::VectorFunction {
       //
       groups.resize(1);
       context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-        auto& re = *cache_.findOrCompile(pattern->valueAt<StringView>(row));
+        auto tryRe = cache_.tryFindOrCompile(pattern->valueAt<StringView>(row));
+        if (tryRe.hasError()) {
+          context.setStatus(row, tryRe.error());
+          return;
+        }
+        const auto& re = *tryRe.value();
         re2ExtractAll(resultWriter, re, inputStrs, row, groups, 0);
       });
     } else {
@@ -1204,7 +1226,12 @@ class Re2ExtractAll final : public exec::VectorFunction {
       exec::LocalDecodedVector groupIds(context, *args[2], rows);
       context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         const T groupId = groupIds->valueAt<T>(row);
-        auto& re = *cache_.findOrCompile(pattern->valueAt<StringView>(row));
+        auto tryRe = cache_.tryFindOrCompile(pattern->valueAt<StringView>(row));
+        if (tryRe.hasError()) {
+          context.setStatus(row, tryRe.error());
+          return;
+        }
+        const auto& re = *tryRe.value();
         checkForBadGroupId(groupId, re);
         groups.resize(groupId + 1);
         re2ExtractAll(resultWriter, re, inputStrs, row, groups, groupId);
