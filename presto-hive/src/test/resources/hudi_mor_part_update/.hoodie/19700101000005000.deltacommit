@@ -1,0 +1,45 @@
+{
+  "partitionToWriteStats" : {
+    "p1" : [ {
+      "fileId" : "c0bbff31-67b3-4660-99ba-d388b8bb8c3c-0",
+      "path" : "p1/.c0bbff31-67b3-4660-99ba-d388b8bb8c3c-0_19700101000000000.log.1_0-86-264",
+      "cdcStats" : null,
+      "prevCommit" : "19700101000000000",
+      "numWrites" : 4,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 4,
+      "numInserts" : 0,
+      "totalWriteBytes" : 1413,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "p1",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 1413,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 109,
+        "totalCreateTime" : 0
+      },
+      "logVersion" : 1,
+      "logOffset" : 0,
+      "baseFile" : "c0bbff31-67b3-4660-99ba-d388b8bb8c3c-0_0-32-192_19700101000000000.parquet",
+      "logFiles" : [ ".c0bbff31-67b3-4660-99ba-d388b8bb8c3c-0_19700101000000000.log.1_0-86-264" ],
+      "recordsStats" : {
+        "val" : null
+      }
+    } ]
+  },
+  "compacted" : false,
+  "extraMetadata" : {
+    "schema" : "{\"type\":\"record\",\"name\":\"PayloadAdaptableRecord\",\"namespace\":\"hoodie\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"pt\",\"type\":\"string\"},{\"name\":\"ts\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"Op\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"_change_operation_type\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"_hoodie_is_deleted\",\"type\":[\"null\",\"boolean\"],\"default\":null},{\"name\":\"_event_seq\",\"type\":[\"null\",\"long\"],\"default\":null},{\"name\":\"_event_lsn\",\"type\":[\"null\",\"long\"],\"default\":null}]}"
+  },
+  "operationType" : "UPSERT"
+}
