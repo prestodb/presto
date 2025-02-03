@@ -184,6 +184,31 @@ TEST(ApproxMostFrequentStreamSummaryTest, mergeSerialized) {
   }
 }
 
+TEST(ApproxMostFrequentStreamSummaryTest, merge) {
+  constexpr int kSummaryCount = 10;
+  constexpr int kCapacity = 30;
+  std::default_random_engine gen(0);
+  ZetaDistribution dist(1.02, 100);
+  int64_t freq[101]{};
+  ApproxMostFrequentStreamSummary<int> summary;
+  summary.setCapacity(kCapacity);
+  for (int i = 0; i < kSummaryCount; ++i) {
+    ApproxMostFrequentStreamSummary<int> summary2;
+    summary2.setCapacity(kCapacity);
+    for (int j = 0; j < 100; ++j) {
+      int v = dist(gen);
+      summary2.insert(v);
+      ++freq[v];
+    }
+    summary.merge(summary2);
+  }
+  auto topK = summary.topK(3);
+  ASSERT_EQ(topK.size(), 3);
+  for (int i = 0; i < 3; ++i) {
+    EXPECT_EQ(topK[i], std::make_pair(i + 1, freq[i + 1]));
+  }
+}
+
 TEST(ApproxMostFrequentStreamSummaryTest, capacity) {
   constexpr int kCapacity = 30;
   ApproxMostFrequentStreamSummary<int> summary;

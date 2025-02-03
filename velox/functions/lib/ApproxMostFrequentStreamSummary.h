@@ -65,6 +65,17 @@ struct ApproxMostFrequentStreamSummary {
   /// Merge this summary with values from another serialized summary.
   void mergeSerialized(const char* bytes);
 
+  /// Merge this summary with values from another deserialized summary.
+  /// This behaves the same as if serializing `other` and calling
+  /// `mergeSerialized`, except:
+  /// - StringView would copied from the `other` data structure's StringViews
+  ///   as opposed to `const char* bytes`
+  ///
+  /// Prefer `mergeSerialized`. This is more inefficient as it requires us to
+  /// deserialize `other` first, and then copy the values; whereas
+  /// `mergeSerialized` will directly merge the values from the serialized bytes
+  void merge(const ApproxMostFrequentStreamSummary<T, Allocator>& other);
+
   /// Return the number of distinct values currently being tracked.
   int size() const;
 
@@ -239,6 +250,14 @@ void ApproxMostFrequentStreamSummary<T, A>::mergeSerialized(const char* other) {
       }
     }
     insert(v, folly::loadUnaligned<int64_t>(counts + i * sizeof(int64_t)));
+  }
+}
+
+template <typename T, typename A>
+void ApproxMostFrequentStreamSummary<T, A>::merge(
+    const ApproxMostFrequentStreamSummary<T, A>& other) {
+  for (int i = 0; i < other.size(); ++i) {
+    insert(other.values()[i], other.counts()[i]);
   }
 }
 
