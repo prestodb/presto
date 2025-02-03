@@ -24,6 +24,7 @@ import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.thrift.transport.TSaslClientTransport;
 import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
 import javax.inject.Inject;
 import javax.security.auth.callback.Callback;
@@ -97,6 +98,9 @@ public class KerberosHiveMetastoreAuthentication
         }
         catch (IOException ex) {
             throw new UncheckedIOException(ex);
+        }
+        catch (TTransportException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -174,6 +178,9 @@ public class KerberosHiveMetastoreAuthentication
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+        catch (TTransportException e) {
+            throw new RuntimeException(e);
         }
     }
 }
