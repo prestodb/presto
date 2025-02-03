@@ -47,6 +47,7 @@ public class HivePartitionObjectBuilder
                         param -> extraParametersBuilder.put("user_supplied", param));
 
         return Partition.builder()
+                .setCatalogName(table.getCatalogName())
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())

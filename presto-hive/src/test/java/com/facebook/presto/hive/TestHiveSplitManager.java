@@ -147,6 +147,7 @@ public class TestHiveSplitManager
     private static final Table TEST_TABLE = createTestTable(VIEW_STORAGE_FORMAT, ImmutableMap.of());
 
     private ListeningExecutorService executor;
+    private static final String TEST_CATALOG_NAME = "catalogName";
 
     @BeforeClass
     public void setUp()
@@ -162,7 +163,8 @@ public class TestHiveSplitManager
 
     private static Table createTestTable(StorageFormat storageFormat, Map<String, String> parameters)
     {
-        return new Table("test_db",
+        return new Table(Optional.of(TEST_CATALOG_NAME),
+                "test_db",
                 "test_table",
                 "test_owner",
                 MANAGED_TABLE,
@@ -473,6 +475,7 @@ public class TestHiveSplitManager
         // Prepare partition with stats
         PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
                 new Partition(
+                        Optional.of(TEST_CATALOG_NAME),
                         "test_db",
                         "test_table",
                         ImmutableList.of(PARTITION_VALUE),
@@ -533,7 +536,7 @@ public class TestHiveSplitManager
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(metastore, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false));
+                new HiveTableWritabilityChecker(false), TEST_CATALOG_NAME);
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),
@@ -619,6 +622,7 @@ public class TestHiveSplitManager
                         DWRF_ENCRYPTION_PROVIDER_KEY, testEncryptionProvider));
         PartitionWithStatistics partitionWithStatistics = new PartitionWithStatistics(
                 new Partition(
+                        Optional.of(TEST_CATALOG_NAME),
                         "test_db",
                         "test_table",
                         ImmutableList.of(PARTITION_VALUE),
@@ -681,7 +685,7 @@ public class TestHiveSplitManager
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(metastore, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false));
+                new HiveTableWritabilityChecker(false), TEST_CATALOG_NAME);
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),

@@ -91,6 +91,11 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public List<String> getDatabases(MetastoreContext metastoreContext, String pattern)
+    {
+        return delegate.getDatabases(metastoreContext, pattern);
+    }
+    @Override
     public List<String> getAllDatabases(MetastoreContext metastoreContext)
     {
         return delegate.getAllDatabases(metastoreContext);

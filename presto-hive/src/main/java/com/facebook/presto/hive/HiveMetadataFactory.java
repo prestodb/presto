@@ -72,6 +72,7 @@ public class HiveMetadataFactory
     private final ColumnConverterProvider columnConverterProvider;
     private final QuickStatsProvider quickStatsProvider;
     private final TableWritabilityChecker tableWritabilityChecker;
+    private final String catalogName;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -100,7 +101,8 @@ public class HiveMetadataFactory
             HiveFileRenamer hiveFileRenamer,
             ColumnConverterProvider columnConverterProvider,
             QuickStatsProvider quickStatsProvider,
-            TableWritabilityChecker tableWritabilityChecker)
+            TableWritabilityChecker tableWritabilityChecker,
+            HiveCommonClientConfig hiveCommonClientConfig)
     {
         this(
                 metastore,
@@ -135,7 +137,8 @@ public class HiveMetadataFactory
                 hiveFileRenamer,
                 columnConverterProvider,
                 quickStatsProvider,
-                tableWritabilityChecker);
+                tableWritabilityChecker,
+                hiveCommonClientConfig.getCatalogName());
     }
 
     public HiveMetadataFactory(
@@ -171,7 +174,8 @@ public class HiveMetadataFactory
             HiveFileRenamer hiveFileRenamer,
             ColumnConverterProvider columnConverterProvider,
             QuickStatsProvider quickStatsProvider,
-            TableWritabilityChecker tableWritabilityChecker)
+            TableWritabilityChecker tableWritabilityChecker,
+            String catalogName)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -206,6 +210,7 @@ public class HiveMetadataFactory
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
         this.quickStatsProvider = requireNonNull(quickStatsProvider, "quickStatsProvider is null");
         this.tableWritabilityChecker = requireNonNull(tableWritabilityChecker, "tableWritabilityChecker is null");
+        this.catalogName = catalogName;
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -252,6 +257,7 @@ public class HiveMetadataFactory
                 encryptionInformationProvider,
                 hivePartitionStats,
                 hiveFileRenamer,
-                tableWritabilityChecker);
+                tableWritabilityChecker,
+                catalogName);
     }
 }

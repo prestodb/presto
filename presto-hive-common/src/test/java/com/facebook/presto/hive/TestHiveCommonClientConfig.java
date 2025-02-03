@@ -47,7 +47,8 @@ public class TestHiveCommonClientConfig
                 .setZstdJniDecompressionEnabled(false)
                 .setParquetBatchReaderVerificationEnabled(false)
                 .setParquetBatchReadOptimizationEnabled(false)
-                .setReadNullMaskedParquetEncryptedValue(false));
+                .setReadNullMaskedParquetEncryptedValue(false)
+                .setCatalogName(null));
     }
 
     @Test
@@ -72,6 +73,7 @@ public class TestHiveCommonClientConfig
                 .put("hive.enable-parquet-batch-reader-verification", "true")
                 .put("hive.parquet-batch-read-optimization-enabled", "true")
                 .put("hive.read-null-masked-parquet-encrypted-value-enabled", "true")
+                .put("hive.metastore.catalog.name", "catalogName")
                 .build();
 
         HiveCommonClientConfig expected = new HiveCommonClientConfig()
@@ -92,7 +94,8 @@ public class TestHiveCommonClientConfig
                 .setZstdJniDecompressionEnabled(true)
                 .setParquetBatchReaderVerificationEnabled(true)
                 .setParquetBatchReadOptimizationEnabled(true)
-                .setReadNullMaskedParquetEncryptedValue(true);
+                .setReadNullMaskedParquetEncryptedValue(true)
+                .setCatalogName("catalogName");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

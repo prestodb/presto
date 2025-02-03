@@ -69,6 +69,7 @@ public class TestRemoveOrphanFilesProcedureHive
                 getHdfsEnvironment(),
                 hdfsContext,
                 new IcebergHiveTableOperationsConfig(),
+                null,
                 "tpch",
                 tableName,
                 session.getUser(),
@@ -92,7 +93,7 @@ public class TestRemoveOrphanFilesProcedureHive
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
-                SchemaTableName.valueOf("tpch." + tableName));
+                SchemaTableName.valueOf("tpch." + tableName), null);
     }
 
     @Override

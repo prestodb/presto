@@ -1054,7 +1054,7 @@ public class MetastoreUtil
                 .build();
     }
 
-    public static Table createTableObjectForViewCreation(ConnectorSession session, ConnectorTableMetadata viewMetadata, Map<String, String> properties, TypeTranslator typeTranslator, MetastoreContext metastoreContext, String encodedViewData)
+    public static Table createTableObjectForViewCreation(ConnectorSession session, ConnectorTableMetadata viewMetadata, Map<String, String> properties, TypeTranslator typeTranslator, MetastoreContext metastoreContext, String encodedViewData, Optional<String> catalogName)
     {
         List<Column> columns = new ArrayList<>();
         ColumnConverter columnConverter = metastoreContext.getColumnConverter();
@@ -1084,6 +1084,7 @@ public class MetastoreUtil
         SchemaTableName viewName = viewMetadata.getTable();
 
         Table.Builder tableBuilder = Table.builder()
+                .setCatalogName(catalogName)
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())
                 .setOwner(session.getUser())
