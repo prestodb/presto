@@ -2271,3 +2271,25 @@ TEST_F(StringFunctionsTest, trail) {
   // Test empty
   EXPECT_EQ("", trail("", 3));
 }
+
+TEST_F(StringFunctionsTest, xxHash64FunctionVarchar) {
+  const auto xxhash64 = [&](std::optional<std::string> value) {
+    return evaluateOnce<int64_t>(
+        "xxhash64_internal(c0)", VARCHAR(), std::move(value));
+  };
+
+  EXPECT_EQ(std::nullopt, xxhash64(std::nullopt));
+
+  EXPECT_EQ(-1205034819632174695, xxhash64(""));
+  EXPECT_EQ(4952883123889572249, xxhash64("abc"));
+  EXPECT_EQ(-1843406881296486760, xxhash64("ABC"));
+  EXPECT_EQ(9087872763436141786, xxhash64("string to xxhash64 as param"));
+  EXPECT_EQ(6332497344822543626, xxhash64("special characters %_@"));
+  EXPECT_EQ(-3364246049109667261, xxhash64("    leading space"));
+  // Unicode characters
+  EXPECT_EQ(-7331673579364787606, xxhash64("café"));
+  // String with null bytes
+  EXPECT_EQ(160339756714205673, xxhash64("abc\\x00def"));
+  // Non-ASCII strings
+  EXPECT_EQ(8176744303664166369, xxhash64("日本語"));
+}

@@ -283,6 +283,9 @@ void registerSimpleFunctions(const std::string& prefix) {
 
   registerFunction<ToMillisecondFunction, int64_t, IntervalDayTime>(
       {prefix + "to_milliseconds"});
+
+  registerFunction<XxHash64DateFunction, int64_t, Date>(
+      {prefix + "xxhash64_internal"});
 }
 } // namespace
 

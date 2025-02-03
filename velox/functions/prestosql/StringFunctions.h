@@ -15,6 +15,9 @@
  */
 #pragma once
 
+#define XXH_INLINE_ALL
+#include <xxhash.h>
+
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/lib/string/StringImpl.h"
@@ -647,6 +650,18 @@ struct NormalizeFunction {
       }
     }
     free(output);
+  }
+};
+
+/// xxhash64(varchar) → bigint
+/// Return a hash64 of input (Varchar such as string)
+template <typename T>
+struct XxHash64StringFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(out_type<int64_t>& result, const arg_type<Varchar>& input) {
+    result = XXH64(input.data(), input.size(), 0);
   }
 };
 
