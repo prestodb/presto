@@ -59,7 +59,7 @@ class ReaderBase {
     return fileLength_;
   }
 
-  const thrift::FileMetaData& thriftFileMetaData() const {
+  thrift::FileMetaData& thriftFileMetaData() const {
     return *fileMetaData_;
   }
 
@@ -1002,7 +1002,13 @@ class ParquetRowReader::Impl {
       if (rowGroupInRange && !isExcluded && !isEmpty) {
         rowGroupIds_.push_back(i);
         firstRowOfRowGroup_.push_back(rowNumber);
+      } else if (i != 0) {
+        // Clear the metadata of row groups that are not read. This helps reduce
+        // the memory consumption. ColumnChunks consume the most memory.
+        // Skip the 0th RowGroup as it is used by estimatedRowSize().
+        rowGroups_[i].columns.clear();
       }
+
       rowNumber += rowGroups_[i].num_rows;
     }
   }
@@ -1093,7 +1099,7 @@ class ParquetRowReader::Impl {
   const dwio::common::RowReaderOptions options_;
 
   // All row groups from file metadata.
-  const std::vector<thrift::RowGroup>& rowGroups_;
+  std::vector<thrift::RowGroup>& rowGroups_;
   // Indices of row groups where stats match filters.
   std::vector<uint32_t> rowGroupIds_;
   std::vector<uint64_t> firstRowOfRowGroup_;
