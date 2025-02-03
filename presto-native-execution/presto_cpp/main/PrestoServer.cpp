@@ -27,6 +27,7 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpConstants.h"
+#include "velox/common/dynamic_registry/DynamicLibraryLoader.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
 #include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
@@ -241,7 +242,7 @@ void PrestoServer::run() {
       address_ = fmt::format("[{}]", address_);
     }
     nodeLocation_ = nodeConfig->nodeLocation();
-  } catch (const velox::VeloxUserError& e) {
+  } catch (const velox::VeloxUserError& e) {  
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
   }
@@ -395,6 +396,7 @@ void PrestoServer::run() {
   registerRemoteFunctions();
   registerVectorSerdes();
   registerPrestoPlanNodeSerDe();
+  registerDynamicFunctions();
 
   const auto numExchangeHttpClientIoThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
@@ -1595,6 +1597,27 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+void PrestoServer::registerDynamicFunctions() {
+  auto systemConfig = SystemConfig::instance();
+  if (!systemConfig->pluginDir().empty()) {
+    // If user provided path is valid, traverse and call dynamic function loader for all shared libraries.
+    const fs::path path(systemConfig->pluginDir());
+    PRESTO_STARTUP_LOG(INFO) << path;
+    std::error_code ec;
+    if (fs::is_directory(path, ec)) {
+      using recursiveDirectoryIterator =
+          std::filesystem::recursive_directory_iterator;
+      std::set<std::string> extensions{ ".so", ".dylib" };
+      for (const auto& dirEntry : recursiveDirectoryIterator(path)) {
+        // Skip any non shared library files and directories from loading.
+        auto dirEntryPath = dirEntry.path();
+        if (!fs::is_directory(dirEntry, ec) && extensions.find(dirEntryPath.extension()) != extensions.end()) {
+          velox::loadDynamicLibrary(dirEntryPath.c_str());
+        }
+      }
+    }
+  }
 }
 
 } // namespace facebook::presto
