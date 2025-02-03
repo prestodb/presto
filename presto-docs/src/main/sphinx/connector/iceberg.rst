@@ -258,7 +258,7 @@ Property Name                                           Description             
 
                                                         Example: ``hdfs://nn:8020/warehouse/path``
                                                         This property is required if the ``iceberg.catalog.type`` is
-                                                        ``hadoop``.
+                                                        ``hadoop``. Otherwise, it will be ignored.
 
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
@@ -1837,3 +1837,55 @@ Map of PrestoDB types to the relevant Iceberg types:
 
 
 No other types are supported.
+
+
+Sorted Tables
+^^^^^^^^^^^^^
+
+The Iceberg connector supports the creation of sorted tables.
+Data in the Iceberg table is sorted as each file is written.
+
+Sorted Iceberg tables can decrease query times in many cases; however, it will depend on the query shape and cluster configuration.
+Sorting is particularly beneficial when the sorted columns have a
+high cardinality and are used as a filter for selective reads.
+
+Configure sort order with the ``sorted_by`` table property to specify an array of
+one or more columns to use for sorting.
+The following example creates the table with the ``sorted_by`` property, and sorts the file based
+on the field ``join_date``. The default sort direction is ASC, with null values ordered as NULLS FIRST.
+
+.. code-block:: text
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        sorted_by = ARRAY['join_date']
+    )
+
+You can explicitly configure sort directions or null ordering in the following way::
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        sorted_by = ARRAY['join_date DESC NULLS FIRST', 'emp_id ASC NULLS LAST']
+    )
+
+Sorting can be combined with partitioning on the same column. For example::
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        partitioning = ARRAY['month(join_date)'],
+        sorted_by = ARRAY['join_date']
+    )
+
+Iceberg Connector does not support sort order transforms.
