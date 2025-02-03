@@ -21,6 +21,7 @@ import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.testng.Assert.assertEquals;
 
@@ -131,6 +132,9 @@ public class TestIntervalDayTime
         assertFunction("2 * INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 24 * 60 * 60 * 1000));
         assertFunction("INTERVAL '1' DAY * 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (2.5 * 24 * 60 * 60 * 1000)));
         assertFunction("2.5 * INTERVAL '1' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (2.5 * 24 * 60 * 60 * 1000)));
+        assertNumericOverflow(
+                format("%s * INTERVAL '%s' DAY", Integer.MAX_VALUE, 64),
+                format("interval_day_to_second multiply overflow: %s * %s ms", Integer.MAX_VALUE, (64 * 24 * 60 * 60 * 1000L)));
     }
 
     @Test
@@ -141,6 +145,9 @@ public class TestIntervalDayTime
 
         assertFunction("INTERVAL '3' DAY / 2", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (1.5 * 24 * 60 * 60 * 1000)));
         assertFunction("INTERVAL '4' DAY / 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (1.6 * 24 * 60 * 60 * 1000)));
+        assertNumericOverflow(
+                format("INTERVAL '%s' DAY / %s", 64, 1 / (double) Integer.MAX_VALUE),
+                format("interval_day_to_second division overflow: %s ms / %s", (64 * 24 * 60 * 60 * 1000L), 1 / (double) Integer.MAX_VALUE));
     }
 
     @Test

@@ -16,6 +16,7 @@ package com.facebook.presto.type;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.AbstractLongType;
 import com.facebook.presto.common.type.StandardTypes;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.BlockIndex;
 import com.facebook.presto.spi.function.BlockPosition;
 import com.facebook.presto.spi.function.IsNull;
@@ -42,8 +43,11 @@ import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.function.OperatorType.NEGATION;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static com.facebook.presto.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.String.format;
 
 public final class IntervalDayTimeOperators
 {
@@ -55,56 +59,104 @@ public final class IntervalDayTimeOperators
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long add(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return left + right;
+        try {
+            return Math.addExact(left, right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval_day_to_second addition overflow: %s ms + %s ms", left, right), e);
+        }
     }
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long subtract(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return left - right;
+        try {
+            return Math.subtractExact(left, right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval_day_to_second subtraction overflow: %s ms - %s ms", left, right), e);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long multiplyByBigint(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.BIGINT) long right)
     {
-        return left * right;
+        try {
+            return Math.multiplyExact(left, right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval_day_to_second multiply overflow: %s ms * %s", left, right), e);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
-        return (long) (left * right);
+        try {
+            return Math.addExact(
+                    (long) (left * (right - (long) right)),
+                    Math.multiplyExact(left, (long) right));
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval_day_to_second multiply overflow: %s ms * %s", left, right), e);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long bigintMultiply(@SqlType(StandardTypes.BIGINT) long left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return left * right;
+        try {
+            return Math.multiplyExact(left, right);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval_day_to_second multiply overflow: %s * %s ms", left, right), e);
+        }
     }
 
     @ScalarOperator(MULTIPLY)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long right)
     {
-        return (long) (left * right);
+        try {
+            return Math.addExact(
+                Math.multiplyExact((long) left, right),
+                (long) ((left - (long) left) * right));
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval_day_to_second multiply overflow: %s * %s ms", left, right), e);
+        }
     }
 
     @ScalarOperator(DIVIDE)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
-        return (long) (left / right);
+        if (right == 0) {
+            throw new PrestoException(DIVISION_BY_ZERO, format("interval_day_to_second division by zero: %s ms / %s", left, right));
+        }
+
+        try {
+            return multiplyByDouble(left, 1.0 / right);
+        }
+        catch (PrestoException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("interval_day_to_second division overflow: %s ms / %s", left, right));
+        }
     }
 
     @ScalarOperator(NEGATION)
     @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
     public static long negate(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long value)
     {
-        return -value;
+        try {
+            return Math.negateExact(value);
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "interval_day_to_second negation overflow: " + value, e);
+        }
     }
 
     @ScalarOperator(EQUAL)
