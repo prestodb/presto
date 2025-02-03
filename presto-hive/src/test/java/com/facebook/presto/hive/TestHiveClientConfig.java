@@ -47,6 +47,7 @@ public class TestHiveClientConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(HiveClientConfig.class)
+                .setConfigurationCacheMaxSize(100)
                 .setTimeZone(TimeZone.getDefault().getID())
                 .setMaxSplitSize(new DataSize(64, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(100_000)
@@ -175,6 +176,7 @@ public class TestHiveClientConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("hive.configuration-cache-max-size", "10")
                 .put("hive.time-zone", nonDefaultTimeZone().getID())
                 .put("hive.max-split-size", "256MB")
                 .put("hive.max-partitions-per-scan", "123")
@@ -300,6 +302,7 @@ public class TestHiveClientConfig
                 .build();
 
         HiveClientConfig expected = new HiveClientConfig()
+                .setConfigurationCacheMaxSize(10)
                 .setTimeZone(TimeZone.getTimeZone(ZoneId.of(nonDefaultTimeZone().getID())).getID())
                 .setMaxSplitSize(new DataSize(256, Unit.MEGABYTE))
                 .setMaxPartitionsPerScan(123)
