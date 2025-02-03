@@ -57,6 +57,7 @@ public class RouterPluginManager
     // able to load the AfterBurner classes themselves. So, our solution is to use the PluginClassLoader
     // and whitelist the AfterBurner classes here, so that the PluginClassLoader can load the
     // AfterBurner classes.
+    private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("com.facebook.presto.spi.")
             .add("com.fasterxml.jackson.annotation.")
@@ -171,9 +172,9 @@ public class RouterPluginManager
         PluginClassLoader classLoader = createClassLoader(artifacts, pomFile.getPath());
 
         Artifact artifact = artifacts.get(0);
-        Set<String> plugins = discoverPlugins(artifact, classLoader);
+        Set<String> plugins = discoverPlugins(artifact, classLoader, SERVICES_FILE, Plugin.class.getName());
         if (!plugins.isEmpty()) {
-            writePluginServices(plugins, artifact.getFile());
+            writePluginServices(plugins, artifact.getFile(), SERVICES_FILE);
         }
 
         return classLoader;
