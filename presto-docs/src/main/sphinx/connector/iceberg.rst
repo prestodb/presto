@@ -85,6 +85,7 @@ Property Name                                            Description            
 
 ``iceberg.hive.table-refresh.backoff-scale-factor``      The multiple used to scale subsequent wait time between       4.0
                                                          retries.
+``hive.metastore.catalog.name``                          Enable passing the catalog name to store the metastore.
 ======================================================== ============================================================= ============
 
 Nessie catalog

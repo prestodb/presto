@@ -200,6 +200,8 @@ Property Name                                      Description                  
                                                    error iterating through empty files.
 
  ``hive.file-status-cache.max-retained-size``      Maximum size in bytes of the directory listing cache          ``0KB``
+
+ ``hive.metastore.catalog.name``                   Enable passing the catalog name to store the metastore.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties

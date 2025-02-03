@@ -43,6 +43,7 @@ Property Name                                   Description                     
                                                 ``true``.
 ``delta.case-sensitive-partitions-enabled``     Allows matching the names of partitioned columns in a     ``true``
                                                 case-sensitive manner.
+``hive.metastore.catalog.name``                 Enable passing the catalog name to store the metastore.
 =============================================== ========================================================= ============
 
 Delta Lake connector reuses many of the modules existing in Hive connector.
