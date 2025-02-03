@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.TestingBlockJsonSerde;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.WarningCollector;
@@ -105,6 +106,11 @@ public class BasePlanTest
 
     protected static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
     {
+        return createQueryRunner(sessionProperties, new TaskManagerConfig().setTaskConcurrency(1));
+    }
+
+    protected static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties, TaskManagerConfig taskManagerConfig)
+    {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
@@ -112,7 +118,14 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
-        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new FunctionsConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
+        LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(),
+                new FeaturesConfig(),
+                new FunctionsConfig(),
+                new NodeSpillConfig(),
+                false,
+                false,
+                createObjectMapper(),
+                taskManagerConfig);
 
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
