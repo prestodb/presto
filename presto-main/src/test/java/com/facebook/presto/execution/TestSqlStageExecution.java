@@ -33,6 +33,8 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.netty.channel.EventLoopGroup;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -44,6 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -65,6 +68,8 @@ public class TestSqlStageExecution
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
+    private final EventLoopGroup eventLoopGroup = new SafeEventLoopGroup(Runtime.getRuntime().availableProcessors(),
+            new ThreadFactoryBuilder().setNameFormat("test-event-loop-%s").setDaemon(true).build());
 
     @BeforeClass
     public void setUp()
@@ -80,6 +85,7 @@ public class TestSqlStageExecution
         executor = null;
         scheduledExecutor.shutdownNow();
         scheduledExecutor = null;
+        eventLoopGroup.shutdownGracefully();
     }
 
     @Test(timeOut = 3 * 60 * 1000)
@@ -106,10 +112,10 @@ public class TestSqlStageExecution
                 TEST_SESSION,
                 true,
                 nodeTaskMap,
-                executor,
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.next());
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
         // add listener that fetches stage info when the final status is available
@@ -129,7 +135,7 @@ public class TestSqlStageExecution
                             URI.create("http://10.0.0." + (i / 10_000) + ":" + (i % 10_000)),
                             NodeVersion.UNKNOWN,
                             false);
-                    stage.scheduleTask(node, i);
+                    getFutureValue(stage.scheduleTask(node, i));
                     latch.countDown();
                 }
             }

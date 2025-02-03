@@ -35,6 +35,7 @@ import com.facebook.presto.execution.NodeTaskMap.NodeStatsTracker;
 import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.RemoteTask;
+import com.facebook.presto.execution.SafeEventLoopGroup;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SchedulerStatsTracker;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -229,7 +230,7 @@ public final class HttpRemoteTask
     private final DecayCounter taskUpdateRequestSize;
     private final SchedulerStatsTracker schedulerStatsTracker;
 
-    private final HttpRemoteTaskFactory.SafeEventLoop taskEventLoop;
+    private final SafeEventLoopGroup.SafeEventLoop taskEventLoop;
 
     public static HttpRemoteTask createHttpRemoteTask(
             Session session,
@@ -266,7 +267,7 @@ public final class HttpRemoteTask
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
             SchedulerStatsTracker schedulerStatsTracker,
-            HttpRemoteTaskFactory.SafeEventLoop taskEventLoop)
+            SafeEventLoopGroup.SafeEventLoop taskEventLoop)
     {
         HttpRemoteTask task = new HttpRemoteTask(session,
                 taskId,
@@ -341,7 +342,7 @@ public final class HttpRemoteTask
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
             SchedulerStatsTracker schedulerStatsTracker,
-            HttpRemoteTaskFactory.SafeEventLoop taskEventLoop)
+            SafeEventLoopGroup.SafeEventLoop taskEventLoop)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -1396,18 +1397,8 @@ public final class HttpRemoteTask
         }
     }
 
-    /***
-     *  Wrap the task execution on event loop to fail the entire task on any failure.
-     */
     private void safeExecuteOnEventLoop(Runnable r)
     {
-        taskEventLoop.execute(() -> {
-            try {
-                r.run();
-            }
-            catch (Throwable t) {
-                failTask(t);
-            }
-        });
+        taskEventLoop.execute(r, this::failTask);
     }
 }

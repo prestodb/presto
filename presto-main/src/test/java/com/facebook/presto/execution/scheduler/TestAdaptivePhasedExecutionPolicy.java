@@ -20,6 +20,7 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.MockRemoteTaskFactory;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.execution.SafeEventLoopGroup;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageId;
@@ -53,6 +54,8 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.netty.channel.EventLoopGroup;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -73,7 +76,6 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;
 
@@ -84,11 +86,14 @@ public class TestAdaptivePhasedExecutionPolicy
     private static final ConnectorId CONNECTOR_ID = new ConnectorId("test");
 
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("testAdaptivePhasedExecutionPolicy-%s"));
+    private final EventLoopGroup eventLoopGroup = new SafeEventLoopGroup(Runtime.getRuntime().availableProcessors(),
+            new ThreadFactoryBuilder().setNameFormat("test-loop-%s").setDaemon(true).build());
 
     @AfterClass
     public void tearDownExecutor()
     {
         scheduledExecutor.shutdownNow();
+        eventLoopGroup.shutdownGracefully();
     }
 
     @Test
@@ -124,15 +129,16 @@ public class TestAdaptivePhasedExecutionPolicy
                 .mapToObj(stage -> getStageExecutionAndScheduler(stage, getRemoteSourcePlanNode(new PlanFragmentId(stage))))
                 .collect(toImmutableList());
         return ImmutableList.<StageExecutionAndScheduler>builder()
-            .add(getStageExecutionAndScheduler(0, node))
-            .addAll(exchanges)
-            .build();
+                .add(getStageExecutionAndScheduler(0, node))
+                .addAll(exchanges)
+                .build();
     }
 
     private StageExecutionAndScheduler getStageExecutionAndScheduler(int stage, PlanNode fragementNode)
     {
         PlanFragmentId fragmentId = new PlanFragmentId(stage);
         StageId stageId = new StageId(new QueryId("query"), stage);
+        SafeEventLoopGroup.SafeEventLoop safeEventLoop = (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.next();
         SqlStageExecution stageExecution = createSqlStageExecution(
                 new StageExecutionId(stageId, stage),
                 createPlanFragment(fragmentId, fragementNode),
@@ -140,11 +146,11 @@ public class TestAdaptivePhasedExecutionPolicy
                 TEST_SESSION,
                 true,
                 new NodeTaskMap(new FinalizerService()),
-                newDirectExecutorService(),
                 new NoOpFailureDetector(),
                 new SplitSchedulerStats(),
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
-        StageLinkage stageLinkage = new StageLinkage(fragmentId, (id, tasks, noMoreExchangeLocations) -> {}, ImmutableSet.of());
+                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
+                safeEventLoop);
+        StageLinkage stageLinkage = new StageLinkage(stageExecution, (id, tasks, noMoreExchangeLocations) -> {}, ImmutableSet.of());
         StageScheduler stageScheduler = new FixedCountScheduler(stageExecution, ImmutableList.of());
         StageExecutionAndScheduler scheduler = new StageExecutionAndScheduler(stageExecution, stageLinkage, stageScheduler);
         return scheduler;

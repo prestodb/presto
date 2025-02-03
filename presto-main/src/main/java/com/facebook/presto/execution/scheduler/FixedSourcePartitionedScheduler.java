@@ -54,7 +54,8 @@ import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NO
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.getUnchecked;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -182,7 +183,7 @@ public class FixedSourcePartitionedScheduler
     public ScheduleResult schedule()
     {
         // schedule a task on every node in the distribution
-        List<RemoteTask> newTasks = ImmutableList.of();
+        Set<ListenableFuture<RemoteTask>> newFutureTasks = ImmutableSet.of();
 
         // CTE Materialization Check
         if (stage.requiresMaterializedCTE()) {
@@ -199,7 +200,7 @@ public class FixedSourcePartitionedScheduler
             if (!blocked.isEmpty()) {
                 return ScheduleResult.blocked(
                         false,
-                        newTasks,
+                        ImmutableSet.of(),
                         whenAnyComplete(blocked),
                         BlockedReason.WAITING_FOR_CTE_MATERIALIZATION,
                         0);
@@ -207,12 +208,9 @@ public class FixedSourcePartitionedScheduler
         }
         // schedule a task on every node in the distribution
         if (!scheduledTasks) {
-            newTasks = Streams.mapWithIndex(
-                    nodes.stream(),
-                    (node, id) -> stage.scheduleTask(node, toIntExact(id)))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .collect(toImmutableList());
+            newFutureTasks = Streams.mapWithIndex(nodes.stream(), (node, id) -> stage.scheduleTask(node, toIntExact(id)))
+                    .filter(remoteTask -> !remoteTask.isDone() || getUnchecked(remoteTask) != null)
+                    .collect(toImmutableSet());
             scheduledTasks = true;
 
             // notify listeners that we have scheduled all tasks so they can set no more buffers or exchange splits
@@ -278,7 +276,7 @@ public class FixedSourcePartitionedScheduler
                 driverGroupsToStart = sourceScheduler.drainCompletelyScheduledLifespans();
 
                 if (schedule.isFinished()) {
-                    stage.schedulingComplete(sourceScheduler.getPlanNodeId());
+                    stage.getStageEventLoop().execute(() -> stage.schedulingComplete(sourceScheduler.getPlanNodeId()));
                     sourceSchedulers.remove(sourceScheduler);
                     sourceScheduler.close();
                     anySourceSchedulingFinished = true;
@@ -287,10 +285,10 @@ public class FixedSourcePartitionedScheduler
         }
 
         if (allBlocked) {
-            return ScheduleResult.blocked(sourceSchedulers.isEmpty(), newTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
+            return ScheduleResult.blocked(sourceSchedulers.isEmpty(), newFutureTasks, whenAnyComplete(blocked), blockedReason, splitsScheduled);
         }
         else {
-            return ScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newTasks, splitsScheduled);
+            return ScheduleResult.nonBlocked(sourceSchedulers.isEmpty(), newFutureTasks, splitsScheduled);
         }
     }
 
