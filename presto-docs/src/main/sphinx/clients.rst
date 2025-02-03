@@ -11,3 +11,4 @@ Presto Clients
     clients/superset
     clients/python
     clients/go
+    clients/js
