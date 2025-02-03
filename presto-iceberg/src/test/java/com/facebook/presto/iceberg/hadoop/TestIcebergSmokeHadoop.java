@@ -24,16 +24,18 @@ import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.nio.file.Path;
+import java.io.IOException;
+import java.nio.file.Files;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test
 public class TestIcebergSmokeHadoop
@@ -44,18 +46,85 @@ public class TestIcebergSmokeHadoop
         super(HADOOP);
     }
 
+    @Test
+    public void testShowCreateTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location";
+        String dataWriteLocation = java.nio.file.Files.createTempDirectory("test1").toAbsolutePath().toString();
+        try {
+            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (write_data_path = '%s')", tableName, dataWriteLocation));
+            String schemaName = getSession().getSchema().get();
+            String location = getLocation(schemaName, tableName);
+            assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                    .isEqualTo(format("CREATE TABLE iceberg.%s.%s (\n" +
+                            "   \"a\" integer,\n" +
+                            "   \"b\" varchar\n" +
+                            ")\n" +
+                            "WITH (\n" +
+                            "   delete_mode = 'merge-on-read',\n" +
+                            "   format = 'PARQUET',\n" +
+                            "   format_version = '2',\n" +
+                            "   location = '%s',\n" +
+                            "   metadata_delete_after_commit = false,\n" +
+                            "   metadata_previous_versions_max = 100,\n" +
+                            "   metrics_max_inferred_column = 100,\n" +
+                            "   write_data_path = '%s'\n" +
+                            ")", schemaName, tableName, location, dataWriteLocation));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location2";
+        String dataWriteLocation = Files.createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate(format("create table %s(a int, b varchar) with (write_data_path = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
+            assertUpdate(format("delete from %s where a > 2", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        }
+        finally {
+            assertUpdate("drop table if exists " + tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionedTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_partitioned_table_with_specified_write_data_location";
+        String dataWriteLocation = Files.createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], write_data_path = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
+            assertUpdate(format("delete from %s where a > 2", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        }
+        finally {
+            assertUpdate("drop table if exists " + tableName);
+        }
+    }
+
     @Override
     protected String getLocation(String schema, String table)
     {
-        File tempLocation = getCatalogDirectory().toFile();
-        return format("%s%s/%s", tempLocation.toURI(), schema, table);
+        Path tempLocation = getCatalogDirectory();
+        return format("%s%s/%s", tempLocation.toUri(), schema, table);
     }
 
     @Override
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
-        Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false);
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        Path catalogDirectory = new Path(getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false).toFile().toURI());
         return catalogDirectory;
     }
 
@@ -64,7 +133,7 @@ public class TestIcebergSmokeHadoop
     {
         IcebergConfig icebergConfig = new IcebergConfig();
         icebergConfig.setCatalogType(HADOOP);
-        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toFile().getPath());
+        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toString());
 
         IcebergNativeCatalogFactory catalogFactory = new IcebergNativeCatalogFactory(icebergConfig,
                 new IcebergCatalogName(ICEBERG_CATALOG),
