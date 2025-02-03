@@ -658,6 +658,7 @@ public class TableStatisticsMaker
             statisticsFileCache.put(new StatisticsFileCacheKey(file, key), value);
             finalResult.put(key, value);
         });
+        finalResult.putAll(cachedStats);
         return finalResult.build();
     }
 
