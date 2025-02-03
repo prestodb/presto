@@ -16,14 +16,13 @@ module.exports = (env) => {
             'index': './index.jsx',
             'query': './query.jsx',
             'plan': './plan.jsx',
-            'query_viewer': {import: './query_viewer.jsx', filename: path.join(outputDir, 'dev', '[name].js')},
+            'query_viewer': {import: './query_viewer.jsx', filename: path.join('dev', '[name].js')},
             'embedded_plan': './embedded_plan.jsx',
             'stage': './stage.jsx',
             'worker': './worker.jsx',
             'timeline': './timeline.jsx',
             'res_groups': './res_groups.jsx',
             'sql_client': './sql_client.jsx',
-            'bootstrap_css': path.join(__dirname, 'static', 'vendor', 'bootstrap', 'css', 'bootstrap.min.external-fonts.css'),
             'css_loader': path.join(__dirname, 'static', 'vendor', 'css-loaders', 'loader.css'),
             'css_presto': path.join(__dirname, 'static', 'assets', 'presto.css'),
         },
@@ -43,7 +42,6 @@ module.exports = (env) => {
                         template: 'templates/query_viewer.html',
                         chunks: [
                             'query_viewer',
-                            'bootstrap_css',
                             'css_loader',
                             'css_presto',
                         ]
@@ -122,9 +120,14 @@ module.exports = (env) => {
             static: {
                 directory: path.join(__dirname, '..', outputDir),
             },
-            proxy: {
-                '/v1': `http://${apiHost}:${apiPort}`,
-            },
+            proxy: [
+                {
+                    context: ['/v1'],
+                    target: `http://${apiHost}:${apiPort}`,
+                    // secure: false, // when using http
+                    // changeOrigin: true, // Modify the Origin header to match the target
+                },
+            ],
         },
     };
 };

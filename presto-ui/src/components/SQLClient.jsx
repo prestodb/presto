@@ -70,26 +70,28 @@ export default function SQLClientView() {
 
     return (
         <>
-            <div className="alert alert-warning alert-dismissible" role="alert" style={{display: 'block', marginLeft: 'auto', marginRight: 'auto', textAlign: 'left'}}>
-                <button type="button" className="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <div className="alert alert-warning alert-dismissible fade show" role="alert">
                 SQL client directly accesses the coordinator APIs and submits SQL queries. Users who can access the Web UI can use this client to query,
                 update, and even delete data in the catalogs. Be sure to enable the user authentication to protect the Web UI access if needed.
                 By default, the SQL client uses the <strong>prestoui</strong> user id. You can set
-                up <a className="alert-link" href='http://prestodb.io/docs/current/security/built-in-system-access-control.html' target='_blank'>system access controls</a>
-                &nbsp;or <a className="alert-link" href='http://prestodb.io/docs/current/security/authorization.html' target='_blank'>authorization policies</a> to
-                restrict access from the SQL client. Check detailed <a className="alert-link" href='http://prestodb.io/docs/current/security.html' target="_blank">documentation</a>.
+                up <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href='http://prestodb.io/docs/current/security/built-in-system-access-control.html' target='_blank'>system access controls</a>
+                &nbsp;or <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href='http://prestodb.io/docs/current/security/authorization.html' target='_blank'>authorization policies</a> to
+                restrict access from the SQL client. Check detailed <a className="link-offset-2 link-offset-3-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"href='http://prestodb.io/docs/current/security.html' target="_blank">documentation</a>.
+                <button type="button" className="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
             <div className='container'>
                 <div className="row">
-                    <div className="col-xs-12">
-                        <ul className="nav nav-tabs">
+                    <div className="col-12">
+                        <nav className="nav nav-tabs">
                             {views.map((view, idx) => (
-                                <li key={idx} className={clsx(values.view === view.name && 'active')}>
-                                    <a href="#" onClick={() => switchView(view)}>{view.label}</a>
-                                </li>
+                                <a className={clsx('nav-link', values.view === view.name && 'active')} href="#" onClick={() => switchView(view)}>{view.label}</a>
                             ))}
-                        </ul>
+                        </nav>
+                    </div>
+                    <div className="col-12">
                         <hr className="h3-hr"/>
+                    </div>
+                    <div className="col-12">
                         <SQLInput
                             handleSQL={executeSQL}
                             show={values.view === 'SQL'}
@@ -99,10 +101,10 @@ export default function SQLClientView() {
                         />
                         <SessionProps show={values.view === 'Session'} changeHandler={sessionHandler} />
                     </div>
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         {values.running && <div className="loader">Loading...</div>}
                     </div>
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         {values.results && <QueryResults results={values.results} />}
                     </div>
                 </div>
