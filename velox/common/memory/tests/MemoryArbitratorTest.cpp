@@ -806,7 +806,7 @@ TEST_F(MemoryReclaimerTest, orderedReclaim) {
   uint64_t reclaimableBytes{0};
   // 'expectedReclaimableUnits' is the expected allocation unit per each child
   // pool after each round of memory reclaim. And we expect the memory reclaimer
-  // always reclaim from the child with most meomry usage.
+  // always reclaim from the child with most memory usage.
   auto verify = [&](const std::vector<int>& expectedReclaimableUnits) {
     root->reclaimer()->reclaimableBytes(*root, reclaimableBytes);
     ASSERT_EQ(reclaimableBytes, totalAllocUnits * allocUnitBytes) << "total";
@@ -944,7 +944,7 @@ TEST_F(MemoryReclaimerTest, skipNonReclaimableChild) {
   uint64_t reclaimableBytes{0};
   // 'expectedReclaimableUnits' is the expected allocation unit per each child
   // pool after each round of memory reclaim. And we expect the memory reclaimer
-  // always reclaim from the child with most meomry usage.
+  // always reclaim from the child with most memory usage.
   auto verify = [&](const std::vector<int>& expectedReclaimableUnits) {
     uint64_t expectedTotalReclaimableBytes{0};
     for (int i = 0; i < numChildren; ++i) {

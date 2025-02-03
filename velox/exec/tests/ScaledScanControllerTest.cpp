@@ -121,7 +121,7 @@ TEST_F(ScaledScanControllerTest, basic) {
        3},
 
       // Test case that we can only scale up to six drivers as hit the query
-      // meomry usage ratio limit.
+      // memory usage ratio limit.
       {256 << 20,
        0.5,
        64 << 20,

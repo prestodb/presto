@@ -260,7 +260,7 @@ SharedArbitrator::SharedArbitrator(const Config& config)
       std::thread::hardware_concurrency() * memoryReclaimThreadsHwMultiplier_);
   memoryReclaimExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
       numReclaimThreads,
-      std::make_shared<folly::NamedThreadFactory>("MeomryReclaim"));
+      std::make_shared<folly::NamedThreadFactory>("MemoryReclaim"));
   VELOX_MEM_LOG(INFO) << "Start memory reclaim executor with "
                       << numReclaimThreads << " threads";
 
