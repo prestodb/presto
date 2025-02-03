@@ -68,7 +68,29 @@ public final class PluginDiscovery
                 .collect(toImmutableSet());
     }
 
+    public static Set<String> discoverPlugins(Artifact artifact, ClassLoader classLoader)
+            throws IOException
+    {
+        if (!artifact.getExtension().equals("presto-plugin")) {
+            throw new RuntimeException("Unexpected extension for main artifact: " + artifact);
+        }
 
+        File file = artifact.getFile();
+        if (!file.getPath().endsWith("/target/classes")) {
+            throw new RuntimeException("Unexpected file for main artifact: " + file);
+        }
+        if (!file.isDirectory()) {
+            throw new RuntimeException("Main artifact file is not a directory: " + file);
+        }
+
+        if (new File(file, SERVICES_FILE).exists()) {
+            return ImmutableSet.of();
+        }
+
+        return listClasses(file.toPath()).stream()
+                .filter(name -> classInterfaces(name, classLoader).contains(Plugin.class.getName()))
+                .collect(toImmutableSet());
+    }
 
     public static void writePluginServices(Iterable<String> plugins, File root, String servicesFile)
             throws IOException
