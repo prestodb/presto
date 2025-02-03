@@ -18,6 +18,7 @@
 
 #include "velox/core/PlanNode.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/py/file/PyFile.h"
 #include "velox/py/type/PyType.h"
 
 namespace facebook::velox::py {
@@ -29,6 +30,14 @@ void registerAllResources();
 
 class PyVector;
 
+// Stores the data associated with a table scan leaf operator. Map from the plan
+// node id to a pair containing the connector id, and a list of files to be
+// added as splits.
+using TScanFiles = std::unordered_map<
+    core::PlanNodeId,
+    std::pair<std::string, std::vector<PyFile>>>;
+using TScanFilesPtr = std::shared_ptr<TScanFiles>;
+
 /// Thin wrapper class used to expose Velox plan nodes to Python. It is only
 /// used to maintain the internal Velox structure and expose basic string
 /// serialization functionality.
@@ -36,7 +45,7 @@ class PyPlanNode {
  public:
   /// Creates a new PyPlanNode wrapper given a Velox plan node. Throws if
   /// planNode is nullptr.
-  explicit PyPlanNode(core::PlanNodePtr planNode);
+  PyPlanNode(core::PlanNodePtr planNode, const TScanFilesPtr& scanFiles);
 
   const core::PlanNodePtr& planNode() const {
     return planNode_;
@@ -58,8 +67,13 @@ class PyPlanNode {
     return planNode_->toString(detailed, recursive);
   }
 
+  const TScanFilesPtr& scanFiles() const {
+    return scanFiles_;
+  }
+
  private:
-  core::PlanNodePtr planNode_;
+  const core::PlanNodePtr planNode_;
+  const TScanFilesPtr scanFiles_;
 };
 
 /// Wrapper class for PlanBuilder. It allows us to avoid exposing all details of
@@ -69,43 +83,48 @@ class PyPlanBuilder {
   /// Constructs a new PyPlanBuilder. If provided, the planNodeIdGenerator is
   /// used; otherwise a new one is created.
   PyPlanBuilder(
-      const std::shared_ptr<core::PlanNodeIdGenerator>& generator = nullptr);
+      const std::shared_ptr<core::PlanNodeIdGenerator>& generator = nullptr,
+      const TScanFilesPtr& scanFiles = nullptr);
 
   // Returns the plan node at the head of the internal plan builder. If there is
   // no plan node (plan builder is empty), then std::nullopt will signal pybind
   // to return None to the Python client.
-  std::optional<PyPlanNode> planNode() const {
-    if (planBuilder_.planNode() != nullptr) {
-      return PyPlanNode(planBuilder_.planNode());
-    }
-    return std::nullopt;
-  }
+  std::optional<PyPlanNode> planNode() const;
 
   // Returns a new builder sharing the plan node id generator, such that the new
   // builder can safely be used to build other parts/pipelines of the same plan.
   PyPlanBuilder newBuilder() {
     DCHECK(planNodeIdGenerator_ != nullptr);
-    return PyPlanBuilder{planNodeIdGenerator_};
+    DCHECK(scanFiles_ != nullptr);
+    return PyPlanBuilder{planNodeIdGenerator_, scanFiles_};
   }
 
   /// Add table scan node with basic functionality. This API is Hive-connector
   /// specific.
   ///
-  /// @param output The schema to be read from the file. Needs to be a RowType.
+  /// @param outputSchema The schema to be read from the file. Needs to be a
+  /// RowType.
+  ///
   /// @param aliases Aliases to apply, mapping from the desired output name to
   /// the input name in the file. If there are aliases, OutputSchema should be
   /// defined based on the aliased names. The Python dict should contain strings
   /// for keys and values.
+  ///
   /// @param subfields Used for projecting subfields from containers (like map
   /// keys or struct fields), when one does not want to read the entire
   /// container. It's a dictionary mapping from column name (string) to the list
   /// of subitems to project from it. For now, a list of integers representing
   /// the subfields in a flatmap/struct.
+  ///
   /// @param rowIndexColumnName If defined, create an output column with that
   /// name producing $row_ids. This name needs to be part of `output`.
+  ///
   /// @param connectorId ID of the connector to use for this scan. By default
   /// the Python module will specify the default name used to register the
   /// Hive connector in the first place.
+  ///
+  /// @param inputFile List of files to be collected and converted into splits
+  /// by runners during execution.
   ///
   /// Example (from Python API):
   ///
@@ -119,13 +138,15 @@ class PyPlanBuilder {
   ///   aliases={
   ///     "aliased_name": "name_in_file",
   ///    },
+  ///    input_files=[PARQUET("my_file.parquet")],
   ///  )
   PyPlanBuilder& tableScan(
-      const velox::py::PyType& output,
+      const velox::py::PyType& outputSchema,
       const pybind11::dict& aliases,
       const pybind11::dict& subfields,
       const std::string& rowIndexColumnName,
-      const std::string& connectorId);
+      const std::string& connectorId,
+      const std::optional<std::vector<PyFile>>& inputFiles);
 
   // Add the provided vectors straight into the operator tree.
   PyPlanBuilder& values(const std::vector<PyVector>& values);
@@ -169,6 +190,11 @@ class PyPlanBuilder {
  private:
   exec::test::PlanBuilder planBuilder_;
   std::shared_ptr<core::PlanNodeIdGenerator> planNodeIdGenerator_;
+
+  // For API convenience, we allow clients to specify the files themselves when
+  // they add scans, so that we can automatically create and attach splits to
+  // the task. If specified in the .tableScan() call, store these files here.
+  TScanFilesPtr scanFiles_;
 };
 
 } // namespace facebook::velox::py

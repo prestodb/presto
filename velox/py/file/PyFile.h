@@ -28,6 +28,14 @@ class PyFile {
 
   std::string toString() const;
 
+  std::string filePath() const {
+    return filePath_;
+  }
+
+  dwio::common::FileFormat fileFormat() const {
+    return fileFormat_;
+  }
+
   static PyFile createParquet(const std::string& filePath) {
     return PyFile(filePath, dwio::common::FileFormat::PARQUET);
   }

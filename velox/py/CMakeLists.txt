@@ -58,3 +58,29 @@ velox_link_libraries(
   velox_dwio_dwrf_writer
   Folly::folly
   pybind11::module)
+
+pybind11_add_module(plan_builder MODULE plan_builder/plan_builder.cpp)
+target_link_libraries(
+  plan_builder
+  PRIVATE velox_py_plan_builder_lib)
+
+# velox.py.runner library:
+velox_add_library(velox_py_local_runner_lib runner/PyLocalRunner.cpp)
+velox_link_libraries(
+  velox_py_local_runner_lib
+  velox_py_type_lib
+  velox_py_vector_lib
+  velox_vector
+  velox_core
+  velox_cursor
+  velox_hive_connector
+  velox_exec_test_lib
+  velox_dwio_dwrf_reader
+  velox_dwio_dwrf_common
+  velox_dwio_dwrf_writer
+  pybind11::module)
+
+pybind11_add_module(runner MODULE runner/runner.cpp)
+target_link_libraries(
+  runner
+  PRIVATE velox_py_local_runner_lib)

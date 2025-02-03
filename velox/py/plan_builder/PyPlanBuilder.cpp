@@ -66,34 +66,46 @@ void registerAllResources() {
   folly::call_once(registerOnceFlag, registerAllResourcesOnce);
 }
 
-PyPlanNode::PyPlanNode(core::PlanNodePtr planNode)
-    : planNode_(std::move(planNode)) {
+PyPlanNode::PyPlanNode(
+    core::PlanNodePtr planNode,
+    const TScanFilesPtr& scanFiles)
+    : planNode_(std::move(planNode)), scanFiles_(scanFiles) {
   if (planNode_ == nullptr) {
     throw std::runtime_error("Velox plan node cannot be nullptr.");
   }
 }
 
 PyPlanBuilder::PyPlanBuilder(
-    const std::shared_ptr<core::PlanNodeIdGenerator>& generator)
+    const std::shared_ptr<core::PlanNodeIdGenerator>& generator,
+    const TScanFilesPtr& scanFiles)
     : planNodeIdGenerator_(
           generator ? generator
-                    : std::make_shared<core::PlanNodeIdGenerator>()) {
+                    : std::make_shared<core::PlanNodeIdGenerator>()),
+      scanFiles_(scanFiles ? scanFiles : std::make_shared<TScanFiles>()) {
   auto rootPool = memory::memoryManager()->addRootPool();
   auto leafPool = rootPool->addLeafChild("py_plan_builder_pool");
   planBuilder_ = exec::test::PlanBuilder(planNodeIdGenerator_, leafPool.get());
 }
 
+std::optional<PyPlanNode> PyPlanBuilder::planNode() const {
+  if (planBuilder_.planNode() != nullptr) {
+    return PyPlanNode(planBuilder_.planNode(), scanFiles_);
+  }
+  return std::nullopt;
+}
+
 PyPlanBuilder& PyPlanBuilder::tableScan(
-    const velox::py::PyType& output,
+    const velox::py::PyType& outputSchema,
     const py::dict& aliases,
     const py::dict& subfields,
     const std::string& rowIndexColumnName,
-    const std::string& connectorId) {
+    const std::string& connectorId,
+    const std::optional<std::vector<PyFile>>& inputFiles) {
   using namespace connector::hive;
   exec::test::PlanBuilder::TableScanBuilder builder(planBuilder_);
 
   // Try to convert the output type.
-  auto outputRowSchema = asRowType(output.type());
+  auto outputRowSchema = asRowType(outputSchema.type());
   if (outputRowSchema == nullptr) {
     throw std::runtime_error("Output schema must be a ROW().");
   }
@@ -161,6 +173,10 @@ PyPlanBuilder& PyPlanBuilder::tableScan(
       .columnAliases(std::move(aliasMap))
       .connectorId(connectorId)
       .endTableScan();
+
+  // Store the id of the scan along with any files that were passed.
+  (*scanFiles_)[planBuilder_.planNode()->id()] =
+      std::make_pair(connectorId, inputFiles.value_or(std::vector<PyFile>{}));
   return *this;
 }
 
