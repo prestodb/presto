@@ -14,6 +14,8 @@ jobs:
       image: prestodb/presto-native-dependency:0.291-20250108164449-87d82ed
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
+      CC: /usr/bin/clang-15
+      CXX: /usr/bin/clang++-15
     steps:
       - uses: actions/checkout@v4
 
@@ -49,9 +51,12 @@ jobs:
       - name: Disk space consumption before build
         run: df
 
+      - name: Install Clang
+        run: |
+          presto-native-execution/velox/scripts/setup-centos9.sh install_clang15
+
       - name: Build engine
         run: |
-          source /opt/rh/gcc-toolset-12/enable
           cd presto-native-execution
           cmake \
             -B _build/debug \
