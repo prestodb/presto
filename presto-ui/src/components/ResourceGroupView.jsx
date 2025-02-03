@@ -73,8 +73,8 @@ function NoGroupIdWidget({groupId, error, groups}) {
             <div className="col-4">
                 <h4 className="text-center res-heading">Available resource groups:</h4>
                 <div className="list-group">
-                    {groups.map(grp => (
-                    <a className="list-group-item text-center" href={'./res_groups.html?group=' + encodeURIComponent(grp.id[0])}>{truncateString(grp.id[0], 35)}</a>
+                    {groups.map((grp, idx) => (
+                    <a key={idx} className="list-group-item text-center" href={'./res_groups.html?group=' + encodeURIComponent(grp.id[0])}>{truncateString(grp.id[0], 35)}</a>
                     ))}
                 </div>
             </div>
@@ -286,8 +286,8 @@ export default function ResourceGroupView() {
                                     Sub-Groups
                                 </td>
                                 <td className="info-text">
-                                    <ul>{values.subGroups.map(grp => (
-                                        <li><a href={'./res_groups.html?group=' + encodeURIComponent(grp)}>{truncateString(grp, 35)}</a></li>
+                                    <ul>{values.subGroups.map((grp, idx) => (
+                                        <li key={idx}><a href={'./res_groups.html?group=' + encodeURIComponent(grp)}>{truncateString(grp, 35)}</a></li>
                                     ))}</ul>
                                 </td>
                             </tr>

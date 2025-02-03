@@ -1216,7 +1216,9 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
     }
 
     useEffect(() => {
+        /* $FlowIgnore[cannot-resolve-name] */
         $('#query').each((i, block) => {
+            /* $FlowIgnore[cannot-resolve-name] */
             hljs.highlightBlock(block);
         });
     }, [data]);
