@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.statistics;
 
 import com.facebook.airlift.stats.DistributionStat;
+import com.facebook.presto.hive.CacheStatsMBean;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.google.common.cache.Cache;
 import com.google.common.cache.ForwardingCache.SimpleForwardingCache;
@@ -25,10 +26,19 @@ public class StatisticsFileCache
 {
     private final DistributionStat fileSizes = new DistributionStat();
     private final DistributionStat columnCounts = new DistributionStat();
+    private final CacheStatsMBean cacheStats;
 
     public StatisticsFileCache(Cache<StatisticsFileCacheKey, ColumnStatistics> delegate)
     {
         super(delegate);
+        cacheStats = new CacheStatsMBean(delegate);
+    }
+
+    @Managed
+    @Nested
+    CacheStatsMBean getCacheStats()
+    {
+        return cacheStats;
     }
 
     @Managed
