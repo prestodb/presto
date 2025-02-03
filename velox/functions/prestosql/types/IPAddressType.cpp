@@ -114,7 +114,7 @@ class IPAddressCastOperator : public exec::CastOperator {
       std::reverse(addrBytes.begin(), addrBytes.end());
       folly::IPAddressV6 v6Addr(addrBytes);
 
-      exec::StringWriter<false> result(flatResult, row);
+      exec::StringWriter result(flatResult, row);
       if (v6Addr.isIPv4Mapped()) {
         result.append(v6Addr.createIPv4().str());
       } else {
@@ -165,7 +165,7 @@ class IPAddressCastOperator : public exec::CastOperator {
       memcpy(&addrBytes, &intAddr, ipaddress::kIPAddressBytes);
       std::reverse(addrBytes.begin(), addrBytes.end());
 
-      exec::StringWriter<false> result(flatResult, row);
+      exec::StringWriter result(flatResult, row);
       result.resize(ipaddress::kIPAddressBytes);
       memcpy(result.data(), &addrBytes, ipaddress::kIPAddressBytes);
       result.finalize();

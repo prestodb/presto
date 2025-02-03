@@ -256,6 +256,12 @@ After applying substr(s, 2) function string in position 1 became short enough
 to fit inside the StringView, hence, it no longer contains a pointer to a
 position in the string buffer.
 
+Allowing these zero-copy implementations of functions that simply change the
+starting position/length of a string, means that we may end up with StringViews
+pointing to overlapping ranges within `stringBuffers_`. For this reason the
+Buffers in `stringBuffers_` should be treated as immutable to prevent
+modifications from unintentionally cascading.
+
 Flat vectors of type TIMESTAMP are represented by FlatVector<Timestamp>.
 Timestamp struct consists of two 64-bit integers: seconds and nanoseconds. Each
 entry uses 16 bytes.

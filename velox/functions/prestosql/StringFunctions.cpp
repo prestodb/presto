@@ -19,7 +19,6 @@
 #include "velox/expression/StringWriter.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
-#include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/vector/FlatVector.h"
 
@@ -43,7 +42,7 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
         const DecodedVector* decodedInput,
         FlatVector<StringView>* results) {
       rows.applyToSelected([&](int row) {
-        auto proxy = exec::StringWriter<>(results, row);
+        auto proxy = exec::StringWriter(results, row);
         if constexpr (isLower) {
           stringImpl::lower<isAscii>(
               proxy, decodedInput->valueAt<StringView>(row));
@@ -55,25 +54,6 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
       });
     }
   };
-
-  void applyInternalInPlace(
-      const SelectivityVector& rows,
-      DecodedVector* decodedInput,
-      FlatVector<StringView>* results) const {
-    rows.applyToSelected([&](int row) {
-      auto proxy = exec::StringWriter<true /*reuseInput*/>(
-          results,
-          row,
-          decodedInput->valueAt<StringView>(row) /*reusedInput*/,
-          true /*inPlace*/);
-      if constexpr (isLower) {
-        stringImpl::lowerAsciiInPlace(proxy);
-      } else {
-        stringImpl::upperAsciiInPlace(proxy);
-      }
-      proxy.finalize();
-    });
-  }
 
  public:
   void apply(
@@ -91,19 +71,6 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
     auto decodedInput = inputHolder.get();
 
     auto ascii = isAscii(inputStringsVector, rows);
-
-    bool tryInplace = ascii &&
-        (inputStringsVector->encoding() == VectorEncoding::Simple::FLAT);
-
-    // If tryInplace, then call prepareFlatResultsVector(). If the latter
-    // returns true, note that the input arg was moved to result, so that the
-    // buffer can be reused as output.
-    if (tryInplace &&
-        prepareFlatResultsVector(result, rows, context, args.at(0))) {
-      auto* resultFlatVector = result->as<FlatVector<StringView>>();
-      applyInternalInPlace(rows, decodedInput, resultFlatVector);
-      return;
-    }
 
     // Not in place path.
     VectorPtr emptyVectorPtr;
@@ -308,32 +275,13 @@ class Replace : public exec::VectorFunction {
       const SelectivityVector& rows,
       FlatVector<StringView>* results) const {
     rows.applyToSelected([&](int row) {
-      auto proxy = exec::StringWriter<>(results, row);
+      auto proxy = exec::StringWriter(results, row);
       stringImpl::replace(
           proxy,
           stringReader(row),
           searchReader(row),
           replaceReader(row),
           replaceFirst_);
-      proxy.finalize();
-    });
-  }
-
-  template <
-      typename StringReader,
-      typename SearchReader,
-      typename ReplaceReader>
-  void applyInPlace(
-      StringReader stringReader,
-      SearchReader searchReader,
-      ReplaceReader replaceReader,
-      const SelectivityVector& rows,
-      FlatVector<StringView>* results) const {
-    rows.applyToSelected([&](int row) {
-      auto proxy = exec::StringWriter<true /*reuseInput*/>(
-          results, row, stringReader(row) /*reusedInput*/, true /*inPlace*/);
-      stringImpl::replaceInPlace(
-          proxy, searchReader(row), replaceReader(row), replaceFirst_);
       proxy.finalize();
     });
   }
@@ -391,27 +339,6 @@ class Replace : public exec::VectorFunction {
         return decodedReplaceInput->valueAt<StringView>(row);
       }
     };
-
-    // Right now we enable the inplace if 'search' and 'replace' are constants
-    // and 'search' size is larger than or equal to 'replace' and if the input
-    // vector is reused.
-
-    // TODO: analyze other options for enabling inplace i.e.:
-    // 1. Decide per row.
-    // 2. Scan inputs for max lengths and decide based on that. ..etc
-    bool tryInplace = replaceArgValue.has_value() &&
-        searchArgValue.has_value() &&
-        (searchArgValue.value().size() >= replaceArgValue.value().size()) &&
-        (args.at(0)->encoding() == VectorEncoding::Simple::FLAT);
-
-    if (tryInplace) {
-      if (prepareFlatResultsVector(result, rows, context, args.at(0))) {
-        auto* resultFlatVector = result->as<FlatVector<StringView>>();
-        applyInPlace(
-            stringReader, searchReader, replaceReader, rows, resultFlatVector);
-        return;
-      }
-    }
 
     // Not in place path
     VectorPtr emptyVectorPtr;

@@ -314,13 +314,6 @@ class StringFunctionsTest : public FunctionBaseTest {
       bool withReplaceArgument,
       bool replaceFirst = false);
 
-  void testReplaceInPlace(
-      const std::vector<std::pair<std::string, std::string>>& tests,
-      const std::string& search,
-      const std::string& replace,
-      bool multiReferenced,
-      bool replaceFirst = false);
-
   using replace_first_input_test_t = std::vector<std::pair<
       std::tuple<std::string, std::string, std::string>,
       std::string>>;
@@ -1370,75 +1363,6 @@ TEST_F(StringFunctionsTest, invalidLevenshteinDistance) {
       "The combined inputs size exceeded max Levenshtein distance combined input size");
 }
 
-void StringFunctionsTest::testReplaceInPlace(
-    const std::vector<std::pair<std::string, std::string>>& tests,
-    const std::string& search,
-    const std::string& replace,
-    bool multiReferenced,
-    bool replaceFirst) {
-  auto makeInput = [&]() {
-    auto stringVector = makeFlatVector<StringView>(tests.size());
-
-    for (int i = 0; i < tests.size(); i++) {
-      stringVector->set(i, StringView(tests[i].first));
-    }
-    auto crossRefVector = makeFlatVector<StringView>(1);
-
-    if (multiReferenced) {
-      crossRefVector->acquireSharedStringBuffers(stringVector.get());
-    }
-    return stringVector;
-  };
-
-  auto testResults = [&](const FlatVector<StringView>* results) {
-    for (int32_t i = 0; i < tests.size(); ++i) {
-      ASSERT_EQ(results->valueAt(i), StringView(tests[i].second));
-    }
-  };
-
-  auto result = evaluate<FlatVector<StringView>>(
-      fmt::format(
-          "{}(c0, '{}', '{}')",
-          replaceFirst ? "replace_first" : "replace",
-          search,
-          replace),
-      makeRowVector({makeInput()}));
-  testResults(result.get());
-
-  // Test in place optimization. If in-place is expected, make sure it happened.
-  // If its not expected make sure it did not happen.
-  auto applyReplaceFunction = [&](std::vector<VectorPtr>& functionInputs,
-                                  VectorPtr& resultPtr) {
-    core::QueryConfig config({});
-    auto replaceFunction = replaceFirst
-        ? exec::getVectorFunction(
-              "replace_first", {VARCHAR(), VARCHAR(), VARCHAR()}, {}, config)
-        : exec::getVectorFunction(
-              "replace", {VARCHAR(), VARCHAR()}, {}, config);
-    SelectivityVector rows(tests.size());
-    ExprSet exprSet({}, &execCtx_);
-    RowVectorPtr inputRows = makeRowVector({});
-    exec::EvalCtx evalCtx(&execCtx_, &exprSet, inputRows.get());
-    replaceFunction->apply(rows, functionInputs, VARCHAR(), evalCtx, resultPtr);
-  };
-
-  std::vector<VectorPtr> functionInputs = {
-      makeInput(),
-      makeConstant(search.c_str(), tests.size()),
-      makeConstant(replace.c_str(), tests.size())};
-
-  VectorPtr resultPtr;
-  applyReplaceFunction(functionInputs, resultPtr);
-  testResults(resultPtr->asFlatVector<StringView>());
-
-  if (!multiReferenced && search >= replace) {
-    // Expected in-place.
-    ASSERT_TRUE(resultPtr == functionInputs[0]);
-  } else {
-    ASSERT_FALSE(resultPtr == functionInputs[0]);
-  }
-}
-
 void StringFunctionsTest::testReplaceFlatVector(
     const replace_input_test_t& tests,
     bool withReplaceArgument,
@@ -1521,19 +1445,14 @@ TEST_F(StringFunctionsTest, replaceFirst) {
       true,
       /*replaceFirst*/ true);
 
-  // Test in place path
-  std::vector<std::pair<std::string, std::string>> testsInplace = {
-      {"foobar", "fttbar"}, {"oooooo", "ttoooo"}};
-  testReplaceInPlace(testsInplace, "oo", "tt", false, /*replaceFirst*/ true);
-  testReplaceInPlace(testsInplace, "oo", "tt", true, /*replaceFirst*/ true);
-  // Test in place path with unicode
-  std::vector<std::pair<std::string, std::string>> testsInplaceUnicode = {
-      {"αβγδεζηθικλμνξοπρςστυφχψ", "αβγδεζηψκλμνξοπρςστυφχψ"},
-      {"θιбвгдежз", "ψбвгдежз"}};
-  testReplaceInPlace(
-      testsInplaceUnicode, "θι", "ψ", false, /*replaceFirst*/ true);
-  testReplaceInPlace(
-      testsInplaceUnicode, "θι", "ψ", true, /*replaceFirst*/ true);
+  testReplaceFlatVector({{{"foobar", "oo", "tt"}, {"fttbar"}}}, true, true);
+  testReplaceFlatVector({{{"oooooo", "oo", "tt"}, {"ttoooo"}}}, true, true);
+
+  testReplaceFlatVector(
+      {{{"αβγδεζηθικλμνξοπρςστυφχψ", "θι", "ψ"}, {"αβγδεζηψκλμνξοπρςστυφχψ"}}},
+      true,
+      true);
+  testReplaceFlatVector({{{"θιбвгдежз", "θι", "ψ"}, {"ψбвгдежз"}}}, true, true);
 
   // Test constant vectors
   auto rows = makeRowVector(makeRowType({BIGINT()}), 10);
@@ -1565,19 +1484,21 @@ TEST_F(StringFunctionsTest, replace) {
 
   testReplaceFlatVector(testsTwoArgs, false);
 
-  // Test in place path
-  std::vector<std::pair<std::string, std::string>> testsInplace = {
-      {"aaa", "bbb"},
-      {"aba", "bbb"},
-      {"qwertyuiowertyuioqwertyuiopwertyuiopwertyuiopwertyuiopertyuioqwertyuiopwertyuiowertyuio",
-       "qwertyuiowertyuioqwertyuiopwertyuiopwertyuiopwertyuiopertyuioqwertyuiopwertyuiowertyuio"},
-      {"qwertyuiowertyuioqwertyuiopwertyuiopwertyuiopwertyuiopertyuioqwertyuiopwertyuiowertaaaa",
-       "qwertyuiowertyuioqwertyuiopwertyuiopwertyuiopwertyuiopertyuioqwertyuiopwertyuiowertbbbb"},
-  };
+  replace_input_test_t moreTests = {
+      {{"aaa", "a", "b"}, {"bbb"}},
+      {{"aba", "a", "b"}, {"bbb"}},
+      {{"qwertyuiowertyuioqwertyuiopwertyuiopwertyuiopwertyuiopertyuioqwertyuiopwertyuiowertyuio",
+        "a",
+        "b"},
+       {"qwertyuiowertyuioqwertyuiopwertyuiopwertyuiopwertyuiopertyuioqwertyuiopwertyuiowertyuio"}},
+      {{"qwertyuiowertyuioqwertyuiopwertyuiopwertyuiopwertyuiopertyuioqwertyuiopwertyuiowertaaaa",
+        "a",
+        "b"},
+       {"qwertyuiowertyuioqwertyuiopwertyuiopwertyuiopwertyuiopertyuioqwertyuiopwertyuiowertbbbb"}},
+      {{"a", "a", "bb"}, {"bb"}},
+      {{"aa", "a", "bb"}, {"bbbb"}}};
 
-  testReplaceInPlace(testsInplace, "a", "b", true);
-  testReplaceInPlace(testsInplace, "a", "b", false);
-  testReplaceInPlace({{"a", "bb"}, {"aa", "bbbb"}}, "a", "bb", false);
+  testReplaceFlatVector(moreTests, true);
 
   // Test constant vectors
   auto rows = makeRowVector(makeRowType({BIGINT()}), 10);
@@ -1588,7 +1509,7 @@ TEST_F(StringFunctionsTest, replace) {
   }
 }
 
-TEST_F(StringFunctionsTest, replaceWithReusableInputButNoInplace) {
+TEST_F(StringFunctionsTest, replaceWithReusableInput) {
   auto c0 = ({
     auto values = makeFlatVector<std::string>({"foo"});
     auto indices = allocateIndices(100, execCtx_.pool());
@@ -1610,6 +1531,62 @@ TEST_F(StringFunctionsTest, replaceWithReusableInputButNoInplace) {
   for (int i = 50; i < 100; ++i) {
     EXPECT_TRUE(result->isNullAt(i));
   }
+}
+
+TEST_F(StringFunctionsTest, replaceOverlappingStringViews) {
+  auto test = [&](const std::string& function) {
+    BufferPtr stringData = AlignedBuffer::allocate<char>(15, pool_.get());
+    memcpy(stringData->asMutable<char>(), "abcdefghijklmno", 15);
+    const char* str = stringData->as<char>();
+
+    BufferPtr values = AlignedBuffer::allocate<StringView>(3, pool_.get());
+    auto* valuesMutable = values->asMutable<StringView>();
+    // Make the strings large enough that they are not inlined.
+    // Note that only the first string contains the substring "abc", though the
+    // other two contain portions of it. This test verifies that "abc" is not
+    // replaced with "def" in the original string buffer (which would cause
+    // visible changes in the other two strings).
+    valuesMutable[0] = StringView(str, 13); // abcdefghijklm
+    valuesMutable[1] = StringView(str + 1, 13); // bcdefghijklmn
+    valuesMutable[2] = StringView(str + 2, 13); // cdefghijklmno
+
+    auto inputVector = std::make_shared<FlatVector<StringView>>(
+        pool_.get(),
+        VARCHAR(),
+        nullptr,
+        3,
+        std::move(values),
+        std::vector<BufferPtr>{std::move(stringData)});
+    const auto numRows = inputVector->size();
+
+    core::QueryConfig config({});
+    auto replaceFunction = exec::getVectorFunction(
+        function, {VARCHAR(), VARCHAR(), VARCHAR()}, {}, config);
+    SelectivityVector rows(numRows);
+    ExprSet exprSet({}, &execCtx_);
+    RowVectorPtr inputRows = makeRowVector({});
+    exec::EvalCtx evalCtx(&execCtx_, &exprSet, inputRows.get());
+
+    std::vector<VectorPtr> functionInputs{
+        std::move(inputVector),
+        makeConstant("abc", numRows),
+        makeConstant("def", numRows)};
+    VectorPtr resultPtr;
+    // We call apply on the VectorFunction, rather than calling evaluate to
+    // ensure that the input Vectors are unique (simulating the case where the
+    // input to replace is an intermediate result in the expression). This is to
+    // ensure we test any optimizations that attempt to reuse the input as the
+    // output or update the string buffers in place when the inputs are unique.
+    replaceFunction->apply(rows, functionInputs, VARCHAR(), evalCtx, resultPtr);
+
+    auto* results = resultPtr->as<FlatVector<StringView>>();
+    EXPECT_EQ(results->valueAt(0), "defdefghijklm");
+    EXPECT_EQ(results->valueAt(1), "bcdefghijklmn");
+    EXPECT_EQ(results->valueAt(2), "cdefghijklmno");
+  };
+
+  test("replace");
+  test("replace_first");
 }
 
 TEST_F(StringFunctionsTest, controlExprEncodingPropagation) {

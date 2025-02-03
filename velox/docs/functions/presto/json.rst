@@ -211,4 +211,4 @@ are similar. To create a JSON-typed vector, one can use
 ``BaseVector::create(JSON(), size, pool)`` that creates a flat vector of
 StringViews, i.e. FlatVector<StringView>. Reading and writing to a JSON-typed
 vector are the same as those for VARCHAR vectors, e.g., via
-VectorReader<StringView> and StringWriter<>.
+VectorReader<StringView> and StringWriter.

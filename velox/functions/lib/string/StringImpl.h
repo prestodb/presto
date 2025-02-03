@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <cstdint>
 #include <cstring>
-#include <sstream>
-#include <string>
 #include <string_view>
 #include <vector>
 #include "folly/CPortability.h"
@@ -62,20 +60,6 @@ FOLLY_ALWAYS_INLINE bool lower(TOutString& output, const TInString& input) {
         lowerUnicode(output.data(), output.size(), input.data(), input.size());
     output.resize(size);
   }
-  return true;
-}
-
-/// Inplace ascii lower
-template <typename T>
-FOLLY_ALWAYS_INLINE bool lowerAsciiInPlace(T& str) {
-  lowerAscii(str.data(), str.data(), str.size());
-  return true;
-}
-
-/// Inplace ascii upper
-template <typename T>
-FOLLY_ALWAYS_INLINE bool upperAsciiInPlace(T& str) {
-  upperAscii(str.data(), str.data(), str.size());
   return true;
 }
 

@@ -310,7 +310,7 @@ When a given Ti is primitive, the following is valid.
 Assignable to std::optional<T> allows writing null or value to the primitive. Returned by complex writers when writing nullable
 primitives.
 
-**StringWriter<>**
+**StringWriter**
 
 - void **reserve** (size_t newCapacity) : Reserve a space for the output string with size of at least newCapacity.
 - void **resize** (size_t newCapacity) : Set the size of the string.

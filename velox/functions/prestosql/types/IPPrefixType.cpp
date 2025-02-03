@@ -122,7 +122,7 @@ class IPPrefixCastOperator : public exec::CastOperator {
       auto stringRet = fmt::format("{}/{}", ipString, prefixVal);
 
       // Write the string to the result vector
-      exec::StringWriter<false> result(flatResult, row);
+      exec::StringWriter result(flatResult, row);
       result.append(stringRet);
       result.finalize();
     });

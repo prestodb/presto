@@ -23,11 +23,7 @@
 #include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
-template <bool reuseInput = false>
-class StringWriter;
-
-template <>
-class StringWriter<false /*reuseInput*/> : public UDFOutputString {
+class StringWriter : public UDFOutputString {
  public:
   // Used to initialize top-level strings and allow zero-copy writes.
   StringWriter(FlatVector<StringView>* vector, int32_t offset)
@@ -155,53 +151,5 @@ class StringWriter<false /*reuseInput*/> : public UDFOutputString {
 
   template <typename A, typename B>
   friend struct VectorWriter;
-};
-
-// A string writer with UDFOutputString semantics that utilizes a pre-allocated
-// input string for the output allocation, if inPlace is true in the constructor
-// the string will be initialized with the input string value.
-template <>
-class StringWriter<true /*reuseInput*/> : public UDFOutputString {
- public:
-  StringWriter() : vector_(nullptr), offset_(-1) {}
-
-  StringWriter(
-      FlatVector<StringView>* vector,
-      int32_t offset,
-      const StringView& stringToReuse,
-      bool inPlace = false)
-      : vector_(vector), offset_(offset), stringToReuse_(stringToReuse) {
-    setData(const_cast<char*>(stringToReuse_.data()));
-    setCapacity(stringToReuse_.size());
-
-    if (inPlace) {
-      // The string should be intialized with the input value
-      setSize(stringToReuse_.size());
-    }
-  }
-
-  void reserve(size_t newCapacity) override {
-    VELOX_CHECK(
-        newCapacity <= capacity() && "String writer max capacity extended");
-  }
-
-  /// Not called by the UDF Implementation. Should be called at the end to
-  /// finalize the allocation and the string writing
-  void finalize() {
-    VELOX_DCHECK(size() == 0 || data());
-    vector_->setNoCopy(offset_, StringView(data(), size()));
-  }
-
- private:
-  /// The output vector that this string is being written to
-  FlatVector<StringView>* vector_;
-
-  /// The offset the string writes to within vector_
-  int32_t offset_;
-
-  /// The input string that is reused, held locally to assert the validity of
-  /// the data pointer throughout the proxy lifetime. More specifically when
-  /// the string is inlined.
-  StringView stringToReuse_;
 };
 } // namespace facebook::velox::exec

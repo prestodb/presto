@@ -377,7 +377,7 @@ const auto callNullablePrefix = "callNullable "_sv;
 const auto callAsciiPrefix = "callAscii "_sv;
 
 void writeInputToOutput(
-    StringWriter<>& out,
+    StringWriter& out,
     const VariadicView<true, Varchar>* inputs) {
   for (const auto& input : *inputs) {
     out += input.has_value() ? input.value() : null;

@@ -1424,11 +1424,11 @@ class RegexpReplaceWithLambdaFunction : public exec::VectorFunction {
   // Sections being replaced should not overlap.
   struct Replacer {
     const StringView& original;
-    exec::StringWriter<false>& writer;
+    exec::StringWriter& writer;
     char* result;
     size_t start = 0;
 
-    Replacer(const StringView& _original, exec::StringWriter<false>& _writer)
+    Replacer(const StringView& _original, exec::StringWriter& _writer)
         : original{_original}, writer{_writer}, result{writer.data()} {}
 
     void replace(size_t offset, size_t size, const StringView& replacement) {

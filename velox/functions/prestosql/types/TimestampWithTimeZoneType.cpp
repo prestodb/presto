@@ -131,7 +131,7 @@ void castToString(
     const auto timeZoneId = unpackZoneKeyId(timestampWithTimezone);
     const auto* timezonePtr = tz::locateZone(tz::getTimeZoneName(timeZoneId));
 
-    exec::StringWriter<false> result(flatResult, row);
+    exec::StringWriter result(flatResult, row);
 
     const auto maxResultSize = formatter->maxResultSize(timezonePtr);
     result.reserve(maxResultSize);

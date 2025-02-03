@@ -42,7 +42,7 @@ class ReverseFunction : public exec::VectorFunction {
         const FlatVector<StringView>* input,
         FlatVector<StringView>* result) {
       rows.applyToSelected([&](int row) {
-        auto proxy = exec::StringWriter<>(result, row);
+        auto proxy = exec::StringWriter(result, row);
         stringImpl::reverse<isAscii>(proxy, input->valueAt(row).getString());
         proxy.finalize();
       });
@@ -100,7 +100,7 @@ class ReverseFunction : public exec::VectorFunction {
     if (originalArg->isConstantEncoding()) {
       auto value = originalArg->as<ConstantVector<StringView>>()->valueAt(0);
 
-      auto proxy = exec::StringWriter<>(flatResult, rows.begin());
+      auto proxy = exec::StringWriter(flatResult, rows.begin());
       if (isAscii) {
         stringImpl::reverse<true>(proxy, value.str());
       } else {

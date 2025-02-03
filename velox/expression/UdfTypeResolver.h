@@ -21,7 +21,6 @@
 
 namespace facebook::velox::exec {
 
-template <bool reuseInput>
 class StringWriter;
 
 template <bool nullable, typename V>
@@ -120,14 +119,14 @@ template <>
 struct resolver<Varchar> {
   using in_type = StringView;
   using null_free_in_type = in_type;
-  using out_type = StringWriter<false>;
+  using out_type = StringWriter;
 };
 
 template <>
 struct resolver<Varbinary> {
   using in_type = StringView;
   using null_free_in_type = in_type;
-  using out_type = StringWriter<false>;
+  using out_type = StringWriter;
 };
 
 template <>

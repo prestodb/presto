@@ -175,7 +175,7 @@ VectorPtr CastExpr::castFromDate(
         try {
           // TODO Optimize to avoid creating an intermediate string.
           auto output = DATE()->toString(inputFlatVector->valueAt(row));
-          auto writer = exec::StringWriter<>(resultFlatVector, row);
+          auto writer = exec::StringWriter(resultFlatVector, row);
           writer.resize(output.size());
           ::memcpy(writer.data(), output.data(), output.size());
           writer.finalize();
@@ -298,7 +298,7 @@ VectorPtr CastExpr::castFromIntervalDayTime(
           // TODO Optimize to avoid creating an intermediate string.
           auto output =
               INTERVAL_DAY_TIME()->valueToString(inputFlatVector->valueAt(row));
-          auto writer = exec::StringWriter<>(resultFlatVector, row);
+          auto writer = exec::StringWriter(resultFlatVector, row);
           writer.resize(output.size());
           ::memcpy(writer.data(), output.data(), output.size());
           writer.finalize();

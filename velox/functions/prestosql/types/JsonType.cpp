@@ -314,7 +314,7 @@ struct AsJson {
   }
 
   // Appends the json string of the value at i to a string writer.
-  void append(vector_size_t i, exec::StringWriter<>& proxy) const {
+  void append(vector_size_t i, exec::StringWriter& proxy) const {
     if (decoded_->isNullAt(i)) {
       proxy.append("null");
     } else {
@@ -435,7 +435,7 @@ void castToJsonFromArray(
     auto offset = inputArray->offsetAt(row);
     auto size = inputArray->sizeAt(row);
 
-    auto proxy = exec::StringWriter<>(&flatResult, row);
+    auto proxy = exec::StringWriter(&flatResult, row);
 
     proxy.append("["_sv);
     for (int i = offset, end = offset + size; i < end; ++i) {
@@ -529,7 +529,7 @@ void castToJsonFromMap(
     }
     std::sort(sortedKeys.begin(), sortedKeys.end());
 
-    auto proxy = exec::StringWriter<>(&flatResult, row);
+    auto proxy = exec::StringWriter(&flatResult, row);
 
     proxy.append("{"_sv);
     for (auto it = sortedKeys.begin(); it != sortedKeys.end(); ++it) {
@@ -587,7 +587,7 @@ void castToJsonFromRow(
       return;
     }
 
-    auto proxy = exec::StringWriter<>(&flatResult, row);
+    auto proxy = exec::StringWriter(&flatResult, row);
 
     proxy.append("["_sv);
     for (int i = 0; i < childrenSize; ++i) {

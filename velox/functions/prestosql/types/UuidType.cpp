@@ -93,7 +93,7 @@ class UuidCastOperator : public exec::CastOperator {
           "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf"
           "e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
 
-      exec::StringWriter<false> result(flatResult, row);
+      exec::StringWriter result(flatResult, row);
       result.resize(36);
 
       size_t offset = 0;

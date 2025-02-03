@@ -95,7 +95,7 @@ class FromUtf8Function : public exec::VectorFunction {
 
     if (constantReplacement) {
       rows.applyToSelected([&](auto row) {
-        exec::StringWriter<false> writer(flatResult, row);
+        exec::StringWriter writer(flatResult, row);
         auto value = decodedInput.valueAt<StringView>(row);
         if (row < firstInvalidRow) {
           writer.append(value);
@@ -109,7 +109,7 @@ class FromUtf8Function : public exec::VectorFunction {
       context.applyToSelectedNoThrow(rows, [&](auto row) {
         auto replacement =
             getReplacementCharacter(args[1]->type(), decodedReplacement, row);
-        exec::StringWriter<false> writer(flatResult, row);
+        exec::StringWriter writer(flatResult, row);
         auto value = decodedInput.valueAt<StringView>(row);
         if (row < firstInvalidRow) {
           writer.append(value);
@@ -261,7 +261,7 @@ class FromUtf8Function : public exec::VectorFunction {
   void fixInvalidUtf8(
       StringView input,
       const std::string& replacement,
-      exec::StringWriter<false>& fixedWriter) const {
+      exec::StringWriter& fixedWriter) const {
     if (input.empty()) {
       fixedWriter.setEmpty();
       return;

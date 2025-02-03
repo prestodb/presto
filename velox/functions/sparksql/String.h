@@ -17,11 +17,9 @@
 
 #include "folly/ssl/OpenSSLHash.h"
 
-#include <codecvt>
 #include <string>
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/Macros.h"
-#include "velox/functions/UDFOutputString.h"
 #include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/lib/string/StringImpl.h"
 
@@ -683,7 +681,7 @@ struct SubstrFunction {
 struct OverlayFunctionBase {
   template <bool isAscii, bool isVarchar>
   FOLLY_ALWAYS_INLINE void doCall(
-      exec::StringWriter<false>& result,
+      exec::StringWriter& result,
       StringView input,
       StringView replace,
       int32_t pos,
@@ -713,7 +711,7 @@ struct OverlayFunctionBase {
 
   template <bool isAscii, bool isVarchar>
   FOLLY_ALWAYS_INLINE void append(
-      exec::StringWriter<false>& result,
+      exec::StringWriter& result,
       StringView input,
       std::pair<int32_t, int32_t> pair) {
     if constexpr (isVarchar && !isAscii) {
