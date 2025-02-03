@@ -123,6 +123,7 @@ public abstract class IcebergDistributedSmokeTestBase
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
     }
+
     @Test
     public void testShowCreateTable()
     {
@@ -771,15 +772,15 @@ public abstract class IcebergDistributedSmokeTestBase
 
             assertUpdate(session, "CREATE TABLE test_create_table_like_copy4 (LIKE test_create_table_like_original INCLUDING PROPERTIES) WITH (format = 'ORC')");
             assertEquals(getTablePropertiesString("test_create_table_like_copy4"), format("WITH (\n" +
-                    "   delete_mode = 'merge-on-read',\n" +
-                    "   format = 'ORC',\n" +
-                    "   format_version = '2',\n" +
-                    "   location = '%s',\n" +
-                    "   metadata_delete_after_commit = false,\n" +
-                    "   metadata_previous_versions_max = 100,\n" +
-                    "   metrics_max_inferred_column = 100,\n" +
-                    "   partitioning = ARRAY['adate']\n" +
-                    ")",
+                            "   delete_mode = 'merge-on-read',\n" +
+                            "   format = 'ORC',\n" +
+                            "   format_version = '2',\n" +
+                            "   location = '%s',\n" +
+                            "   metadata_delete_after_commit = false,\n" +
+                            "   metadata_previous_versions_max = 100,\n" +
+                            "   metrics_max_inferred_column = 100,\n" +
+                            "   partitioning = ARRAY['adate']\n" +
+                            ")",
                     getLocation(schemaName, "test_create_table_like_original")));
             dropTable(session, "test_create_table_like_copy4");
         }

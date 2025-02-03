@@ -17,6 +17,7 @@ import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -34,6 +35,7 @@ public class IcebergTableHandle
     private final Optional<String> tableSchemaJson;
     private final Optional<Set<Integer>> partitionFieldIds;
     private final Optional<Set<Integer>> equalityFieldIds;
+    private final List<IcebergColumnHandle> updatedColumns;
 
     @JsonCreator
     public IcebergTableHandle(
@@ -44,7 +46,8 @@ public class IcebergTableHandle
             @JsonProperty("storageProperties") Optional<Map<String, String>> storageProperties,
             @JsonProperty("tableSchemaJson") Optional<String> tableSchemaJson,
             @JsonProperty("partitionFieldIds") Optional<Set<Integer>> partitionFieldIds,
-            @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds)
+            @JsonProperty("equalityFieldIds") Optional<Set<Integer>> equalityFieldIds,
+            @JsonProperty("updatedColumns") List<IcebergColumnHandle> updatedColumns)
     {
         super(schemaName, icebergTableName.getTableName());
 
@@ -55,6 +58,7 @@ public class IcebergTableHandle
         this.tableSchemaJson = requireNonNull(tableSchemaJson, "tableSchemaJson is null");
         this.partitionFieldIds = requireNonNull(partitionFieldIds, "partitionFieldIds is null");
         this.equalityFieldIds = requireNonNull(equalityFieldIds, "equalityFieldIds is null");
+        this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
     }
 
     @JsonProperty
@@ -97,6 +101,26 @@ public class IcebergTableHandle
     public Optional<Set<Integer>> getEqualityFieldIds()
     {
         return equalityFieldIds;
+    }
+
+    @JsonProperty
+    public List<IcebergColumnHandle> getUpdatedColumns()
+    {
+        return updatedColumns;
+    }
+
+    public IcebergTableHandle withUpdatedColumns(List<IcebergColumnHandle> updatedColumns)
+    {
+        return new IcebergTableHandle(
+                getSchemaName(),
+                icebergTableName,
+                snapshotSpecified,
+                outputPath,
+                storageProperties,
+                tableSchemaJson,
+                partitionFieldIds,
+                equalityFieldIds,
+                updatedColumns);
     }
 
     @Override
