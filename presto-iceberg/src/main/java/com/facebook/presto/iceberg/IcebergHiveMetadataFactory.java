@@ -39,8 +39,10 @@ public class IcebergHiveMetadataFactory
     final RowExpressionService rowExpressionService;
     final NodeVersion nodeVersion;
     final FilterStatsCalculatorService filterStatsCalculatorService;
+    final IcebergConfig icebergConfig;
     final IcebergHiveTableOperationsConfig operationsConfig;
     final StatisticsFileCache statisticsFileCache;
+    final ManifestFileCache manifestFileCache;
 
     @Inject
     public IcebergHiveMetadataFactory(
@@ -52,8 +54,10 @@ public class IcebergHiveMetadataFactory
             JsonCodec<CommitTaskData> commitTaskCodec,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
+            IcebergConfig icebergConfig,
             IcebergHiveTableOperationsConfig operationsConfig,
-            StatisticsFileCache statisticsFileCache)
+            StatisticsFileCache statisticsFileCache,
+            ManifestFileCache manifestFileCache)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -63,8 +67,10 @@ public class IcebergHiveMetadataFactory
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.filterStatsCalculatorService = requireNonNull(filterStatsCalculatorService, "filterStatsCalculatorService is null");
+        this.icebergConfig = requireNonNull(icebergConfig, "icebergConfig is null");
         this.operationsConfig = requireNonNull(operationsConfig, "operationsConfig is null");
         this.statisticsFileCache = requireNonNull(statisticsFileCache, "statisticsFileCache is null");
+        this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
     }
 
     public ConnectorMetadata create()
@@ -78,7 +84,9 @@ public class IcebergHiveMetadataFactory
                 commitTaskCodec,
                 nodeVersion,
                 filterStatsCalculatorService,
+                icebergConfig,
                 operationsConfig,
-                statisticsFileCache);
+                statisticsFileCache,
+                manifestFileCache);
     }
 }
