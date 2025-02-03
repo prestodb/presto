@@ -15,6 +15,7 @@ package com.facebook.presto.router.cluster;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.router.ClusterInfo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -23,7 +24,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class RemoteClusterInfo
-        extends RemoteState
+        extends RemoteState implements ClusterInfo
 {
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final Logger log = Logger.get(RemoteClusterInfo.class);
@@ -55,26 +56,31 @@ public class RemoteClusterInfo
         runningDrivers.set(fields.get(RUNNING_DRIVERS));
     }
 
+    @Override
     public long getRunningQueries()
     {
         return runningQueries.get();
     }
 
+    @Override
     public long getBlockedQueries()
     {
         return blockedQueries.get();
     }
 
+    @Override
     public long getQueuedQueries()
     {
         return queuedQueries.get();
     }
 
+    @Override
     public long getActiveWorkers()
     {
         return activeWorkers.get();
     }
 
+    @Override
     public long getRunningDrivers()
     {
         return runningDrivers.get();

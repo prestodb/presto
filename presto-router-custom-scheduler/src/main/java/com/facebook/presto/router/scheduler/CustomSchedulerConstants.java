@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.router.scheduler;
 
-public enum SchedulerType
+public class CustomSchedulerConstants
 {
-    RANDOM_CHOICE,
-    ROUND_ROBIN,
-    USER_HASH,
-    WEIGHTED_RANDOM_CHOICE,
-    CUSTOM_PLUGIN_SCHEDULER
+    private CustomSchedulerConstants()
+    {
+    }
+
+    public static final String METRICS_BASED = "metricsBased";
 }

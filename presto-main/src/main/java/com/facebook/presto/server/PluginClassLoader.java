@@ -26,7 +26,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-class PluginClassLoader
+public class PluginClassLoader
         extends URLClassLoader
 {
     private static final ClassLoader PLATFORM_CLASS_LOADER = findPlatformClassLoader();
