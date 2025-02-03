@@ -28,8 +28,11 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
@@ -55,6 +58,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -71,6 +75,9 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.TaskResourceUtils.convertToThriftTaskInfo;
 import static com.facebook.presto.server.TaskResourceUtils.isThriftRequest;
 import static com.facebook.presto.server.security.RoleType.INTERNAL;
+import static com.facebook.presto.telemetry.TracingManager.getSpan;
+import static com.facebook.presto.telemetry.TracingManager.scopedSpan;
+import static com.facebook.presto.telemetry.TracingManager.setAttributes;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -131,20 +138,27 @@ public class TaskResource
     @Path("{taskId}")
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
     @Produces({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo)
+    public Response createOrUpdateTask(@PathParam("taskId") TaskId taskId, TaskUpdateRequest taskUpdateRequest, @Context UriInfo uriInfo, @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
 
-        Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
-        TaskInfo taskInfo = taskManager.updateTask(session,
-                taskId,
-                taskUpdateRequest.getFragment().map(planFragmentCodec::fromBytes),
-                taskUpdateRequest.getSources(),
-                taskUpdateRequest.getOutputIds(),
-                taskUpdateRequest.getTableWriteInfo());
+        BaseSpan span = getSpan(traceParent, "POST /v1/task/{taskId}"); // Recheck if working without context.makeCurrent();
 
-        if (shouldSummarize(uriInfo)) {
-            taskInfo = taskInfo.summarize();
+        TaskInfo taskInfo;
+
+        try (BaseSpan ignored = scopedSpan(span)) {
+            Session session = taskUpdateRequest.getSession().toSession(sessionPropertyManager, taskUpdateRequest.getExtraCredentials());
+            taskInfo = taskManager.updateTask(session,
+                    taskId,
+                    taskUpdateRequest.getFragment().map(planFragmentCodec::fromBytes),
+                    taskUpdateRequest.getSources(),
+                    taskUpdateRequest.getOutputIds(),
+                    taskUpdateRequest.getTableWriteInfo(),
+                    span);
+
+            if (shouldSummarize(uriInfo)) {
+                taskInfo = taskInfo.summarize();
+            }
         }
 
         return Response.ok().entity(taskInfo).build();
@@ -160,9 +174,12 @@ public class TaskResource
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
             @Context HttpHeaders httpHeaders,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse,
+            @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(taskId, "taskId is null");
+
+        BaseSpan span = getSpan(traceParent, "GET /v1/task/{taskId}"); // Recheck if working
 
         boolean isThriftRequest = isThriftRequest(httpHeaders);
 
@@ -201,6 +218,10 @@ public class TaskResource
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskInfo, responseExecutor)
                 .withTimeout(timeout);
+
+        if (!Objects.isNull(span)) {
+            span.end();
+        }
     }
 
     @GET
@@ -212,9 +233,12 @@ public class TaskResource
             @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
-            @Suspended AsyncResponse asyncResponse)
+            @Suspended AsyncResponse asyncResponse,
+            @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(taskId, "taskId is null");
+
+        BaseSpan span = getSpan(traceParent, "GET /v1/task/{taskId}/status");
 
         if (currentState == null || maxWait == null) {
             TaskStatus taskStatus = taskManager.getTaskStatus(taskId);
@@ -236,15 +260,26 @@ public class TaskResource
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse, futureTaskStatus, responseExecutor)
                 .withTimeout(timeout);
+
+        if (!Objects.isNull(span)) {
+            span.end();
+        }
     }
 
     @POST
     @Path("{taskId}/metadataresults")
     @Consumes({APPLICATION_JSON, APPLICATION_JACKSON_SMILE})
-    public Response updateMetadataResults(@PathParam("taskId") TaskId taskId, MetadataUpdates metadataUpdates, @Context UriInfo uriInfo)
+    public Response updateMetadataResults(@PathParam("taskId") TaskId taskId, MetadataUpdates metadataUpdates, @Context UriInfo uriInfo, @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(metadataUpdates, "metadataUpdates is null");
+
+        BaseSpan span = getSpan(traceParent, "POST /v1/task/{taskId}/metadataresults");
+
         taskManager.updateMetadataResults(taskId, metadataUpdates);
+
+        if (!Objects.isNull(span)) {
+            span.end();
+        }
         return Response.ok().build();
     }
 
@@ -256,16 +291,25 @@ public class TaskResource
             @PathParam("taskId") TaskId taskId,
             @QueryParam("abort") @DefaultValue("true") boolean abort,
             @Context UriInfo uriInfo,
-            @Context HttpHeaders httpHeaders)
+            @Context HttpHeaders httpHeaders,
+            @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(taskId, "taskId is null");
         TaskInfo taskInfo;
 
+        BaseSpan span = getSpan(traceParent, "DELETE /v1/task/{taskId}");
+
         if (abort) {
             taskInfo = taskManager.abortTask(taskId);
+            if (Objects.nonNull(span)) {
+                setAttributes(span, ImmutableMap.of("status", "aborted"));
+            }
         }
         else {
             taskInfo = taskManager.cancelTask(taskId);
+            if (Objects.nonNull(span)) {
+                setAttributes(span, ImmutableMap.of("status", "cancelled"));
+            }
         }
 
         if (shouldSummarize(uriInfo)) {
@@ -276,6 +320,20 @@ public class TaskResource
             taskInfo = convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
         }
 
+        String taskStatus = taskInfo.getTaskStatus().getState().toString();
+        String tskId = String.valueOf(taskId.getId());
+        String nodeId = taskInfo.getNodeId();
+        TaskStats taskStats = taskInfo.getStats();
+        String createTime = taskStats.getCreateTime().toString();
+        String endTime = taskStats.getEndTime() != null ? taskStats.getEndTime().toString() : null;
+        String noOfSplits = String.valueOf(taskStats.getTotalDrivers());
+        String lastHeartbeat = taskInfo.getLastHeartbeat().toString();
+        String outputBufferInfo = taskInfo.getOutputBuffers().toString();
+
+        if (Objects.nonNull(span)) {
+            setAttributes(span, ImmutableMap.of("task status", taskStatus, "taskId", tskId, "node id", nodeId, "create time", createTime, "end time", endTime, "no. of splits", noOfSplits, "last heartbeat", lastHeartbeat, "output buffer state", outputBufferInfo));
+            span.end();
+        }
         return taskInfo;
     }
 
@@ -284,22 +342,36 @@ public class TaskResource
     public void acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token)
+            @PathParam("token") final long token,
+            @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
+        BaseSpan span = getSpan(traceParent, "GET /v1/task/{taskId}/results/{bufferId}/{token}/acknowledge");
+
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
+
+        if (!Objects.isNull(span)) {
+            span.end();
+        }
     }
 
     @HEAD
     @Path("{taskId}/results/{bufferId}")
     public Response taskResultsHeaders(
             @PathParam("taskId") TaskId taskId,
-            @PathParam("bufferId") OutputBufferId bufferId)
+            @PathParam("bufferId") OutputBufferId bufferId,
+            @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
+
+        BaseSpan span = getSpan(traceParent, "HEAD /v1/task/{taskId}/results/{bufferId}");
+
+        if (!Objects.isNull(span)) {
+            span.end();
+        }
 
         OutputBufferInfo outputBufferInfo = taskManager.getOutputBufferInfo(taskId);
         return outputBufferInfo.getBuffers().stream()
@@ -322,31 +394,50 @@ public class TaskResource
     public Response taskResultsHeaders(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
-            @PathParam("token") final long token)
+            @PathParam("token") final long token,
+            @HeaderParam("traceparent") String traceParent)
     {
+        BaseSpan span = getSpan(traceParent, "HEAD /v1/task/{taskId}/results/{bufferId}/{token}");
+
+        if (!Objects.isNull(span)) {
+            span.end();
+        }
+
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
-        return taskResultsHeaders(taskId, bufferId);
+        return taskResultsHeaders(taskId, bufferId, traceParent);
     }
 
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     @Produces(APPLICATION_JSON)
-    public void abortResults(@PathParam("taskId") TaskId taskId, @PathParam("bufferId") OutputBufferId bufferId, @Context UriInfo uriInfo)
+    public void abortResults(@PathParam("taskId") TaskId taskId, @PathParam("bufferId") OutputBufferId bufferId, @Context UriInfo uriInfo, @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
+        BaseSpan span = getSpan(traceParent, "DELETE v1/task/{taskId}/results/{bufferId}");
+
         taskManager.abortTaskResults(taskId, bufferId);
+
+        if (!Objects.isNull(span)) {
+            span.end();
+        }
     }
 
     @DELETE
     @Path("{taskId}/remote-source/{remoteSourceTaskId}")
-    public void removeRemoteSource(@PathParam("taskId") TaskId taskId, @PathParam("remoteSourceTaskId") TaskId remoteSourceTaskId)
+    public void removeRemoteSource(@PathParam("taskId") TaskId taskId, @PathParam("remoteSourceTaskId") TaskId remoteSourceTaskId, @HeaderParam("traceparent") String traceParent)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(remoteSourceTaskId, "remoteSourceTaskId is null");
 
+        BaseSpan span = getSpan(traceParent, "DELETE /v1/task/{taskId}/remote-source/{remoteSourceTaskId}");
+
         taskManager.removeRemoteSource(taskId, remoteSourceTaskId);
+
+        if (!Objects.isNull(span)) {
+            span.end();
+        }
     }
 
     private static boolean shouldSummarize(UriInfo uriInfo)

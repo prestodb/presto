@@ -40,6 +40,8 @@ import com.facebook.presto.server.SimpleHttpResponseCallback;
 import com.facebook.presto.server.SimpleHttpResponseHandler;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.server.thrift.ThriftHttpResponseHandler;
+import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.telemetry.TracingManager;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -47,6 +49,7 @@ import io.airlift.units.Duration;
 import io.netty.channel.EventLoop;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -90,6 +93,7 @@ public class TaskInfoFetcher
     private final RequestErrorTracker errorTracker;
 
     private final boolean summarizeTaskInfo;
+    private final BaseSpan remoteTaskSpan;
 
     private long currentRequestStartNanos;
     private final RemoteTaskStats stats;
@@ -127,7 +131,8 @@ public class TaskInfoFetcher
             QueryManager queryManager,
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
-            Protocol thriftProtocol)
+            Protocol thriftProtocol,
+            BaseSpan remoteTaskSpan)
     {
         requireNonNull(initialTask, "initialTask is null");
 
@@ -144,6 +149,7 @@ public class TaskInfoFetcher
         this.errorTracker = taskRequestErrorTracker(taskId, initialTask.getTaskStatus().getSelf(), maxErrorDuration, taskEventLoop, "getting info for task");
 
         this.summarizeTaskInfo = summarizeTaskInfo;
+        this.remoteTaskSpan = remoteTaskSpan;
 
         this.taskEventLoop = requireNonNull(taskEventLoop, "taskEventLoop is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
@@ -285,6 +291,12 @@ public class TaskInfoFetcher
                     .setHeader(PRESTO_MAX_WAIT, taskInfoRefreshMaxWait.toString());
         }
 
+        Map<String, String> headersMap = TracingManager.getHeadersMap(remoteTaskSpan);
+
+        for (Map.Entry<String, String> entry : headersMap.entrySet()) {
+            requestBuilder.addHeader(entry.getKey(), entry.getValue());
+        }
+
         Request request = requestBuilder.setUri(uri).build();
         errorTracker.startRequest();
         future = httpClient.executeAsync(request, responseHandler);
@@ -404,11 +416,19 @@ public class TaskInfoFetcher
             return;
         }
 
+        //for POST {taskId}/metadataresults endpoint
+        Map<String, String> headersMap = TracingManager.getHeadersMap(remoteTaskSpan);
+
         byte[] metadataUpdatesJson = metadataUpdatesCodec.toBytes(results);
-        Request request = setContentTypeHeaders(isBinaryTransportEnabled, preparePost())
+        Request.Builder requestBuilder = setContentTypeHeaders(isBinaryTransportEnabled, preparePost())
                 .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("metadataresults").build())
-                .setBodyGenerator(createStaticBodyGenerator(metadataUpdatesJson))
-                .build();
+                .setBodyGenerator(createStaticBodyGenerator(metadataUpdatesJson));
+
+        for (Map.Entry<String, String> entry : headersMap.entrySet()) {
+            requestBuilder.addHeader(entry.getKey(), entry.getValue());
+        }
+
+        Request request = requestBuilder.build();
 
         errorTracker.startRequest();
         metadataUpdateFuture = httpClient.executeAsync(request, new ResponseHandler<Response, RuntimeException>()

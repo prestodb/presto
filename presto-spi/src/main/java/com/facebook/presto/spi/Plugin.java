@@ -30,7 +30,7 @@ import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.storage.TempStorageFactory;
-import com.facebook.presto.spi.tracing.TracerProvider;
+import com.facebook.presto.spi.telemetry.TelemetryFactory;
 import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 
@@ -126,14 +126,6 @@ public interface Plugin
         return emptyList();
     }
 
-    /**
-     * Return list of tracer providers specified by tracer plugin
-     */
-    default Iterable<TracerProvider> getTracerProviders()
-    {
-        return emptyList();
-    }
-
     default Iterable<AnalyzerProvider> getAnalyzerProviders()
     {
         return emptyList();
@@ -150,6 +142,11 @@ public interface Plugin
     }
 
     default Iterable<ClientRequestFilterFactory> getClientRequestFilterFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<TelemetryFactory> getTelemetryFactories()
     {
         return emptyList();
     }

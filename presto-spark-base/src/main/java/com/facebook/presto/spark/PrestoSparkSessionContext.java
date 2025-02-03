@@ -24,7 +24,6 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.spi.tracing.Tracer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -52,7 +51,6 @@ public class PrestoSparkSessionContext
 
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogSessionProperties;
-    private final Optional<String> traceToken;
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public static PrestoSparkSessionContext createFromSessionInfo(
@@ -85,8 +83,7 @@ public class PrestoSparkSessionContext
                 prestoSparkSession.getTimeZoneId().orElse(null),
                 prestoSparkSession.getLanguage().orElse(null),
                 prestoSparkSession.getSystemProperties(),
-                prestoSparkSession.getCatalogSessionProperties(),
-                prestoSparkSession.getTraceToken());
+                prestoSparkSession.getCatalogSessionProperties());
     }
 
     public PrestoSparkSessionContext(
@@ -100,8 +97,7 @@ public class PrestoSparkSessionContext
             String timeZoneId,
             String language,
             Map<String, String> systemProperties,
-            Map<String, Map<String, String>> catalogSessionProperties,
-            Optional<String> traceToken)
+            Map<String, Map<String, String>> catalogSessionProperties)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.catalog = catalog;
@@ -114,7 +110,6 @@ public class PrestoSparkSessionContext
         this.language = language;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.catalogSessionProperties = ImmutableMap.copyOf(requireNonNull(catalogSessionProperties, "catalogSessionProperties is null"));
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
     }
 
     @Override
@@ -192,12 +187,6 @@ public class PrestoSparkSessionContext
     }
 
     @Override
-    public Optional<Tracer> getTracer()
-    {
-        return Optional.empty();
-    }
-
-    @Override
     public Map<String, String> getSystemProperties()
     {
         return systemProperties;
@@ -221,12 +210,6 @@ public class PrestoSparkSessionContext
     {
         // presto on spark does not support explicit transaction management
         return Optional.empty();
-    }
-
-    @Override
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
     }
 
     @Override
