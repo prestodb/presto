@@ -42,7 +42,7 @@ if(VELOX_ENABLE_PARQUET)
 
   target_include_directories(velox_hive_connector_test
                              PUBLIC ${ARROW_PREFIX}/install/include)
-  target_link_libraries(velox_hive_connector_test
-                        velox_dwio_native_parquet_reader)
+  target_link_libraries(velox_hive_connector_test velox_dwio_parquet_writer
+                        velox_dwio_parquet_reader)
 
 endif()

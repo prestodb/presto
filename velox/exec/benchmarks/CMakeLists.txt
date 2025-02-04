@@ -81,6 +81,7 @@ if(${VELOX_ENABLE_PARQUET})
     velox_sort_benchmark
     velox_exec
     velox_exec_test_lib
+    velox_dwio_parquet_reader
     velox_vector_test_lib
     Folly::follybenchmark
     arrow

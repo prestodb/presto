@@ -34,6 +34,7 @@ target_link_libraries(
   velox_s3fs
   velox_core
   velox_exec_test_lib
+  velox_dwio_parquet_reader
   velox_dwio_common_exception
   velox_exec
   GTest::gtest
@@ -57,6 +58,8 @@ target_link_libraries(
   velox_s3fs
   velox_core
   velox_exec_test_lib
+  velox_dwio_parquet_writer
+  velox_dwio_parquet_reader
   velox_dwio_common_exception
   velox_exec
   GTest::gtest
@@ -73,6 +76,7 @@ target_link_libraries(
   velox_s3fs
   velox_core
   velox_exec_test_lib
+  velox_dwio_parquet_reader
   velox_dwio_common_exception
   velox_exec
   GTest::gtest
@@ -86,6 +90,8 @@ target_link_libraries(
   velox_s3fs
   velox_core
   velox_exec_test_lib
+  velox_dwio_parquet_reader
+  velox_dwio_parquet_writer
   velox_dwio_common_exception
   velox_exec
   GTest::gtest

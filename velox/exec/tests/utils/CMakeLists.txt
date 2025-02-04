@@ -47,8 +47,6 @@ target_link_libraries(
   velox_dwio_common
   velox_dwio_dwrf_reader
   velox_dwio_dwrf_writer
-  velox_dwio_parquet_writer
-  velox_dwio_parquet_reader
   velox_dwio_common_test_utils
   velox_file_test_utils
   velox_type_fbhive
@@ -71,8 +69,6 @@ if(${VELOX_BUILD_RUNNER})
     velox_file_test_utils
     velox_hive_connector
     velox_tpch_connector
-    velox_dwio_parquet_reader
-    velox_dwio_parquet_writer
     velox_local_runner)
 
 endif()
