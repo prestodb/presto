@@ -60,7 +60,7 @@ public class TestNativeSidecarPlugin
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(true, true);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createQueryRunner(true, true, false, false);
         setupNativeSidecarPlugin(queryRunner);
         return queryRunner;
     }
