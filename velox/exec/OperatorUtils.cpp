@@ -231,9 +231,12 @@ vector_size_t processEncodedFilterResults(
   auto* rawSelectedBits = filterEvalCtx.getRawSelectedBits(size, pool);
   memset(rawSelectedBits, 0, bits::nbytes(size));
   for (int32_t i = 0; i < size; ++i) {
+    if (!rows.isValid(i)) {
+      continue;
+    }
     auto index = indices[i];
     if ((!nulls || !bits::isBitNull(nulls, i)) &&
-        bits::isBitSet(values, index) && rows.isValid(i)) {
+        bits::isBitSet(values, index)) {
       rawSelected[passed++] = i;
       bits::setBit(rawSelectedBits, i);
     }

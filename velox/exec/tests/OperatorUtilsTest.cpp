@@ -189,6 +189,18 @@ class OperatorUtilsTest : public OperatorTestBase {
   std::unique_ptr<DriverCtx> driverCtx_;
 };
 
+TEST_F(OperatorUtilsTest, processFilterResults) {
+  auto filteredResults = makeArrayVector<int64_t>({{1}});
+  SelectivityVector filterRows(1);
+  filterRows.setValid(0, false);
+  filterRows.updateBounds();
+  exec::FilterEvalCtx filterEvalCtx;
+  EXPECT_EQ(
+      exec::processFilterResults(
+          filteredResults, filterRows, filterEvalCtx, pool_.get()),
+      0);
+}
+
 TEST_F(OperatorUtilsTest, wrapChildConstant) {
   auto constant = makeConstant(11, 1'000);
 
