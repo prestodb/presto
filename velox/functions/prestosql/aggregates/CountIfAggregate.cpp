@@ -206,7 +206,7 @@ void registerCountIfAggregate(
 
         return std::make_unique<CountIfAggregate>();
       },
-      {false /*orderSensitive*/},
+      {false /*orderSensitive*/, false /*companionFunction*/},
       withCompanionFunctions,
       overwrite);
 }

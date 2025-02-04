@@ -209,7 +209,7 @@ exec::AggregateRegistrationResult registerBool(
             inputType->kindName());
         return std::make_unique<T>();
       },
-      {false /*orderSensitive*/},
+      {false /*orderSensitive*/, false /*companionFunction*/},
       withCompanionFunctions,
       overwrite);
 }

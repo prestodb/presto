@@ -75,26 +75,16 @@ TEST_F(AggregationFunctionRegTest, orderSensitive) {
       "histogram",
       "reduce_agg"};
   aggregate::prestosql::registerAllAggregateFunctions();
-  exec::aggregateFunctions().withRLock([&](const auto& aggrFuncMap) {
-    for (const auto& entry : aggrFuncMap) {
-      if (!entry.second.metadata.orderSensitive) {
-        EXPECT_EQ(1, nonOrderSensitiveFunctions.erase(entry.first));
-      }
-    }
-  });
-  EXPECT_EQ(0, nonOrderSensitiveFunctions.size());
+  for (const auto& entry : nonOrderSensitiveFunctions) {
+    ASSERT_FALSE(exec::getAggregateFunctionMetadata(entry).orderSensitive);
+  }
 
   // Test some but not all order sensitive functions
   std::set<std::string> orderSensitiveFunctions = {
       "array_agg", "arbitrary", "any_value", "map_agg", "map_union", "set_agg"};
-  exec::aggregateFunctions().withRLock([&](const auto& aggrFuncMap) {
-    for (const auto& entry : aggrFuncMap) {
-      if (entry.second.metadata.orderSensitive) {
-        orderSensitiveFunctions.erase(entry.first);
-      }
-    }
-  });
-  EXPECT_EQ(0, orderSensitiveFunctions.size());
+  for (const auto& entry : orderSensitiveFunctions) {
+    ASSERT_TRUE(exec::getAggregateFunctionMetadata(entry).orderSensitive);
+  }
 }
 
 TEST_F(AggregationFunctionRegTest, prestoSupportedSignatures) {
@@ -119,6 +109,24 @@ TEST_F(AggregationFunctionRegTest, prestoSupportedSignatures) {
 
   // Revert to previous state.
   clearAndCheckRegistry();
+}
+
+TEST_F(AggregationFunctionRegTest, companionFunction) {
+  // Remove all functions and check for no entries.
+  clearAndCheckRegistry();
+
+  aggregate::prestosql::registerAllAggregateFunctions();
+  const auto aggregates = {"approx_distinct", "count", "sum"};
+  const auto companionFunctions = {
+      "approx_distinct_merge", "approx_distinct_partial"};
+
+  for (const auto& function : aggregates) {
+    ASSERT_FALSE(
+        exec::getAggregateFunctionMetadata(function).companionFunction);
+  }
+  for (const auto& function : companionFunctions) {
+    ASSERT_TRUE(exec::getAggregateFunctionMetadata(function).companionFunction);
+  }
 }
 
 } // namespace facebook::velox::aggregate::test

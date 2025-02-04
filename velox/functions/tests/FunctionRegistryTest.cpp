@@ -24,6 +24,7 @@
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
@@ -355,6 +356,26 @@ TEST_F(FunctionRegistryTest, isDeterministic) {
   // Not found functions.
   ASSERT_FALSE(isDeterministic("cast").has_value());
   ASSERT_FALSE(isDeterministic("not_found_function").has_value());
+}
+
+TEST_F(FunctionRegistryTest, companionFunction) {
+  functions::prestosql::registerAllScalarFunctions();
+  aggregate::prestosql::registerAllAggregateFunctions();
+  const auto functions = {"array_frequency", "bitwise_left_shift", "ceil"};
+  // Aggregate companion functions with suffix '_extract' are registered as
+  // vector functions.
+  const auto companionFunctions = {
+      "array_agg_extract", "arbitrary_extract", "bitwise_and_agg_extract"};
+
+  for (const auto& function : functions) {
+    ASSERT_FALSE(exec::simpleFunctions()
+                     .getFunctionSignaturesAndMetadata(function)
+                     .front()
+                     .first.companionFunction);
+  }
+  for (const auto& function : companionFunctions) {
+    ASSERT_TRUE(exec::getVectorFunctionMetadata(function)->companionFunction);
+  }
 }
 
 template <typename T>

@@ -476,6 +476,9 @@ struct AggregateFunctionMetadata {
   /// True if results of the aggregation depend on the order of inputs. For
   /// example, array_agg is order sensitive while count is not.
   bool orderSensitive{true};
+
+  /// Indicates if this is a companion function.
+  bool companionFunction{false};
 };
 /// Register an aggregate function with the specified name and signatures. If
 /// registerCompanionFunctions is true, also register companion aggregate and
@@ -513,6 +516,9 @@ std::vector<AggregateRegistrationResult> registerAggregateFunction(
     const AggregateFunctionMetadata& metadata,
     bool registerCompanionFunctions,
     bool overwrite);
+
+const AggregateFunctionMetadata& getAggregateFunctionMetadata(
+    const std::string& name);
 
 /// Returns signatures of the aggregate function with the specified name.
 /// Returns empty std::optional if function with that name is not found.

@@ -249,6 +249,7 @@ void AggregateCompanionAdapter::ExtractFunction::apply(
 bool CompanionFunctionsRegistrar::registerPartialFunction(
     const std::string& name,
     const std::vector<AggregateFunctionSignaturePtr>& signatures,
+    const AggregateFunctionMetadata& metadata,
     bool overwrite) {
   auto partialSignatures =
       CompanionSignatures::partialFunctionSignatures(signatures);
@@ -280,6 +281,7 @@ bool CompanionFunctionsRegistrar::registerPartialFunction(
                    name,
                    CompanionSignatures::partialFunctionName(name));
              },
+             metadata,
              /*registerCompanionFunctions*/ false,
              overwrite)
       .mainFunction;
@@ -288,6 +290,7 @@ bool CompanionFunctionsRegistrar::registerPartialFunction(
 bool CompanionFunctionsRegistrar::registerMergeFunction(
     const std::string& name,
     const std::vector<AggregateFunctionSignaturePtr>& signatures,
+    const AggregateFunctionMetadata& metadata,
     bool overwrite) {
   auto mergeSignatures =
       CompanionSignatures::mergeFunctionSignatures(signatures);
@@ -320,16 +323,18 @@ bool CompanionFunctionsRegistrar::registerMergeFunction(
                    name,
                    CompanionSignatures::mergeFunctionName(name));
              },
+             metadata,
              /*registerCompanionFunctions*/ false,
              overwrite)
       .mainFunction;
 }
 
-bool registerAggregateFunction(
+bool registerMergeExtractFunctionInternal(
     const std::string& name,
     const std::string& mergeExtractFunctionName,
     const std::vector<std::shared_ptr<AggregateFunctionSignature>>&
         mergeExtractSignatures,
+    const AggregateFunctionMetadata& metadata,
     bool overwrite) {
   return exec::registerAggregateFunction(
              mergeExtractFunctionName,
@@ -365,6 +370,7 @@ bool registerAggregateFunction(
                    name,
                    mergeExtractFunctionName);
              },
+             metadata,
              /*registerCompanionFunctions*/ false,
              overwrite)
       .mainFunction;
@@ -373,6 +379,7 @@ bool registerAggregateFunction(
 bool CompanionFunctionsRegistrar::registerMergeExtractFunctionWithSuffix(
     const std::string& name,
     const std::vector<AggregateFunctionSignaturePtr>& signatures,
+    const AggregateFunctionMetadata& metadata,
     bool overwrite) {
   auto groupedSignatures =
       CompanionSignatures::groupSignaturesByReturnType(signatures);
@@ -387,10 +394,11 @@ bool CompanionFunctionsRegistrar::registerMergeExtractFunctionWithSuffix(
     auto mergeExtractFunctionName =
         CompanionSignatures::mergeExtractFunctionNameWithSuffix(name, type);
 
-    registered |= registerAggregateFunction(
+    registered |= registerMergeExtractFunctionInternal(
         name,
         mergeExtractFunctionName,
         std::move(mergeExtractSignatures),
+        metadata,
         overwrite);
   }
   return registered;
@@ -399,10 +407,12 @@ bool CompanionFunctionsRegistrar::registerMergeExtractFunctionWithSuffix(
 bool CompanionFunctionsRegistrar::registerMergeExtractFunction(
     const std::string& name,
     const std::vector<AggregateFunctionSignaturePtr>& signatures,
+    const AggregateFunctionMetadata& metadata,
     bool overwrite) {
   if (CompanionSignatures::hasSameIntermediateTypesAcrossSignatures(
           signatures)) {
-    return registerMergeExtractFunctionWithSuffix(name, signatures, overwrite);
+    return registerMergeExtractFunctionWithSuffix(
+        name, signatures, metadata, overwrite);
   }
 
   auto mergeExtractSignatures =
@@ -413,10 +423,11 @@ bool CompanionFunctionsRegistrar::registerMergeExtractFunction(
 
   auto mergeExtractFunctionName =
       CompanionSignatures::mergeExtractFunctionName(name);
-  return registerAggregateFunction(
+  return registerMergeExtractFunctionInternal(
       name,
       mergeExtractFunctionName,
       std::move(mergeExtractSignatures),
+      metadata,
       overwrite);
 }
 
@@ -475,6 +486,7 @@ bool CompanionFunctionsRegistrar::registerExtractFunctionWithSuffix(
         std::move(factory),
         exec::VectorFunctionMetadataBuilder()
             .defaultNullBehavior(false)
+            .companionFunction(true)
             .build(),
         overwrite);
   }
@@ -502,7 +514,10 @@ bool CompanionFunctionsRegistrar::registerExtractFunction(
       CompanionSignatures::extractFunctionName(originalName),
       std::move(extractSignatures),
       std::move(factory),
-      exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build(),
+      exec::VectorFunctionMetadataBuilder()
+          .defaultNullBehavior(false)
+          .companionFunction(true)
+          .build(),
       overwrite);
 }
 

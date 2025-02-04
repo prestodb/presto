@@ -178,6 +178,7 @@ class CompanionFunctionsRegistrar {
   static bool registerPartialFunction(
       const std::string& name,
       const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      const AggregateFunctionMetadata& metadata,
       bool overwrite = false);
 
   // When there is already a function of the same name as the merge companion
@@ -186,6 +187,7 @@ class CompanionFunctionsRegistrar {
   static bool registerMergeFunction(
       const std::string& name,
       const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      const AggregateFunctionMetadata& metadata,
       bool overwrite = false);
 
   // If there are multiple signatures of the original aggregation function
@@ -213,6 +215,7 @@ class CompanionFunctionsRegistrar {
   static bool registerMergeExtractFunction(
       const std::string& name,
       const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      const AggregateFunctionMetadata& metadata,
       bool overwrite = false);
 
  private:
@@ -227,6 +230,7 @@ class CompanionFunctionsRegistrar {
   static bool registerMergeExtractFunctionWithSuffix(
       const std::string& name,
       const std::vector<AggregateFunctionSignaturePtr>& signatures,
+      const AggregateFunctionMetadata& metadata,
       bool overwrite);
 };
 

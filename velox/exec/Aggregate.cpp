@@ -79,23 +79,29 @@ AggregateRegistrationResult registerAggregateFunction(
     registered.mainFunction = inserted;
   }
 
-  // Register the aggregate as a window function also.
-  registerAggregateWindowFunction(sanitizedName);
+  // If the aggregate is not a companion function, also register it as a window
+  // function.
+  if (!metadata.companionFunction) {
+    registerAggregateWindowFunction(sanitizedName);
+  }
 
   // Register companion function if needed.
   if (registerCompanionFunctions) {
+    auto companionMetadata = metadata;
+    companionMetadata.companionFunction = true;
+
     registered.partialFunction =
         CompanionFunctionsRegistrar::registerPartialFunction(
-            name, signatures, overwrite);
+            name, signatures, companionMetadata, overwrite);
     registered.mergeFunction =
         CompanionFunctionsRegistrar::registerMergeFunction(
-            name, signatures, overwrite);
+            name, signatures, companionMetadata, overwrite);
     registered.extractFunction =
         CompanionFunctionsRegistrar::registerExtractFunction(
             name, signatures, overwrite);
     registered.mergeExtractFunction =
         CompanionFunctionsRegistrar::registerMergeExtractFunction(
-            name, signatures, overwrite);
+            name, signatures, companionMetadata, overwrite);
   }
   return registered;
 }
@@ -139,6 +145,15 @@ std::vector<AggregateRegistrationResult> registerAggregateFunction(
         overwrite);
   }
   return registrationResults;
+}
+
+const AggregateFunctionMetadata& getAggregateFunctionMetadata(
+    const std::string& name) {
+  const auto sanitizedName = sanitizeName(name);
+  if (auto func = getAggregateFunctionEntry(sanitizedName)) {
+    return func->metadata;
+  }
+  VELOX_USER_FAIL("Aggregate function not found: {}", name);
 }
 
 std::unordered_map<
