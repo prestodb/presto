@@ -33,6 +33,18 @@ struct IndexRange {
   vector_size_t size;
 };
 
+/// A flavor of IndexRange that allows us to add artificial nulls. This is
+/// useful when for example, when flatteneing a DictionaryVector, the
+/// DictionaryVector may introduce nulls that do not exist in the values Vector,
+/// and so need to get introduced artificially.
+struct IndexRangeWithNulls {
+  vector_size_t begin;
+  vector_size_t size;
+
+  /// Whether we should "pretend" the values in this range are null.
+  bool isNull;
+};
+
 namespace row {
 class CompactRow;
 class UnsafeRowFast;

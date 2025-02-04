@@ -82,7 +82,8 @@ inline void writeInt64(OutputStream* out, int64_t value) {
 
 std::string_view typeToEncodingName(const TypePtr& type);
 
-inline int32_t rangesTotalSize(const folly::Range<const IndexRange*>& ranges) {
+template <typename RangeType>
+inline int32_t rangesTotalSize(const folly::Range<const RangeType*>& ranges) {
   int32_t total = 0;
   for (auto& range : ranges) {
     total += range.size;
