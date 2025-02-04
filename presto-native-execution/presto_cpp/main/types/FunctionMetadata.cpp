@@ -57,31 +57,6 @@ const std::vector<std::string> getFunctionNameParts(
   return parts;
 }
 
-// TODO: Remove this function later and retrieve companion function information
-//  from velox. Approaches for this under discussion here:
-// https://github.com/facebookincubator/velox/discussions/11011.
-// A function name is a companion function's if the name is an existing
-// aggregation function name followed by specific suffixes.
-bool isCompanionFunctionName(
-    const std::string& name,
-    const std::unordered_map<std::string, exec::AggregateFunctionEntry>&
-        aggregateFunctions) {
-  auto suffixOffset = name.rfind("_partial");
-  if (suffixOffset == std::string::npos) {
-    suffixOffset = name.rfind("_merge_extract");
-  }
-  if (suffixOffset == std::string::npos) {
-    suffixOffset = name.rfind("_merge");
-  }
-  if (suffixOffset == std::string::npos) {
-    suffixOffset = name.rfind("_extract");
-  }
-  if (suffixOffset == std::string::npos) {
-    return false;
-  }
-  return aggregateFunctions.count(name.substr(0, suffixOffset)) > 0;
-}
-
 const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
     const std::string& name,
     const AggregateFunctionSignature& signature) {
@@ -287,7 +262,7 @@ json getFunctionsMetadata() {
     // Skip internal functions. They don't have any prefix.
     if (kBlockList.count(name) != 0 ||
         name.find("$internal$") != std::string::npos ||
-        isCompanionFunctionName(name, aggregateFunctions)) {
+        getScalarMetadata(name).companionFunction) {
       continue;
     }
 
@@ -299,7 +274,7 @@ json getFunctionsMetadata() {
 
   // Get metadata for all registered aggregate functions in velox.
   for (const auto& entry : aggregateFunctions) {
-    if (!isCompanionFunctionName(entry.first, aggregateFunctions)) {
+    if (!aggregateFunctions.at(entry.first).metadata.companionFunction) {
       const auto name = entry.first;
       const auto parts = getFunctionNameParts(name);
       const auto schema = parts[1];
