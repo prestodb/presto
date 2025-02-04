@@ -15,6 +15,7 @@
  */
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/exec/Aggregate.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::aggregate::prestosql {
 
@@ -155,6 +156,7 @@ void registerAllAggregateFunctions(
     bool withCompanionFunctions,
     bool onlyPrestoSignatures,
     bool overwrite) {
+  registerJsonType();
   registerApproxDistinctAggregates(prefix, withCompanionFunctions, overwrite);
   registerApproxMostFrequentAggregate(
       prefix, withCompanionFunctions, overwrite);

@@ -57,6 +57,7 @@ velox_link_libraries(
   velox_functions_aggregates
   velox_functions_lib
   velox_functions_util
+  velox_presto_types
   Folly::folly)
 
 if(${VELOX_BUILD_TESTING})

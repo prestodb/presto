@@ -378,6 +378,44 @@ TEST_F(MapUnionSumTest, groupByVarcharKey) {
   testAggregations({data}, {"c0"}, {"map_union_sum(c1)"}, {expected});
 }
 
+TEST_F(MapUnionSumTest, groupByJsonKey) {
+  std::vector<std::string> jsonKeyStrings = {
+      "\"key1\"",
+      "\"key2\"",
+      "\"key3\"",
+      "\"key4\"",
+      "\"key5\"",
+  };
+  std::vector<StringView> jsonKeys;
+  jsonKeys.reserve(jsonKeyStrings.size());
+  for (const auto& key : jsonKeyStrings) {
+    jsonKeys.emplace_back(key);
+  }
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 1, 2, 1}),
+      makeNullableMapVector<StringView, int64_t>({
+          {},
+          std::nullopt,
+          {{{jsonKeys[0], 10}, {jsonKeys[1], 20}}},
+          {{{jsonKeys[0], 11}, {jsonKeys[2], 30}, {jsonKeys[3], 40}}},
+          {{{jsonKeys[2], 30}, {jsonKeys[4], 50}, {jsonKeys[0], 12}}},
+      }),
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeMapVector<StringView, int64_t>({
+          {{jsonKeys[0], 22},
+           {jsonKeys[1], 20},
+           {jsonKeys[2], 30},
+           {jsonKeys[4], 50}},
+          {{jsonKeys[0], 11}, {jsonKeys[2], 30}, {jsonKeys[3], 40}},
+      }),
+  });
+
+  testAggregations({data}, {"c0"}, {"map_union_sum(c1)"}, {expected});
+}
+
 TEST_F(MapUnionSumTest, floatingPointKeys) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 1, 2, 1, 1, 2, 2}),

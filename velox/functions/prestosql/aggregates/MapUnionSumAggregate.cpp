@@ -358,7 +358,7 @@ void registerMapUnionSumAggregate(
       "real",
       "double",
       "varchar",
-  };
+      "json"};
   const std::vector<std::string> valueTypes = {
       "tinyint",
       "smallint",
