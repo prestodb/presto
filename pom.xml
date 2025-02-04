@@ -927,7 +927,7 @@
             <dependency>
                 <groupId>org.apache.hive</groupId>
                 <artifactId>hive-llap-common</artifactId>
-                <version>2.3.4</version>
+                <version>4.0.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.hive</groupId>
@@ -2107,7 +2107,7 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.4.14</version>
+                <version>3.6.3</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>jline</artifactId>
@@ -2571,6 +2571,7 @@
                 <plugin>
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <version>1.5.1</version>
                     <configuration>
                         <ignoredClassPatterns combine.children="append">
                             <ignoredClassPattern>com.github.benmanes.caffeine.*</ignoredClassPattern>
