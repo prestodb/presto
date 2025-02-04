@@ -152,7 +152,7 @@ public abstract class DdlVerification<S extends Statement>
     }
 
     @Override
-    protected DeterminismAnalysisDetails analyzeDeterminism(QueryObjectBundle control, DdlMatchResult matchResult)
+    protected DeterminismAnalysisDetails analyzeDeterminism(QueryObjectBundle controlObject, QueryObjectBundle testObject, DdlMatchResult matchResult)
     {
         throw new UnsupportedOperationException("analyzeDeterminism is not supported for DdlVerification");
     }

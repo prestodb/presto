@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.verifier.checksum.ChecksumResult;
 import com.facebook.presto.verifier.checksum.ChecksumValidator;
 import com.facebook.presto.verifier.event.DeterminismAnalysisDetails;
+import com.facebook.presto.verifier.event.DeterminismAnalysisRun;
 import com.facebook.presto.verifier.event.QueryInfo;
 import com.facebook.presto.verifier.prestoaction.QueryActions;
 import com.facebook.presto.verifier.prestoaction.SqlExceptionClassifier;
@@ -34,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.verifier.framework.DataMatchResult.DataType.DATA;
 import static com.facebook.presto.verifier.framework.DataMatchResult.MatchType.MATCH;
@@ -132,6 +135,7 @@ public class DataVerification
                         DATA,
                         MATCH,
                         Optional.empty(),
+                        Optional.empty(),
                         OptionalLong.empty(),
                         OptionalLong.empty(),
                         ImmutableList.of());
@@ -146,7 +150,14 @@ public class DataVerification
                 controlChecksumResult = ChecksumResult.fromJson(snapshotJson);
             }
             else {
-                return new DataMatchResult(DATA, SNAPSHOT_DOES_NOT_EXIST, Optional.empty(), OptionalLong.empty(), OptionalLong.empty(), Collections.emptyList());
+                return new DataMatchResult(
+                        DATA,
+                        SNAPSHOT_DOES_NOT_EXIST,
+                        Optional.empty(),
+                        Optional.empty(),
+                        OptionalLong.empty(),
+                        OptionalLong.empty(),
+                        Collections.emptyList());
             }
         }
 
@@ -159,9 +170,23 @@ public class DataVerification
     }
 
     @Override
-    protected DeterminismAnalysisDetails analyzeDeterminism(QueryObjectBundle control, DataMatchResult matchResult)
+    protected DeterminismAnalysisDetails analyzeDeterminism(QueryObjectBundle controlObject, QueryObjectBundle testObject, DataMatchResult matchResult)
     {
-        return determinismAnalyzer.analyze(control, matchResult.getControlChecksum());
+        if (isRunDeterminismAnalysisOnTest) {
+            DeterminismAnalysisDetails analysis = determinismAnalyzer.analyze(getTestAction(), testObject, matchResult.getTestChecksum());
+            if (!analysis.getDeterminismAnalysis().isNonDeterministic()) {
+                return analysis;
+            }
+            // In case we rerun determinism analysis on control, we keep the test runs for stats.
+            List<DeterminismAnalysisRun> runs = analysis.getRuns();
+            analysis = determinismAnalyzer.analyze(getControlAction(), controlObject, matchResult.getControlChecksum());
+            return new DeterminismAnalysisDetails(
+                    analysis.getDeterminismAnalysis(),
+                    Stream.concat(runs.stream(), analysis.getRuns().stream()).collect(Collectors.toList()),
+                    LimitQueryDeterminismAnalysis.valueOf(analysis.getLimitQueryAnalysis()),
+                    Optional.ofNullable(analysis.getLimitQueryAnalysisQueryId()));
+        }
+        return determinismAnalyzer.analyze(getControlAction(), controlObject, matchResult.getControlChecksum());
     }
 
     @Override

@@ -163,6 +163,7 @@ public class ExtendedVerification
                     PARTITION_DATA,
                     PARTITION_COUNT_MISMATCH,
                     Optional.empty(),
+                    Optional.empty(),
                     OptionalLong.of(controlPartitionChecksum.size()),
                     OptionalLong.of(testPartitionChecksum.size()),
                     ImmutableList.of()));
@@ -182,6 +183,7 @@ public class ExtendedVerification
         return Optional.of(new DataMatchResult(
                 PARTITION_DATA,
                 MATCH,
+                Optional.empty(),
                 Optional.empty(),
                 OptionalLong.of(controlPartitionChecksum.size()),
                 OptionalLong.of(testPartitionChecksum.size()),
@@ -212,6 +214,7 @@ public class ExtendedVerification
                     BUCKET_DATA,
                     BUCKET_COUNT_MISMATCH,
                     Optional.empty(),
+                    Optional.empty(),
                     OptionalLong.of(controlBucketChecksum.size()),
                     OptionalLong.of(testBucketChecksum.size()),
                     ImmutableList.of()));
@@ -231,6 +234,7 @@ public class ExtendedVerification
         return Optional.of(new DataMatchResult(
                 BUCKET_DATA,
                 MATCH,
+                Optional.empty(),
                 Optional.empty(),
                 OptionalLong.of(controlBucketChecksum.size()),
                 OptionalLong.of(testBucketChecksum.size()),
