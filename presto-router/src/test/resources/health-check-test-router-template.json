@@ -1,0 +1,14 @@
+{
+  "groups": [
+    {
+      "name": "group1",
+      "members": ${SERVERS}
+    }
+  ],
+  "selectors": [
+    {
+      "targetGroup": "all"
+    }
+  ],
+  "scheduler": "ROUND_ROBIN"
+}
