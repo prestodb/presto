@@ -29,6 +29,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class DeterminismAnalysisRun
 {
     private final String tableName;
+    private final String clusterType;
     private final String queryId;
     private final List<String> setupQueryIds;
     private final List<String> teardownQueryIds;
@@ -36,12 +37,14 @@ public class DeterminismAnalysisRun
 
     private DeterminismAnalysisRun(
             Optional<String> tableName,
+            Optional<String> clusterType,
             Optional<String> queryId,
             List<String> setupQueryIds,
             List<String> teardownQueryIds,
             Optional<String> checksumQueryId)
     {
         this.tableName = tableName.orElse(null);
+        this.clusterType = clusterType.orElse(null);
         this.queryId = queryId.orElse(null);
         this.setupQueryIds = ImmutableList.copyOf(setupQueryIds);
         this.teardownQueryIds = ImmutableList.copyOf(teardownQueryIds);
@@ -52,6 +55,12 @@ public class DeterminismAnalysisRun
     public String getTableName()
     {
         return tableName;
+    }
+
+    @EventField
+    public String getClusterType()
+    {
+        return clusterType;
     }
 
     @EventField
@@ -86,6 +95,7 @@ public class DeterminismAnalysisRun
     public static class Builder
     {
         private Optional<String> tableName = Optional.empty();
+        private Optional<String> clusterType = Optional.empty();
         private Optional<String> queryId = Optional.empty();
         private ImmutableList.Builder<String> setupQueryIds = ImmutableList.builder();
         private ImmutableList.Builder<String> teardownQueryIds = ImmutableList.builder();
@@ -97,6 +107,13 @@ public class DeterminismAnalysisRun
         {
             checkState(!this.tableName.isPresent(), "tableName is already set");
             this.tableName = Optional.of(tableName);
+            return this;
+        }
+
+        public Builder setClusterType(String clusterType)
+        {
+            checkState(!this.clusterType.isPresent(), "clusterType is already set");
+            this.clusterType = Optional.of(clusterType);
             return this;
         }
 
@@ -128,7 +145,7 @@ public class DeterminismAnalysisRun
 
         public DeterminismAnalysisRun build()
         {
-            return new DeterminismAnalysisRun(tableName, queryId, setupQueryIds.build(), teardownQueryIds.build(), checksumQueryId);
+            return new DeterminismAnalysisRun(tableName, clusterType, queryId, setupQueryIds.build(), teardownQueryIds.build(), checksumQueryId);
         }
     }
 }

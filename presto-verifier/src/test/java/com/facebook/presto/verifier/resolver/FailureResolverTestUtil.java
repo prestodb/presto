@@ -40,7 +40,7 @@ public class FailureResolverTestUtil
 
     public static DataMatchResult createMatchResult(ColumnMatchResult<?>... mismatchedColumns)
     {
-        return new DataMatchResult(DATA, COLUMN_MISMATCH, Optional.empty(), OptionalLong.of(1L), OptionalLong.of(1L), asList(mismatchedColumns));
+        return new DataMatchResult(DATA, COLUMN_MISMATCH, Optional.empty(), Optional.empty(), OptionalLong.of(1L), OptionalLong.of(1L), asList(mismatchedColumns));
     }
 
     public static SqlVarbinary binary(int data)
