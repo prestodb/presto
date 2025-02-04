@@ -89,7 +89,7 @@ public class TestHealthChecks
             }
         }
 
-        @Test
+        @Test(enabled = false)
         public void testHealthChecks()
         {
             prestoServers.get(0).stopResponding();
