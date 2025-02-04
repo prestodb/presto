@@ -1078,6 +1078,13 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
       initBuffer<char*>(outputTableRows_, outputTableRowsCapacity_, pool());
 
   for (;;) {
+    // If the task owning this operator has been cancelled, there is no point
+    // to continue executing this procedure, which may be long in degenerate
+    // cases. Exit the working loop and let the Driver handle exiting gracefully
+    // in its own loop.
+    if (operatorCtx_->task()->isCancelled()) {
+      return nullptr;
+    }
     int numOut = 0;
 
     if (emptyBuildSide) {

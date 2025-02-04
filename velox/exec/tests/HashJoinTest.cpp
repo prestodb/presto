@@ -401,6 +401,11 @@ class HashJoinBuilder {
     return *this;
   }
 
+  HashJoinBuilder& injectTaskCancellation(bool injectTaskCancellation) {
+    injectTaskCancellation_ = injectTaskCancellation;
+    return *this;
+  }
+
   HashJoinBuilder& maxSpillLevel(int32_t maxSpillLevel) {
     maxSpillLevel_ = maxSpillLevel;
     return *this;
@@ -665,6 +670,11 @@ class HashJoinBuilder {
         memory::spillMemoryPool()->stats().peakBytes;
     TestScopedSpillInjection scopedSpillInjection(spillPct);
     auto task = builder.assertResults(referenceQuery_);
+
+    if (injectTaskCancellation_) {
+      task->requestCancel();
+    }
+
     // Wait up to 5 seconds for all the task background activities to complete.
     // Then we can collect the stats from all the operators.
     //
@@ -758,6 +768,7 @@ class HashJoinBuilder {
   std::optional<bool> runParallelProbe_;
   std::optional<bool> runParallelBuild_;
 
+  bool injectTaskCancellation_{false};
   bool injectSpill_{true};
   // If not set, then the test will run the test with different settings:
   // 0, 2.
@@ -1017,6 +1028,22 @@ TEST_P(MultiThreadedHashJoinTest, outOfJoinKeyColumnOrder) {
       .joinOutputLayout({"t_k1", "t_k2", "u_k1", "u_k2", "u_v1"})
       .referenceQuery(
           "SELECT t_k1, t_k2, u_k1, u_k2, u_v1 FROM t, u WHERE t_k2 = u_k2")
+      .run();
+}
+
+TEST_P(MultiThreadedHashJoinTest, joinWithCancellation) {
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .numDrivers(numDrivers_)
+      .keyTypes({BIGINT()})
+      .probeVectors(1600, 5)
+      .buildVectors(1500, 5)
+      .injectTaskCancellation(true)
+      .referenceQuery(
+          "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t.t_k0 = u.u_k0")
+      .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
+        auto stats = task->taskStats();
+        EXPECT_GT(stats.terminationTimeMs, 0);
+      })
       .run();
 }
 
