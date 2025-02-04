@@ -85,6 +85,7 @@ public class DataVerificationUtil
                     dataType,
                     SCHEMA_MISMATCH,
                     Optional.empty(),
+                    Optional.empty(),
                     OptionalLong.empty(),
                     OptionalLong.empty(),
                     ImmutableList.of());
@@ -107,6 +108,7 @@ public class DataVerificationUtil
                 dataType,
                 matchType,
                 Optional.of(controlChecksum),
+                Optional.of(testChecksum),
                 controlRowCount,
                 testRowCount,
                 mismatchedColumns);

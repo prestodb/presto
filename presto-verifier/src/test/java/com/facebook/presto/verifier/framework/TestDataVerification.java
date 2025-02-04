@@ -46,6 +46,7 @@ import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
@@ -270,6 +271,70 @@ public class TestDataVerification
         runs = event.get().getDeterminismAnalysisDetails().getRuns();
         assertEquals(runs.size(), 1);
         assertDeterminismAnalysisRun(runs.get(0), true);
+    }
+
+    @Test
+    public void testDeterminismAnalysisOnControlAndTest()
+    {
+        Optional<VerifierQueryEvent> event;
+        List<DeterminismAnalysisRun> runs;
+
+        // Control and test are stable, same results.
+        // No need for determinism analysis. Status is SUCCEEDED.
+        event = runVerification("SELECT 2.0", "SELECT 2.0");
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), SUCCEEDED.name());
+        assertNull(event.get().getDeterminismAnalysisDetails());
+
+        // Control is non-deterministic, test is stable, different results.
+        // Determinism analysis found query to be non-deterministic in 1 run. Status is SKIPPED.
+        event = runVerification("SELECT rand()", "SELECT 2.0");
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), SKIPPED.name());
+        assertEquals(event.get().getSkippedReason(), NON_DETERMINISTIC.name());
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), 1);
+        assertEquals(runs.get(0).getClusterType(), ClusterType.CONTROL.name());
+
+        // Control is stable, test is non-deterministic, different results.
+        // Determinism analysis found query to be deterministic in 3 runs. Status is FAILED.
+        event = runVerification("SELECT 2.0", "SELECT rand()");
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), FAILED.name());
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), DETERMINISM_ANALYSIS_RUNS);
+        for (DeterminismAnalysisRun run : runs) {
+            assertEquals(runs.get(0).getClusterType(), ClusterType.CONTROL.name());
+        }
+
+        // From this moment determinism analysis will run on TEST, not CONTROL and will rerun on CONTROL,
+        // if found non-deterministic on TEST.
+        VerificationSettings settings = new VerificationSettings();
+        settings.runDeterminismAnalysisOnTest = Optional.of(true);
+
+        // Control is non-deterministic, test is stable, different results.
+        // Determinism analysis found query to be deterministic in 3 runs on TEST. Status is FAILED.
+        event = runVerification("SELECT rand()", "SELECT 2.0", settings);
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), FAILED.name());
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), DETERMINISM_ANALYSIS_RUNS);
+        for (DeterminismAnalysisRun run : runs) {
+            assertEquals(runs.get(0).getClusterType(), ClusterType.TEST.name());
+        }
+
+        // Control is stable, test is non-deterministic, different results.
+        // First determinism analysis found query to be non-deterministic in 1 run on TEST.
+        // Second determinism analysis found query to be deterministic in 3 runs on CONTROL. Status is FAILED.
+        event = runVerification("SELECT 2.0", "SELECT rand()", settings);
+        assertTrue(event.isPresent());
+        assertEquals(event.get().getStatus(), FAILED.name());
+        runs = event.get().getDeterminismAnalysisDetails().getRuns();
+        assertEquals(runs.size(), DETERMINISM_ANALYSIS_RUNS + 1);
+        assertEquals(runs.get(0).getClusterType(), ClusterType.TEST.name());
+        for (int i = 1; i < runs.size(); i++) {
+            assertEquals(runs.get(i).getClusterType(), ClusterType.CONTROL.name());
+        }
     }
 
     @Test
