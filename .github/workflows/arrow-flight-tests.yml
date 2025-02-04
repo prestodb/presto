@@ -57,7 +57,7 @@ jobs:
       - name: Cache local Maven repository
         if: needs.changes.outputs.codechange == 'true'
         id: cache-maven
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
