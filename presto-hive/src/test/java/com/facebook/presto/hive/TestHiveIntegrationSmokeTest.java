@@ -2825,7 +2825,7 @@ public class TestHiveIntegrationSmokeTest
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
-                new Path(tempDir.toURI().toASCIIString()).toString());
+                new Path(tempDir.toURI().toASCIIString()));
 
         assertUpdate(createTableSql);
         MaterializedResult actual = computeActual("SHOW CREATE TABLE test_create_external");

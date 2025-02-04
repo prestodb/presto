@@ -5703,7 +5703,7 @@ public abstract class AbstractTestHiveClient
                             testCase.getConflictTrigger());
                 }
                 catch (AssertionError e) {
-                    throw new AssertionError(format("Test case: %s", testCase.toString()), e);
+                    throw new AssertionError(format("Test case: %s", testCase), e);
                 }
             }
             finally {
