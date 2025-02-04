@@ -331,6 +331,14 @@ void PrestoServer::run() {
           proxygen::ResponseHandler* downstream) {
         server->reportMemoryInfo(downstream);
       });
+  httpServer_->registerPut(
+      "/v1/memory",
+      [server = this](
+          proxygen::HTTPMessage*,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        server->cleanAsynDataCache(body, downstream);
+      });
   httpServer_->registerGet(
       "/v1/info",
       [server = this](
@@ -1509,6 +1517,35 @@ void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
 
 void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
   http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::cleanAsynDataCache(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream) {
+  std::string bodyContent =
+      folly::trimWhitespace(body[0]->moveToFbString()).toString();
+  if (body.size() == 1 && bodyContent == http::kCleanAsyncDataCache) {
+    if (nodeState() == NodeState::kActive) {
+      auto* asyncDataCache = velox::cache::AsyncDataCache::getInstance();
+      if (asyncDataCache != nullptr) {
+        try {
+          asyncDataCache->clear();
+          LOG(INFO) << "Async data cache clean up is successful";
+        } catch (const std::exception& e) {
+          LOG(ERROR) << "Failed to clear async data cache: " << e.what();
+          throw;
+        }
+      } else {
+        LOG(ERROR) << "Cannot acquire the AsyncDataCache instance";
+      }
+    } else {
+      LOG(INFO) << "Node is not active, async data cache clean up failed";
+    }
+    http::sendOkResponse(downstream);
+  } else {
+    LOG(ERROR) << "Bad Request. Received body content: " << bodyContent;
+    http::sendErrorResponse(downstream, "Bad Request", http::kHttpBadRequest);
+  }
 }
 
 void PrestoServer::handleGracefulShutdown(

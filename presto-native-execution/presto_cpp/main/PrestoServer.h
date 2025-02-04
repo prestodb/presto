@@ -211,6 +211,10 @@ class PrestoServer {
 
   void reportNodeStatus(proxygen::ResponseHandler* downstream);
 
+  void cleanAsynDataCache(
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+      proxygen::ResponseHandler* downstream);
+
   void handleGracefulShutdown(
       const std::vector<std::unique_ptr<folly::IOBuf>>& body,
       proxygen::ResponseHandler* downstream);
