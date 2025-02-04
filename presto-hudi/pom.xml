@@ -173,16 +173,6 @@
             <artifactId>presto-hive</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-            <exclusions>
-                 <exclusion>
-                     <groupId>org.elasticsearch</groupId>
-                     <artifactId>elasticsearch</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-             </exclusions>
         </dependency>
 
         <dependency>
