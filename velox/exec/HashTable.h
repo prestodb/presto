@@ -902,6 +902,13 @@ class HashTable : public BaseHashTable {
       const std::vector<vector_size_t>& columns,
       const char* row) const;
 
+  // The exact same as joinProjectedVarColumnsSize(const
+  // std::vector<vector_size_t>&, const char*) with the exception that this
+  // function takes in vector of rows instead of an individual row.
+  inline uint64_t joinProjectedVarColumnsSize(
+      const std::vector<vector_size_t>& columns,
+      NextRowVector*& rows) const;
+
   // Adds a row to a hash join table in kArray hash mode. Returns true if a new
   // entry was made and false if the row was added to an existing set of rows
   // with the same key. 'allocator' is provided for duplicate row vector

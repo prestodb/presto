@@ -1818,6 +1818,21 @@ inline uint64_t HashTable<ignoreNullKeys>::joinProjectedVarColumnsSize(
 }
 
 template <bool ignoreNullKeys>
+inline uint64_t HashTable<ignoreNullKeys>::joinProjectedVarColumnsSize(
+    const std::vector<vector_size_t>& columns,
+    NextRowVector*& rows) const {
+  uint64_t totalBytes{0};
+  for (const auto& column : columns) {
+    if (!rows_->columnTypes()[column]->isFixedWidth()) {
+      for (const auto* row : *rows) {
+        totalBytes += rows_->variableSizeAt(row, column);
+      }
+    }
+  }
+  return totalBytes;
+}
+
+template <bool ignoreNullKeys>
 int32_t HashTable<ignoreNullKeys>::listJoinResults(
     JoinResultIterator& iter,
     bool includeMisses,
@@ -1876,11 +1891,9 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
       if (iter.estimatedRowSize.has_value()) {
         totalBytes += iter.estimatedRowSize.value() * numRows;
       } else {
-        for (const auto* dupRow : *rows) {
-          totalBytes +=
-              joinProjectedVarColumnsSize(iter.varSizeListColumns, dupRow) +
-              iter.fixedSizeListColumnsSizeSum;
-        }
+        totalBytes +=
+            joinProjectedVarColumnsSize(iter.varSizeListColumns, rows);
+        totalBytes += (iter.fixedSizeListColumnsSizeSum * rows->size());
         totalBytes += (iter.fixedSizeListColumnsSizeSum * numRows);
       }
       if (iter.lastDuplicateRowIndex >= numRows) {
