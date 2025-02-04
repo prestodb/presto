@@ -16,7 +16,7 @@ module.exports = (env) => {
             'index': './index.jsx',
             'query': './query.jsx',
             'plan': './plan.jsx',
-            'query_viewer': {import: './query_viewer.jsx', filename: path.join(outputDir, 'dev', '[name].js')},
+            'query_viewer': {import: './query_viewer_spa.js', filename: path.join('dev', '[name].js')},
             'embedded_plan': './embedded_plan.jsx',
             'stage': './stage.jsx',
             'worker': './worker.jsx',
@@ -109,6 +109,7 @@ module.exports = (env) => {
                         test: /[\\/]node_modules[\\/]/,
                         priority: -10,
                         reuseExistingChunk: true,
+                        filename: '[name].vendor.js',
                     },
                     default: {
                         minChunks: 2,
