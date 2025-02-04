@@ -142,7 +142,7 @@ module.exports = (env) => {
             ...baseConfig.plugins,
             new HtmlWebpackPlugin({
                 inject: 'body',
-                filename: path.join(__dirname, '..', outputDir, 'dev', 'query_viewer_spa.html'),
+                filename: path.join('dev', 'query_viewer_spa.html'),
                 template: 'templates/query_viewer.html',
                 chunks: [
                     'query_viewer',
