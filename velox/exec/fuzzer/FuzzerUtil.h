@@ -131,6 +131,15 @@ void setupMemory(
 void registerHiveConnector(
     const std::unordered_map<std::string, std::string>& hiveConfigs);
 
+// Returns a PrestoQueryRunner instance if prestoUrl is non-empty. Otherwise,
+// returns a DuckQueryRunner instance and set disabled aggregation functions
+// properly.
+std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
+    memory::MemoryPool* aggregatePool,
+    const std::string& prestoUrl,
+    const std::string& runnerName,
+    const uint32_t& reqTimeoutMs);
+
 // Converts 'plan' into an SQL query and runs in the reference DB.
 // Result is returned as a MaterializedRowMultiset with the
 // ReferenceQueryErrorCode::kSuccess if successful, or an std::nullopt with a

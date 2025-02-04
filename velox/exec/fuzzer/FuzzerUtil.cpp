@@ -22,6 +22,8 @@
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/catalog/fbhive/FileUtils.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/fuzzer/DuckQueryRunner.h"
+#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 
@@ -376,6 +378,34 @@ void registerHiveConnector(
               kHiveConnectorId,
               std::make_shared<config::ConfigBase>(std::move(configs)));
   connector::registerConnector(hiveConnector);
+}
+
+std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
+    memory::MemoryPool* aggregatePool,
+    const std::string& prestoUrl,
+    const std::string& runnerName,
+    const uint32_t& reqTimeoutMs) {
+  if (prestoUrl.empty()) {
+    auto duckQueryRunner = std::make_unique<DuckQueryRunner>(aggregatePool);
+    duckQueryRunner->disableAggregateFunctions({
+        "skewness",
+        // DuckDB results on constant inputs are incorrect. Should be NaN,
+        // but DuckDB returns some random value.
+        "kurtosis",
+        "entropy",
+        // Regr_count result in DuckDB is incorrect when the input data is null.
+        "regr_count",
+    });
+    LOG(INFO) << "Using DuckDB as the reference DB.";
+    return duckQueryRunner;
+  } else {
+    return std::make_unique<PrestoQueryRunner>(
+        aggregatePool,
+        prestoUrl,
+        runnerName,
+        static_cast<std::chrono::milliseconds>(reqTimeoutMs));
+    LOG(INFO) << "Using Presto as the reference DB.";
+  }
 }
 
 std::pair<std::optional<MaterializedRowMultiset>, ReferenceQueryErrorCode>

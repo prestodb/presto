@@ -321,15 +321,6 @@ void persistReproInfo(
     const std::vector<AggregationFuzzerBase::PlanWithSplits>& plans,
     const std::string& basePath);
 
-// Returns a PrestoQueryRunner instance if prestoUrl is non-empty. Otherwise,
-// returns a DuckQueryRunner instance and set disabled aggregation functions
-// properly.
-std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
-    memory::MemoryPool* aggregatePool,
-    const std::string& prestoUrl,
-    const std::string& runnerName,
-    const uint32_t& reqTimeoutMs);
-
 // Returns the function name used in a WindowNode. The input `node` should be a
 // pointer to a WindowNode.
 std::vector<std::string> retrieveWindowFunctionName(

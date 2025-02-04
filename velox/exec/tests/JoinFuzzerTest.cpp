@@ -17,12 +17,9 @@
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
-#include <unordered_set>
 
-#include "velox/exec/fuzzer/DuckQueryRunner.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/JoinFuzzerRunner.h"
-#include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 
 DEFINE_int64(
@@ -50,28 +47,6 @@ DEFINE_int64(arbitrator_capacity, 6L << 30, "Arbitrator capacity in bytes.");
 
 using namespace facebook::velox::exec;
 
-namespace {
-std::unique_ptr<test::ReferenceQueryRunner> setupReferenceQueryRunner(
-    facebook::velox::memory::MemoryPool* aggregatePool,
-    const std::string& prestoUrl,
-    const std::string& runnerName,
-    const uint32_t& reqTimeoutMs) {
-  if (prestoUrl.empty()) {
-    auto duckQueryRunner =
-        std::make_unique<test::DuckQueryRunner>(aggregatePool);
-    LOG(INFO) << "Using DuckDB as the reference DB.";
-    return duckQueryRunner;
-  }
-
-  LOG(INFO) << "Using Presto as the reference DB.";
-  return std::make_unique<test::PrestoQueryRunner>(
-      aggregatePool,
-      prestoUrl,
-      runnerName,
-      static_cast<std::chrono::milliseconds>(reqTimeoutMs));
-}
-} // namespace
-
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
 
@@ -82,7 +57,7 @@ int main(int argc, char** argv) {
   test::setupMemory(FLAGS_allocator_capacity, FLAGS_arbitrator_capacity);
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};
-  auto referenceQueryRunner = setupReferenceQueryRunner(
+  auto referenceQueryRunner = test::setupReferenceQueryRunner(
       rootPool.get(), FLAGS_presto_url, "join_fuzzer", FLAGS_req_timeout_ms);
   const size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return test::JoinFuzzerRunner::run(
