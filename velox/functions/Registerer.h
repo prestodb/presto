@@ -16,7 +16,6 @@
 #pragma once
 
 #include "velox/core/SimpleFunctionMetadata.h"
-#include "velox/expression/SimpleFunctionAdapter.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
 
