@@ -104,7 +104,7 @@ void PeeledEncoding::setDictionaryWrapping(
     wrapNulls_ = firstWrapper.nulls();
     return;
   }
-  auto wrapping = decoded.dictionaryWrapping(firstWrapper, rows.end());
+  auto wrapping = decoded.dictionaryWrapping(*firstWrapper.pool(), rows.end());
   wrap_ = std::move(wrapping.indices);
   wrapNulls_ = std::move(wrapping.nulls);
 }

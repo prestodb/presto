@@ -71,7 +71,7 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
   void assertDecodedVector(
       const std::vector<std::optional<T>>& expected,
       const SelectivityVector& selection,
-      SimpleVector<T>* outVector,
+      const FlatVectorPtr<T>& outVector,
       bool dbgPrintVec) {
     auto check = [&](auto& decoded) {
       auto end = selection.end();
@@ -110,20 +110,19 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
       check(decoded);
     }
 
-    {
-      if (selection.isAllSelected()) {
-        DecodedVector decoded(*outVector);
-        check(decoded);
-      }
+    if (selection.isAllSelected()) {
+      DecodedVector decoded(*outVector);
+      check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(outVector));
+      check(decoded);
     }
   }
 
   template <typename T>
   void assertDecodedVector(
       const std::vector<std::optional<T>>& expected,
-      BaseVector* outBaseVector,
+      const FlatVectorPtr<T>& outVector,
       bool dbgPrintVec) {
-    auto* outVector = reinterpret_cast<SimpleVector<T>*>(outBaseVector);
     assertDecodedVector(expected, allSelected_, outVector, dbgPrintVec);
     assertDecodedVector(expected, halfSelected_, outVector, dbgPrintVec);
   }
@@ -136,7 +135,7 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     const auto& data = cardData.data();
     EXPECT_EQ(cardinality, data.size());
     auto flatVector = makeNullableFlatVector(data, type);
-    assertDecodedVector(data, flatVector.get(), false);
+    assertDecodedVector(data, flatVector, false);
   }
 
   template <typename T>
@@ -163,6 +162,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
 
     {
       DecodedVector decoded(*constantVector);
+      check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(constantVector));
       check(decoded);
     }
   }
@@ -204,6 +205,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     {
       DecodedVector decoded(*constantVector);
       check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(constantVector));
+      check(decoded);
     }
   }
 
@@ -233,6 +236,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
 
     {
       DecodedVector decoded(*constantVector);
+      check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(constantVector));
       check(decoded);
     }
   }
@@ -269,6 +274,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
 
     {
       DecodedVector decoded(*constantVector);
+      check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(constantVector));
       check(decoded);
     }
   }
@@ -318,6 +325,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     {
       DecodedVector decoded(*dictionaryVector, false);
       check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(dictionaryVector));
+      check(decoded);
     }
   }
 
@@ -362,6 +371,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     {
       DecodedVector decoded(*dictionaryVector, false);
       check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(dictionaryVector));
+      check(decoded);
     }
   }
 
@@ -394,6 +405,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
 
     {
       DecodedVector decoded(*dictionaryVector, false);
+      check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(dictionaryVector));
       check(decoded);
     }
   }
@@ -433,6 +446,8 @@ class DecodedVectorTest : public testing::Test, public VectorTestBase {
     {
       DecodedVector decoded(*dictionaryVector);
       check(decoded);
+      ASSERT_TRUE(decoded.decodeAndGetBase(dictionaryVector));
+      check(decoded);
     }
   }
 
@@ -462,6 +477,8 @@ void DecodedVectorTest::testConstant<StringView>(const StringView& value) {
   }
   {
     DecodedVector decoded(*constantVector);
+    check(decoded);
+    ASSERT_TRUE(decoded.decodeAndGetBase(constantVector));
     check(decoded);
   }
 }
@@ -1380,7 +1397,7 @@ TEST_F(DecodedVectorTest, dictionaryWrapping) {
       DecodedVector decoded;
 
       decoded.decode(*dict, rows);
-      auto wrapping = decoded.dictionaryWrapping(*dict, rows);
+      auto wrapping = decoded.dictionaryWrapping(*dict->pool(), rows);
       auto wrapped = BaseVector::wrapInDictionary(
           std::move(wrapping.nulls),
           std::move(wrapping.indices),
@@ -1393,7 +1410,7 @@ TEST_F(DecodedVectorTest, dictionaryWrapping) {
     {
       DecodedVector decoded;
       decoded.decode(*dict);
-      auto wrapping = decoded.dictionaryWrapping(*dict, outerDictSize);
+      auto wrapping = decoded.dictionaryWrapping(*dict->pool(), outerDictSize);
       auto wrapped = BaseVector::wrapInDictionary(
           std::move(wrapping.nulls),
           std::move(wrapping.indices),
@@ -1401,6 +1418,34 @@ TEST_F(DecodedVectorTest, dictionaryWrapping) {
           baseWithNulls);
       assertEqualVectors(dict, wrapped);
     }
+  }
+}
+
+TEST_F(DecodedVectorTest, dictionaryWrappingForFlat) {
+  auto vector = makeFlatVector<int64_t>(10, folly::identity);
+  DecodedVector decoded;
+  auto base = decoded.decodeAndGetBase(vector);
+  ASSERT_EQ(base.get(), vector.get());
+  auto wrapping = decoded.dictionaryWrapping(*pool(), vector->size());
+  ASSERT_FALSE(wrapping.nulls);
+  ASSERT_GE(wrapping.indices->size(), 10 * sizeof(vector_size_t));
+  auto* indices = wrapping.indices->as<vector_size_t>();
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_EQ(indices[i], i);
+  }
+}
+
+TEST_F(DecodedVectorTest, dictionaryWrappingForConstant) {
+  auto vector = makeConstant<int64_t>(42, 10);
+  DecodedVector decoded;
+  auto base = decoded.decodeAndGetBase(vector);
+  ASSERT_EQ(base.get(), vector.get());
+  auto wrapping = decoded.dictionaryWrapping(*pool(), vector->size());
+  ASSERT_FALSE(wrapping.nulls);
+  ASSERT_GE(wrapping.indices->size(), 10 * sizeof(vector_size_t));
+  auto* indices = wrapping.indices->as<vector_size_t>();
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_EQ(indices[i], 0);
   }
 }
 
@@ -1433,7 +1478,7 @@ TEST_F(DecodedVectorTest, previousIndicesInReUsedDecodedVector) {
   rows.setValid(2, true);
   rows.updateBounds();
   d.decode(*dict2, rows);
-  auto wrapping = d.dictionaryWrapping(*d.base(), d.base()->size());
+  auto wrapping = d.dictionaryWrapping(*d.base()->pool(), d.base()->size());
   auto rawIndices = wrapping.indices->as<vector_size_t>();
   // Ensure the previous index on the unselected row is reset.
   EXPECT_EQ(rawIndices[0], 0);
