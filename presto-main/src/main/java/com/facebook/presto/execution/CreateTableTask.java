@@ -63,6 +63,7 @@ import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TYPE;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
@@ -125,8 +126,11 @@ public class CreateTableTask
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
                 }
-                catch (IllegalArgumentException e) {
-                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                catch (PrestoException e) {
+                    if (e.getErrorCode() == UNKNOWN_TYPE.toErrorCode()) {
+                        throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                    }
+                    throw e;
                 }
                 if (type.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());

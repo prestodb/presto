@@ -453,6 +453,7 @@ import static com.facebook.presto.operator.scalar.distinct.DistinctTypeXXHash64O
 import static com.facebook.presto.operator.window.AggregateWindowFunction.supplier;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TYPE;
 import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
@@ -1312,7 +1313,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         ParametricType parametricType = parametricTypes.get(signature.getBase().toLowerCase(Locale.ENGLISH));
         if (parametricType == null) {
-            throw new IllegalArgumentException("Unknown type " + signature);
+            throw new PrestoException(UNKNOWN_TYPE, "Unknown type " + signature);
         }
 
         if (parametricType instanceof MapParametricType) {

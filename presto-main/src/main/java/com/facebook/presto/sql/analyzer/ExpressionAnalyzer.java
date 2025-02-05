@@ -153,6 +153,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TYPE;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -889,8 +890,11 @@ public class ExpressionAnalyzer
             try {
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
-            catch (IllegalArgumentException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+            catch (PrestoException e) {
+                if (e.getErrorCode() == UNKNOWN_TYPE.toErrorCode()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+                }
+                throw e;
             }
 
             if (!JSON.equals(type)) {
@@ -912,8 +916,11 @@ public class ExpressionAnalyzer
             try {
                 type = functionAndTypeResolver.getType(parseTypeSignature(node.getType()));
             }
-            catch (IllegalArgumentException e) {
-                throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+            catch (PrestoException e) {
+                if (e.getErrorCode() == UNKNOWN_TYPE.toErrorCode()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+                }
+                throw e;
             }
 
             return setExpressionType(node, type);
@@ -1341,6 +1348,12 @@ public class ExpressionAnalyzer
             }
             catch (IllegalArgumentException e) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+            }
+            catch (PrestoException e) {
+                if (e.getErrorCode() == UNKNOWN_TYPE.toErrorCode()) {
+                    throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
+                }
+                throw e;
             }
 
             if (type.equals(UNKNOWN)) {
