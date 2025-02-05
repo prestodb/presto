@@ -219,7 +219,9 @@ class MultiThreadedTaskCursor : public TaskCursorBase {
         queryCtx_->isExecutorSupplied(),
         "Executor should be set in parallel task cursor");
 
-    queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);
+    queue_ =
+        std::make_shared<TaskQueue>(params.bufferedBytes, params.outputPool);
+
     // Captured as a shared_ptr by the consumer callback of task_.
     auto queue = queue_;
     task_ = Task::create(

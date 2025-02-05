@@ -49,6 +49,12 @@ struct CursorParameters {
 
   uint64_t bufferedBytes{512 * 1024};
 
+  /// An optional memory pool to be used to allocate vectors returned by
+  /// MultiThreadedTaskCursor. A new pool is created if not specified.
+  ///
+  /// Only used if serialExecution is false.
+  std::shared_ptr<memory::MemoryPool> outputPool;
+
   /// Ungrouped (by default) or grouped (bucketed) execution.
   core::ExecutionStrategy executionStrategy{
       core::ExecutionStrategy::kUngrouped};
@@ -82,8 +88,13 @@ class TaskQueue {
     uint64_t bytes;
   };
 
-  explicit TaskQueue(uint64_t maxBytes)
-      : pool_(memory::memoryManager()->addLeafPool()), maxBytes_(maxBytes) {}
+  explicit TaskQueue(
+      uint64_t maxBytes,
+      const std::shared_ptr<memory::MemoryPool>& outputPool)
+      : pool_(
+            outputPool != nullptr ? outputPool
+                                  : memory::memoryManager()->addLeafPool()),
+        maxBytes_(maxBytes) {}
 
   void setNumProducers(int32_t n) {
     numProducers_ = n;
