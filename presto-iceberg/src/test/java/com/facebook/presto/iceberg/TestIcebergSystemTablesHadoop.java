@@ -39,7 +39,7 @@ public class TestIcebergSystemTablesHadoop
         String dataLocation = Files.createTempDirectory("test_table_with_write_data_location").toAbsolutePath().toString();
         assertUpdate("CREATE SCHEMA test_schema_temp");
         try {
-            assertUpdate(String.format("CREATE TABLE test_schema_temp.test_table_with_write_data_location (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'], write_data_path = '%s')", dataLocation));
+            assertUpdate(String.format("CREATE TABLE test_schema_temp.test_table_with_write_data_location (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'], \"write.data.path\" = '%s')", dataLocation));
             checkTableProperties("test_schema_temp", "test_table_with_write_data_location", "merge-on-read", dataLocation);
         }
         finally {
