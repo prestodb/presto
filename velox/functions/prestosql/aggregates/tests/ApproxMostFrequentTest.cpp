@@ -281,5 +281,38 @@ TEST_F(ApproxMostFrequentTestBoolean, basic) {
       {input}, {"c0"}, {"approx_most_frequent(3, c5, 31)"}, {expected});
 }
 
+class ApproxMostFrequentTestJson : public AggregationTestBase {
+ protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+  }
+};
+
+TEST_F(ApproxMostFrequentTestJson, basic) {
+  // JSON strings as input
+  std::vector<std::string> jsonStrings = {
+      "{\"type\": \"store\"}",
+      "{\"type\": \"fruit\"}",
+      "{\"type\": \"fruit\"}",
+      "{\"type\": \"book\"}",
+      "{\"type\": \"store\"}",
+      "{\"type\": \"fruit\"}"};
+
+  auto inputVector = makeFlatVector<StringView>(
+      static_cast<vector_size_t>(jsonStrings.size()),
+      [&](auto row) { return StringView(jsonStrings[row]); });
+
+  MapVectorPtr expectedMap = makeMapVector<StringView, int64_t>(
+      {{{StringView("{\"type\": \"fruit\"}"), 3},
+        {StringView("{\"type\": \"store\"}"), 2}}});
+  auto expected = makeRowVector({{expectedMap}});
+
+  testAggregations(
+      {makeRowVector({inputVector})},
+      {},
+      {"approx_most_frequent(2, c0, 31)"},
+      {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

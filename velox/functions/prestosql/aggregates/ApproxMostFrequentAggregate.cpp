@@ -477,7 +477,13 @@ void registerApproxMostFrequentAggregate(
     bool overwrite) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& valueType :
-       {"boolean", "tinyint", "smallint", "integer", "bigint", "varchar"}) {
+       {"boolean",
+        "tinyint",
+        "smallint",
+        "integer",
+        "bigint",
+        "varchar",
+        "json"}) {
     signatures.push_back(
         exec::AggregateFunctionSignatureBuilder()
             .returnType(fmt::format("map({},bigint)", valueType))
