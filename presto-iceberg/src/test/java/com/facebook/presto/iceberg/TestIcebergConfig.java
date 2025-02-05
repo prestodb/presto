@@ -82,7 +82,7 @@ public class TestIcebergConfig
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.catalog.type", "HADOOP")
                 .put("iceberg.catalog.warehouse", "path")
-                .put("iceberg.catalog.warehouse.datadir", "path_data_dir")
+                .put("iceberg.catalog.hadoop.warehouse.datadir", "path_data_dir")
                 .put("iceberg.catalog.cached-catalog-num", "6")
                 .put("iceberg.hadoop.config.resources", "/etc/hadoop/conf/core-site.xml")
                 .put("iceberg.max-partitions-per-writer", "222")

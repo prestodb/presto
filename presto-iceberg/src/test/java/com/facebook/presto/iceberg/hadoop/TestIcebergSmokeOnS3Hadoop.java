@@ -76,7 +76,7 @@ public class TestIcebergSmokeOnS3Hadoop
         return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), HADOOP,
                 ImmutableMap.of(
                         "iceberg.catalog.warehouse", catalogWarehouseDir,
-                        "iceberg.catalog.warehouse.datadir", getCatalogDataDirectory().toString(),
+                        "iceberg.catalog.hadoop.warehouse.datadir", getCatalogDataDirectory().toString(),
                         "hive.s3.use-instance-credentials", "false",
                         "hive.s3.aws-access-key", ACCESS_KEY,
                         "hive.s3.aws-secret-key", SECRET_KEY,

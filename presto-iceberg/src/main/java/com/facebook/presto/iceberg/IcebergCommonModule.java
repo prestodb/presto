@@ -140,7 +140,7 @@ public class IcebergCommonModule
         configBinder(binder).bindConfig(IcebergConfig.class);
 
         IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
-        checkArgument(icebergConfig.getCatalogType().equals(HADOOP) || icebergConfig.getCatalogWarehouseDataDir() == null, "'iceberg.catalog.warehouse.datadir' can only be specified in Hadoop catalog");
+        checkArgument(icebergConfig.getCatalogType().equals(HADOOP) || icebergConfig.getCatalogWarehouseDataDir() == null, "'iceberg.catalog.hadoop.warehouse.datadir' can only be specified in Hadoop catalog");
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IcebergNessieConfig.class);  // bind optional Nessie config to IcebergSessionProperties

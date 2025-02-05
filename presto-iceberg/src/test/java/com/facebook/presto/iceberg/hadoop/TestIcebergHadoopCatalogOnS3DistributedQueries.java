@@ -51,7 +51,7 @@ public class TestIcebergHadoopCatalogOnS3DistributedQueries
         return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), HADOOP,
                 ImmutableMap.of(
                         "iceberg.catalog.warehouse", catalogWarehouseDir,
-                        "iceberg.catalog.warehouse.datadir", format("s3://%s/%s", bucketName, WAREHOUSE_DATA_DIR),
+                        "iceberg.catalog.hadoop.warehouse.datadir", format("s3://%s/%s", bucketName, WAREHOUSE_DATA_DIR),
                         "hive.s3.use-instance-credentials", "false",
                         "hive.s3.aws-access-key", ACCESS_KEY,
                         "hive.s3.aws-secret-key", SECRET_KEY,

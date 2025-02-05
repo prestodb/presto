@@ -260,10 +260,11 @@ Property Name                                           Description             
                                                         This property is required if the ``iceberg.catalog.type`` is
                                                         ``hadoop``.
 
-``iceberg.catalog.warehouse.datadir``                   The catalog warehouse root data path for Iceberg tables.
+``iceberg.catalog.hadoop.warehouse.datadir``            The catalog warehouse root data path for Iceberg tables.
                                                         Example: ``s3://iceberg_bucket/warehouse``.
-                                                        If set, all tables in this Hadoop catalog will default to
-                                                        saving their data and delete files in the specified root
+                                                        This property is only supported with Hadoop catalog. If set,
+                                                        all tables in this Hadoop catalog will default to saving
+                                                        their data and delete files in the specified root
                                                         data directory.
 
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
@@ -280,7 +281,7 @@ the data and delete files of Iceberg tables are stored in S3. An example configu
     connector.name=iceberg
     iceberg.catalog.type=hadoop
     iceberg.catalog.warehouse=hdfs://nn:8020/warehouse/path
-    iceberg.catalog.warehouse.datadir=s3://iceberg_bucket/warehouse
+    iceberg.catalog.hadoop.warehouse.datadir=s3://iceberg_bucket/warehouse
 
     hive.s3.use-instance-credentials=false
     hive.s3.aws-access-key=accesskey
