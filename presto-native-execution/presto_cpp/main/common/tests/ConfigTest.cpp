@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <filesystem>
 #include <gtest/gtest.h>
 #include <unordered_set>
 #include "presto_cpp/main/common/ConfigReader.h"
