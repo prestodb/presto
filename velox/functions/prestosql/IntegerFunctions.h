@@ -35,4 +35,20 @@ struct XxHash64BigIntFunction {
   }
 };
 
+// combine_hash(bigint, bigint) → bigint
+template <typename T>
+struct CombineHashFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE
+  void call(
+      out_type<int64_t>& result,
+      const arg_type<int64_t>& previousHashValue,
+      const arg_type<int64_t>& input) {
+    result = static_cast<int64_t>(
+        31 * static_cast<uint64_t>(previousHashValue) +
+        static_cast<uint64_t>(input));
+  }
+};
+
 } // namespace facebook::velox::functions

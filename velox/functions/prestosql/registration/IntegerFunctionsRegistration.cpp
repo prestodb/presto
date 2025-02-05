@@ -23,6 +23,9 @@ namespace {
 void registerSimpleFunctions(const std::string& prefix) {
   registerFunction<XxHash64BigIntFunction, int64_t, int64_t>(
       {prefix + "xxhash64_internal"});
+
+  registerFunction<CombineHashFunction, int64_t, int64_t, int64_t>(
+      {prefix + "combine_hash_internal"});
 }
 } // namespace
 
