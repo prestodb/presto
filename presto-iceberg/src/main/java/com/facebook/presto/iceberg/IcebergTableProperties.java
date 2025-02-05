@@ -32,13 +32,13 @@ import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 
 public class IcebergTableProperties
 {
     public static final String FILE_FORMAT_PROPERTY = "format";
     public static final String PARTITIONING_PROPERTY = "partitioning";
     public static final String LOCATION_PROPERTY = "location";
-    public static final String WRITE_DATA_LOCATION_PROPERTY = "write_data_path";
     public static final String FORMAT_VERSION = "format_version";
     public static final String COMMIT_RETRIES = "commit_retries";
     public static final String DELETE_MODE = "delete_mode";
@@ -80,7 +80,7 @@ public class IcebergTableProperties
                         null,
                         false))
                 .add(stringProperty(
-                        WRITE_DATA_LOCATION_PROPERTY,
+                        WRITE_DATA_LOCATION,
                         "File system location URI for the table's data",
                         null,
                         false))
@@ -156,7 +156,7 @@ public class IcebergTableProperties
 
     public static String getWriteDataLocation(Map<String, Object> tableProperties)
     {
-        return (String) tableProperties.get(WRITE_DATA_LOCATION_PROPERTY);
+        return (String) tableProperties.get(WRITE_DATA_LOCATION);
     }
 
     public static String getFormatVersion(Map<String, Object> tableProperties)

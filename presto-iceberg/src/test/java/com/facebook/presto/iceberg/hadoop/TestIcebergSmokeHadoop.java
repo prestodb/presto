@@ -53,7 +53,7 @@ public class TestIcebergSmokeHadoop
         String tableName = "test_table_with_specified_write_data_location";
         String dataWriteLocation = java.nio.file.Files.createTempDirectory("test1").toAbsolutePath().toString();
         try {
-            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (write_data_path = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
             String schemaName = getSession().getSchema().get();
             String location = getLocation(schemaName, tableName);
             assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
@@ -69,7 +69,7 @@ public class TestIcebergSmokeHadoop
                             "   metadata_delete_after_commit = false,\n" +
                             "   metadata_previous_versions_max = 100,\n" +
                             "   metrics_max_inferred_column = 100,\n" +
-                            "   write_data_path = '%s'\n" +
+                            "   \"write.data.path\" = '%s'\n" +
                             ")", schemaName, tableName, location, dataWriteLocation));
         }
         finally {
@@ -84,7 +84,7 @@ public class TestIcebergSmokeHadoop
         String tableName = "test_table_with_specified_write_data_location2";
         String dataWriteLocation = Files.createTempDirectory(tableName).toAbsolutePath().toString();
         try {
-            assertUpdate(format("create table %s(a int, b varchar) with (write_data_path = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("create table %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
             assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
             assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
             assertUpdate(format("delete from %s where a > 2", tableName), 1);
@@ -102,7 +102,7 @@ public class TestIcebergSmokeHadoop
         String tableName = "test_partitioned_table_with_specified_write_data_location";
         String dataWriteLocation = Files.createTempDirectory(tableName).toAbsolutePath().toString();
         try {
-            assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], write_data_path = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], \"write.data.path\" = '%s')", tableName, dataWriteLocation));
             assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
             assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
             assertUpdate(format("delete from %s where a > 2", tableName), 1);

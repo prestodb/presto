@@ -136,7 +136,6 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_DELETE
 import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static com.facebook.presto.iceberg.IcebergTableProperties.METRICS_MAX_INFERRED_COLUMN;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
-import static com.facebook.presto.iceberg.IcebergTableProperties.WRITE_DATA_LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
@@ -621,7 +620,7 @@ public abstract class IcebergAbstractMetadata
 
         String writeDataLocation = icebergTable.properties().get(WRITE_DATA_LOCATION);
         if (!Strings.isNullOrEmpty(writeDataLocation)) {
-            properties.put(WRITE_DATA_LOCATION_PROPERTY, writeDataLocation);
+            properties.put(WRITE_DATA_LOCATION, writeDataLocation);
         }
 
         properties.put(DELETE_MODE, IcebergUtil.getDeleteMode(icebergTable));
@@ -1043,7 +1042,7 @@ public abstract class IcebergAbstractMetadata
                 propertiesBuilder.put(WRITE_DATA_LOCATION, writeDataLocation);
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, "Table property write_data_path is not supported with catalog type: " + catalogType);
+                throw new PrestoException(NOT_SUPPORTED, "Table property write.data.path is not supported with catalog type: " + catalogType);
             }
         }
         else {

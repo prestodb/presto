@@ -157,8 +157,8 @@ public abstract class IcebergDistributedSmokeTestBase
             throws IOException
     {
         String dataWriteLocation = Files.createTempDirectory("test_table_with_specified_write_data_location2").toAbsolutePath().toString();
-        assertQueryFails(String.format("create table test_table_with_specified_write_data_location2(a int, b varchar) with (write_data_path = '%s')", dataWriteLocation),
-                "Table property write_data_path is not supported with catalog type: " + catalogType);
+        assertQueryFails(String.format("create table test_table_with_specified_write_data_location2(a int, b varchar) with (\"write.data.path\" = '%s')", dataWriteLocation),
+                "Table property write\\.data\\.path is not supported with catalog type: " + catalogType);
     }
 
     @Test
@@ -166,8 +166,8 @@ public abstract class IcebergDistributedSmokeTestBase
             throws IOException
     {
         String dataWriteLocation = Files.createTempDirectory("test_partitioned_table_with_specified_write_data_location").toAbsolutePath().toString();
-        assertQueryFails(String.format("create table test_partitioned_table_with_specified_write_data_location(a int, b varchar) with (write_data_path = '%s', partitioning = ARRAY['a'])", dataWriteLocation),
-                "Table property write_data_path is not supported with catalog type: " + catalogType);
+        assertQueryFails(String.format("create table test_partitioned_table_with_specified_write_data_location(a int, b varchar) with (\"write.data.path\" = '%s', partitioning = ARRAY['a'])", dataWriteLocation),
+                "Table property write\\.data\\.path is not supported with catalog type: " + catalogType);
     }
 
     @Test
@@ -176,8 +176,8 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         String tableName = "test_table_with_specified_write_data_location";
         String dataWriteLocation = java.nio.file.Files.createTempDirectory("test1").toAbsolutePath().toString();
-        assertQueryFails(format("CREATE TABLE %s(a int, b varchar) with (write_data_path = '%s')", tableName, dataWriteLocation),
-                "Table property write_data_path is not supported with catalog type: " + catalogType);
+        assertQueryFails(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation),
+                "Table property write\\.data\\.path is not supported with catalog type: " + catalogType);
     }
 
     @Test
