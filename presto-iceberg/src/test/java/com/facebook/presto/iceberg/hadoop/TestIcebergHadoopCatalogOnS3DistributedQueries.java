@@ -22,12 +22,14 @@ import com.google.common.net.HostAndPort;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
+import java.io.IOException;
+
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.ACCESS_KEY;
 import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.SECRET_KEY;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
-import static com.google.common.io.Files.createTempDir;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestIcebergHadoopCatalogOnS3DistributedQueries
         extends TestIcebergDistributedQueries
@@ -39,10 +41,11 @@ public class TestIcebergHadoopCatalogOnS3DistributedQueries
     HostAndPort hostAndPort;
 
     public TestIcebergHadoopCatalogOnS3DistributedQueries()
+            throws IOException
     {
         super(HADOOP);
         bucketName = "forhadoop-" + randomTableSuffix();
-        catalogWarehouseDir = createTempDir().toURI().toString();
+        catalogWarehouseDir = createTempDirectory(bucketName).toUri().toString();
     }
 
     protected QueryRunner createQueryRunner()
@@ -52,7 +55,6 @@ public class TestIcebergHadoopCatalogOnS3DistributedQueries
                 ImmutableMap.of(
                         "iceberg.catalog.warehouse", catalogWarehouseDir,
                         "iceberg.catalog.hadoop.warehouse.datadir", format("s3://%s/%s", bucketName, WAREHOUSE_DATA_DIR),
-                        "hive.s3.use-instance-credentials", "false",
                         "hive.s3.aws-access-key", ACCESS_KEY,
                         "hive.s3.aws-secret-key", SECRET_KEY,
                         "hive.s3.endpoint", format("http://%s:%s", hostAndPort.getHost(), hostAndPort.getPort()),

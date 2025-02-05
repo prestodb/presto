@@ -152,8 +152,8 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.io.Files.createTempDir;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
@@ -606,9 +606,10 @@ public abstract class IcebergDistributedTestBase
 
     @Test
     public void testCreateTableWithCustomLocation()
+            throws IOException
     {
         String tableName = "test_table_with_custom_location";
-        URI tableTargetURI = createTempDir().toURI();
+        URI tableTargetURI = createTempDirectory(tableName).toUri();
         try {
             assertQuerySucceeds(format("create table %s (a int, b varchar)" +
                     " with (location = '%s')", tableName, tableTargetURI.toString()));

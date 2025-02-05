@@ -272,6 +272,13 @@ Property Name                                           Description             
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
 
+.. note::
+
+    Hadoop catalog requires a file system that supports atomic rename operation, such as HDFS,
+    to maintain metadata files in order to implement atomic transaction commit. It's unsafe to
+    set `iceberg.catalog.warehouse` to a path in object stores and local file systems. But it's
+    safe to set `iceberg.catalog.hadoop.warehouse.datadir` to a path in the object stores.
+
 Configure the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
 properties to specify a S3 location as the warehouse data directory for the Hadoop catalog. This way,
 the data and delete files of Iceberg tables are stored in S3. An example configuration includes:

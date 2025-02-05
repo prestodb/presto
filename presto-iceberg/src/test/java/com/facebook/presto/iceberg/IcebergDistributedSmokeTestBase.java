@@ -1547,7 +1547,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
-        String metadataLocation = getLocation(schemaName, tableName).replace("//", "/") + "_invalid";
+        String metadataLocation = getLocation(schemaName, tableName).replace("//", "") + "_invalid";
 
         @Language("RegExp") String errorMessage = format("Unable to find metadata at location %s/%s", metadataLocation, METADATA_FOLDER_NAME);
         assertQueryFails("CALL system.register_table ('" + schemaName + "', '" + tableName + "', '" + metadataLocation + "')", errorMessage);

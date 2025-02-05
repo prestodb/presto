@@ -33,6 +33,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
+import java.io.IOException;
 import java.net.URI;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
@@ -40,8 +41,8 @@ import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.ACCESS_
 import static com.facebook.presto.iceberg.container.IcebergMinIODataLake.SECRET_KEY;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
-import static com.google.common.io.Files.createTempDir;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestIcebergDistributedOnS3Hadoop
         extends IcebergDistributedTestBase
@@ -53,10 +54,11 @@ public class TestIcebergDistributedOnS3Hadoop
     HostAndPort hostAndPort;
 
     public TestIcebergDistributedOnS3Hadoop()
+            throws IOException
     {
         super(HADOOP);
         bucketName = "forhadoop-" + randomTableSuffix();
-        catalogWarehouseDir = createTempDir().toURI().toString();
+        catalogWarehouseDir = createTempDirectory(bucketName).toUri().toString();
     }
 
     protected QueryRunner createQueryRunner()
@@ -66,7 +68,6 @@ public class TestIcebergDistributedOnS3Hadoop
                 ImmutableMap.of(
                         "iceberg.catalog.warehouse", catalogWarehouseDir,
                         "iceberg.catalog.hadoop.warehouse.datadir", getCatalogDataDirectory().toString(),
-                        "hive.s3.use-instance-credentials", "false",
                         "hive.s3.aws-access-key", ACCESS_KEY,
                         "hive.s3.aws-secret-key", SECRET_KEY,
                         "hive.s3.endpoint", format("http://%s:%s", hostAndPort.getHost(), hostAndPort.getPort()),
@@ -94,9 +95,10 @@ public class TestIcebergDistributedOnS3Hadoop
 
     @Override
     public void testCreateTableWithCustomLocation()
+            throws IOException
     {
         String tableName = "test_hadoop_table_with_custom_location";
-        URI tableTargetURI = createTempDir().toURI();
+        URI tableTargetURI = createTempDirectory(tableName).toUri();
         assertQueryFails(format("create table %s (a int, b varchar)" + " with (location = '%s')", tableName, tableTargetURI.toString()),
                 "Cannot set a custom location for a path-based table.*");
     }
@@ -119,8 +121,7 @@ public class TestIcebergDistributedOnS3Hadoop
                 .setS3AwsAccessKey(ACCESS_KEY)
                 .setS3AwsSecretKey(SECRET_KEY)
                 .setS3PathStyleAccess(true)
-                .setS3Endpoint(format("http://%s:%s", hostAndPort.getHost(), hostAndPort.getPort()))
-                .setS3UseInstanceCredentials(false);
+                .setS3Endpoint(format("http://%s:%s", hostAndPort.getHost(), hostAndPort.getPort()));
         return getHdfsEnvironment(hiveClientConfig, metastoreClientConfig, hiveS3Config);
     }
 
