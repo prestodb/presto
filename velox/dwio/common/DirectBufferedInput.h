@@ -205,15 +205,23 @@ class DirectBufferedInput : public BufferedInput {
         fileSize_(input_->getLength()),
         options_(readerOptions) {}
 
-  // Sorts requests and makes CoalescedLoads for nearby requests. If 'prefetch'
-  // is true, starts background loading.
-  void makeLoads(std::vector<LoadRequest*> requests, bool prefetch);
+  std::vector<int32_t> groupRequests(
+      const std::vector<LoadRequest*>& requests,
+      bool prefetch) const;
 
   // Makes a CoalescedLoad for 'requests' to be read together, coalescing IO if
   // appropriate. If 'prefetch' is set, schedules the CoalescedLoad on
   // 'executor_'. Links the CoalescedLoad  to all DirectInputStreams that it
   // covers.
-  void readRegion(std::vector<LoadRequest*> requests, bool prefetch);
+  void readRegion(const std::vector<LoadRequest*>& requests, bool prefetch);
+
+  // Read coalesced regions.  Regions are grouped together using `groupEnds'.
+  // For example if there are 5 regions, 1 and 2 are coalesced together and 3,
+  // 4, 5 are coalesced together, we will have {2, 5} in `groupEnds'.
+  void readRegions(
+      const std::vector<LoadRequest*>& requests,
+      bool prefetch,
+      const std::vector<int32_t>& groupEnds);
 
   const uint64_t fileNum_;
   const std::shared_ptr<cache::ScanTracker> tracker_;

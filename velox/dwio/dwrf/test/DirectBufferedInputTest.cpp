@@ -39,6 +39,7 @@ using IoStatisticsPtr = std::shared_ptr<IoStatistics>;
 struct TestRegion {
   int32_t offset;
   int32_t length;
+  bool read = true;
 };
 
 class DirectBufferedInputTest : public testing::Test {
@@ -92,7 +93,7 @@ class DirectBufferedInputTest : public testing::Test {
     }
     input->load(LogType::FILE);
     for (auto i = 0; i < regions.size(); ++i) {
-      if (regions[i].length > 0) {
+      if (regions[i].read && regions[i].length > 0) {
         checkRead(streams[i].get(), regions[i]);
       }
     }
@@ -185,4 +186,9 @@ TEST_F(DirectBufferedInputTest, basic) {
   // The first reads in 2 parts and does not coalesce to the second, which reads
   // in one part.
   testLoads({{1000, 9000000}, {9010000, 1000000}}, 3);
+}
+
+TEST_F(DirectBufferedInputTest, noRedownloadCoalescedPrefetch) {
+  testLoads({{100, 100}, {201, 1, false}, {202, 100}}, 1);
+  testLoads({{100, 100}, {201, 1, true}, {202, 100}}, 1);
 }

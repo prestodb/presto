@@ -167,6 +167,52 @@ class BufferedInput {
     return pct;
   }
 
+  // Move the requests in `noPrefetch' to `prefetch' if it is already covered by
+  // coalescing in `prefetch'.
+  template <typename Request, typename GetRegionOffset, typename GetRegionEnd>
+  static void moveCoalesced(
+      std::vector<Request>& prefetch,
+      std::vector<int32_t>& ends,
+      std::vector<Request>& noPrefetch,
+      GetRegionOffset getRegionOffset,
+      GetRegionEnd getRegionEnd) {
+    auto numOldPrefetch = prefetch.size();
+    prefetch.resize(prefetch.size() + noPrefetch.size());
+    std::copy_backward(
+        prefetch.data(), prefetch.data() + numOldPrefetch, prefetch.end());
+    auto* oldPrefetch = prefetch.data() + noPrefetch.size();
+    int numMoved = 0;
+    int i = 0; // index into noPrefetch for read
+    int j = 0; // index into oldPrefetch
+    int k = 0; // index into prefetch
+    int l = 0; // index into noPrefetch for write
+    for (auto& end : ends) {
+      prefetch[k++] = oldPrefetch[j++];
+      while (j < end) {
+        auto coalesceStart = getRegionEnd(oldPrefetch[j - 1]);
+        auto coalesceEnd = getRegionOffset(oldPrefetch[j]);
+        while (i < noPrefetch.size() &&
+               getRegionOffset(noPrefetch[i]) < coalesceStart) {
+          noPrefetch[l++] = noPrefetch[i++];
+        }
+        while (i < noPrefetch.size() &&
+               getRegionEnd(noPrefetch[i]) <= coalesceEnd) {
+          prefetch[k++] = noPrefetch[i++];
+          ++numMoved;
+        }
+        prefetch[k++] = oldPrefetch[j++];
+      }
+      end += numMoved;
+    }
+    while (i < noPrefetch.size()) {
+      noPrefetch[l++] = noPrefetch[i++];
+    }
+    VELOX_CHECK_EQ(k, numOldPrefetch + numMoved);
+    prefetch.resize(k);
+    VELOX_CHECK_EQ(l + numMoved, noPrefetch.size());
+    noPrefetch.resize(l);
+  }
+
   const std::shared_ptr<ReadFileInputStream> input_;
   memory::MemoryPool* const pool_;
 

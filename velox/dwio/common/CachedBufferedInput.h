@@ -170,15 +170,27 @@ class CachedBufferedInput : public BufferedInput {
   }
 
  private:
-  // Sorts requests and makes CoalescedLoads for nearby requests. If 'prefetch'
-  // is true, starts background loading.
-  void makeLoads(std::vector<CacheRequest*> requests, bool prefetch);
+  template <bool kSsd>
+  std::vector<int32_t> groupRequests(
+      const std::vector<CacheRequest*>& requests,
+      bool prefetch) const;
 
   // Makes a CoalescedLoad for 'requests' to be read together, coalescing IO is
   // appropriate. If 'prefetch' is set, schedules the CoalescedLoad on
   // 'executor_'. Links the CoalescedLoad to all CacheInputStreams that it
   // concerns.
   void readRegion(const std::vector<CacheRequest*>& requests, bool prefetch);
+
+  // Read coalesced regions.  Regions are grouped together using `groupEnds'.
+  // For example if there are 5 regions, 1 and 2 are coalesced together and 3,
+  // 4, 5 are coalesced together, we will have {2, 5} in `groupEnds'.
+  void readRegions(
+      const std::vector<CacheRequest*>& requests,
+      bool prefetch,
+      const std::vector<int32_t>& groupEnds);
+
+  template <bool kSsd>
+  void makeLoads(std::vector<CacheRequest*> requests[2]);
 
   // We only support up to 8MB load quantum size on SSD and there is no need for
   // larger SSD read size performance wise.

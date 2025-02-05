@@ -81,6 +81,10 @@ bool isPrefetchablePct(int32_t pct) {
   return pct >= FLAGS_cache_prefetch_min_pct;
 }
 
+bool lessThan(const LoadRequest* left, const LoadRequest* right) {
+  return left->region < right->region;
+}
+
 } // namespace
 
 void DirectBufferedInput::load(const LogType /*unused*/) {
@@ -100,17 +104,30 @@ void DirectBufferedInput::load(const LogType /*unused*/) {
         : 0;
     storageLoad[loadIndex].push_back(&request);
   }
-  makeLoads(std::move(storageLoad[1]), true);
-  makeLoads(std::move(storageLoad[0]), false);
+  std::sort(storageLoad[1].begin(), storageLoad[1].end(), lessThan);
+  std::sort(storageLoad[0].begin(), storageLoad[0].end(), lessThan);
+  std::vector<int32_t> groupEnds[2];
+  groupEnds[1] = groupRequests(storageLoad[1], true);
+  moveCoalesced(
+      storageLoad[1],
+      groupEnds[1],
+      storageLoad[0],
+      [](auto* request) { return request->region.offset; },
+      [](auto* request) {
+        return request->region.offset + request->region.length;
+      });
+  groupEnds[0] = groupRequests(storageLoad[0], false);
+  readRegions(storageLoad[1], true, groupEnds[1]);
+  readRegions(storageLoad[0], false, groupEnds[0]);
 }
 
-void DirectBufferedInput::makeLoads(
-    std::vector<LoadRequest*> requests,
-    bool prefetch) {
+std::vector<int32_t> DirectBufferedInput::groupRequests(
+    const std::vector<LoadRequest*>& requests,
+    bool prefetch) const {
   if (requests.empty() || (requests.size() < 2 && !prefetch)) {
     // A single request has no other requests to coalesce with and is not
     // eligible to prefetch. This will be loaded by itself on first use.
-    return;
+    return {};
   }
   const int32_t maxDistance = options_.maxCoalesceDistance();
   const auto loadQuantum = options_.loadQuantum();
@@ -119,17 +136,13 @@ void DirectBufferedInput::makeLoads(
   // is correlated.
   const auto maxCoalesceBytes =
       prefetch ? options_.maxCoalesceBytes() : loadQuantum;
-  std::sort(
-      requests.begin(),
-      requests.end(),
-      [&](const LoadRequest* left, const LoadRequest* right) {
-        return left->region.offset < right->region.offset;
-      });
 
   // Combine adjacent short reads.
-  int32_t numNewLoads = 0;
   int64_t coalescedBytes = 0;
-  coalesceIo<LoadRequest*, LoadRequest*>(
+  std::vector<int32_t> ends;
+  ends.reserve(requests.size());
+  std::vector<char> ranges;
+  coalesceIo<LoadRequest*, char>(
       requests,
       maxDistance,
       // Break batches up. Better load more short ones i parallel.
@@ -151,33 +164,21 @@ void DirectBufferedInput::makeLoads(
         }
         return 1;
       },
-      [&](LoadRequest* request, std::vector<LoadRequest*>& ranges) {
-        ranges.push_back(request);
+      [&](LoadRequest* /*request*/, std::vector<char>& ranges) {
+        // ranges.size() is used in coalesceIo so we cannot leave it empty.
+        ranges.push_back(0);
       },
-      [&](int32_t /*gap*/, std::vector<LoadRequest*> /*ranges*/) { /*no op*/ },
+      [&](int32_t /*gap*/, std::vector<char> /*ranges*/) { /*no op*/ },
       [&](const std::vector<LoadRequest*>& /*requests*/,
           int32_t /*begin*/,
-          int32_t /*end*/,
+          int32_t end,
           uint64_t /*offset*/,
-          const std::vector<LoadRequest*>& ranges) {
-        ++numNewLoads;
-        readRegion(ranges, prefetch);
-      });
-  if (prefetch && executor_) {
-    for (auto i = 0; i < coalescedLoads_.size(); ++i) {
-      auto& load = coalescedLoads_[i];
-      if (load->state() == CoalescedLoad::State::kPlanned) {
-        executor_->add([pendingLoad = load]() {
-          process::TraceContext trace("Read Ahead");
-          pendingLoad->loadOrFuture(nullptr);
-        });
-      }
-    }
-  }
+          const std::vector<char>& /*ranges*/) { ends.push_back(end); });
+  return ends;
 }
 
 void DirectBufferedInput::readRegion(
-    std::vector<LoadRequest*> requests,
+    const std::vector<LoadRequest*>& requests,
     bool prefetch) {
   if (requests.empty() || (requests.size() == 1 && !prefetch)) {
     return;
@@ -190,6 +191,32 @@ void DirectBufferedInput::readRegion(
       loads[request->stream] = load;
     }
   });
+}
+
+void DirectBufferedInput::readRegions(
+    const std::vector<LoadRequest*>& requests,
+    bool prefetch,
+    const std::vector<int32_t>& groupEnds) {
+  int i = 0;
+  std::vector<LoadRequest*> group;
+  for (auto end : groupEnds) {
+    while (i < end) {
+      group.push_back(requests[i++]);
+    }
+    readRegion(group, prefetch);
+    group.clear();
+  }
+  if (prefetch && executor_) {
+    for (auto i = 0; i < coalescedLoads_.size(); ++i) {
+      auto& load = coalescedLoads_[i];
+      if (load->state() == CoalescedLoad::State::kPlanned) {
+        executor_->add([pendingLoad = load]() {
+          process::TraceContext trace("Read Ahead");
+          pendingLoad->loadOrFuture(nullptr);
+        });
+      }
+    }
+  }
 }
 
 std::shared_ptr<DirectCoalescedLoad> DirectBufferedInput::coalescedLoad(

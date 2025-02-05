@@ -100,6 +100,7 @@ bool CachedBufferedInput::shouldPreload(int32_t numPages) {
 }
 
 namespace {
+
 bool isPrefetchPct(int32_t pct) {
   return pct >= FLAGS_cache_prefetch_min_pct;
 }
@@ -137,6 +138,26 @@ std::vector<CacheRequest*> makeRequestParts(
     }
   }
   return parts;
+}
+
+template <bool kSsd>
+uint64_t getOffset(const CacheRequest& request) {
+  if constexpr (kSsd) {
+    VELOX_DCHECK(!request.ssdPin.empty());
+    return request.ssdPin.run().offset();
+  } else {
+    return request.key.offset;
+  }
+}
+
+template <bool kSsd>
+std::pair<uint64_t, uint64_t> toRegion(const CacheRequest& request) {
+  return std::make_pair(getOffset<kSsd>(request), request.size);
+}
+
+template <bool kSsd>
+bool lessThan(const CacheRequest* left, const CacheRequest* right) {
+  return toRegion<kSsd>(*left) < toRegion<kSsd>(*right);
 }
 
 } // namespace
@@ -187,42 +208,48 @@ void CachedBufferedInput::load(const LogType /*unused*/) {
     }
   }
 
-  makeLoads(std::move(storageLoad[1]), true);
-  makeLoads(std::move(ssdLoad[1]), true);
-  makeLoads(std::move(storageLoad[0]), false);
-  makeLoads(std::move(ssdLoad[0]), false);
+  std::sort(storageLoad[0].begin(), storageLoad[0].end(), lessThan<false>);
+  std::sort(storageLoad[1].begin(), storageLoad[1].end(), lessThan<false>);
+  std::sort(ssdLoad[0].begin(), ssdLoad[0].end(), lessThan<true>);
+  std::sort(ssdLoad[1].begin(), ssdLoad[1].end(), lessThan<true>);
+  makeLoads<false>(storageLoad);
+  makeLoads<true>(ssdLoad);
 }
 
-void CachedBufferedInput::makeLoads(
-    std::vector<CacheRequest*> requests,
-    bool prefetch) {
+template <bool kSsd>
+void CachedBufferedInput::makeLoads(std::vector<CacheRequest*> requests[2]) {
+  std::vector<int32_t> groupEnds[2];
+  groupEnds[1] = groupRequests<kSsd>(requests[1], true);
+  moveCoalesced(
+      requests[1],
+      groupEnds[1],
+      requests[0],
+      [](auto* request) { return getOffset<kSsd>(*request); },
+      [](auto* request) { return getOffset<kSsd>(*request) + request->size; });
+  groupEnds[0] = groupRequests<kSsd>(requests[0], false);
+  readRegions(requests[1], true, groupEnds[1]);
+  readRegions(requests[0], false, groupEnds[0]);
+}
+
+template <bool kSsd>
+std::vector<int32_t> CachedBufferedInput::groupRequests(
+    const std::vector<CacheRequest*>& requests,
+    bool prefetch) const {
   if (requests.empty() || (requests.size() < 2 && !prefetch)) {
-    return;
+    return {};
   }
-  const bool isSsd = !requests[0]->ssdPin.empty();
-  const int32_t maxDistance = isSsd ? 20000 : options_.maxCoalesceDistance();
-  std::sort(
-      requests.begin(),
-      requests.end(),
-      [&](const CacheRequest* left, const CacheRequest* right) {
-        if (isSsd) {
-          return left->ssdPin.run().offset() < right->ssdPin.run().offset();
-        } else {
-          return left->key.offset < right->key.offset;
-        }
-      });
+  const int32_t maxDistance = kSsd ? 20000 : options_.maxCoalesceDistance();
 
   // Combine adjacent short reads.
-  int32_t numNewLoads = 0;
   int64_t coalescedBytes = 0;
-  coalesceIo<CacheRequest*, CacheRequest*>(
+  std::vector<int32_t> ends;
+  ends.reserve(requests.size());
+  std::vector<char> ranges;
+  coalesceIo<CacheRequest*, char>(
       requests,
       maxDistance,
       std::numeric_limits<int32_t>::max(),
-      [&](int32_t index) {
-        return isSsd ? requests[index]->ssdPin.run().offset()
-                     : requests[index]->key.offset;
-      },
+      [&](int32_t index) { return getOffset<kSsd>(*requests[index]); },
       [&](int32_t index) {
         const auto size = requests[index]->size;
         coalescedBytes += size;
@@ -235,41 +262,16 @@ void CachedBufferedInput::makeLoads(
         }
         return requests[index]->coalesces ? 1 : kNoCoalesce;
       },
-      [&](CacheRequest* request, std::vector<CacheRequest*>& ranges) {
-        ranges.push_back(request);
+      [&](CacheRequest* /*request*/, std::vector<char>& ranges) {
+        ranges.push_back(0);
       },
-      [&](int32_t /*gap*/, std::vector<CacheRequest*> /*ranges*/) { /*no op*/ },
+      [&](int32_t /*gap*/, std::vector<char> /*ranges*/) { /*no op*/ },
       [&](const std::vector<CacheRequest*>& /*requests*/,
           int32_t /*begin*/,
-          int32_t /*end*/,
+          int32_t end,
           uint64_t /*offset*/,
-          const std::vector<CacheRequest*>& ranges) {
-        ++numNewLoads;
-        readRegion(ranges, prefetch);
-      });
-
-  if (prefetch && (executor_ != nullptr)) {
-    std::vector<int32_t> doneIndices;
-    for (auto i = 0; i < allCoalescedLoads_.size(); ++i) {
-      auto& load = allCoalescedLoads_[i];
-      if (load->state() == CoalescedLoad::State::kPlanned) {
-        executor_->add(
-            [pendingLoad = load, ssdSavable = !options_.noCacheRetention()]() {
-              process::TraceContext trace("Read Ahead");
-              pendingLoad->loadOrFuture(nullptr, ssdSavable);
-            });
-      } else {
-        doneIndices.push_back(i);
-      }
-    }
-
-    // Remove the loads that were complete. There can be done loads if the same
-    // CachedBufferedInput has multiple cycles of enqueues and loads.
-    for (int32_t i = doneIndices.size() - 1; i >= 0; --i) {
-      assert(!doneIndices.empty()); // lint
-      allCoalescedLoads_.erase(allCoalescedLoads_.begin() + doneIndices[i]);
-    }
-  }
+          const std::vector<char>& /*ranges*/) { ends.push_back(end); });
+  return ends;
 }
 
 namespace {
@@ -469,6 +471,46 @@ void CachedBufferedInput::readRegion(
   });
 }
 
+void CachedBufferedInput::readRegions(
+    const std::vector<CacheRequest*>& requests,
+    bool prefetch,
+    const std::vector<int32_t>& groupEnds) {
+  int i = 0;
+  std::vector<CacheRequest*> group;
+  for (auto end : groupEnds) {
+    while (i < end) {
+      group.push_back(requests[i++]);
+    }
+    readRegion(group, prefetch);
+    group.clear();
+  }
+  if (prefetch && executor_) {
+    std::vector<int32_t> doneIndices;
+    for (auto i = 0; i < allCoalescedLoads_.size(); ++i) {
+      auto& load = allCoalescedLoads_[i];
+      if (load->state() == CoalescedLoad::State::kPlanned) {
+        executor_->add(
+            [pendingLoad = load, ssdSavable = !options_.noCacheRetention()]() {
+              process::TraceContext trace("Read Ahead");
+              pendingLoad->loadOrFuture(nullptr, ssdSavable);
+            });
+      } else {
+        doneIndices.push_back(i);
+      }
+    }
+    // Remove the loads that were complete. There can be done loads if the same
+    // CachedBufferedInput has multiple cycles of enqueues and loads.
+    for (int i = 0, j = 0, k = 0; i < allCoalescedLoads_.size(); ++i) {
+      if (j < doneIndices.size() && doneIndices[j] == i) {
+        ++j;
+      } else {
+        allCoalescedLoads_[k++] = std::move(allCoalescedLoads_[i]);
+      }
+    }
+    allCoalescedLoads_.resize(allCoalescedLoads_.size() - doneIndices.size());
+  }
+}
+
 std::shared_ptr<cache::CoalescedLoad> CachedBufferedInput::coalescedLoad(
     const SeekableInputStream* stream) {
   return coalescedLoads_.withWLock(
@@ -478,7 +520,7 @@ std::shared_ptr<cache::CoalescedLoad> CachedBufferedInput::coalescedLoad(
           return nullptr;
         }
         auto load = std::move(it->second);
-        auto* dwioLoad = dynamic_cast<DwioCoalescedLoadBase*>(load.get());
+        auto* dwioLoad = static_cast<DwioCoalescedLoadBase*>(load.get());
         for (auto& request : dwioLoad->requests()) {
           loads.erase(request.stream);
         }
