@@ -133,6 +133,11 @@ KernelCache& kernelCache() {
 }
 } // namespace
 
+// static
+void CompiledKernel::initialize() {
+  CompiledModule::initialize();
+}
+
 //  static
 std::unique_ptr<CompiledKernel> CompiledKernel::getKernel(
     const std::string& key,

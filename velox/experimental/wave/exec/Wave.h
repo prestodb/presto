@@ -29,8 +29,21 @@
 
 #include <folly/executors/CPUThreadPoolExecutor.h>
 
+#include <iostream>
+
 DECLARE_bool(wave_timing);
 DECLARE_bool(wave_transfer_timing);
+DECLARE_bool(wave_trace_stream);
+
+#define TR(str, msg)                                                 \
+  if (FLAGS_wave_trace_stream) {                                     \
+    (std::cout << fmt::format("St{}: {}\n", str->streamIdx(), msg)); \
+  }
+
+#define TR1(msg)                 \
+  if (FLAGS_wave_trace_stream) { \
+    std::cout << msg;            \
+  }
 
 namespace facebook::velox::wave {
 
@@ -40,9 +53,14 @@ class PrintTime {
   PrintTime(const char* title);
   ~PrintTime();
 
+  void setComment(std::string comment) {
+    comment_ = std::move(comment);
+  }
+
  private:
   const char* title_;
   uint64_t start_;
+  std::string comment_;
 };
 
 /// A host side time point for measuring wait and launch prepare latency. Counts
@@ -219,6 +237,9 @@ class Program;
 /// repartition output. Can be scoped to a Task pipeline (all Drivers),
 /// WaveStream or to a Program.
 struct OperatorState {
+  OperatorState() = default;
+  OperatorState(std::shared_ptr<GpuArena> arena) : arena(std::move(arena)) {}
+
   virtual ~OperatorState() = default;
 
   template <typename T>
@@ -239,6 +260,10 @@ struct OperatorState {
 
   int32_t id;
 
+  // Arena holding all memory for the resource if the resource is shared between
+  // WaveDrivers.
+  std::shared_ptr<GpuArena> arena;
+
   /// Owns the device side data. Starting address of first is passed to the
   /// kernel. Layout depends on operator.
   std::vector<WaveBufferPtr> buffers;
@@ -247,6 +272,9 @@ struct OperatorState {
 };
 
 struct AggregateOperatorState : public OperatorState {
+  AggregateOperatorState(std::shared_ptr<GpuArena> arena)
+      : OperatorState(std::move(arena)) {}
+
   void allocateAggregateHeader(int32_t size, GpuArena& arena);
 
   /// Sets the sizes in allocators so that the rows run out before the
@@ -258,7 +286,9 @@ struct AggregateOperatorState : public OperatorState {
     return alignedHead;
   }
 
-  AbstractAggregation* instruction{nullptr};
+  bool isGrouped{false};
+  int32_t rowSize;
+  int32_t maxReadStreams{1};
 
   /// Mutex to serialize allocating row ranges to different Drivers in a
   /// multi-driver read.
@@ -303,6 +333,7 @@ struct AggregateOperatorState : public OperatorState {
 };
 
 struct OperatorStateMap {
+  std::mutex mutex;
   folly::F14FastMap<int32_t, std::shared_ptr<OperatorState>> states;
 };
 
@@ -354,8 +385,6 @@ struct Executable {
   // transfer or column read.
   std::shared_ptr<Program> programShared;
 
-  ThreadBlockProgram* program{nullptr};
-
   // Device memory if not owned by 'programShared_'.
   std::vector<WaveBufferPtr> deviceData;
 
@@ -378,10 +407,6 @@ struct Executable {
   // Map from wrapAt in AbstractOperand to device side 'indices' with one
   // int32_t* per thread block.
   folly::F14FastMap<int32_t, int32_t**> wraps;
-
-  // Host side array of literals. These refer to literal data in device side
-  // ThreadBlockProgram. These are copied at the end of 'operands' at launch.
-  const std::vector<Operand>* literals;
 
   // Backing memory for intermediate Operands. Free when 'this' arrives. If
   // scheduling follow up work that is synchronized with arrival of 'this', the
@@ -514,37 +539,9 @@ class Program : public std::enable_shared_from_this<Program> {
     return dependsOn_;
   }
 
-  void addSource(Program* source) {
-    if (std::find(dependsOn_.begin(), dependsOn_.end(), source) !=
-        dependsOn_.end()) {
-      return;
-    }
-    dependsOn_.push_back(source);
-  }
-
-  // Initializes executableImage and relocation information and places
-  // the result on device.
-  void prepareForDevice(GpuArena* arena);
-
   std::unique_ptr<Executable> getExecutable(
       int32_t maxRows,
       const std::vector<std::unique_ptr<AbstractOperand>>& operands);
-
-  ThreadBlockProgram* threadBlockProgram() {
-    return program_;
-  }
-
-  /// True if instructions can be added.
-  bool isMutable() const {
-    return isMutable_;
-  }
-
-  /// Disallows adding instructions to 'this'. For example, a program in an
-  /// operator before a cardinality chaning operator cannot get more
-  /// instructions from code after the cardinality change.
-  void freeze() {
-    isMutable_ = false;
-  }
 
   void releaseExe(std::unique_ptr<Executable>&& exe) {
     std::lock_guard<std::mutex> l(mutex_);
@@ -598,7 +595,7 @@ class Program : public std::enable_shared_from_this<Program> {
   /// output vectors, synced on 'hostReturnEvent_'.
   bool isSink() const;
 
-  /// Records instruction return status. The status os accessed by canAdvance().
+  /// Records instruction return status. The status is accessed by canAdvance().
   void interpretReturn(
       WaveStream& stream,
       LaunchControl* control,
@@ -637,32 +634,12 @@ class Program : public std::enable_shared_from_this<Program> {
   std::string toString() const;
 
  private:
-  template <TypeKind kind>
-  int32_t addLiteralTyped(AbstractOperand* op);
-  /// Returns a starting offset to a constant with 'count' elements of T,
-  /// initialized from 'value[]' The values are copied to device side
-  /// ThreadBlockProgram.
-  template <typename T>
-  int32_t addLiteral(T* value, int32_t count);
-
-  void literalToOperand(AbstractOperand* abstractOp, Operand& op);
-
   std::unique_ptr<CompiledKernel> kernel_;
 
   GpuArena* arena_{nullptr};
   std::vector<Program*> dependsOn_;
   DefinesMap produces_;
   std::vector<std::unique_ptr<AbstractInstruction>> instructions_;
-  bool isMutable_{true};
-
-  // Adds 'op' to 'input' if it is not produced by one in 'local'
-  void markInput(AbstractOperand* op);
-
-  // Adds 'op' to 'local_' or 'output_'.
-  void markResult(AbstractOperand* op);
-  void sortSlots();
-
-  OperandIndex operandIndex(AbstractOperand* op) const;
 
   // Input Operand  to offset in operands array.
   folly::F14FastMap<AbstractOperand*, int32_t> input_;
@@ -684,32 +661,13 @@ class Program : public std::enable_shared_from_this<Program> {
   // Constant Operand  to offset in operands array.
   folly::F14FastMap<AbstractOperand*, int32_t> literal_;
 
-  // Offset of first unused constant area byte from start of constant area.
-  int32_t nextLiteral_{0};
-
-  // Binary data for constants to be embedded in ThreadBlockProgram. Must be
-  // relocatable, i.e. does not contain non-relative pointers within the
-  // constant area.
-  std::string literalArea_;
-
-  // Owns device side 'threadBlockProgram_'
-  WaveBufferPtr deviceData_;
-
-  // Device resident program.
-  ThreadBlockProgram* program_;
   // Number of distinct code paths in the kernel. The
   int32_t numBranches_{0};
 
   int32_t sharedMemorySize_{0};
 
-  // Host side image of device side Operands that reference 'constantArea_'.
-  // These are copied at the end of the operand block created at kernel launch.
-  std::vector<Operand> literalOperands_;
-
   std::string label_;
 
-  // Start of device side constant area.
-  char* deviceLiterals_{nullptr};
   // Serializes 'prepared_'. Access on WaveStrea, is single threaded but sharing
   // Programs across WaveDrivers makes sense, so make the preallocated resource
   // thread safe.
@@ -758,13 +716,13 @@ class WaveStream {
   };
 
   WaveStream(
-      GpuArena& arena,
+      std::shared_ptr<GpuArena> arena,
       GpuArena& deviceArena,
       const std::vector<std::unique_ptr<AbstractOperand>>* operands,
       OperatorStateMap* stateMap,
       InstructionStatus state,
       int16_t streamIdx)
-      : arena_(arena),
+      : arena_(std::move(arena)),
         deviceArena_(deviceArena),
         operands_(operands),
         taskStateMap_(stateMap),
@@ -783,7 +741,7 @@ class WaveStream {
       folly::Range<int32_t*> sizes);
 
   GpuArena& arena() {
-    return arena_;
+    return *arena_;
   }
 
   GpuArena& deviceArena() {
@@ -1012,6 +970,7 @@ class WaveStream {
   void releaseStreamsAndEvents();
 
   void setError() {
+    TR(this, "Setting error.");
     hasError_ = true;
   }
 
@@ -1073,9 +1032,20 @@ class WaveStream {
   /// statuses.
   void checkBlockStatuses() const;
 
+  /// calls 'action' on the error on 'this' if the error is non-empty.
+  void throwIfError(std::function<void(const KernelError*)> action);
+
   /// Returns the Executable associated with 'this' whose Program contains
   /// 'instruction'. nullptr if not found.
   Executable* executableByInstruction(const AbstractInstruction* instruction);
+
+  OperatorStateMap* taskStateMap() const {
+    return taskStateMap_;
+  }
+
+  const std::shared_ptr<GpuArena>& arenaShared() const {
+    return arena_;
+  }
 
  private:
   // true if 'op' is nullable in the context of 'this'.
@@ -1102,7 +1072,7 @@ class WaveStream {
       std::unique_ptr<folly::CPUThreadPoolExecutor>& ptr);
 
   // Unified memory.
-  GpuArena& arena_;
+  std::shared_ptr<GpuArena> arena_;
 
   // Device memory.
   GpuArena& deviceArena_;

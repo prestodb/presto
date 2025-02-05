@@ -67,14 +67,6 @@ class WaveOperator {
     VELOX_FAIL("Override for blocking operator");
   }
 
-  // If 'this' is a cardinality change (filter, join, unnest...),
-  // returns the instruction where the projected through columns get
-  // wrapped. Columns that need to be accessed through the change are
-  // added here.
-  virtual AbstractWrap* findWrap() const {
-    return nullptr;
-  }
-
   /// Returns how many rows of output are available from 'this'. Source
   /// operators and cardinality increasing operators must return a correct
   /// answer if they are ready to produce data. Others should return 0.
@@ -103,6 +95,18 @@ class WaveOperator {
 
   virtual void callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
     VELOX_FAIL("Only Project supports callUpdateStatus()");
+  }
+
+  /// InstructionStatus that describes the extra statuses returned
+  /// from device for the pipeline that begins with 'this'. Must be
+  /// set for the head of each pipeline.
+  const InstructionStatus& instructionStatus() const {
+    VELOX_CHECK_NE(instructionStatus_.gridStateSize, 0);
+    return instructionStatus_;
+  }
+
+  void setInstructionStatus(InstructionStatus status) {
+    instructionStatus_ = status;
   }
 
   virtual std::string toString() const;
@@ -221,6 +225,10 @@ class WaveOperator {
   // operands etc. referenced from these.  This does not include buffers for
   // intermediate results.
   std::vector<WaveBufferPtr> executableMemory_;
+
+  // The total size of grid and block level statuses for the pipeline. This must
+  // be set for the first operator of any pipeline.
+  InstructionStatus instructionStatus_;
 };
 
 class WaveSourceOperator : public WaveOperator {

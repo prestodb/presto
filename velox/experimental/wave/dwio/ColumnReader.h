@@ -104,6 +104,10 @@ class ColumnReader {
   // Staging of encoded data on device. Only set in the top struct reader.
   std::vector<std::unique_ptr<SplitStaging>> staging_;
 
+  // Scratch launch params transfer. These must stay live until the
+  // corresponding  kernel returns.
+  std::vector<LaunchParams> launchParams_;
+
   // Event realized after griddize completes. Non-first ReadStream launches must
   // wait for this.
   std::unique_ptr<Event> griddizeEvent_;

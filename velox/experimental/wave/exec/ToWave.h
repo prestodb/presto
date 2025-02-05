@@ -17,7 +17,6 @@
 #pragma once
 
 #include "velox/exec/Operator.h"
-#include "velox/experimental/wave/exec/AggregateFunctionRegistry.h"
 #include "velox/experimental/wave/exec/WaveDriver.h"
 #include "velox/experimental/wave/exec/WaveOperator.h"
 #include "velox/experimental/wave/exec/WaveRegistry.h"
@@ -201,6 +200,10 @@ struct EndNullCheck : public KernelStep {
 
   void generateMain(CompileState& state, int32_t syncLabel) override;
 
+  std::string toString() const override {
+    return "end null check";
+  }
+
   AbstractOperand* result;
   int32_t label;
 };
@@ -312,7 +315,7 @@ class AggregateGenerator {
   virtual void loadArgs(
       CompileState& state,
       const AggregateProbe& probe,
-      const AggregateUpdate& update) const = 0;
+      const AggregateUpdate& update) const;
 
   /// Emits the code to update the accumulator. 'peer' in the scope is the lane
   /// from which to load the operands with shfl_sync. 'row' is the row to
@@ -376,6 +379,8 @@ struct AggregateUpdate : public KernelStep {
 
   void generateMain(CompileState& state, int32_t syncLabel) override;
 
+  std::string toString() const override;
+
   std::string name;
   core::AggregationNode::Step step;
   /// The original argument types. Identifies the aggregate.
@@ -403,7 +408,7 @@ struct AggregateProbe : public KernelStep {
   }
 
   std::optional<int32_t> continueLabel() const override {
-    return abstractAggregation->continueIdx();
+    return continueLabelN;
   }
 
   bool isBarrier() const override {
@@ -448,6 +453,8 @@ struct AggregateProbe : public KernelStep {
   std::unique_ptr<AbstractInstruction> addInstruction(
       CompileState& state) override;
 
+  std::string toString() const override;
+
   AbstractState* state;
   std::vector<AbstractOperand*> keys;
 
@@ -469,12 +476,24 @@ struct AggregateProbe : public KernelStep {
 
   // The instruction, used for generating the read of the aggregate state.
   AbstractAggregation* abstractAggregation{nullptr};
+
+  /// Serial number. Differentiates between aggs in the same kernel, e.g. read
+  /// one and update another.
+  int32_t id{0};
+
+  int32_t continueLabelN{-1};
 };
 
 struct ReadAggregation : public KernelStep {
   StepKind kind() const override {
     return StepKind::kReadAggregation;
   }
+
+  std::optional<int32_t> continueLabel() const override {
+    return continueLabelN;
+  }
+
+  std::string preContinueCode(CompileState& state) override;
 
   void visitResults(
       std::function<void(AbstractOperand*)> visitor) const override;
@@ -495,6 +514,7 @@ struct ReadAggregation : public KernelStep {
 
   // Reference to the aggregate info for generating the AbstractReadAggregation.
   const AggregateProbe* probe;
+  int32_t continueLabelN;
 };
 
 struct JoinBuild : public KernelStep {
@@ -538,8 +558,14 @@ struct KernelBox {
   std::string toString() const;
 
   std::vector<KernelStep*> steps;
+
   // Number of consecutive wraps (filter, join, unnest...).
   int32_t numWraps{0};
+
+  std::vector<std::unique_ptr<AbstractInstruction>> instructions;
+
+  // Only set for the first box in if the kernle has more boxes.
+  std::unordered_map<int32_t, int32_t> kernelEntryPoints_;
 };
 
 // Position of a definition or use of data in a pipeline grid.
@@ -589,6 +615,10 @@ struct OperandFlags {
   CodePosition lastUse;
   int32_t wrappedAt{AbstractOperand::kNoWrap};
   bool needStore{false};
+  // True if operand is input to an aggregate function in a group
+  // by. Should delay only if cost is trivial so no extra time holding
+  // a lock on the group.
+  bool inInlineGroupBy{false};
 
   std::string toString() const;
 };
@@ -804,9 +834,9 @@ class CompileState {
 
   AbstractOperand* fieldToOperand(common::Subfield& field, Scope* scope);
 
-  void functionReferenced(const AbstractOperand* op);
+  FunctionMetadata functionReferenced(const AbstractOperand* op);
 
-  void functionReferenced(
+  FunctionMetadata functionReferenced(
       const std::string& name,
       const std::vector<TypePtr>& types,
       const TypePtr& resultType);
@@ -857,6 +887,18 @@ class CompileState {
     kernelEntryPoints_.push_back(name);
   }
 
+  int32_t nextSyncLabel() const {
+    return nextSyncLabel_;
+  }
+
+  void newSyncLabel() {
+    ++nextSyncLabel_;
+  }
+
+  std::optional<int32_t> tryErrorLabel() const {
+    return tryErrorLabel_;
+  }
+
  private:
   bool
   addOperator(exec::Operator* op, int32_t& nodeIndex, RowTypePtr& outputType);
@@ -887,29 +929,15 @@ class CompileState {
 
   bool reserveMemory();
 
-  // Adds 'instruction' to the suitable program and records the result
-  // of the instruction to the right program. The set of programs
-  // 'instruction's operands depend is in 'programs'. If 'instruction'
-  // depends on all immutable programs, start a new one. If all
-  // dependences are from the same open program, add the instruction
-  // to that. If Only one of the programs is mutable, ad the
-  // instruction to that.
-  void addInstruction(
-      std::unique_ptr<Instruction> instruction,
-      const AbstractOperand* result,
-      const std::vector<Program*>& inputs);
-
-  void setConditionalNullable(AbstractBinary& binary);
+  // If 'op' is an expression and its inputs may be non-null, then
+  // op's conditional nullability is set. If its inputs are known not
+  // null at launch time then 'op's vector will not need null flags.
+  void setConditionalNullable(AbstractOperand* op);
 
   // Adds 'op->id' to 'nullableIf' if not already there.
   void addNullableIf(
       const AbstractOperand* op,
       std::vector<OperandId>& nullableIf);
-
-  Program* programOf(AbstractOperand* op, bool create = true);
-
-  const std::shared_ptr<aggregation::AggregateFunctionRegistry>&
-  aggregateFunctionRegistry();
 
   template <typename T>
   T* makeStep() {
@@ -965,6 +993,9 @@ class CompileState {
   void
   placeExpr(PipelineCandidate& candidate, AbstractOperand* op, bool mayDelay);
 
+  // True if there is a sink after 'segmentIdx'.
+  bool hasSink(int32_t sigmentIdx);
+
   void placeAggregation(PipelineCandidate& candidate, Segment& segment);
 
   NullCheck* addNullCheck(PipelineCandidate& candidate, AbstractOperand* op);
@@ -995,6 +1026,8 @@ class CompileState {
 
   void makeLevel(std::vector<KernelBox>& level);
 
+  void makeLevelKernel(std::vector<KernelBox>& level);
+
   // Return true if 'nthWrap' is the wrappedAt of any of 'params'.
   bool isWrapInParams(int32_t nthWrap, const LevelParams& params);
 
@@ -1012,7 +1045,8 @@ class CompileState {
   // Generates a check for lane active.
   void generateSkip();
 
-  std::unique_ptr<GpuArena> arena_;
+  std::shared_ptr<GpuArena> arena_;
+
   // The operator and output operand where the Value is first defined.
   DefinesMap definedBy_;
 
@@ -1053,12 +1087,13 @@ class CompileState {
   std::vector<InstructionStatus*> allStatuses_;
 
   int32_t nthContinuable_{0};
-  std::shared_ptr<aggregation::AggregateFunctionRegistry>
-      aggregateFunctionRegistry_;
   folly::F14FastMap<std::string, std::shared_ptr<exec::Expr>> fieldToExpr_;
 
   // Distinct includes pulled in by functions called from the generated kernel.
   folly::F14FastSet<std::string> includes_;
+
+  // Deduplicates declareNamed().
+  folly::F14FastSet<std::string> namedDeclares_;
 
   // Text of the #include section for the generated kernel.
   std::stringstream includeText_;
@@ -1071,8 +1106,13 @@ class CompileState {
   //  Text of the kernel being generated.
   std::stringstream generated_;
   bool insideNullPropagating_{false};
+  std::optional<int32_t> tryErrorLabel_;
   int32_t labelCounter_{0};
   int32_t nextSyncLabel_{0};
+
+  // Counter for making labels to jump to for continuing from continuable
+  // instructions.
+  int32_t nextContinueLabel_{0};
 
   thread_local static PipelineCandidate* currentCandidate_;
   thread_local static KernelBox* currentBox_;
@@ -1130,6 +1170,9 @@ class CompileState {
   // Counter for making names for wraps.
   int32_t wrapId_{0};
 
+  // Counter for names of agg structs and classes.
+  int32_t aggCounter_{0};
+
   // Operands that have a declaration. Set when emitting code.
   OperandSet declared_;
 
@@ -1148,6 +1191,7 @@ class CompileState {
   // Mutex serializing the background code generation after missing kernel
   // cache.
   std::mutex generateMutex_;
+  memory::MemoryPool* pool_{nullptr};
 };
 
 void registerWaveFunctions();
@@ -1159,6 +1203,10 @@ const std::string cudaAtomicTypeName(const Type& type);
 int32_t cudaTypeAlign(const Type& type);
 
 int32_t cudaTypeSize(const Type& type);
+
+/// Replaces occurrences of 'from' with 'to' in 'str'.
+std::string
+replaceAll(std::string str, const std::string& from, const std::string& to);
 
 WaveRegistry& waveRegistry();
 AggregateRegistry& aggregateRegistry();

@@ -47,6 +47,7 @@ class TestFormatData : public wave::FormatData {
   }
 
   void griddize(
+      ColumnOp& op,
       int32_t blockSize,
       int32_t numBlocks,
       ResultStaging& deviceStaging,
@@ -69,6 +70,15 @@ class TestFormatData : public wave::FormatData {
   // kNotRegisterd.
   int32_t stageNulls(ResultStaging& deviceStaging, SplitStaging& splitStaging);
 
+  void decodeAlphabet(
+      ColumnOp& op,
+      Column* alphabet,
+      ResultStaging& deviceStaging,
+      ResultStaging& resultStaging,
+      SplitStaging& staging,
+      DecodePrograms& programs,
+      ReadStream& stream);
+
   const OperandId operand_;
 
   int32_t totalRows_{0};
@@ -80,6 +90,13 @@ class TestFormatData : public wave::FormatData {
   int32_t numStaged_{0};
   // The device side data area start, set after the staged transfer is done.
   void* deviceBuffer_{nullptr};
+
+  // Device side encoded alphabet for dictionary encoding.
+  void* rawAlphabet_{nullptr};
+
+  // Device side decoded alphabet for dictionary encoding.
+  void* decodedAlphabet_{nullptr};
+  uint32_t* filterBitmap_{nullptr};
 };
 
 class TestFormatParams : public wave::FormatParams {

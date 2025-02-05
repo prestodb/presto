@@ -46,11 +46,19 @@ DEFINE_bool(
     "contain a directory with a subdirectory per table.");
 DEFINE_bool(dwrf_vints, true, "Use vints in DWRF test dataset");
 
+DEFINE_int64(min_card, 1000, "Lowest cardinality of column");
+
+DEFINE_int64(max_card, 100000, "Highest cardinality of column");
+
 DEFINE_bool(preload, false, "Preload Wave data into RAM before starting query");
 
 DEFINE_bool(wave, true, "Run benchmark with Wave");
 
 DEFINE_int32(num_columns, 10, "Number of columns in test table");
+
+DEFINE_int32(num_keys, 0, "Number of grouping keys");
+
+DEFINE_int32(key_mod, 10000, "Modulo for grouping keys");
 
 DEFINE_int64(filter_pass_pct, 100, "Passing % for one filter");
 
@@ -76,6 +84,18 @@ DEFINE_int32(
 
 DECLARE_string(data_format);
 
+struct ColumnSpec {
+  int64_t mod{1000000000};
+  int64_t base{0};
+  int64_t roundUp{1};
+  bool notNull{true};
+};
+
+void printPlan(core::PlanNode* node) {
+  auto str = node->toString(true, true);
+  printf("%s\n", str.c_str());
+}
+
 class WaveBenchmark : public QueryBenchmarkBase {
  public:
   ~WaveBenchmark() {
@@ -100,8 +120,10 @@ class WaveBenchmark : public QueryBenchmarkBase {
       float nullPct = 0) {
     auto vectors = makeVectors(type, numVectors, vectorSize, nullPct / 100);
     int32_t cnt = 0;
-    for (auto& vector : vectors) {
-      makeRange(vector, 1000000000, nullPct == 0);
+
+    for (auto i = 0; i < vectors.size(); ++i) {
+      auto& vector = vectors[i];
+      makeRange(vector, specs_);
       auto rn = vector->childAt(type->size() - 1)->as<FlatVector<int64_t>>();
       for (auto i = 0; i < rn->size(); ++i) {
         rn->set(i, cnt++);
@@ -136,21 +158,22 @@ class WaveBenchmark : public QueryBenchmarkBase {
     return vectors;
   }
 
-  void makeRange(
-      RowVectorPtr row,
-      int64_t mod = std::numeric_limits<int64_t>::max(),
-      bool notNull = true) {
+  void makeRange(RowVectorPtr row, const std::vector<ColumnSpec> specs) {
     for (auto i = 0; i < row->type()->size(); ++i) {
+      auto& spec = specs[i];
       auto child = row->childAt(i);
       if (auto ints = child->as<FlatVector<int64_t>>()) {
         for (auto i = 0; i < child->size(); ++i) {
-          if (!notNull && ints->isNullAt(i)) {
+          if (!spec.notNull && ints->isNullAt(i)) {
             continue;
           }
-          ints->set(i, ints->valueAt(i) % mod);
+          ints->set(
+              i,
+              spec.base +
+                  bits::roundUp(ints->valueAt(i) % spec.mod, spec.roundUp));
         }
       }
-      if (notNull) {
+      if (spec.notNull) {
         child->clearNulls(0, row->size());
       }
     }
@@ -230,20 +253,44 @@ class WaveBenchmark : public QueryBenchmarkBase {
               FLAGS_data_path + "/data." + FLAGS_data_format};
           plan.dataFileFormat = toFileFormat(FLAGS_data_format);
         }
-        int64_t bound = (1'000'000'000LL * FLAGS_filter_pass_pct) / 100;
+        float passRatio = FLAGS_filter_pass_pct / 100.0;
         std::vector<std::string> scanFilters;
         for (auto i = 0; i < FLAGS_num_column_filters; ++i) {
-          scanFilters.push_back(fmt::format("c{} < {}", i, bound));
+          scanFilters.push_back(fmt::format(
+              "c{} < {}", i, static_cast<int64_t>(specs_[i].mod * passRatio)));
         }
         auto builder =
             PlanBuilder(leafPool_.get()).tableScan(type_, scanFilters);
 
-        for (auto i = 0; i < FLAGS_num_expr_filters; ++i) {
-          builder = builder.filter(
-              fmt::format("c{} < {}", FLAGS_num_column_filters + i, bound));
+        for (auto i = FLAGS_num_column_filters;
+             i < FLAGS_num_column_filters + FLAGS_num_expr_filters;
+             ++i) {
+          builder = builder.filter(fmt::format(
+              "c{} + 1 < {}",
+              i,
+              static_cast<int64_t>(specs_[i].mod * passRatio)));
         }
 
         std::vector<std::string> aggInputs;
+        std::vector<std::string> keyProjections;
+        std::vector<std::string> keys;
+        for (auto i = 0; i < type_->size(); ++i) {
+          if (i < FLAGS_num_keys) {
+            keyProjections.push_back(fmt::format(
+                "(c{} / {}) % {} as c{}",
+                i,
+                specs_[i].roundUp,
+                FLAGS_key_mod,
+                i));
+            keys.push_back(fmt::format("c{}", i));
+          } else {
+            keyProjections.push_back(fmt::format("c{}", i));
+          }
+        }
+        if (!keys.empty()) {
+          builder.project(keyProjections);
+        }
+
         if (FLAGS_num_arithmetic > 0) {
           std::vector<std::string> projects;
           for (auto c = 0; c < type_->size(); ++c) {
@@ -261,13 +308,30 @@ class WaveBenchmark : public QueryBenchmarkBase {
             aggInputs.push_back(fmt::format("c{}", i));
           }
         }
+
         std::vector<std::string> aggs;
-        for (auto i = 0; i < aggInputs.size(); ++i) {
+        for (auto i = FLAGS_num_keys; i < aggInputs.size(); ++i) {
           aggs.push_back(fmt::format("sum({})", aggInputs[i]));
         }
 
-        plan.plan = builder.singleAggregation({}, aggs).planNode();
+        if (!keys.empty() && !FLAGS_wave) {
+          builder.localPartition(keys);
+        }
 
+        auto aggsAndCount = aggs;
+        aggsAndCount.push_back("sum(1)");
+        builder.singleAggregation(keys, aggsAndCount);
+
+        if (!keys.empty()) {
+          if (!FLAGS_wave) {
+            builder.localPartition({});
+          }
+          auto aggType = builder.planNode()->outputType();
+          auto sumCounts =
+              fmt::format("sum({})", aggType->nameOf(aggType->size() - 1));
+          builder.singleAggregation({}, {"sum(1)", sumCounts});
+        }
+        plan.plan = builder.planNode();
         return plan;
       }
       default:
@@ -279,6 +343,13 @@ class WaveBenchmark : public QueryBenchmarkBase {
     switch (query) {
       case 1: {
         type_ = makeType();
+        auto range = FLAGS_max_card - FLAGS_min_card;
+        for (auto i = 0; i < type_->size(); ++i) {
+          ColumnSpec spec;
+          spec.mod = FLAGS_min_card + 10000 * (i + 1) * (range / type_->size());
+          spec.roundUp = 10000;
+          specs_.push_back(spec);
+        }
         auto numVectors =
             std::max<int64_t>(1, FLAGS_num_rows / FLAGS_rows_per_stripe);
         if (FLAGS_generate) {
@@ -372,6 +443,7 @@ class WaveBenchmark : public QueryBenchmarkBase {
   RowTypePtr type_;
   VectorFuzzer::Options options_;
   std::unique_ptr<VectorFuzzer> fuzzer_;
+  std::vector<ColumnSpec> specs_;
 };
 
 void waveBenchmarkMain() {
@@ -396,6 +468,9 @@ int main(int argc, char** argv) {
   gflags::SetUsageMessage(kUsage);
   folly::Init init{&argc, &argv, false};
   facebook::velox::wave::printKernels();
+  if (FLAGS_wave) {
+    facebook::velox::wave::CompiledKernel::initialize();
+  }
   waveBenchmarkMain();
   return 0;
 }

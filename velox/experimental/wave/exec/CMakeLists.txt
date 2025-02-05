@@ -21,11 +21,7 @@ add_library(
   velox_wave_exec OBJECT
   AggregateGen.cpp
   HashGen.cpp
-  Aggregation.cpp
-  AggregationInstructions.cu
   ExprKernel.cu
-  ExprKernel2.cu
-  ExprKernel3.cu
   Instruction.cpp
   RegisterFunctions.cpp
   WaveRegistry.cpp

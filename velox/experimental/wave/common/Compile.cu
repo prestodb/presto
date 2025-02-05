@@ -26,6 +26,17 @@
 #include <filesystem>
 #include "velox/experimental/wave/jit/Headers.h"
 #include "velox/external/jitify/jitify.hpp"
+DEFINE_bool(cuda_G, false, "Enable -G for NVRTC");
+
+DEFINE_int32(
+    cuda_O,
+#ifndef NDEBUG
+    0
+#else
+    3
+#endif
+    ,
+    "-O level for NVRTC");
 
 #ifndef VELOX_OSS_BUILD
 #include "velox/facebook/NvrtcUtil.h"
@@ -196,12 +207,28 @@ void ensureInit() {
       "} \n";
 
   waveNvrtcFlags.push_back("-std=c++17");
-#ifndef NDEBUG
-  waveNvrtcFlags.push_back("-G");
-#else
-  // waveNvrtcFlags.push_back("-O3");
-#endif
+  if (FLAGS_cuda_O) {
+    char str[10];
+    sprintf(str, "-O%d", FLAGS_cuda_O);
+    waveNvrtcFlags.push_back("-Xptxas");
+    waveNvrtcFlags.push_back(std::string(str));
+  }
+  if (FLAGS_cuda_G) {
+    waveNvrtcFlags.push_back("-G");
+  }
   getNvrtcOptions(waveNvrtcFlags);
+  auto device = currentDevice();
+  bool hasArch = false;
+  for (auto& flag : waveNvrtcFlags) {
+    if (strstr(flag.c_str(), "-arch") != nullptr) {
+      hasArch = true;
+      break;
+    }
+  }
+  if (!hasArch) {
+    waveNvrtcFlags.push_back(fmt::format(
+        "--gpu-architecture=compute_{}{}", device->major, device->minor));
+  }
   ::jitify::detail::detect_and_add_cuda_arch(waveNvrtcFlags);
 
   static jitify::JitCache kernel_cache;
@@ -214,11 +241,20 @@ void ensureInit() {
     makeNTS(str);
     waveNvrtcFlagsString.push_back(str.data());
   }
-
+  LOG(INFO) << "NVRTC flags: ";
+  for (auto i = 0; i < waveNvrtcFlagsString.size(); ++i) {
+    LOG(INFO) << waveNvrtcFlagsString[i];
+  }
+  LOG(INFO) << "device=" << device->toString();
   inited = true;
 }
 
 } // namespace
+
+// static
+void CompiledModule::initialize() {
+  ensureInit();
+}
 
 std::shared_ptr<CompiledModule> CompiledModule::create(const KernelSpec& spec) {
   ensureInit();
@@ -335,6 +371,7 @@ KernelInfo CompiledModuleImpl::info(int32_t kernelIdx) {
   cuFuncGetAttribute(&info.numRegs, CU_FUNC_ATTRIBUTE_NUM_REGS, f);
   cuFuncGetAttribute(
       &info.sharedMemory, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, f);
+  cuFuncGetAttribute(&info.localMemory, CU_FUNC_ATTRIBUTE_LOCAL_SIZE_BYTES, f);
   cuFuncGetAttribute(
       &info.maxThreadsPerBlock, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, f);
   int32_t max;

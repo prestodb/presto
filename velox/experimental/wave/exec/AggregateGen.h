@@ -31,6 +31,9 @@ void makeAggregateProbe(
     const AggregateProbe& probe,
     int32_t syncLabel);
 
-void makeReadAggregation(CompileState& state, const ReadAggregation& read);
+void makeReadAggregation(
+    CompileState& state,
+    const ReadAggregation& read,
+    int32_t syncLabel);
 
 } // namespace facebook::velox::wave

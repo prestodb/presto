@@ -354,7 +354,9 @@ class IndexSource {
     /// to complete before calling 'next' again.
     virtual std::optional<std::unique_ptr<LookupResult>> next(
         vector_size_t size,
-        velox::ContinueFuture& future) = 0;
+        velox::ContinueFuture& future) {
+      VELOX_UNSUPPORTED();
+    }
   };
 
   virtual std::shared_ptr<LookupResultIterator> lookup(

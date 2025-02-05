@@ -39,7 +39,8 @@ void makeHash(
 void makeCompareLambda(
     CompileState& state,
     const std::vector<AbstractOperand*>& keys,
-    bool nullableKeys);
+    bool nullableKeys,
+    int32_t id);
 
 /// Emits a lambda to initialize a new group by row or keys of a hash join build
 /// row. 'nullableKeys' is true for group by. The signature is [&](GroupRow*
@@ -47,12 +48,14 @@ void makeCompareLambda(
 void makeInitGroupRow(
     CompileState& state,
     const OpVector& keys,
-    const std::vector<const AggregateUpdate*>& aggregates);
+    const std::vector<const AggregateUpdate*>& aggregates,
+    int32_t id);
 
 void makeRowHash(
     CompileState& state,
     const std::vector<AbstractOperand*>& keys,
-    bool nullableKeys);
+    bool nullableKeys,
+    int32_t id);
 
 std::string extractColumn(
     const std::string& row,

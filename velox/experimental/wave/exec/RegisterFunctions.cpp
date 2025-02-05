@@ -35,11 +35,45 @@ bool registerBinaryNumeric(
 
 } // namespace
 
+#define FULL_BINARY_ARGS                                         \
+  "(WaveShared* shared, ErrorCode& laneStatus, bool insideTry, " \
+  "int32_t grid, int32_t block, $1$ x, $2$ y)"
+
+#define CHECK_DIV0 \
+  "  if (y == 0) { setError(shared, laneStatus, insideTry, 1); return 0; }\n"
+
+const char* divideText =
+    "$R$ divide" FULL_BINARY_ARGS "{\n" CHECK_DIV0 " return x / y; }";
+
+const char* modText =
+    "$R$ mod" FULL_BINARY_ARGS "{\n" CHECK_DIV0 " return x % y; }";
+
 void registerWaveFunctions() {
   registerBinaryNumeric(
       "plus", FunctionMetadata(), "$R$ plus($1$ x, $2$ y) { return x + y; }");
   registerBinaryNumeric(
+      "minus", FunctionMetadata(), "$R$ minus($1$ x, $2$ y) { return x - y; }");
+  registerBinaryNumeric(
+      "multiply",
+      FunctionMetadata(),
+      "$R$ multiply($1$ x, $2$ y) { return x * y; }");
+  registerBinaryNumeric("divide", FunctionMetadata(true, true), divideText);
+  registerBinaryNumeric("mod", FunctionMetadata(true, true), modText);
+
+  registerBinaryNumeric(
       "lt", FunctionMetadata(), "bool lt($1$ x, $2$ y) { return x < y; }");
+  registerBinaryNumeric(
+      "lte", FunctionMetadata(), "bool lte($1$ x, $2$ y) { return x <= y; }");
+  registerBinaryNumeric(
+      "eq", FunctionMetadata(), "bool eq($1$ x, $2$ y) { return x == y; }");
+  registerBinaryNumeric(
+      "neq", FunctionMetadata(), "bool neq($1$ x, $2$ y) { return x != y; }");
+  registerBinaryNumeric(
+      "gt", FunctionMetadata(), "bool gt($1$ x, $2$ y) { return x > y; }");
+  registerBinaryNumeric(
+      "gte", FunctionMetadata(), "bool gte($1$ x, $2$ y) { return x >= y; }");
+
+  waveRegistry().registerMessage(1, "Divide by 0");
 }
 
 } // namespace facebook::velox::wave

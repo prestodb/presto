@@ -73,9 +73,10 @@ void makeHash(
 void makeCompareLambda(
     CompileState& state,
     const std::vector<AbstractOperand*>& keys,
-    bool nullableKeys) {
+    bool nullableKeys,
+    int32_t id) {
   auto& out = state.generated();
-  out << "  [&](HashRow* row) -> bool {\n";
+  out << "  [&](HashRow" << id << "* row) -> bool {\n";
   if (nullableKeys) {
     out << "   keyNulls = asDeviceAtomic<uint32_t>(&row->nulls0)->load(cuda::memory_order_consume);\n";
     VELOX_CHECK_LE(keys.size(), 32);
@@ -103,7 +104,7 @@ std::string nullsInit(
   std::stringstream inits;
   for (auto i = begin; i < end; ++i) {
     inits << fmt::format(
-        "({} ? 0 : {}U)",
+        "({} ? 0 : {}U) {}",
         state.isNull(keys[i]),
         1U << i,
         (i < end - 1 ? " | " : ""));
@@ -114,9 +115,10 @@ std::string nullsInit(
 void makeInitGroupRow(
     CompileState& state,
     const OpVector& keys,
-    const std::vector<const AggregateUpdate*>& aggregates) {
+    const std::vector<const AggregateUpdate*>& aggregates,
+    int32_t id) {
   auto& out = state.generated();
-  out << "  [&](HashRow* row) {\n";
+  out << "  [&](HashRow" << id << "* row) {\n";
   int32_t numNullFlags = aggregates.size() + keys.size();
   for (auto i = 0; i < keys.size(); ++i) {
     auto* op = keys[i];
@@ -145,9 +147,10 @@ void makeInitGroupRow(
 void makeRowHash(
     CompileState& state,
     const std::vector<AbstractOperand*>& keys,
-    bool nullableKeys) {
+    bool nullableKeys,
+    int32_t id) {
   auto& out = state.inlines();
-  out << "  uint64_t __device__ hashRow(HashRow* row) {\n"
+  out << "  uint64_t __device__ hashRow(HashRow" << id << "* row) {\n"
       << "  uint64_t hash = 1;\n";
   for (auto i = 0; i < keys.size(); ++i) {
     if (nullableKeys) {
@@ -185,8 +188,9 @@ std::string extractColumn(
   }
   if (!result.notNull) {
     out << fmt::format(
-        "  setNull(operands, {}, blockBase, (row->nulls{} & (1U << {})) == 0);\n",
+        "  setNull(operands, {}, blockBase, ({}->nulls{} & (1U << {})) == 0);\n",
         ordinal,
+        row,
         nthNull / 32,
         nthNull & 31);
   }

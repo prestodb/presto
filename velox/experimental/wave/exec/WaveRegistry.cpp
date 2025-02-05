@@ -18,6 +18,12 @@
 
 namespace facebook::velox::wave {
 
+FunctionMetadata WaveRegistry::metadata(const FunctionKey& key) const {
+  auto it = data_.find(key);
+  VELOX_CHECK(it != data_.end());
+  return it->second.metadata;
+}
+
 void WaveRegistry::registerFunction(
     const FunctionKey& key,
     FunctionMetadata& metadata,
@@ -57,6 +63,22 @@ FunctionDefinition WaveRegistry::makeDefinition(
         replaced, fmt::format("${}$", i + 1), cudaTypeName(*key.types[i]));
   }
   return {replaced, entry.includeLine};
+}
+bool WaveRegistry::registerMessage(int32_t key, std::string message) {
+  auto previous = messages_[key];
+  if (!previous.empty() && previous != message) {
+    VELOX_FAIL("Duplicate message registration for key {}", key);
+  }
+  messages_[key] = std::move(message);
+  return true;
+}
+
+std::string WaveRegistry::message(int32_t key) {
+  auto it = messages_.find(key);
+  if (it == messages_.end()) {
+    return fmt::format("No message for code {}", key);
+  }
+  return it->second;
 }
 
 } // namespace facebook::velox::wave

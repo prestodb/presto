@@ -18,6 +18,10 @@
 #include <iostream>
 #include "velox/experimental/wave/exec/Vectors.h"
 
+DEFINE_int32(
+    wave_rows_per_thread,
+    4,
+    "Number of rows per thread in generated kernels");
 DEFINE_bool(wave_timing, true, "Enable Wave perf timers");
 DEFINE_bool(
     wave_print_time,
@@ -30,6 +34,13 @@ DEFINE_bool(
     "Enables measuring host to device transfer latency separet "
     "from wait time for compute");
 
+DEFINE_bool(wave_trace_stream, false, "Enable trace of streams and drivers");
+
+DEFINE_int32(
+    wave_init_group_by_buckets,
+    30000,
+    "Initial buckets in group by hash table (4 slots/bucket)");
+
 namespace facebook::velox::wave {
 
 PrintTime::PrintTime(const char* title)
@@ -38,7 +49,8 @@ PrintTime::PrintTime(const char* title)
 
 PrintTime::~PrintTime() {
   if (FLAGS_wave_print_time) {
-    std::cout << title_ << "=" << getCurrentTimeMicro() - start_ << std::endl;
+    std::cout << title_ << "=" << getCurrentTimeMicro() - start_ << " "
+              << comment_ << std::endl;
   }
 }
 
@@ -151,12 +163,8 @@ WaveVector* Executable::operandVector(OperandId id, const TypePtr& type) {
 }
 
 WaveStream::~WaveStream() {
-  if (!hasError_) {
-    VELOX_CHECK(
-        state_ == State::kHost || state_ == State::kNotRunning,
-        "Bad state at ~WaveStream: {}",
-        static_cast<int32_t>(state_));
-  }
+  // Wait for device side activity. Memory accessed from device is live until
+  // the streams are deleted, so block here.
   for (auto& stream : streams_) {
     stream->wait();
   }
@@ -641,9 +649,7 @@ void WaveStream::exeLaunchInfo(
       VELOX_CHECK_NOT_NULL(indices);
     });
   }
-  auto numLiteral = exe.literals ? exe.literals->size() : 0;
-  info.numLocalOps =
-      exe.localOperands.size() + exe.outputOperands.size() + numLiteral;
+  info.numLocalOps = exe.localOperands.size() + exe.outputOperands.size();
   info.totalBytes =
       // Pointer to Operand for input and local Operands and extra wraps.
       sizeof(void*) *
@@ -716,15 +722,6 @@ WaveStream::fillOperands(Executable& exe, char* start, ExeLaunchInfo& info) {
     ++operandBegin;
   });
 
-  auto numConstants = exe.literals ? exe.literals->size() : 0;
-  if (numConstants) {
-    memcpy(operandBegin, exe.literals->data(), numConstants * sizeof(Operand));
-    for (auto i = 0; i < numConstants; ++i) {
-      *operandPtrBegin = operandBegin;
-      ++operandPtrBegin;
-      ++operandBegin;
-    }
-  }
   info.firstExtraWrap = operandPtrBegin - initialOperandBegin;
   if (exe.programShared) {
     exe.programShared->extraWrap().forEach([&](int32_t id) {
@@ -757,10 +754,12 @@ LaunchControl* WaveStream::prepareProgramLaunch(
     int32_t nthLaunch,
     int32_t inputRows,
     folly::Range<Executable**> exes,
-    int32_t blocksPerExe,
+    int32_t inputBlocksPerExe,
     const LaunchControl* inputControl,
     Stream* stream) {
   static_assert(Operand::kPointersInOperand * sizeof(void*) == sizeof(Operand));
+  auto rowsPerThread = FLAGS_wave_rows_per_thread;
+  int32_t blocksPerExe = bits::roundUp(inputBlocksPerExe, rowsPerThread);
   auto& controlVector = launchControl_[key];
   LaunchControl* controlPtr;
   if (controlVector.size() > nthLaunch) {
@@ -770,17 +769,30 @@ LaunchControl* WaveStream::prepareProgramLaunch(
     controlVector[nthLaunch] = std::make_unique<LaunchControl>(key, inputRows);
     controlPtr = controlVector[nthLaunch].get();
   }
+  // tru if not first launch.
   bool isContinue = false;
+  // true if redoing selected lanes of a previous launch. Requires using the
+  // same control block as in the previous launch.
+  bool isRetry = false;
   auto& control = *controlPtr;
   if (control.programInfo.empty()) {
     control.programInfo.resize(exes.size());
   } else {
     VELOX_CHECK_EQ(exes.size(), control.programInfo.size());
     for (auto& info : control.programInfo) {
+      if (info.advance.empty()) {
+        continue;
+      }
+      isContinue = true;
       if (info.advance.isRetry) {
         isContinue = true;
+        isRetry = true;
         checkBlockStatuses();
         break;
+      } else {
+        numRows_ = info.advance.numRows;
+        inputBlocksPerExe = bits::roundUp(numRows_, kBlockSize) / kBlockSize;
+        blocksPerExe = bits::roundUp(inputBlocksPerExe, rowsPerThread);
       }
     }
   }
@@ -817,41 +829,48 @@ LaunchControl* WaveStream::prepareProgramLaunch(
   }
   size += operandBytes;
   int32_t statusOffset = 0;
+  int32_t statusBytes = 0;
   if (!inputControl) {
     statusOffset = size;
     //  Pointer to return block for each tB.
-    size += bits::roundUp(blocksPerExe * sizeof(BlockStatus), 8);
-    size += bits::roundUp(
+    statusBytes = bits::roundUp(blocksPerExe * sizeof(BlockStatus), 8);
+    statusBytes += bits::roundUp(
         instructionStatus_.gridStateSize +
             instructionStatus_.blockState * numBlocks,
         8);
+    size += statusBytes;
   }
   // 1 pointer per exe and an exe-dependent data area.
   int32_t operatorStateOffset = size;
   size += exes.size() * sizeof(void*) + operatorStateBytes;
-  auto buffer = arena_.allocate<char>(size);
+  WaveBufferPtr buffer;
+  if (isRetry) {
+    buffer = std::move(control.deviceData);
+  } else {
+    buffer = arena_->allocate<char>(size);
+  }
   if (stream) {
     stream->prefetch(nullptr, buffer->as<char>(), buffer->size());
   }
   // Zero initialization is expected, for example for operands and arrays in
   // Operand::indices.
-  memset(buffer->as<char>(), 0, size);
-
+  if (!isRetry) {
+    memset(buffer->as<char>(), 0, size);
+  }
   control.sharedMemorySize = shared;
   // Now we fill in the various arrays and put their start addresses in
   // 'control'.
   auto start = buffer->as<int32_t>();
   control.params.blockBase = start;
   control.params.programIdx = start + numBlocks;
-  control.params.programs = addBytes<ThreadBlockProgram**>(
-      control.params.programIdx, numBlocks * sizeof(int32_t));
+  control.params.numRowsPerThread = FLAGS_wave_rows_per_thread;
   control.params.operands = addBytes<Operand***>(
-      control.params.programs, exes.size() * sizeof(void*));
+      control.params.programIdx, numBlocks * sizeof(int32_t));
   control.params.startPC = isContinue
       ? addBytes<int32_t*>(control.params.operands, exes.size() * sizeof(void*))
       : nullptr;
 
-  if (!inputControl) {
+  if (!inputControl && !isRetry) {
     // If the launch produces new statuses (as opposed to updating status of a
     // previous launch), there is an array with a status for each TB. If there
     // are multiple exes, they all share the same error codes. A launch can have
@@ -861,11 +880,14 @@ LaunchControl* WaveStream::prepareProgramLaunch(
     control.params.status = addBytes<BlockStatus*>(start, statusOffset);
     deviceBlockStatus_ = control.params.status;
     // Memory is already set to all 0.
-    for (auto i = 0; i < blocksPerExe; ++i) {
+    for (auto i = 0; i < inputBlocksPerExe; ++i) {
       auto status = &control.params.status[i];
       status->numRows =
-          i == blocksPerExe - 1 ? inputRows % kBlockSize : kBlockSize;
+          i == inputBlocksPerExe - 1 ? inputRows % kBlockSize : kBlockSize;
     }
+  } else if (!inputControl) {
+    // No input control and retry. the statuses are as left by the previous try.
+    ;
   } else {
     control.params.status = inputControl->params.status;
   }
@@ -873,13 +895,12 @@ LaunchControl* WaveStream::prepareProgramLaunch(
   VELOX_CHECK_EQ(0, reinterpret_cast<uintptr_t>(operandStart) & 7);
   int32_t fill = 0;
   for (auto i = 0; i < exes.size(); ++i) {
-    control.params.programs[i] = exes[i]->program;
     if (isContinue) {
       if (control.programInfo[i].advance.empty()) {
         control.params.startPC[i] = -1;
       } else {
         control.params.startPC[i] =
-            control.programInfo[i].advance.instructionIdx;
+            control.programInfo[i].advance.continueLabel;
       }
     }
     auto operandPtrs = fillOperands(*exes[i], operandStart, info[i]);
@@ -911,7 +932,7 @@ LaunchControl* WaveStream::prepareProgramLaunch(
       ++stateFill;
     }
   }
-  control.params.numBlocks = blocksPerExe;
+  control.params.numBlocks = inputBlocksPerExe;
   control.params.streamIdx = streamIdx_;
   if (!exes.empty()) {
     ++stats_.numKernels;
@@ -984,25 +1005,25 @@ void WaveStream::makeAggregate(
   auto stream = streamFromReserve();
   if (inst.keys.empty()) {
     int32_t size = inst.rowSize() + sizeof(DeviceAggregation);
-    state.allocateAggregateHeader(size, arena_);
+    state.allocateAggregateHeader(size, *arena_);
     control.head = state.alignedHead;
     control.headSize = size;
     control.rowSize = inst.rowSize();
     reinterpret_cast<WaveKernelStream*>(stream.get())
-        ->setupAggregation(control);
+        ->setupAggregation(control, 0, nullptr);
   } else {
     const int32_t numPartitions = 1;
     int32_t size = sizeof(DeviceAggregation) + sizeof(GpuHashTableBase) +
         sizeof(HashPartitionAllocator) * numPartitions;
-    state.allocateAggregateHeader(size, arena_);
+    state.allocateAggregateHeader(size, *arena_);
     auto* header = state.alignedHead;
     auto* hashTable = reinterpret_cast<GpuHashTableBase*>(header + 1);
     HashPartitionAllocator* allocators =
         reinterpret_cast<HashPartitionAllocator*>(hashTable + 1);
-    int32_t numBuckets = 2048;
+    int32_t numBuckets = bits::nextPowerOfTwo(FLAGS_wave_init_group_by_buckets);
     header->table = hashTable;
     WaveBufferPtr table =
-        arena_.allocate<char>(sizeof(GpuBucketMembers) * numBuckets);
+        arena_->allocate<char>(sizeof(GpuBucketMembers) * numBuckets);
     state.buffers.push_back(table);
 
     new (hashTable) GpuHashTableBase(
@@ -1012,7 +1033,7 @@ void WaveStream::makeAggregate(
         reinterpret_cast<RowAllocator*>(allocators));
     auto rowSize = inst.rowSize();
     auto numRows = numBuckets * GpuBucketMembers::kNumSlots;
-    WaveBufferPtr rows = arena_.allocate<char>(rowSize * numRows);
+    WaveBufferPtr rows = arena_->allocate<char>(rowSize * numRows);
     state.buffers.push_back(rows);
     new (allocators) HashPartitionAllocator(
         rows->as<char>(), rows->size(), rows->size(), rowSize);
@@ -1050,6 +1071,17 @@ void WaveStream::checkExecutables() const {
         checkOperand(op);
       }
     }
+  }
+}
+
+void WaveStream::throwIfError(std::function<void(const KernelError*)> action) {
+  auto numBlocks = bits::roundUp(numRows_, kBlockSize) / kBlockSize;
+  auto hostSide = hostBlockStatus();
+  int32_t errorOffset = bits::roundUp(numBlocks * sizeof(BlockStatus), 8);
+  auto error = addBytes<KernelError*>(hostSide, errorOffset);
+  if (error->messageEnum) {
+    setError();
+    action(error);
   }
 }
 
@@ -1123,21 +1155,28 @@ void Program::getOperatorStates(WaveStream& stream, std::vector<void*>& ptrs) {
   ptrs.resize(operatorStates_.size());
   for (auto i = 0; i < operatorStates_.size(); ++i) {
     auto& operatorState = *operatorStates_[i];
-    auto* state = stream.operatorState(operatorState.stateId);
-    if (!state) {
-      VELOX_CHECK_NOT_NULL(operatorState.create);
-      state = stream.newState(operatorState);
+    if (operatorState.isGlobal) {
+      auto* taskStates = stream.taskStateMap();
+      std::lock_guard<std::mutex> l(taskStates->mutex);
+      auto* state = stream.operatorState(operatorState.stateId);
+      if (!state) {
+        VELOX_CHECK_NOT_NULL(operatorState.create);
+        state = stream.newState(operatorState);
+      }
+      ptrs[i] = state->devicePtr();
+    } else {
+      auto* state = stream.operatorState(operatorState.stateId);
+      if (!state) {
+        VELOX_CHECK_NOT_NULL(operatorState.create);
+        state = stream.newState(operatorState);
+      }
+      ptrs[i] = state->devicePtr();
     }
-    ptrs[i] = state->devicePtr();
   }
 }
 
 bool Program::isSink() const {
   int32_t size = instructions_.size();
-  if (instructions_[size - 1]->opCode == OpCode::kReturn) {
-    VELOX_CHECK_GE(size, 2);
-    return instructions_[size - 2]->isSink();
-  }
   return instructions_[size - 1]->isSink();
 }
 
@@ -1154,6 +1193,7 @@ AdvanceResult Program::canAdvance(
     }
     auto result = instruction->canAdvance(stream, control, state, i);
     if (!result.empty()) {
+      result.instructionIdx = i;
       result.programIdx = programIdx;
       return result;
     }
@@ -1164,383 +1204,6 @@ AdvanceResult Program::canAdvance(
 void Program::callUpdateStatus(WaveStream& stream, AdvanceResult& advance) {
   if (advance.updateStatus) {
     advance.updateStatus(stream, *instructions_[advance.instructionIdx]);
-  }
-}
-
-#define IN_HEAD(abstract, physical, _op)                              \
-  [[maybe_unused]] auto* abstractInst = &instruction->as<abstract>(); \
-  space->opCode = _op;                                                \
-  [[maybe_unused]] auto physicalInst = new (&space->_) physical();
-
-#define IN_OPERAND(member) \
-  physicalInst->member = operandIndex(abstractInst->member)
-
-void Program::prepareForDevice(GpuArena* arena) {
-  arena_ = arena;
-  if (kernel_) {
-    return;
-  }
-  VELOX_CHECK(!instructions_.empty());
-  if (instructions_.back()->opCode != OpCode::kReturn) {
-    instructions_.push_back(std::make_unique<AbstractReturn>());
-  }
-  int32_t codeSize = sizeof(Instruction) * instructions_.size();
-  for (auto& instruction : instructions_)
-    switch (instruction->opCode) {
-      case OpCode::kFilter: {
-        auto& filter = instruction->as<AbstractFilter>();
-        markInput(filter.flags);
-        markResult(filter.indices);
-
-        break;
-      }
-      case OpCode::kWrap: {
-        auto& wrap = instruction->as<AbstractWrap>();
-        markInput(wrap.indices);
-        std::vector<OperandIndex> indices(wrap.target.size());
-        wrap.literalOffset = addLiteral(indices.data(), indices.size());
-        for (auto i = 0; i < wrap.target.size(); ++i) {
-          auto target = wrap.target[i];
-          markInput(wrap.source[i]);
-          if (target != wrap.source[i]) {
-            markResult(target);
-          }
-        }
-        break;
-      }
-      case OpCode::kPlus_BIGINT:
-      case OpCode::kLT_BIGINT: {
-        auto& bin = instruction->as<AbstractBinary>();
-        markInput(bin.left);
-        markInput(bin.right);
-        markResult(bin.result);
-        markInput(bin.predicate);
-        break;
-      }
-      case OpCode::kNegate: {
-        auto& un = instruction->as<AbstractUnary>();
-        markInput(un.input);
-        markResult(un.result);
-        markInput(un.predicate);
-        break;
-      }
-      case OpCode::kReturn:
-        break;
-      case OpCode::kAggregate: {
-        auto& agg = instruction->as<AbstractAggregation>();
-        for (auto& key : agg.keys) {
-          markInput(key);
-        }
-        // The literal area has first IUpdateAggs and then Operandindex's for
-        // the keys.
-        int32_t extra =
-            bits::roundUp(
-                agg.keys.size() * sizeof(OperandIndex), sizeof(IUpdateAgg)) /
-            sizeof(IUpdateAgg);
-        std::vector<IUpdateAgg> temp(agg.aggregates.size() + extra);
-        agg.literalOffset = addLiteral(temp.data(), temp.size());
-        agg.literalBytes = temp.size() * sizeof(IUpdateAgg);
-        for (auto& op : agg.aggregates) {
-          for (auto& arg : op.args) {
-            markInput(arg);
-          }
-        }
-        break;
-      }
-      case OpCode::kReadAggregate: {
-        auto& read = instruction->as<AbstractReadAggregation>();
-        auto& agg = *read.aggregation;
-        for (auto& key : agg.keys) {
-          markResult(key);
-        }
-        // The literal area is like in the aggregation.
-        int32_t extra = agg.literalBytes;
-        std::vector<IUpdateAgg> temp(extra / sizeof(IUpdateAgg));
-        read.literalOffset = addLiteral(temp.data(), temp.size());
-        for (auto& key : agg.keys) {
-          markResult(key);
-        }
-        for (auto& op : agg.aggregates) {
-          markResult(op.result);
-        }
-        break;
-      }
-      default:
-        VELOX_UNSUPPORTED(
-            "OpCode {}", static_cast<int32_t>(instruction->opCode));
-    }
-  sortSlots();
-  deviceData_ = arena->allocate<char>(
-      codeSize + literalArea_.size() + sizeof(ThreadBlockProgram));
-  uintptr_t end = reinterpret_cast<uintptr_t>(
-      deviceData_->as<char>() + deviceData_->size());
-  program_ = deviceData_->as<ThreadBlockProgram>();
-  auto instructionArray = addBytes<Instruction*>(program_, sizeof(*program_));
-  program_->numInstructions = instructions_.size();
-  program_->instructions = instructionArray;
-  Instruction* space = instructionArray;
-  deviceLiterals_ = reinterpret_cast<char*>(space) +
-      sizeof(Instruction) * instructions_.size();
-  VELOX_CHECK_LE(
-      reinterpret_cast<uintptr_t>(deviceLiterals_) + literalArea_.size(), end);
-  memcpy(deviceLiterals_, literalArea_.data(), literalArea_.size());
-
-  for (auto& instruction : instructions_) {
-    switch (instruction->opCode) {
-      case OpCode::kPlus_BIGINT:
-      case OpCode::kLT_BIGINT: {
-        IN_HEAD(AbstractBinary, IBinary, instruction->opCode)
-
-        IN_OPERAND(left);
-        IN_OPERAND(right);
-        IN_OPERAND(result);
-        IN_OPERAND(predicate);
-        break;
-      }
-      case OpCode::kFilter: {
-        IN_HEAD(AbstractFilter, IFilter, OpCode::kFilter);
-        IN_OPERAND(flags);
-        IN_OPERAND(indices);
-        break;
-      }
-      case OpCode::kWrap: {
-        IN_HEAD(AbstractWrap, IWrap, OpCode::kWrap);
-        IN_OPERAND(indices);
-        physicalInst->numColumns = abstractInst->source.size();
-        physicalInst->columns = reinterpret_cast<OperandIndex*>(
-            deviceLiterals_ + abstractInst->literalOffset);
-        for (auto i = 0; i < abstractInst->source.size(); ++i) {
-          physicalInst->columns[i] = operandIndex(abstractInst->source[i]);
-        }
-        break;
-      }
-      case OpCode::kAggregate: {
-        IN_HEAD(AbstractAggregation, IAggregate, OpCode::kAggregate);
-
-        physicalInst->numKeys = abstractInst->keys.size();
-        physicalInst->numAggregates = abstractInst->aggregates.size();
-        physicalInst->stateIndex = operatorStates_.size();
-        auto programState = std::make_unique<ProgramState>();
-        programState->stateId = abstractInst->state->id;
-        programState->isGlobal = true;
-        programState->create =
-            [inst = abstractInst](
-                WaveStream& stream) -> std::shared_ptr<OperatorState> {
-          auto newState = std::make_shared<AggregateOperatorState>();
-          newState->instruction = inst;
-          stream.makeAggregate(*inst, *newState);
-          return newState;
-        };
-        operatorStates_.push_back(std::move(programState));
-        physicalInst->status = abstractInst->instructionStatus;
-        physicalInst->aggregates = reinterpret_cast<IUpdateAgg*>(
-            deviceLiterals_ + abstractInst->literalOffset);
-        // the literal is copied when making the reader for aggregates.
-        abstractInst->literal = physicalInst->aggregates;
-        OperandIndex* keys = reinterpret_cast<OperandIndex*>(
-            physicalInst->aggregates + physicalInst->numAggregates);
-        for (auto i = 0; i < abstractInst->keys.size(); ++i) {
-          keys[i] = operandIndex(abstractInst->keys[i]);
-        }
-        for (auto i = 0; i < abstractInst->aggregates.size(); ++i) {
-          auto physicalAgg = physicalInst->aggregates + i;
-          auto& abstractAgg = abstractInst->aggregates[i];
-          physicalAgg->op = abstractAgg.op;
-          physicalAgg->nullOffset = abstractAgg.nullOffset;
-          physicalAgg->accumulatorOffset = abstractAgg.accumulatorOffset;
-          if (abstractAgg.args.size() > 0) {
-            physicalAgg->arg1 = operandIndex(abstractAgg.args[0]);
-          }
-          if (abstractAgg.args.size() > 1) {
-            physicalAgg->arg2 = operandIndex(abstractAgg.args[1]);
-          }
-        }
-        break;
-      }
-      case OpCode::kReadAggregate: {
-        IN_HEAD(AbstractReadAggregation, IAggregate, OpCode::kReadAggregate);
-        auto& agg = *abstractInst->aggregation;
-        physicalInst->numKeys = agg.keys.size();
-        physicalInst->numAggregates = agg.aggregates.size();
-        physicalInst->aggregates = reinterpret_cast<IUpdateAgg*>(
-            deviceLiterals_ + abstractInst->literalOffset);
-        auto programState = std::make_unique<ProgramState>();
-        programState->stateId = agg.state->id;
-        programState->isGlobal = true;
-        physicalInst->serial = agg.serial;
-        physicalInst->stateIndex = operatorStates_.size();
-        operatorStates_.push_back(std::move(programState));
-        memcpy(physicalInst->aggregates, agg.literal, agg.literalBytes);
-        auto numKeys = agg.keys.size();
-        auto* keys = reinterpret_cast<OperandIndex*>(
-            &physicalInst->aggregates[physicalInst->numAggregates]);
-        for (auto i = 0; i < numKeys; ++i) {
-          keys[i] = operandIndex(agg.keys[i]);
-        }
-        for (auto i = 0; i < agg.aggregates.size(); ++i) {
-          physicalInst->aggregates[i].result =
-              operandIndex(agg.aggregates[i].result);
-        }
-        break;
-      }
-      case OpCode::kReturn: {
-        IN_HEAD(AbstractReturn, IReturn, OpCode::kReturn);
-        break;
-      }
-      default:
-        VELOX_UNSUPPORTED("Bad OpCode");
-    }
-    sharedMemorySize_ =
-        std::max(sharedMemorySize_, instructionSharedMemory(*space));
-    ++space;
-    VELOX_CHECK_LE(
-        reinterpret_cast<uintptr_t>(space),
-        reinterpret_cast<uintptr_t>(deviceLiterals_));
-  }
-  program_->sharedMemorySize = sharedMemorySize_;
-  literalOperands_.resize(literal_.size());
-  for (auto& [op, index] : literal_) {
-    literalToOperand(op, literalOperands_[index - firstLiteralIdx_]);
-  }
-}
-
-void Program::literalToOperand(AbstractOperand* abstractOp, Operand& op) {
-  op.indexMask = 0;
-  op.indices = nullptr;
-  if (abstractOp->literalNull) {
-    op.nulls =
-        reinterpret_cast<uint8_t*>(deviceLiterals_ + abstractOp->literalOffset);
-  } else {
-    op.base = deviceLiterals_ + abstractOp->literalOffset;
-  }
-}
-
-namespace {
-// Sorts 'map' by id. Inserts back into map with second as ordinal number
-// starting at 'startAt'. Returns 1 + the highest assigned number.
-int32_t sortAndRenumber(
-    int32_t startAt,
-    folly::F14FastMap<AbstractOperand*, int32_t>& map) {
-  std::vector<AbstractOperand*> ids;
-  for (auto& pair : map) {
-    ids.push_back(pair.first);
-  }
-  std::sort(
-      ids.begin(),
-      ids.end(),
-      [](AbstractOperand*& left, AbstractOperand*& right) {
-        return left->id < right->id;
-      });
-  for (auto i = 0; i < ids.size(); ++i) {
-    map[ids[i]] = i + startAt;
-  }
-  return startAt + ids.size();
-}
-} // namespace
-
-void Program::sortSlots() {
-  // Assigns offsets to input and local/output slots so that all
-  // input is first and output next and within input and output, the
-  // slots are ordered with lower operand id first. So, if inputs
-  // are slots 88 and 22 and outputs are 77 and 33, then the
-  // complete order is 22, 88, 33, 77. Constants are sorted after everything
-  // else.
-
-  auto start = sortAndRenumber(0, input_);
-  start = sortAndRenumber(start, local_);
-  start = sortAndRenumber(start, output_);
-  firstLiteralIdx_ = start;
-  sortAndRenumber(start, literal_);
-}
-
-OperandIndex Program::operandIndex(AbstractOperand* op) const {
-  if (!op) {
-    return kEmpty;
-  }
-  auto it = input_.find(op);
-  if (it != input_.end()) {
-    return it->second;
-  }
-  it = local_.find(op);
-  if (it != local_.end()) {
-    return it->second;
-  }
-  it = output_.find(op);
-  if (it != local_.end()) {
-    return it->second;
-  }
-
-  it = literal_.find(op);
-  if (it != literal_.end()) {
-    return it->second;
-  }
-  VELOX_FAIL("Operand not found");
-}
-
-template <typename T>
-int32_t Program::addLiteral(T* value, int32_t count) {
-  nextLiteral_ = bits::roundUp(nextLiteral_, sizeof(T));
-  auto start = nextLiteral_;
-  nextLiteral_ += sizeof(T) * count;
-  literalArea_.resize(nextLiteral_);
-  memcpy(literalArea_.data() + start, value, sizeof(T) * count);
-  return start;
-}
-
-template <TypeKind kind>
-int32_t Program::addLiteralTyped(AbstractOperand* op) {
-  if (op->literalOffset != AbstractOperand::kNoConstant) {
-    return op->literalOffset;
-  }
-  using T = typename TypeTraits<kind>::NativeType;
-  if (op->constant->isNullAt(0)) {
-    op->literalNull = true;
-    char zero = 0;
-    return op->literalOffset = addLiteral<char>(&zero, 1);
-  }
-  T value = op->constant->as<SimpleVector<T>>()->valueAt(0);
-  if constexpr (std::is_same_v<T, StringView>) {
-    StringView* stringView = reinterpret_cast<StringView*>(&value);
-    if (stringView->size() <= 6) {
-      int64_t inlined = static_cast<int64_t>(stringView->size()) << 48;
-      memcpy(
-          reinterpret_cast<char*>(&inlined) + 2,
-          stringView->data(),
-          stringView->size());
-      op->literalOffset = addLiteral(&inlined, 1);
-    } else {
-      int64_t zero = 0;
-      op->literalOffset = addLiteral(&zero, 1);
-      addLiteral(stringView->data(), stringView->size());
-    }
-  } else {
-    op->literalOffset = addLiteral(&value, 1);
-  }
-  return op->literalOffset;
-}
-
-void Program::markInput(AbstractOperand* op) {
-  if (!op) {
-    return;
-  }
-  if (op->constant) {
-    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-        addLiteralTyped, op->constant->type()->kind(), op);
-    literal_[op] = literal_.size();
-    return;
-  }
-  if (!local_.count(op) && !output_.count(op)) {
-    input_[op] = input_.size();
-  }
-}
-
-void Program::markResult(AbstractOperand* op) {
-  if (outputIds_.contains(op->id)) {
-    output_[op] = outputIds_.ordinal(op->id);
-    return;
-  }
-  if (!local_.count(op)) {
-    local_[op] = local_.size();
   }
 }
 
@@ -1559,7 +1222,6 @@ std::unique_ptr<Executable> Program::getExecutable(
   if (!exe) {
     exe = std::make_unique<Executable>();
     exe->programShared = shared_from_this();
-    exe->program = program_;
     for (auto& pair : input_) {
       exe->inputOperands.add(pair.first->id);
     }
@@ -1570,7 +1232,6 @@ std::unique_ptr<Executable> Program::getExecutable(
       exe->outputOperands.add(pair.first->id);
     }
 
-    exe->literals = &literalOperands_;
     exe->releaser = [](std::unique_ptr<Executable>& ptr) {
       auto program = ptr->programShared.get();
       ptr->reuse();
@@ -1621,31 +1282,6 @@ std::string Program::toString() const {
   }
   out << "}" << std::endl;
   return out.str();
-}
-
-std::string AbstractFilter::toString() const {
-  return fmt::format("filter {} -> {}", flags->toString(), indices->toString());
-  ;
-}
-
-std::string AbstractWrap::toString() const {
-  std::stringstream out;
-  out << "wrap indices=" << indices->toString() << " {";
-  for (auto& op : source) {
-    out << op->toString() << " ";
-  }
-  out << "}";
-  return out.str();
-}
-
-std::string AbstractBinary::toString() const {
-  return fmt::format(
-      "{} = {} {} {} {}",
-      result->toString(),
-      left->toString(),
-      static_cast<int32_t>(opCode),
-      right->toString(),
-      predicate ? fmt::format(" if {}", predicate->toString()) : "");
 }
 
 } // namespace facebook::velox::wave

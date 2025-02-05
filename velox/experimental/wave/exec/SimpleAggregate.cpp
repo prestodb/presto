@@ -66,13 +66,6 @@ class SimpleAggregate : public AggregateGenerator {
     return true;
   }
 
-  void loadArgs(
-      CompileState& state,
-      const AggregateProbe& probe,
-      const AggregateUpdate& update) const {
-    state.ensureOperand(update.args[0]);
-  }
-
   virtual void makeDeduppedUpdate(
       CompileState& state,
       const AggregateProbe& probe,
@@ -142,8 +135,8 @@ class SimpleAggregate : public AggregateGenerator {
     auto ord = state.ordinal(*update.result);
     auto nthNull = update.accumulatorIdx + probe.keys.size();
     return fmt::format(
-        "   setNull(operands, {}, blockBase, (row->nulls{} & (1U << {})) == 0);\n"
-        "    flatResult<{}>(operands, {}, blockBase) = row->acc{};\n",
+        "   setNull(operands, {}, blockBase, (readRow->nulls{} & (1U << {})) == 0);\n"
+        "    flatResult<{}>(operands, {}, blockBase) = readRow->acc{};\n",
         ord,
         nthNull / 32,
         nthNull & 31,

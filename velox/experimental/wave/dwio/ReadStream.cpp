@@ -23,10 +23,7 @@ DEFINE_int32(
     1024,
     "Number of items per thread block in Wave reader");
 
-DEFINE_int32(
-    wave_max_reader_batch_rows,
-    80 * 1024,
-    "Max batch for Wave table scan");
+DECLARE_int32(wave_max_reader_batch_rows);
 
 namespace facebook::velox::wave {
 
@@ -89,8 +86,8 @@ void ReadStream::prefetchStatus(Stream* stream) {
     return;
   }
   char* data = control_->deviceData->as<char>();
-  auto size = control_->deviceData->size() - (statusBytes_ + gridStatusBytes_);
-  stream->prefetch(getDevice(), data + statusBytes_ + gridStatusBytes_, size);
+  auto size = control_->deviceData->size() - statusBytes_;
+  stream->prefetch(getDevice(), data + statusBytes_, size);
 }
 
 namespace {
@@ -108,11 +105,16 @@ void ReadStream::makeGrid(Stream* stream) {
   auto blockSize = FLAGS_wave_reader_rows_per_tb;
   auto numBlocks = bits::roundUp(total, blockSize) / blockSize;
   auto& children = reader_->children();
+  int32_t nthFilter = 0;
+  int32_t nthNonFilter = 0;
   for (auto i = 0; i < children.size(); ++i) {
     auto* child = reader_->children()[i];
     // TODO:  Must  propagate the incoming nulls from outer to inner structs.
     // griddize must decode nulls if present.
+    auto* op = child->scanSpec().filter() ? &filters_[nthFilter++]
+                                          : &ops_[nthNonFilter++];
     child->formatData()->griddize(
+        *op,
         blockSize,
         numBlocks,
         deviceStaging_,
@@ -362,9 +364,9 @@ void ReadStream::launch(
         bool needSync = false;
         bool griddizedHere = false;
         if (!readStream->inited_) {
+          readStream->makeOps();
           readStream->makeGrid(stream);
           griddizedHere = true;
-          readStream->makeOps();
           readStream->inited_ = true;
         }
         readStream->prepareRead();
@@ -450,9 +452,9 @@ void ReadStream::makeControl() {
   // The operand section must be cleared before written on host. The statuses
   // are cleared on device.
   memset(
-      control->deviceData->as<char>() + statusBytes_ + instructionBytes,
+      control->deviceData->as<char>() + statusBytes_,
       0,
-      info.totalBytes);
+      instructionBytes + info.totalBytes);
   control->params.status = control->deviceData->as<BlockStatus>();
   for (auto& reader : reader_->children()) {
     if (!reader->formatData()->hasNulls() || reader->hasNonNullFilter()) {

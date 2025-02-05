@@ -21,39 +21,14 @@
 
 namespace facebook::velox::wave {
 
-/// Returns the shared memory size for instruction for kBlockSize.
-int32_t instructionSharedMemory(const Instruction& instruction);
-
 /// A stream for invoking ExprKernel.
 class WaveKernelStream : public Stream {
  public:
-  /// Enqueus an invocation of ExprKernel for 'numBlocks' b
-  /// tBs. 'blockBase' is the ordinal of the TB within the TBs with
-  /// the same program.  'programIdx[blockIndx.x]' is the index into
-  /// 'programs' for the program of the TB. 'operands[i]' is the start
-  /// of the Operand array for 'programs[i]'. status[blockIdx.x] is
-  /// the return status for each TB. 'sharedSize' is the per TB bytes
-  /// shared memory to be reserved at launch.
-  void call(
-      Stream* alias,
-      int32_t numBlocks,
-      int32_t sharedSize,
-      KernelParams& params);
-
   /// Sets up or updates an aggregation.
   void setupAggregation(
       AggregationControl& op,
-      int32_t entryPoint = 0,
-      CompiledKernel* kernel = nullptr);
-
- private:
-  // Debug implementation of call() where each instruction is a separate kernel
-  // launch.
-  void callOne(
-      Stream* alias,
-      int32_t numBlocks,
-      int32_t sharedSize,
-      KernelParams& params);
+      int32_t entryPoint,
+      CompiledKernel* kernel);
 };
 
 } // namespace facebook::velox::wave

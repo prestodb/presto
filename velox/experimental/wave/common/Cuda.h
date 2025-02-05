@@ -80,6 +80,12 @@ class Stream {
   void
   deviceToHostAsync(void* hostAddress, const void* deviceAddress, size_t size);
 
+  // Enqueues a copy from device constant to host.
+  void deviceConstantToHostAsync(
+      void* hostAddress,
+      const void* deviceAddress,
+      size_t size);
+
   /// Adds a callback to be invoked after pending processing is done.
   void addCallback(std::function<void()> callback);
 
@@ -221,11 +227,17 @@ GpuAllocator::UniquePtr<T[]> GpuAllocator::allocate(size_t n) {
   return UniquePtr<T[]>(ptr, Deleter(this, bytes));
 }
 
+/// Bulk fill 'numWords' int64s starting at 'ptr' with deterministic
+/// random from 'seed.' If 'isDevice' is true, 'ptr' is a device or
+/// unified pointer and the fill is done on current device.
+void fillMemory(uint64_t* ptr, int32_t numWords, int32_t seed, bool isDevice);
+
 /// Info on kernel occupancy limits.
 struct KernelInfo {
   int32_t numRegs{0};
   int32_t maxThreadsPerBlock;
   int32_t sharedMemory{0};
+  int32_t localMemory{0};
   int32_t maxOccupancy0{0};
   int32_t maxOccupancy32{0};
 
@@ -246,6 +258,9 @@ struct KernelSpec {
 /// CompiledKernel.
 struct CompiledModule {
   virtual ~CompiledModule() = default;
+
+  static void initialize();
+
   /// Compiles 'spec' and returns the result.
   static std::shared_ptr<CompiledModule> create(const KernelSpec& spec);
 
@@ -270,6 +285,10 @@ using KernelGenFunc = std::function<KernelSpec()>;
 class CompiledKernel {
  public:
   virtual ~CompiledKernel() = default;
+
+  /// Initializes on demand compilation. Used for separating init time from
+  /// measured compile times.
+  static void initialize();
 
   /// Returns the compiled kernel for 'key'. Starts background compilation if
   /// 'key's kernel is not compiled. Returns lightweight reference to state

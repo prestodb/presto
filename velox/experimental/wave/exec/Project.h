@@ -23,13 +23,8 @@ class Project : public WaveOperator {
   Project(
       CompileState& state,
       RowTypePtr outputType,
-      std::vector<std::vector<ProgramPtr>> levels,
-      AbstractWrap* filterWrap = nullptr)
-      : WaveOperator(state, outputType, ""),
-        levels_(std::move(levels)),
-        filterWrap_(filterWrap) {}
-
-  AbstractWrap* findWrap() const override;
+      std::vector<std::vector<ProgramPtr>> levels)
+      : WaveOperator(state, outputType, ""), levels_(std::move(levels)) {}
 
   bool isStreaming() const override {
     if (!levels_.empty() && levels_[0].size() == 1 &&
@@ -80,7 +75,6 @@ class Project : public WaveOperator {
 
   std::vector<std::vector<ProgramPtr>> levels_;
   OperandSet computedSet_;
-  AbstractWrap* filterWrap_{nullptr};
 };
 
 } // namespace facebook::velox::wave

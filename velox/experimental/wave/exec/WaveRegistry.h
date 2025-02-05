@@ -69,6 +69,11 @@ namespace facebook::velox::wave {
 
 /// Wave-specific function properties.
 struct FunctionMetadata {
+  FunctionMetadata() = default;
+
+  FunctionMetadata(bool maySetStatus, bool maySetShared)
+      : maySetStatus(maySetStatus), maySetShared(maySetShared) {}
+
   /// True if may turn off the lane, e.g. for error.
   bool maySetStatus{false};
 
@@ -104,8 +109,13 @@ class WaveRegistry {
       const std::string& includeLine,
       const std::string& text);
 
+  bool registerMessage(int32_t key, std::string message);
+
+  std::string message(int32_t key);
+
  private:
   folly::F14FastMap<FunctionKey, FunctionEntry> data_;
+  folly::F14FastMap<int32_t, std::string> messages_;
 };
 
 } // namespace facebook::velox::wave
