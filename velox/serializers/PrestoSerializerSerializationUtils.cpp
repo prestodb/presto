@@ -578,6 +578,14 @@ void appendNonNull(
           numNonNull,
           values,
           toJavaUuidValue);
+    } else if (stream->isIpAddress()) {
+      copyWordsWithRows(
+          output,
+          rows.data(),
+          nonNullIndices,
+          numNonNull,
+          values,
+          reverseIpAddressByteOrder);
     } else {
       copyWordsWithRows(
           output, rows.data(), nonNullIndices, numNonNull, values);
@@ -608,6 +616,13 @@ void serializeFlatVector(
             output, rows.data(), rows.size(), rawValues, toJavaDecimalValue);
       } else if (stream->isUuid()) {
         copyWords(output, rows.data(), rows.size(), rawValues, toJavaUuidValue);
+      } else if (stream->isIpAddress()) {
+        copyWords(
+            output,
+            rows.data(),
+            rows.size(),
+            rawValues,
+            reverseIpAddressByteOrder);
       } else {
         copyWords(output, rows.data(), rows.size(), rawValues);
       }

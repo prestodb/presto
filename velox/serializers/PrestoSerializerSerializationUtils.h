@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 #pragma once
+#include <folly/IPAddressV6.h>
 
 #include "velox/common/memory/ByteStream.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/DecimalUtil.h"
 #include "velox/type/Type.h"
@@ -54,6 +56,10 @@ static inline const std::string_view kRLE{"RLE"};
 static inline const std::string_view kDictionary{"DICTIONARY"};
 
 void initBitsToMapOnce();
+FOLLY_ALWAYS_INLINE int128_t
+reverseIpAddressByteOrder(int128_t currentIpBytes) {
+  return DecimalUtil::bigEndian(currentIpBytes);
+}
 
 FOLLY_ALWAYS_INLINE int128_t toJavaDecimalValue(int128_t value) {
   // Presto Java UnscaledDecimal128 representation uses signed magnitude

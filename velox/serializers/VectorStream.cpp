@@ -67,6 +67,7 @@ VectorStream::VectorStream(
       nullsFirst_(opts.nullsFirst),
       isLongDecimal_(type_->isLongDecimal()),
       isUuid_(isUuidType(type_)),
+      isIpAddress_(isIPAddressType(type_)),
       opts_(opts),
       encoding_(getEncoding(encoding, vector)),
       nulls_(streamArena, true, true),
@@ -353,6 +354,8 @@ void VectorStream::append(folly::Range<const int128_t*> values) {
       val = toJavaDecimalValue(value);
     } else if (isUuid_) {
       val = toJavaUuidValue(value);
+    } else if (isIpAddress_) {
+      val = reverseIpAddressByteOrder(value);
     }
     values_.append<int128_t>(folly::Range(&val, 1));
   }

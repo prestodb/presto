@@ -20,6 +20,7 @@
 #include <vector>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/serializers/PrestoVectorLexer.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -1162,6 +1163,24 @@ TEST_P(PrestoSerializerTest, longDecimal) {
     vector->setNull(i, true);
   }
   testRoundTrip(vector);
+}
+
+TEST_P(PrestoSerializerTest, ipaddress) {
+  auto ipaddress = makeFlatVector<int128_t>(
+      100,
+      [](auto row) {
+        return HugeInt::build(folly::Random::rand64(), folly::Random::rand64());
+      },
+      /* isNullAt */ nullptr,
+      IPADDRESS());
+
+  testRoundTrip(ipaddress);
+
+  // Add some nulls.
+  for (auto i = 0; i < 100; i += 7) {
+    ipaddress->setNull(i, true);
+  }
+  testRoundTrip(ipaddress);
 }
 
 TEST_P(PrestoSerializerTest, uuid) {

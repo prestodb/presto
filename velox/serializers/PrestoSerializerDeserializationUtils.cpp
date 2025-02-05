@@ -411,6 +411,46 @@ void readDecimalValues(
   }
 }
 
+int128_t readIpAddress(ByteInputStream* source) {
+  // Java stores ipaddress as a binary, and thus the binary
+  // is always in big endian byte order. In Velox, ipaddress
+  // is a custom type with underlying type of int128_t, which
+  // is always stored as little endian byte order. This means
+  // to ensure compatibility between the coordinator and velox,
+  // we need to actually convert the 16 bytes read from coordinator
+  // to little endian.
+  const int128_t beIpIntAddr = source->read<int128_t>();
+  return reverseIpAddressByteOrder(beIpIntAddr);
+}
+
+void readIpAddressValues(
+    ByteInputStream* source,
+    vector_size_t size,
+    vector_size_t offset,
+    const BufferPtr& nulls,
+    vector_size_t nullCount,
+    const BufferPtr& values) {
+  auto rawValues = values->asMutable<int128_t>();
+  if (nullCount) {
+    checkValuesSize<int128_t>(values, nulls, size, offset);
+
+    vector_size_t toClear = offset;
+    bits::forEachSetBit(
+        nulls->as<uint64_t>(), offset, offset + size, [&](vector_size_t row) {
+          // Set the values between the last non-null and this to type default.
+          for (; toClear < row; ++toClear) {
+            rawValues[toClear] = 0;
+          }
+          rawValues[row] = readIpAddress(source);
+          toClear = row + 1;
+        });
+  } else {
+    for (vector_size_t row = 0; row < size; ++row) {
+      rawValues[offset + row] = readIpAddress(source);
+    }
+  }
+}
+
 int128_t readUuidValue(ByteInputStream* source) {
   // ByteInputStream does not support reading int128_t values.
   // UUIDs are serialized as 2 uint64 values with msb value first.
@@ -617,6 +657,16 @@ void read(
   }
   if (isUuidType(type)) {
     readUuidValues(
+        source,
+        numNewValues,
+        resultOffset,
+        flatResult->nulls(),
+        nullCount,
+        values);
+    return;
+  }
+  if (isIPAddressType(type)) {
+    readIpAddressValues(
         source,
         numNewValues,
         resultOffset,
