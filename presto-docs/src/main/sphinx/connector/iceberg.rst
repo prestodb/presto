@@ -393,7 +393,7 @@ Property Name                             Description                           
 ``location``                               Optionally specifies the file system location URI for
                                            the table.
 
-``write_data_path``                        Optionally specifies the file system location URI for
+``write.data.path``                        Optionally specifies the file system location URI for
                                            storing the data and delete files of the table.
 
 ``format_version``                         Optionally specifies the format version of the Iceberg           ``2``

@@ -109,7 +109,7 @@ public class TestIcebergSmokeOnS3Hadoop
         String tableName = "test_table_with_specified_write_data_location";
         String dataWriteLocation = getPathBasedOnDataDirectory("test-" + randomTableSuffix());
         try {
-            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (write_data_path = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
             String schemaName = getSession().getSchema().get();
             String location = getLocation(schemaName, tableName);
             assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
@@ -125,7 +125,7 @@ public class TestIcebergSmokeOnS3Hadoop
                             "   metadata_delete_after_commit = false,\n" +
                             "   metadata_previous_versions_max = 100,\n" +
                             "   metrics_max_inferred_column = 100,\n" +
-                            "   write_data_path = '%s'\n" +
+                            "   \"write.data.path\" = '%s'\n" +
                             ")", schemaName, tableName, location, dataWriteLocation));
         }
         finally {
@@ -139,7 +139,7 @@ public class TestIcebergSmokeOnS3Hadoop
         String tableName = "test_table_with_specified_write_data_location2";
         String dataWriteLocation = getPathBasedOnDataDirectory("test-" + randomTableSuffix());
         try {
-            assertUpdate(format("create table %s(a int, b varchar) with (write_data_path = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("create table %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
             assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
             assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
             assertUpdate(format("delete from %s where a > 2", tableName), 1);
@@ -156,7 +156,7 @@ public class TestIcebergSmokeOnS3Hadoop
         String tableName = "test_table_with_specified_write_data_location3";
         String dataWriteLocation = getPathBasedOnDataDirectory("test-" + randomTableSuffix());
         try {
-            assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], write_data_path = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], \"write.data.path\" = '%s')", tableName, dataWriteLocation));
             assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
             assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
             assertUpdate(format("delete from %s where a > 2", tableName), 1);
@@ -197,7 +197,7 @@ public class TestIcebergSmokeOnS3Hadoop
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
-                        "   write_data_path = '%s'\n" +
+                        "   \"write.data.path\" = '%s'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -229,7 +229,7 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate'],\n" +
-                "   write_data_path = '%s'\n" +
+                "   \"write.data.path\" = '%s'\n" +
                 ")",
                 getLocation(schemaName, "test_create_table_like_original"),
                 getPathBasedOnDataDirectory(schemaName + "/test_create_table_like_original")));
@@ -248,7 +248,7 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   write_data_path = '%s'\n" +
+                "   \"write.data.path\" = '%s'\n" +
                 ")",
                 getLocation(schemaName, "test_create_table_like_copy1"),
                 getPathBasedOnDataDirectory(schemaName + "/test_create_table_like_copy1")));
@@ -263,14 +263,14 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   write_data_path = '%s'\n" +
+                "   \"write.data.path\" = '%s'\n" +
                 ")",
                 getLocation(schemaName, "test_create_table_like_copy2"),
                 getPathBasedOnDataDirectory(schemaName + "/test_create_table_like_copy2")));
         dropTable(session, "test_create_table_like_copy2");
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy5 (LIKE test_create_table_like_original INCLUDING PROPERTIES)" +
-                " WITH (location = '', write_data_path = '', format = 'ORC')");
+                " WITH (location = '', \"write.data.path\" = '', format = 'ORC')");
         assertEquals(getTablePropertiesString("test_create_table_like_copy5"), format("WITH (\n" +
                         "   delete_mode = 'merge-on-read',\n" +
                         "   format = 'ORC',\n" +
@@ -280,7 +280,7 @@ public class TestIcebergSmokeOnS3Hadoop
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
                         "   partitioning = ARRAY['adate'],\n" +
-                        "   write_data_path = '%s'\n" +
+                        "   \"write.data.path\" = '%s'\n" +
                         ")",
                 getLocation(schemaName, "test_create_table_like_copy5"),
                 getPathBasedOnDataDirectory(schemaName + "/test_create_table_like_copy5")));
@@ -323,7 +323,7 @@ public class TestIcebergSmokeOnS3Hadoop
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
-                        "   write_data_path = '%s'\n" +
+                        "   \"write.data.path\" = '%s'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -363,7 +363,7 @@ public class TestIcebergSmokeOnS3Hadoop
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
-                        "   write_data_path = '%s'\n" +
+                        "   \"write.data.path\" = '%s'\n" +
                         ")",
                         schemaName,
                         getLocation(schemaName, "orders"),
@@ -401,7 +401,7 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   write_data_path = '%s'\n" +
+                "   \"write.data.path\" = '%s'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, schemaName, "test table comment",
                 getLocation(schemaName, "test_table_comments"),
