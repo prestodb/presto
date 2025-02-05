@@ -149,7 +149,12 @@ void IoStatistics::merge(const IoStatistics& other) {
     const auto& otherStorageStats = other.storageStats();
     std::lock_guard<std::mutex> storageStatsLock(storageStatsMutex_);
     for (auto& item : otherStorageStats) {
-      storageStats_[item.first].merge(item.second);
+      auto it = storageStats_.find(item.first);
+      if (it == storageStats_.end()) {
+        storageStats_.emplace(item);
+      } else {
+        it->second.merge(item.second);
+      }
     }
   }
 }

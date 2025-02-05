@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-velox_add_library(velox_common_io IoStatistics.cpp)
+add_executable(velox_ioStatistics_test IoStatisticsTest.cpp)
 
-velox_link_libraries(velox_common_io Folly::folly glog::glog)
+add_test(NAME velox_ioStatistics_test COMMAND velox_ioStatistics_test)
 
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
+target_link_libraries(
+  velox_ioStatistics_test
+  velox_common_base
+  velox_common_io
+  GTest::gtest
+  GTest::gtest_main)
