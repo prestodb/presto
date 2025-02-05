@@ -82,6 +82,17 @@ be executed within a single node.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`single_node_execution_enabled\`\``.
 
+``exclude-invalid-worker-session-properties``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When ``exclude-invalid-worker-session-properties`` is ``true``, worker session properties that are
+incompatible with the cluster type are excluded. For example, when ``native-execution-enabled``
+is ``true``, java-worker only session properties are excluded and the native-worker only
+session properties are included.
+
 .. _tuning-memory:
 
 Memory Management Properties
