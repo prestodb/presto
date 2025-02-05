@@ -85,14 +85,7 @@ public class TestNativeSidecarPlugin
     @Test
     public void testSetJavaWorkerSessionProperty()
     {
-        @Language("SQL") String setSession = "SET SESSION aggregation_spill_enabled=false";
-        MaterializedResult setSessionResult = computeActual(setSession);
-        assertEquals(
-                setSessionResult.toString(),
-                "MaterializedResult{rows=[[true]], " +
-                        "types=[boolean], " +
-                        "setSessionProperties={aggregation_spill_enabled=false}, " +
-                        "resetSessionProperties=[], updateType=SET SESSION}");
+        assertQueryFails("SET SESSION aggregation_spill_enabled=false", "line 1:1: Session property aggregation_spill_enabled does not exist");
     }
 
     @Test
