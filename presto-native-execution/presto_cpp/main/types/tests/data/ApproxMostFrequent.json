@@ -131,6 +131,28 @@
       "schema": "default",
       "typeVariableConstraints":[],
       "variableArity":false
+    },
+    {
+      "aggregateMetadata": {
+        "intermediateType": "row(bigint,bigint,array(json),array(bigint))",
+        "isOrderSensitive": true
+      },
+      "docString": "presto.default.approx_most_frequent",
+      "functionKind": "AGGREGATE",
+      "outputType": "map(json,bigint)",
+      "paramTypes": [
+        "bigint",
+        "json",
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints": [],
+      "variableArity": false
     }
   ]
 }
