@@ -421,7 +421,7 @@ bool RowType::containsChild(std::string_view name) const {
   return std::find(names_.begin(), names_.end(), name) != names_.end();
 }
 
-uint32_t RowType::getChildIdx(const std::string& name) const {
+uint32_t RowType::getChildIdx(std::string_view name) const {
   auto index = getChildIdxIfExists(name);
   if (!index.has_value()) {
     VELOX_USER_FAIL(makeFieldNotFoundErrorMessage(name, names_));
@@ -430,7 +430,7 @@ uint32_t RowType::getChildIdx(const std::string& name) const {
 }
 
 std::optional<uint32_t> RowType::getChildIdxIfExists(
-    const std::string& name) const {
+    std::string_view name) const {
   for (uint32_t i = 0; i < names_.size(); i++) {
     if (names_.at(i) == name) {
       return i;

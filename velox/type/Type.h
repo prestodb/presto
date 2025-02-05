@@ -1026,9 +1026,9 @@ class RowType : public TypeBase<TypeKind::ROW> {
 
   bool containsChild(std::string_view name) const;
 
-  uint32_t getChildIdx(const std::string& name) const;
+  uint32_t getChildIdx(std::string_view name) const;
 
-  std::optional<uint32_t> getChildIdxIfExists(const std::string& name) const;
+  std::optional<uint32_t> getChildIdxIfExists(std::string_view name) const;
 
   const std::string& nameOf(uint32_t idx) const {
     VELOX_CHECK_LT(idx, names_.size());
