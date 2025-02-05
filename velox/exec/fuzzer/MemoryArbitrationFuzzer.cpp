@@ -865,9 +865,14 @@ void MemoryArbitrationFuzzer::verify() {
         std::this_thread::sleep_for(
             std::chrono::milliseconds(FLAGS_task_abort_interval_ms));
         auto tasksList = Task::getRunningTasks();
-        vector_size_t index = getRandomIndex(abortRng, tasksList.size() - 1);
-        ++taskAbortRequestCount;
-        tasksList[index]->requestAbort();
+
+        // queryThreads start a new Task each time a Task finishes, but we still
+        // may get unlucky and hit a point where there are no tasks running.
+        if (!tasksList.empty()) {
+          vector_size_t index = getRandomIndex(abortRng, tasksList.size() - 1);
+          ++taskAbortRequestCount;
+          tasksList[index]->requestAbort();
+        }
       } catch (const VeloxException& e) {
         LOG(ERROR) << "Unexpected exception in abortControlScheduler:\n"
                    << e.what();
