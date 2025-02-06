@@ -34,11 +34,21 @@ PYBIND11_MODULE(vector, m) {
       .def("__len__", &velox::py::PyVector::size, py::doc(R"(
         Number of elements in the Vector.
       )"))
+      .def("__eq__", &velox::py::PyVector::equals, py::doc(R"(
+        Returns if two PyVectors have the same size and contents.
+      )"))
       .def("type", &velox::py::PyVector::type, py::doc(R"(
         Returns the Type of the Vector.
       )"))
       .def("size", &velox::py::PyVector::size, py::doc(R"(
         Number of elements in the Vector.
+      )"))
+      .def("child_at", &velox::py::PyVector::childAt, py::doc(R"(
+        Returns the vector's child at position `idx`. Throws if the
+        vector is not a RowVector.
+
+        Args:
+          index: The index of the child element in the RowVector.
       )"))
       .def("null_count", &velox::py::PyVector::nullCount, py::doc(R"(
         Number of null elements in the Vector.

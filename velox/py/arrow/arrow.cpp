@@ -73,7 +73,7 @@ PYBIND11_MODULE(arrow, m) {
       throw std::runtime_error("Unknown input Arrow structure.");
     }
     return velox::py::PyVector{
-        velox::importFromArrowAsViewer(schema, data, leafPool.get())};
+        velox::importFromArrowAsViewer(schema, data, leafPool.get()), leafPool};
   });
 
   /// Converts a velox.py.vector.Vector to a pyarrow.Array using Velox's arrow

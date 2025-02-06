@@ -15,6 +15,7 @@
  */
 
 #include "velox/py/vector/PyVector.h"
+#include "velox/vector/ComplexVector.h"
 #include "velox/vector/VectorPrinter.h"
 
 namespace facebook::velox::py {
@@ -25,6 +26,14 @@ std::string PyVector::summarizeToText() const {
 
 std::string PyVector::printDetailed() const {
   return velox::printVector(*vector_);
+}
+
+PyVector PyVector::childAt(vector_size_t idx) const {
+  if (auto rowVector = std::dynamic_pointer_cast<RowVector>(vector_)) {
+    return PyVector{rowVector->childAt(idx), pool_};
+  }
+  throw std::runtime_error(fmt::format(
+      "Can only call child_at() on RowVector, but got '{}'", toString()));
 }
 
 } // namespace facebook::velox::py

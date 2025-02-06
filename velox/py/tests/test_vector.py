@@ -43,8 +43,19 @@ class TestPyVeloxVector(unittest.TestCase):
         vector1 = to_velox(pyarrow.array(data))
         vector2 = to_velox(to_arrow(vector1))
 
+        # First compare each element.
         for i in range(len(data)):
             self.assertEqual(vector1.compare(vector2, i, i), 0)
+
+        # Then the entire objects at once (__eq__).
+        self.assertEqual(vector1, vector2)
+
+        # Failures.
+        vector3 = to_velox(pyarrow.array([1, 2, 3, 4, 5]))
+        self.assertNotEqual(vector1, vector3)
+
+        vector4 = to_velox(pyarrow.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))
+        self.assertNotEqual(vector1, vector4)
 
     def test_vector_print(self):
         vector = to_velox(pyarrow.array([1, 2]))
@@ -78,6 +89,14 @@ class TestPyVeloxVector(unittest.TestCase):
         vector = to_velox(pyarrow.array(data, type=struct_type))
         self.assertEqual(
             str(vector), "[ROW ROW<name:VARCHAR,age:INTEGER>: 2 elements, no nulls]"
+        )
+
+        # Validate children.
+        self.assertEqual(
+            str(vector.child_at(0)), "[FLAT VARCHAR: 2 elements, no nulls]"
+        )
+        self.assertEqual(
+            str(vector.child_at(1)), "[FLAT INTEGER: 2 elements, no nulls]"
         )
 
     def test_vector_type(self):
