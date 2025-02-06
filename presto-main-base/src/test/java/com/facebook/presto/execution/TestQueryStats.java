@@ -236,6 +236,16 @@ public class TestQueryStats
             30,
             16,
 
+            12,
+            13,
+            15,
+            16,
+
+            12,
+            13,
+            15,
+            16,
+
             17.0,
             43.0,
             new DataSize(18, BYTE),
@@ -594,6 +604,14 @@ public class TestQueryStats
                 0,
                 0,
 
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
