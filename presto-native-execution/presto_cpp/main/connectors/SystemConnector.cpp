@@ -218,25 +218,25 @@ RowVectorPtr SystemDataSource::getTaskResults() {
 
       case TaskColumnEnum::kSplits: {
         auto flat = result->childAt(i)->as<FlatVector<int64_t>>();
-        SET_TASK_COLUMN(taskInfo.stats.totalDrivers);
+        SET_TASK_COLUMN(taskInfo.stats.totalSplits);
         break;
       }
 
       case TaskColumnEnum::kQueuedSplits: {
         auto flat = result->childAt(i)->as<FlatVector<int64_t>>();
-        SET_TASK_COLUMN(taskInfo.stats.queuedDrivers);
+        SET_TASK_COLUMN(taskInfo.stats.queuedSplits);
         break;
       }
 
       case TaskColumnEnum::kRunningSplits: {
         auto flat = result->childAt(i)->as<FlatVector<int64_t>>();
-        SET_TASK_COLUMN(taskInfo.stats.runningDrivers);
+        SET_TASK_COLUMN(taskInfo.stats.runningSplits);
         break;
       }
 
       case TaskColumnEnum::kCompletedSplits: {
         auto flat = result->childAt(i)->as<FlatVector<int64_t>>();
-        SET_TASK_COLUMN(taskInfo.stats.completedDrivers);
+        SET_TASK_COLUMN(taskInfo.stats.completedSplits);
         break;
       }
 

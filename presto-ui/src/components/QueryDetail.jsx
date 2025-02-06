@@ -119,15 +119,19 @@ function TaskList({tasks}) {
             style: {
                 padding: '2px', // override the cell padding for head cells
                 fontSize: '15px',
+                overflowX: 'auto', // Enables horizontal scrolling
             },
         },
         cells: {
             style: {
                 padding: '2px', // override the cell padding for data cells
                 fontSize: '15px',
+                overflowX: 'auto', // Enables horizontal scrolling
             },
         },
     };
+
+    const hasSplitStats = tasks.some(task => task.stats.completedSplits !== undefined);
 
     const columns = [
         {
@@ -156,43 +160,110 @@ function TaskList({tasks}) {
             sortable: true,
             minWidth: '80px',
         },
-        {
-            name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
-                         data-bs-toggle="tooltip" data-bs-placement="top"
-                         title="Pending splits"/>),
-            selector: row => row.stats.queuedDrivers,
-            sortable: true,
-            maxWidth: '50px',
-            minWidth: '40px',
-        },
-        {
-            name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
-                         data-bs-toggle="tooltip" data-bs-placement="top"
-                         title="Running splits"/>),
-            selector: row => row.stats.runningDrivers,
-            sortable: true,
-            maxWidth: '50px',
-            minWidth: '40px',
-        },
-        {
-            name: (<span className="bi bi-bookmark-check-fill"
-                         style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
-                         data-bs-placement="top"
-                         title="Blocked splits"/>),
-            selector: row => row.stats.blockedDrivers,
-            sortable: true,
-            maxWidth: '50px',
-            minWidth: '40px',
-        },
-        {
-            name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
-                         data-bs-toggle="tooltip" data-bs-placement="top"
-                         title="Completed splits"/>),
-            selector: row => row.stats.completedDrivers,
-            sortable: true,
-            maxWidth: '50px',
-            minWidth: '40px',
-        },
+        ...(hasSplitStats ? [
+            {
+                name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Pending drivers" />),
+                selector: row => row.stats.queuedNewDrivers,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Running drivers" />),
+                selector: row => row.stats.runningNewDrivers,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-stop-circle-fill"
+                             style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
+                             data-bs-placement="top"
+                             title="Blocked drivers" />),
+                selector: row => row.stats.blockedDrivers,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-check-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Completed drivers" />),
+                selector: row => row.stats.completedNewDrivers,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-pause-circle" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Pending splits"/>),
+                selector: row => row.stats.queuedSplits,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-play-circle" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Running splits"/>),
+                selector: row => row.stats.runningSplits,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-check-circle" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Completed splits"/>),
+                selector: row => row.stats.completedSplits,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            }
+        ] : [
+            {
+                name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Pending splits"/>),
+                selector: row => row.stats.queuedDrivers,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Running splits"/>),
+                selector: row => row.stats.runningDrivers,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-bookmark-check-fill"
+                             style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
+                             data-bs-placement="top"
+                             title="Blocked splits"/>),
+                selector: row => row.stats.blockedDrivers,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            },
+            {
+                name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
+                             data-bs-toggle="tooltip" data-bs-placement="top"
+                             title="Completed splits"/>),
+                selector: row => row.stats.completedDrivers,
+                sortable: true,
+                maxWidth: '50px',
+                minWidth: '40px',
+            }
+        ]),
         {
             name: 'Rows',
             selector: row => row.stats.rawInputPositions,
