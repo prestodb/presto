@@ -11,7 +11,7 @@ jobs:
   prestocpp-linux-build-engine:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.291-20250108164449-87d82ed
+      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
       CC: /usr/bin/clang-15
@@ -50,10 +50,6 @@ jobs:
 
       - name: Disk space consumption before build
         run: df
-
-      - name: Install Clang
-        run: |
-          presto-native-execution/velox/scripts/setup-centos9.sh install_clang15
 
       - name: Build engine
         run: |
