@@ -107,11 +107,19 @@ public class Analysis
     private final Multimap<NodeRef<Expression>, FieldId> columnReferences = ArrayListMultimap.create();
 
     private final AccessControlReferences accessControlReferences = new AccessControlReferences();
+    private final AccessControlReferences originalQueryAccessControlReferences = new AccessControlReferences();
 
     // a map of users to the columns per table that they access
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> utilizedTableColumnReferences = new LinkedHashMap<>();
     private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferences = new LinkedHashMap<>();
+
+    // Access control related maps for the original query submitted by the user
+    // These are populated *only if the user submitted query was rewritten*.
+    // When a query is rewritten, the 'regular' maps above are for the re-written query, while these are for the original query. These maps will be used for access check in this case
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> originalQueryTableColumnReferences = new LinkedHashMap<>();
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> originalQueryUtilizedTableColumnReferences = new LinkedHashMap<>();
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> originalQueryTableColumnAndSubfieldReferences = new LinkedHashMap<>();
 
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> aggregates = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<Expression>> orderByAggregates = new LinkedHashMap<>();
@@ -198,12 +206,23 @@ public class Analysis
 
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
-
-    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
+    private boolean isExternallyRewrittenQuery;
+    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe, boolean isExternallyRewrittenQuery)
     {
         this.root = root;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameterMap is null"));
         this.isDescribe = isDescribe;
+        this.isExternallyRewrittenQuery = isExternallyRewrittenQuery;
+    }
+
+    public boolean getExternallyRewrittenQuery()
+    {
+        return isExternallyRewrittenQuery;
+    }
+
+    public void setExternallyRewrittenQuery(boolean isExternallyRewrittenQuery)
+    {
+        this.isExternallyRewrittenQuery = isExternallyRewrittenQuery;
     }
 
     public Statement getStatement()
@@ -839,6 +858,9 @@ public class Analysis
 
     public AccessControlReferences getAccessControlReferences()
     {
+        if (isExternallyRewrittenQuery) {
+            return originalQueryAccessControlReferences;
+        }
         return accessControlReferences;
     }
 
@@ -861,11 +883,19 @@ public class Analysis
             Multimap<QualifiedObjectName, Subfield> tableColumnMapForAccessControl)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity, transactionId, accessControlContext);
-        Map<QualifiedObjectName, Set<String>> columnReferences = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        Map<QualifiedObjectName, Set<String>> columnReferences;
+        Map<QualifiedObjectName, Set<Subfield>> columnAndSubfieldReferences;
+        if (isExternallyRewrittenQuery) {
+            columnReferences = originalQueryTableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+            columnAndSubfieldReferences = originalQueryTableColumnAndSubfieldReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        }
+        else {
+            columnReferences = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+            columnAndSubfieldReferences = tableColumnAndSubfieldReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        }
         tableColumnMap.asMap()
                 .forEach((key, value) -> columnReferences.computeIfAbsent(key, k -> new HashSet<>()).addAll(value.stream().map(Subfield::getRootName).collect(toImmutableSet())));
 
-        Map<QualifiedObjectName, Set<Subfield>> columnAndSubfieldReferences = tableColumnAndSubfieldReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMapForAccessControl.asMap()
                 .forEach((key, value) -> columnAndSubfieldReferences.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
@@ -873,31 +903,65 @@ public class Analysis
     public void addEmptyColumnReferencesForTable(AccessControl accessControl, Identity identity, Optional<TransactionId> transactionId, AccessControlContext accessControlContext, QualifiedObjectName table)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity, transactionId, accessControlContext);
-        tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
-        tableColumnAndSubfieldReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+        if (isExternallyRewrittenQuery) {
+            originalQueryTableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+            originalQueryTableColumnAndSubfieldReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+        }
+        else {
+            tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+            tableColumnAndSubfieldReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
+        }
+    }
+
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences(boolean isExternallyRewrittenQuery)
+    {
+        if (isExternallyRewrittenQuery) {
+            return originalQueryTableColumnReferences;
+        }
+        return tableColumnReferences;
     }
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
-        return tableColumnReferences;
+        return getTableColumnReferences(isExternallyRewrittenQuery);
     }
 
     public void addUtilizedTableColumnReferences(AccessControlInfo accessControlInfo, Map<QualifiedObjectName, Set<String>> utilizedTableColumns)
     {
         utilizedTableColumnReferences.put(accessControlInfo, utilizedTableColumns);
+        if (isExternallyRewrittenQuery) {
+            originalQueryUtilizedTableColumnReferences.put(accessControlInfo, utilizedTableColumns);
+        }
+    }
+
+    public void addOriginalUtilizedTableColumnReferences(AccessControlInfo accessControlInfo, Map<QualifiedObjectName, Set<String>> utilizedTableColumns)
+    {
+        originalQueryUtilizedTableColumnReferences.put(accessControlInfo, utilizedTableColumns);
     }
 
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getUtilizedTableColumnReferences()
     {
+        if (isExternallyRewrittenQuery) {
+            return ImmutableMap.copyOf(originalQueryUtilizedTableColumnReferences);
+        }
         return ImmutableMap.copyOf(utilizedTableColumnReferences);
     }
 
     public void populateTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields)
     {
-        accessControlReferences.addTableColumnAndSubfieldReferencesForAccessControl(getTableColumnAndSubfieldReferencesForAccessControl(checkAccessControlOnUtilizedColumnsOnly, checkAccessControlWithSubfields));
+        if (isExternallyRewrittenQuery) {
+            originalQueryAccessControlReferences.addTableColumnAndSubfieldReferencesForAccessControl(getTableColumnAndSubfieldReferencesForAccessControl(
+                    checkAccessControlOnUtilizedColumnsOnly, checkAccessControlWithSubfields, originalQueryTableColumnReferences, originalQueryUtilizedTableColumnReferences,
+                    originalQueryTableColumnAndSubfieldReferences));
+        }
+        accessControlReferences.addTableColumnAndSubfieldReferencesForAccessControl(getTableColumnAndSubfieldReferencesForAccessControl(checkAccessControlOnUtilizedColumnsOnly, checkAccessControlWithSubfields, tableColumnReferences, utilizedTableColumnReferences, tableColumnAndSubfieldReferences));
     }
 
-    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields)
+    private Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(
+            boolean checkAccessControlOnUtilizedColumnsOnly, boolean checkAccessControlWithSubfields,
+            Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences,
+            Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> utilizedTableColumnReferences,
+            Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> tableColumnAndSubfieldReferences)
     {
         Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> references;
         if (!checkAccessControlWithSubfields) {

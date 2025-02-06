@@ -109,6 +109,7 @@ public interface QueryExecution
         T createQueryExecution(
                 AnalyzerProvider analyzerProvider,
                 PreparedQuery preparedQuery,
+                PreparedQuery originalPreparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
                 int retryCount,

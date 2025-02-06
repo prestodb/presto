@@ -101,13 +101,37 @@ public class UtilizedColumnsAnalyzer
     {
         UtilizedColumnsAnalyzer analyzer = new UtilizedColumnsAnalyzer(analysis);
         try {
-            analyzer.analyze(node);
+            analyzer.analyze(node, analysis.getExternallyRewrittenQuery());
         }
         catch (Exception e) {
             warningCollector.add(new PrestoWarning(
                     UTILIZED_COLUMN_ANALYSIS_FAILED,
                     "Error in analyzing utilized columns for access control, falling back to checking access on all columns: " + e.getMessage()));
-            analysis.getTableColumnReferences().forEach(analysis::addUtilizedTableColumnReferences);
+            analysis.getTableColumnReferences(analysis.getExternallyRewrittenQuery()).forEach(analysis::addUtilizedTableColumnReferences);
+        }
+    }
+
+    public static void analyzeForUtilizedColumn(Analysis analysis, Node node, Node originalNode, WarningCollector warningCollector)
+    {
+        boolean isExternallyRewrittenQuery = analysis.getExternallyRewrittenQuery();
+        UtilizedColumnsAnalyzer analyzer = new UtilizedColumnsAnalyzer(analysis);
+        try {
+            // First analyze the rewritten query
+            analyzer.analyze(node, false);
+            if (isExternallyRewrittenQuery) {
+                // If the query rewriter plugin succeeded, we need to analyze the original node as well
+                // to get the utilized columns for access control
+                analyzer.analyze(originalNode, true);
+            }
+        }
+        catch (Exception e) {
+            warningCollector.add(new PrestoWarning(
+                    UTILIZED_COLUMN_ANALYSIS_FAILED,
+                    "Error in analyzing utilized columns for access control, falling back to checking access on all columns: " + e.getMessage()));
+            analysis.getTableColumnReferences(false).forEach(analysis::addUtilizedTableColumnReferences);
+            if (isExternallyRewrittenQuery) {
+                analysis.getTableColumnReferences(true).forEach(analysis::addOriginalUtilizedTableColumnReferences);
+            }
         }
     }
 
@@ -116,7 +140,7 @@ public class UtilizedColumnsAnalyzer
         this.analysis = analysis;
     }
 
-    public void analyze(Node node)
+    public void analyze(Node node, boolean isExternallyRewrittenQuery)
     {
         UtilizedFieldsBuilderVisitor visitor = new UtilizedFieldsBuilderVisitor(analysis);
         ImmutableSet.Builder<Field> utilizedFieldsBuilder = ImmutableSet.builder();
@@ -131,14 +155,19 @@ public class UtilizedColumnsAnalyzer
         }
 
         // For each access control, keep only the table columns that impact the final results
-        for (Entry<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> entry : analysis.getTableColumnReferences().entrySet()) {
+        for (Entry<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> entry : analysis.getTableColumnReferences(isExternallyRewrittenQuery).entrySet()) {
             AccessControlInfo accessControlInfo = entry.getKey();
             Map<QualifiedObjectName, Set<String>> tableColumnsForThisAccessControl = entry.getValue();
             Map<QualifiedObjectName, Set<String>> utilizedTableColumnsForThisAccessControl = new HashMap<>();
             for (QualifiedObjectName table : tableColumnsForThisAccessControl.keySet()) {
                 utilizedTableColumnsForThisAccessControl.put(table, intersection(utilizedTableColumns.get(table), tableColumnsForThisAccessControl.get(table)));
             }
-            analysis.addUtilizedTableColumnReferences(accessControlInfo, utilizedTableColumnsForThisAccessControl);
+            if (isExternallyRewrittenQuery) {
+                analysis.addOriginalUtilizedTableColumnReferences(accessControlInfo, utilizedTableColumnsForThisAccessControl);
+            }
+            else {
+                analysis.addUtilizedTableColumnReferences(accessControlInfo, utilizedTableColumnsForThisAccessControl);
+            }
         }
     }
 

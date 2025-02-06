@@ -31,6 +31,15 @@ public interface QueryAnalyzer
     QueryAnalysis analyze(AnalyzerContext analyzerContext, PreparedQuery preparedQuery);
 
     /**
+    * Analyzes a prepared query in the given analyzer context, considering the original prepared query for additional context.
+    *
+    * @param analyzerContext analyzer context which stores various information used by analyzer
+    * @param preparedQuery prepared query which needs to be analyzed
+    * @param originalPreparedQuery the prepared query of original statement for external rewritten query
+    */
+    QueryAnalysis analyze(AnalyzerContext analyzerContext, PreparedQuery preparedQuery, PreparedQuery originalPreparedQuery);
+
+    /**
      * Create logical plan for a given query analysis.
      *
      * @param analyzerContext analyzerContext analyzer context which stores various information used by analyzer

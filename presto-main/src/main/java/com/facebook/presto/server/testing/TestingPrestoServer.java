@@ -38,6 +38,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
+import com.facebook.presto.dispatcher.QueryRewriterManager;
 import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
@@ -62,6 +63,7 @@ import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.server.ServerInfoResource;
 import com.facebook.presto.server.ServerMainModule;
 import com.facebook.presto.server.ShutdownAction;
+import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.ConnectorId;
@@ -184,6 +186,8 @@ public class TestingPrestoServer
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final NodeManager pluginNodeManager;
     private final ClientRequestFilterManager clientRequestFilterManager;
+    private final QueryRewriterManager queryRewriterManager;
+    private final PasswordAuthenticatorManager passwordAuthenticatorManager;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -320,11 +324,11 @@ public class TestingPrestoServer
                 .add(new ClientRequestFilterModule())
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(TestingTempStorageManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
-                    binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TempStorageManager.class).to(TestingTempStorageManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
@@ -377,6 +381,8 @@ public class TestingPrestoServer
         splitManager = injector.getInstance(SplitManager.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         expressionManager = injector.getInstance(ExpressionOptimizerManager.class);
+        queryRewriterManager = injector.getInstance(QueryRewriterManager.class);
+        passwordAuthenticatorManager = injector.getInstance(PasswordAuthenticatorManager.class);
         if (coordinator) {
             dispatchManager = injector.getInstance(DispatchManager.class);
             queryManager = injector.getInstance(QueryManager.class);
@@ -544,6 +550,16 @@ public class TestingPrestoServer
     public QueryManager getQueryManager()
     {
         return queryManager;
+    }
+
+    public QueryRewriterManager getQueryRewriterManager()
+    {
+        return queryRewriterManager;
+    }
+
+    public PasswordAuthenticatorManager getPasswordAuthenticatorManager()
+    {
+        return passwordAuthenticatorManager;
     }
 
     public Plan getQueryPlan(QueryId queryId)

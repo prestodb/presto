@@ -51,6 +51,7 @@ import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
+import com.facebook.presto.dispatcher.QueryRewriterManager;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
@@ -828,6 +829,9 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+
+        // Pluggable query rewriter
+        binder.bind(QueryRewriterManager.class).in(Scopes.SINGLETON);
 
         // Distributed tracing
         configBinder(binder).bindConfig(TracingConfig.class);

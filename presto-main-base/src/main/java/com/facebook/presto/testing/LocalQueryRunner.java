@@ -52,6 +52,7 @@ import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
+import com.facebook.presto.dispatcher.QueryRewriterManager;
 import com.facebook.presto.eventlistener.EventListenerConfig;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.AlterFunctionTask;
@@ -531,7 +532,7 @@ public class LocalQueryRunner
         BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(queryAnalyzer);
         BuiltInQueryPreparer queryPreparer = new BuiltInQueryPreparer(sqlParser);
         BuiltInQueryPreparerProvider queryPreparerProvider = new BuiltInQueryPreparerProvider(queryPreparer);
-
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
         this.pluginManager = new PluginManager(
                 nodeInfo,
                 new PluginManagerConfig(),
@@ -543,7 +544,7 @@ public class LocalQueryRunner
                 accessControl,
                 new PasswordAuthenticatorManager(),
                 new PrestoAuthenticatorManager(new SecurityConfig()),
-                new EventListenerManager(new EventListenerConfig()),
+                eventListenerManager,
                 blockEncodingManager,
                 new TestingTempStorageManager(),
                 new QueryPrerequisitesManager(),
@@ -555,7 +556,8 @@ public class LocalQueryRunner
                 new NodeStatusNotificationManager(),
                 new ClientRequestFilterManager(),
                 planCheckerProviderManager,
-                expressionOptimizerManager);
+                expressionOptimizerManager,
+                new QueryRewriterManager(eventListenerManager, catalogManager));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());

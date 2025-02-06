@@ -15,6 +15,8 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.execution.QueryIdGenerator;
@@ -37,6 +39,7 @@ import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControl;
+import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -91,9 +94,13 @@ public class DispatchManager
 
     private final QueryPreparerProviderManager queryPreparerProviderManager;
 
+    private final AnalyzerProviderManager analyzerProviderManager;
+
+    private final QueryRewriterManager queryRewriterManager;
+
     /**
      * Dispatch Manager is used for the pre-queuing part of queries prior to the query execution phase.
-     *
+     * <p>
      * Dispatch Manager object is instantiated when the presto server is launched by server bootstrap time. It is a critical component in resource management section of the query.
      *
      * @param queryIdGenerator query ID generator for generating a new query ID when a query is created
@@ -125,7 +132,9 @@ public class DispatchManager
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor,
             ClusterStatusSender clusterStatusSender,
-            Optional<ClusterQueryTrackerService> clusterQueryTrackerService)
+            Optional<ClusterQueryTrackerService> clusterQueryTrackerService,
+            AnalyzerProviderManager analyzerProviderManager,
+            QueryRewriterManager queryRewriterManager)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.queryPreparerProviderManager = requireNonNull(queryPreparerProviderManager, "queryPreparerProviderManager is null");
@@ -146,6 +155,10 @@ public class DispatchManager
         this.clusterStatusSender = requireNonNull(clusterStatusSender, "clusterStatusSender is null");
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor(), clusterQueryTrackerService);
+
+        this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
+
+        this.queryRewriterManager = requireNonNull(queryRewriterManager, "queryRewriterManager is null");
     }
 
     /**
@@ -180,7 +193,7 @@ public class DispatchManager
 
     /**
      * Create a query id
-     *
+     * <p>
      * This method is called when a {@code Query} object is created
      *
      * @return {@link QueryId}
@@ -261,6 +274,7 @@ public class DispatchManager
         Session session = null;
         SessionBuilder sessionBuilder = null;
         PreparedQuery preparedQuery;
+        PreparedQuery originalPreparedQuery = null;
         try {
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
@@ -272,11 +286,32 @@ public class DispatchManager
             sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
             session = sessionBuilder.build();
 
-            // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, sessionBuilder.getWarningCollector());
             QueryPreparerProvider queryPreparerProvider = queryPreparerProviderManager.getQueryPreparerProvider(getAnalyzerType(session));
-            preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, sessionBuilder.getPreparedStatements(), sessionBuilder.getWarningCollector());
-            query = preparedQuery.getFormattedQuery().orElse(query);
+            originalPreparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
+
+            // Rewrite the query
+            if (SystemSessionProperties.isQueryRewriterPluginEnabled(session)) {
+                QueryAndSessionProperties queryAndSessionProperties = queryRewriterManager.rewriteQueryAndSession(query, session, analyzerOptions,
+                        analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session)), queryPreparerProvider);
+                if (queryAndSessionProperties.getQuery().isPresent()) {
+                    queryAndSessionProperties.getSystemSessionProperties().forEach(sessionBuilder::setSystemProperty);
+                    query = queryAndSessionProperties.getQuery().get();
+                    RuntimeStats runtimeStats = queryAndSessionProperties.getRuntimeStats();
+                    if (runtimeStats != null) {
+                        sessionBuilder.setRuntimeStats(RuntimeStats.merge(session.getRuntimeStats(), runtimeStats));
+                    }
+                }
+            }
+
+            // prepare query
+            session = sessionBuilder.build();
+            if (SystemSessionProperties.isQueryRewriterPluginSucceeded(session)) {
+                preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, sessionBuilder.getPreparedStatements(), sessionBuilder.getWarningCollector());
+            }
+            else {
+                preparedQuery = originalPreparedQuery;
+            }
 
             // select resource group
             Optional<QueryType> queryType = preparedQuery.getQueryType();
@@ -307,6 +342,7 @@ public class DispatchManager
                     session,
                     query,
                     preparedQuery,
+                    originalPreparedQuery,
                     slug,
                     retryCount,
                     selectionContext.getResourceGroupId(),

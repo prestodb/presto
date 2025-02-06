@@ -33,6 +33,7 @@ public interface DispatchQueryFactory
      * @param session the session
      * @param query the query
      * @param preparedQuery the prepared query
+     * @param originalPreparedQuery the prepared query of original statement for external rewritten query
      * @param slug the unique query slug for each {@code Query} object
      * @param retryCount the query retry count
      * @param resourceGroup the resource group to be used
@@ -45,6 +46,7 @@ public interface DispatchQueryFactory
             Session session,
             String query,
             PreparedQuery preparedQuery,
+            PreparedQuery originalPreparedQuery,
             String slug,
             int retryCount,
             ResourceGroupId resourceGroup,

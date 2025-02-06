@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.QualifiedObjectName;
@@ -1892,7 +1893,8 @@ public class ExpressionAnalyzer
     {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
-        Analysis analysis = new Analysis(null, parameters, isDescribe);
+        boolean isExternallyRewrittenQuery = SystemSessionProperties.isQueryRewriterPluginSucceeded(session);
+        Analysis analysis = new Analysis(null, parameters, isDescribe, isExternallyRewrittenQuery);
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());

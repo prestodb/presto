@@ -1,0 +1,22 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+
+<suite name="E2E suite">
+    <parameter name="db2JdbcUrl" value="${db2.jdbc_url}" />
+    <parameter name="db2TpchSchema" value="${db2.tpch_schema}" />
+    <parameter name="db2TpchCatalog" value="${db2.tpch_catalog}" />
+    <parameter name="testDataDir" value="${test.data_dir}" />
+    <parameter name="testGenerateResultFiles" value="${test.generate_result_files}" />
+    <parameter name="testEraseDataDir" value="${test.erase_data_dir}" />
+    <test name="Integration Tests">
+        <classes>
+            <class name="com.facebook.presto.rewriter.TestOptPlusFallbackMechanism" />
+            <class name="com.facebook.presto.rewriter.TestOptPlusPassThroughMechanism" />
+            <class name="com.facebook.presto.rewriter.TestOptPlusTPCHAgainstPrestoResults" />
+        </classes>
+    </test>
+    <test name="Unit Tests">
+        <classes>
+            <class name="com.facebook.presto.rewriter.TestRewriterUtils" />
+        </classes>
+    </test>
+</suite>

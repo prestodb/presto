@@ -69,6 +69,11 @@ public class EventListenerManager
         }
     }
 
+    public List<EventListener> getConfiguredEventListeners()
+    {
+        return configuredEventListeners.get();
+    }
+
     public void loadConfiguredEventListeners()
     {
         checkState(loading.compareAndSet(false, true), "Event listeners already loaded");

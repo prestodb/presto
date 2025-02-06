@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
+import com.facebook.presto.sql.tree.Statement;
 import com.google.inject.Inject;
 
 import java.util.Optional;
@@ -93,6 +94,37 @@ public class BuiltInQueryAnalyzer
                 analyzerContext.getQuery());
 
         Analysis analysis = analyzer.analyzeSemantic(((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getStatement(), false);
+        return new BuiltInQueryAnalysis(analysis);
+    }
+
+    public QueryAnalysis analyze(AnalyzerContext analyzerContext, PreparedQuery preparedQuery, PreparedQuery originalPreparedQuery)
+    {
+        requireNonNull(preparedQuery, "preparedQuery is null");
+
+        checkState(analyzerContext instanceof BuiltInAnalyzerContext, "analyzerContext should be an instance of BuiltInAnalyzerContext");
+        checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", preparedQuery.getClass().getSimpleName());
+
+        BuiltInQueryPreparer.BuiltInPreparedQuery builtInPreparedQuery = (BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery;
+        Session session = ((BuiltInAnalyzerContext) analyzerContext).getSession();
+
+        Analyzer analyzer = new Analyzer(
+                session,
+                metadata,
+                sqlParser,
+                accessControl,
+                queryExplainer,
+                builtInPreparedQuery.getParameters(),
+                parameterExtractor(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters()),
+                session.getWarningCollector(),
+                Optional.of(metadataExtractorExecutor),
+                analyzerContext.getQuery());
+
+        Statement originalStatement = null;
+        if (originalPreparedQuery != null) {
+            checkState(originalPreparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery, "Unsupported prepared query type: %s", originalPreparedQuery.getClass().getSimpleName());
+            originalStatement = ((BuiltInQueryPreparer.BuiltInPreparedQuery) originalPreparedQuery).getStatement();
+        }
+        Analysis analysis = analyzer.analyzeSemantics(((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery).getStatement(), originalStatement, false);
         return new BuiltInQueryAnalysis(analysis);
     }
 

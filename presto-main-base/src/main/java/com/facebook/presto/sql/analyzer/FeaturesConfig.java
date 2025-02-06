@@ -304,6 +304,7 @@ public class FeaturesConfig
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
     private boolean addDistinctBelowSemiJoinBuild;
+    private boolean queryRewriterPluginEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -1166,6 +1167,18 @@ public class FeaturesConfig
     {
         this.treatLowConfidenceZeroEstimationAsUnknownEnabled = treatLowConfidenceZeroEstimationAsUnknownEnabled;
         return this;
+    }
+
+    @Config("optimizer.is_query_rewriter_plugin_enabled")
+    public FeaturesConfig setQueryRewriterPluginEnabled(boolean queryRewriterPluginEnabled)
+    {
+        this.queryRewriterPluginEnabled = queryRewriterPluginEnabled;
+        return this;
+    }
+
+    public boolean isQueryRewriterPluginEnabled()
+    {
+        return queryRewriterPluginEnabled;
     }
 
     public boolean isSpillEnabled()
@@ -2941,6 +2954,7 @@ public class FeaturesConfig
     {
         return inEqualityJoinPushdownEnabled;
     }
+
     public boolean isPrestoSparkExecutionEnvironment()
     {
         return prestoSparkExecutionEnvironment;

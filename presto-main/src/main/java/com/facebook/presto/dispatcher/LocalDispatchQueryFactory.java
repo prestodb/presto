@@ -123,6 +123,7 @@ public class LocalDispatchQueryFactory
      * @param analyzerProvider the analyzer provider
      * @param query the query
      * @param preparedQuery the prepared query
+     *
      * @param slug the unique query slug for each {@code Query} object
      * @param retryCount the query retry count
      * @param resourceGroup the resource group to be used
@@ -136,6 +137,7 @@ public class LocalDispatchQueryFactory
             Session session,
             String query,
             PreparedQuery preparedQuery,
+            PreparedQuery originalPreparedQuery,
             String slug,
             int retryCount,
             ResourceGroupId resourceGroup,
@@ -166,7 +168,7 @@ public class LocalDispatchQueryFactory
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatementClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session)), preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType, accessControl, query);
+            return queryExecutionFactory.createQueryExecution(analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session)), preparedQuery, originalPreparedQuery, stateMachine, slug, retryCount, warningCollector, queryType, accessControl, query);
         });
 
         return new LocalDispatchQuery(

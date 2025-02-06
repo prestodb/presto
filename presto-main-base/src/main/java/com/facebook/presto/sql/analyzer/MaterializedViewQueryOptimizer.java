@@ -15,6 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -765,13 +766,14 @@ public class MaterializedViewQueryOptimizer
 
         ExpressionAnalysis getExpressionAnalysis(Expression expression, Scope scope)
         {
+            boolean isExternallyRewrittenQuery = SystemSessionProperties.isQueryRewriterPluginSucceeded(session);
             return ExpressionAnalyzer.analyzeExpression(
                     session,
                     metadata,
                     accessControl,
                     sqlParser,
                     scope,
-                    new Analysis(null, ImmutableMap.of(), false),
+                    new Analysis(null, ImmutableMap.of(), false, isExternallyRewrittenQuery),
                     expression,
                     WarningCollector.NOOP);
         }

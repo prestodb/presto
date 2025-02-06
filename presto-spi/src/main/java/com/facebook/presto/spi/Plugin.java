@@ -24,6 +24,7 @@ import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
+import com.facebook.presto.spi.rewriter.QueryRewriterProviderFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
@@ -140,6 +141,11 @@ public interface Plugin
     }
 
     default Iterable<QueryPreparerProvider> getQueryPreparerProviders()
+    {
+        return emptyList();
+    }
+
+    default Iterable<QueryRewriterProviderFactory> getQueryRewriterProviderFactories()
     {
         return emptyList();
     }

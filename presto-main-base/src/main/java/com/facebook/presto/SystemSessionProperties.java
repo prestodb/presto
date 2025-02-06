@@ -346,6 +346,8 @@ public final class SystemSessionProperties
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
     private static final String NATIVE_EXECUTION_TYPE_REWRITE_ENABLED = "native_execution_type_rewrite_enabled";
+    public static final String IS_QUERY_REWRITER_PLUGIN_ENABLED = "is_query_rewriter_plugin_enabled";
+    public static final String IS_QUERY_REWRITER_PLUGIN_SUCCEEDED = "is_query_rewriter_plugin_succeeded";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1866,7 +1868,7 @@ public final class SystemSessionProperties
                         INEQUALITY_JOIN_PUSHDOWN_ENABLED,
                         "Enable Join Pushdown for Inequality Predicates",
                         featuresConfig.isInEqualityJoinPushdownEnabled(),
-                    false),
+                        false),
                 integerProperty(
                         NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING,
                         "Minimum number of columnar encoding channels to consider row wise encoding for partitioned exchange. Native execution only",
@@ -1915,7 +1917,27 @@ public final class SystemSessionProperties
                 booleanProperty(ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD,
                         "Add distinct aggregation below semi join build",
                         featuresConfig.isAddDistinctBelowSemiJoinBuild(),
-                        false));
+                        false),
+                booleanProperty(
+                        IS_QUERY_REWRITER_PLUGIN_ENABLED,
+                        "Use queries rewriter plugin",
+                        featuresConfig.isQueryRewriterPluginEnabled(),
+                        true),
+                booleanProperty(
+                        IS_QUERY_REWRITER_PLUGIN_SUCCEEDED,
+                        "Query rewrite success",
+                        false,
+                        true));
+    }
+
+    public static boolean isQueryRewriterPluginSucceeded(Session session)
+    {
+        return session.getSystemProperty(IS_QUERY_REWRITER_PLUGIN_SUCCEEDED, Boolean.class);
+    }
+
+    public static boolean isQueryRewriterPluginEnabled(Session session)
+    {
+        return session.getSystemProperty(IS_QUERY_REWRITER_PLUGIN_ENABLED, Boolean.class);
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)

@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
@@ -42,6 +43,7 @@ import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExtern
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.UtilizedColumnsAnalyzer.analyzeForUtilizedColumn;
 import static com.facebook.presto.sql.analyzer.UtilizedColumnsAnalyzer.analyzeForUtilizedColumns;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static java.util.Objects.requireNonNull;
@@ -111,15 +113,36 @@ public class Analyzer
         return analysis;
     }
 
+    public Analysis analyze(Statement statement, Statement originalStatement)
+    {
+        Analysis analysis = analyzeSemantics(statement, originalStatement, false);
+        checkAccessPermissions(analysis.getAccessControlReferences(), query);
+        return analysis;
+    }
+
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
+        return analyzeSemantics(statement, null, isDescribe);
+    }
+
+    public Analysis analyzeSemantics(Statement statement, Statement originalStatement, boolean isDescribe)
+    {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector, query);
-        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+        boolean isExternallyRewrittenQuery = SystemSessionProperties.isQueryRewriterPluginSucceeded(session);
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe, isExternallyRewrittenQuery);
 
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
-        analyzer.analyze(rewrittenStatement, Optional.empty());
-        analyzeForUtilizedColumns(analysis, analysis.getStatement(), warningCollector);
+
+        if (originalStatement != null) {
+            analyzer.analyze(rewrittenStatement, originalStatement, Optional.empty());
+            analyzeForUtilizedColumn(analysis, analysis.getStatement(), originalStatement, warningCollector);
+        }
+        else {
+            analyzer.analyze(rewrittenStatement, Optional.empty());
+            analyzeForUtilizedColumns(analysis, analysis.getStatement(), warningCollector);
+        }
+
         analysis.populateTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session));
         return analysis;
     }

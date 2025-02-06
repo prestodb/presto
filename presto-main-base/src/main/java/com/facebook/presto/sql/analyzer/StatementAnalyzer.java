@@ -359,6 +359,26 @@ class StatementAnalyzer
         return new Visitor(outerQueryScope, warningCollector).process(node, Optional.empty());
     }
 
+    public Scope analyze(Node node, Node originalNode, Optional<Scope> outerQueryScope)
+    {
+        boolean isExternallyRewrittenQuery = analysis.getExternallyRewrittenQuery();
+        if (isExternallyRewrittenQuery) {
+            // Since this query is rewritten, we need to first analyze the original query
+            // This will set the `orignalXXX` access control maps on the Analysis
+            analyze(originalNode, outerQueryScope);
+
+            //  Now we unset the flag and analyze the rewritten query
+            // This will set the 'regular' access control maps on the Analysis
+            analysis.setExternallyRewrittenQuery(false);
+            // The scope we want to return is for the rewritten query
+            Scope scope = analyze(node, outerQueryScope);
+            // Re-set the flag before returning the scope
+            analysis.setExternallyRewrittenQuery(true);
+            return scope;
+        }
+        return analyze(node, outerQueryScope);
+    }
+
     /**
      * Visitor context represents local query scope (if exists). The invariant is
      * that the local query scopes hierarchy should always have outer query scope
