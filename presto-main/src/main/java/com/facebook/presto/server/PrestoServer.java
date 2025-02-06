@@ -35,6 +35,7 @@ import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
+import com.facebook.presto.dispatcher.QueryRewriterManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.eventlistener.EventListenerModule;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
@@ -190,6 +191,7 @@ public class PrestoServer
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
             injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            injector.getInstance(QueryRewriterManager.class).loadQueryRewriterProvider();
             PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
             InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
             NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
