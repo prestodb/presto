@@ -24,6 +24,8 @@ import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
@@ -100,6 +102,15 @@ public class StoragePartitionLoader
 {
     private static final ListenableFuture<?> COMPLETED_FUTURE = immediateFuture(null);
 
+    private final Cache<HiveFileInfo, List<Path>> symlinkPathCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .build();
+    private final Cache<Integer, JobConf> jobConfCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .build();
+    private final Cache<Integer, Configuration> configurationCache = CacheBuilder.newBuilder()
+            .maximumSize(500)
+            .build();
     private final Table table;
     private final Map<Integer, Domain> infoColumnConstraints;
     private final Optional<BucketSplitInfo> tableBucketInfo;
@@ -184,7 +195,8 @@ public class StoragePartitionLoader
             // the splits must be generated using the file system for the target path
             // get the configuration for the target path -- it may be a different hdfs instance
             ExtendedFileSystem targetFilesystem = hdfsEnvironment.getFileSystem(hdfsContext, targetPath);
-            JobConf targetJob = toJobConf(targetFilesystem.getConf());
+            Configuration targetConf = configurationCache.asMap().computeIfAbsent(targetFilesystem.hashCode(), ignored -> targetFilesystem.getConf());
+            JobConf targetJob = jobConfCache.asMap().computeIfAbsent(targetConf.hashCode(), ignored -> toJobConf(targetConf));
             targetJob.setInputFormat(TextInputFormat.class);
             targetInputFormat.configure(targetJob);
             targetJob.set(SPLIT_MINSIZE, Long.toString(getMaxSplitSize(session).toBytes()));
@@ -595,11 +607,16 @@ public class StoragePartitionLoader
             List<HiveFileInfo> manifestFileInfos = ImmutableList.copyOf(directoryLister.list(fileSystem, table, symlinkDir, partition, namenodeStats, hiveDirectoryContext));
 
             for (HiveFileInfo symlink : manifestFileInfos) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
-                    CharStreams.readLines(reader).stream()
-                            .map(Path::new)
-                            .forEach(targets::add);
+                if (!symlinkPathCache.asMap().containsKey(symlink)) {
+                    List<Path> currentSymlinkTargets = new ArrayList<>();
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(fileSystem.open(symlink.getPath()), StandardCharsets.UTF_8))) {
+                        CharStreams.readLines(reader).stream()
+                                .map(Path::new)
+                                .forEach(currentSymlinkTargets::add);
+                    }
+                    symlinkPathCache.put(symlink, currentSymlinkTargets);
                 }
+                targets.addAll(symlinkPathCache.asMap().get(symlink));
             }
             return targets;
         }
