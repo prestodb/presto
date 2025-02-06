@@ -58,7 +58,11 @@ struct ApproxMostFrequentStreamSummary {
   /// Calculate the size needed for serialization.
   size_t serializedByteSize() const;
 
-  /// Serialize the summary into bytes.
+  /// Serialize the summary into bytes.  The serialzation should be always
+  /// backward compatible, meaning newer code should always be able to read
+  /// serialization from old version.  Essentially this means the serialization
+  /// format should not change.
+  ///
   /// @param out Pre-allocated memory at least serializedByteSize() in size
   void serialize(char* out) const;
 
