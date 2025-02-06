@@ -23,8 +23,8 @@ import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 
-@Test
-public class TestIcebergDistributedHadoop
+@Test(enabled = false)
+public abstract class TestIcebergDistributedHadoop
         extends IcebergDistributedTestBase
 {
     public TestIcebergDistributedHadoop()

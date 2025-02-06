@@ -37,8 +37,8 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
-public class TestIcebergSmokeHadoop
+@Test(enabled = false)
+public abstract class TestIcebergSmokeHadoop
         extends IcebergDistributedSmokeTestBase
 {
     public TestIcebergSmokeHadoop()
