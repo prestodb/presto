@@ -18,11 +18,12 @@
 
 from typing import Iterator
 
+# pyre-fixme[21]: Could not find `velox.py.type`.
+from velox.py.cector import Vector
 
-class Vector:
-    def size(self) -> int: ...
 
 class LocalRunner:
     def __init__(self, PlanNode) -> None: ...
+    # pyre-fixme[11]: Annotation `Vector` is not defined as a type.
     def execute(self) -> Iterator[Vector]: ...
     def add_file_split(self, plan_id: str, file_path: str) -> None: ...
