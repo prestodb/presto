@@ -75,6 +75,53 @@ struct IPPrefixFunction {
   }
 };
 
+template <typename T>
+struct IPSubnetMinFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<IPAddress>& result,
+      const arg_type<IPPrefix>& ipPrefix) {
+    // IPPrefix type stores the smallest(canonical) IP already
+    result = *ipPrefix.template at<0>();
+  }
+};
+
+template <typename T>
+struct IPSubnetMaxFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<IPAddress>& result,
+      const arg_type<IPPrefix>& ipPrefix) {
+    result =
+        getIPSubnetMax(*ipPrefix.template at<0>(), *ipPrefix.template at<1>());
+  }
+
+ private:
+  static int128_t getIPSubnetMax(int128_t ip, uint8_t prefix) {
+    auto tryIpv4 = ipaddress::tryIpPrefixLengthFromIPAddressType(ip);
+    // This check should never fail because we're taking a pre-existing
+    // IPPrefix.
+    VELOX_CHECK(tryIpv4.hasValue());
+
+    const bool isIpV4 = tryIpv4.value() == ipaddress::kIPV4Bits;
+    uint128_t mask = 1;
+    if (isIpV4) {
+      ip |= (mask << (ipaddress::kIPV4Bits - prefix)) - 1;
+      return ip;
+    }
+
+    // Special case: Overflow to all 0 subtracting 1 does not work.
+    if (prefix == 0) {
+      return -1;
+    }
+
+    ip |= (mask << (ipaddress::kIPV6Bits - prefix)) - 1;
+    return ip;
+  }
+};
+
 void registerIPAddressFunctions(const std::string& prefix) {
   registerIPAddressType();
   registerIPPrefixType();
@@ -82,6 +129,10 @@ void registerIPAddressFunctions(const std::string& prefix) {
       {prefix + "ip_prefix"});
   registerFunction<IPPrefixFunction, IPPrefix, Varchar, int64_t>(
       {prefix + "ip_prefix"});
+  registerFunction<IPSubnetMinFunction, IPAddress, IPPrefix>(
+      {prefix + "ip_subnet_min"});
+  registerFunction<IPSubnetMaxFunction, IPAddress, IPPrefix>(
+      {prefix + "ip_subnet_max"});
 }
 
 } // namespace facebook::velox::functions

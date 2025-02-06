@@ -33,6 +33,18 @@ class IPAddressFunctionsTest : public functions::test::FunctionBaseTest {
     return evaluateOnce<std::string>(
         "cast(ip_prefix(c0, c1) as varchar)", input, mask);
   }
+
+  std::optional<std::string> ipSubnetMin(
+      const std::optional<std::string>& input) {
+    return evaluateOnce<std::string>(
+        "cast(ip_subnet_min(cast(c0 as ipprefix)) as varchar)", input);
+  }
+
+  std::optional<std::string> ipSubnetMax(
+      const std::optional<std::string>& input) {
+    return evaluateOnce<std::string>(
+        "cast(ip_subnet_max(cast(c0 as ipprefix)) as varchar)", input);
+  }
 };
 
 TEST_F(IPAddressFunctionsTest, ipPrefixFromIpAddress) {
@@ -109,6 +121,63 @@ TEST_F(IPAddressFunctionsTest, ipPrefixFromVarChar) {
   VELOX_ASSERT_THROW(
       ipPrefixFromVarChar("123.456.789.012", 24),
       "Cannot cast value to IPADDRESS: 123.456.789.012");
+}
+
+TEST_F(IPAddressFunctionsTest, ipSubnetMin) {
+  ASSERT_EQ(ipSubnetMin("1.2.3.4/24"), "1.2.3.0");
+  ASSERT_EQ(ipSubnetMin("1.2.3.4/32"), "1.2.3.4");
+  ASSERT_EQ(ipSubnetMin("64:ff9b::17/64"), "64:ff9b::");
+  ASSERT_EQ(ipSubnetMin("64:ff9b::17/127"), "64:ff9b::16");
+  ASSERT_EQ(ipSubnetMin("64:ff9b::17/128"), "64:ff9b::17");
+  ASSERT_EQ(ipSubnetMin("64:ff9b::17/0"), "::");
+  ASSERT_EQ(ipSubnetMin("192.64.1.1/9"), "192.0.0.0");
+  ASSERT_EQ(ipSubnetMin("192.64.1.1/0"), "0.0.0.0");
+  ASSERT_EQ(ipSubnetMin("192.64.1.1/1"), "128.0.0.0");
+  ASSERT_EQ(ipSubnetMin("192.64.1.1/31"), "192.64.1.0");
+  ASSERT_EQ(ipSubnetMin("192.64.1.1/32"), "192.64.1.1");
+  ASSERT_EQ(
+      ipSubnetMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/48"),
+      "2001:db8:85a3::");
+  ASSERT_EQ(ipSubnetMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/0"), "::");
+  ASSERT_EQ(ipSubnetMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/1"), "::");
+  ASSERT_EQ(
+      ipSubnetMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/127"),
+      "2001:db8:85a3:1:1:8a2e:370:7334");
+  ASSERT_EQ(
+      ipSubnetMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/128"),
+      "2001:db8:85a3:1:1:8a2e:370:7334");
+}
+
+TEST_F(IPAddressFunctionsTest, ipSubnetMax) {
+  ASSERT_EQ(ipSubnetMax("1.2.3.128/26"), "1.2.3.191");
+  ASSERT_EQ(ipSubnetMax("192.168.128.4/32"), "192.168.128.4");
+  ASSERT_EQ(ipSubnetMax("10.1.16.3/9"), "10.127.255.255");
+  ASSERT_EQ(ipSubnetMax("2001:db8::16/127"), "2001:db8::17");
+  ASSERT_EQ(ipSubnetMax("2001:db8::16/128"), "2001:db8::16");
+  ASSERT_EQ(ipSubnetMax("64:ff9b::17/64"), "64:ff9b::ffff:ffff:ffff:ffff");
+  ASSERT_EQ(ipSubnetMax("64:ff9b::17/72"), "64:ff9b::ff:ffff:ffff:ffff");
+  ASSERT_EQ(
+      ipSubnetMax("64:ff9b::17/0"), "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+  ASSERT_EQ(ipSubnetMax("192.64.1.1/9"), "192.127.255.255");
+  ASSERT_EQ(ipSubnetMax("192.64.1.1/0"), "255.255.255.255");
+  ASSERT_EQ(ipSubnetMax("192.64.1.1/1"), "255.255.255.255");
+  ASSERT_EQ(ipSubnetMax("192.64.1.1/31"), "192.64.1.1");
+  ASSERT_EQ(ipSubnetMax("192.64.1.1/32"), "192.64.1.1");
+  ASSERT_EQ(
+      ipSubnetMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/48"),
+      "2001:db8:85a3:ffff:ffff:ffff:ffff:ffff");
+  ASSERT_EQ(
+      ipSubnetMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/0"),
+      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+  ASSERT_EQ(
+      ipSubnetMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/1"),
+      "7fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff");
+  ASSERT_EQ(
+      ipSubnetMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/127"),
+      "2001:db8:85a3:1:1:8a2e:370:7335");
+  ASSERT_EQ(
+      ipSubnetMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/128"),
+      "2001:db8:85a3:1:1:8a2e:370:7334");
 }
 
 } // namespace facebook::velox::functions::prestosql
