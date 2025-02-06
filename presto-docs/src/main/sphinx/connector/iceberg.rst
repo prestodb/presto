@@ -256,14 +256,26 @@ Property Name                                           Description             
 ======================================================= ============================================================= ============
 ``iceberg.catalog.warehouse``                           The catalog warehouse root path for Iceberg tables.
 
+                                                        Hadoop catalog requires a file system that supports atomic
+                                                        rename operation, such as HDFS, to maintain metadata files
+                                                        in order to implement atomic transaction commit.
+
                                                         Example: ``hdfs://nn:8020/warehouse/path``
+
+                                                        Do not set ``iceberg.catalog.warehouse`` to a path in object
+                                                        stores or local file systems in the production environment.
+
                                                         This property is required if the ``iceberg.catalog.type`` is
                                                         ``hadoop``.
 
 ``iceberg.catalog.hadoop.warehouse.datadir``            The catalog warehouse root data path for Iceberg tables.
+                                                        Its only supported with Hadoop catalog.
+
                                                         Example: ``s3://iceberg_bucket/warehouse``.
-                                                        This property is only supported with Hadoop catalog. If set,
-                                                        all tables in this Hadoop catalog will default to saving
+
+                                                        This optional property can be set to a path in object
+                                                        stores or HDFS.
+                                                        If set, all tables in this Hadoop catalog default to saving
                                                         their data and delete files in the specified root
                                                         data directory.
 
@@ -271,13 +283,6 @@ Property Name                                           Description             
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
-
-.. note::
-
-    Hadoop catalog requires a file system that supports atomic rename operation, such as HDFS,
-    to maintain metadata files in order to implement atomic transaction commit. It's unsafe to
-    set `iceberg.catalog.warehouse` to a path in object stores and local file systems. But it's
-    safe to set `iceberg.catalog.hadoop.warehouse.datadir` to a path in the object stores.
 
 Configure the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
 properties to specify a S3 location as the warehouse data directory for the Hadoop catalog. This way,
