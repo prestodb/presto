@@ -46,6 +46,8 @@ public class HiveCommonClientConfig
     private boolean readNullMaskedParquetEncryptedValueEnabled;
     private boolean useParquetColumnNames;
     private boolean zstdJniDecompressionEnabled;
+    private boolean isParquetAnonymizationEnabled;
+    private String parquetAnonymizationManagerClass;
 
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
@@ -283,5 +285,31 @@ public class HiveCommonClientConfig
     {
         this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
         return this;
+    }
+
+    @Config("hive.enable-parquet-anonymization")
+    @ConfigDescription("enable parquet anonymization")
+    public HiveCommonClientConfig setParquetAnonymizationEnabled(boolean isParquetAnonymizationEnabled)
+    {
+        this.isParquetAnonymizationEnabled = isParquetAnonymizationEnabled;
+        return this;
+    }
+
+    public boolean isParquetAnonymizationEnabled()
+    {
+        return this.isParquetAnonymizationEnabled;
+    }
+
+    @Config("hive.parquet-anonymization-manager-class")
+    @ConfigDescription("Anonymization manager class, must be set if parquet anonymization is enabled")
+    public HiveCommonClientConfig setParquetAnonymizationManagerClass(String parquetAnonymizationManagerClass)
+    {
+        this.parquetAnonymizationManagerClass = parquetAnonymizationManagerClass;
+        return this;
+    }
+
+    public String getParquetAnonymizationManagerClass()
+    {
+        return this.parquetAnonymizationManagerClass;
     }
 }

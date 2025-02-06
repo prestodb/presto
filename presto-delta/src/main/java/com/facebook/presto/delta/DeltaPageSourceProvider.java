@@ -53,6 +53,8 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.AccessControlException;
+import org.apache.parquet.anonymization.AnonymizationManager;
+import org.apache.parquet.anonymization.AnonymizationManagerFactory;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -86,8 +88,10 @@ import static com.facebook.presto.delta.DeltaErrorCode.DELTA_MISSING_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_PARQUET_SCHEMA_MISMATCH;
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetAnonymizationManagerClass;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetAnonymizationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
@@ -280,6 +284,14 @@ public class DeltaPageSourceProvider
                 }
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+            Optional<AnonymizationManager> anonymizationManager = Optional.empty();
+            if (isParquetAnonymizationEnabled(session)) {
+                anonymizationManager = AnonymizationManagerFactory
+                        .getAnonymizationManager(
+                                getParquetAnonymizationManagerClass(session),
+                                configuration,
+                                tableName.toString());
+            }
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
@@ -292,7 +304,8 @@ public class DeltaPageSourceProvider
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    anonymizationManager);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();

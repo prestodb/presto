@@ -34,12 +34,15 @@ import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.anonymization.AnonymizationManager;
+import org.apache.parquet.anonymization.AnonymizationManagerFactory;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -59,8 +62,10 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetAnonymizationManagerClass;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetAnonymizationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
@@ -93,7 +98,8 @@ class HudiParquetPageSources
             long length,
             List<HudiColumnHandle> regularColumns,
             TupleDomain<HudiColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            SchemaTableName tableName)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -149,6 +155,14 @@ class HudiParquetPageSources
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+            Optional<AnonymizationManager> anonymizationManager = Optional.empty();
+            if (isParquetAnonymizationEnabled(session)) {
+                anonymizationManager = AnonymizationManagerFactory
+                        .getAnonymizationManager(
+                                getParquetAnonymizationManagerClass(session),
+                                configuration,
+                                tableName.toString());
+            }
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks,
@@ -161,7 +175,8 @@ class HudiParquetPageSources
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    anonymizationManager);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<com.facebook.presto.common.type.Type> prestoTypes = ImmutableList.builder();
