@@ -15,6 +15,7 @@ velox_add_library(
   velox_presto_types
   HyperLogLogType.cpp
   JsonType.cpp
+  TDigestType.cpp
   TimestampWithTimeZoneType.cpp
   UuidType.cpp
   IPAddressType.cpp

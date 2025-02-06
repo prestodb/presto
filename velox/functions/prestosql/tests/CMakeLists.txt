@@ -100,6 +100,7 @@ add_executable(
   TransformValuesTest.cpp
   TrimFunctionsTest.cpp
   TypeOfTest.cpp
+  TDigestCastTest.cpp
   URLFunctionsTest.cpp
   UuidFunctionsTest.cpp
   WidthBucketArrayTest.cpp

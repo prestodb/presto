@@ -17,6 +17,7 @@
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::functions {
@@ -55,6 +56,8 @@ TEST_F(TypeOfTest, basic) {
   EXPECT_EQ("json", typeOf(JSON()));
 
   EXPECT_EQ("HyperLogLog", typeOf(HYPERLOGLOG()));
+
+  EXPECT_EQ("TDigest", typeOf(TDIGEST()));
 
   EXPECT_EQ("unknown", typeOf(UNKNOWN()));
 
