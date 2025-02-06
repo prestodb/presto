@@ -26,6 +26,15 @@
 
 namespace facebook::velox::py {
 
+/// Register hive connector using a given `connectorId`
+void registerHive(const std::string& connectorId);
+
+/// Unregister the connector registered above.
+void unregisterHive(const std::string& connectorId);
+
+/// Unregister all connectors that have been registered by this module.
+void unregisterAll();
+
 class PyTaskIterator;
 
 /// A C++ wrapper to allow Python clients to execute plans using TaskCursor.
@@ -57,8 +66,9 @@ class PyLocalRunner {
  private:
   friend class PyTaskIterator;
 
-  // Memory pool and thread pool to be used by queryCtx.
-  std::shared_ptr<memory::MemoryPool> pool_;
+  // Memory pools and thread pool to be used by queryCtx.
+  std::shared_ptr<memory::MemoryPool> rootPool_;
+  std::shared_ptr<memory::MemoryPool> outputPool_;
   std::shared_ptr<folly::CPUThreadPoolExecutor> executor_;
 
   // The plan node to be executed (created using velox.py.plan_builder).
@@ -78,15 +88,19 @@ class PyLocalRunner {
 // returned by them needs to be comparable and incrementable.
 class PyTaskIterator {
  public:
-  explicit PyTaskIterator(const std::shared_ptr<exec::TaskCursor>& cursor)
-      : cursor_(cursor) {}
+  explicit PyTaskIterator(
+      const std::shared_ptr<exec::TaskCursor>& cursor,
+      const std::shared_ptr<memory::MemoryPool>& pool)
+      : outputPool_(pool), cursor_(cursor) {}
 
   class Iterator {
    public:
     Iterator() {}
 
-    explicit Iterator(const std::shared_ptr<exec::TaskCursor>& cursor)
-        : cursor_(cursor) {
+    explicit Iterator(
+        const std::shared_ptr<exec::TaskCursor>& cursor,
+        const std::shared_ptr<memory::MemoryPool>& pool)
+        : outputPool_(pool), cursor_(cursor) {
       // Advance to the first batch.
       advance();
     }
@@ -109,12 +123,13 @@ class PyTaskIterator {
     }
 
    private:
+    std::shared_ptr<memory::MemoryPool> outputPool_;
     std::shared_ptr<exec::TaskCursor> cursor_;
     RowVectorPtr vector_{nullptr};
   };
 
   Iterator begin() const {
-    return Iterator(cursor_);
+    return Iterator(cursor_, outputPool_);
   }
 
   Iterator end() const {
@@ -122,6 +137,7 @@ class PyTaskIterator {
   }
 
  private:
+  std::shared_ptr<memory::MemoryPool> outputPool_;
   std::shared_ptr<exec::TaskCursor> cursor_;
 };
 

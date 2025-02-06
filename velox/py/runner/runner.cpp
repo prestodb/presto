@@ -59,6 +59,34 @@ PYBIND11_MODULE(runner, m) {
           connector_id: The id of the connector used by the scan.
           )"));
 
-  // Ensure all tasks created by this module have finished.
-  m.add_object("_cleanup", py::capsule(&velox::py::drainAllTasks));
+  m.def(
+       "register_hive",
+       &velox::py::registerHive,
+       pybind11::arg("connector_name") = "hive",
+       py::doc(R"(
+        "Initialize and register Hive connector.
+
+        Args:
+          connector_name: Name to use for the registered connector.
+      )"))
+      .def(
+          "unregister_hive",
+          &velox::py::unregisterHive,
+          pybind11::arg("connector_name") = "hive",
+          py::doc(R"(
+        "Unregister Hive connector.
+
+        Args:
+          connector_name: Name of the connector to unregister.",
+      )"));
+
+  // When the module gets unloaded, first ensure all tasks created by this
+  // module have finished, then unregister all connectors that have been
+  // registered by this module. We need to explicity unregister them to prevent
+  // the connectors and their nested structures from being destructed after
+  // other global and static resources are destructed.
+  m.add_object("_cleanup", py::capsule([]() {
+                 velox::py::drainAllTasks();
+                 velox::py::unregisterAll();
+               }));
 }

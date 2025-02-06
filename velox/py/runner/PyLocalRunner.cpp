@@ -17,6 +17,7 @@
 #include "velox/py/runner/PyLocalRunner.h"
 
 #include <pybind11/stl.h>
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/core/PlanNode.h"
 #include "velox/dwio/common/Options.h"
@@ -36,12 +37,50 @@ std::mutex& taskRegistryLock() {
   return lock;
 }
 
+std::unordered_set<std::string>& connectorRegistry() {
+  static std::unordered_set<std::string> registry;
+  return registry;
+}
+
 } // namespace
 
 namespace py = pybind11;
 
+void registerHive(const std::string& connectorId) {
+  connector::registerConnectorFactory(
+      std::make_shared<connector::hive::HiveConnectorFactory>());
+
+  // TODO: Allow Python users to specify connector configs.
+  std::unordered_map<std::string, std::string> configValues = {};
+  const auto configs =
+      std::make_shared<velox::config::ConfigBase>(std::move(configValues));
+
+  auto hiveConnector =
+      connector::getConnectorFactory(connectorId)
+          ->newConnector(
+              connectorId, configs, folly::getGlobalCPUExecutor().get());
+  connector::registerConnector(hiveConnector);
+  connectorRegistry().insert(connectorId);
+}
+
+// Is it ok to unregister connectors that were not registered.
+void unregisterHive(const std::string& connectorId) {
+  if (!facebook::velox::connector::unregisterConnector(connectorId) ||
+      !facebook::velox::connector::unregisterConnectorFactory(connectorId)) {
+    throw std::runtime_error(
+        fmt::format("Unable to unregister connector '{}'", connectorId));
+  }
+  connectorRegistry().erase(connectorId);
+}
+
+void unregisterAll() {
+  while (!connectorRegistry().empty()) {
+    unregisterHive(*connectorRegistry().begin());
+  }
+}
+
 PyVector PyTaskIterator::Iterator::operator*() const {
-  return PyVector{vector_};
+  return PyVector{vector_, outputPool_};
 }
 
 void PyTaskIterator::Iterator::advance() {
@@ -56,7 +95,8 @@ PyLocalRunner::PyLocalRunner(
     const PyPlanNode& pyPlanNode,
     const std::shared_ptr<memory::MemoryPool>& pool,
     const std::shared_ptr<folly::CPUThreadPoolExecutor>& executor)
-    : pool_(pool),
+    : rootPool_(pool),
+      outputPool_(memory::memoryManager()->addLeafPool()),
       executor_(executor),
       planNode_(pyPlanNode.planNode()),
       scanFiles_(pyPlanNode.scanFiles()) {
@@ -69,11 +109,12 @@ PyLocalRunner::PyLocalRunner(
       core::QueryConfig(configs),
       {},
       cache::AsyncDataCache::getInstance(),
-      pool_);
+      rootPool_);
 
   cursor_ = exec::TaskCursor::create({
       .planNode = planNode_,
       .queryCtx = queryCtx,
+      .outputPool = outputPool_,
   });
 }
 
@@ -105,7 +146,7 @@ py::iterator PyLocalRunner::execute() {
     taskRegistry().push_back(cursor_->task());
   }
 
-  pyIterator_ = std::make_shared<PyTaskIterator>(cursor_);
+  pyIterator_ = std::make_shared<PyTaskIterator>(cursor_, outputPool_);
   return py::make_iterator(pyIterator_->begin(), pyIterator_->end());
 }
 

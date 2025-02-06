@@ -141,12 +141,24 @@ class PyPlanBuilder {
   ///    input_files=[PARQUET("my_file.parquet")],
   ///  )
   PyPlanBuilder& tableScan(
-      const velox::py::PyType& outputSchema,
+      const PyType& outputSchema,
       const pybind11::dict& aliases,
       const pybind11::dict& subfields,
       const std::string& rowIndexColumnName,
       const std::string& connectorId,
       const std::optional<std::vector<PyFile>>& inputFiles);
+
+  /// Adds a table writer node to write to an output file(s).
+  ///
+  /// @param outputSchema The schema to be used when writing the file (columns
+  /// and types).
+  /// @param outputFile The output file to be written.
+  /// @param connectorId The id of the connector to use during the write
+  /// process.
+  PyPlanBuilder& tableWrite(
+      const PyType& outputSchema,
+      const PyFile& outputFile,
+      const std::string& connectorId);
 
   // Add the provided vectors straight into the operator tree.
   PyPlanBuilder& values(const std::vector<PyVector>& values);

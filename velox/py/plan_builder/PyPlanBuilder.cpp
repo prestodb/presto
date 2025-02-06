@@ -42,6 +42,8 @@ void registerAllResourcesOnce() {
   velox::dwrf::registerDwrfWriterFactory();
   velox::dwrf::registerDwrfReaderFactory();
 
+  velox::dwio::common::LocalFileSink::registerFactory();
+
   velox::parse::registerTypeResolver();
 
   velox::core::PlanNode::registerSerDe();
@@ -94,8 +96,28 @@ std::optional<PyPlanNode> PyPlanBuilder::planNode() const {
   return std::nullopt;
 }
 
+PyPlanBuilder& PyPlanBuilder::tableWrite(
+    const PyType& outputSchema,
+    const PyFile& outputFile,
+    const std::string& connectorId) {
+  exec::test::PlanBuilder::TableWriterBuilder builder(planBuilder_);
+
+  // Try to convert the output type.
+  auto outputRowSchema = asRowType(outputSchema.type());
+  if (outputRowSchema == nullptr) {
+    throw std::runtime_error("Output schema must be a ROW().");
+  }
+
+  builder.outputType(outputRowSchema)
+      .outputFileName(outputFile.filePath())
+      .fileFormat(outputFile.fileFormat())
+      .connectorId(connectorId)
+      .endTableWriter();
+  return *this;
+}
+
 PyPlanBuilder& PyPlanBuilder::tableScan(
-    const velox::py::PyType& outputSchema,
+    const PyType& outputSchema,
     const py::dict& aliases,
     const py::dict& subfields,
     const std::string& rowIndexColumnName,

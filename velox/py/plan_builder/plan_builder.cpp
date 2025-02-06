@@ -83,7 +83,7 @@ PYBIND11_MODULE(plan_builder, m) {
           py::arg("aliases") = py::dict{},
           py::arg("subfields") = py::dict{},
           py::arg("row_index") = "",
-          py::arg("connector_id") = "prism",
+          py::arg("connector_id") = "hive",
           py::arg("input_files") = std::nullopt,
           py::doc(R"(
         Adds a table scan node to the plan.
@@ -104,6 +104,21 @@ PYBIND11_MODULE(plan_builder, m) {
           connector_id: ID of the connector to use for this scan.
           input_files: If defined, uses as the input files so that no splits
                       will need to be added later.
+      )"))
+      .def(
+          "table_write",
+          &velox::py::PyPlanBuilder::tableWrite,
+          py::arg("output_schema"),
+          py::arg("output_file"),
+          py::arg("connector_id") = "hive",
+          py::doc(R"(
+        Adds a table write node to the plan.
+
+        Args:
+          output_schema: A RowType containing the schema to be written to
+                         the file.
+          output_file: Name of the file to be written.
+          connector_id: ID of the connector to use for this scan.
       )"))
       .def(
           "values",
