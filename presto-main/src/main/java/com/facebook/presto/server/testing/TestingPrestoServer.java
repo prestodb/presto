@@ -38,6 +38,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
+import com.facebook.presto.dispatcher.QueryRewriterManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -184,6 +185,7 @@ public class TestingPrestoServer
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final NodeManager pluginNodeManager;
     private final ClientRequestFilterManager clientRequestFilterManager;
+    private final QueryRewriterManager queryRewriterManager;
 
     public static class TestShutdownAction
             implements ShutdownAction
@@ -330,6 +332,7 @@ public class TestingPrestoServer
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(RequestBlocker.class).in(Scopes.SINGLETON);
+                    binder.bind(QueryRewriterManager.class).in(Scopes.SINGLETON);
                     newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                             .to(RequestBlocker.class).in(Scopes.SINGLETON);
                 });
@@ -365,6 +368,7 @@ public class TestingPrestoServer
         pluginManager = injector.getInstance(PluginManager.class);
 
         connectorManager = injector.getInstance(ConnectorManager.class);
+        queryRewriterManager = injector.getInstance(QueryRewriterManager.class);
 
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
@@ -463,6 +467,11 @@ public class TestingPrestoServer
         announcer.forceAnnounce();
 
         refreshNodes();
+    }
+
+    public QueryRewriterManager getQueryRewriterManager()
+    {
+        return queryRewriterManager;
     }
 
     private Map<String, String> getServerProperties(

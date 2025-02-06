@@ -338,6 +338,8 @@ public final class SystemSessionProperties
     public static final String NATIVE_MIN_COLUMNAR_ENCODING_CHANNELS_TO_PREFER_ROW_WISE_ENCODING = "native_min_columnar_encoding_channels_to_prefer_row_wise_encoding";
     public static final String NATIVE_ENFORCE_JOIN_BUILD_INPUT_PARTITION = "native_enforce_join_build_input_partition";
     public static final String NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED = "native_execution_scale_writer_threads_enabled";
+    public static final String IS_QUERY_REWRITER_PLUGIN_ENABLED = "is_query_rewriter_plugin_enabled";
+    public static final String IS_QUERY_REWRITER_PLUGIN_SUCCEEDED = "is_query_rewriter_plugin_succeeded";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1858,7 +1860,27 @@ public final class SystemSessionProperties
                         EXPRESSION_OPTIMIZER_NAME,
                         "Configure which expression optimizer to use",
                         featuresConfig.getExpressionOptimizerName(),
-                        false));
+                        false),
+                booleanProperty(
+                        IS_QUERY_REWRITER_PLUGIN_ENABLED,
+                        "Use queries rewriter plugin",
+                        false,
+                        true),
+                booleanProperty(
+                        IS_QUERY_REWRITER_PLUGIN_SUCCEEDED,
+                        "Query rewrite success",
+                        false,
+                        true));
+    }
+
+    public static boolean isQueryRewriterPluginSucceeded(Session session)
+    {
+        return session.getSystemProperty(IS_QUERY_REWRITER_PLUGIN_SUCCEEDED, Boolean.class);
+    }
+
+    public static boolean isQueryRewriterPluginEnabled(Session session)
+    {
+        return session.getSystemProperty(IS_QUERY_REWRITER_PLUGIN_ENABLED, Boolean.class);
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)

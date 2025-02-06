@@ -57,6 +57,11 @@ public class EventListenerManager
         }
     }
 
+    public Optional<EventListener> getConfiguredEventListener()
+    {
+        return configuredEventListener.get();
+    }
+
     public void loadConfiguredEventListener()
             throws Exception
     {
