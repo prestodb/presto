@@ -810,9 +810,6 @@ void serializeWrapped(
     simd::transpose(indices, rows, innerRows);
     numInner = numRows;
   } else {
-    if (isIPPrefixType(vector->type())) {
-      return serializeIPPrefix(vector, rows, stream);
-    }
     wrapped = &BaseVector::wrappedVectorShared(vector);
     for (int32_t i = 0; i < rows.size(); ++i) {
       if (mayHaveNulls && vector->isNullAt(rows[i])) {

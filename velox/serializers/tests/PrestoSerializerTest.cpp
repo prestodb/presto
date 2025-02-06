@@ -1207,9 +1207,13 @@ TEST_P(PrestoSerializerTest, ipprefix) {
 
   // Test that if the vector is wrapped, we can still properly
   // deserialize the ipprefix type
-  auto oneIndex = makeIndices(100, [](auto) { return 0; });
+  auto oneIndex = makeIndices(100, [](auto row) { return row; });
   auto wrappedVector = makeRowVector({
-      BaseVector::wrapInDictionary(nullptr, oneIndex, 100, vector),
+      BaseVector::wrapInDictionary(
+          makeNulls(100, [](auto row) { return row % 2 == 0; }),
+          oneIndex,
+          100,
+          vector),
   });
   testRoundTrip(wrappedVector);
 }
