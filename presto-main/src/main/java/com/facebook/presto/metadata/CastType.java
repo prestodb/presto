@@ -16,7 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.JsonStringToArrayCast.JSON_STRING_TO_ARRAY_NAME;
 import static com.facebook.presto.operator.scalar.JsonStringToMapCast.JSON_STRING_TO_MAP_NAME;
 import static com.facebook.presto.operator.scalar.JsonStringToRowCast.JSON_STRING_TO_ROW_NAME;
@@ -27,10 +27,10 @@ public enum CastType
 {
     CAST(OperatorType.CAST.getFunctionName(), true),
     SATURATED_FLOOR_CAST(OperatorType.SATURATED_FLOOR_CAST.getFunctionName(), true),
-    TRY_CAST(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, TRY_CAST_NAME), false),
-    JSON_TO_ARRAY_CAST(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, JSON_STRING_TO_ARRAY_NAME), false),
-    JSON_TO_MAP_CAST(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, JSON_STRING_TO_MAP_NAME), false),
-    JSON_TO_ROW_CAST(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, JSON_STRING_TO_ROW_NAME), false);
+    TRY_CAST(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, TRY_CAST_NAME), false),
+    JSON_TO_ARRAY_CAST(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, JSON_STRING_TO_ARRAY_NAME), false),
+    JSON_TO_MAP_CAST(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, JSON_STRING_TO_MAP_NAME), false),
+    JSON_TO_ROW_CAST(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, JSON_STRING_TO_ROW_NAME), false);
 
     private final QualifiedObjectName castName;
     private final boolean isOperatorType;

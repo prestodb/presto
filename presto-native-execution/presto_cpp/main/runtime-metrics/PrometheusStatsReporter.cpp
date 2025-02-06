@@ -133,8 +133,8 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
                               .Register(*impl_->registry);
     ::prometheus::Summary::Quantiles quantiles;
     for (auto pct : pcts) {
-      quantiles.push_back(
-          ::prometheus::detail::CKMSQuantiles::Quantile(pct / (double)100, 0));
+      quantiles.push_back(::prometheus::detail::CKMSQuantiles::Quantile(
+          pct / static_cast<double>(100), 0));
     }
     auto& summaryMetric = summaryFamily.Add({impl_->labels}, quantiles);
     registeredMetricsMap_.emplace(

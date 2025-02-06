@@ -123,7 +123,6 @@ import static com.facebook.presto.common.type.TypeUtils.isEnumType;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
@@ -919,7 +918,7 @@ public class ExpressionInterpreter
             FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().resolveFunction(
                     Optional.of(session.getSessionFunctions()),
                     session.getTransactionId(),
-                    qualifyObjectName(node.getName()),
+                    metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver().qualifyObjectName(node.getName()),
                     fromTypes(argumentTypes));
             FunctionMetadata functionMetadata = metadata.getFunctionAndTypeManager().getFunctionMetadata(functionHandle);
             if (!functionMetadata.isCalledOnNullInput()) {

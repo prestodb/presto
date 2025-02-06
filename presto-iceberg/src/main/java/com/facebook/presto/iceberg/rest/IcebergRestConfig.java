@@ -28,6 +28,8 @@ public class IcebergRestConfig
     private String authenticationServerUri;
     private String credential;
     private String token;
+    private String scope;
+    private boolean nestedNamespaceEnabled = true;
 
     @NotNull
     public Optional<String> getServerUri()
@@ -105,6 +107,32 @@ public class IcebergRestConfig
     public IcebergRestConfig setToken(String token)
     {
         this.token = token;
+        return this;
+    }
+
+    public Optional<String> getScope()
+    {
+        return Optional.ofNullable(scope);
+    }
+
+    @Config("iceberg.rest.auth.oauth2.scope")
+    @ConfigDescription("The scope to use for OAUTH2 authentication")
+    public IcebergRestConfig setScope(String scope)
+    {
+        this.scope = scope;
+        return this;
+    }
+
+    public boolean isNestedNamespaceEnabled()
+    {
+        return nestedNamespaceEnabled;
+    }
+
+    @Config("iceberg.rest.nested.namespace.enabled")
+    @ConfigDescription("Allows querying nested namespaces. Default: true")
+    public IcebergRestConfig setNestedNamespaceEnabled(boolean nestedNamespaceEnabled)
+    {
+        this.nestedNamespaceEnabled = nestedNamespaceEnabled;
         return this;
     }
 

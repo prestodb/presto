@@ -81,6 +81,8 @@ public final class PushRemoteExchangeThroughAssignUniqueId
                                 removeVariable(partitioningScheme.getOutputLayout(), assignUniqueId.getIdVariable()),
                                 partitioningScheme.getHashColumn(),
                                 partitioningScheme.isReplicateNullsAndAny(),
+                                partitioningScheme.isScaleWriters(),
+                                partitioningScheme.getEncoding(),
                                 partitioningScheme.getBucketToPartition()),
                         ImmutableList.of(assignUniqueId.getSource()),
                         ImmutableList.of(removeVariable(getOnlyElement(node.getInputs()), assignUniqueId.getIdVariable())),

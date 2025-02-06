@@ -20,6 +20,8 @@ import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.google.re2j.Pattern;
+import io.airlift.slice.Slices;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
@@ -45,7 +47,6 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.regex.Pattern;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryStateInfo.createQueryStateInfo;
@@ -107,7 +108,7 @@ public class QueryStateInfoResource
 
             List<QueryStateInfo> queryStateInfos = queryInfos.stream()
                     .filter(queryInfo -> includeAllQueries || !queryInfo.getState().isDone())
-                    .filter(queryInfo -> userPattern.map(pattern -> pattern.matcher(queryInfo.getSession().getUser()).matches()).orElse(true))
+                    .filter(queryInfo -> userPattern.map(pattern -> pattern.matcher(Slices.utf8Slice(queryInfo.getSession().getUser())).matches()).orElse(true))
                     .map(queryInfo -> getQueryStateInfo(
                             queryInfo,
                             includeAllQueryProgressStats,

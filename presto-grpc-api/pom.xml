@@ -3,7 +3,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -79,8 +79,14 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.annotation</groupId>
+            <artifactId>javax.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
-            <artifactId>presto-function-namespace-managers</artifactId>
+            <artifactId>presto-function-namespace-managers-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 
@@ -109,6 +115,16 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <usedDependencies>
+                        <!-- Used by generated GrpcUdfInvokeGrpc.java, but not picked up by plugin -->
+                        <dependency>javax.annotation:javax.annotation-api</dependency>
+                    </usedDependencies>
+                </configuration>
             </plugin>
         </plugins>
     </build>

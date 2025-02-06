@@ -34,8 +34,10 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -230,6 +232,12 @@ public final class ThriftQueryRunner
         }
 
         @Override
+        public PlanCheckerProviderManager getPlanCheckerProviderManager()
+        {
+            return source.getPlanCheckerProviderManager();
+        }
+
+        @Override
         public StatsCalculator getStatsCalculator()
         {
             return source.getStatsCalculator();
@@ -245,6 +253,12 @@ public final class ThriftQueryRunner
         public TestingAccessControlManager getAccessControl()
         {
             return source.getAccessControl();
+        }
+
+        @Override
+        public ExpressionOptimizerManager getExpressionManager()
+        {
+            return source.getExpressionManager();
         }
 
         @Override

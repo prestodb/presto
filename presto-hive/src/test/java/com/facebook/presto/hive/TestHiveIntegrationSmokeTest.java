@@ -32,6 +32,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
@@ -40,7 +41,6 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
@@ -2296,6 +2296,7 @@ public class TestHiveIntegrationSmokeTest
     {
         Session session = getSession();
         QueryRunner queryRunner = getQueryRunner();
+
         queryRunner.execute("CREATE TABLE orders_bucketed WITH (bucket_count = 11, bucketed_by = ARRAY['orderkey']) AS " +
                 "SELECT * FROM orders");
 

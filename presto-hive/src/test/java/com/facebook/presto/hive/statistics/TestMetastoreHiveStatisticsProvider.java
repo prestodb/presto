@@ -26,6 +26,7 @@ import com.facebook.presto.hive.NamenodeStats;
 import com.facebook.presto.hive.OrcFileWriterConfig;
 import com.facebook.presto.hive.ParquetFileWriterConfig;
 import com.facebook.presto.hive.PartitionNameWithVersion;
+import com.facebook.presto.hive.TestingExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.DateStatistics;
 import com.facebook.presto.hive.metastore.DecimalStatistics;
 import com.facebook.presto.hive.metastore.DoubleStatistics;
@@ -107,7 +108,7 @@ public class TestMetastoreHiveStatisticsProvider
     private static final HiveColumnHandle PARTITION_COLUMN_1 = new HiveColumnHandle("p1", HIVE_STRING, VARCHAR.getTypeSignature(), 0, PARTITION_KEY, Optional.empty(), Optional.empty());
     private static final HiveColumnHandle PARTITION_COLUMN_2 = new HiveColumnHandle("p2", HIVE_LONG, BIGINT.getTypeSignature(), 1, PARTITION_KEY, Optional.empty(), Optional.empty());
 
-    private static final QuickStatsProvider quickStatsProvider = new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of());
+    private static final QuickStatsProvider quickStatsProvider = new QuickStatsProvider(new TestingExtendedHiveMetastore(), HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of());
 
     @Test
     public void testGetPartitionsSample()

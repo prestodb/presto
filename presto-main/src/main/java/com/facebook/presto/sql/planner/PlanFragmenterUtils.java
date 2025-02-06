@@ -28,14 +28,14 @@ import com.facebook.presto.spi.plan.PartitioningHandle;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -47,7 +47,7 @@ import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializa
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
-import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
+import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
 import static com.facebook.presto.spi.StandardWarningCode.TOO_MANY_STAGES;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -80,7 +80,7 @@ public class PlanFragmenterUtils
      * @param metadata
      * @param nodePartitioningManager
      * @param session
-     * @param forceSingleNode
+     * @param noExchange
      * @param warningCollector
      * @return the final SubPlan for execution
      */
@@ -90,13 +90,13 @@ public class PlanFragmenterUtils
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
             Session session,
-            boolean forceSingleNode,
+            boolean noExchange,
             WarningCollector warningCollector,
             PartitioningHandle partitioningHandle)
     {
         subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan, partitioningHandle);
-        if (!forceSingleNode) {
-            // grouped execution is not supported for SINGLE_DISTRIBUTION
+        if (!noExchange && !isSingleNodeExecutionEnabled(session)) {
+            // grouped execution is not supported for SINGLE_DISTRIBUTION or SINGLE_NODE_EXECUTION_ENABLED
             subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
         }
 
@@ -168,7 +168,6 @@ public class PlanFragmenterUtils
                  *   - One table writer per task
                  */
                 boolean recoverable = isRecoverableGroupedExecutionEnabled(session) &&
-                        isTableWriterMergeOperatorEnabled(session) &&
                         parentContainsTableFinish &&
                         (fragment.getRoot() instanceof TableWriterMergeNode || fragment.getRoot() instanceof TableWriterNode) &&
                         properties.isRecoveryEligible();
@@ -229,6 +228,8 @@ public class PlanFragmenterUtils
                         outputPartitioningScheme.getOutputLayout(),
                         outputPartitioningScheme.getHashColumn(),
                         outputPartitioningScheme.isReplicateNullsAndAny(),
+                        outputPartitioningScheme.isScaleWriters(),
+                        outputPartitioningScheme.getEncoding(),
                         outputPartitioningScheme.getBucketToPartition()),
                 fragment.getStageExecutionDescriptor(),
                 fragment.isOutputTableWriterFragment(),
@@ -256,6 +257,7 @@ public class PlanFragmenterUtils
                 .filter(node -> node instanceof TableWriterNode)
                 .map(node -> (TableWriterNode) node)
                 .filter(tableWriterNode -> !tableWriterNode.getIsTemporaryTableWriter().orElse(false))
+                .map(node -> (TableWriterNode) node)
                 .map(TableWriterNode::getId)
                 .collect(toImmutableSet());
     }
@@ -305,7 +307,8 @@ public class PlanFragmenterUtils
                     node.getOutputVariables(),
                     node.getAssignments(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(),
+                    node.getCteMaterializationInfo());
         }
     }
 

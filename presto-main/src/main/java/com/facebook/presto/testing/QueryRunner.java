@@ -24,9 +24,11 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.Plan;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
@@ -54,11 +56,15 @@ public interface QueryRunner
 
     ConnectorPlanOptimizerManager getPlanOptimizerManager();
 
+    PlanCheckerProviderManager getPlanCheckerProviderManager();
+
     StatsCalculator getStatsCalculator();
 
     Optional<EventListener> getEventListener();
 
     TestingAccessControlManager getAccessControl();
+
+    ExpressionOptimizerManager getExpressionManager();
 
     MaterializedResult execute(@Language("SQL") String sql);
 
@@ -93,6 +99,11 @@ public interface QueryRunner
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
     void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties);
+
+    default void loadSessionPropertyProvider(String sessionPropertyProviderName)
+    {
+        throw new UnsupportedOperationException();
+    }
 
     Lock getExclusiveLock();
 

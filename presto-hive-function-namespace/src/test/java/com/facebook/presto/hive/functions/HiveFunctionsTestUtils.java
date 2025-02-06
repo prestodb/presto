@@ -37,7 +37,8 @@ public final class HiveFunctionsTestUtils
         functionAndTypeManager.loadFunctionNamespaceManager(
                 "hive-functions",
                 "hive",
-                getNamespaceManagerCreationProperties());
+                getNamespaceManagerCreationProperties(),
+                server.getPluginNodeManager());
         server.refreshNodes();
         return server;
     }

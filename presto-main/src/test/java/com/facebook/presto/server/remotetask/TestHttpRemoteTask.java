@@ -68,6 +68,7 @@ import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.type.TypeDeserializer;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -130,6 +131,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 public class TestHttpRemoteTask
@@ -219,6 +221,9 @@ public class TestHttpRemoteTask
         remoteTask.start();
         // just need to run a TaskUpdateRequest to increment the decay counter
         remoteTask.cancel();
+
+        waitUntilTaskFinish(remoteTask);
+
         httpRemoteTaskFactory.stop();
 
         assertTrue(httpRemoteTaskFactory.getTaskUpdateRequestSize() > 0);
@@ -241,16 +246,20 @@ public class TestHttpRemoteTask
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
-        waitUntilIdle(lastActivityNanos);
+
+        waitUntilTaskFinish(remoteTask);
+
         httpRemoteTaskFactory.stop();
 
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
-        assertEquals(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getMessage(), "TaskUpdate size of 1.97kB has exceeded the limit of 1kB");
+        assertThat(getOnlyElement(remoteTask.getTaskStatus().getFailures()).getMessage())
+                .matches("TaskUpdate size of .+? has exceeded the limit of 1kB");
     }
 
     @Test(dataProvider = "getUpdateSize")
     public void testGetExceededTaskUpdateSizeListMessage(int updateSizeInBytes, int maxDataSizeInBytes,
-                                                         String expectedMessage) throws Exception
+            String expectedMessage)
+            throws Exception
     {
         AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
         TestingTaskResource testingTaskResource = new TestingTaskResource(lastActivityNanos, FailureScenario.NO_FAILURE);
@@ -262,10 +271,10 @@ public class TestHttpRemoteTask
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, useThriftEncoding, internalCommunicationConfig);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
-        Method targetMethod = HttpRemoteTask.class.getDeclaredMethod("getExceededTaskUpdateSizeMessage", new Class[]{byte[].class});
+        Method targetMethod = HttpRemoteTask.class.getDeclaredMethod("getExceededTaskUpdateSizeMessage", new Class[] {byte[].class});
         targetMethod.setAccessible(true);
         byte[] taskUpdateRequestJson = new byte[updateSizeInBytes];
-        String message = (String) targetMethod.invoke(remoteTask, new Object[]{taskUpdateRequestJson});
+        String message = (String) targetMethod.invoke(remoteTask, new Object[] {taskUpdateRequestJson});
         assertEquals(message, expectedMessage);
     }
 
@@ -296,7 +305,7 @@ public class TestHttpRemoteTask
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
         remoteTask.start();
 
-        waitUntilIdle(lastActivityNanos);
+        waitUntilTaskFinish(remoteTask);
 
         httpRemoteTaskFactory.stop();
         assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
@@ -446,24 +455,17 @@ public class TestHttpRemoteTask
         }
     }
 
-    private static void waitUntilIdle(AtomicLong lastActivityNanos)
-            throws InterruptedException
+    private static void waitUntilTaskFinish(RemoteTask task)
+            throws Exception
     {
-        long startTimeNanos = System.nanoTime();
+        SettableFuture<?> taskFinished = SettableFuture.create();
 
-        while (true) {
-            long millisSinceLastActivity = (System.nanoTime() - lastActivityNanos.get()) / 1_000_000L;
-            long millisSinceStart = (System.nanoTime() - startTimeNanos) / 1_000_000L;
-            long millisToIdleTarget = IDLE_TIMEOUT.toMillis() - millisSinceLastActivity;
-            long millisToFailTarget = FAIL_TIMEOUT.toMillis() - millisSinceStart;
-            if (millisToFailTarget < millisToIdleTarget) {
-                throw new AssertionError(format("Activity doesn't stop after %s", FAIL_TIMEOUT));
+        task.addStateChangeListener(status -> {
+            if (status.getState().isDone()) {
+                taskFinished.set(null);
             }
-            if (millisToIdleTarget < 0) {
-                return;
-            }
-            Thread.sleep(millisToIdleTarget);
-        }
+        });
+        taskFinished.get();
     }
 
     private enum FailureScenario

@@ -18,7 +18,7 @@
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/OutputBufferManager.h"
 
 namespace facebook::presto {
@@ -42,6 +42,8 @@ class TaskManager {
 
   bool emptyBaseSpillDirectory() const;
 
+  std::string getBaseSpillDirectory() const;
+
   /// Sets the time (ms) that a task is considered to be old for cleanup since
   /// its completion.
   void setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs);
@@ -58,12 +60,14 @@ class TaskManager {
   std::unique_ptr<protocol::TaskInfo> createOrUpdateErrorTask(
       const protocol::TaskId& taskId,
       const std::exception_ptr& exception,
+      bool summarize,
       long startProcessCpuTime);
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
       const velox::core::PlanFragment& planFragment,
+      bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 
@@ -71,6 +75,7 @@ class TaskManager {
       const protocol::TaskId& taskId,
       const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
       const velox::core::PlanFragment& planFragment,
+      bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 
@@ -84,9 +89,8 @@ class TaskManager {
       const std::unordered_map<int64_t, std::shared_ptr<ResultRequest>>&
           resultRequests);
 
-  std::unique_ptr<protocol::TaskInfo> deleteTask(
-      const protocol::TaskId& taskId,
-      bool abort);
+  std::unique_ptr<protocol::TaskInfo>
+  deleteTask(const protocol::TaskId& taskId, bool abort, bool summarize);
 
   /// Remove old Finished, Cancelled, Failed and Aborted tasks.
   /// Old is being defined by the lifetime of the task.
@@ -153,9 +157,10 @@ class TaskManager {
       std::vector<std::string>& deadlockTasks,
       std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const;
 
-  /// Build directory path for spilling for the given task.
-  /// Always returns non-empty string.
-  static std::string buildTaskSpillDirectoryPath(
+  /// Always returns tuple of non-empty string containing the spill directory
+  /// and the date string directory, which is parent directory of task spill
+  /// directory.
+  static std::tuple<std::string, std::string> buildTaskSpillDirectoryPath(
       const std::string& baseSpillPath,
       const std::string& nodeIp,
       const std::string& nodeId,
@@ -179,6 +184,7 @@ class TaskManager {
       const velox::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,
       const protocol::OutputBuffers& outputBuffers,
+      bool summarize,
       std::shared_ptr<velox::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 

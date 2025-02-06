@@ -47,12 +47,15 @@ jobs:
           java-version: 8
       - name: Cache local Maven repository
         id: cache-maven
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-2-
+      # Workaround for Ubuntu 24 and mysql to find the dependent library (https://github.com/prestodb/presto/issues/24327)
+      - name: Create symlink for libaio.so.1
+        run: sudo ln -s /usr/lib/x86_64-linux-gnu/libaio.so.1t64 /usr/lib/x86_64-linux-gnu/libaio.so.1
       - name: Populate maven cache
         if: steps.cache-maven.outputs.cache-hit != 'true'
         run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies --no-transfer-progress && .github/bin/download_nodejs
@@ -83,4 +86,6 @@ jobs:
             !presto-native-execution,
             !presto-test-coverage,
             !presto-iceberg,
-            !presto-singlestore'
+            !presto-singlestore,
+            !presto-native-sidecar-plugin,
+            !presto-base-arrow-flight'

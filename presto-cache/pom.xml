@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-cache</artifactId>
@@ -79,7 +79,17 @@
 
         <dependency>
             <groupId>org.alluxio</groupId>
-            <artifactId>alluxio-shaded-client</artifactId>
+            <artifactId>alluxio-core-client-hdfs</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.alluxio</groupId>
+            <artifactId>alluxio-core-client-fs</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.alluxio</groupId>
+            <artifactId>alluxio-core-common</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
@@ -139,4 +149,22 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <configuration>
+                        <ignoredUsedUndeclaredDependencies>
+                            <!-- Ignore because it's picked up as false-positive from alluxio's dependencies -->
+                            <dependency>io.dropwizard.metrics:metrics-core</dependency>
+                        </ignoredUsedUndeclaredDependencies>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
 </project>

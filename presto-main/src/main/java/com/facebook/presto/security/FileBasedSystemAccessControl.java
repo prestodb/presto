@@ -65,7 +65,9 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -280,6 +282,13 @@ public class FileBasedSystemAccessControl
         }
     }
 
+    public void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
+            denySetTableProperties(table.toString());
+        }
+    }
+
     @Override
     public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
@@ -377,6 +386,14 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(identity, view.getCatalogName(), ALL)) {
             denyCreateView(view.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRenameView(Identity identity, AccessControlContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        if (!canAccessCatalog(identity, view.getCatalogName(), ALL)) {
+            denyRenameView(view.toString(), newView.toString());
         }
     }
 

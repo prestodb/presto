@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tests;
 
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.CostCalculator;
@@ -21,11 +22,14 @@ import com.facebook.presto.cost.CostCalculatorWithEstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.execution.QueryManagerConfig;
+import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
@@ -74,6 +78,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    private static final NodeInfo NODE_INFO = new NodeInfo("test");
     private QueryRunner queryRunner;
     private ExpectedQueryRunner expectedQueryRunner;
     private SqlParser sqlParser;
@@ -551,13 +556,13 @@ public abstract class AbstractTestQueryFramework
     {
         Metadata metadata = queryRunner.getMetadata();
         FeaturesConfig featuresConfig = createFeaturesConfig();
-        boolean forceSingleNode = queryRunner.getNodeCount() == 1;
+        boolean noExchange = queryRunner.getNodeCount() == 1;
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
                 sqlParser,
-                forceSingleNode,
+                noExchange,
                 new MBeanExporter(new TestingMBeanServer()),
                 queryRunner.getSplitManager(),
                 queryRunner.getPlanOptimizerManager(),
@@ -568,18 +573,21 @@ public abstract class AbstractTestQueryFramework
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
                 new PartitioningProviderManager(),
-                featuresConfig)
+                featuresConfig,
+                new ExpressionOptimizerManager(
+                        new PluginNodeManager(new InMemoryNodeManager()),
+                        queryRunner.getMetadata().getFunctionAndTypeManager()))
                 .getPlanningTimeOptimizers();
         return new QueryExplainer(
                 optimizers,
-                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig),
+                new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig(), featuresConfig, queryRunner.getPlanCheckerProviderManager()),
                 metadata,
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
                 costCalculator,
                 ImmutableMap.of(),
-                new PlanChecker(featuresConfig, false));
+                new PlanChecker(featuresConfig, false, queryRunner.getPlanCheckerProviderManager()));
     }
 
     protected static void skipTestUnless(boolean requirement)
@@ -618,5 +626,10 @@ public abstract class AbstractTestQueryFramework
     {
         ExpectedQueryRunner get()
                 throws Exception;
+    }
+
+    public static void dropTableIfExists(QueryRunner queryRunner, String catalogName, String schemaName, String tableName)
+    {
+        queryRunner.execute(format("DROP TABLE IF EXISTS %s.%s.%s", catalogName, schemaName, tableName));
     }
 }

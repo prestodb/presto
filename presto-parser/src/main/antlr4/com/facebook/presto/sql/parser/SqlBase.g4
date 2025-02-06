@@ -66,12 +66,16 @@ statement
         ALTER (COLUMN)? column=identifier SET NOT NULL                 #alterColumnSetNotNull
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER (COLUMN)? column=identifier DROP NOT NULL                #alterColumnDropNotNull
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        SET PROPERTIES properties                                      #setTableProperties
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
         | type)                                                        #createType
     | CREATE (OR REPLACE)? VIEW qualifiedName
             (SECURITY (DEFINER | INVOKER))? AS query                   #createView
+    | ALTER VIEW (IF EXISTS)? from=qualifiedName
+        RENAME TO to=qualifiedName                                     #renameView
     | DROP VIEW (IF EXISTS)? qualifiedName                             #dropView
     | CREATE MATERIALIZED VIEW (IF NOT EXISTS)? qualifiedName
         (COMMENT string)?

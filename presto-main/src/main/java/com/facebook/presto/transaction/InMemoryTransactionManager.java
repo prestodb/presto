@@ -665,7 +665,7 @@ public class InMemoryTransactionManager
         {
             Duration idleTime = Optional.ofNullable(idleStartTime.get())
                     .map(Duration::nanosSince)
-                    .orElse(new Duration(0, MILLISECONDS));
+                    .orElseGet(() -> new Duration(0, MILLISECONDS));
 
             // dereferencing this field is safe because the field is atomic
             @SuppressWarnings("FieldAccessNotGuarded") Optional<ConnectorId> writtenConnectorId = Optional.ofNullable(this.writtenConnectorId.get());

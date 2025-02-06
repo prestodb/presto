@@ -39,7 +39,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.annotations.FunctionsParserHelper.findPublicStaticMethods;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
@@ -122,8 +122,8 @@ public final class SqlInvokedScalarFromAnnotationsParser
 
     private static List<SqlInvokedFunction> createSqlInvokedFunctions(Method method, Optional<SqlInvokedScalarFunction> header, Optional<String> description)
     {
-        SqlInvokedScalarFunction functionHeader = header.orElse(method.getAnnotation(SqlInvokedScalarFunction.class));
-        String functionDescription = description.orElse(method.isAnnotationPresent(Description.class) ? method.getAnnotation(Description.class).value() : "");
+        SqlInvokedScalarFunction functionHeader = header.orElseGet(() -> method.getAnnotation(SqlInvokedScalarFunction.class));
+        String functionDescription = description.orElseGet(() -> method.isAnnotationPresent(Description.class) ? method.getAnnotation(Description.class).value() : "");
         TypeSignature returnType = parseTypeSignature(method.getAnnotation(SqlType.class).value());
 
         // Parameter
@@ -166,13 +166,14 @@ public final class SqlInvokedScalarFromAnnotationsParser
 
         return Stream.concat(Stream.of(functionHeader.value()), stream(functionHeader.alias()))
                 .map(name -> new SqlInvokedFunction(
-                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name),
                         parameters,
                         typeVariableConstraints,
                         returnType,
                         functionDescription,
                         routineCharacteristics,
                         body,
+                        false,
                         notVersioned(),
                         SCALAR,
                         Optional.empty()))

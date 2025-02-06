@@ -50,9 +50,15 @@ public class SliceSelectiveStreamReader
     private SliceDictionarySelectiveReader dictionaryReader;
     private SelectiveStreamReader currentReader;
 
-    public SliceSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext, boolean isLowMemory)
+    public SliceSelectiveStreamReader(
+            StreamDescriptor streamDescriptor,
+            Optional<TupleDomainFilter> filter,
+            Optional<Type> outputType,
+            OrcAggregatedMemoryContext systemMemoryContext,
+            boolean isLowMemory,
+            long maxSliceSize)
     {
-        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory);
+        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory, maxSliceSize);
     }
 
     public static int computeTruncatedLength(Slice slice, int offset, int length, int maxCodePointCount, boolean isCharType)

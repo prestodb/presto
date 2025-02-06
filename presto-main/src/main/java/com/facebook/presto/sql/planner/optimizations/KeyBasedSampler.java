@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.Varchars;
@@ -27,20 +28,20 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.type.TypeUtils;
 import com.google.common.collect.ImmutableList;
 
@@ -54,6 +55,7 @@ import static com.facebook.presto.SystemSessionProperties.isKeyBasedSamplingEnab
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SAMPLED_FIELDS;
@@ -148,9 +150,9 @@ public class KeyBasedSampler
             try {
                 sampledArg = call(
                         functionAndTypeManager,
-                        getKeyBasedSamplingFunction(session),
+                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, getKeyBasedSamplingFunction(session)),
                         DOUBLE,
-                        arg);
+                        ImmutableList.of(arg));
             }
             catch (PrestoException prestoException) {
                 throw new PrestoException(FUNCTION_NOT_FOUND, String.format("Sampling function: %s not cannot be resolved", getKeyBasedSamplingFunction(session)), prestoException);

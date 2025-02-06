@@ -140,7 +140,7 @@ public class MetastoreHiveStatisticsProvider
             PartitionStatistics tableStatistics = metastore.getTableStatistics(metastoreContext, table.getSchemaName(), table.getTableName());
             if (isQuickStatsEnabled(session) &&
                     (tableStatistics.equals(empty()) || tableStatistics.getColumnStatistics().isEmpty())) {
-                tableStatistics = quickStatsProvider.getQuickStats(session, metastore, table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
+                tableStatistics = quickStatsProvider.getQuickStats(session, table, metastoreContext, UNPARTITIONED_ID.getPartitionName());
             }
             return ImmutableMap.of(UNPARTITIONED_ID.getPartitionName(), tableStatistics);
         }
@@ -156,7 +156,7 @@ public class MetastoreHiveStatisticsProvider
                     .map(Map.Entry::getKey)
                     .collect(toImmutableList());
 
-            Map<String, PartitionStatistics> partitionQuickStats = quickStatsProvider.getQuickStats(session, metastore, table, metastoreContext, partitionsWithNoStats);
+            Map<String, PartitionStatistics> partitionQuickStats = quickStatsProvider.getQuickStats(session, table, metastoreContext, partitionsWithNoStats);
 
             HashMap<String, PartitionStatistics> mergedMap = new HashMap<>(partitionStatistics);
             mergedMap.putAll(partitionQuickStats);

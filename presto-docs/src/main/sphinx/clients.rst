@@ -9,3 +9,6 @@ Presto Clients
     clients/presto-console
     clients/dbeaver
     clients/superset
+    clients/python
+    clients/go
+    clients/js

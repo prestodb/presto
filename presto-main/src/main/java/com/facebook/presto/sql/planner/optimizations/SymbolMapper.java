@@ -26,18 +26,18 @@ import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.StatisticAggregations;
+import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
+import com.facebook.presto.spi.plan.TableFinishNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
-import com.facebook.presto.sql.planner.plan.StatisticAggregations;
-import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.ExpressionRewriter;
 import com.facebook.presto.sql.tree.ExpressionTreeRewriter;
@@ -257,7 +257,6 @@ public class SymbolMapper
                 node.getColumnNames(),
                 notNullColumnVariables,
                 node.getTablePartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
-                node.getPreferredShufflePartitioningScheme().map(partitioningScheme -> canonicalize(partitioningScheme, source)),
                 node.getStatisticsAggregation().map(this::map),
                 node.getTaskCountIfScaledWriter(),
                 node.getIsTemporaryTableWriter());
@@ -284,7 +283,8 @@ public class SymbolMapper
                 node.getTarget(),
                 map(node.getRowCountVariable()),
                 node.getStatisticsAggregation().map(this::map),
-                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+                node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)),
+                node.getCteMaterializationInfo());
     }
 
     public TableWriterMergeNode map(TableWriterMergeNode node, PlanNode source)
@@ -305,6 +305,8 @@ public class SymbolMapper
                 mapAndDistinctVariable(source.getOutputVariables()),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
+                scheme.isScaleWriters(),
+                scheme.getEncoding(),
                 scheme.getBucketToPartition());
     }
 

@@ -17,13 +17,13 @@ import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker.Checker;
 
@@ -31,6 +31,7 @@ import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeJoinBuildPartitionEnforced;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
@@ -89,7 +90,12 @@ public class ValidateStreamingJoins
                         .collect(toImmutableList());
                 StreamPreferredProperties requiredBuildProperty;
                 if (getTaskConcurrency(session) > 1) {
-                    requiredBuildProperty = exactlyPartitionedOn(buildJoinVariables);
+                    if (nativeExecutionEnabled && !isNativeJoinBuildPartitionEnforced(session)) {
+                        requiredBuildProperty = defaultParallelism(session);
+                    }
+                    else {
+                        requiredBuildProperty = exactlyPartitionedOn(buildJoinVariables);
+                    }
                 }
                 else {
                     requiredBuildProperty = singleStream();

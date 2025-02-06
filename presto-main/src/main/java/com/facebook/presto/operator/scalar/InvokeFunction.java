@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableList;
 import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
@@ -48,7 +48,7 @@ public final class InvokeFunction
     private InvokeFunction()
     {
         super(new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "invoke"),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "invoke"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T")),
                 ImmutableList.of(),

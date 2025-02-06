@@ -93,7 +93,7 @@ public class IterativePlanFragmenter
     private final QueryManagerConfig queryManagerConfig;
     private final Session session;
     private final WarningCollector warningCollector;
-    private final boolean forceSingleNode;
+    private final boolean noExchange;
 
     // Fragment numbers need to be unique across the whole query,
     // so keep it in this top-level class.
@@ -116,7 +116,7 @@ public class IterativePlanFragmenter
             QueryManagerConfig queryManagerConfig,
             Session session,
             WarningCollector warningCollector,
-            boolean forceSingleNode)
+            boolean noExchange)
     {
         this.originalPlan = requireNonNull(originalPlan, "originalPlan is null");
         this.isFragmentFinished = requireNonNull(isFragmentFinished, "isSourceReady is null");
@@ -128,7 +128,7 @@ public class IterativePlanFragmenter
         this.queryManagerConfig = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.forceSingleNode = forceSingleNode;
+        this.noExchange = noExchange;
     }
 
     /**
@@ -152,7 +152,7 @@ public class IterativePlanFragmenter
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(
                 Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()),
                 plan.getOutputVariables()));
-        if (forceSingleNode || isForceSingleNodeOutput(session)) {
+        if (noExchange || isForceSingleNodeOutput(session)) {
             properties = properties.setSingleNodeDistribution();
         }
         PlanNode planRoot = SimplePlanRewriter.rewriteWith(iterativeFragmenter, plan, properties);
@@ -182,7 +182,7 @@ public class IterativePlanFragmenter
         // and rewriting the partition handle
         PartitioningHandle partitioningHandle = properties.getPartitioningHandle();
         subPlans = subPlans.stream()
-                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector, partitioningHandle))
+                .map(subPlan -> finalizeSubPlan(subPlan, queryManagerConfig, metadata, nodePartitioningManager, session, noExchange, warningCollector, partitioningHandle))
                 .collect(toImmutableList());
 
         return new PlanAndFragments(remainingPlan, subPlans);

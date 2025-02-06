@@ -43,7 +43,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.QDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.operator.scalar.QuantileDigestFunctions.DEFAULT_ACCURACY;
 import static com.facebook.presto.operator.scalar.TDigestFunctions.DEFAULT_COMPRESSION;
@@ -110,7 +110,7 @@ public abstract class StatisticalDigestAggregationFunction
     StatisticalDigestAggregationFunction(String name, String type, StatisticalDigestStateFactory factory, SqlFunctionVisibility visibility, TypeSignature... typeSignatures)
     {
         super(new Signature(
-                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name),
                         AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("V")),
                         ImmutableList.of(),

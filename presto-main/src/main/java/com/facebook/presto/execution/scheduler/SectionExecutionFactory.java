@@ -25,6 +25,7 @@ import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
+import com.facebook.presto.execution.scheduler.group.DynamicBucketNodeMap;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
@@ -79,6 +80,7 @@ import static com.facebook.presto.spi.NodePoolType.LEAF;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static com.facebook.presto.util.Failures.checkCondition;
@@ -168,7 +170,8 @@ public class SectionExecutionFactory
             boolean summarizeTaskInfo,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
-            int attemptId)
+            int attemptId,
+            CTEMaterializationTracker cteMaterializationTracker)
     {
         // Only fetch a distribution once per section to ensure all stages see the same machine assignments
         Map<PartitioningHandle, NodePartitionMap> partitioningCache = new HashMap<>();
@@ -184,7 +187,8 @@ public class SectionExecutionFactory
                 summarizeTaskInfo,
                 remoteTaskFactory,
                 splitSourceFactory,
-                attemptId);
+                attemptId,
+                cteMaterializationTracker);
         StageExecutionAndScheduler rootStage = getLast(sectionStages);
         rootStage.getStageExecution().setOutputBuffers(outputBuffers);
         return new SectionExecution(rootStage, sectionStages);
@@ -203,7 +207,8 @@ public class SectionExecutionFactory
             boolean summarizeTaskInfo,
             RemoteTaskFactory remoteTaskFactory,
             SplitSourceFactory splitSourceFactory,
-            int attemptId)
+            int attemptId,
+            CTEMaterializationTracker cteMaterializationTracker)
     {
         ImmutableList.Builder<StageExecutionAndScheduler> stageExecutionAndSchedulers = ImmutableList.builder();
 
@@ -238,7 +243,8 @@ public class SectionExecutionFactory
                     summarizeTaskInfo,
                     remoteTaskFactory,
                     splitSourceFactory,
-                    attemptId);
+                    attemptId,
+                    cteMaterializationTracker);
             stageExecutionAndSchedulers.addAll(subTree);
             childStagesBuilder.add(getLast(subTree).getStageExecution());
         }
@@ -260,7 +266,8 @@ public class SectionExecutionFactory
                 stageExecution,
                 partitioningHandle,
                 tableWriteInfo,
-                childStageExecutions);
+                childStageExecutions,
+                cteMaterializationTracker);
         stageExecutionAndSchedulers.add(new StageExecutionAndScheduler(
                 stageExecution,
                 stageLinkage,
@@ -279,7 +286,8 @@ public class SectionExecutionFactory
             SqlStageExecution stageExecution,
             PartitioningHandle partitioningHandle,
             TableWriteInfo tableWriteInfo,
-            Set<SqlStageExecution> childStageExecutions)
+            Set<SqlStageExecution> childStageExecutions,
+            CTEMaterializationTracker cteMaterializationTracker)
     {
         Map<PlanNodeId, SplitSource> splitSources = splitSourceFactory.createSplitSources(plan.getFragment(), session, tableWriteInfo);
         int maxTasksPerStage = getMaxTasksPerStage(session);
@@ -326,7 +334,23 @@ public class SectionExecutionFactory
             return scheduler;
         }
         else {
-            if (!splitSources.isEmpty()) {
+            if (!splitSources.isEmpty() && (plan.getFragment().getPartitioning().equals(SINGLE_DISTRIBUTION))) {
+                NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, null, nodePredicate);
+                List<InternalNode> nodes = nodeSelector.selectRandomNodes(1);
+                return new FixedSourcePartitionedScheduler(
+                        stageExecution,
+                        splitSources,
+                        plan.getFragment().getStageExecutionDescriptor(),
+                        plan.getFragment().getTableScanSchedulingOrder(),
+                        nodes,
+                        new DynamicBucketNodeMap((split) -> 0, 1, nodes),
+                        splitBatchSize,
+                        getConcurrentLifespansPerNode(session),
+                        nodeSelector,
+                        ImmutableList.of(NOT_PARTITIONED),
+                        cteMaterializationTracker);
+            }
+            else if (!splitSources.isEmpty()) {
                 // contains local source
                 List<PlanNodeId> schedulingOrder = plan.getFragment().getTableScanSchedulingOrder();
                 ConnectorId connectorId = partitioningHandle.getConnectorId().orElseThrow(IllegalStateException::new);
@@ -383,7 +407,8 @@ public class SectionExecutionFactory
                         splitBatchSize,
                         getConcurrentLifespansPerNode(session),
                         nodeScheduler.createNodeSelector(session, connectorId, nodePredicate),
-                        connectorPartitionHandles);
+                        connectorPartitionHandles,
+                        cteMaterializationTracker);
                 if (plan.getFragment().getStageExecutionDescriptor().isRecoverableGroupedExecution()) {
                     stageExecution.registerStageTaskRecoveryCallback(taskId -> {
                         checkArgument(taskId.getStageExecutionId().getStageId().equals(stageId), "The task did not execute this stage");

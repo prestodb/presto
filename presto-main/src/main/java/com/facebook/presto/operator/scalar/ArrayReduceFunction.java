@@ -31,7 +31,7 @@ import java.lang.invoke.MethodHandle;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.functionTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
@@ -50,7 +50,7 @@ public final class ArrayReduceFunction
     private ArrayReduceFunction()
     {
         super(new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "reduce"),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "reduce"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
                 ImmutableList.of(),

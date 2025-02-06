@@ -218,7 +218,7 @@ public final class HiveQueryRunner
             queryRunner.createCatalog("tpchstandard", "tpch", tpchProperties);
 
             ExtendedHiveMetastore metastore;
-            metastore = externalMetastore.orElse(getFileHiveMetastore(queryRunner));
+            metastore = externalMetastore.orElseGet(() -> getFileHiveMetastore(queryRunner));
 
             queryRunner.installPlugin(new HivePlugin(HIVE_CATALOG, Optional.of(metastore)));
 
@@ -303,7 +303,7 @@ public final class HiveQueryRunner
         return tables.build();
     }
 
-    private static ExtendedHiveMetastore getFileHiveMetastore(DistributedQueryRunner queryRunner)
+    public static ExtendedHiveMetastore getFileHiveMetastore(DistributedQueryRunner queryRunner)
     {
         File dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("hive_data").toFile();
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
@@ -363,7 +363,7 @@ public final class HiveQueryRunner
         logging.setLevel("parquet.hadoop", WARN);
     }
 
-    private static Database createDatabaseMetastoreObject(String name)
+    public static Database createDatabaseMetastoreObject(String name)
     {
         return Database.builder()
                 .setDatabaseName(name)

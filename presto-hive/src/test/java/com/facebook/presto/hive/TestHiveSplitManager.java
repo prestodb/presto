@@ -499,8 +499,9 @@ public class TestHiveSplitManager
                 new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of(), hiveClientConfig),
                 new MetastoreClientConfig(),
                 new NoHdfsAuthentication());
+        TestingExtendedHiveMetastore metastore = new TestingExtendedHiveMetastore(TEST_TABLE, partitionWithStatistics);
         HiveMetadataFactory metadataFactory = new HiveMetadataFactory(
-                new TestingExtendedHiveMetastore(TEST_TABLE, partitionWithStatistics),
+                metastore,
                 hdfsEnvironment,
                 new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, hiveClientConfig),
                 DateTimeZone.forOffsetHours(1),
@@ -531,7 +532,7 @@ public class TestHiveSplitManager
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new QuickStatsProvider(metastore, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(false));
 
         HiveSplitManager splitManager = new HiveSplitManager(
@@ -646,8 +647,9 @@ public class TestHiveSplitManager
                 new NoHdfsAuthentication());
         HiveEncryptionInformationProvider encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource()));
 
+        TestingExtendedHiveMetastore metastore = new TestingExtendedHiveMetastore(testTable, partitionWithStatistics);
         HiveMetadataFactory metadataFactory = new HiveMetadataFactory(
-                new TestingExtendedHiveMetastore(testTable, partitionWithStatistics),
+                metastore,
                 hdfsEnvironment,
                 new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, hiveClientConfig),
                 DateTimeZone.forOffsetHours(1),
@@ -678,7 +680,7 @@ public class TestHiveSplitManager
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
                 HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
-                new QuickStatsProvider(HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
+                new QuickStatsProvider(metastore, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
                 new HiveTableWritabilityChecker(false));
 
         HiveSplitManager splitManager = new HiveSplitManager(

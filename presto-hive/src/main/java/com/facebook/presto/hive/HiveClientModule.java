@@ -24,6 +24,7 @@ import com.facebook.presto.hive.HiveDwrfEncryptionProvider.ForUnknown;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.datasink.DataSinkFactory;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
@@ -85,12 +86,10 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
-import io.airlift.slice.Slice;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
@@ -100,6 +99,8 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder;
+import static com.facebook.presto.orc.StripeMetadataSource.CacheableRowGroupIndices;
+import static com.facebook.presto.orc.StripeMetadataSource.CacheableSlice;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.lang.Math.toIntExact;
@@ -319,15 +320,15 @@ public class HiveClientModule
     {
         StripeMetadataSource stripeMetadataSource = new StorageStripeMetadataSource();
         if (orcCacheConfig.isStripeMetadataCacheEnabled()) {
-            Cache<StripeId, Slice> footerCache = CacheBuilder.newBuilder()
+            Cache<StripeId, CacheableSlice> footerCache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getStripeFooterCacheSize().toBytes())
-                    .weigher((id, footer) -> toIntExact(((Slice) footer).getRetainedSize()))
+                    .weigher((id, footer) -> toIntExact(((CacheableSlice) footer).getSlice().getRetainedSize()))
                     .expireAfterAccess(orcCacheConfig.getStripeFooterCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                     .recordStats()
                     .build();
-            Cache<StripeStreamId, Slice> streamCache = CacheBuilder.newBuilder()
+            Cache<StripeStreamId, CacheableSlice> streamCache = CacheBuilder.newBuilder()
                     .maximumWeight(orcCacheConfig.getStripeStreamCacheSize().toBytes())
-                    .weigher((id, stream) -> toIntExact(((Slice) stream).getRetainedSize()))
+                    .weigher((id, stream) -> toIntExact(((CacheableSlice) stream).getSlice().getRetainedSize()))
                     .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                     .recordStats()
                     .build();
@@ -336,11 +337,11 @@ public class HiveClientModule
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeFooter"), footerCacheStatsMBean);
             exporter.export(generatedNameOf(CacheStatsMBean.class, connectorId + "_StripeStream"), streamCacheStatsMBean);
 
-            Optional<Cache<StripeStreamId, List<RowGroupIndex>>> rowGroupIndexCache = Optional.empty();
+            Optional<Cache<StripeStreamId, CacheableRowGroupIndices>> rowGroupIndexCache = Optional.empty();
             if (orcCacheConfig.isRowGroupIndexCacheEnabled()) {
                 rowGroupIndexCache = Optional.of(CacheBuilder.newBuilder()
                         .maximumWeight(orcCacheConfig.getRowGroupIndexCacheSize().toBytes())
-                        .weigher((id, rowGroupIndices) -> toIntExact(((List<RowGroupIndex>) rowGroupIndices).stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
+                        .weigher((id, rowGroupIndices) -> toIntExact(((CacheableRowGroupIndices) rowGroupIndices).getRowGroupIndices().stream().mapToLong(RowGroupIndex::getRetainedSizeInBytes).sum()))
                         .expireAfterAccess(orcCacheConfig.getStripeStreamCacheTtlSinceLastAccess().toMillis(), MILLISECONDS)
                         .recordStats()
                         .build());
@@ -377,7 +378,9 @@ public class HiveClientModule
 
     @Singleton
     @Provides
-    public QuickStatsProvider createQuickStatsProvider(HdfsEnvironment hdfsEnvironment,
+    public QuickStatsProvider createQuickStatsProvider(
+            ExtendedHiveMetastore metastore,
+            HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             HiveClientConfig hiveClientConfig,
             NamenodeStats nameNodeStats,
@@ -385,7 +388,8 @@ public class HiveClientModule
             MBeanExporter exporter)
     {
         ParquetQuickStatsBuilder parquetQuickStatsBuilder = new ParquetQuickStatsBuilder(fileFormatDataSourceStats, hdfsEnvironment, hiveClientConfig);
-        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(hdfsEnvironment,
+        QuickStatsProvider quickStatsProvider = new QuickStatsProvider(metastore,
+                hdfsEnvironment,
                 directoryLister,
                 hiveClientConfig,
                 nameNodeStats,

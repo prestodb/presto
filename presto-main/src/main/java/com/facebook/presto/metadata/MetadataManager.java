@@ -43,6 +43,7 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
+import com.facebook.presto.spi.NewTableLayout;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
@@ -119,6 +120,7 @@ import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.metadata.MetadataUtil.getOptionalCatalogMetadata;
 import static com.facebook.presto.metadata.MetadataUtil.getOptionalTableHandle;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
@@ -240,7 +242,7 @@ public class MetadataManager
         return new MetadataManager(
                 new FunctionAndTypeManager(transactionManager, blockEncodingManager, featuresConfig, functionsConfig, new HandleResolver(), ImmutableSet.of()),
                 blockEncodingManager,
-                new SessionPropertyManager(),
+                createTestingSessionPropertyManager(),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -673,6 +675,14 @@ public class MetadataManager
     }
 
     @Override
+    public void setTableProperties(Session session, TableHandle tableHandle, Map<String, Object> properties)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.setTableProperties(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), properties);
+    }
+
+    @Override
     public void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
@@ -724,17 +734,6 @@ public class MetadataManager
     }
 
     @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForInsert(Session session, TableHandle table)
-    {
-        ConnectorId connectorId = table.getConnectorId();
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
-        return metadata.getPreferredShuffleLayoutForInsert(session.toConnectorSession(connectorId), table.getConnectorHandle())
-                .map(layout -> new NewTableLayout(connectorId, catalogMetadata.getTransactionHandleFor(connectorId), layout));
-    }
-
-    @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
@@ -782,19 +781,6 @@ public class MetadataManager
         ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
         ConnectorSession connectorSession = session.toConnectorSession(connectorId);
         return metadata.getNewTableLayout(connectorSession, tableMetadata)
-                .map(layout -> new NewTableLayout(connectorId, transactionHandle, layout));
-    }
-
-    @Override
-    public Optional<NewTableLayout> getPreferredShuffleLayoutForNewTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata)
-    {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
-        ConnectorId connectorId = catalogMetadata.getConnectorId();
-        ConnectorMetadata metadata = catalogMetadata.getMetadata();
-
-        ConnectorTransactionHandle transactionHandle = catalogMetadata.getTransactionHandleFor(connectorId);
-        ConnectorSession connectorSession = session.toConnectorSession(connectorId);
-        return metadata.getPreferredShuffleLayoutForNewTable(connectorSession, tableMetadata)
                 .map(layout -> new NewTableLayout(connectorId, transactionHandle, layout));
     }
 
@@ -1019,6 +1005,16 @@ public class MetadataManager
     }
 
     @Override
+    public void renameView(Session session, QualifiedObjectName source, QualifiedObjectName target)
+    {
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, target.getCatalogName());
+        ConnectorId connectorId = catalogMetadata.getConnectorId();
+        ConnectorMetadata metadata = catalogMetadata.getMetadata();
+
+        metadata.renameView(session.toConnectorSession(connectorId), toSchemaTableName(source), toSchemaTableName(target));
+    }
+
+    @Override
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
@@ -1055,7 +1051,7 @@ public class MetadataManager
         ConnectorId connectorId = materializedViewHandle.get().getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
 
-        return session.getRuntimeStats().profileNanos(
+        return session.getRuntimeStats().recordWallTime(
                 GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
                 () -> metadata.getMaterializedViewStatus(session.toConnectorSession(connectorId), toSchemaTableName(materializedViewName), baseQueryDomain));
     }

@@ -26,10 +26,13 @@ import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.smile.SmileModule;
 import com.facebook.airlift.log.LogJmxModule;
 import com.facebook.airlift.log.Logger;
+import com.facebook.airlift.node.NodeInfo;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
 import com.facebook.drift.server.DriftServer;
 import com.facebook.drift.transport.netty.server.DriftNettyServerTransport;
+import com.facebook.presto.ClientRequestFilterManager;
+import com.facebook.presto.ClientRequestFilterModule;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManagerModule;
 import com.facebook.presto.eventlistener.EventListenerManager;
@@ -39,14 +42,21 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorModule;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.DiscoveryNodeManager;
+import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.StaticCatalogStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.server.security.PrestoAuthenticatorManager;
 import com.facebook.presto.server.security.ServerSecurityModule;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.storage.TempStorageModule;
 import com.facebook.presto.tracing.TracerProviderManager;
@@ -110,6 +120,7 @@ public class PrestoServer
                 new NodeModule(),
                 new DiscoveryModule(),
                 new HttpServerModule(),
+                new ClientRequestFilterModule(),
                 new JsonModule(),
                 installModuleIf(
                         FeaturesConfig.class,
@@ -169,6 +180,7 @@ public class PrestoServer
                 injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
             }
             injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
+            injector.getInstance(PrestoAuthenticatorManager.class).loadPrestoAuthenticator();
             injector.getInstance(EventListenerManager.class).loadConfiguredEventListener();
             injector.getInstance(TempStorageManager.class).loadTempStorages();
             injector.getInstance(QueryPrerequisitesManager.class).loadQueryPrerequisites();
@@ -177,6 +189,16 @@ public class PrestoServer
             injector.getInstance(TracerProviderManager.class).loadTracerProvider();
             injector.getInstance(NodeStatusNotificationManager.class).loadNodeStatusNotificationProvider();
             injector.getInstance(GracefulShutdownHandler.class).loadNodeStatusNotification();
+            injector.getInstance(SessionPropertyManager.class).loadSessionPropertyProviders();
+            PlanCheckerProviderManager planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
+            InternalNodeManager nodeManager = injector.getInstance(DiscoveryNodeManager.class);
+            NodeInfo nodeInfo = injector.getInstance(NodeInfo.class);
+            PluginNodeManager pluginNodeManager = new PluginNodeManager(nodeManager, nodeInfo.getEnvironment());
+            planCheckerProviderManager.loadPlanCheckerProviders(pluginNodeManager);
+
+            injector.getInstance(ClientRequestFilterManager.class).loadClientRequestFilters();
+            injector.getInstance(ExpressionOptimizerManager.class).loadExpressionOptimizerFactories();
+
             startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();

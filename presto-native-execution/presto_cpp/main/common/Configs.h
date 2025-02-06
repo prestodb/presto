@@ -179,6 +179,9 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDiscoveryUri{"discovery.uri"};
   static constexpr std::string_view kMaxDriversPerTask{
       "task.max-drivers-per-task"};
+  static constexpr std::string_view kTaskWriterCount{"task.writer-count"};
+  static constexpr std::string_view kTaskPartitionedWriterCount{
+      "task.partitioned-writer-count"};
   static constexpr std::string_view kConcurrentLifespansPerTask{
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kTaskMaxPartialAggregationMemory{
@@ -209,6 +212,14 @@ class SystemConfig : public ConfigBase {
   /// Path to a .PEM file with certificate and key concatenated together.
   static constexpr std::string_view kHttpsClientCertAndKeyPath{
       "https-client-cert-key-path"};
+
+  /// Floating point number used in calculating how many threads we would use
+  /// for CPU executor for connectors mainly for async operators:
+  /// hw_concurrency x multiplier.
+  /// If 0.0 then connector CPU executor would not be created.
+  /// 0.0 is default.
+  static constexpr std::string_view kConnectorNumCpuThreadsHwMultiplier{
+      "connector.num-cpu-threads-hw-multiplier"};
 
   /// Floating point number used in calculating how many threads we would use
   /// for IO executor for connectors mainly to do preload/prefetch:
@@ -259,6 +270,12 @@ class SystemConfig : public ConfigBase {
   /// underlying file system.
   static constexpr std::string_view kSpillerFileCreateConfig{
       "spiller.file-create-config"};
+
+  /// Config used to create spill directories. This config is provided to
+  /// underlying file system and the config is free form. The form should be
+  /// defined by the underlying file system.
+  static constexpr std::string_view kSpillerDirectoryCreateConfig{
+      "spiller.directory-create-config"};
 
   static constexpr std::string_view kSpillerSpillPath{
       "experimental.spiller-spill-path"};
@@ -422,8 +439,8 @@ class SystemConfig : public ConfigBase {
   /// Specifies the max time to wait for memory reclaim by arbitration. The
   /// memory reclaim might fail if the max wait time has exceeded. If it is
   /// zero, then there is no timeout.
-  static constexpr std::string_view kSharedArbitratorMemoryReclaimMaxWaitTime{
-      "shared-arbitrator.memory-reclaim-max-wait-time"};
+  static constexpr std::string_view kSharedArbitratorMaxMemoryArbitrationTime{
+      "shared-arbitrator.max-memory-arbitration-time"};
 
   /// When shared arbitrator grows memory pool's capacity, the growth bytes will
   /// be adjusted in the following way:
@@ -638,6 +655,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPlanValidatorFailOnNestedLoopJoin{
       "velox-plan-validator-fail-on-nested-loop-join"};
 
+  // Specifies the default Presto namespace prefix.
+  static constexpr std::string_view kPrestoDefaultNamespacePrefix{
+      "presto.default-namespace"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -695,6 +716,10 @@ class SystemConfig : public ConfigBase {
 
   int32_t maxDriversPerTask() const;
 
+  folly::Optional<int32_t> taskWriterCount() const;
+
+  folly::Optional<int32_t> taskPartitionedWriterCount() const;
+
   int32_t concurrentLifespansPerTask() const;
 
   double httpServerNumIoThreadsHwMultiplier() const;
@@ -704,6 +729,8 @@ class SystemConfig : public ConfigBase {
   double exchangeHttpClientNumIoThreadsHwMultiplier() const;
 
   double exchangeHttpClientNumCpuThreadsHwMultiplier() const;
+
+  double connectorNumCpuThreadsHwMultiplier() const;
 
   double connectorNumIoThreadsHwMultiplier() const;
 
@@ -720,6 +747,8 @@ class SystemConfig : public ConfigBase {
   double spillerNumCpuThreadsHwMultiplier() const;
 
   std::string spillerFileCreateConfig() const;
+
+  std::string spillerDirectoryCreateConfig() const;
 
   folly::Optional<std::string> spillerSpillPath() const;
 
@@ -744,6 +773,8 @@ class SystemConfig : public ConfigBase {
   uint32_t mallocMemMaxHeapDumpFiles() const;
 
   bool asyncDataCacheEnabled() const;
+
+  bool queryDataCacheEnabledDefault() const;
 
   uint64_t asyncCacheSsdGb() const;
 
@@ -785,7 +816,7 @@ class SystemConfig : public ConfigBase {
 
   std::string sharedArbitratorMemoryPoolReservedCapacity() const;
 
-  std::string sharedArbitratorMemoryReclaimWaitTime() const;
+  std::string sharedArbitratorMaxMemoryArbitrationTime() const;
 
   std::string sharedArbitratorMemoryPoolInitialCapacity() const;
 
@@ -866,6 +897,7 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
+  std::string prestoDefaultNamespacePrefix() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

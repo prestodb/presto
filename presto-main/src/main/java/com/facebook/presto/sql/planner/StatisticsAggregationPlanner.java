@@ -22,6 +22,8 @@ import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.StatisticAggregations;
+import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -31,8 +33,6 @@ import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
-import com.facebook.presto.sql.planner.plan.StatisticAggregations;
-import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -58,6 +59,7 @@ public class StatisticsAggregationPlanner
 {
     private final VariableAllocator variableAllocator;
     private final FunctionAndTypeResolver functionAndTypeResolver;
+    private final boolean useHistograms;
     private final Session session;
     private final FunctionAndTypeManager functionAndTypeManager;
 
@@ -67,6 +69,7 @@ public class StatisticsAggregationPlanner
         this.session = requireNonNull(session, "session is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
         this.functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+        this.useHistograms = shouldOptimizerUseHistograms(session);
     }
 
     public TableStatisticAggregation createStatisticsAggregation(TableStatisticsMetadata statisticsMetadata, Map<String, VariableReferenceExpression> columnToVariableMap)
@@ -105,6 +108,9 @@ public class StatisticsAggregationPlanner
         }
 
         for (ColumnStatisticMetadata columnStatisticMetadata : statisticsMetadata.getColumnStatistics()) {
+            if (!useHistograms && columnStatisticMetadata.getStatisticType() == ColumnStatisticType.HISTOGRAM) {
+                continue;
+            }
             String columnName = columnStatisticMetadata.getColumnName();
             ColumnStatisticType statisticType = columnStatisticMetadata.getStatisticType();
             VariableReferenceExpression inputVariable = columnToVariableMap.get(columnName);
@@ -192,7 +198,7 @@ public class StatisticsAggregationPlanner
     }
 
     private ColumnStatisticsAggregation createColumnAggregation(ColumnStatisticMetadata columnStatisticMetadata, VariableReferenceExpression input,
-                                                                Map<String, String> columnNameToInputVariableNameMap)
+            Map<String, String> columnNameToInputVariableNameMap)
     {
         if (columnStatisticMetadata.isSqlExpression()) {
             return createColumnAggregationFromSqlFunction(columnStatisticMetadata.getFunction(), input, columnNameToInputVariableNameMap);

@@ -106,6 +106,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot create table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetTableProperties(String tableName)
+    {
+        denySetTableProperties(tableName, null);
+    }
+
+    public static void denySetTableProperties(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set table properties to %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropTable(String tableName)
     {
         denyDropTable(tableName, null);
@@ -239,6 +249,16 @@ public class AccessDeniedException
     public static void denyCreateViewWithSelect(String sourceName, ConnectorIdentity identity, String extraInfo)
     {
         throw new AccessDeniedException(format("View owner '%s' cannot create view that selects from %s%s", identity.getUser(), sourceName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRenameView(String viewName, String newViewName)
+    {
+        denyRenameView(viewName, newViewName, null);
+    }
+
+    public static void denyRenameView(String viewName, String newViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropView(String viewName)

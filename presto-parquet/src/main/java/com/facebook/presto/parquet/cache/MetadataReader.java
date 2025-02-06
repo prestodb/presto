@@ -373,14 +373,15 @@ public final class MetadataReader
                 }
                 typeBuilder = primitiveBuilder;
             }
-            if (element.isSetConverted_type()) {
+
+            if (element.isSetLogicalType()) {
+                getLogicalTypeAnnotationWithParameters(element.getLogicalType())
+                        .ifPresent(typeBuilder::as);
+            }
+            else if (element.isSetConverted_type()) {
                 typeBuilder.as(getOriginalType(element.converted_type));
             }
-            if (element.isSetLogicalType()) {
-                LogicalType type = element.getLogicalType();
-                Optional<LogicalTypeAnnotation> annotationWithParams = getLogicalTypeAnnotationWithParameters(type);
-                annotationWithParams.ifPresent(typeBuilder::as);
-            }
+
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
             }

@@ -16,7 +16,7 @@
 #include <memory>
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Task.h"
 
 namespace facebook::velox {
@@ -161,9 +161,9 @@ struct PrestoTask {
     return updateStatusLocked();
   }
 
-  protocol::TaskInfo updateInfo() {
+  protocol::TaskInfo updateInfo(bool summarize) {
     std::lock_guard<std::mutex> l(mutex);
-    return updateInfoLocked();
+    return updateInfoLocked(summarize);
   }
 
   /// Turns the task numbers (per state) into a string.
@@ -172,7 +172,7 @@ struct PrestoTask {
 
   /// Invoked to update presto task status from the updated velox task stats.
   protocol::TaskStatus updateStatusLocked();
-  protocol::TaskInfo updateInfoLocked();
+  protocol::TaskInfo updateInfoLocked(bool summarize);
 
   folly::dynamic toJson() const;
 
@@ -191,7 +191,8 @@ struct PrestoTask {
   void updateExecutionInfoLocked(
       const velox::exec::TaskStats& veloxTaskStats,
       const protocol::TaskStatus& prestoTaskStatus,
-      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats,
+      bool includePipelineStats);
 
   void updateMemoryInfoLocked(
       const velox::exec::TaskStats& veloxTaskStats,

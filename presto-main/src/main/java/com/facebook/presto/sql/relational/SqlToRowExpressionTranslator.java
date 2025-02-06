@@ -129,7 +129,6 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.CastType.TRY_CAST;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.AND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.BIND;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
@@ -520,7 +519,7 @@ public final class SqlToRowExpressionTranslator
                     functionAndTypeResolver.resolveFunction(
                             Optional.of(sessionFunctions),
                             transactionId,
-                            qualifyObjectName(node.getName()),
+                            functionAndTypeResolver.qualifyObjectName(node.getName()),
                             argumentTypes),
                     getType(node),
                     arguments);
@@ -674,7 +673,7 @@ public final class SqlToRowExpressionTranslator
 
             arguments.add(defaultValue
                     .map((value) -> process(value, context))
-                    .orElse(constantNull(operand.getSourceLocation(), returnType)));
+                    .orElseGet(() -> constantNull(operand.getSourceLocation(), returnType)));
 
             return specialForm(SWITCH, returnType, arguments.build());
         }
@@ -909,12 +908,19 @@ public final class SqlToRowExpressionTranslator
 
             if (node.getEscape().isPresent()) {
                 RowExpression escape = process(node.getEscape().get(), context);
+                if (!functionResolution.supportsLikePatternFunction()) {
+                    return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharVarcharVarcharFunction(), BOOLEAN, value, pattern, escape);
+                }
                 return likeFunctionCall(value, call(getSourceLocation(node), "LIKE_PATTERN", functionResolution.likePatternFunction(), LIKE_PATTERN, pattern, escape));
             }
 
             RowExpression prefixOrSuffixMatch = generateLikePrefixOrSuffixMatch(value, pattern);
             if (prefixOrSuffixMatch != null) {
                 return prefixOrSuffixMatch;
+            }
+
+            if (!functionResolution.supportsLikePatternFunction()) {
+                return likeFunctionCall(value, pattern);
             }
 
             return likeFunctionCall(value, call(getSourceLocation(node), CAST.name(), functionAndTypeResolver.lookupCast("CAST", VARCHAR, LIKE_PATTERN), LIKE_PATTERN, pattern));
@@ -962,6 +968,9 @@ public final class SqlToRowExpressionTranslator
         private RowExpression likeFunctionCall(RowExpression value, RowExpression pattern)
         {
             if (value.getType() instanceof VarcharType) {
+                if (!functionResolution.supportsLikePatternFunction()) {
+                    return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharVarcharFunction(), BOOLEAN, value, pattern);
+                }
                 return call(value.getSourceLocation(), "LIKE", functionResolution.likeVarcharFunction(), BOOLEAN, value, pattern);
             }
 

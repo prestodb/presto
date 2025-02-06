@@ -63,11 +63,11 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.split.RemoteSplit;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -398,7 +398,7 @@ public class PrestoSparkNativeTaskExecutorFactory
             RuntimeException failure = taskInfo.getTaskStatus().getFailures().stream()
                     .findFirst()
                     .map(ExecutionFailureInfo::toException)
-                    .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
+                    .orElseGet(() -> new PrestoException(GENERIC_INTERNAL_ERROR, "Native task failed for an unknown reason"));
             throw failure;
         }
 

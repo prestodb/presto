@@ -22,7 +22,6 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
@@ -34,6 +33,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
@@ -192,7 +192,7 @@ public class TestAnalyzer
                 "FROM (values (1,10), (2, 10)) AS T(x, y)"), PERFORMANCE_WARNING, "ORDER BY literals/constants with window function:");
 
         // Now test for error when the session param is set to disallow this.
-        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
+        Session session = testSessionBuilder(createTestingSessionPropertyManager(new SystemSessionProperties(
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),
@@ -588,7 +588,7 @@ public class TestAnalyzer
     @Test
     public void testTooManyGroupingElements()
     {
-        Session session = testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties(
+        Session session = testSessionBuilder(createTestingSessionPropertyManager(new SystemSessionProperties(
                 new QueryManagerConfig(),
                 new TaskManagerConfig(),
                 new MemoryManagerConfig(),

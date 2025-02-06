@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.FunctionKind;
@@ -26,6 +27,7 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -60,6 +62,12 @@ public class SessionFunctionHandle
     public FunctionKind getKind()
     {
         return sqlFunction.getSignature().getKind();
+    }
+
+    @Override
+    public List<TypeSignature> getArgumentTypes()
+    {
+        return sqlFunction.getSignature().getArgumentTypes();
     }
 
     public FunctionMetadata getFunctionMetadata()

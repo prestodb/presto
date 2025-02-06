@@ -15,6 +15,7 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ParametricType;
@@ -27,6 +28,8 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
+import com.facebook.presto.server.security.PrestoAuthenticatorManager;
+import com.facebook.presto.spi.ClientRequestFilterFactory;
 import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
@@ -36,11 +39,15 @@ import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
+import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
+import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.tracing.TracerProvider;
@@ -48,6 +55,8 @@ import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
 import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
@@ -113,6 +122,7 @@ public class PluginManager
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final PasswordAuthenticatorManager passwordAuthenticatorManager;
+    private final PrestoAuthenticatorManager prestoAuthenticatorManager;
     private final EventListenerManager eventListenerManager;
     private final BlockEncodingManager blockEncodingManager;
     private final TempStorageManager tempStorageManager;
@@ -131,6 +141,9 @@ public class PluginManager
     private final AnalyzerProviderManager analyzerProviderManager;
     private final QueryPreparerProviderManager queryPreparerProviderManager;
     private final NodeStatusNotificationManager nodeStatusNotificationManager;
+    private final ClientRequestFilterManager clientRequestFilterManager;
+    private final PlanCheckerProviderManager planCheckerProviderManager;
+    private final ExpressionOptimizerManager expressionOptimizerManager;
 
     @Inject
     public PluginManager(
@@ -143,6 +156,7 @@ public class PluginManager
             QueryPreparerProviderManager queryPreparerProviderManager,
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
+            PrestoAuthenticatorManager prestoAuthenticatorManager,
             EventListenerManager eventListenerManager,
             BlockEncodingManager blockEncodingManager,
             TempStorageManager tempStorageManager,
@@ -152,7 +166,10 @@ public class PluginManager
             ClusterTtlProviderManager clusterTtlProviderManager,
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
             TracerProviderManager tracerProviderManager,
-            NodeStatusNotificationManager nodeStatusNotificationManager)
+            NodeStatusNotificationManager nodeStatusNotificationManager,
+            ClientRequestFilterManager clientRequestFilterManager,
+            PlanCheckerProviderManager planCheckerProviderManager,
+            ExpressionOptimizerManager expressionOptimizerManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -171,6 +188,7 @@ public class PluginManager
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
+        this.prestoAuthenticatorManager = requireNonNull(prestoAuthenticatorManager, "prestoAuthenticatorManager is null");
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
@@ -184,6 +202,9 @@ public class PluginManager
         this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
         this.queryPreparerProviderManager = requireNonNull(queryPreparerProviderManager, "queryPreparerProviderManager is null");
         this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
+        this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
+        this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
+        this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionManager is null");
     }
 
     public void loadPlugins()
@@ -299,6 +320,11 @@ public class PluginManager
             passwordAuthenticatorManager.addPasswordAuthenticatorFactory(authenticatorFactory);
         }
 
+        for (PrestoAuthenticatorFactory authenticatorFactory : plugin.getPrestoAuthenticatorFactories()) {
+            log.info("Registering presto authenticator %s", authenticatorFactory.getName());
+            prestoAuthenticatorManager.addPrestoAuthenticatorFactory(authenticatorFactory);
+        }
+
         for (EventListenerFactory eventListenerFactory : plugin.getEventListenerFactories()) {
             log.info("Registering event listener %s", eventListenerFactory.getName());
             eventListenerManager.addEventListenerFactory(eventListenerFactory);
@@ -348,6 +374,11 @@ public class PluginManager
             log.info("Registering node status notification provider %s", nodeStatusNotificationProviderFactory.getName());
             nodeStatusNotificationManager.addNodeStatusNotificationProviderFactory(nodeStatusNotificationProviderFactory);
         }
+
+        for (ClientRequestFilterFactory clientRequestFilterFactory : plugin.getClientRequestFilterFactories()) {
+            log.info("Registering client request filter factory");
+            clientRequestFilterManager.registerClientRequestFilterFactory(clientRequestFilterFactory);
+        }
     }
 
     public void installCoordinatorPlugin(CoordinatorPlugin plugin)
@@ -355,6 +386,21 @@ public class PluginManager
         for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
             log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
             metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
+        }
+
+        for (WorkerSessionPropertyProviderFactory providerFactory : plugin.getWorkerSessionPropertyProviderFactories()) {
+            log.info("Registering system session property provider factory %s", providerFactory.getName());
+            metadata.getSessionPropertyManager().addSessionPropertyProviderFactory(providerFactory);
+        }
+
+        for (PlanCheckerProviderFactory planCheckerProviderFactory : plugin.getPlanCheckerProviderFactories()) {
+            log.info("Registering plan checker provider factory %s", planCheckerProviderFactory.getName());
+            planCheckerProviderManager.addPlanCheckerProviderFactory(planCheckerProviderFactory);
+        }
+
+        for (ExpressionOptimizerFactory expressionOptimizerFactory : plugin.getExpressionOptimizerFactories()) {
+            log.info("Registering expression optimizer factory %s", expressionOptimizerFactory.getName());
+            expressionOptimizerManager.addExpressionOptimizerFactory(expressionOptimizerFactory);
         }
     }
 

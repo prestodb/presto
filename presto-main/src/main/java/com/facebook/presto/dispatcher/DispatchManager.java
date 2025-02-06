@@ -24,7 +24,6 @@ import com.facebook.presto.execution.QueryManagerStats;
 import com.facebook.presto.execution.QueryTracker;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
-import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -56,6 +55,7 @@ import java.util.concurrent.Executor;
 
 import static com.facebook.presto.Session.SessionBuilder;
 import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -330,7 +330,7 @@ public class DispatchManager
         catch (Throwable throwable) {
             // creation must never fail, so register a failed query in this case
             if (session == null) {
-                session = Session.builder(new SessionPropertyManager())
+                session = Session.builder(createTestingSessionPropertyManager())
                         .setQueryId(queryId)
                         .setIdentity(sessionContext.getIdentity())
                         .setSource(sessionContext.getSource())

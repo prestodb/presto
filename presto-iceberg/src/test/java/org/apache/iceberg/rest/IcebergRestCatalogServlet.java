@@ -127,7 +127,8 @@ public class IcebergRestCatalogServlet
             }
         }
         catch (RESTException e) {
-            if (context.route() == Route.LOAD_TABLE && e.getLocalizedMessage().contains("NoSuchTableException")) {
+            if ((context.route() == Route.LOAD_TABLE && e.getLocalizedMessage().contains("NoSuchTableException")) ||
+                    (context.route() == Route.LOAD_VIEW && e.getLocalizedMessage().contains("NoSuchViewException"))) {
                 // Suppress stack trace for load_table requests, most of which occur immediately
                 // preceding a create_table request
                 LOG.warn("Table at endpoint %s does not exist", context.path());

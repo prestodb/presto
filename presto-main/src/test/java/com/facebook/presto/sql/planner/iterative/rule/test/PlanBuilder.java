@@ -32,12 +32,14 @@ import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.ExceptNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IntersectNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
@@ -51,11 +53,15 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -68,22 +74,16 @@ import com.facebook.presto.sql.planner.TestingWriterTarget;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.SqlToRowExpressionTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -110,6 +110,7 @@ import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_FIRST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.getExpressionTypes;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -245,7 +246,8 @@ public class PlanBuilder
                 idAllocator.getNextId(),
                 source,
                 new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())),
-                false);
+                false,
+                ImmutableList.of());
     }
 
     public OffsetNode offset(long rowCount, PlanNode source)
@@ -331,7 +333,7 @@ public class PlanBuilder
 
     public RemoteSourceNode remoteSource(PlanNodeId planNodeId, List<PlanFragmentId> sourceFragmentIds, List<VariableReferenceExpression> outputVariables)
     {
-        return new RemoteSourceNode(Optional.empty(), planNodeId, sourceFragmentIds, outputVariables, false, Optional.empty(), REPARTITION);
+        return new RemoteSourceNode(Optional.empty(), planNodeId, sourceFragmentIds, outputVariables, false, Optional.empty(), REPARTITION, COLUMNAR);
     }
 
     public RemoteSourceNode remoteSource(List<PlanFragmentId> sourceFragmentIds, PlanNode statsEquivalentPlanNode)
@@ -343,7 +345,8 @@ public class PlanBuilder
                 sourceFragmentIds, ImmutableList.of(),
                 false,
                 Optional.empty(),
-                REPARTITION);
+                REPARTITION,
+                COLUMNAR);
     }
 
     public CallExpression binaryOperation(OperatorType operatorType, RowExpression left, RowExpression right)
@@ -542,7 +545,8 @@ public class PlanBuilder
                 assignments,
                 ImmutableList.of(),
                 currentConstraint,
-                enforcedConstraint);
+                enforcedConstraint,
+                Optional.empty());
     }
 
     public TableScanNode tableScan(
@@ -561,7 +565,7 @@ public class PlanBuilder
                 assignments,
                 tableConstraints,
                 currentConstraint,
-                enforcedConstraint);
+                enforcedConstraint, Optional.empty());
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, VariableReferenceExpression deleteRowId)
@@ -582,13 +586,14 @@ public class PlanBuilder
                                 idAllocator.getNextId(),
                                 deleteSource,
                                 deleteRowId,
-                                ImmutableList.of(deleteRowId)))
+                                ImmutableList.of(deleteRowId),
+                                Optional.empty()))
                         .addInputsSet(deleteRowId)
                         .singleDistributionPartitioningScheme(deleteRowId)),
                 Optional.of(deleteHandle),
                 deleteRowId,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(), Optional.empty());
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
@@ -889,7 +894,6 @@ public class PlanBuilder
                 columns,
                 columnNames,
                 ImmutableSet.of(),
-                Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),

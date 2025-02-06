@@ -458,12 +458,14 @@
       }
     ],
     "replicateNullsAndAny":false,
+    "scaleWriters": false,
     "bucketToPartition":[
       0,
       1,
       2,
       3
-    ]
+    ],
+    "encoding":"ROW_WISE"
   },
   "stageExecutionDescriptor":{
     "stageExecutionStrategy":"UNGROUPED_EXECUTION",

@@ -24,6 +24,7 @@ import org.apache.iceberg.hadoop.HadoopFileIO;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
@@ -62,6 +63,7 @@ public class IcebergConfig
     private int metadataPreviousVersionsMax = METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
     private boolean metadataDeleteAfterCommit = METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
     private int metricsMaxInferredColumn = METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
+    private int statisticsKllSketchKParameter = 1024;
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
@@ -410,6 +412,21 @@ public class IcebergConfig
     public IcebergConfig setMaxStatisticsFileCacheSize(DataSize maxStatisticsFileCacheSize)
     {
         this.maxStatisticsFileCacheSize = maxStatisticsFileCacheSize;
+        return this;
+    }
+
+    public int getStatisticsKllSketchKParameter()
+    {
+        return this.statisticsKllSketchKParameter;
+    }
+
+    @Config("iceberg.statistics-kll-sketch-k-parameter")
+    @Min(8)
+    @Max(65535)
+    @ConfigDescription("K parameter for KLL sketches when generating histogram statistics")
+    public IcebergConfig setStatisticsKllSketchKParameter(int kllSketchKParameter)
+    {
+        this.statisticsKllSketchKParameter = kllSketchKParameter;
         return this;
     }
 }

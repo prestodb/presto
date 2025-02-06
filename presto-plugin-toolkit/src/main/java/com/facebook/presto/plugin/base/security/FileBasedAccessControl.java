@@ -29,6 +29,7 @@ import javax.inject.Inject;
 
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -56,8 +57,10 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
 
@@ -114,6 +117,14 @@ public class FileBasedAccessControl
     {
         if (!isDatabaseOwner(identity, tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        if (!checkTablePermission(identity, tableName, OWNERSHIP)) {
+            denySetTableProperties(tableName.toString());
         }
     }
 
@@ -214,6 +225,14 @@ public class FileBasedAccessControl
     {
         if (!isDatabaseOwner(identity, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRenameView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        if (!checkTablePermission(identity, viewName, OWNERSHIP) || !checkTablePermission(identity, newViewName, OWNERSHIP)) {
+            denyRenameView(viewName.toString(), newViewName.toString());
         }
     }
 

@@ -58,7 +58,8 @@ std::string bodyAsString(
   std::ostringstream oss;
   auto iobufs = response.consumeBody();
   for (auto& body : iobufs) {
-    oss << std::string((const char*)body->data(), body->length());
+    oss << std::string(
+        reinterpret_cast<const char*>(body->data()), body->length());
     if (pool != nullptr) {
       pool->free(body->writableData(), body->capacity());
     }
@@ -177,17 +178,14 @@ void PrestoExchangeSource::doRequest(
   }
 
   auto path = fmt::format("{}/{}", basePath_, sequence_);
-  VLOG(1) << "Fetching data from " << host_ << ":" << port_ << " " << path;
   auto self = getSelfPtr();
-  auto requestBuilder =
-      http::RequestBuilder().method(proxygen::HTTPMethod::GET).url(path);
-
+  proxygen::HTTPMethod method;
   if (maxBytes == 0) {
-    requestBuilder.header(protocol::PRESTO_GET_DATA_SIZE_HEADER, "true");
-    // Coordinator ignores the header and always sends back data.  There is only
-    // one coordinator to fetch data from, so a limit of 1MB is enough.
-    maxBytes = 1 << 20;
+    method = proxygen::HTTPMethod::HEAD;
+  } else {
+    method = proxygen::HTTPMethod::GET;
   }
+  auto requestBuilder = http::RequestBuilder().method(method).url(path);
 
   velox::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::doRequest", this);
@@ -268,7 +266,7 @@ void PrestoExchangeSource::processDataResponse(
   VELOX_CHECK(
       !headers->getIsChunked(),
       "Chunked http transferring encoding is not supported.");
-  uint64_t contentLength =
+  const uint64_t contentLength =
       atol(headers->getHeaders()
                .getSingleOrEmpty(proxygen::HTTP_HEADER_CONTENT_LENGTH)
                .c_str());
@@ -294,10 +292,19 @@ void PrestoExchangeSource::processDataResponse(
     }
   }
 
-  int64_t ackSequence =
-      atol(headers->getHeaders()
-               .getSingleOrEmpty(protocol::PRESTO_PAGE_NEXT_TOKEN_HEADER)
-               .c_str());
+  std::optional<int64_t> ackSequenceOpt;
+  const auto nextTokenStr = headers->getHeaders().getSingleOrEmpty(
+      protocol::PRESTO_PAGE_NEXT_TOKEN_HEADER);
+  if (!nextTokenStr.empty()) {
+    // NOTE: when get data size from Presto coordinator, it might not set next
+    // token so we shouldn't update 'sequence_' if it is empty. Otherwise,
+    // 'sequence_' gets reset and we can't fetch any data from the source with
+    // the rolled back 'sequence_'.
+    ackSequenceOpt = atol(nextTokenStr.c_str());
+  } else {
+    VELOX_CHECK_EQ(
+        contentLength, 0, "next token is not set in non-empty data response");
+  }
 
   std::unique_ptr<exec::SerializedPage> page;
   const bool empty = response->empty();
@@ -360,7 +367,9 @@ void PrestoExchangeSource::processDataResponse(
       queue_->enqueueLocked(nullptr, queuePromises);
     }
 
-    sequence_ = ackSequence;
+    if (ackSequenceOpt.has_value()) {
+      sequence_ = ackSequenceOpt.value();
+    }
     requestPending_ = false;
     requestPromise = std::move(promise_);
   }
@@ -584,10 +593,5 @@ void PrestoExchangeSource::getMemoryUsage(
 
 void PrestoExchangeSource::resetPeakMemoryUsage() {
   peakQueuedMemoryBytes() = currQueuedMemoryBytes().load();
-}
-
-void PrestoExchangeSource::testingClearMemoryUsage() {
-  currQueuedMemoryBytes() = 0;
-  peakQueuedMemoryBytes() = 0;
 }
 } // namespace facebook::presto

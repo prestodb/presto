@@ -33,6 +33,7 @@ import com.facebook.presto.spi.security.RoleGrant;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -69,11 +70,13 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyTruncateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyUpdateTableColumns;
@@ -183,6 +186,24 @@ public class SqlStandardAccessControl
                 context.getRuntimeStats());
         if (!isDatabaseOwner(transaction, identity, metastoreContext, tableName.getSchemaName())) {
             denyCreateTable(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(identity,
+                context.getQueryId().getId(),
+                context.getClientInfo(),
+                context.getClientTags(),
+                context.getSource(),
+                Optional.empty(),
+                false,
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                context.getWarningCollector(),
+                context.getRuntimeStats());
+        if (!isTableOwner(transactionHandle, identity, metastoreContext, tableName)) {
+            denySetTableProperties(tableName.toString());
         }
     }
 
@@ -428,6 +449,24 @@ public class SqlStandardAccessControl
                 context.getRuntimeStats());
         if (!isDatabaseOwner(transaction, identity, metastoreContext, viewName.getSchemaName())) {
             denyCreateView(viewName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanRenameView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        MetastoreContext metastoreContext = new MetastoreContext(
+                identity, context.getQueryId().getId(),
+                context.getClientInfo(),
+                context.getClientTags(),
+                context.getSource(),
+                Optional.empty(),
+                false,
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                context.getWarningCollector(),
+                context.getRuntimeStats());
+        if (!isTableOwner(transaction, identity, metastoreContext, viewName)) {
+            denyRenameView(viewName.toString(), newViewName.toString());
         }
     }
 

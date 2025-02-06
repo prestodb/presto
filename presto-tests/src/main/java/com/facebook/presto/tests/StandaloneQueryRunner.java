@@ -27,9 +27,11 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
@@ -164,6 +166,12 @@ public final class StandaloneQueryRunner
     }
 
     @Override
+    public PlanCheckerProviderManager getPlanCheckerProviderManager()
+    {
+        return server.getPlanCheckerProviderManager();
+    }
+
+    @Override
     public StatsCalculator getStatsCalculator()
     {
         return server.getStatsCalculator();
@@ -179,6 +187,12 @@ public final class StandaloneQueryRunner
     public TestingAccessControlManager getAccessControl()
     {
         return server.getAccessControl();
+    }
+
+    @Override
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        return server.getExpressionManager();
     }
 
     public TestingPrestoServer getServer()
@@ -240,7 +254,7 @@ public final class StandaloneQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
-        server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
+        server.getMetadata().getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties, server.getPluginNodeManager());
     }
 
     @Override

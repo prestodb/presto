@@ -99,6 +99,11 @@ public class IcebergNativeCatalogFactory
         throw new PrestoException(NOT_SUPPORTED, "Iceberg catalog of type " + catalogType + " does not support namespace operations");
     }
 
+    public boolean isNestedNamespaceEnabled()
+    {
+        return false;
+    }
+
     protected String getCacheKey(ConnectorSession session)
     {
         StringBuilder sb = new StringBuilder();

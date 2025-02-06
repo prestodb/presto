@@ -110,6 +110,7 @@ import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
@@ -120,6 +121,7 @@ import com.facebook.presto.sql.tree.RoutineCharacteristics;
 import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -1505,6 +1507,13 @@ public class TestSqlParser
     }
 
     @Test
+    public void testRenameView()
+    {
+        assertStatement("ALTER VIEW a RENAME TO b", new RenameView(QualifiedName.of("a"), QualifiedName.of("b"), false));
+        assertStatement("ALTER VIEW IF EXISTS a RENAME TO b", new RenameView(QualifiedName.of("a"), QualifiedName.of("b"), true));
+    }
+
+    @Test
     public void testDropView()
     {
         assertStatement("DROP VIEW a", new DropView(QualifiedName.of("a"), false));
@@ -1620,6 +1629,20 @@ public class TestSqlParser
     {
         assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), false));
         assertStatement("ALTER TABLE IF EXISTS a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), true));
+    }
+
+    @Test
+    public void testSetProperties()
+    {
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))), false));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=true)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new BooleanLiteral("true"))), false));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123"))), false));
+        assertStatement("ALTER TABLE a SET PROPERTIES (foo=123, bar=456)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("123")), new Property(new Identifier("bar"), new LongLiteral("456"))), false));
+        assertStatement("ALTER TABLE a SET PROPERTIES (\" s p a c e \"='bar')", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("a"), ImmutableList.of(new Property(new Identifier(" s p a c e "), new StringLiteral("bar"))), false));
+
+        assertInvalidStatement("ALTER TABLE a SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
+        assertStatement("ALTER TABLE IF EXISTS b SET PROPERTIES (foo=12345)", new SetProperties(SetProperties.Type.TABLE, QualifiedName.of("b"), ImmutableList.of(new Property(new Identifier("foo"), new LongLiteral("12345"))), true));
+        assertInvalidStatement("ALTER TABLE IF EXISTS b SET PROPERTIES ()", "mismatched input '\\)'. Expecting: <identifier>");
     }
 
     @Test

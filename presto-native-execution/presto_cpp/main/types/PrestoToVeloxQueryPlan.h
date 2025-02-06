@@ -15,7 +15,7 @@
 #include <stdexcept>
 #include <vector>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/PlanNode.h"
@@ -24,7 +24,6 @@
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
 
 namespace facebook::presto {
 
@@ -272,4 +271,9 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
 };
 
 void registerPrestoPlanNodeSerDe();
+
+void parseSqlFunctionHandle(
+    const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
+    std::vector<velox::TypePtr>& rawInputTypes,
+    TypeParser& typeParser);
 } // namespace facebook::presto

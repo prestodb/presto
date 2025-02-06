@@ -82,6 +82,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
@@ -92,6 +93,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -581,8 +583,7 @@ public final class SqlFormatter
 
             node.getSecurity().ifPresent(security ->
                     builder.append(" SECURITY ")
-                            .append(security.toString())
-                            .append(" "));
+                            .append(security.toString()));
 
             builder.append(" AS\n");
 
@@ -684,6 +685,20 @@ public final class SqlFormatter
                 builder.append(" NAME ");
                 builder.append(node.getIdentifier().get().toString());
             }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRenameView(RenameView node, Integer context)
+        {
+            builder.append("ALTER VIEW ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getSource()))
+                    .append(" RENAME TO ")
+                    .append(formatName(node.getTarget()));
 
             return null;
         }
@@ -813,6 +828,27 @@ public final class SqlFormatter
                             .append(formatStringLiteral(value)));
 
             return null;
+        }
+
+        protected Void visitSetProperties(SetProperties node, Integer context)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTableName()));
+            builder.append(" SET PROPERTIES ( ");
+            builder.append(joinProperties(node.getProperties()));
+            builder.append(" )");
+            return null;
+        }
+
+        private String joinProperties(List<Property> properties)
+        {
+            return properties.stream()
+                    .map(element -> formatExpression(element.getName(), Optional.empty()) + " = " +
+                            formatExpression(element.getValue(), Optional.empty()))
+                    .collect(joining(", "));
         }
 
         @Override

@@ -19,11 +19,11 @@ import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.optimizations.SymbolMapper;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -52,7 +52,7 @@ public class PushTableWriteThroughUnion
             // guaranteed regardless of this optimizer. The level of local parallelism will be
             // determined by LocalExecutionPlanner separately, and shouldn't be a concern of
             // this optimizer.
-            .matching(tableWriter -> !(tableWriter.getTablePartitioningScheme().isPresent() || tableWriter.getPreferredShufflePartitioningScheme().isPresent()))
+            .matching(tableWriter -> !tableWriter.isSingleWriterPerPartitionRequired())
             .with(source().matching(union().capturedAs(CHILD)));
 
     @Override

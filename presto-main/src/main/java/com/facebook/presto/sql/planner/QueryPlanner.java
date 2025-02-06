@@ -29,6 +29,7 @@ import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
@@ -40,6 +41,7 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -51,11 +53,9 @@ import com.facebook.presto.sql.analyzer.RelationId;
 import com.facebook.presto.sql.analyzer.RelationType;
 import com.facebook.presto.sql.analyzer.Scope;
 import com.facebook.presto.sql.parser.SqlParser;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Delete;
@@ -275,7 +275,7 @@ class QueryPlanner
 
         // create table scan
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
-        PlanNode tableScan = new TableScanNode(getSourceLocation(node), idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all());
+        PlanNode tableScan = new TableScanNode(getSourceLocation(node), idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all(), Optional.empty());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputVariables);
 
@@ -294,7 +294,7 @@ class QueryPlanner
                 variableAllocator.newVariable("partialrows", BIGINT),
                 variableAllocator.newVariable("fragment", VARBINARY));
 
-        return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), builder.getRoot(), rowId, deleteNodeOutputVariables);
+        return new DeleteNode(getSourceLocation(node), idAllocator.getNextId(), builder.getRoot(), rowId, deleteNodeOutputVariables, Optional.empty());
     }
 
     public UpdateNode plan(Update node)
@@ -344,7 +344,7 @@ class QueryPlanner
 
         // create table scan
         List<VariableReferenceExpression> outputVariables = outputVariablesBuilder.build();
-        PlanNode tableScan = new TableScanNode(getSourceLocation(node), idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all());
+        PlanNode tableScan = new TableScanNode(getSourceLocation(node), idAllocator.getNextId(), handle, outputVariables, columns.build(), TupleDomain.all(), TupleDomain.all(), Optional.empty());
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputVariables);
 
@@ -1260,7 +1260,7 @@ class QueryPlanner
         OrderingScheme orderingScheme = toOrderingScheme(
                 orderByExpressions.stream().map(subPlan::translate).collect(toImmutableList()),
                 orderBy.get().getSortItems().stream().map(PlannerUtils::toSortOrder).collect(toImmutableList()));
-        planNode = new SortNode(getSourceLocation(orderBy.get()), idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false);
+        planNode = new SortNode(getSourceLocation(orderBy.get()), idAllocator.getNextId(), subPlan.getRoot(), orderingScheme, false, ImmutableList.of());
 
         return subPlan.withNewRoot(planNode);
     }

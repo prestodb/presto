@@ -10,6 +10,7 @@ Note: Presto C++ is in active development. See :doc:`Limitations </presto_cpp/li
     presto_cpp/features
     presto_cpp/limitations
     presto_cpp/properties
+    presto_cpp/properties-session
 
 Overview
 ========
@@ -44,6 +45,10 @@ Supported Use Cases
 Only specific connectors are supported in the Presto C++ evaluation engine.
 
 * Hive connector for reads and writes, including CTAS, are supported.
+
+* Hive Connector supports Delta Lake table access using Symlink table in Prestissimo.
+  For more information about Symlink tables, see `Presto, Trino, and Athena to Delta Lake integration using
+  manifests <https://docs.delta.io/latest/presto-integration.html>`_.
 
 * Iceberg tables are supported only for reads.
 

@@ -25,6 +25,7 @@ import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
+import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManagerFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
@@ -71,6 +72,11 @@ public interface Plugin
     }
 
     default Iterable<PasswordAuthenticatorFactory> getPasswordAuthenticatorFactories()
+    {
+        return emptyList();
+    }
+
+    default Iterable<PrestoAuthenticatorFactory> getPrestoAuthenticatorFactories()
     {
         return emptyList();
     }
@@ -139,6 +145,11 @@ public interface Plugin
     }
 
     default Iterable<NodeStatusNotificationProviderFactory> getNodeStatusNotificationProviderFactory()
+    {
+        return emptyList();
+    }
+
+    default Iterable<ClientRequestFilterFactory> getClientRequestFilterFactories()
     {
         return emptyList();
     }

@@ -1,8 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import {ClusterHUD} from "./components/ClusterHUD";
-import {QueryList} from "./components/QueryList";
+import lazy from "./lazy";
 import { PageTitle } from "./components/PageTitle";
+
+const ClusterHUD = lazy('ClusterHUD');
+const QueryList = lazy('QueryList');
 
 ReactDOM.render(
     <PageTitle titles={['Cluster Overview', 'Resource Groups', 'SQL Client']} urls={['./index.html', 'res_groups.html', 'sql_client.html']} current={0}/>,

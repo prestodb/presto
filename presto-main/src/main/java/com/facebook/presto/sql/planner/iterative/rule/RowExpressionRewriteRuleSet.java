@@ -19,19 +19,19 @@ import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.StatisticAggregations;
+import com.facebook.presto.spi.plan.TableFinishNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.StatisticAggregations;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -524,7 +524,8 @@ public class RowExpressionRewriteRuleSet
                         node.getTarget(),
                         node.getRowCountVariable(),
                         rewrittenStatisticsAggregation,
-                        node.getStatisticsAggregationDescriptor()));
+                        node.getStatisticsAggregationDescriptor(),
+                        node.getCteMaterializationInfo()));
             }
             return Result.empty();
         }
@@ -587,7 +588,6 @@ public class RowExpressionRewriteRuleSet
                         node.getColumnNames(),
                         node.getNotNullColumnVariables(),
                         node.getTablePartitioningScheme(),
-                        node.getPreferredShufflePartitioningScheme(),
                         rewrittenStatisticsAggregation,
                         node.getTaskCountIfScaledWriter(),
                         node.getIsTemporaryTableWriter()));

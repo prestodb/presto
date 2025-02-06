@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-docs</artifactId>
@@ -40,12 +40,12 @@
                 <artifactId>drift-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <phase>validate</phase>
+                        <phase>generate-sources</phase>
                         <goals>
                             <goal>generate-thrift-idl</goal>
                         </goals>
                         <configuration>
-                            <outputFile>${project.build.directory}/PrestoThriftService.thrift</outputFile>
+                            <outputFile>${project.build.directory}/thrift/PrestoThriftService.thrift</outputFile>
                             <classes>
                                 <class>com.facebook.presto.thrift.api.connector.PrestoThriftService</class>
                             </classes>
@@ -82,7 +82,7 @@
                     </execution>
                     <execution>
                         <id>validate-thrift-idl</id>
-                        <phase>validate</phase>
+                        <phase>process-sources</phase>
                         <goals>
                             <goal>exec</goal>
                         </goals>
@@ -92,13 +92,13 @@
                                 <argument>-b</argument>
                                 <argument>-c</argument>
                                 <argument>${project.basedir}/src/main/sphinx/include/PrestoThriftService.thrift</argument>
-                                <argument>${project.build.directory}/PrestoThriftService.thrift</argument>
+                                <argument>${project.build.directory}/thrift/PrestoThriftService.thrift</argument>
                             </arguments>
                         </configuration>
                     </execution>
                     <execution>
                         <id>run-sphinx</id>
-                        <phase>package</phase>
+                        <phase>compile</phase>
                         <goals>
                             <goal>exec</goal>
                         </goals>

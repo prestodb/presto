@@ -247,6 +247,16 @@ public final class Range
                 Objects.equals(this.high, other.high);
     }
 
+    @Override
+    public String toString()
+    {
+        return (low.getBound() == Marker.Bound.EXACTLY ? "[" : "(") +
+                low.getObjectValue().orElse(Double.NEGATIVE_INFINITY) +
+                ".." +
+                high.getObjectValue().orElse(Double.POSITIVE_INFINITY) +
+                (high.getBound() == Marker.Bound.EXACTLY ? "]" : ")");
+    }
+
     private void appendQuotedValue(StringBuilder buffer, Marker marker, SqlFunctionProperties properties)
     {
         buffer.append('"');

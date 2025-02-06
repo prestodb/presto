@@ -50,6 +50,7 @@ import static org.apache.iceberg.CatalogUtil.configureHadoopConf;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.JWT_TOKEN_TYPE;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.OAUTH2_SERVER_URI;
+import static org.apache.iceberg.rest.auth.OAuth2Properties.SCOPE;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
 public class IcebergRestCatalogFactory
@@ -58,6 +59,7 @@ public class IcebergRestCatalogFactory
     private final IcebergRestConfig catalogConfig;
     private final NodeVersion nodeVersion;
     private final String catalogName;
+    private final boolean nestedNamespaceEnabled;
 
     @Inject
     public IcebergRestCatalogFactory(
@@ -72,6 +74,7 @@ public class IcebergRestCatalogFactory
         this.catalogConfig = requireNonNull(catalogConfig, "catalogConfig is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null").getCatalogName();
+        this.nestedNamespaceEnabled = catalogConfig.isNestedNamespaceEnabled();
     }
 
     @Override
@@ -124,6 +127,7 @@ public class IcebergRestCatalogFactory
                 }
                 catalogConfig.getCredential().ifPresent(credential -> properties.put(CREDENTIAL, credential));
                 catalogConfig.getToken().ifPresent(token -> properties.put(TOKEN, token));
+                catalogConfig.getScope().ifPresent(scope -> properties.put(SCOPE, scope));
             }
         });
 
@@ -131,6 +135,12 @@ public class IcebergRestCatalogFactory
                 .ifPresent(type -> properties.put(CatalogProperties.USER, session.getUser()));
 
         return properties.build();
+    }
+
+    @Override
+    public boolean isNestedNamespaceEnabled()
+    {
+        return this.nestedNamespaceEnabled;
     }
 
     protected SessionContext convertSession(ConnectorSession session)
@@ -159,7 +169,7 @@ public class IcebergRestCatalogFactory
                             .setIdentity(session.getUser())
                             .setCredentials(credentials.build())
                             .setProperties(properties);
-                }).orElse(builder(session).setSessionId(randomUUID().toString()));
+                }).orElseGet(() -> builder(session).setSessionId(randomUUID().toString()));
         return sessionContextBuilder.build();
     }
 

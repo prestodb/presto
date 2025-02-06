@@ -72,8 +72,6 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(
       kCounterNumBlockedWaitForConnectorDrivers,
       facebook::velox::StatType::AVG);
-  DEFINE_METRIC(
-      kCounterNumBlockedWaitForSpillDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumStuckDrivers, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
@@ -102,6 +100,35 @@ void registerPrestoMetrics() {
   DEFINE_METRIC(kCounterMemoryPushbackCount, facebook::velox::StatType::COUNT);
   DEFINE_HISTOGRAM_METRIC(
       kCounterMemoryPushbackLatencyMs, 10'000, 0, 100'000, 50, 90, 99, 100);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterMemoryPushbackReductionBytes,
+      100l * 1024 * 1024, // 100MB
+      0,
+      15l * 1024 * 1024 * 1024, // 15GB
+      50,
+      90,
+      99,
+      100);
+  DEFINE_HISTOGRAM_METRIC(
+      kCounterMemoryPushbackExpectedReductionBytes,
+      100l * 1024 * 1024, // 100MB
+      0,
+      15l * 1024 * 1024 * 1024, // 15GB
+      50,
+      90,
+      99,
+      100);
+
+  // NOTE: Metrics type exporting for thread pool executor counters are in
+  // PeriodicTaskManager because they have dynamic names and report configs. The
+  // following counters have their type exported there:
+  // [
+  //  kCounterThreadPoolNumThreadsFormat,
+  //  kCounterThreadPoolNumActiveThreadsFormat,
+  //  kCounterThreadPoolNumPendingTasksFormat,
+  //  kCounterThreadPoolNumTotalTasksFormat,
+  //  kCounterThreadPoolMaxIdleTimeNsFormat
+  // ]
 
   // NOTE: Metrics type exporting for file handle cache counters are in
   // PeriodicTaskManager because they have dynamic names. The following counters

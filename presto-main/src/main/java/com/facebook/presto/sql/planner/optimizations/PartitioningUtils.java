@@ -344,7 +344,14 @@ public class PartitioningUtils
                 .map(oldOutputLayout::indexOf)
                 .map(newOutputLayout::get);
 
-        return new PartitioningScheme(newPartitioning, newOutputLayout, newHashSymbol, partitioningScheme.isReplicateNullsAndAny(), partitioningScheme.getBucketToPartition());
+        return new PartitioningScheme(
+                newPartitioning,
+                newOutputLayout,
+                newHashSymbol,
+                partitioningScheme.isReplicateNullsAndAny(),
+                partitioningScheme.isScaleWriters(),
+                partitioningScheme.getEncoding(),
+                partitioningScheme.getBucketToPartition());
     }
 
     // Translates VariableReferenceExpression in arguments according to translator, keeps other arguments unchanged.

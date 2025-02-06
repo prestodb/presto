@@ -64,4 +64,14 @@ void installSignalHandler() {
 #endif // __APPLE__
 }
 
+std::string extractMessageBody(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body) {
+  // TODO Avoid copy
+  std::ostringstream oss;
+  for (auto& buf : body) {
+    oss << std::string(
+        reinterpret_cast<const char*>(buf->data()), buf->length());
+  }
+  return oss.str();
+}
 } // namespace facebook::presto::util

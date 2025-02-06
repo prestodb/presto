@@ -35,10 +35,11 @@ export function QueryResults({ results }) {
 
     const getColumns = () => {
         return results.columns.map((row, index) => {
-            return {
+            let column = {
                 name: row.name,
-                selector: row => row[index],
             };
+            column.selector = row.type === 'bigint' ? row => row[index].toString() : row => row[index];
+            return column;
         });
     };
 

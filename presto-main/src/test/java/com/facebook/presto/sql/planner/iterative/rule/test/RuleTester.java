@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
 import com.facebook.presto.sql.planner.assertions.OptimizerAssert;
@@ -43,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
 
@@ -60,6 +62,7 @@ public class RuleTester
     private final PageSourceManager pageSourceManager;
     private final AccessControl accessControl;
     private final SqlParser sqlParser;
+    private ExpressionOptimizerManager expressionOptimizerManager;
 
     public RuleTester()
     {
@@ -83,7 +86,7 @@ public class RuleTester
 
     public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)
     {
-        this(plugins, sessionProperties, new SessionPropertyManager(), nodeCountForStats, connectorFactory);
+        this(plugins, sessionProperties, createTestingSessionPropertyManager(), nodeCountForStats, connectorFactory);
     }
 
     public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, SessionPropertyManager sessionPropertyManager, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)
@@ -106,6 +109,7 @@ public class RuleTester
                 connectorFactory,
                 ImmutableMap.of());
         plugins.stream().forEach(queryRunner::installPlugin);
+        expressionOptimizerManager = queryRunner.getExpressionManager();
 
         this.metadata = queryRunner.getMetadata();
         this.transactionManager = queryRunner.getTransactionManager();
@@ -195,5 +199,10 @@ public class RuleTester
             metadata.getCatalogHandle(transactionSession, session.getCatalog().get());
             return metadata.getTableMetadata(transactionSession, tableHandle).getMetadata().getTableConstraintsHolder().getTableConstraintsWithColumnHandles();
         });
+    }
+
+    public ExpressionOptimizerManager getExpressionManager()
+    {
+        return expressionOptimizerManager;
     }
 }

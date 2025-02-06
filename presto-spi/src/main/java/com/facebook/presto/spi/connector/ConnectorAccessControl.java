@@ -20,6 +20,7 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -43,11 +44,13 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCurrentRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoleGrants;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoles;
@@ -119,6 +122,16 @@ public interface ConnectorAccessControl
     default void checkCanCreateTable(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
         denyCreateTable(tableName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to set properties to the specified table.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+    {
+        denySetTableProperties(tableName.toString());
     }
 
     /**
@@ -256,6 +269,16 @@ public interface ConnectorAccessControl
     default void checkCanCreateView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
     {
         denyCreateView(viewName.toString());
+    }
+
+    /**
+     * Check if identity is allowed to rename the specified view in this catalog.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanRenameView(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        denyRenameView(viewName.toString(), newViewName.toString());
     }
 
     /**

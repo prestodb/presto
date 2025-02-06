@@ -127,6 +127,7 @@ import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Return;
 import com.facebook.presto.sql.tree.Revoke;
@@ -141,6 +142,7 @@ import com.facebook.presto.sql.tree.SampledRelation;
 import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -209,6 +211,7 @@ import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NO
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.SetProperties.Type.TABLE;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.EQUAL;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator.LESS_THAN;
@@ -458,6 +461,21 @@ class AstBuilder
     }
 
     @Override
+    public Node visitSetTableProperties(SqlBaseParser.SetTablePropertiesContext context)
+    {
+        List<Property> properties = ImmutableList.of();
+        if (context.properties() != null) {
+            properties = visit(context.properties().property(), Property.class);
+        }
+
+        return new SetProperties(getLocation(context),
+                TABLE,
+                getQualifiedName(context.tableName),
+                properties,
+                context.EXISTS() != null);
+    }
+
+    @Override
     public Node visitRenameColumn(SqlBaseParser.RenameColumnContext context)
     {
         return new RenameColumn(
@@ -467,6 +485,12 @@ class AstBuilder
                 (Identifier) visit(context.to),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
+    }
+
+    @Override
+    public Node visitRenameView(SqlBaseParser.RenameViewContext context)
+    {
+        return new RenameView(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to), context.EXISTS() != null);
     }
 
     @Override

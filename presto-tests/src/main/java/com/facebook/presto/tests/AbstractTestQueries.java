@@ -48,6 +48,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT;
@@ -2788,6 +2789,28 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testUse()
+    {
+        Session sessionWithDefaultCatalogAndSchema = getSession();
+        String catalog = sessionWithDefaultCatalogAndSchema.getCatalog().get();
+        String schema = sessionWithDefaultCatalogAndSchema.getSchema().get();
+
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, "USE non_exist_schema", format("Schema does not exist: %s.non_exist_schema", catalog));
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, "USE non_exist_catalog.any_schema", "Catalog does not exist: non_exist_catalog");
+        assertQueryFails(sessionWithDefaultCatalogAndSchema, format("USE %s.non_exist_schema", catalog), format("Schema does not exist: %s.non_exist_schema", catalog));
+        assertUpdate(sessionWithDefaultCatalogAndSchema, format("USE %s.%s", catalog, schema));
+
+        Session sessionWithoutDefaultCatalogAndSchema = Session.builder(getSession())
+                .setCatalog(null)
+                .setSchema(null)
+                .build();
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, "USE any_schema", ".* Catalog must be specified when session catalog is not set");
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, "USE non_exist_catalog.any_schema", "Catalog does not exist: non_exist_catalog");
+        assertQueryFails(sessionWithoutDefaultCatalogAndSchema, format("USE %s.non_exist_schema", catalog), format("Schema does not exist: %s.non_exist_schema", catalog));
+        assertUpdate(sessionWithoutDefaultCatalogAndSchema, format("USE %s.%s", catalog, schema));
+    }
+
+    @Test
     public void testShowSchemasLike()
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
@@ -3124,6 +3147,32 @@ public abstract class AbstractTestQueries
         catch (Exception e) {
             assertEquals("Escape string must be a single character", e.getMessage());
         }
+    }
+
+    @Test
+    public void testShowSessionWithoutNativeSessionProperties()
+    {
+        // SHOW SESSION will exclude native-worker session properties
+        @Language("SQL") String sql = "SHOW SESSION";
+        MaterializedResult actualResult = computeActual(sql);
+        List<MaterializedRow> actualRows = actualResult.getMaterializedRows();
+        String nativeSessionProperty = "native_expression_max_array_size_in_reduce";
+        List<MaterializedRow> filteredRows = getNativeWorkerSessionProperties(actualRows, nativeSessionProperty);
+        assertTrue(filteredRows.isEmpty());
+    }
+
+    @Test
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
+        // SET SESSION on a native-worker session property
+        @Language("SQL") String setSession = "SET SESSION native_expression_max_array_size_in_reduce=50000";
+        MaterializedResult setSessionResult = computeActual(setSession);
+        assertEquals(
+                setSessionResult.toString(),
+                "MaterializedResult{rows=[[true]], " +
+                        "types=[boolean], " +
+                        "setSessionProperties={native_expression_max_array_size_in_reduce=50000}, " +
+                        "resetSessionProperties=[], updateType=SET SESSION}");
     }
 
     @Test
@@ -7768,21 +7817,62 @@ public abstract class AbstractTestQueries
     @Test
     public void testJoinPrefilter()
     {
-        // Orig
-        String testQuery = "SELECT 1 from region join nation using(regionkey)";
-        MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
-        assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
-        result = computeActual(testQuery);
-        assertEquals(result.getRowCount(), 25);
+        {
+            // Orig
+            String testQuery = "SELECT 1 from region join nation using(regionkey)";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 25);
 
-        // With feature
-        Session session = Session.builder(getSession())
-                .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
-                .build();
-        result = computeActual(session, "explain(type distributed) " + testQuery);
-        assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
-        result = computeActual(session, testQuery);
-        assertEquals(result.getRowCount(), 25);
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .build();
+            result = computeActual(session, "explain(type distributed) " + testQuery);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(session, testQuery);
+            assertEquals(result.getRowCount(), 25);
+        }
+
+        {
+            // Orig
+            @Language("SQL") String testQuery = "SELECT 1 from region r join nation n on cast(r.regionkey as varchar) = cast(n.regionkey as varchar)";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 25);
+
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .setSystemProperty(REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN, String.valueOf(false))
+                    .build();
+            result = computeActual(session, "explain(type distributed) " + testQuery);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("XX_HASH_64"), -1);
+            result = computeActual(session, testQuery);
+            assertEquals(result.getRowCount(), 25);
+        }
+
+        {
+            // Orig
+            String testQuery = "SELECT 1 from lineitem l join orders o on l.orderkey = o.orderkey and l.suppkey = o.custkey";
+            MaterializedResult result = computeActual("explain(type distributed) " + testQuery);
+            assertEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            result = computeActual(testQuery);
+            assertEquals(result.getRowCount(), 37);
+
+            // With feature
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_PREFILTER_BUILD_SIDE, String.valueOf(true))
+                    .build();
+            result = computeActual(session, "explain(type distributed) " + testQuery);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("SemiJoin"), -1);
+            assertNotEquals(((String) result.getMaterializedRows().get(0).getField(0)).indexOf("XX_HASH_64"), -1);
+            result = computeActual(session, testQuery);
+            assertEquals(result.getRowCount(), 37);
+        }
     }
 
     @Test
@@ -7886,5 +7976,12 @@ public abstract class AbstractTestQueries
         assertQuery(session,
                 "SELECT a * 2, a - 1 FROM (SELECT x * 2 as a FROM (VALUES 15) t(x))",
                 "SELECT * FROM (VALUES (60, 29))");
+    }
+
+    private List<MaterializedRow> getNativeWorkerSessionProperties(List<MaterializedRow> inputRows, String sessionPropertyName)
+    {
+        return inputRows.stream()
+                .filter(row -> Pattern.matches(sessionPropertyName, row.getFields().get(4).toString()))
+                .collect(toList());
     }
 }

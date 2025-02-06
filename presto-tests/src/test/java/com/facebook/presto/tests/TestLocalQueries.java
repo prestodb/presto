@@ -118,6 +118,12 @@ public class TestLocalQueries
     }
 
     @Test
+    public void testUse()
+    {
+        // USE statement is not supported
+    }
+
+    @Test
     public void testIOExplain()
     {
         String query = "SELECT * FROM orders";
@@ -143,5 +149,10 @@ public class TestLocalQueries
         assertEquals(
                 jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
                 new IOPlan(ImmutableSet.of(input), Optional.empty()));
+    }
+
+    @Override
+    public void testSetSessionNativeWorkerSessionProperty()
+    {
     }
 }

@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.cost;
 
+import com.facebook.presto.common.predicate.Range;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.BoundType;
-import com.google.common.collect.Range;
 
 import java.util.Objects;
 
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.statistics.ColumnStatistics.INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR;
+import static com.facebook.presto.spi.statistics.ColumnStatistics.INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR;
 import static com.facebook.presto.util.MoreMath.nearlyEqual;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
-import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isFinite;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
@@ -36,9 +36,6 @@ import static java.util.Objects.requireNonNull;
 
 public class StatisticRange
 {
-    protected static final double INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.25;
-    protected static final double INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.5;
-
     // TODO unify field and method names with SymbolStatsEstimate
     /**
      * {@code NaN} represents empty range ({@code high} must be {@code NaN} too)
@@ -222,19 +219,12 @@ public class StatisticRange
         return expandRangeWithNewDistinct(newDistinctValues, other);
     }
 
-    public Range<Double> toRange()
+    public Range toPrestoRange()
     {
-        return Range.range(low, openLow ? BoundType.OPEN : BoundType.CLOSED, high, openHigh ? BoundType.OPEN : BoundType.CLOSED);
-    }
-
-    public static StatisticRange fromRange(Range<Double> range)
-    {
-        return new StatisticRange(
-                range.hasLowerBound() ? range.lowerEndpoint() : NEGATIVE_INFINITY,
-                !range.hasLowerBound() || range.lowerBoundType() == BoundType.OPEN,
-                range.hasUpperBound() ? range.upperEndpoint() : POSITIVE_INFINITY,
-                !range.hasUpperBound() || range.upperBoundType() == BoundType.OPEN,
-                NaN);
+        if (low == high) {
+            return Range.equal(DOUBLE, low);
+        }
+        return Range.range(DOUBLE, low, !openLow, high, !openHigh);
     }
 
     private StatisticRange expandRangeWithNewDistinct(double newDistinctValues, StatisticRange other)

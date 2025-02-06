@@ -36,5 +36,11 @@
             valuesDecoder: "LongDecimalValuesDecoder",
             primitiveType: "long"
         },
+        {
+            classNamePrefix: "Uuid",
+            blockType: "Int128ArrayBlock",
+            valuesDecoder: "UuidValuesDecoder",
+            primitiveType: "long"
+        },
     ]
 }

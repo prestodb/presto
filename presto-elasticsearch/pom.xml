@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
     <artifactId>presto-elasticsearch</artifactId>
     <description>Presto - Elasticsearch Connector</description>
@@ -14,7 +14,6 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.log4j.version>2.17.1</dep.log4j.version>
         <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
-        <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
     </properties>
 
     <dependencies>
@@ -128,7 +127,6 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.2</version>
 
             <exclusions>
                 <!-- elasticsearch-rest-high-level-client 6.0.0 brings in httpcore 4.4.5 vs (4.4.4) -->
@@ -152,7 +150,6 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
-            <version>4.4.5</version>
         </dependency>
 
         <dependency>

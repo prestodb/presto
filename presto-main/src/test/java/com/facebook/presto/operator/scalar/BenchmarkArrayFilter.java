@@ -67,7 +67,7 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
@@ -205,7 +205,7 @@ public class BenchmarkArrayFilter
         private ExactArrayFilterFunction()
         {
             super(new Signature(
-                    QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "exact_filter"),
+                    QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "exact_filter"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),

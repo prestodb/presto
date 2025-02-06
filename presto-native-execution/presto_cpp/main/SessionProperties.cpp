@@ -65,6 +65,23 @@ SessionProperties::SessionProperties() {
       boolToString(c.exprEvalSimplified()));
 
   addSessionProperty(
+      kExprMaxArraySizeInReduce,
+      "Reduce() function will throw an error if it encounters an array of size greater than this value.",
+      BIGINT(),
+      false,
+      QueryConfig::kExprMaxArraySizeInReduce,
+      std::to_string(c.exprMaxArraySizeInReduce()));
+
+  addSessionProperty(
+      kExprMaxCompiledRegexes,
+      "Controls maximum number of compiled regular expression patterns per regular expression function instance "
+      "per thread of execution.",
+      BIGINT(),
+      false,
+      QueryConfig::kExprMaxCompiledRegexes,
+      std::to_string(c.exprMaxCompiledRegexes()));
+
+  addSessionProperty(
       kMaxPartialAggregationMemory,
       "The max partial aggregation memory when data reduction is not optimal.",
       BIGINT(),
@@ -160,6 +177,16 @@ SessionProperties::SessionProperties() {
       boolToString(c.writerSpillEnabled()));
 
   addSessionProperty(
+      kWriterFlushThresholdBytes,
+      "Native Execution only. Minimum memory footprint size required "
+      "to reclaim memory from a file writer by flushing its buffered data to "
+      "disk.",
+      BIGINT(),
+      false,
+      QueryConfig::kWriterFlushThresholdBytes,
+      std::to_string(c.writerFlushThresholdBytes()));
+
+  addSessionProperty(
       kRowNumberSpillEnabled,
       "Native Execution only. Enable row number spilling on native engine",
       BOOLEAN(),
@@ -168,29 +195,21 @@ SessionProperties::SessionProperties() {
       boolToString(c.rowNumberSpillEnabled()));
 
   addSessionProperty(
-      kJoinSpillPartitionBits,
-      "Native Execution only. The number of bits (N) used to calculate the "
-      "spilling partition number for hash join and RowNumber: 2 ^ N",
-      INTEGER(),
-      false,
-      QueryConfig::kJoinSpillPartitionBits,
-      std::to_string(c.rowNumberSpillEnabled()));
-
-  addSessionProperty(
-      kNativeSpillerNumPartitionBits,
-      "none",
+      kSpillerNumPartitionBits,
+      "The number of bits (N) used to calculate the spilling "
+      "partition number for hash join and RowNumber: 2 ^ N",
       TINYINT(),
       false,
       QueryConfig::kSpillNumPartitionBits,
-      std::to_string(c.spillNumPartitionBits())),
+      std::to_string(c.spillNumPartitionBits()));
 
-      addSessionProperty(
-          kTopNRowNumberSpillEnabled,
-          "Native Execution only. Enable topN row number spilling on native engine",
-          BOOLEAN(),
-          false,
-          QueryConfig::kTopNRowNumberSpillEnabled,
-          boolToString(c.topNRowNumberSpillEnabled()));
+  addSessionProperty(
+      kTopNRowNumberSpillEnabled,
+      "Native Execution only. Enable topN row number spilling on native engine",
+      BOOLEAN(),
+      false,
+      QueryConfig::kTopNRowNumberSpillEnabled,
+      boolToString(c.topNRowNumberSpillEnabled()));
 
   addSessionProperty(
       kValidateOutputFromOperators,
@@ -254,6 +273,71 @@ SessionProperties::SessionProperties() {
       QueryConfig::kSelectiveNimbleReaderEnabled,
       boolToString(c.selectiveNimbleReaderEnabled()));
 
+  addSessionProperty(
+      kQueryTraceEnabled,
+      "Enables query tracing.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kQueryTraceEnabled,
+      boolToString(c.queryTraceEnabled()));
+
+  addSessionProperty(
+      kQueryTraceDir,
+      "Base dir of a query to store tracing data.",
+      VARCHAR(),
+      false,
+      QueryConfig::kQueryTraceDir,
+      c.queryTraceDir());
+
+  addSessionProperty(
+      kQueryTraceNodeIds,
+      "A comma-separated list of plan node ids whose input data will be traced."
+      " Empty string if only want to trace the query metadata.",
+      VARCHAR(),
+      false,
+      QueryConfig::kQueryTraceNodeIds,
+      c.queryTraceNodeIds());
+
+  addSessionProperty(
+      kQueryTraceMaxBytes,
+      "The max trace bytes limit. Tracing is disabled if zero.",
+      BIGINT(),
+      false,
+      QueryConfig::kQueryTraceMaxBytes,
+      std::to_string(c.queryTraceMaxBytes()));
+
+
+  addSessionProperty(
+      kOpTraceDirectoryCreateConfig,
+      "Config used to create operator trace directory. This config is provided to"
+      " underlying file system and the config is free form. The form should be defined "
+      "by the underlying file system.",
+      VARCHAR(),
+      false,
+      QueryConfig::kOpTraceDirectoryCreateConfig,
+      c.opTraceDirectoryCreateConfig());
+
+  addSessionProperty(
+      kMaxOutputBufferSize,
+      "The maximum size in bytes for the task's buffered output. The buffer is"
+      " shared among all drivers.",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxOutputBufferSize,
+      std::to_string(c.maxOutputBufferSize()));
+
+  addSessionProperty(
+      kMaxPartitionedOutputBufferSize,
+      "The maximum bytes to buffer per PartitionedOutput operator to avoid"
+      "creating tiny SerializedPages. For "
+      "PartitionedOutputNode::Kind::kPartitioned, PartitionedOutput operator"
+      "would buffer up to that number of bytes / number of destinations for "
+      "each destination before producing a SerializedPage.",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxPartitionedOutputBufferSize,
+      std::to_string(c.maxPartitionedOutputBufferSize()));
+
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
   // session_timezone.
@@ -281,6 +365,101 @@ SessionProperties::SessionProperties() {
       // Overrides velox default value. Set it to 1 second to be aligned with
       // Presto Java.
       std::to_string(1000));
+
+  addSessionProperty(
+      kMaxLocalExchangePartitionCount,
+      "Maximum number of partitions created by a local exchange."
+      "Affects concurrency for pipelines containing LocalPartitionNode",
+      BIGINT(),
+      false,
+      QueryConfig::kMaxLocalExchangePartitionCount,
+      std::to_string(c.maxLocalExchangePartitionCount()));
+
+  addSessionProperty(
+      kSpillPrefixSortEnabled,
+      "Enable the prefix sort or fallback to std::sort in spill. The prefix sort is "
+      "faster than std::sort but requires the memory to build normalized prefix "
+      "keys, which might have potential risk of running out of server memory.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kSpillPrefixSortEnabled,
+      std::to_string(c.spillPrefixSortEnabled()));
+
+  addSessionProperty(
+      kPrefixSortNormalizedKeyMaxBytes,
+      "Maximum number of bytes to use for the normalized key in prefix-sort. "
+      "Use 0 to disable prefix-sort.",
+      INTEGER(),
+      false,
+      QueryConfig::kPrefixSortNormalizedKeyMaxBytes,
+      std::to_string(c.prefixSortNormalizedKeyMaxBytes()));
+
+  addSessionProperty(
+      kPrefixSortMinRows,
+      "Minimum number of rows to use prefix-sort. The default value (130) has been "
+      "derived using micro-benchmarking.",
+      INTEGER(),
+      false,
+      QueryConfig::kPrefixSortMinRows,
+      std::to_string(c.prefixSortMinRows()));
+
+  addSessionProperty(
+      kScaleWriterRebalanceMaxMemoryUsageRatio,
+      "The max ratio of a query used memory to its max capacity, "
+      "and the scale writer exchange stops scaling writer processing if the query's current "
+      "memory usage exceeds this ratio. The value is in the range of (0, 1].",
+      DOUBLE(),
+      false,
+      QueryConfig::kScaleWriterRebalanceMaxMemoryUsageRatio,
+      std::to_string(c.scaleWriterRebalanceMaxMemoryUsageRatio()));
+
+  addSessionProperty(
+      kScaleWriterMaxPartitionsPerWriter,
+      "The max number of logical table partitions that can be assigned to a "
+      "single table writer thread. The logical table partition is used by local "
+      "exchange writer for writer scaling, and multiple physical table "
+      "partitions can be mapped to the same logical table partition based on the "
+      "hash value of calculated partitioned ids.",
+      INTEGER(),
+      false,
+      QueryConfig::kScaleWriterMaxPartitionsPerWriter,
+      std::to_string(c.scaleWriterMaxPartitionsPerWriter()));
+
+  addSessionProperty(
+      kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
+      "Minimum amount of data processed by a logical table partition "
+      "to trigger writer scaling if it is detected as overloaded by scale writer exchange.",
+      BIGINT(),
+      false,
+      QueryConfig::kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
+      std::to_string(
+          c.scaleWriterMinPartitionProcessedBytesRebalanceThreshold()));
+
+  addSessionProperty(
+      kScaleWriterMinProcessedBytesRebalanceThreshold,
+      "Minimum amount of data processed by all the logical table partitions "
+      "to trigger skewed partition rebalancing by scale writer exchange.",
+      BIGINT(),
+      false,
+      QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold,
+      std::to_string(c.scaleWriterMinProcessedBytesRebalanceThreshold()));
+
+  addSessionProperty(
+      kTableScanScaledProcessingEnabled,
+      "If set to true, enables scaled processing for table scans.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kTableScanScaledProcessingEnabled,
+      std::to_string(c.tableScanScaledProcessingEnabled()));
+
+  addSessionProperty(
+      kTableScanScaleUpMemoryUsageRatio,
+      "Controls the ratio of available memory that can be used for scaling up table scans. "
+      "The value is in the range of [0, 1].",
+      DOUBLE(),
+      false,
+      QueryConfig::kTableScanScaleUpMemoryUsageRatio,
+      std::to_string(c.tableScanScaleUpMemoryUsageRatio()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&

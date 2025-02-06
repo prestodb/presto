@@ -16,10 +16,14 @@ package com.facebook.presto.iceberg;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.RuntimeUnit;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.FixedWidthType;
+import com.facebook.presto.common.type.KllSketchType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.NodeVersion;
+import com.facebook.presto.iceberg.statistics.KllHistogram;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCacheKey;
 import com.facebook.presto.spi.ConnectorSession;
@@ -29,12 +33,15 @@ import com.facebook.presto.spi.statistics.ColumnStatisticMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
+import com.facebook.presto.spi.statistics.DisjointRangeDomainHistogram;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import org.apache.datasketches.memory.Memory;
 import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.ContentFile;
@@ -62,6 +69,8 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.Pair;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
@@ -80,6 +89,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeUtils.isNumericType;
@@ -89,10 +99,14 @@ import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpressio
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticSnapshotRecordDifferenceWeight;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticsKllSketchKParameter;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
 import static com.facebook.presto.iceberg.Partition.toMap;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.statistics.KllHistogram.isKllHistogramSupportedType;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateAndSetTableSize;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.formatIdentifier;
+import static com.facebook.presto.spi.statistics.ColumnStatisticType.HISTOGRAM;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.HIGH;
@@ -100,9 +114,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterators.getOnlyElement;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.abs;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
@@ -112,6 +128,7 @@ public class TableStatisticsMaker
     private static final Logger log = Logger.get(TableStatisticsMaker.class);
     private static final String ICEBERG_THETA_SKETCH_BLOB_TYPE_ID = "apache-datasketches-theta-v1";
     private static final String ICEBERG_DATA_SIZE_BLOB_TYPE_ID = "presto-sum-data-size-bytes-v1";
+    private static final String ICEBERG_KLL_SKETCH_BLOB_TYPE_ID = "presto-kll-sketch-bytes-v1";
     private static final String ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY = "ndv";
     private static final String ICEBERG_DATA_SIZE_BLOB_PROPERTY_KEY = "data_size";
     private final Table icebergTable;
@@ -124,19 +141,21 @@ public class TableStatisticsMaker
 
     private TableStatisticsMaker(Table icebergTable, ConnectorSession session, TypeManager typeManager)
     {
-        this.icebergTable = icebergTable;
-        this.session = session;
-        this.typeManager = typeManager;
+        this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
+        this.session = requireNonNull(session, "session is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     private static final Map<ColumnStatisticType, PuffinBlobGenerator> puffinStatWriters = ImmutableMap.<ColumnStatisticType, PuffinBlobGenerator>builder()
             .put(NUMBER_OF_DISTINCT_VALUES, TableStatisticsMaker::generateNDVBlob)
             .put(TOTAL_SIZE_IN_BYTES, TableStatisticsMaker::generateStatSizeBlob)
+            .put(HISTOGRAM, TableStatisticsMaker::generateKllSketchBlob)
             .build();
 
     private static final Map<String, PuffinBlobReader> puffinStatReaders = ImmutableMap.<String, PuffinBlobReader>builder()
             .put(ICEBERG_THETA_SKETCH_BLOB_TYPE_ID, TableStatisticsMaker::readNDVBlob)
             .put(ICEBERG_DATA_SIZE_BLOB_TYPE_ID, TableStatisticsMaker::readDataSizeBlob)
+            .put(ICEBERG_KLL_SKETCH_BLOB_TYPE_ID, TableStatisticsMaker::readKllSketchBlob)
             .build();
 
     public static TableStatistics getTableStatistics(
@@ -237,7 +256,18 @@ public class TableStatisticsMaker
             Object min = summary.getMinValues().get(fieldId);
             Object max = summary.getMaxValues().get(fieldId);
             if (min instanceof Number && max instanceof Number) {
-                columnBuilder.setRange(Optional.of(new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue())));
+                DoubleRange range = new DoubleRange(((Number) min).doubleValue(), ((Number) max).doubleValue());
+                columnBuilder.setRange(Optional.of(range));
+
+                // the histogram is generated by scanning the entire dataset. It is possible that
+                // the constraint prevents scanning portions of the table. Given that we know the
+                // range that the scan provides for a particular column, bound the histogram to the
+                // scanned range.
+
+                final DoubleRange histRange = range;
+                columnBuilder.setHistogram(columnBuilder.getHistogram()
+                        .map(histogram -> DisjointRangeDomainHistogram
+                                .addConjunction(histogram, Range.range(DOUBLE, histRange.getMin(), true, histRange.getMax(), true))));
             }
             result.setColumnStatistics(columnHandle, columnBuilder.build());
         }
@@ -314,10 +344,10 @@ public class TableStatisticsMaker
 
     public static void writeTableStatistics(NodeVersion nodeVersion, TypeManager typeManager, IcebergTableHandle tableHandle, Table icebergTable, ConnectorSession session, Collection<ComputedStatistics> computedStatistics)
     {
-        new TableStatisticsMaker(icebergTable, session, typeManager).writeTableStatistics(nodeVersion, tableHandle, computedStatistics);
+        new TableStatisticsMaker(icebergTable, session, typeManager).writeTableStatistics(nodeVersion, typeManager, tableHandle, computedStatistics);
     }
 
-    private void writeTableStatistics(NodeVersion nodeVersion, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    private void writeTableStatistics(NodeVersion nodeVersion, TypeManager typeManager, IcebergTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
         Snapshot snapshot = tableHandle.getIcebergTableName().getSnapshotId().map(icebergTable::snapshot).orElseGet(icebergTable::currentSnapshot);
         if (snapshot == null) {
@@ -337,9 +367,8 @@ public class TableStatisticsMaker
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
                         .forEach((key, value) -> {
                             Optional.ofNullable(puffinStatWriters.get(key.getStatisticType()))
-                                    .ifPresent(generator -> {
-                                        writer.add(generator.generate(key, value, icebergTable, snapshot));
-                                    });
+                                    .flatMap(generator -> Optional.ofNullable(generator.generate(key, value, icebergTable, snapshot, typeManager)))
+                                    .ifPresent(writer::add);
                         });
                 writer.finish();
                 icebergTable.updateStatistics().setStatistics(
@@ -364,7 +393,8 @@ public class TableStatisticsMaker
     @FunctionalInterface
     private interface PuffinBlobGenerator
     {
-        Blob generate(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot);
+        @Nullable
+        Blob generate(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot, TypeManager typeManager);
     }
 
     @FunctionalInterface
@@ -373,12 +403,12 @@ public class TableStatisticsMaker
         /**
          * Reads the stats from the blob and then updates the stats builder argument.
          */
-        void read(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder stats);
+        void read(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder stats, Table icebergTable, TypeManager typeManager);
     }
 
-    private static Blob generateNDVBlob(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot)
+    private static Blob generateNDVBlob(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot, TypeManager typeManager)
     {
-        int id = getFieldId(metadata, icebergTable);
+        int id = getField(metadata, icebergTable, snapshot).fieldId();
         ByteBuffer raw = VARBINARY.getSlice(value, 0).toByteBuffer();
         CompactSketch sketch = CompactSketch.wrap(Memory.wrap(raw, ByteOrder.nativeOrder()));
         return new Blob(
@@ -391,9 +421,9 @@ public class TableStatisticsMaker
                 ImmutableMap.of(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY, Long.toString((long) sketch.getEstimate())));
     }
 
-    private static Blob generateStatSizeBlob(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot)
+    private static Blob generateStatSizeBlob(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot, TypeManager typeManager)
     {
-        int id = getFieldId(metadata, icebergTable);
+        int id = getField(metadata, icebergTable, snapshot).fieldId();
         long size = BIGINT.getLong(value, 0);
         return new Blob(
                 ICEBERG_DATA_SIZE_BLOB_TYPE_ID,
@@ -405,7 +435,26 @@ public class TableStatisticsMaker
                 ImmutableMap.of(ICEBERG_DATA_SIZE_BLOB_PROPERTY_KEY, Long.toString(size)));
     }
 
-    private static void readNDVBlob(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder statistics)
+    private static Blob generateKllSketchBlob(ColumnStatisticMetadata metadata, Block value, Table icebergTable, Snapshot snapshot, TypeManager typeManager)
+    {
+        Types.NestedField field = getField(metadata, icebergTable, snapshot);
+        KllSketchType sketchType = new KllSketchType(toPrestoType(field.type(), typeManager));
+        Slice sketchSlice = sketchType.getSlice(value, 0);
+        if (value.isNull(0)) {
+            // this can occur when all inputs to the sketch are null
+            return null;
+        }
+        return new Blob(
+                ICEBERG_KLL_SKETCH_BLOB_TYPE_ID,
+                ImmutableList.of(field.fieldId()),
+                snapshot.snapshotId(),
+                snapshot.sequenceNumber(),
+                sketchSlice.toByteBuffer(),
+                null,
+                ImmutableMap.of());
+    }
+
+    private static void readNDVBlob(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder statistics, Table icebergTable, TypeManager typeManager)
     {
         Optional.ofNullable(metadata.properties().get(ICEBERG_THETA_SKETCH_BLOB_PROPERTY_NDV_KEY))
                 .ifPresent(ndvProp -> {
@@ -420,7 +469,7 @@ public class TableStatisticsMaker
                 });
     }
 
-    private static void readDataSizeBlob(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder statistics)
+    private static void readDataSizeBlob(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder statistics, Table icebergTable, TypeManager typeManager)
     {
         Optional.ofNullable(metadata.properties().get(ICEBERG_DATA_SIZE_BLOB_PROPERTY_KEY))
                 .ifPresent(sizeProp -> {
@@ -435,9 +484,17 @@ public class TableStatisticsMaker
                 });
     }
 
-    private static int getFieldId(ColumnStatisticMetadata metadata, Table icebergTable)
+    private static void readKllSketchBlob(BlobMetadata metadata, ByteBuffer blob, ColumnStatistics.Builder statistics, Table icebergTable, TypeManager typeManager)
     {
-        return Optional.ofNullable(icebergTable.schema().findField(metadata.getColumnName())).map(Types.NestedField::fieldId)
+        statistics.setHistogram(Optional.ofNullable(icebergTable.schemas().get(icebergTable.snapshot(metadata.snapshotId()).schemaId()))
+                .map(schema -> toPrestoType(schema.findType(getOnlyElement(metadata.inputFields().iterator())), typeManager))
+                .map(prestoType -> new KllHistogram(Slices.wrappedBuffer(blob), prestoType)));
+    }
+
+    private static Types.NestedField getField(ColumnStatisticMetadata metadata, Table icebergTable, Snapshot snapshot)
+    {
+        return Optional.ofNullable(icebergTable.schemas().get(snapshot.schemaId()))
+                .map(schema -> schema.findField(metadata.getColumnName()))
                 .orElseThrow(() -> {
                     log.warn("failed to find column name %s in schema of table %s", metadata.getColumnName(), icebergTable.name());
                     return new PrestoException(ICEBERG_INVALID_METADATA, format("failed to find column name %s in schema of table %s", metadata.getColumnName(), icebergTable.name()));
@@ -579,7 +636,7 @@ public class TableStatisticsMaker
                                     if (value == null) {
                                         value = ColumnStatistics.builder();
                                     }
-                                    statReader.read(metadata, blob, value);
+                                    statReader.read(metadata, blob, value, icebergTable, typeManager);
                                     return value;
                                 });
                             });
@@ -604,7 +661,7 @@ public class TableStatisticsMaker
         return finalResult.build();
     }
 
-    public static List<ColumnStatisticMetadata> getSupportedColumnStatistics(String columnName, com.facebook.presto.common.type.Type type)
+    public static List<ColumnStatisticMetadata> getSupportedColumnStatistics(ConnectorSession session, String columnName, com.facebook.presto.common.type.Type type)
     {
         ImmutableList.Builder<ColumnStatisticMetadata> supportedStatistics = ImmutableList.builder();
         // all types which support being passed to the sketch_theta function
@@ -613,6 +670,16 @@ public class TableStatisticsMaker
                 type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             supportedStatistics.add(NUMBER_OF_DISTINCT_VALUES.getColumnStatisticMetadataWithCustomFunction(
                     columnName, format("RETURN sketch_theta(%s)", formatIdentifier(columnName)), ImmutableList.of(columnName)));
+        }
+
+        if (isKllHistogramSupportedType(type)) {
+            String histogramFunctionFmt = "RETURN sketch_kll_with_k(%s, CAST(%s as bigint))";
+            if (type instanceof DecimalType) {
+                histogramFunctionFmt = "RETURN sketch_kll_with_k(CAST(%s as double), CAST(%s as bigint))";
+            }
+            supportedStatistics.add(HISTOGRAM.getColumnStatisticMetadataWithCustomFunction(columnName,
+                    format(histogramFunctionFmt, formatIdentifier(columnName), getStatisticsKllSketchKParameter(session)),
+                    ImmutableList.of(columnName)));
         }
 
         if (!(type instanceof FixedWidthType)) {

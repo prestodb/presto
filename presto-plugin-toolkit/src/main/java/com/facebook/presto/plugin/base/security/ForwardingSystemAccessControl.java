@@ -123,6 +123,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanSetTableProperties(identity, context, table);
+    }
+
+    @Override
     public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanDropTable(identity, context, table);
@@ -198,6 +204,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
     {
         delegate().checkCanCreateView(identity, context, view);
+    }
+
+    @Override
+    public void checkCanRenameView(Identity identity, AccessControlContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
+    {
+        delegate().checkCanRenameView(identity, context, view, newView);
     }
 
     @Override

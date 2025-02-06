@@ -17,9 +17,9 @@ import com.facebook.presto.execution.Output;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.google.common.base.VerifyException;
 
 import java.util.Optional;

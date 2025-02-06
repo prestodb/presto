@@ -489,7 +489,7 @@ public class TpchMetadata
                     return entry.getValue().stream()
                             .map(nullableValue -> Domain.singleValue(type, nullableValue.getValue()))
                             .reduce((Domain::union))
-                            .orElse(Domain.none(type));
+                            .orElseGet(() -> Domain.none(type));
                 })));
     }
 

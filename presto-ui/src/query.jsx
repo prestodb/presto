@@ -1,7 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import {QueryDetail} from "./components/QueryDetail";
+import lazy from "./lazy";
 import {PageTitle} from "./components/PageTitle";
+
+const QueryDetail = lazy('QueryDetail');
 
 ReactDOM.render(
     <PageTitle titles={["Query Details"]} />,

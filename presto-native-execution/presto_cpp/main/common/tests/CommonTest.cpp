@@ -15,12 +15,13 @@
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/config/GlobalConfig.h"
 
 using namespace facebook::velox;
 using namespace facebook::presto;
 
 TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
-  FLAGS_velox_exception_user_stacktrace_enabled = true;
+  config::globalConfig().exceptionUserStacktraceEnabled = true;
   for (const bool withContext : {false, true}) {
     for (const bool withAdditionalContext : {false, true}) {
       SCOPED_TRACE(fmt::format("withContext: {}", withContext));

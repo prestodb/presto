@@ -45,7 +45,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.nativeValueGette
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -84,7 +84,7 @@ public final class MapConstructor
     public MapConstructor()
     {
         super(new Signature(
-                QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "map"),
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "map"),
                 FunctionKind.SCALAR,
                 ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
                 ImmutableList.of(),

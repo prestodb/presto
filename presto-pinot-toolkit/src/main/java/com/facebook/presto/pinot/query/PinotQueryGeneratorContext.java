@@ -370,7 +370,7 @@ public class PinotQueryGeneratorContext
                 throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Broker non aggregate queries have to have a limit");
             }
             else {
-                queryLimit = limit.orElse(PinotSessionProperties.getLimitLargerForSegment(session));
+                queryLimit = limit.orElseGet(() -> PinotSessionProperties.getLimitLargerForSegment(session));
             }
         }
         else if (hasGroupBy()) {

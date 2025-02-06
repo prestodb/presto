@@ -219,6 +219,16 @@ Property Name                                        Description
 ``iceberg.rest.auth.oauth2.token``                   The Bearer token to use for OAUTH2 authentication.
                                                      Example: ``SXVLUXUhIExFQ0tFUiEK``
 
+``iceberg.rest.auth.oauth2.scope``                   The scope to use for OAUTH2 authentication.
+                                                     This property is only applicable when using
+                                                     ``iceberg.rest.auth.oauth2.credential``.
+                                                     Example: ``PRINCIPAL_ROLE:ALL``
+
+``iceberg.rest.nested.namespace.enabled``            In REST Catalogs, tables are grouped into namespaces, that can be
+                                                     nested. But if a large number of recursive namespaces result in
+                                                     lower performance, querying nested namespaces can be disabled.
+                                                     Defaults to ``true``.
+
 ``iceberg.rest.session.type``                        The session type to use when communicating with the REST catalog.
                                                      Available values are ``NONE`` or ``USER`` (default: ``NONE``).
 
@@ -261,7 +271,7 @@ Configuration Properties
 .. note::
 
     The Iceberg connector supports configuration options for
-    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html##amazon-s3-configuration>`_
+    `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
     as a Hive connector.
 
 The following configuration properties are available for all catalog types:
@@ -505,19 +515,7 @@ JMX queries to get the metrics and verify the cache usage::
 Metastore Cache
 ^^^^^^^^^^^^^^^
 
-Metastore Cache only caches the schema, table, and table statistics. The table object cached in the `tableCache`
-is only used for reading the table metadata location and table properties and, the rest of the table metadata
-is fetched from the filesystem/object storage metadata location.
-
-.. note::
-
-    Metastore Cache would be applicable only for Hive Catalog in the Presto Iceberg connector.
-
-.. code-block:: none
-
-    hive.metastore-cache-ttl=2d
-    hive.metastore-refresh-interval=3d
-    hive.metastore-cache-maximum-size=10000000
+Iceberg Connector does not support Metastore Caching.
 
 Extra Hidden Metadata Columns
 -----------------------------
@@ -1046,7 +1044,7 @@ that is stored using the ORC file format, partitioned by ``ds`` and
       partitioning = ARRAY['ds', 'country']
     )
 
-Create an Iceberg table with Iceberg format version 2::
+Create an Iceberg table with Iceberg format version 2 and with commit_retries set to 5::
 
     CREATE TABLE iceberg.web.page_views_v2 (
       view_time timestamp,
@@ -1058,7 +1056,8 @@ Create an Iceberg table with Iceberg format version 2::
     WITH (
       format = 'ORC',
       partitioning = ARRAY['ds', 'country'],
-      format_version = '2'
+      format_version = '2',
+      commit_retries = 5
     )
 
 Partition Column Transform
@@ -1129,10 +1128,15 @@ Create an Iceberg table partitioned by ``ts``::
 CREATE VIEW
 ^^^^^^^^^^^
 
-The Iceberg connector supports creating views in Hive and Glue metastores.
+The Iceberg connector supports creating views in Hive, Glue, REST, and Nessie catalogs.
 To create a view named ``view_page_views`` for the ``iceberg.web.page_views`` table created in the `CREATE TABLE`_ example::
 
     CREATE VIEW iceberg.web.view_page_views AS SELECT user_id, country FROM iceberg.web.page_views;
+
+.. note::
+
+    The Iceberg REST catalog may not support view creation depending on the
+    type of the backing catalog.
 
 INSERT INTO
 ^^^^^^^^^^^
@@ -1192,6 +1196,20 @@ The table is partitioned by the transformed value of the column::
      ALTER TABLE iceberg.web.page_views ADD COLUMN dt date WITH (partitioning = 'day');
 
      ALTER TABLE iceberg.web.page_views ADD COLUMN ts timestamp WITH (partitioning = 'hour');
+
+Table properties can be modified for an Iceberg table using an ALTER TABLE SET PROPERTIES statement. Only `commit_retries` can be modified at present.
+For example, to set `commit_retries` to 6 for the table `iceberg.web.page_views_v2`, use::
+
+    ALTER TABLE iceberg.web.page_views_v2 SET PROPERTIES (commit_retries = 6);
+
+ALTER VIEW
+^^^^^^^^^^
+
+Alter view operations to alter the name of an existing view to a new name is supported in the Iceberg connector.
+
+.. code-block:: sql
+
+    ALTER VIEW iceberg.web.page_views RENAME TO iceberg.web.page_new_views;
 
 TRUNCATE
 ^^^^^^^^
@@ -1737,26 +1755,32 @@ Map of Iceberg types to the relevant PrestoDB types:
     - PrestoDB type
   * - ``BOOLEAN``
     - ``BOOLEAN``
-  * - ``BINARY``, ``FIXED``
-    - ``VARBINARY``
-  * - ``DATE``
-    - ``DATE``
-  * - ``DECIMAL``
-    - ``DECIMAL``
-  * - ``DOUBLE``
-    - ``DOUBLE``
+  * - ``INTEGER``
+    - ``INTEGER``
   * - ``LONG``
     - ``BIGINT``
   * - ``FLOAT``
     - ``REAL``
-  * - ``INTEGER``
-    - ``INTEGER``
+  * - ``DOUBLE``
+    - ``DOUBLE``
+  * - ``DECIMAL``
+    - ``DECIMAL``
+  * - ``STRING``
+    - ``VARCHAR``
+  * - ``BINARY``, ``FIXED``
+    - ``VARBINARY``
+  * - ``DATE``
+    - ``DATE``
   * - ``TIME``
     - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP_WITH_TIMEZONE``
   * - ``STRING``
     - ``VARCHAR``
+  * - ``UUID``
+    - ``UUID``
   * - ``LIST``
     - ``ARRAY``
   * - ``MAP``
@@ -1796,17 +1820,20 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``BINARY``
   * - ``DATE``
     - ``DATE``
-  * - ``ROW``
-    - ``STRUCT``
-  * - ``ARRAY``
-    - ``LIST``
-  * - ``MAP``
-    - ``MAP``
   * - ``TIME``
     - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP WITHOUT ZONE``
   * - ``TIMESTAMP WITH TIMEZONE``
     - ``TIMESTAMP WITH ZONE``
+  * - ``UUID``
+    - ``UUID``
+  * - ``ARRAY``
+    - ``LIST``
+  * - ``MAP``
+    - ``MAP``
+  * - ``ROW``
+    - ``STRUCT``
+
 
 No other types are supported.

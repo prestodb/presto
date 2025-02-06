@@ -151,8 +151,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.sql.NodeUtils.getSortItemsFromOrderBy;
@@ -1146,7 +1145,7 @@ public class ExpressionAnalyzer
             }
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            if (functionMetadata.getName().equals(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "REDUCE_AGG"))) {
+            if (functionMetadata.getName().equals(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "REDUCE_AGG"))) {
                 Expression initialValueArg = node.getArguments().get(1);
                 // For builtin reduce_agg, we make sure the initial value is not null as we cannot handle null properly now.
 
@@ -1826,7 +1825,11 @@ public class ExpressionAnalyzer
             FunctionAndTypeResolver functionAndTypeResolver)
     {
         try {
-            return functionAndTypeResolver.resolveFunction(sessionFunctions, transactionId, qualifyObjectName(node.getName()), argumentTypes);
+            return functionAndTypeResolver.resolveFunction(
+                    sessionFunctions,
+                    transactionId,
+                    functionAndTypeResolver.qualifyObjectName(node.getName()),
+                    argumentTypes);
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == StandardErrorCode.FUNCTION_NOT_FOUND.toErrorCode().getCode()) {

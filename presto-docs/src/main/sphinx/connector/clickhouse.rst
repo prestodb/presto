@@ -89,6 +89,26 @@ Run ``SELECT`` to access the ``cks`` table in the ``tpch`` database::
     If you used a different name for your catalog properties file, use
     that catalog name instead of ``clickhouse`` in the above examples.
 
+PrestoDB to ClickHouse Type Mapping
+-----------------------------------
+
+========================================== ========================= =================================================================================
+**PrestoDB Type**                          **ClickHouse Type**       **Notes**
+========================================== ========================= =================================================================================
+BOOLEAN                                    UInt8                     ClickHouse uses UInt8 as boolean, restricted values to 0 and 1.
+TINYINT                                    Int8
+SMALLINT                                   Int16
+INTEGER                                    Int32
+BIGINT                                     Int64
+REAL                                       Float32
+DOUBLE                                     Float64
+DECIMAL                                    Decimal(precision, scale) The precision and scale are dynamic based on the PrestoDB type.
+CHAR / VARCHAR                             String                    The String type replaces VARCHAR, BLOB, CLOB, and related types from other DBMSs.
+VARBINARY                                  String
+DATE                                       Date
+TIMESTAMP                                  DateTime64(3)             Timestamp with 3 digits of millisecond precision.
+========================================== ========================= =================================================================================
+
 Table properties
 ----------------
 

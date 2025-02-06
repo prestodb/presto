@@ -19,6 +19,7 @@
 #include <velox/common/base/tests/GTestUtils.h>
 #include <velox/common/memory/Memory.h>
 #include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "velox/common/base/StatsReporter.h"
@@ -157,14 +158,6 @@ std::string bodyAsString(
   return oss.str();
 }
 
-std::string toString(std::vector<std::unique_ptr<folly::IOBuf>>& bufs) {
-  std::ostringstream oss;
-  for (auto& buf : bufs) {
-    oss << std::string((const char*)buf->data(), buf->length());
-  }
-  return oss.str();
-}
-
 void echo(
     proxygen::HTTPMessage* message,
     std::vector<std::unique_ptr<folly::IOBuf>>& body,
@@ -181,7 +174,7 @@ void echo(
   proxygen::ResponseBuilder(downstream)
       .status(facebook::presto::http::kHttpOk, "")
       .header(proxygen::HTTP_HEADER_CONTENT_TYPE, "text/plain")
-      .body(toString(body))
+      .body(facebook::presto::util::extractMessageBody(body))
       .sendWithEOM();
 }
 

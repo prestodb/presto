@@ -87,7 +87,7 @@ class PeriodicMemoryChecker {
 
   /// Callback function that is invoked by 'PeriodicMemoryChecker' periodically.
   /// Light operations such as stats reporting can be done in this call back.
-  virtual void periodicCb() const = 0;
+  virtual void periodicCb() = 0;
 
   /// Callback function that performs a heap dump. Returns true if dump is
   /// successful.

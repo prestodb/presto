@@ -407,10 +407,10 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
   void testPartitionAndSerialize(
       const core::PlanNodePtr& plan,
       const RowVectorPtr& expected,
-      const exec::test::CursorParameters params,
+      const exec::CursorParameters params,
       const std::optional<uint32_t> expectedOutputCount = std::nullopt) {
     auto [taskCursor, serializedResults] =
-        readCursor(params, [](auto /*task*/) {});
+        exec::test::readCursor(params, [](auto /*task*/) {});
 
     RowVectorPtr result =
         BaseVector::create<RowVector>(expected->type(), 0, pool());
@@ -432,18 +432,18 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
   void testPartitionAndSerialize(
       const core::PlanNodePtr& plan,
       const RowVectorPtr& expected) {
-    exec::test::CursorParameters params;
+    exec::CursorParameters params;
     params.planNode = plan;
     params.maxDrivers = 2;
     testPartitionAndSerialize(plan, expected, params);
   }
 
-  std::pair<std::unique_ptr<exec::test::TaskCursor>, std::vector<RowVectorPtr>>
+  std::pair<std::unique_ptr<exec::TaskCursor>, std::vector<RowVectorPtr>>
   runShuffleReadTask(
-      const exec::test::CursorParameters& params,
+      const exec::CursorParameters& params,
       const std::string& shuffleInfo) {
     bool noMoreSplits = false;
-    return readCursor(params, [&](auto* task) {
+    return exec::test::readCursor(params, [&](auto* task) {
       if (noMoreSplits) {
         return;
       }
@@ -527,7 +527,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
                       .project(dataType->names())
                       .planNode();
 
-      exec::test::CursorParameters params;
+      exec::CursorParameters params;
       params.planNode = plan;
       params.destination = partition;
 
@@ -713,7 +713,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
     auto queryCtx =
         core::QueryCtx::create(executor_.get(), core::QueryConfig(properties));
-    auto params = exec::test::CursorParameters();
+    auto params = exec::CursorParameters();
     params.planNode = plan;
     params.queryCtx = queryCtx;
 
@@ -743,12 +743,12 @@ TEST_F(UnsafeRowShuffleTest, operators) {
                       4, std::string(TestShuffleFactory::kShuffleName), info))
                   .planNode();
 
-  exec::test::CursorParameters params;
+  exec::CursorParameters params;
   params.planNode = plan;
   params.maxDrivers = 2;
 
   auto [taskCursor, serializedResults] =
-      readCursor(params, [](auto /*task*/) {});
+      exec::test::readCursor(params, [](auto /*task*/) {});
   ASSERT_EQ(serializedResults.size(), 0);
   TestShuffleWriter::reset();
 }
@@ -769,7 +769,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
             VELOX_CHECK(nullFunction());
           }));
 
-  exec::test::CursorParameters params;
+  exec::CursorParameters params;
   params.planNode =
       exec::test::PlanBuilder()
           .values({data})
@@ -779,7 +779,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
           .planNode();
 
   VELOX_ASSERT_THROW(
-      readCursor(params, [](auto /*task*/) {}),
+      exec::test::readCursor(params, [](auto /*task*/) {}),
       "ShuffleWriter::collect failed");
 
   TestShuffleWriter::reset();
@@ -795,7 +795,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
   auto info = testShuffleInfo(4, 1 << 20 /* 1MB */);
   TestShuffleWriter::createWriter(info, pool());
 
-  exec::test::CursorParameters params;
+  exec::CursorParameters params;
   params.planNode =
       exec::test::PlanBuilder()
           .values({data})
@@ -804,7 +804,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
               2, std::string(TestShuffleFactory::kShuffleName), info))
           .planNode();
 
-  ASSERT_NO_THROW(readCursor(params, [](auto /*task*/) {}));
+  ASSERT_NO_THROW(exec::test::readCursor(params, [](auto /*task*/) {}));
 
   std::function<void(TestShuffleReader*)> injectFailure =
       [&](TestShuffleReader* /*reader*/) {

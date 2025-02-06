@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-thrift-spec</artifactId>
@@ -52,7 +52,7 @@
                                 <class>com.facebook.presto.execution.TaskStatus</class>
                             </classes>
                             <recursive>true</recursive>
-                            <outputFile>target/presto-internal-${project.version}.thrift</outputFile>
+                            <outputFile>target/thrift/presto-internal-${project.version}.thrift</outputFile>
                         </configuration>
                     </execution>
                 </executions>
@@ -70,7 +70,7 @@
                         <configuration>
                             <artifacts>
                                 <artifact>
-                                    <file>target/presto-internal-${project.version}.thrift</file>
+                                    <file>target/thrift/presto-internal-${project.version}.thrift</file>
                                     <type>thrift</type>
                                 </artifact>
                             </artifacts>

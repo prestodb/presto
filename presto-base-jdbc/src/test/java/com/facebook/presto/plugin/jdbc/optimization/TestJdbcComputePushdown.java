@@ -105,7 +105,7 @@ public class TestJdbcComputePushdown
                 functionAndTypeManager,
                 functionResolution,
                 determinismEvaluator,
-                new RowExpressionOptimizer(METADATA),
+                (ConnectorSession session) -> new RowExpressionOptimizer(METADATA),
                 "'",
                 getFunctionTranslators());
     }

@@ -23,6 +23,7 @@ import com.facebook.presto.hive.HiveCommonModule;
 import com.facebook.presto.hive.HiveCommonSessionProperties;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.RebindSafeMBeanServer;
+import com.facebook.presto.hive.SchemaProperties;
 import com.facebook.presto.hive.authentication.HiveAuthenticationModule;
 import com.facebook.presto.hive.gcs.HiveGcsModule;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -56,7 +57,6 @@ import org.weakref.jmx.guice.MBeanModule;
 
 import javax.management.MBeanServer;
 
-import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +71,8 @@ public final class InternalIcebergConnectorFactory
             String catalogName,
             Map<String, String> config,
             ConnectorContext context,
-            Optional<ExtendedHiveMetastore> metastore)
+            Optional<ExtendedHiveMetastore> metastore,
+            MBeanServer mBeanServer)
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -87,8 +88,7 @@ public final class InternalIcebergConnectorFactory
                     new CachingModule(),
                     new HiveCommonModule(),
                     binder -> {
-                        MBeanServer platformMBeanServer = ManagementFactory.getPlatformMBeanServer();
-                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(platformMBeanServer));
+                        binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(mBeanServer));
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
@@ -130,7 +130,7 @@ public final class InternalIcebergConnectorFactory
                     new ClassLoaderSafeNodePartitioningProvider(connectorDistributionProvider, classLoader),
                     ImmutableSet.of(),
                     allSessionProperties,
-                    IcebergSchemaProperties.SCHEMA_PROPERTIES,
+                    SchemaProperties.SCHEMA_PROPERTIES,
                     icebergTableProperties.getTableProperties(),
                     icebergTableProperties.getColumnProperties(),
                     new AllowAllAccessControl(),

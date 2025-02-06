@@ -118,6 +118,7 @@ public class SessionPropertyDefaults
 
         SessionConfigurationContext context = new SessionConfigurationContext(
                 sessionBuilder.getIdentity().getUser(),
+                sessionBuilder.getSchema(),
                 sessionBuilder.getSource(),
                 sessionBuilder.getClientTags(),
                 queryType,

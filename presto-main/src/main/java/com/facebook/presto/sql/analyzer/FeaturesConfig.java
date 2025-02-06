@@ -40,6 +40,7 @@ import java.util.List;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
+import static com.facebook.presto.sql.expressions.ExpressionOptimizerManager.DEFAULT_EXPRESSION_OPTIMIZER_NAME;
 import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -58,7 +59,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "deprecated.legacy-join-using",
         "use-legacy-scheduler",
         "max-stage-retries",
-        "deprecated.group-by-uses-equal"})
+        "deprecated.group-by-uses-equal",
+        "experimental.table-writer-merge-operator-enabled"})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -103,8 +105,8 @@ public class FeaturesConfig
     private String historyBasedOptimizerPlanCanonicalizationStrategies = "IGNORE_SAFE_CONSTANTS";
     private boolean logPlansUsedInHistoryBasedOptimizer;
     private boolean enforceTimeoutForHBOQueryRegistration;
-    private boolean redistributeWrites = true;
-    private boolean scaleWriters;
+    private boolean redistributeWrites;
+    private boolean scaleWriters = true;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
     private boolean optimizedScaleWriterProducerBuffer = true;
     private boolean optimizeMetadataQueries;
@@ -127,17 +129,6 @@ public class FeaturesConfig
     private boolean dictionaryAggregation;
     private boolean spillEnabled;
     private boolean joinSpillingEnabled = true;
-    private boolean aggregationSpillEnabled = true;
-    private boolean topNSpillEnabled = true;
-    private boolean distinctAggregationSpillEnabled = true;
-    private boolean dedupBasedDistinctAggregationSpillEnabled;
-    private boolean distinctAggregationLargeBlockSpillEnabled;
-    private DataSize distinctAggregationLargeBlockSizeThreshold = new DataSize(50, MEGABYTE);
-    private boolean orderByAggregationSpillEnabled = true;
-    private boolean windowSpillEnabled = true;
-    private boolean orderBySpillEnabled = true;
-    private DataSize aggregationOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
-    private DataSize topNOperatorUnspillMemoryLimit = new DataSize(4, MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
     private int spillerThreads = 4;
     private double spillMaxUsedSpaceThreshold = 0.9;
@@ -148,6 +139,7 @@ public class FeaturesConfig
     private boolean ignoreStatsCalculatorFailures = true;
     private boolean printStatsForNonJoinQuery;
     private boolean defaultFilterFactorEnabled;
+    private boolean enhancedCteSchedulingEnabled = true;
     // Give a default 10% selectivity coefficient factor to avoid hitting unknown stats in join stats estimates
     // which could result in syntactic join order. Set it to 0 to disable this feature
     private double defaultJoinSelectivityCoefficient;
@@ -187,8 +179,6 @@ public class FeaturesConfig
 
     private boolean pushdownSubfieldsEnabled;
     private boolean pushdownSubfieldsFromLambdaEnabled;
-
-    private boolean tableWriterMergeOperatorEnabled = true;
 
     private Duration indexLoaderTimeout = new Duration(20, SECONDS);
 
@@ -245,11 +235,12 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
-    private boolean disableTimeStampWithTimeZoneForNative = true;
-    private boolean disableIPAddressForNative = true;
+    private boolean disableTimeStampWithTimeZoneForNative;
+    private boolean disableIPAddressForNative;
     private String nativeExecutionExecutablePath = "./presto_server";
     private String nativeExecutionProgramArguments = "";
     private boolean nativeExecutionProcessReuseEnabled = true;
+    private boolean nativeEnforceJoinBuildInputPartition = true;
     private boolean randomizeOuterJoinNullKey;
     private RandomizeOuterJoinNullKeyStrategy randomizeOuterJoinNullKeyStrategy = RandomizeOuterJoinNullKeyStrategy.DISABLED;
     private ShardedJoinStrategy shardedJoinStrategy = ShardedJoinStrategy.DISABLED;
@@ -295,6 +286,17 @@ public class FeaturesConfig
     private boolean useHistograms;
 
     private boolean isInlineProjectionsOnValuesEnabled;
+    private boolean includeValuesNodeInConnectorOptimizer = true;
+
+    private boolean eagerPlanValidationEnabled;
+
+    private boolean setExcludeInvalidWorkerSessionProperties;
+    private int eagerPlanValidationThreadPoolSize = 20;
+
+    private boolean prestoSparkExecutionEnvironment;
+    private boolean singleNodeExecutionEnabled;
+    private boolean nativeExecutionScaleWritersThreadsEnabled;
+    private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -1183,123 +1185,6 @@ public class FeaturesConfig
         return this;
     }
 
-    @Config("experimental.aggregation-spill-enabled")
-    @ConfigDescription("Spill aggregations if spill is enabled")
-    public FeaturesConfig setAggregationSpillEnabled(boolean aggregationSpillEnabled)
-    {
-        this.aggregationSpillEnabled = aggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isAggregationSpillEnabled()
-    {
-        return aggregationSpillEnabled;
-    }
-
-    @Config("experimental.topn-spill-enabled")
-    @ConfigDescription("Spill TopN if spill is enabled")
-    public FeaturesConfig setTopNSpillEnabled(boolean topNSpillEnabled)
-    {
-        this.topNSpillEnabled = topNSpillEnabled;
-        return this;
-    }
-
-    public boolean isTopNSpillEnabled()
-    {
-        return topNSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-spill-enabled")
-    @ConfigDescription("Spill distinct aggregations if aggregation spill is enabled")
-    public FeaturesConfig setDistinctAggregationSpillEnabled(boolean distinctAggregationSpillEnabled)
-    {
-        this.distinctAggregationSpillEnabled = distinctAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isDistinctAggregationSpillEnabled()
-    {
-        return distinctAggregationSpillEnabled;
-    }
-
-    @Config("experimental.dedup-based-distinct-aggregation-spill-enabled")
-    @ConfigDescription("Dedup input data for Distinct Aggregates before spilling")
-    public FeaturesConfig setDedupBasedDistinctAggregationSpillEnabled(boolean dedupBasedDistinctAggregationSpillEnabled)
-    {
-        this.dedupBasedDistinctAggregationSpillEnabled = dedupBasedDistinctAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isDedupBasedDistinctAggregationSpillEnabled()
-    {
-        return dedupBasedDistinctAggregationSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-large-block-spill-enabled")
-    @ConfigDescription("Spill large block to a separate spill file")
-    public FeaturesConfig setDistinctAggregationLargeBlockSpillEnabled(boolean distinctAggregationLargeBlockSpillEnabled)
-    {
-        this.distinctAggregationLargeBlockSpillEnabled = distinctAggregationLargeBlockSpillEnabled;
-        return this;
-    }
-
-    public boolean isDistinctAggregationLargeBlockSpillEnabled()
-    {
-        return distinctAggregationLargeBlockSpillEnabled;
-    }
-
-    @Config("experimental.distinct-aggregation-large-block-size-threshold")
-    @ConfigDescription("Block size threshold beyond which it will be spilled into a separate spill file")
-    public FeaturesConfig setDistinctAggregationLargeBlockSizeThreshold(DataSize distinctAggregationLargeBlockSizeThreshold)
-    {
-        this.distinctAggregationLargeBlockSizeThreshold = distinctAggregationLargeBlockSizeThreshold;
-        return this;
-    }
-
-    public DataSize getDistinctAggregationLargeBlockSizeThreshold()
-    {
-        return distinctAggregationLargeBlockSizeThreshold;
-    }
-
-    @Config("experimental.order-by-aggregation-spill-enabled")
-    @ConfigDescription("Spill order-by aggregations if aggregation spill is enabled")
-    public FeaturesConfig setOrderByAggregationSpillEnabled(boolean orderByAggregationSpillEnabled)
-    {
-        this.orderByAggregationSpillEnabled = orderByAggregationSpillEnabled;
-        return this;
-    }
-
-    public boolean isOrderByAggregationSpillEnabled()
-    {
-        return orderByAggregationSpillEnabled;
-    }
-
-    @Config("experimental.window-spill-enabled")
-    @ConfigDescription("Enable Window Operator Spilling if spill is enabled")
-    public FeaturesConfig setWindowSpillEnabled(boolean windowSpillEnabled)
-    {
-        this.windowSpillEnabled = windowSpillEnabled;
-        return this;
-    }
-
-    public boolean isWindowSpillEnabled()
-    {
-        return windowSpillEnabled;
-    }
-
-    @Config("experimental.order-by-spill-enabled")
-    @ConfigDescription("Enable Order-by Operator Spilling if spill is enabled")
-    public FeaturesConfig setOrderBySpillEnabled(boolean orderBySpillEnabled)
-    {
-        this.orderBySpillEnabled = orderBySpillEnabled;
-        return this;
-    }
-
-    public boolean isOrderBySpillEnabled()
-    {
-        return orderBySpillEnabled;
-    }
-
     public boolean isIterativeOptimizerEnabled()
     {
         return iterativeOptimizerEnabled;
@@ -1410,6 +1295,18 @@ public class FeaturesConfig
         return defaultFilterFactorEnabled;
     }
 
+    @Config("enhanced-cte-scheduling-enabled")
+    public FeaturesConfig setEnhancedCTESchedulingEnabled(boolean enhancedCTEBlockingEnabled)
+    {
+        this.enhancedCteSchedulingEnabled = enhancedCTEBlockingEnabled;
+        return this;
+    }
+
+    public boolean getEnhancedCTESchedulingEnabled()
+    {
+        return enhancedCteSchedulingEnabled;
+    }
+
     @Config("optimizer.default-join-selectivity-coefficient")
     @ConfigDescription("Used when join selectivity estimation is unknown. Default 0 to disable the use of join selectivity, this will allow planner to fall back to FROM-clause join order when the join cardinality is unknown")
     public FeaturesConfig setDefaultJoinSelectivityCoefficient(double defaultJoinSelectivityCoefficient)
@@ -1436,30 +1333,6 @@ public class FeaturesConfig
     public double getDefaultWriterReplicationCoefficient()
     {
         return defaultWriterReplicationCoefficient;
-    }
-
-    public DataSize getTopNOperatorUnspillMemoryLimit()
-    {
-        return topNOperatorUnspillMemoryLimit;
-    }
-
-    @Config("experimental.topn-operator-unspill-memory-limit")
-    public FeaturesConfig setTopNOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
-    {
-        this.topNOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
-        return this;
-    }
-
-    public DataSize getAggregationOperatorUnspillMemoryLimit()
-    {
-        return aggregationOperatorUnspillMemoryLimit;
-    }
-
-    @Config("experimental.aggregation-operator-unspill-memory-limit")
-    public FeaturesConfig setAggregationOperatorUnspillMemoryLimit(DataSize aggregationOperatorUnspillMemoryLimit)
-    {
-        this.aggregationOperatorUnspillMemoryLimit = aggregationOperatorUnspillMemoryLimit;
-        return this;
     }
 
     public List<Path> getSpillerSpillPaths()
@@ -1838,18 +1711,6 @@ public class FeaturesConfig
     public boolean isPushdownDereferenceEnabled()
     {
         return pushdownDereferenceEnabled;
-    }
-
-    public boolean isTableWriterMergeOperatorEnabled()
-    {
-        return tableWriterMergeOperatorEnabled;
-    }
-
-    @Config("experimental.table-writer-merge-operator-enabled")
-    public FeaturesConfig setTableWriterMergeOperatorEnabled(boolean tableWriterMergeOperatorEnabled)
-    {
-        this.tableWriterMergeOperatorEnabled = tableWriterMergeOperatorEnabled;
-        return this;
     }
 
     @Config("index-loader-timeout")
@@ -2476,6 +2337,19 @@ public class FeaturesConfig
         return this.nativeExecutionProcessReuseEnabled;
     }
 
+    @Config("native-enforce-join-build-input-partition")
+    @ConfigDescription("Enforce that the join build input is partitioned on join key")
+    public FeaturesConfig setNativeEnforceJoinBuildInputPartition(boolean nativeEnforceJoinBuildInputPartition)
+    {
+        this.nativeEnforceJoinBuildInputPartition = nativeEnforceJoinBuildInputPartition;
+        return this;
+    }
+
+    public boolean isNativeEnforceJoinBuildInputPartition()
+    {
+        return this.nativeEnforceJoinBuildInputPartition;
+    }
+
     public boolean isRandomizeOuterJoinNullKeyEnabled()
     {
         return randomizeOuterJoinNullKey;
@@ -2968,5 +2842,107 @@ public class FeaturesConfig
     {
         this.isInlineProjectionsOnValuesEnabled = isInlineProjectionsOnValuesEnabled;
         return this;
+    }
+
+    public boolean isIncludeValuesNodeInConnectorOptimizer()
+    {
+        return includeValuesNodeInConnectorOptimizer;
+    }
+
+    @Config("optimizer.include-values-node-in-connector-optimizer")
+    @ConfigDescription("Include values node in connector optimizer")
+    public FeaturesConfig setIncludeValuesNodeInConnectorOptimizer(boolean includeValuesNodeInConnectorOptimizer)
+    {
+        this.includeValuesNodeInConnectorOptimizer = includeValuesNodeInConnectorOptimizer;
+        return this;
+    }
+
+    @Config("eager-plan-validation-enabled")
+    @ConfigDescription("Enable eager building and validation of logical plan before queueing")
+    public FeaturesConfig setEagerPlanValidationEnabled(boolean eagerPlanValidationEnabled)
+    {
+        this.eagerPlanValidationEnabled = eagerPlanValidationEnabled;
+        return this;
+    }
+
+    public boolean isEagerPlanValidationEnabled()
+    {
+        return this.eagerPlanValidationEnabled;
+    }
+
+    @Config("eager-plan-validation-thread-pool-size")
+    @ConfigDescription("Size of thread pool to use when eager plan validation is enabled")
+    public FeaturesConfig setEagerPlanValidationThreadPoolSize(int eagerPlanValidationThreadPoolSize)
+    {
+        this.eagerPlanValidationThreadPoolSize = eagerPlanValidationThreadPoolSize;
+        return this;
+    }
+
+    public int getEagerPlanValidationThreadPoolSize()
+    {
+        return this.eagerPlanValidationThreadPoolSize;
+    }
+
+    public boolean isPrestoSparkExecutionEnvironment()
+    {
+        return prestoSparkExecutionEnvironment;
+    }
+
+    @Config("presto-spark-execution-environment")
+    public FeaturesConfig setPrestoSparkExecutionEnvironment(boolean prestoSparkExecutionEnvironment)
+    {
+        this.prestoSparkExecutionEnvironment = prestoSparkExecutionEnvironment;
+        return this;
+    }
+
+    public boolean isSingleNodeExecutionEnabled()
+    {
+        return singleNodeExecutionEnabled;
+    }
+
+    @Config("single-node-execution-enabled")
+    @ConfigDescription("Enable single node execution")
+    public FeaturesConfig setSingleNodeExecutionEnabled(boolean singleNodeExecutionEnabled)
+    {
+        this.singleNodeExecutionEnabled = singleNodeExecutionEnabled;
+        return this;
+    }
+
+    public boolean isNativeExecutionScaleWritersThreadsEnabled()
+    {
+        return nativeExecutionScaleWritersThreadsEnabled;
+    }
+
+    @Config("native-execution-scale-writer-threads-enabled")
+    public FeaturesConfig setNativeExecutionScaleWritersThreadsEnabled(boolean nativeExecutionScaleWritersThreadsEnabled)
+    {
+        this.nativeExecutionScaleWritersThreadsEnabled = nativeExecutionScaleWritersThreadsEnabled;
+        return this;
+    }
+
+    public String getExpressionOptimizerName()
+    {
+        return expressionOptimizerName;
+    }
+
+    @Config("expression-optimizer-name")
+    @ConfigDescription("Set the expression optimizer name for parsing and analyzing.")
+    public FeaturesConfig setExpressionOptimizerName(String expressionOptimizerName)
+    {
+        this.expressionOptimizerName = expressionOptimizerName;
+        return this;
+    }
+
+    @Config("exclude-invalid-worker-session-properties")
+    @ConfigDescription("Exclude worker session properties from invalid clusters")
+    public FeaturesConfig setExcludeInvalidWorkerSessionProperties(boolean setExcludeInvalidWorkerSessionProperties)
+    {
+        this.setExcludeInvalidWorkerSessionProperties = setExcludeInvalidWorkerSessionProperties;
+        return this;
+    }
+
+    public boolean isExcludeInvalidWorkerSessionProperties()
+    {
+        return this.setExcludeInvalidWorkerSessionProperties;
     }
 }

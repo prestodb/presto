@@ -81,7 +81,7 @@ To commit code, you should:
         1. Not introducing expensive calls in a performance sensitive area
     1. User friendliness
         1. Config options have names and descriptions that can be understood by someone configuring Presto
-        1. All new language features, new functions, and major features have documentation added
+        1. All new language features, new functions, session and config properties, and major features have documentation added
         1. When adding a new method to [Plugin.java](https://github.com/prestodb/presto/blob/master/presto-spi/src/main/java/com/facebook/presto/spi/Plugin.java), include documentation for the new method in the [Presto Developer Guide](https://prestodb.io/docs/current/develop.html). 
         1. Release notes following the [Release Note Guidelines](https://github.com/prestodb/presto/wiki/Release-Notes-Guidelines) are added for user visible changes
 * For large features, discuss your design with relevant code owners before you start implementing it.
@@ -452,8 +452,8 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
 - Make sure you follow the [review and commit guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines), in particular:
 
     - Ensure that each commit is correct independently. Each commit should compile and pass tests.
-    - When possible, reduce the size of the commit for ease of review.
-    - Squash all merge commits before the PR is rebased and merged.
+    - When possible, reduce the size of the commit for ease of review. Consider breaking a large PR into multiple commits, with each one addressing a particular issue. For example, if you are introducing a new feature that requires certain refactor, making a separate refactor commit before the real change helps the reviewer to isolate the changes.
+    - Do not send commits like addressing comments or fixing tests for previous commits in the same PR. Squash such commits to its corresponding base commit before the PR is rebased and merged.
     - Make sure commit messages [follow these guidelines](https://chris.beams.io/posts/git-commit/).  In particular (from the guidelines):
 
         * Separate subject from body with a blank line
@@ -463,13 +463,14 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
         * Use the imperative mood in the subject line
         * Wrap the body at 72 characters
         * Use the body to explain what and why vs. how
-    * Ensure all code is peer reviewed within your own organization or peers before submitting
-    * Implement and address existing feedback before requesting further review
-    * Make a good faith effort to locate example or referential code before requesting someone else direct you towards it
-    * If you see a lack of documentation, create a separate commit with draft documentation to fill the gap
+- Ensure all code is peer reviewed within your own organization or peers before submitting
+- Implement and address existing feedback before requesting further review
+- Make a good faith effort to locate example or referential code before requesting someone else direct you towards it
+- If you see a lack of documentation, create a separate commit with draft documentation to fill the gap
         * This documentation can be iterated on same as any code commit, demonstrate in real time that you are learning the code section
-    * Implement or modify relevant tests, otherwise provide clear explanation why test updates were not necessary
-    * Tag your PR with affected code areas as best as you can, it’s okay to tag too many, better to cut down irrelevant tags than miss getting input from relevant subject matter experts
+- Implement or modify relevant tests, otherwise provide clear explanation why test updates were not necessary
+- Tag your PR with affected code areas as best as you can, it’s okay to tag too many, better to cut down irrelevant tags than miss getting input from relevant subject matter experts
+- All tests shall pass before requesting a code review. If there are test failures, even it's from unrelated problems, try to address them by either sending a PR to fix it or creating a Github issue so it can be triaged and fixed soon.
 
 ### What not to do for Pull Requests
 * Submit before getting peer review in your own organization
@@ -477,7 +478,16 @@ We use the [Fork and Pull model](https://docs.github.com/en/pull-requests/collab
 * Ask reviewers to provide examples or code references without trying to find them on your own
 * Protest lack of documentation for a code section
     * Instead, review the related code, then draft initial documentation as a separate commit
+* Use AI tools to generate documentation
 * Submit without test cases or clear justification for lack thereof
+* Request review when there are tests failing
+
+### Comments in Pull Requests
+Comments should help move the PR toward completion. 
+
+Presto PRs - especially those written by people new to open source or new to Presto - can have a surprisingly high number of comments. This is a general tendency of open source projects and is because members of the Presto community want to help you succeed with your PR and also maintain the quality, and follow the existing standards of, the Presto project.
+
+Do not take the presence of many comments as a sign that the PR, or the work in it, is bad. 
 
 ## <a id="codereviews">Code Reviews</a>
 #### What to do

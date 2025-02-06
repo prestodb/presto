@@ -18,8 +18,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static com.facebook.presto.SystemSessionProperties.ORDER_BY_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.ORDER_BY_SPILL_ENABLED;
 
 public class TestSpilledOrderByQueries
         extends AbstractTestOrderByQueries

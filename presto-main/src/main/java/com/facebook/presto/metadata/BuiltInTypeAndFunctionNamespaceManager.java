@@ -236,7 +236,6 @@ import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
-import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.CharOperators;
@@ -345,7 +344,6 @@ import static com.facebook.presto.common.type.VarcharEnumParametricType.VARCHAR_
 import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.geospatial.type.BingTileType.BING_TILE;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
-import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.operator.aggregation.AlternativeArbitraryAggregationFunction.ALTERNATIVE_ANY_VALUE_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.AlternativeArbitraryAggregationFunction.ALTERNATIVE_ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.AlternativeMaxAggregationFunction.ALTERNATIVE_MAX;
@@ -461,7 +459,6 @@ import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
-import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
@@ -521,7 +518,6 @@ import static com.facebook.presto.type.MapParametricType.MAP;
 import static com.facebook.presto.type.Re2JRegexpType.RE2J_REGEXP;
 import static com.facebook.presto.type.RowParametricType.ROW;
 import static com.facebook.presto.type.SfmSketchType.SFM_SKETCH;
-import static com.facebook.presto.type.TypeUtils.resolveTypes;
 import static com.facebook.presto.type.khyperloglog.KHyperLogLogType.K_HYPER_LOG_LOG;
 import static com.facebook.presto.type.setdigest.SetDigestType.SET_DIGEST;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -537,7 +533,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class BuiltInTypeAndFunctionNamespaceManager
         implements FunctionNamespaceManager<SqlFunction>
 {
-    public static final CatalogSchemaName DEFAULT_NAMESPACE = new CatalogSchemaName("presto", "default");
+    public static final CatalogSchemaName JAVA_BUILTIN_NAMESPACE = new CatalogSchemaName("presto", "default");
     public static final String ID = "builtin";
 
     private final FunctionAndTypeManager functionAndTypeManager;
@@ -1343,47 +1339,11 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
     private SpecializedFunctionKey doGetSpecializedFunctionKey(Signature signature)
     {
-        Iterable<SqlFunction> candidates = getFunctions(null, signature.getName());
-        // search for exact match
-        Type returnType = functionAndTypeManager.getType(signature.getReturnType());
-        List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
-        for (SqlFunction candidate : candidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(functionAndTypeManager, candidate.getSignature(), false)
-                    .bindVariables(argumentTypeSignatureProviders, returnType);
-            if (boundVariables.isPresent()) {
-                return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypeSignatureProviders.size());
-            }
-        }
+        return functionAndTypeManager.getSpecializedFunctionKey(signature);
+    }
 
-        // TODO: hack because there could be "type only" coercions (which aren't necessarily included as implicit casts),
-        // so do a second pass allowing "type only" coercions
-        List<Type> argumentTypes = resolveTypes(signature.getArgumentTypes(), functionAndTypeManager);
-        for (SqlFunction candidate : candidates) {
-            SignatureBinder binder = new SignatureBinder(functionAndTypeManager, candidate.getSignature(), true);
-            Optional<BoundVariables> boundVariables = binder.bindVariables(argumentTypeSignatureProviders, returnType);
-            if (!boundVariables.isPresent()) {
-                continue;
-            }
-            Signature boundSignature = applyBoundVariables(candidate.getSignature(), boundVariables.get(), argumentTypes.size());
-
-            if (!functionAndTypeManager.isTypeOnlyCoercion(functionAndTypeManager.getType(boundSignature.getReturnType()), returnType)) {
-                continue;
-            }
-            boolean nonTypeOnlyCoercion = false;
-            for (int i = 0; i < argumentTypes.size(); i++) {
-                Type expectedType = functionAndTypeManager.getType(boundSignature.getArgumentTypes().get(i));
-                if (!functionAndTypeManager.isTypeOnlyCoercion(argumentTypes.get(i), expectedType)) {
-                    nonTypeOnlyCoercion = true;
-                    break;
-                }
-            }
-            if (nonTypeOnlyCoercion) {
-                continue;
-            }
-
-            return new SpecializedFunctionKey(candidate, boundVariables.get(), argumentTypes.size());
-        }
-
+    public SpecializedFunctionKey doGetSpecializedFunctionKeyForMagicLiteralFunctions(Signature signature, FunctionAndTypeManager functionAndTypeManager)
+    {
         // TODO: this is a hack and should be removed
         if (signature.getNameSuffix().startsWith(MAGIC_LITERAL_FUNCTION_PREFIX)) {
             List<TypeSignature> parameterTypes = signature.getArgumentTypes();
@@ -1406,7 +1366,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                             .build(),
                     1);
         }
-
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
     }
 
@@ -1546,7 +1505,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         MagicLiteralFunction(BlockEncodingSerde blockEncodingSerde)
         {
-            super(new Signature(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
+            super(new Signature(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, MAGIC_LITERAL_FUNCTION_PREFIX), SCALAR, TypeSignature.parseTypeSignature("R"), TypeSignature.parseTypeSignature("T")));
             this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         }
 

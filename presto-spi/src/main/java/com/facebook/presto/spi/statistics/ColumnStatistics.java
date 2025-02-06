@@ -29,6 +29,8 @@ public final class ColumnStatistics
     private static final long COLUMN_STATISTICS_SIZE = ClassLayout.parseClass(ColumnStatistics.class).instanceSize();
     private static final long OPTION_SIZE = ClassLayout.parseClass(Optional.class).instanceSize();
 
+    public static final double INFINITE_TO_FINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.25;
+    public static final double INFINITE_TO_INFINITE_RANGE_INTERSECT_OVERLAP_HEURISTIC_FACTOR = 0.5;
     private static final ColumnStatistics EMPTY = new ColumnStatistics(Estimate.unknown(), Estimate.unknown(), Estimate.unknown(), Optional.empty(), Optional.empty());
 
     private final Estimate nullsFraction;
@@ -222,6 +224,11 @@ public final class ColumnStatistics
         {
             this.histogram = histogram;
             return this;
+        }
+
+        public Optional<ConnectorHistogram> getHistogram()
+        {
+            return histogram;
         }
 
         public Builder mergeWith(Builder other)

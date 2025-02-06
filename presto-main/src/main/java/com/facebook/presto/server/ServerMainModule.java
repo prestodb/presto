@@ -105,6 +105,7 @@ import com.facebook.presto.metadata.StaticCatalogStoreConfig;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStore;
 import com.facebook.presto.metadata.StaticFunctionNamespaceStoreConfig;
 import com.facebook.presto.metadata.TablePropertyManager;
+import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.operator.ExchangeClientConfig;
 import com.facebook.presto.operator.ExchangeClientFactory;
 import com.facebook.presto.operator.ExchangeClientSupplier;
@@ -139,17 +140,23 @@ import com.facebook.presto.server.thrift.ThriftServerInfoClient;
 import com.facebook.presto.server.thrift.ThriftServerInfoService;
 import com.facebook.presto.server.thrift.ThriftTaskClient;
 import com.facebook.presto.server.thrift.ThriftTaskService;
+import com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider;
+import com.facebook.presto.sessionpropertyproviders.NativeWorkerSessionPropertyProvider;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTypeSerde;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.plan.SimplePlanFragment;
+import com.facebook.presto.spi.plan.SimplePlanFragmentSerde;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.session.WorkerSessionPropertyProvider;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -182,10 +189,12 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
 import com.facebook.presto.sql.analyzer.ForMetadataExtractor;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.sql.analyzer.JavaFeaturesConfig;
 import com.facebook.presto.sql.analyzer.MetadataExtractor;
 import com.facebook.presto.sql.analyzer.MetadataExtractorMBean;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -200,7 +209,10 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
+import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManagerConfig;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
@@ -223,6 +235,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
+import com.google.inject.multibindings.MapBinder;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -306,6 +319,7 @@ public class ServerMainModule
 
         configBinder(binder).bindConfig(FeaturesConfig.class);
         configBinder(binder).bindConfig(FunctionsConfig.class);
+        configBinder(binder).bindConfig(JavaFeaturesConfig.class);
 
         binder.bind(PlanChecker.class).in(Scopes.SINGLETON);
 
@@ -345,6 +359,9 @@ public class ServerMainModule
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
         binder.bind(SystemSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(SessionPropertyDefaults.class).in(Scopes.SINGLETON);
+
+        // expression manager
+        binder.bind(ExpressionOptimizerManager.class).in(Scopes.SINGLETON);
 
         // schema properties
         binder.bind(SchemaPropertyManager.class).in(Scopes.SINGLETON);
@@ -625,6 +642,8 @@ public class ServerMainModule
         // plan
         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(VariableReferenceExpressionSerializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(VariableReferenceExpressionDeserializer.class);
+        jsonCodecBinder(binder).bindJsonCodec(SimplePlanFragment.class);
+        binder.bind(SimplePlanFragmentSerde.class).to(JsonCodecSimplePlanFragmentSerde.class).in(Scopes.SINGLETON);
 
         // history statistics
         configBinder(binder).bindConfig(HistoryBasedOptimizationConfig.class);
@@ -785,6 +804,31 @@ public class ServerMainModule
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);
         binder.bind(NodeStatusNotificationManager.class).in(Scopes.SINGLETON);
+
+        binder.bind(PlanCheckerProviderManager.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(PlanCheckerProviderManagerConfig.class);
+
+        // Worker session property providers
+        MapBinder<String, WorkerSessionPropertyProvider> mapBinder =
+                newMapBinder(binder, String.class, WorkerSessionPropertyProvider.class);
+        if (featuresConfig.isNativeExecutionEnabled()) {
+            if (!serverConfig.isCoordinatorSidecarEnabled()) {
+                mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            }
+            if (!featuresConfig.isExcludeInvalidWorkerSessionProperties()) {
+                mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            }
+        }
+        else {
+            mapBinder.addBinding("java-worker").to(JavaWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            if (!featuresConfig.isExcludeInvalidWorkerSessionProperties()) {
+                mapBinder.addBinding("native-worker").to(NativeWorkerSessionPropertyProvider.class).in(Scopes.SINGLETON);
+            }
+        }
+
+        // Node manager binding
+        binder.bind(PluginNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(NodeManager.class).to(PluginNodeManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

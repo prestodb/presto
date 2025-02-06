@@ -183,6 +183,33 @@ that statement. A query encompasses stages, tasks, splits, connectors,
 and other components and data sources working in concert to produce a
 result.
 
+Query Plan
+^^^^^^^^^^
+
+A query plan is a sequence of steps used to access and manipulate data 
+according to the SQL query. It is represented as a tree of nodes, with 
+each node loosely representing an `operator <https://prestodb.io/docs/current/overview/concepts.html#operator>`_. 
+Since SQL is declarative, multiple query plans can be generated to execute 
+a given query. Because query plans can have different performance behavior, 
+Presto uses a query optimizer to choose an efficient plan.
+
+There are two phases of optimization: logical and physical. The logical 
+phase of optimization transforms plans by only considering algorithmic 
+complexity. The logically optimized query plan is then converted into 
+a physical query plan, which is optimized for distributed execution and 
+includes details such as the number and 
+`types <https://prestodb.io/docs/current/overview/concepts.html#server-types>`_ 
+of Presto servers which should process a query plan node, and how data is 
+`exchanged <https://prestodb.io/docs/current/overview/concepts.html#exchange>`_ 
+between them.
+
+Plan Fragment
+^^^^^^^^^^^^^
+
+A plan fragment is a section of the physical query plan executed by 
+`tasks <https://prestodb.io/docs/current/overview/concepts.html#task>`_ on different 
+`Presto servers <https://prestodb.io/docs/current/overview/concepts.html#server-types>`_.
+
 Stage
 ^^^^^
 

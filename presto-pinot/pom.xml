@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-pinot</artifactId>
@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <grpc.version>1.41.0</grpc.version>
+        <grpc.version>1.68.0</grpc.version>
     </properties>
 
     <dependencies>
@@ -93,7 +93,6 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.21.7</version>
             <scope>runtime</scope>
         </dependency>
 

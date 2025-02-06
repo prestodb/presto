@@ -15,12 +15,19 @@ package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.api.Experimental;
+import com.facebook.presto.spi.function.aggregation.Accumulator;
+import com.facebook.presto.spi.function.aggregation.AggregationMetadata;
+import com.facebook.presto.spi.function.aggregation.GroupedAccumulator;
+
+import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
+//  A no-op implementation of JavaAggregationFunctionImplementation.
+//  A hacky way to handle lambda aggregate functions which require an implementation of JavaAggregationFunctionImplementation.
 @Experimental
 public class SqlInvokedAggregationFunctionImplementation
-        implements AggregationFunctionImplementation
+        implements JavaAggregationFunctionImplementation
 {
     private final Type intermediateType;
 
@@ -28,11 +35,18 @@ public class SqlInvokedAggregationFunctionImplementation
 
     private final boolean isOrderSensitive;
 
-    public SqlInvokedAggregationFunctionImplementation(Type intermediateType, Type finalType, boolean isOrderSensitive)
+    private final List<Type> parameterTypes;
+
+    public SqlInvokedAggregationFunctionImplementation(
+            Type intermediateType,
+            Type finalType,
+            boolean isOrderSensitive,
+            List<Type> parameterTypes)
     {
         this.intermediateType = requireNonNull(intermediateType, "intermediateType is null");
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.isOrderSensitive = isOrderSensitive;
+        this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
     }
 
     @Override
@@ -58,5 +72,29 @@ public class SqlInvokedAggregationFunctionImplementation
     public boolean isOrderSensitive()
     {
         return isOrderSensitive;
+    }
+
+    @Override
+    public List<Type> getParameterTypes()
+    {
+        return parameterTypes;
+    }
+
+    @Override
+    public AggregationMetadata getAggregationMetadata()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Class<? extends Accumulator> getAccumulatorClass()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Class<? extends GroupedAccumulator> getGroupedAccumulatorClass()
+    {
+        throw new UnsupportedOperationException();
     }
 }

@@ -118,7 +118,7 @@ public class FilteringPageSource
                         columnHandle -> new VariableReferenceExpression(Optional.empty(), columnHandle.getName(), columnHandle.getHiveType().getType(typeManager)),
                         columnHandle -> new InputReferenceExpression(Optional.empty(), columnHandle.getHiveColumnIndex(), columnHandle.getHiveType().getType(typeManager))));
 
-        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer().optimize(remainingPredicate, OPTIMIZED, session);
+        RowExpression optimizedRemainingPredicate = rowExpressionService.getExpressionOptimizer(session).optimize(remainingPredicate, OPTIMIZED, session);
         if (TRUE_CONSTANT.equals(optimizedRemainingPredicate)) {
             this.filterFunction = null;
         }

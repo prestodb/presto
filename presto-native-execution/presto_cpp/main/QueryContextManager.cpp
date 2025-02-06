@@ -94,24 +94,6 @@ void updateVeloxConfigs(
   }
 }
 
-void updateVeloxConnectorConfigs(
-    std::unordered_map<
-        std::string,
-        std::unordered_map<std::string, std::string>>& connectorConfigStrings) {
-  const auto& systemConfig = SystemConfig::instance();
-
-  for (auto& entry : connectorConfigStrings) {
-    auto& connectorConfig = entry.second;
-
-    // Do not retain cache if `node_selection_strategy` is explicitly set to
-    // `NO_PREFERENCE`.
-    auto it = connectorConfig.find("node_selection_strategy");
-    if (it != connectorConfig.end() && it->second == "NO_PREFERENCE") {
-      connectorConfig.emplace(
-          connector::hive::HiveConfig::kCacheNoRetentionSession, "true");
-    }
-  }
-}
 } // namespace
 
 QueryContextManager::QueryContextManager(
@@ -144,7 +126,6 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   }
 
   updateVeloxConfigs(configStrings);
-  updateVeloxConnectorConfigs(connectorConfigStrings);
 
   std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
       connectorConfigs;
@@ -204,9 +185,30 @@ QueryContextManager::toVeloxConfigs(
   // Use base velox query config as the starting point and add Presto session
   // properties on top of it.
   auto configs = BaseVeloxQueryConfig::instance()->values();
+  std::optional<std::string> traceFragmentId;
+  std::optional<std::string> traceShardId;
   for (const auto& it : session.systemProperties) {
-    configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
-    sessionProperties_.updateVeloxConfig(it.first, it.second);
+    if (it.first == SessionProperties::kQueryTraceFragmentId) {
+      traceFragmentId = it.second;
+    } else if (it.first == SessionProperties::kQueryTraceShardId) {
+      traceShardId = it.second;
+    } else if (it.first == SessionProperties::kShuffleCompressionEnabled) {
+      if (it.second == "true") {
+        // NOTE: Presto java only support lz4 compression so configure the same
+        // compression kind on velox.
+        configs[core::QueryConfig::kShuffleCompressionKind] =
+            velox::common::compressionKindToString(
+                velox::common::CompressionKind_LZ4);
+      } else {
+        VELOX_USER_CHECK_EQ(it.second, "false");
+        configs[core::QueryConfig::kShuffleCompressionKind] =
+            velox::common::compressionKindToString(
+                velox::common::CompressionKind_NONE);
+      }
+    } else {
+      configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
+      sessionProperties_.updateVeloxConfig(it.first, it.second);
+    }
   }
 
   // If there's a timeZoneKey, convert to timezone name and add to the
@@ -216,6 +218,16 @@ QueryContextManager::toVeloxConfigs(
         velox::core::QueryConfig::kSessionTimezone,
         velox::tz::getTimeZoneName(session.timeZoneKey));
   }
+
+  // Construct query tracing regex and pass to Velox config.
+  // It replaces the given native_query_trace_task_reg_exp if also set.
+  if (traceFragmentId.has_value() || traceShardId.has_value()) {
+    configs.emplace(
+        velox::core::QueryConfig::kQueryTraceTaskRegExp,
+        ".*\\." + traceFragmentId.value_or(".*") + "\\..*\\." +
+            traceShardId.value_or(".*") + "\\..*");
+  }
+
   updateFromSystemConfigs(configs);
   return configs;
 }

@@ -206,7 +206,7 @@ These properties require some explanation:
 
 * ``http-server.http.port``:
   Specifies the port for the HTTP server. Presto uses HTTP for all
-  communication, internal and external.
+  communication, internal and external. If the value is set to 0 an ephemeral port is used.
 
 * ``query.max-memory``:
   The maximum amount of distributed memory that a query may use.

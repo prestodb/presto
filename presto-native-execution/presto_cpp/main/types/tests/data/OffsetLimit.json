@@ -51,7 +51,9 @@
               "type":"bigint"
             }
           ],
-          "replicateNullsAndAny":false
+          "replicateNullsAndAny":false,
+          "scaleWriters": false,
+          "encoding":"COLUMNAR"
         },
         "sources":[
           {
@@ -102,7 +104,9 @@
                     "type":"bigint"
                   }
                 ],
-                "replicateNullsAndAny":false
+                "replicateNullsAndAny":false,
+                "scaleWriters": false,
+                "encoding":"COLUMNAR"
               },
               "sources":[
                 {
@@ -153,7 +157,9 @@
                           "type":"bigint"
                         }
                       ],
-                      "replicateNullsAndAny":false
+                      "replicateNullsAndAny":false,
+                      "scaleWriters": false,
+                      "encoding":"COLUMNAR"
                     },
                     "sources":[
                       {
@@ -200,7 +206,8 @@
                               }
                             ]
                           },
-                          "exchangeType":"GATHER"
+                          "exchangeType":"GATHER",
+                          "encoding":"COLUMNAR"
                         },
                         "partitionBy":[
 
@@ -476,6 +483,8 @@
       }
     ],
     "replicateNullsAndAny":false,
+    "encoding":"COLUMNAR",
+    "scaleWriters": false,
     "bucketToPartition":[
       0
     ]

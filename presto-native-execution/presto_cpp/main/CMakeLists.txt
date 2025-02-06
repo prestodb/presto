@@ -47,21 +47,33 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_protocol>
   presto_common
   presto_exception
+  presto_function_metadata
   presto_http
   presto_operators
+  presto_velox_conversion
+  velox_abfs
   velox_aggregates
   velox_caching
   velox_common_base
   velox_core
   velox_dwio_common_exception
+  velox_dwio_dwrf_reader
+  velox_dwio_dwrf_writer
+  velox_dwio_orc_reader
+  velox_dwio_parquet_reader
+  velox_dwio_parquet_writer
   velox_encode
   velox_exec
+  velox_file
   velox_functions_lib
   velox_functions_prestosql
+  velox_gcs
+  velox_hdfs
   velox_hive_connector
   velox_hive_iceberg_splitreader
   velox_hive_partition_function
   velox_presto_serializer
+  velox_s3fs
   velox_serialization
   velox_time
   velox_type_parser
@@ -95,6 +107,12 @@ add_executable(presto_server PrestoMain.cpp)
 target_link_libraries(presto_server presto_server_lib velox_hive_connector
                       velox_tpch_connector)
 
+# Clang requires explicit linking with libatomic.
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
+   AND "${CMAKE_CXX_COMPILER_VERSION}" VERSION_GREATER_EQUAL 15)
+  target_link_libraries(presto_server atomic)
+endif()
+
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_library(presto_server_remote_function JsonSignatureParser.cpp
                                             RemoteFunctionRegisterer.cpp)
@@ -119,5 +137,21 @@ if(PRESTO_STATS_REPORTER_TYPE)
     message(
       FATAL_ERROR
         "${PRESTO_STATS_REPORTER_TYPE} is not a valid stats reporter name")
+  endif()
+endif()
+
+if(PRESTO_MEMORY_CHECKER_TYPE)
+  add_compile_definitions(PRESTO_MEMORY_CHECKER_TYPE)
+  # Check if the current platform is Linux and the memory checker type is
+  # LINUX_MEMORY_CHECKER.
+  if(UNIX
+     AND NOT APPLE
+     AND (PRESTO_MEMORY_CHECKER_TYPE STREQUAL "LINUX_MEMORY_CHECKER"))
+    add_library(presto_linux_memory_checker OBJECT LinuxMemoryChecker.cpp)
+    target_link_libraries(presto_server presto_linux_memory_checker)
+  else()
+    message(
+      FATAL_ERROR
+        "${PRESTO_MEMORY_CHECKER_TYPE} is not a valid memory checker name")
   endif()
 endif()

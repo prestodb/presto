@@ -14,8 +14,10 @@
 #pragma once
 
 #include <stdexcept>
+#include "presto_cpp/main/common/Configs.h"
+#include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/types/TypeParser.h"
-#include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
 
 namespace facebook::presto {

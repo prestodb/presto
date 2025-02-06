@@ -33,6 +33,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HiveType;
@@ -60,6 +61,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.HiveType.HIVE_BINARY;
@@ -117,9 +119,15 @@ public final class TypeConverter
             case TIME:
                 return TimeType.TIME;
             case TIMESTAMP:
+                Types.TimestampType timestampType = (Types.TimestampType) type.asPrimitiveType();
+                if (timestampType.shouldAdjustToUTC()) {
+                    return TIMESTAMP_WITH_TIME_ZONE;
+                }
                 return TimestampType.TIMESTAMP;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
+            case UUID:
+                return UuidType.UUID;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
                 return new ArrayType(toPrestoType(listType.elementType(), typeManager));
@@ -202,6 +210,9 @@ public final class TypeConverter
         }
         if (type instanceof TimestampWithTimeZoneType) {
             return Types.TimestampType.withZone();
+        }
+        if (type instanceof UuidType) {
+            return Types.UUIDType.get();
         }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
@@ -303,6 +314,9 @@ public final class TypeConverter
         }
         if (DOUBLE.equals(type)) {
             return HIVE_DOUBLE.getTypeInfo();
+        }
+        if (TimeType.TIME.equals(type)) {
+            return HIVE_LONG.getTypeInfo();
         }
         if (type instanceof VarcharType) {
             VarcharType varcharType = (VarcharType) type;

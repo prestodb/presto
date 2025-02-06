@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningScheme;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.testing.TestingMetadata.TestingColumnHandle;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.ExchangeEncoding.COLUMNAR;
 import static com.facebook.presto.spi.plan.JoinDistributionType.REPLICATED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.spi.plan.JoinType.RIGHT;
@@ -164,7 +165,8 @@ public class TestPhasedExecutionSchedule
                 fragments[0].getPartitioningScheme().getOutputLayout(),
                 false,
                 Optional.empty(),
-                REPARTITION);
+                REPARTITION,
+                COLUMNAR);
 
         return createFragment(planNode);
     }
@@ -204,7 +206,7 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingColumnHandle("column")),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
 
         RemoteSourceNode remote = new RemoteSourceNode(Optional.empty(), new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), false, Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
@@ -264,7 +266,7 @@ public class TestPhasedExecutionSchedule
                 ImmutableList.of(variable),
                 ImmutableMap.of(variable, new TestingColumnHandle("column")),
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
 
         return createFragment(planNode);
     }

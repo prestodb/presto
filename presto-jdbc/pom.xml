@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-jdbc</artifactId>
@@ -35,6 +35,13 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-function-namespace-managers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-function-namespace-managers-common</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -269,6 +276,18 @@
                                     <shadedPattern>${shadeBase}.jackson</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>META-INF/versions/11/com.fasterxml.jackson</pattern>
+                                    <shadedPattern>META-INF/versions/11/${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>META-INF/versions/17/com.fasterxml.jackson</pattern>
+                                    <shadedPattern>META-INF/versions/17/${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>META-INF/versions/21/com.fasterxml.jackson</pattern>
+                                    <shadedPattern>META-INF/versions/21/${shadeBase}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.google.common</pattern>
                                     <shadedPattern>${shadeBase}.guava</shadedPattern>
                                 </relocation>
@@ -340,6 +359,7 @@
                                     <excludes>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
+                                        <exclude>META-INF.versions.9.module-info</exclude>
                                         <exclude>LICENSE</exclude>
                                     </excludes>
                                 </filter>

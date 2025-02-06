@@ -30,6 +30,7 @@ import com.facebook.presto.sql.planner.sanity.PlanChecker.Checker;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isSingleNodeExecutionEnabled;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.INTERMEDIATE;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
@@ -50,11 +51,11 @@ import static java.util.Objects.requireNonNull;
 public class ValidateAggregationsWithDefaultValues
         implements Checker
 {
-    private final boolean forceSingleNode;
+    private final boolean noExchange;
 
-    public ValidateAggregationsWithDefaultValues(boolean forceSingleNode)
+    public ValidateAggregationsWithDefaultValues(boolean noExchange)
     {
-        this.forceSingleNode = forceSingleNode;
+        this.noExchange = noExchange;
     }
 
     @Override
@@ -114,7 +115,7 @@ public class ValidateAggregationsWithDefaultValues
             // No remote repartition exchange between final and partial aggregation.
             // Make sure that final aggregation operators are executed on a single node.
             ActualProperties globalProperties = PropertyDerivations.derivePropertiesRecursively(node, metadata, session);
-            checkArgument(forceSingleNode || globalProperties.isSingleNode(),
+            checkArgument(isSingleNodeExecutionEnabled(session) || noExchange || globalProperties.isSingleNode(),
                     "Final aggregation with default value not separated from partial aggregation by remote hash exchange");
 
             if (!seenExchanges.localRepartitionExchange) {

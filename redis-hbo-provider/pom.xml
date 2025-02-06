@@ -5,13 +5,12 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <lettuce.version>6.2.4.RELEASE</lettuce.version>
-        <netty.version>4.1.91.Final</netty.version>
+        <lettuce.version>6.5.1.RELEASE</lettuce.version>
     </properties>
 
     <artifactId>redis-hbo-provider</artifactId>
@@ -22,19 +21,16 @@
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-common</artifactId>
-            <version>${netty.version}</version>
         </dependency>
 
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-handler</artifactId>
-            <version>${netty.version}</version>
         </dependency>
 
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-transport</artifactId>
-            <version>${netty.version}</version>
         </dependency>
 
         <dependency>

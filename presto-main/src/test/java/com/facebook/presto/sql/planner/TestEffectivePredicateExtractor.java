@@ -26,6 +26,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
@@ -33,15 +34,14 @@ import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.JoinNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
@@ -144,7 +144,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
     }
 
     @Test
@@ -318,7 +318,8 @@ public class TestEffectivePredicateExtractor
                                 equals(BV, CV),
                                 lessThan(CV, bigintLiteral(10)))),
                 new OrderingScheme(ImmutableList.of(new Ordering(AV, SortOrder.ASC_NULLS_LAST))),
-                false);
+                false,
+                ImmutableList.of());
 
         RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
 
@@ -372,7 +373,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
         RowExpression effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, TRUE_CONSTANT);
 
@@ -383,7 +384,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.none(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, FALSE_CONSTANT);
 
@@ -394,7 +395,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.withColumnDomains(ImmutableMap.of(scanAssignments.get(AV), Domain.singleValue(BIGINT, 1L))),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(1L), AV)));
 
@@ -407,7 +408,7 @@ public class TestEffectivePredicateExtractor
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         scanAssignments.get(AV), Domain.singleValue(BIGINT, 1L),
                         scanAssignments.get(BV), Domain.singleValue(BIGINT, 2L))),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(normalizeConjuncts(effectivePredicate), normalizeConjuncts(equals(bigintLiteral(2L), BV), equals(bigintLiteral(1L), AV)));
 
@@ -418,7 +419,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(assignments.keySet()),
                 assignments,
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
         effectivePredicate = effectivePredicateExtractor.extract(node);
         assertEquals(effectivePredicate, TRUE_CONSTANT);
     }
@@ -782,7 +783,7 @@ public class TestEffectivePredicateExtractor
                 ImmutableList.copyOf(scanAssignments.keySet()),
                 scanAssignments,
                 TupleDomain.all(),
-                TupleDomain.all());
+                TupleDomain.all(), Optional.empty());
     }
 
     private static PlanNodeId newId()

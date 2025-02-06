@@ -129,7 +129,7 @@ public class HivePageSourceProvider
         this.optimizedRowExpressionCache = CacheBuilder.newBuilder()
                 .recordStats()
                 .maximumSize(10_000)
-                .build(CacheLoader.from(cacheKey -> rowExpressionService.getExpressionOptimizer().optimize(cacheKey.rowExpression, OPTIMIZED, cacheKey.session)));
+                .build(CacheLoader.from(cacheKey -> rowExpressionService.getExpressionOptimizer(cacheKey.session).optimize(cacheKey.rowExpression, OPTIMIZED, cacheKey.session)));
     }
 
     @Override

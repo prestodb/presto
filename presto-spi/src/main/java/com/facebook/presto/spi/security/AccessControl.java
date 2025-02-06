@@ -22,6 +22,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -114,6 +115,13 @@ public interface AccessControl
     void checkCanRenameTable(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, QualifiedObjectName newTableName);
 
     /**
+     * Check if identity is allowed to set properties to the specified table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetTableProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Map<String, Object> properties);
+
+    /**
      * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.
@@ -184,6 +192,13 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanCreateView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName);
+
+    /**
+     * Check if identity is allowed to rename the specified view.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    void checkCanRenameView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
 
     /**
      * Check if identity is allowed to drop the specified view.

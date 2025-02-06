@@ -338,6 +338,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetTableProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, tableName.getCatalogName()));
+        authorizationCheck(() -> systemAccessControl.get().checkCanSetTableProperties(identity, context, toCatalogSchemaTableName(tableName)));
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetTableProperties(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName), properties));
+        }
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
         requireNonNull(identity, "identity is null");
@@ -498,6 +511,23 @@ public class AccessControlManager
         CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, viewName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanCreateView(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(viewName.getCatalogName()), context, toSchemaTableName(viewName)));
+        }
+    }
+
+    @Override
+    public void checkCanRenameView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(viewName, "viewName is null");
+        requireNonNull(newViewName, "newViewName is null");
+
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, viewName.getCatalogName()));
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanRenameView(identity, context, toCatalogSchemaTableName(viewName), toCatalogSchemaTableName(newViewName)));
+
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, viewName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanRenameView(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(viewName.getCatalogName()), context, toSchemaTableName(viewName), toSchemaTableName(newViewName)));
         }
     }
 

@@ -230,7 +230,7 @@ class TranslationMap
             {
                 return getVariable(rewriteBase, node)
                         .map(variable -> coerceIfNecessary(node, createSymbolReference(variable)))
-                        .orElse(coerceIfNecessary(node, node));
+                        .orElseGet(() -> coerceIfNecessary(node, node));
             }
 
             @Override

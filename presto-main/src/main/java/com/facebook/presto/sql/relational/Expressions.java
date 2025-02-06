@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.relational;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.CastType;
@@ -153,6 +154,12 @@ public final class Expressions
         return call(name, functionHandle, returnType, arguments);
     }
 
+    public static CallExpression call(FunctionAndTypeManager functionAndTypeManager, QualifiedObjectName qualifiedObjectName, Type returnType, List<RowExpression> arguments)
+    {
+        FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(qualifiedObjectName, fromTypes(arguments.stream().map(RowExpression::getType).collect(toImmutableList())));
+        return call(String.valueOf(qualifiedObjectName), functionHandle, returnType, arguments);
+    }
+
     public static CallExpression call(FunctionAndTypeResolver functionAndTypeResolver, String name, Type returnType, RowExpression... arguments)
     {
         FunctionHandle functionHandle = functionAndTypeResolver.lookupFunction(name, fromTypes(Arrays.stream(arguments).map(RowExpression::getType).collect(toImmutableList())));
@@ -200,7 +207,7 @@ public final class Expressions
         arguments.addAll(whenClauses);
 
         arguments.add(defaultValue
-                .orElse(constantNull(operand.getSourceLocation(), returnType)));
+                .orElseGet(() -> constantNull(operand.getSourceLocation(), returnType)));
 
         return specialForm(SWITCH, returnType, arguments.build());
     }

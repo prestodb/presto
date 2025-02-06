@@ -22,8 +22,10 @@ import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -32,9 +34,15 @@ import com.facebook.presto.spi.plan.Partitioning;
 import com.facebook.presto.spi.plan.PartitioningScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
+import com.facebook.presto.spi.plan.StatisticAggregations;
+import com.facebook.presto.spi.plan.TableFinishNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -44,18 +52,11 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.StatisticAggregations;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -71,14 +72,16 @@ import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isDistributedSortEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnforceFixedDistributionForOutputOperator;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionScaleWritersThreadsEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeJoinBuildPartitionEnforced;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSegmentedAggregationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
-import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.hasSingleNodeExecutionPreference;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.isDecomposable;
+import static com.facebook.presto.sql.TemporaryTableUtil.splitIntoPartialAndIntermediate;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -100,6 +103,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.roundRobinExchan
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.systemPartitionedExchange;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -191,6 +195,30 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitSort(SortNode node, StreamPreferredProperties parentPreferences)
         {
+            if (!node.getPartitionBy().isEmpty()) {
+                return planSortWithPartition(node, parentPreferences);
+            }
+            return planSortWithoutPartition(node, parentPreferences);
+        }
+
+        private PlanWithProperties planSortWithPartition(SortNode node, StreamPreferredProperties parentPreferences)
+        {
+            checkArgument(!node.getPartitionBy().isEmpty());
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputVariables())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(node.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+
+            SortNode result = new SortNode(node.getSourceLocation(), idAllocator.getNextId(), child.getNode(), node.getOrderingScheme(), node.isPartial(), node.getPartitionBy());
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        private PlanWithProperties planSortWithoutPartition(SortNode node, StreamPreferredProperties parentPreferences)
+        {
+            checkArgument(node.getPartitionBy().isEmpty());
             // Remove sort if the child is already sorted and in a single stream
             // TODO: extract to its own optimization after AddLocalExchanges once the
             // constraint optimization framework is in a better state to be extended
@@ -436,6 +464,31 @@ public class AddLocalExchanges
         }
 
         @Override
+        public PlanWithProperties visitDelete(DeleteNode node, StreamPreferredProperties parentPreferences)
+        {
+            if (!node.getInputDistribution().isPresent()) {
+                return visitPlan(node, parentPreferences);
+            }
+            DeleteNode.InputDistribution inputDistribution = node.getInputDistribution().get();
+            StreamPreferredProperties childRequirements = parentPreferences
+                    .constrainTo(node.getSource().getOutputVariables())
+                    .withDefaultParallelism(session)
+                    .withPartitioning(inputDistribution.getPartitionBy());
+
+            PlanWithProperties child = planAndEnforce(node.getSource(), childRequirements, childRequirements);
+            DeleteNode result = new DeleteNode(
+                    node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    node.getStatsEquivalentPlanNode(),
+                    child.getNode(),
+                    node.getRowId(),
+                    node.getOutputVariables(),
+                    node.getInputDistribution());
+
+            return deriveProperties(result, child.getProperties());
+        }
+
+        @Override
         public PlanWithProperties visitMarkDistinct(MarkDistinctNode node, StreamPreferredProperties parentPreferences)
         {
             // mark distinct requires that all data partitioned
@@ -538,126 +591,121 @@ public class AddLocalExchanges
         //
 
         @Override
-        public PlanWithProperties visitTableWriter(TableWriterNode originalTableWriterNode, StreamPreferredProperties parentPreferences)
+        public PlanWithProperties visitTableWriter(TableWriterNode tableWrite, StreamPreferredProperties parentPreferences)
         {
-            if (originalTableWriterNode.getTablePartitioningScheme().isPresent() && getTaskPartitionedWriterCount(session) == 1) {
-                return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
-            }
-
-            if (!originalTableWriterNode.getTablePartitioningScheme().isPresent() && getTaskWriterCount(session) == 1) {
-                return planAndEnforceChildren(originalTableWriterNode, singleStream(), defaultParallelism(session));
-            }
-
-            if (!isTableWriterMergeOperatorEnabled(session)) {
-                return planAndEnforceChildren(originalTableWriterNode, fixedParallelism(), fixedParallelism());
-            }
-
-            Optional<StatisticAggregations.Parts> statisticAggregations = originalTableWriterNode
-                    .getStatisticsAggregation()
-                    .map(aggregations -> aggregations.splitIntoPartialAndIntermediate(
-                            variableAllocator,
-                            metadata.getFunctionAndTypeManager()));
-
-            PlanWithProperties tableWriter;
-
-            if (!originalTableWriterNode.getTablePartitioningScheme().isPresent()) {
-                int taskWriterCount = getTaskWriterCount(session);
-                int taskConcurrency = getTaskConcurrency(session);
-                if (taskWriterCount == taskConcurrency) {
-                    tableWriter = planAndEnforceChildren(
-                            new TableWriterNode(
-                                    originalTableWriterNode.getSourceLocation(),
-                                    originalTableWriterNode.getId(),
-                                    originalTableWriterNode.getStatsEquivalentPlanNode(),
-                                    originalTableWriterNode.getSource(),
-                                    originalTableWriterNode.getTarget(),
-                                    variableAllocator.newVariable("partialrowcount", BIGINT),
-                                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                                    variableAllocator.newVariable("partialcontext", VARBINARY),
-                                    originalTableWriterNode.getColumns(),
-                                    originalTableWriterNode.getColumnNames(),
-                                    originalTableWriterNode.getNotNullColumnVariables(),
-                                    originalTableWriterNode.getTablePartitioningScheme(),
-                                    originalTableWriterNode.getPreferredShufflePartitioningScheme(),
-                                    statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                    originalTableWriterNode.getIsTemporaryTableWriter()),
-                            fixedParallelism(),
-                            fixedParallelism());
+            // When table is partitioned and single writer per partition is required (for example a bucketed table in Hive connector)
+            if (tableWrite.isSingleWriterPerPartitionRequired()) {
+                // special case when a single table writer per task is requested
+                if (getTaskPartitionedWriterCount(session) == 1) {
+                    return planAndEnforceChildren(tableWrite, singleStream(), defaultParallelism(session));
                 }
-                else {
-                    PlanWithProperties source = accept(originalTableWriterNode.getSource(), defaultParallelism(session));
-                    PlanWithProperties exchange = deriveProperties(
-                            roundRobinExchange(idAllocator.getNextId(), LOCAL, source.getNode()),
-                            source.getProperties());
-                    tableWriter = deriveProperties(
-                            new TableWriterNode(
-                                    originalTableWriterNode.getSourceLocation(),
-                                    originalTableWriterNode.getId(),
-                                    originalTableWriterNode.getStatsEquivalentPlanNode(),
-                                    exchange.getNode(),
-                                    originalTableWriterNode.getTarget(),
-                                    variableAllocator.newVariable("partialrowcount", BIGINT),
-                                    variableAllocator.newVariable("partialfragments", VARBINARY),
-                                    variableAllocator.newVariable("partialcontext", VARBINARY),
-                                    originalTableWriterNode.getColumns(),
-                                    originalTableWriterNode.getColumnNames(),
-                                    originalTableWriterNode.getNotNullColumnVariables(),
-                                    originalTableWriterNode.getTablePartitioningScheme(),
-                                    originalTableWriterNode.getPreferredShufflePartitioningScheme(),
-                                    statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                    originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                    originalTableWriterNode.getIsTemporaryTableWriter()),
-                            exchange.getProperties());
-                }
-            }
-            else {
-                PlanWithProperties source = accept(originalTableWriterNode.getSource(), defaultParallelism(session));
+                PlanWithProperties source = accept(tableWrite.getSource(), defaultParallelism(session));
                 PlanWithProperties exchange = deriveProperties(
                         partitionedExchange(
                                 idAllocator.getNextId(),
                                 LOCAL,
                                 source.getNode(),
-                                originalTableWriterNode.getTablePartitioningScheme().get()),
+                                tableWrite.getTablePartitioningScheme().get()),
                         source.getProperties());
-                tableWriter = deriveProperties(
-                        new TableWriterNode(
-                                originalTableWriterNode.getSourceLocation(),
-                                originalTableWriterNode.getId(),
-                                originalTableWriterNode.getStatsEquivalentPlanNode(),
-                                exchange.getNode(),
-                                originalTableWriterNode.getTarget(),
-                                variableAllocator.newVariable("partialrowcount", BIGINT),
-                                variableAllocator.newVariable("partialfragments", VARBINARY),
-                                variableAllocator.newVariable("partialcontext", VARBINARY),
-                                originalTableWriterNode.getColumns(),
-                                originalTableWriterNode.getColumnNames(),
-                                originalTableWriterNode.getNotNullColumnVariables(),
-                                originalTableWriterNode.getTablePartitioningScheme(),
-                                originalTableWriterNode.getPreferredShufflePartitioningScheme(),
-                                statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
-                                originalTableWriterNode.getTaskCountIfScaledWriter(),
-                                originalTableWriterNode.getIsTemporaryTableWriter()),
-                        exchange.getProperties());
+                return planTableWriteWithTableWriteMerge(tableWrite, exchange);
             }
 
-            PlanWithProperties gatheringExchange = deriveProperties(
+            // special case when a single table writer per task is requested
+            if (getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(tableWrite, singleStream(), defaultParallelism(session));
+            }
+
+            // Writer thread scaling enabled and the output table allows multiple writers per partition (for example non bucketed table in Hive connector)
+            if (nativeExecution && isNativeExecutionScaleWritersThreadsEnabled(session)) {
+                PlanWithProperties source = accept(tableWrite.getSource(), defaultParallelism(session));
+                PartitioningScheme partitioningScheme;
+                if (tableWrite.getTablePartitioningScheme().isPresent()) {
+                    // Partitioning scheme is present and more than a single writer per partition is allowed (for example when table is not bucketed but partitioned in Hive connector)
+                    partitioningScheme = tableWrite.getTablePartitioningScheme().get();
+                    verify(partitioningScheme.isScaleWriters());
+                }
+                else {
+                    // When partitioning scheme is not present (for example when table is not partitioned and not bucketed in Hive connector)
+                    partitioningScheme = new PartitioningScheme(
+                            Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()),
+                            source.getNode().getOutputVariables(),
+                            true);
+                }
+                PlanWithProperties exchange = deriveProperties(
+                        partitionedExchange(
+                                idAllocator.getNextId(),
+                                LOCAL,
+                                source.getNode(),
+                                partitioningScheme),
+                        source.getProperties());
+                return planTableWriteWithTableWriteMerge(tableWrite, exchange);
+            }
+
+            // Writer thread scaling is disabled and there is no strict partitioning requirement
+            int taskWriterCount = getTaskWriterCount(session);
+            int taskConcurrency = getTaskConcurrency(session);
+            if (taskWriterCount == taskConcurrency) {
+                // When table write concurrency is equal to task concurrency do not add en extra local exchange for improved efficiency
+                return planTableWriteWithTableWriteMerge(
+                        tableWrite,
+                        // When source distribution is MULTIPLE (for example a TableScan) add an exchange to achieve a fixed number of writer threads
+                        planAndEnforce(tableWrite.getSource(), fixedParallelism(), fixedParallelism()));
+            }
+            else {
+                // When concurrency settings are different add an exchange to achieve a specific level of parallelism for table write
+                PlanWithProperties source = accept(tableWrite.getSource(), defaultParallelism(session));
+                PlanWithProperties exchange = deriveProperties(
+                        roundRobinExchange(idAllocator.getNextId(), LOCAL, source.getNode()),
+                        source.getProperties());
+                return planTableWriteWithTableWriteMerge(tableWrite, exchange);
+            }
+        }
+
+        private PlanWithProperties planTableWriteWithTableWriteMerge(TableWriterNode tableWrite, PlanWithProperties source)
+        {
+            Optional<StatisticAggregations.Parts> statisticAggregations = tableWrite
+                    .getStatisticsAggregation()
+                    .map(aggregations -> splitIntoPartialAndIntermediate(
+                            aggregations,
+                            variableAllocator,
+                            metadata.getFunctionAndTypeManager()));
+
+            PlanWithProperties tableWriteWithProperties = deriveProperties(
+                    new TableWriterNode(
+                            tableWrite.getSourceLocation(),
+                            tableWrite.getId(),
+                            tableWrite.getStatsEquivalentPlanNode(),
+                            source.getNode(),
+                            tableWrite.getTarget(),
+                            variableAllocator.newVariable("partialrowcount", BIGINT),
+                            variableAllocator.newVariable("partialfragments", VARBINARY),
+                            variableAllocator.newVariable("partialcontext", VARBINARY),
+                            tableWrite.getColumns(),
+                            tableWrite.getColumnNames(),
+                            tableWrite.getNotNullColumnVariables(),
+                            tableWrite.getTablePartitioningScheme(),
+                            statisticAggregations.map(StatisticAggregations.Parts::getPartialAggregation),
+                            tableWrite.getTaskCountIfScaledWriter(),
+                            tableWrite.getIsTemporaryTableWriter()),
+                    source.getProperties());
+
+            PlanWithProperties gatherExchangeWithProperties = deriveProperties(
                     gatheringExchange(
                             idAllocator.getNextId(),
                             LOCAL,
-                            tableWriter.getNode()),
-                    tableWriter.getProperties());
+                            tableWriteWithProperties.getNode()),
+                    tableWriteWithProperties.getProperties());
 
             return deriveProperties(
                     new TableWriterMergeNode(
-                            originalTableWriterNode.getSourceLocation(),
+                            tableWrite.getSourceLocation(),
                             idAllocator.getNextId(),
-                            gatheringExchange.getNode(),
-                            originalTableWriterNode.getRowCountVariable(),
-                            originalTableWriterNode.getFragmentVariable(),
-                            originalTableWriterNode.getTableCommitContextVariable(),
+                            gatherExchangeWithProperties.getNode(),
+                            tableWrite.getRowCountVariable(),
+                            tableWrite.getFragmentVariable(),
+                            tableWrite.getTableCommitContextVariable(),
                             statisticAggregations.map(StatisticAggregations.Parts::getIntermediateAggregation)),
-                    gatheringExchange.getProperties());
+                    gatherExchangeWithProperties.getProperties());
         }
 
         @Override
@@ -787,7 +835,12 @@ public class AddLocalExchanges
                     .collect(toImmutableList());
             StreamPreferredProperties buildPreference;
             if (getTaskConcurrency(session) > 1) {
-                buildPreference = exactlyPartitionedOn(buildHashVariables);
+                if (nativeExecution && !isNativeJoinBuildPartitionEnforced(session)) {
+                    buildPreference = defaultParallelism(session);
+                }
+                else {
+                    buildPreference = exactlyPartitionedOn(buildHashVariables);
+                }
             }
             else {
                 buildPreference = singleStream();

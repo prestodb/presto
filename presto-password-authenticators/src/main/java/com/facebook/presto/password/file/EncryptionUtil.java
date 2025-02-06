@@ -15,6 +15,7 @@ package com.facebook.presto.password.file;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import at.favre.lib.crypto.bcrypt.IllegalBCryptFormatException;
+import com.facebook.airlift.log.Logger;
 import com.google.common.base.Splitter;
 
 import javax.crypto.SecretKeyFactory;
@@ -33,6 +34,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class EncryptionUtil
 {
+    private static final Logger LOG = Logger.get(EncryptionUtil.class);
     private static final int BCRYPT_MIN_COST = 8;
     private static final int PBKDF2_MIN_ITERATIONS = 1000;
 
@@ -58,14 +60,29 @@ public final class EncryptionUtil
         return BCrypt.verifyer().verify(inputPassword.toCharArray(), hashedPassword).verified;
     }
 
+    /**
+     * @Deprecated using PBKDF2WithHmacSHA1 is deprecated and clients should switch to PBKDF2WithHmacSHA256
+     */
     public static boolean doesPBKDF2PasswordMatch(String inputPassword, String hashedPassword)
     {
         PBKDF2Password password = PBKDF2Password.fromString(hashedPassword);
 
+        // Validate using PBKDF2WithHmacSHA256
+        if (validatePBKDF2Password(inputPassword, password, "PBKDF2WithHmacSHA256")) {
+            return true;
+        }
+
+        // Fallback to PBKDF2WithHmacSHA1
+        LOG.warn("Using deprecated PBKDF2WithHmacSHA1 for password validation.");
+        return validatePBKDF2Password(inputPassword, password, "PBKDF2WithHmacSHA1");
+    }
+
+    private static boolean validatePBKDF2Password(String inputPassword, PBKDF2Password password, String algorithm)
+    {
         try {
             KeySpec spec = new PBEKeySpec(inputPassword.toCharArray(), password.salt(), password.iterations(), password.hash().length * 8);
-            SecretKeyFactory key = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
-            byte[] inputHash = key.generateSecret(spec).getEncoded();
+            SecretKeyFactory keyFactory = SecretKeyFactory.getInstance(algorithm);
+            byte[] inputHash = keyFactory.generateSecret(spec).getEncoded();
 
             if (password.hash().length != inputHash.length) {
                 throw new HashedPasswordException("PBKDF2 password input is malformed");

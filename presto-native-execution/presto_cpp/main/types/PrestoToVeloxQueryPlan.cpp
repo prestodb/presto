@@ -13,6 +13,7 @@
  */
 
 // clang-format off
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/types/PrestoToVeloxConnector.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include <velox/type/Filter.h>
@@ -79,7 +80,7 @@ RowTypePtr toRowType(
 
 template <typename T>
 std::string toJsonString(const T& value) {
-  return ((json)value).dump();
+  return (static_cast<json>(value)).dump();
 }
 
 std::shared_ptr<connector::ColumnHandle> toColumnHandle(
@@ -332,9 +333,20 @@ core::LocalPartitionNode::Type toLocalExchangeType(
   }
 }
 
+VectorSerde::Kind toVeloxSerdeKind(protocol::ExchangeEncoding encoding) {
+  switch (encoding) {
+    case protocol::ExchangeEncoding::COLUMNAR:
+      return VectorSerde::Kind::kPresto;
+    case protocol::ExchangeEncoding::ROW_WISE:
+      return VectorSerde::Kind::kCompactRow;
+  }
+  VELOX_UNSUPPORTED("Unsupported encoding: {}.", fmt::underlying(encoding));
+}
+
 std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     const std::shared_ptr<const protocol::ExchangeNode>& node,
     core::LocalPartitionNode::Type type,
+    bool scaleWriters,
     const RowTypePtr& outputType,
     std::vector<core::PlanNodePtr>&& sourceNodes,
     const VeloxExprConverter& exprConverter) {
@@ -345,6 +357,7 @@ std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     return std::make_shared<core::LocalPartitionNode>(
         node->id,
         type,
+        scaleWriters,
         std::make_shared<HashPartitionFunctionSpec>(outputType, keyChannels),
         std::move(sourceNodes));
   }
@@ -353,6 +366,7 @@ std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     return std::make_shared<core::LocalPartitionNode>(
         node->id,
         type,
+        scaleWriters,
         std::make_shared<RoundRobinPartitionFunctionSpec>(),
         std::move(sourceNodes));
   }
@@ -421,12 +435,19 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     return core::LocalPartitionNode::gather(node->id, std::move(sourceNodes));
   }
 
-  auto connectorHandle =
-      node->partitioningScheme.partitioning.handle.connectorHandle;
+  const auto& partitioningScheme = node->partitioningScheme;
+  const auto& connectorHandle =
+      partitioningScheme.partitioning.handle.connectorHandle;
+  const bool scaleWriters = partitioningScheme.scaleWriters;
   if (std::dynamic_pointer_cast<protocol::SystemPartitioningHandle>(
           connectorHandle) != nullptr) {
     return buildLocalSystemPartitionNode(
-        node, type, outputType, std::move(sourceNodes), exprConverter_);
+        node,
+        type,
+        scaleWriters,
+        outputType,
+        std::move(sourceNodes),
+        exprConverter_);
   }
 
   auto partitionKeys = toFieldExprs(
@@ -445,7 +466,11 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     return core::LocalPartitionNode::gather(node->id, std::move(sourceNodes));
   }
   return std::make_shared<core::LocalPartitionNode>(
-      node->id, type, std::shared_ptr(std::move(spec)), std::move(sourceNodes));
+      node->id,
+      type,
+      scaleWriters,
+      std::shared_ptr(std::move(spec)),
+      std::move(sourceNodes));
 }
 
 namespace {
@@ -483,7 +508,10 @@ std::shared_ptr<protocol::CallExpression> isFunctionCall(
 /// CallExpression. Returns nullptr if input expression is something else.
 std::shared_ptr<protocol::CallExpression> isNot(
     const std::shared_ptr<protocol::RowExpression>& expression) {
-  static const std::string_view kNot = "presto.default.not";
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
+  static const std::string kNot =
+      util::addDefaultNamespacePrefix(prestoDefaultNamespacePrefix, "not");
   return isFunctionCall(expression, kNot);
 }
 
@@ -604,29 +632,6 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
             left,
             right,
             left->outputType()));
-  }
-
-  // For ScanFilter and ScanFilterProject, the planner sometimes put the
-  // remaining filter in a FilterNode after the TableScan.  We need to put it
-  // back to TableScan so that Velox can leverage it to do stripe level
-  // skipping.  Otherwise we only get row level skipping and lose some
-  // optimization opportunity in case of very low selectivity.
-  if (auto tableScan = std::dynamic_pointer_cast<const protocol::TableScanNode>(
-          node->source)) {
-    if (auto* tableLayout = dynamic_cast<protocol::HiveTableLayoutHandle*>(
-            tableScan->table.connectorTableLayout.get())) {
-      auto remainingFilter =
-          exprConverter_.toVeloxExpr(tableLayout->remainingPredicate);
-      if (auto* constant = dynamic_cast<const core::ConstantTypedExpr*>(
-              remainingFilter.get())) {
-        bool value = constant->value().value<bool>();
-        // We should get empty values node instead of table scan if the
-        // remaining filter is constantly false.
-        VELOX_CHECK(value, "Unexpected always-false remaining predicate");
-        tableLayout->remainingPredicate = node->predicate;
-        return toVeloxQueryPlan(tableScan, tableWriteInfo, taskId);
-      }
-    }
   }
 
   return std::make_shared<core::FilterNode>(
@@ -855,27 +860,7 @@ void VeloxQueryPlanConverterBase::toAggregations(
         auto sqlFunction =
             std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
                 prestoAggregation.functionHandle)) {
-      const auto& functionId = sqlFunction->functionId;
-
-      // functionId format is function-name;arg-type1;arg-type2;...
-      // For example: foo;INTEGER;VARCHAR.
-      auto start = functionId.find(";");
-      if (start != std::string::npos) {
-        for (;;) {
-          auto pos = functionId.find(";", start + 1);
-          if (pos == std::string::npos) {
-            auto argumentType = functionId.substr(start + 1);
-            aggregate.rawInputTypes.push_back(
-                stringToType(argumentType, typeParser_));
-            break;
-          }
-
-          auto argumentType = functionId.substr(start + 1, pos - start - 1);
-          aggregate.rawInputTypes.push_back(
-              stringToType(argumentType, typeParser_));
-          pos = start + 1;
-        }
-      }
+      parseSqlFunctionHandle(sqlFunction, aggregate.rawInputTypes, typeParser_);
     } else {
       VELOX_USER_FAIL(
           "Unsupported aggregate function handle: {}",
@@ -1547,11 +1532,14 @@ namespace {
 core::WindowNode::Function makeRowNumberFunction(
     const protocol::VariableReferenceExpression& rowNumberVariable,
     const TypeParser& typeParser) {
+  static const std::string prestoDefaultNamespacePrefix =
+      SystemConfig::instance()->prestoDefaultNamespacePrefix();
   core::WindowNode::Function function;
   function.functionCall = std::make_shared<core::CallTypedExpr>(
       stringToType(rowNumberVariable.type, typeParser),
       std::vector<core::TypedExprPtr>{},
-      "presto.default.row_number");
+      util::addDefaultNamespacePrefix(
+          prestoDefaultNamespacePrefix, "row_number"));
 
   function.frame.type = core::WindowNode::WindowType::kRows;
   function.frame.startType = core::WindowNode::BoundType::kUnboundedPreceding;
@@ -1763,7 +1751,8 @@ core::ExecutionStrategy toStrategy(protocol::StageExecutionStrategy strategy) {
           "RECOVERABLE_GROUPED_EXECUTION "
           "Stage Execution Strategy is not supported");
   }
-  VELOX_UNSUPPORTED("Unknown Stage Execution Strategy type {}", (int)strategy);
+  VELOX_UNSUPPORTED(
+      "Unknown Stage Execution Strategy type {}", static_cast<int>(strategy));
 }
 
 // Presto doesn't have PartitionedOutputNode and assigns its source node's plan
@@ -1851,16 +1840,24 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
             "Unsupported partitioning function: {}",
             toJsonString(systemPartitioningHandle->function));
         planFragment.planNode = core::PartitionedOutputNode::single(
-            partitionedOutputNodeId, outputType, sourceNode);
+            partitionedOutputNodeId,
+            outputType,
+            toVeloxSerdeKind((partitioningScheme.encoding)),
+            sourceNode);
         return planFragment;
       case protocol::SystemPartitioning::FIXED: {
         switch (systemPartitioningHandle->function) {
           case protocol::SystemPartitionFunction::ROUND_ROBIN: {
-            auto numPartitions = partitioningScheme.bucketToPartition->size();
+            auto numPartitions = partitioningScheme.bucketToPartition
+                ? partitioningScheme.bucketToPartition->size()
+                : 1;
 
             if (numPartitions == 1) {
               planFragment.planNode = core::PartitionedOutputNode::single(
-                  partitionedOutputNodeId, outputType, sourceNode);
+                  partitionedOutputNodeId,
+                  outputType,
+                  toVeloxSerdeKind((partitioningScheme.encoding)),
+                  sourceNode);
               return planFragment;
             }
             planFragment.planNode =
@@ -1872,15 +1869,21 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     partitioningScheme.replicateNullsAndAny,
                     std::make_shared<RoundRobinPartitionFunctionSpec>(),
                     outputType,
+                    toVeloxSerdeKind((partitioningScheme.encoding)),
                     sourceNode);
             return planFragment;
           }
           case protocol::SystemPartitionFunction::HASH: {
-            auto numPartitions = partitioningScheme.bucketToPartition->size();
+            auto numPartitions = partitioningScheme.bucketToPartition
+                ? partitioningScheme.bucketToPartition->size()
+                : 1;
 
             if (numPartitions == 1) {
               planFragment.planNode = core::PartitionedOutputNode::single(
-                  partitionedOutputNodeId, outputType, sourceNode);
+                  partitionedOutputNodeId,
+                  outputType,
+                  toVeloxSerdeKind((partitioningScheme.encoding)),
+                  sourceNode);
               return planFragment;
             }
             planFragment.planNode =
@@ -1893,12 +1896,17 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
                     std::make_shared<HashPartitionFunctionSpec>(
                         inputType, keyChannels, constValues),
                     outputType,
+                    toVeloxSerdeKind((partitioningScheme.encoding)),
                     sourceNode);
             return planFragment;
           }
           case protocol::SystemPartitionFunction::BROADCAST: {
             planFragment.planNode = core::PartitionedOutputNode::broadcast(
-                partitionedOutputNodeId, 1, outputType, sourceNode);
+                partitionedOutputNodeId,
+                1,
+                outputType,
+                toVeloxSerdeKind((partitioningScheme.encoding)),
+                sourceNode);
             return planFragment;
           }
           default:
@@ -1916,6 +1924,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
         planFragment.planNode = core::PartitionedOutputNode::arbitrary(
             partitionedOutputNodeId,
             std::move(outputType),
+            toVeloxSerdeKind((partitioningScheme.encoding)),
             std::move(sourceNode));
         return planFragment;
       }
@@ -1932,7 +1941,10 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
 
   if (numPartitions == 1) {
     planFragment.planNode = core::PartitionedOutputNode::single(
-        partitionedOutputNodeId, outputType, sourceNode);
+        partitionedOutputNodeId,
+        outputType,
+        toVeloxSerdeKind((partitioningScheme.encoding)),
+        sourceNode);
     return planFragment;
   }
 
@@ -1947,6 +1959,7 @@ core::PlanFragment VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       partitioningScheme.replicateNullsAndAny,
       std::shared_ptr(std::move(spec)),
       toRowType(partitioningScheme.outputLayout, typeParser_),
+      toVeloxSerdeKind((partitioningScheme.encoding)),
       sourceNode);
   return planFragment;
 }
@@ -1958,6 +1971,7 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   return core::PartitionedOutputNode::single(
       node->id,
       toRowType(node->outputVariables, typeParser_),
+      velox::VectorSerde::Kind::kPresto,
       VeloxQueryPlanConverterBase::toVeloxQueryPlan(
           node->source, tableWriteInfo, taskId));
 }
@@ -1978,9 +1992,14 @@ velox::core::PlanNodePtr VeloxInteractiveQueryPlanConverter::toVeloxQueryPlan(
       sortingOrders.emplace_back(toVeloxSortOrder(orderBy.sortOrder));
     }
     return std::make_shared<core::MergeExchangeNode>(
-        node->id, rowType, sortingKeys, sortingOrders);
+        node->id,
+        rowType,
+        sortingKeys,
+        sortingOrders,
+        toVeloxSerdeKind(node->encoding));
   }
-  return std::make_shared<core::ExchangeNode>(node->id, rowType);
+  return std::make_shared<core::ExchangeNode>(
+      node->id, rowType, toVeloxSerdeKind(node->encoding));
 }
 
 velox::connector::CommitStrategy
@@ -2019,6 +2038,7 @@ velox::core::PlanFragment VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
         partitionedOutputNode->id(),
         1,
         broadcastWriteNode->outputType(),
+        velox::VectorSerde::Kind::kPresto,
         {broadcastWriteNode});
     return planFragment;
   }
@@ -2067,7 +2087,8 @@ velox::core::PlanNodePtr VeloxBatchQueryPlanConverter::toVeloxQueryPlan(
   auto rowType = toRowType(node->outputVariables, typeParser_);
   // Broadcast exchange source.
   if (node->exchangeType == protocol::ExchangeNodeType::REPLICATE) {
-    return std::make_shared<core::ExchangeNode>(node->id, rowType);
+    return std::make_shared<core::ExchangeNode>(
+        node->id, rowType, velox::VectorSerde::Kind::kPresto);
   }
   // Partitioned shuffle exchange source.
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
@@ -2090,5 +2111,31 @@ void registerPrestoPlanNodeSerDe() {
       "ShuffleWriteNode", presto::operators::ShuffleWriteNode::create);
   registry.Register(
       "BroadcastWriteNode", presto::operators::BroadcastWriteNode::create);
+}
+
+void parseSqlFunctionHandle(
+    const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
+    std::vector<velox::TypePtr>& rawInputTypes,
+    TypeParser& typeParser) {
+  const auto& functionId = sqlFunction->functionId;
+  // functionId format is function-name;arg-type1;arg-type2;...
+  // For example: foo;INTEGER;VARCHAR.
+  auto start = functionId.find(";");
+  if (start != std::string::npos) {
+    for (;;) {
+      auto pos = functionId.find(";", start + 1);
+      if (pos == std::string::npos) {
+        auto argumentType = functionId.substr(start + 1);
+        if (!argumentType.empty()) {
+          rawInputTypes.push_back(stringToType(argumentType, typeParser));
+        }
+        break;
+      }
+      auto argumentType = functionId.substr(start + 1, pos - start - 1);
+      VELOX_CHECK(!argumentType.empty());
+      rawInputTypes.push_back(stringToType(argumentType, typeParser));
+      start = pos;
+    }
+  }
 }
 } // namespace facebook::presto

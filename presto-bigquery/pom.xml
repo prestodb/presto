@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.290-SNAPSHOT</version>
+        <version>0.292-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-bigquery</artifactId>
@@ -14,6 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <grpc.version>1.68.0</grpc.version>
     </properties>
 
     <dependencyManagement>
@@ -35,25 +36,7 @@
             <dependency>
                 <groupId>io.opencensus</groupId>
                 <artifactId>opencensus-api</artifactId>
-                <version>0.28.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-lang3</artifactId>
-                <version>3.11</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpcore</artifactId>
-                <version>4.4.14</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpclient</artifactId>
-                <version>4.5.13</version>
+                <version>0.31.1</version>
             </dependency>
 
             <dependency>
@@ -65,25 +48,19 @@
             <dependency>
                 <groupId>com.google.auth</groupId>
                 <artifactId>google-auth-library-oauth2-http</artifactId>
-                <version>0.22.2</version>
-            </dependency>
-
-            <dependency>
-                <groupId>commons-codec</groupId>
-                <artifactId>commons-codec</artifactId>
-                <version>1.13</version>
+                <version>1.23.0</version>
             </dependency>
 
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-context</artifactId>
-                <version>1.64.0</version>
+                <version>${grpc.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-protobuf-lite</artifactId>
-                <version>1.64.0</version>
+                <version>${grpc.version}</version>
             </dependency>
 
             <!-- Pinned version is required. -->
@@ -91,7 +68,61 @@
             <dependency>
                 <groupId>io.perfmark</groupId>
                 <artifactId>perfmark-api</artifactId>
-                <version>0.26.0</version>
+                <version>0.27.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-auth</artifactId>
+                <version>${grpc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-alts</artifactId>
+                <version>${grpc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-grpclb</artifactId>
+                <version>${grpc.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.auth</groupId>
+                <artifactId>google-auth-library-credentials</artifactId>
+                <version>1.23.0</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.conscrypt</groupId>
+                <artifactId>conscrypt-openjdk-uber</artifactId>
+                <version>2.5.2</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.auto.value</groupId>
+                <artifactId>auto-value-annotations</artifactId>
+                <version>1.10.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.http-client</groupId>
+                <artifactId>google-http-client</artifactId>
+                <version>1.43.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.http-client</groupId>
+                <artifactId>google-http-client-gson</artifactId>
+                <version>1.43.3</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.opencensus</groupId>
+                <artifactId>opencensus-contrib-http-util</artifactId>
+                <version>0.31.1</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -180,6 +211,10 @@
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.code.gson</groupId>
+                    <artifactId>gson</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -348,6 +383,7 @@
                                 <exclude>com.fasterxml.jackson.core:jackson-core</exclude>
                                 <exclude>javax.annotation:javax.annotation-api</exclude>
                                 <exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+                                <exclude>com.google.api.grpc:proto-google-common-protos</exclude>
                             </excludes>
                         </requireUpperBoundDeps>
                     </rules>

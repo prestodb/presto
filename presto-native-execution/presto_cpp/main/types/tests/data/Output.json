@@ -22,7 +22,8 @@
         }
       ],
       "ensureSourceOrdering":false,
-      "exchangeType":"GATHER"
+      "exchangeType":"GATHER",
+      "encoding":"COLUMNAR"
     },
     "columnNames":[
       "regionkey",
@@ -89,6 +90,8 @@
       }
     ],
     "replicateNullsAndAny":false,
+    "scaleWriters": false,
+    "encoding":"COLUMNAR",
     "bucketToPartition":[
       0
     ]

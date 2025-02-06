@@ -29,6 +29,7 @@ import com.facebook.presto.spi.security.Privilege;
 
 import javax.inject.Inject;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -98,6 +99,11 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanCreateTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
+    {
+    }
+
+    @Override
+    public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
     {
     }
 
@@ -192,6 +198,11 @@ public class LegacyAccessControl
 
     @Override
     public void checkCanCreateView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName)
+    {
+    }
+
+    @Override
+    public void checkCanRenameView(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
     }
 

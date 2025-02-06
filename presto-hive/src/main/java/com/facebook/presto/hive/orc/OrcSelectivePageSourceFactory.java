@@ -285,7 +285,7 @@ public class OrcSelectivePageSourceFactory
 
         boolean supplyRowIDs = selectedColumns.stream().anyMatch(column -> HiveColumnHandle.isRowIdColumnHandle(column));
         checkArgument(!supplyRowIDs || rowIDPartitionComponent.isPresent(), "rowIDPartitionComponent required when supplying row IDs");
-        byte[] partitionID = rowIDPartitionComponent.orElse(new byte[0]);
+        byte[] partitionID = rowIDPartitionComponent.orElseGet(() -> new byte[0]);
         String rowGroupId = path.getName();
 
         DataSize maxMergeDistance = getOrcMaxMergeDistance(session);
@@ -425,7 +425,7 @@ public class OrcSelectivePageSourceFactory
                 .forEach(column -> outputSubfields.put(column.getHiveColumnIndex(), new HashSet<>(column.getRequiredSubfields())));
 
         Map<Integer, Set<Subfield>> predicateSubfields = new HashMap<>();
-        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
+        SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session);
         remainingPredicate.accept(
                 new RequiredSubfieldsExtractor(subfieldExtractor),
                 subfield -> predicateSubfields.computeIfAbsent(columnIndices.get(subfield.getRootName()), v -> new HashSet<>()).add(subfield));

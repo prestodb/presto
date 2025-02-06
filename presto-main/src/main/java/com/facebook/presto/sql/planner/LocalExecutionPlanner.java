@@ -48,6 +48,7 @@ import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
+import com.facebook.presto.metadata.BuiltInFunctionHandle;
 import com.facebook.presto.metadata.ConnectorMetadataUpdaterManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
@@ -137,17 +138,21 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
+import com.facebook.presto.spi.function.SqlFunctionHandle;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.aggregation.LambdaProvider;
+import com.facebook.presto.spi.plan.AbstractJoinNode;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.Step;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.JoinDistributionType;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
@@ -157,12 +162,19 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ProjectNode.Locality;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
+import com.facebook.presto.spi.plan.StatisticAggregationsDescriptor;
+import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.plan.WindowNode.Frame;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
@@ -185,9 +197,7 @@ import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunction
 import com.facebook.presto.sql.gen.OrderingCompiler;
 import com.facebook.presto.sql.gen.PageFunctionCompiler;
 import com.facebook.presto.sql.planner.optimizations.IndexJoinOptimizer;
-import com.facebook.presto.sql.planner.plan.AbstractJoinNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
-import com.facebook.presto.sql.planner.plan.DeleteNode;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
@@ -195,23 +205,15 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.StatisticAggregationsDescriptor;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
-import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.UpdateNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
-import com.facebook.presto.sql.planner.plan.WindowNode.Frame;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.VariableToChannelTranslator;
 import com.facebook.presto.sql.tree.SortItem;
@@ -255,7 +257,6 @@ import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.presto.SystemSessionProperties.getAdaptivePartialAggregationRowsReductionRatioThreshold;
-import static com.facebook.presto.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverRowCount;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringMaxPerDriverSize;
 import static com.facebook.presto.SystemSessionProperties.getDynamicFilteringRangeRowLimitPerDriver;
@@ -265,23 +266,17 @@ import static com.facebook.presto.SystemSessionProperties.getIndexLoaderTimeout;
 import static com.facebook.presto.SystemSessionProperties.getTaskConcurrency;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskWriterCount;
-import static com.facebook.presto.SystemSessionProperties.getTopNOperatorUnspillMemoryLimit;
 import static com.facebook.presto.SystemSessionProperties.isAdaptivePartialAggregationEnabled;
-import static com.facebook.presto.SystemSessionProperties.isAggregationSpillEnabled;
-import static com.facebook.presto.SystemSessionProperties.isDistinctAggregationSpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isEnableDynamicFiltering;
 import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
 import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isJoinSpillingEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeCommonSubExpressions;
 import static com.facebook.presto.SystemSessionProperties.isOptimizeJoinProbeForEmptyBuildRuntimeEnabled;
 import static com.facebook.presto.SystemSessionProperties.isOptimizedRepartitioningEnabled;
-import static com.facebook.presto.SystemSessionProperties.isOrderByAggregationSpillEnabled;
-import static com.facebook.presto.SystemSessionProperties.isOrderBySpillEnabled;
 import static com.facebook.presto.SystemSessionProperties.isQuickDistinctLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
-import static com.facebook.presto.SystemSessionProperties.isTopNSpillEnabled;
-import static com.facebook.presto.SystemSessionProperties.isWindowSpillEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.TypeUtils.writeNativeValue;
@@ -289,6 +284,7 @@ import static com.facebook.presto.execution.FragmentResultCacheContext.createFra
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.DistinctLimitOperator.DistinctLimitOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
 import static com.facebook.presto.operator.NestedLoopJoinOperator.NestedLoopJoinOperatorFactory;
@@ -307,6 +303,14 @@ import static com.facebook.presto.operator.TableWriterUtils.STATS_START_CHANNEL;
 import static com.facebook.presto.operator.WindowFunctionDefinition.window;
 import static com.facebook.presto.operator.aggregation.GenericAccumulatorFactory.generateAccumulatorFactory;
 import static com.facebook.presto.operator.unnest.UnnestOperator.UnnestOperatorFactory;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.getAggregationOperatorUnspillMemoryLimit;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.getTopNOperatorUnspillMemoryLimit;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isAggregationSpillEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isDistinctAggregationSpillEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isOrderByAggregationSpillEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isOrderBySpillEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isTopNSpillEnabled;
+import static com.facebook.presto.sessionpropertyproviders.JavaWorkerSessionPropertyProvider.isWindowSpillEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.COMPILER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -321,13 +325,10 @@ import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.REMOTE;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.compileLambdaProvider;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SortExpressionExtractor.getSortExpressionContext;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
@@ -538,11 +539,7 @@ public class LocalExecutionPlanner
 
     private OutputFactory createOutputFactory(TaskContext taskContext, PartitioningScheme partitioningScheme, OutputBuffer outputBuffer)
     {
-        if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
+        if (partitioningScheme.isSingleOrBroadcastOrArbitrary()) {
             return new TaskOutputFactory(outputBuffer);
         }
 
@@ -556,11 +553,7 @@ public class LocalExecutionPlanner
 
     private Optional<OutputPartitioning> createOutputPartitioning(TaskContext taskContext, PartitioningScheme partitioningScheme)
     {
-        if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(SCALED_WRITER_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION) ||
-                partitioningScheme.getPartitioning().getHandle().equals(COORDINATOR_DISTRIBUTION)) {
+        if (partitioningScheme.isSingleOrBroadcastOrArbitrary()) {
             return Optional.empty();
         }
 
@@ -1103,7 +1096,7 @@ public class LocalExecutionPlanner
                     unspillMemoryLimit.toBytes(),
                     joinCompiler,
                     spillerFactory,
-                    isTopNSpillEnabled(session));
+                    !isNativeExecutionEnabled(session) && isTopNSpillEnabled(session));
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
@@ -2388,7 +2381,7 @@ public class LocalExecutionPlanner
                             probeSource.getLayout(),
                             buildSource.getLayout()));
 
-            Optional<SortExpressionContext> sortExpressionContext = node.getSortExpressionContext(metadata.getFunctionAndTypeManager());
+            Optional<SortExpressionContext> sortExpressionContext = getSortExpressionContext(node, metadata.getFunctionAndTypeManager());
 
             Optional<Integer> sortChannel = sortExpressionContext
                     .map(SortExpressionContext::getSortExpression)
@@ -2691,7 +2684,7 @@ public class LocalExecutionPlanner
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
             // Set table writer count
-            if (node.getTablePartitioningScheme().isPresent()) {
+            if (node.isSingleWriterPerPartitionRequired()) {
                 context.setDriverInstanceCount(getTaskPartitionedWriterCount(session));
             }
             else {
@@ -2746,7 +2739,7 @@ public class LocalExecutionPlanner
                         // turns PARTIAL aggregation into INTERMEDIATE.
                         Optional.empty(),
                         true);
-            }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
+            }).orElseGet(() -> new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             List<Integer> inputChannels = node.getColumns().stream()
                     .map(source::variableToChannel)
@@ -2847,7 +2840,7 @@ public class LocalExecutionPlanner
                         200,
                         Optional.empty(),
                         true);
-            }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
+            }).orElseGet(() -> new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             OperatorFactory operatorFactory = new TableWriterMergeOperatorFactory(
                     context.getNextOperatorId(),
@@ -2867,12 +2860,21 @@ public class LocalExecutionPlanner
 
             ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMapping = ImmutableMap.builder();
 
+            // Todo: Fix this
+            // When switching the default function namespace manager, column statistics functions still need to use the presto.default functions,
+            // because the column statistics functions build an aggregation factory that depends on an instance of BuiltInAggregationImplementation.
             OperatorFactory statisticsAggregation = node.getStatisticsAggregation().map(aggregation -> {
                 List<VariableReferenceExpression> groupingVariables = aggregation.getGroupingVariables();
+                Map<VariableReferenceExpression, AggregationNode.Aggregation> aggregationMap =
+                        aggregation.getAggregations().entrySet()
+                                .stream().collect(
+                                        ImmutableMap.toImmutableMap(
+                                                Map.Entry::getKey,
+                                                entry -> createAggregation(entry.getValue())));
                 if (groupingVariables.isEmpty()) {
                     return createAggregationOperatorFactory(
                             node.getId(),
-                            aggregation.getAggregations(),
+                            aggregationMap,
                             FINAL,
                             0,
                             outputMapping,
@@ -2882,7 +2884,7 @@ public class LocalExecutionPlanner
                 }
                 return createHashAggregationOperatorFactory(
                         node.getId(),
-                        aggregation.getAggregations(),
+                        aggregationMap,
                         ImmutableSet.of(),
                         groupingVariables,
                         ImmutableList.of(),
@@ -2903,12 +2905,12 @@ public class LocalExecutionPlanner
                         // final aggregation ignores partial pre-aggregation memory limit
                         Optional.empty(),
                         true);
-            }).orElse(new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
+            }).orElseGet(() -> new DevNullOperatorFactory(context.getNextOperatorId(), node.getId()));
 
             Map<VariableReferenceExpression, Integer> aggregationOutput = outputMapping.build();
             StatisticAggregationsDescriptor<Integer> descriptor = node.getStatisticsAggregationDescriptor()
                     .map(desc -> desc.map(aggregationOutput::get))
-                    .orElse(StatisticAggregationsDescriptor.empty());
+                    .orElseGet(StatisticAggregationsDescriptor::empty);
 
             ExecutionWriterTarget writerTarget = context.getTableWriteInfo().getWriterTarget().orElseThrow(() -> new VerifyException("writerTarget is absent"));
 
@@ -2963,6 +2965,45 @@ public class LocalExecutionPlanner
                     .build();
 
             return new PhysicalOperation(operatorFactory, layout, context, source);
+        }
+
+        private Aggregation createAggregation(Aggregation aggregation)
+        {
+            CallExpression callExpression = aggregation.getCall();
+            List<TypeSignature> argumentTypes;
+            FunctionHandle functionHandle = callExpression.getFunctionHandle();
+            checkState(functionHandle instanceof BuiltInFunctionHandle || functionHandle instanceof SqlFunctionHandle);
+            if (functionHandle instanceof BuiltInFunctionHandle) {
+                return aggregation;
+            }
+            else {
+                argumentTypes = ((SqlFunctionHandle) functionHandle).getFunctionId().getArgumentTypes();
+            }
+
+            return new Aggregation(
+                    createCallExpression(callExpression, argumentTypes),
+                    aggregation.getFilter(),
+                    aggregation.getOrderBy(),
+                    aggregation.isDistinct(),
+                    aggregation.getMask());
+        }
+
+        private CallExpression createCallExpression(CallExpression callExpression, List<TypeSignature> argumentTypes)
+        {
+            FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+            List<Type> types =
+                    argumentTypes
+                            .stream()
+                            .map(functionAndTypeManager::getType)
+                            .collect(ImmutableList.toImmutableList());
+            return new CallExpression(
+                    callExpression.getSourceLocation(),
+                    callExpression.getDisplayName(),
+                    functionAndTypeManager.lookupFunction(
+                            QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, callExpression.getDisplayName()),
+                            fromTypes(types)),
+                    callExpression.getType(),
+                    callExpression.getArguments());
         }
 
         private List<Integer> createColumnValueAndRowIdChannels(List<VariableReferenceExpression> variableReferenceExpressions, List<VariableReferenceExpression> columnValueAndRowIdSymbols)
@@ -3081,6 +3122,8 @@ public class LocalExecutionPlanner
 
         private PhysicalOperation createLocalExchange(ExchangeNode node, LocalExecutionPlanContext context)
         {
+            checkArgument(!node.getPartitioningScheme().isScaleWriters(), "thread scaling for partitioned tables is only supported by native execution");
+
             int driverInstanceCount;
             if (node.getType() == ExchangeNode.Type.GATHER) {
                 driverInstanceCount = 1;

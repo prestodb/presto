@@ -122,6 +122,10 @@ public class AllowAllSystemAccessControl
     {
     }
 
+    public void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+    {
+    }
+
     @Override
     public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
@@ -185,6 +189,11 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanCreateView(Identity identity, AccessControlContext context, CatalogSchemaTableName view)
+    {
+    }
+
+    @Override
+    public void checkCanRenameView(Identity identity, AccessControlContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView)
     {
     }
 

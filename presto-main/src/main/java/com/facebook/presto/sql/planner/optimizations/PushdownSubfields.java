@@ -35,22 +35,29 @@ import com.facebook.presto.spi.function.LambdaDescriptor;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.CteProducerNode;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.plan.SortNode;
+import com.facebook.presto.spi.plan.SpatialJoinNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
@@ -60,17 +67,12 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
-import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
-import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
-import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
-import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
-import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
-import com.facebook.presto.sql.relational.RowExpressionOptimizer;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -92,7 +94,7 @@ import static com.facebook.presto.SystemSessionProperties.isPushdownSubfieldsFro
 import static com.facebook.presto.common.Subfield.allSubscripts;
 import static com.facebook.presto.common.Subfield.noSubfield;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NULL;
 import static com.google.common.base.Preconditions.checkState;
@@ -106,15 +108,14 @@ import static java.util.stream.Collectors.toList;
 public class PushdownSubfields
         implements PlanOptimizer
 {
-    public static final QualifiedObjectName CARDINALITY = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "cardinality");
-    public static final QualifiedObjectName ELEMENT_AT = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "element_at");
-    public static final QualifiedObjectName CAST = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "$operator$cast");
     private final Metadata metadata;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
     private boolean isEnabledForTesting;
 
-    public PushdownSubfields(Metadata metadata)
+    public PushdownSubfields(Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
     }
 
     @Override
@@ -140,7 +141,7 @@ public class PushdownSubfields
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
-        Rewriter rewriter = new Rewriter(session, metadata);
+        Rewriter rewriter = new Rewriter(session, metadata, expressionOptimizerProvider);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, new Rewriter.Context());
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -153,15 +154,16 @@ public class PushdownSubfields
         private final StandardFunctionResolution functionResolution;
         private final ExpressionOptimizer expressionOptimizer;
         private final SubfieldExtractor subfieldExtractor;
-        private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "arbitrary");
+        private static final QualifiedObjectName ARBITRARY_AGGREGATE_FUNCTION = QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "arbitrary");
         private boolean planChanged;
 
-        public Rewriter(Session session, Metadata metadata)
+        public Rewriter(Session session, Metadata metadata, ExpressionOptimizerProvider expressionOptimizerProvider)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
             this.functionResolution = new FunctionResolution(metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver());
-            this.expressionOptimizer = new RowExpressionOptimizer(metadata);
+            this.expressionOptimizer = expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession());
             this.subfieldExtractor = new SubfieldExtractor(
                     functionResolution,
                     expressionOptimizer,
@@ -398,13 +400,23 @@ public class PushdownSubfields
                     newAssignments.build(),
                     node.getTableConstraints(),
                     node.getCurrentConstraint(),
-                    node.getEnforcedConstraint());
+                    node.getEnforcedConstraint(), node.getCteMaterializationInfo());
         }
 
         @Override
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Context> context)
         {
             context.get().variables.addAll(node.getColumns());
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Context> context)
+        {
+            if (node.getInputDistribution().isPresent()) {
+                context.get().variables.addAll(node.getInputDistribution().get().getInputVariables());
+            }
+            context.get().variables.add(node.getRowId());
             return context.defaultRewrite(node, context.get());
         }
 
@@ -700,7 +712,7 @@ public class PushdownSubfields
                 }
 
                 Set<Integer> argumentIndicesContainingMapOrArray = functionDescriptor.getArgumentIndicesContainingMapOrArray()
-                        .orElse(IntStream.range(0, call.getArguments().size())
+                        .orElseGet(() -> IntStream.range(0, call.getArguments().size())
                                 .filter(argIndex -> isMapOrArrayOfRowType(call.getArguments().get(argIndex)))
                                 .boxed()
                                 .collect(toImmutableSet()));
@@ -953,6 +965,7 @@ public class PushdownSubfields
     private static boolean isSubscriptOrElementAtFunction(CallExpression expression, StandardFunctionResolution functionResolution, FunctionAndTypeManager functionAndTypeManager)
     {
         return functionResolution.isSubscriptFunction(expression.getFunctionHandle()) ||
-                functionAndTypeManager.getFunctionMetadata(expression.getFunctionHandle()).getName().equals(ELEMENT_AT);
+                functionAndTypeManager.getFunctionAndTypeResolver().getFunctionMetadata(expression.getFunctionHandle()).getName()
+                        .equals(functionAndTypeManager.getFunctionAndTypeResolver().qualifyObjectName(QualifiedName.of("element_at")));
     }
 }

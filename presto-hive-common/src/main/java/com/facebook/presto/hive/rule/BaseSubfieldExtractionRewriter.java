@@ -217,7 +217,7 @@ public abstract class BaseSubfieldExtractionRewriter
         ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
                 .fromPredicate(session, filter, new SubfieldExtractor(
                         functionResolution,
-                        rowExpressionService.getExpressionOptimizer(),
+                        rowExpressionService.getExpressionOptimizer(session),
                         session).toColumnExtractor());
 
         if (currentLayoutHandle.isPresent()) {
@@ -231,7 +231,7 @@ public abstract class BaseSubfieldExtractionRewriter
             return new ConnectorPushdownFilterResult(EMPTY_TABLE_LAYOUT, FALSE_CONSTANT);
         }
 
-        RowExpression optimizedRemainingExpression = rowExpressionService.getExpressionOptimizer()
+        RowExpression optimizedRemainingExpression = rowExpressionService.getExpressionOptimizer(session)
                 .optimize(decomposedFilter.getRemainingExpression(), OPTIMIZED, session);
         if (optimizedRemainingExpression instanceof ConstantExpression) {
             ConstantExpression constantExpression = (ConstantExpression) optimizedRemainingExpression;
@@ -307,7 +307,8 @@ public abstract class BaseSubfieldExtractionRewriter
                 tableScan.getAssignments(),
                 tableScan.getTableConstraints(),
                 pushdownFilterResult.getLayout().getPredicate(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                tableScan.getCteMaterializationInfo());
     }
 
     private static ExtractionResult intersectExtractionResult(
@@ -436,9 +437,9 @@ public abstract class BaseSubfieldExtractionRewriter
 
             // Skip pruning if evaluation fails in a recoverable way. Failing here can cause
             // spurious query failures for partitions that would otherwise be filtered out.
-            Object optimized = null;
+            RowExpression optimized;
             try {
-                optimized = evaluator.getExpressionOptimizer().optimize(expression, OPTIMIZED, session, variableResolver);
+                optimized = evaluator.getExpressionOptimizer(session).optimize(expression, OPTIMIZED, session, variableResolver);
             }
             catch (PrestoException e) {
                 propagateIfUnhandled(e);
@@ -446,8 +447,11 @@ public abstract class BaseSubfieldExtractionRewriter
             }
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            return !Boolean.FALSE.equals(optimized) && optimized != null
-                    && (!(optimized instanceof ConstantExpression) || !((ConstantExpression) optimized).isNull());
+            if (!(optimized instanceof ConstantExpression)) {
+                return true;
+            }
+            ConstantExpression constantExpression = (ConstantExpression) optimized;
+            return !Boolean.FALSE.equals(constantExpression.getValue()) && !constantExpression.isNull();
         }
 
         private static void propagateIfUnhandled(PrestoException e)

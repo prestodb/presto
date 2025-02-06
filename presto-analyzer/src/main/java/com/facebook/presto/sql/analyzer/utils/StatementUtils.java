@@ -51,10 +51,12 @@ import com.facebook.presto.sql.tree.RefreshMaterializedView;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
+import com.facebook.presto.sql.tree.RenameView;
 import com.facebook.presto.sql.tree.ResetSession;
 import com.facebook.presto.sql.tree.Revoke;
 import com.facebook.presto.sql.tree.RevokeRoles;
 import com.facebook.presto.sql.tree.Rollback;
+import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.ShowCatalogs;
@@ -133,6 +135,7 @@ public final class StatementUtils
         builder.put(AddConstraint.class, QueryType.DATA_DEFINITION);
         builder.put(AlterColumnNotNull.class, QueryType.DATA_DEFINITION);
         builder.put(CreateView.class, QueryType.DATA_DEFINITION);
+        builder.put(RenameView.class, QueryType.DATA_DEFINITION);
         builder.put(TruncateTable.class, QueryType.DATA_DEFINITION);
         builder.put(DropView.class, QueryType.DATA_DEFINITION);
         builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
@@ -142,6 +145,7 @@ public final class StatementUtils
         builder.put(DropFunction.class, QueryType.CONTROL);
         builder.put(Use.class, QueryType.CONTROL);
         builder.put(SetSession.class, QueryType.CONTROL);
+        builder.put(SetProperties.class, QueryType.DATA_DEFINITION);
         builder.put(ResetSession.class, QueryType.CONTROL);
         builder.put(StartTransaction.class, QueryType.CONTROL);
         builder.put(Commit.class, QueryType.CONTROL);

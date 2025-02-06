@@ -75,19 +75,25 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.getExecutionPolicy;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
+import static com.facebook.presto.SystemSessionProperties.isEagerPlanValidationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.ANALYZE_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.CREATE_SCHEDULER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_CANONICAL_INFO_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.PLAN_AND_OPTIMIZE_TIME_NANOS;
 import static com.facebook.presto.execution.QueryStateMachine.pruneHistogramsFromStatsAndCosts;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -141,6 +147,8 @@ public class SqlQueryExecution
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
     private final QueryAnalysis queryAnalysis;
     private final AnalyzerContext analyzerContext;
+    private final CompletableFuture<PlanRoot> planFuture;
+    private final AtomicBoolean planFutureLocked = new AtomicBoolean();
 
     private SqlQueryExecution(
             QueryAnalyzer queryAnalyzer,
@@ -159,6 +167,7 @@ public class SqlQueryExecution
             ExecutorService queryExecutor,
             ScheduledExecutorService timeoutThreadExecutor,
             SectionExecutionFactory sectionExecutionFactory,
+            ExecutorService eagerPlanValidationExecutor,
             InternalNodeManager internalNodeManager,
             ExecutionPolicy executionPolicy,
             SplitSchedulerStats schedulerStats,
@@ -201,7 +210,9 @@ public class SqlQueryExecution
                     Thread.currentThread(),
                     timeoutThreadExecutor,
                     getQueryAnalyzerTimeout(getSession()))) {
-                this.queryAnalysis = queryAnalyzer.analyze(analyzerContext, preparedQuery);
+                this.queryAnalysis = getSession()
+                        .getRuntimeStats()
+                        .recordWallAndCpuTime(ANALYZE_TIME_NANOS, () -> queryAnalyzer.analyze(analyzerContext, preparedQuery));
             }
 
             stateMachine.setUpdateType(queryAnalysis.getUpdateType());
@@ -243,6 +254,10 @@ public class SqlQueryExecution
                     }
                 }
             }
+
+            // Optionally build and validate plan immediately, before execution begins
+            planFuture = isEagerPlanValidationEnabled(getSession()) ?
+                    CompletableFuture.supplyAsync(this::runCreateLogicalPlanAsync, eagerPlanValidationExecutor) : null;
         }
     }
 
@@ -460,14 +475,19 @@ public class SqlQueryExecution
                         Thread.currentThread(),
                         timeoutThreadExecutor,
                         getQueryAnalyzerTimeout(getSession()))) {
-                    // create logical plan for the query
-                    plan = createLogicalPlanAndOptimize();
+                    // If planFuture has not started, cancel and build plan in current thread
+                    if (planFuture != null && !planFutureLocked.compareAndSet(false, true)) {
+                        plan = planFuture.get();
+                    }
+                    else {
+                        plan = createLogicalPlanAndOptimize();
+                    }
                 }
 
                 metadata.beginQuery(getSession(), plan.getConnectors());
 
                 // plan distribution of query
-                planDistribution(plan);
+                getSession().getRuntimeStats().recordWallAndCpuTime(CREATE_SCHEDULER_TIME_NANOS, () -> createQueryScheduler(plan));
 
                 // transition to starting
                 if (!stateMachine.transitionToStarting()) {
@@ -530,13 +550,22 @@ public class SqlQueryExecution
 
     private PlanRoot createLogicalPlanAndOptimize()
     {
+        return stateMachine.getSession()
+                .getRuntimeStats()
+                .recordWallAndCpuTime(
+                        PLAN_AND_OPTIMIZE_TIME_NANOS,
+                        this::doCreateLogicalPlanAndOptimize);
+    }
+
+    private PlanRoot doCreateLogicalPlanAndOptimize()
+    {
         try {
             // time analysis phase
             stateMachine.beginAnalysis();
 
             PlanNode planNode = stateMachine.getSession()
                     .getRuntimeStats()
-                    .profileNanos(
+                    .recordWallAndCpuTime(
                             LOGICAL_PLANNER_TIME_NANOS,
                             () -> queryAnalyzer.plan(this.analyzerContext, queryAnalysis));
 
@@ -552,14 +581,14 @@ public class SqlQueryExecution
                     costCalculator,
                     false);
 
-            Plan plan = getSession().getRuntimeStats().profileNanos(
+            Plan plan = getSession().getRuntimeStats().recordWallAndCpuTime(
                     OPTIMIZER_TIME_NANOS,
                     () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
 
             queryPlan.set(plan);
             stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
             stateMachine.setPlanIdNodeMap(plan.getPlanIdNodeMap());
-            List<CanonicalPlanWithInfo> canonicalPlanWithInfos = getSession().getRuntimeStats().profileNanos(
+            List<CanonicalPlanWithInfo> canonicalPlanWithInfos = getSession().getRuntimeStats().recordWallAndCpuTime(
                     GET_CANONICAL_INFO_TIME_NANOS,
                     () -> getCanonicalInfo(getSession(), plan.getRoot(), planCanonicalInfoProvider));
             stateMachine.setPlanCanonicalInfo(canonicalPlanWithInfos);
@@ -575,7 +604,7 @@ public class SqlQueryExecution
             // fragment the plan
             // the variableAllocator is finally passed to SqlQueryScheduler for runtime cost-based optimizations
             variableAllocator.set(new VariableAllocator(plan.getTypes().allVariables()));
-            SubPlan fragmentedPlan = getSession().getRuntimeStats().profileNanos(
+            SubPlan fragmentedPlan = getSession().getRuntimeStats().recordWallAndCpuTime(
                     FRAGMENT_PLAN_TIME_NANOS,
                     () -> planFragmenter.createSubPlans(stateMachine.getSession(), plan, false, idAllocator, variableAllocator.get(), stateMachine.getWarningCollector()));
 
@@ -590,7 +619,22 @@ public class SqlQueryExecution
         }
     }
 
-    private void planDistribution(PlanRoot plan)
+    private PlanRoot runCreateLogicalPlanAsync()
+    {
+        try {
+            // Check if creating plan async has been cancelled
+            if (planFutureLocked.compareAndSet(false, true)) {
+                return createLogicalPlanAndOptimize();
+            }
+            return null;
+        }
+        catch (Throwable e) {
+            fail(e);
+            throw e;
+        }
+    }
+
+    private void createQueryScheduler(PlanRoot plan)
     {
         CloseableSplitSourceProvider splitSourceProvider = new CloseableSplitSourceProvider(splitManager::getSplits);
 
@@ -862,6 +906,7 @@ public class SqlQueryExecution
         private final ScheduledExecutorService timeoutThreadExecutor;
         private final ExecutorService queryExecutor;
         private final SectionExecutionFactory sectionExecutionFactory;
+        private final ExecutorService eagerPlanValidationExecutor;
         private final InternalNodeManager internalNodeManager;
         private final Map<String, ExecutionPolicy> executionPolicies;
         private final StatsCalculator statsCalculator;
@@ -883,6 +928,7 @@ public class SqlQueryExecution
                 @ForQueryExecution ExecutorService queryExecutor,
                 @ForTimeoutThread ScheduledExecutorService timeoutThreadExecutor,
                 SectionExecutionFactory sectionExecutionFactory,
+                @ForEagerPlanValidation ExecutorService eagerPlanValidationExecutor,
                 InternalNodeManager internalNodeManager,
                 Map<String, ExecutionPolicy> executionPolicies,
                 SplitSchedulerStats schedulerStats,
@@ -904,6 +950,7 @@ public class SqlQueryExecution
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.timeoutThreadExecutor = requireNonNull(timeoutThreadExecutor, "timeoutThreadExecutor is null");
             this.sectionExecutionFactory = requireNonNull(sectionExecutionFactory, "sectionExecutionFactory is null");
+            this.eagerPlanValidationExecutor = requireNonNull(eagerPlanValidationExecutor, "eagerPlanValidationExecutor is null");
             this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
             this.executionPolicies = requireNonNull(executionPolicies, "schedulerPolicies is null");
             this.planOptimizers = planOptimizers.getPlanningTimeOptimizers();
@@ -946,6 +993,7 @@ public class SqlQueryExecution
                     queryExecutor,
                     timeoutThreadExecutor,
                     sectionExecutionFactory,
+                    eagerPlanValidationExecutor,
                     internalNodeManager,
                     executionPolicy,
                     schedulerStats,

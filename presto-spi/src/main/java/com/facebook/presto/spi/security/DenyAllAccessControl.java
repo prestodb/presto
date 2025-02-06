@@ -21,6 +21,7 @@ import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -46,12 +47,14 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyQueryIn
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameSchema;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowCurrentRoles;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowRoleGrants;
@@ -128,6 +131,12 @@ public class DenyAllAccessControl
     }
 
     @Override
+    public void checkCanSetTableProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Map<String, Object> properties)
+    {
+        denySetTableProperties(tableName.toString());
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
         denyShowTablesMetadata(schema.toString());
@@ -197,6 +206,12 @@ public class DenyAllAccessControl
     public void checkCanCreateView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName)
     {
         denyCreateView(viewName.toString());
+    }
+
+    @Override
+    public void checkCanRenameView(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName)
+    {
+        denyRenameView(viewName.toString(), newViewName.toString());
     }
 
     @Override
