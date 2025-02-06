@@ -7,6 +7,8 @@ Deploying Presto
     :backlinks: none
     :depth: 1
 
+.. _Installing Presto:
+
 Installing Presto
 -----------------
 
