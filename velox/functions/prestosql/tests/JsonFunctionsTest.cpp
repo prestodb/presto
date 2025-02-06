@@ -373,6 +373,38 @@ TEST_F(JsonFunctionsTest, jsonParse) {
 
     velox::test::assertEqualVectors(expected, result);
   }
+
+  // Test try with invalid escape sequence.
+  {
+    auto data = makeRowVector({makeFlatVector<StringView>({
+        // The logic for sorting keys checks the validity of escape sequences
+        // and will throw a user error in this case.
+        "{\"k\\i\":\"abc\",\"k2\":\"xyz\"}", // invalid json
+        // Add a second value to ensure the state is cleared.
+        R"([{"k1": "v1" }, {"k2": "v2" }])" // valid json
+    })});
+
+    auto result = evaluate("try(json_parse(c0))", data);
+
+    auto expected = makeNullableFlatVector<StringView>(
+        {std::nullopt, R"([{"k1":"v1"},{"k2":"v2"}])"}, JSON());
+
+    velox::test::assertEqualVectors(expected, result);
+  }
+
+  // Test try with invalid escape sequence going through fast path for
+  // constants.
+  {
+    auto data =
+        makeRowVector({makeConstant("{\"k\\i\":\"abc\",\"k2\":\"xyz\"}", 3)});
+
+    auto result = evaluate("try(json_parse(c0))", data);
+
+    auto expected = makeNullableFlatVector<StringView>(
+        {std::nullopt, std::nullopt, std::nullopt}, JSON());
+
+    velox::test::assertEqualVectors(expected, result);
+  }
 }
 
 TEST_F(JsonFunctionsTest, canonicalization) {
