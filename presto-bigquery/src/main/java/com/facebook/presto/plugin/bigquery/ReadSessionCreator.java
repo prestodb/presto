@@ -24,10 +24,10 @@ import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
-import com.google.cloud.bigquery.storage.v1beta1.BigQueryStorageClient;
-import com.google.cloud.bigquery.storage.v1beta1.ReadOptions;
-import com.google.cloud.bigquery.storage.v1beta1.Storage;
-import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
+import com.google.cloud.bigquery.storage.v1.BigQueryReadClient;
+import com.google.cloud.bigquery.storage.v1.CreateReadSessionRequest;
+import com.google.cloud.bigquery.storage.v1.DataFormat;
+import com.google.cloud.bigquery.storage.v1.ReadSession;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -54,54 +54,46 @@ public class ReadSessionCreator
 
     private final ReadSessionCreatorConfig config;
     private final BigQueryClient bigQueryClient;
-    private final BigQueryStorageClientFactory bigQueryStorageClientFactory;
+    private final BigQueryReadClientFactory bigQueryReadClientFactory;
 
     public ReadSessionCreator(
             ReadSessionCreatorConfig config,
             BigQueryClient bigQueryClient,
-            BigQueryStorageClientFactory bigQueryStorageClientFactory)
+            BigQueryReadClientFactory bigQueryReadClientFactory)
     {
         this.config = config;
         this.bigQueryClient = bigQueryClient;
-        this.bigQueryStorageClientFactory = bigQueryStorageClientFactory;
+        this.bigQueryReadClientFactory = bigQueryReadClientFactory;
     }
 
-    public Storage.ReadSession create(TableId table, ImmutableList<String> selectedFields, Optional<String> filter, int parallelism)
+    public ReadSession create(TableId table, ImmutableList<String> selectedFields, Optional<String> filter, int parallelism)
     {
         TableInfo tableDetails = bigQueryClient.getTable(table);
 
         TableInfo actualTable = getActualTable(tableDetails, selectedFields, new String[] {});
 
-        try (BigQueryStorageClient bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient()) {
-            ReadOptions.TableReadOptions.Builder readOptions = ReadOptions.TableReadOptions.newBuilder()
+        try (BigQueryReadClient bigQueryReadClient = bigQueryReadClientFactory.createBigQueryReadClient()) {
+            ReadSession.TableReadOptions.Builder readOptions = ReadSession.TableReadOptions.newBuilder()
                     .addAllSelectedFields(selectedFields);
             filter.ifPresent(readOptions::setRowRestriction);
 
-            TableReferenceProto.TableReference tableReference = toTableReference(actualTable.getTableId());
-
-            Storage.ReadSession readSession = bigQueryStorageClient.createReadSession(
-                    Storage.CreateReadSessionRequest.newBuilder()
+            ReadSession readSession = bigQueryReadClient.createReadSession(
+                    CreateReadSessionRequest.newBuilder()
                             .setParent("projects/" + bigQueryClient.getProjectId())
-                            .setFormat(Storage.DataFormat.AVRO)
-                            .setRequestedStreams(parallelism)
-                            .setReadOptions(readOptions)
-                            .setTableReference(tableReference)
-                            // The BALANCED sharding strategy causes the server to
-                            // assign roughly the same number of rows to each stream.
-                            .setShardingStrategy(Storage.ShardingStrategy.BALANCED)
+                            .setReadSession(ReadSession.newBuilder()
+                                    .setDataFormat(DataFormat.AVRO)
+                                    .setTable(toTableResourceName(actualTable.getTableId()))
+                                    .setReadOptions(readOptions))
+                            .setMaxStreamCount(parallelism)
                             .build());
 
             return readSession;
         }
     }
 
-    TableReferenceProto.TableReference toTableReference(TableId tableId)
+    String toTableResourceName(TableId tableId)
     {
-        return TableReferenceProto.TableReference.newBuilder()
-                .setProjectId(tableId.getProject())
-                .setDatasetId(tableId.getDataset())
-                .setTableId(tableId.getTable())
-                .build();
+        return format("projects/%s/datasets/%s/tables/%s", tableId.getProject(), tableId.getDataset(), tableId.getTable());
     }
 
     TableInfo getActualTable(
