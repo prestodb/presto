@@ -3193,7 +3193,8 @@ DeleteHandle::DeleteHandle() noexcept {
 void to_json(json& j, const DeleteHandle& p) {
   j = json::object();
   j["@type"] = "DeleteHandle";
-  to_json_key(j, "handle", p.handle, "DeleteHandle", "TableHandle", "handle");
+  to_json_key(
+      j, "handle", p.handle, "DeleteHandle", "TableHandle", "handle");
   to_json_key(
       j,
       "schemaTableName",
@@ -3205,7 +3206,8 @@ void to_json(json& j, const DeleteHandle& p) {
 
 void from_json(const json& j, DeleteHandle& p) {
   p._type = j["@type"];
-  from_json_key(j, "handle", p.handle, "DeleteHandle", "TableHandle", "handle");
+  from_json_key(
+      j, "handle", p.handle, "DeleteHandle", "TableHandle", "handle");
   from_json_key(
       j,
       "schemaTableName",
@@ -9852,6 +9854,19 @@ void to_json(json& j, const TaskStats& p) {
       "int",
       "completedDrivers");
   to_json_key(
+      j, "totalSplits", p.totalSplits, "TaskStats", "int", "totalSplits");
+  to_json_key(
+      j, "queuedSplits", p.queuedSplits, "TaskStats", "int", "queuedSplits");
+  to_json_key(
+      j, "runningSplits", p.runningSplits, "TaskStats", "int", "runningSplits");
+  to_json_key(
+      j,
+      "completedSplits",
+      p.completedSplits,
+      "TaskStats",
+      "int",
+      "completedSplits");
+  to_json_key(
       j,
       "cumulativeUserMemory",
       p.cumulativeUserMemory,
@@ -10105,6 +10120,19 @@ void from_json(const json& j, TaskStats& p) {
       "TaskStats",
       "int",
       "completedDrivers");
+  from_json_key(
+      j, "totalSplits", p.totalSplits, "TaskStats", "int", "totalSplits");
+  from_json_key(
+      j, "queuedSplits", p.queuedSplits, "TaskStats", "int", "queuedSplits");
+  from_json_key(
+      j, "runningSplits", p.runningSplits, "TaskStats", "int", "runningSplits");
+  from_json_key(
+      j,
+      "completedSplits",
+      p.completedSplits,
+      "TaskStats",
+      "int",
+      "completedSplits");
   from_json_key(
       j,
       "cumulativeUserMemory",

@@ -67,21 +67,21 @@ extern const char* const PRESTO_ABORT_TASK_URL_PARAM;
 class Exception : public std::runtime_error {
  public:
   explicit Exception(const std::string& message)
-      : std::runtime_error(message){};
+      : std::runtime_error(message) {};
 };
 
 class TypeError : public Exception {
  public:
-  explicit TypeError(const std::string& message) : Exception(message){};
+  explicit TypeError(const std::string& message) : Exception(message) {};
 };
 
 class OutOfRange : public Exception {
  public:
-  explicit OutOfRange(const std::string& message) : Exception(message){};
+  explicit OutOfRange(const std::string& message) : Exception(message) {};
 };
 class ParseError : public Exception {
  public:
-  explicit ParseError(const std::string& message) : Exception(message){};
+  explicit ParseError(const std::string& message) : Exception(message) {};
 };
 
 using String = std::string;
@@ -2417,6 +2417,10 @@ struct TaskStats {
   int64_t runningPartitionedSplitsWeight = {};
   int blockedDrivers = {};
   int completedDrivers = {};
+  int totalSplits = {};
+  int queuedSplits = {};
+  int runningSplits = {};
+  int completedSplits = {};
   double cumulativeUserMemory = {};
   double cumulativeTotalMemory = {};
   int64_t userMemoryReservationInBytes = {};
