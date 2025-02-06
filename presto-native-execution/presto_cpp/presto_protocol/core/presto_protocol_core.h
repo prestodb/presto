@@ -2444,6 +2444,10 @@ struct TaskStats {
   int64_t runningPartitionedSplitsWeight = {};
   int blockedDrivers = {};
   int completedDrivers = {};
+  int totalSplits = {};
+  int queuedSplits = {};
+  int runningSplits = {};
+  int completedSplits = {};
   double cumulativeUserMemory = {};
   double cumulativeTotalMemory = {};
   int64_t userMemoryReservationInBytes = {};
