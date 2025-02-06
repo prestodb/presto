@@ -256,9 +256,10 @@ Property Name                                           Description             
 ======================================================= ============================================================= ============
 ``iceberg.catalog.warehouse``                           The catalog warehouse root path for Iceberg tables.
 
-                                                        Hadoop catalog requires a file system that supports atomic
-                                                        rename operation, such as HDFS, to maintain metadata files
-                                                        in order to implement atomic transaction commit.
+                                                        The Hadoop catalog requires a file system that supports
+                                                        an atomic rename operation, such as HDFS, to maintain
+                                                        metadata files in order to implement an atomic transaction
+                                                        commit.
 
                                                         Example: ``hdfs://nn:8020/warehouse/path``
 
@@ -269,7 +270,7 @@ Property Name                                           Description             
                                                         ``hadoop``.
 
 ``iceberg.catalog.hadoop.warehouse.datadir``            The catalog warehouse root data path for Iceberg tables.
-                                                        Its only supported with Hadoop catalog.
+                                                        It is only supported with the Hadoop catalog.
 
                                                         Example: ``s3://iceberg_bucket/warehouse``.
 

@@ -343,7 +343,7 @@ public class IcebergNativeMetadata
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
-                getWriteDataLocation(icebergTable).get(),
+                icebergTable.location(),
                 fileFormat,
                 getCompressionCodec(session),
                 icebergTable.properties());
@@ -385,7 +385,6 @@ public class IcebergNativeMetadata
         if (!catalogType.equals(HADOOP)) {
             return Optional.empty();
         }
-        return Optional.ofNullable(warehouseDataDir.map(base -> base + schemaTableName.getSchemaName() + "/" + schemaTableName.getTableName())
-                .orElse(null));
+        return warehouseDataDir.map(base -> base + schemaTableName.getSchemaName() + "/" + schemaTableName.getTableName());
     }
 }

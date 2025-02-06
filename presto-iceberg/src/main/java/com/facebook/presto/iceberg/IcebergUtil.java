@@ -461,6 +461,17 @@ public final class IcebergUtil
                 .build();
     }
 
+    public static Optional<String> tryGetLocation(Table table)
+    {
+        try {
+            return Optional.ofNullable(table.location());
+        }
+        catch (TableNotFoundException e) {
+            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
+            return Optional.empty();
+        }
+    }
+
     public static Optional<Map<String, String>> tryGetProperties(Table table)
     {
         try {

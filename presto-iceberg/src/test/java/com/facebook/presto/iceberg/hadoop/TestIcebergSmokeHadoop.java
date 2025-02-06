@@ -29,12 +29,12 @@ import org.apache.iceberg.Table;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.nio.file.Files;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test
@@ -51,26 +51,27 @@ public class TestIcebergSmokeHadoop
             throws IOException
     {
         String tableName = "test_table_with_specified_write_data_location";
-        String dataWriteLocation = java.nio.file.Files.createTempDirectory("test1").toAbsolutePath().toString();
+        String dataWriteLocation = createTempDirectory("test1").toAbsolutePath().toString();
         try {
             assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
             String schemaName = getSession().getSchema().get();
             String location = getLocation(schemaName, tableName);
+            String createTableSql = "CREATE TABLE iceberg.%s.%s (\n" +
+                    "   \"a\" integer,\n" +
+                    "   \"b\" varchar\n" +
+                    ")\n" +
+                    "WITH (\n" +
+                    "   delete_mode = 'merge-on-read',\n" +
+                    "   format = 'PARQUET',\n" +
+                    "   format_version = '2',\n" +
+                    "   location = '%s',\n" +
+                    "   metadata_delete_after_commit = false,\n" +
+                    "   metadata_previous_versions_max = 100,\n" +
+                    "   metrics_max_inferred_column = 100,\n" +
+                    "   \"write.data.path\" = '%s'\n" +
+                    ")";
             assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
-                    .isEqualTo(format("CREATE TABLE iceberg.%s.%s (\n" +
-                            "   \"a\" integer,\n" +
-                            "   \"b\" varchar\n" +
-                            ")\n" +
-                            "WITH (\n" +
-                            "   delete_mode = 'merge-on-read',\n" +
-                            "   format = 'PARQUET',\n" +
-                            "   format_version = '2',\n" +
-                            "   location = '%s',\n" +
-                            "   metadata_delete_after_commit = false,\n" +
-                            "   metadata_previous_versions_max = 100,\n" +
-                            "   metrics_max_inferred_column = 100,\n" +
-                            "   \"write.data.path\" = '%s'\n" +
-                            ")", schemaName, tableName, location, dataWriteLocation));
+                    .isEqualTo(format(createTableSql, schemaName, tableName, location, dataWriteLocation));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -82,7 +83,7 @@ public class TestIcebergSmokeHadoop
             throws IOException
     {
         String tableName = "test_table_with_specified_write_data_location2";
-        String dataWriteLocation = Files.createTempDirectory(tableName).toAbsolutePath().toString();
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
         try {
             assertUpdate(format("create table %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
             assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
@@ -100,7 +101,7 @@ public class TestIcebergSmokeHadoop
             throws IOException
     {
         String tableName = "test_partitioned_table_with_specified_write_data_location";
-        String dataWriteLocation = Files.createTempDirectory(tableName).toAbsolutePath().toString();
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
         try {
             assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], \"write.data.path\" = '%s')", tableName, dataWriteLocation));
             assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
