@@ -37,6 +37,9 @@ std::pair<const uint64_t*, int32_t> getStructNulls(int64_t position) {
 }
 
 bool hasNestedStructs(const TypePtr& type) {
+  if (isIPPrefixType(type)) {
+    return false;
+  }
   if (type->isRow()) {
     return true;
   }
@@ -261,7 +264,8 @@ void readStructNullsColumns(
           source, columnType, useLosslessTimestamp, scratch);
     } else {
       checkTypeEncoding(encoding, columnType);
-      const auto it = readers.find(columnType->kind());
+      const auto it = readers.find(
+          isIPPrefixType(columnType) ? TypeKind::VARCHAR : columnType->kind());
       VELOX_CHECK(
           it != readers.end(),
           "Column reader for type {} is missing",
@@ -421,6 +425,78 @@ int128_t readIpAddress(ByteInputStream* source) {
   // to little endian.
   const int128_t beIpIntAddr = source->read<int128_t>();
   return reverseIpAddressByteOrder(beIpIntAddr);
+}
+
+void readIPPrefixValues(
+    ByteInputStream* source,
+    const TypePtr& type,
+    vector_size_t resultOffset,
+    const uint64_t* incomingNulls,
+    int32_t numIncomingNulls,
+    VectorPtr& result) {
+  VELOX_DCHECK(isIPPrefixType(type));
+
+  // Read # number of rows
+  const int32_t size = source->read<int32_t>();
+  const int32_t numNewValues = sizeWithIncomingNulls(size, numIncomingNulls);
+
+  result->resize(resultOffset + numNewValues);
+
+  // Skip # of offsets since we expect IPPrefix to be fixed width of 17 bytes
+  source->skip(size * sizeof(int32_t));
+
+  // Read the null-byte and null-flag if present.
+  [[maybe_unused]] const auto numNulls = readNulls(
+      source, size, resultOffset, incomingNulls, numIncomingNulls, *result);
+
+  // Read total number of bytes of ipprefix
+  const int32_t ipprefixBytesSum = source->read<int32_t>();
+  if (ipprefixBytesSum == 0) {
+    return;
+  }
+
+  VELOX_DCHECK(
+      (ipprefixBytesSum % ipaddress::kIPPrefixBytes) == 0,
+      fmt::format(
+          "Total sum of ipprefix bytes:{} is not divisible by:{}. rows:{} numNulls:{} totalSize:{}",
+          ipprefixBytesSum,
+          ipaddress::kIPPrefixBytes,
+          size,
+          numNulls,
+          result->size()));
+
+  VELOX_DCHECK(
+      result->size() >= numNulls,
+      fmt::format(
+          "IPPrefix received more nulls:{} than total num of rows:{}.",
+          result->size(),
+          numNulls));
+
+  VELOX_DCHECK(
+      (ipprefixBytesSum == ((size - numNulls) * ipaddress::kIPPrefixBytes)),
+      fmt::format(
+          "IPPrefix received invalid number of non-null bytes. Got:{} Expected:{} rows:{} numNulls:{} totalSize:{} numIncomingNulls={} resultOffset={}.",
+          ipprefixBytesSum,
+          (size - numNulls) * ipaddress::kIPPrefixBytes,
+          size,
+          numNulls,
+          result->size(),
+          numIncomingNulls,
+          resultOffset));
+
+  auto row = result->asChecked<RowVector>();
+  auto ip = row->childAt(0)->asChecked<FlatVector<int128_t>>();
+  auto prefix = row->childAt(1)->asChecked<FlatVector<int8_t>>();
+
+  for (int32_t i = 0; i < numNewValues; ++i) {
+    if (row->isNullAt(resultOffset + i)) {
+      continue;
+    }
+    // Read 16 bytes and reverse the byte order
+    ip->set(resultOffset + i, readIpAddress(source));
+    // Read 1 byte for the prefix order
+    prefix->set(resultOffset + i, source->read<int8_t>());
+  }
 }
 
 void readIpAddressValues(
@@ -694,6 +770,10 @@ void read<StringView>(
     velox::memory::MemoryPool* pool,
     const PrestoVectorSerde::PrestoOptions& opts,
     VectorPtr& result) {
+  if (isIPPrefixType(type)) {
+    return readIPPrefixValues(
+        source, type, resultOffset, incomingNulls, numIncomingNulls, result);
+  }
   const int32_t size = source->read<int32_t>();
   const int32_t numNewValues = sizeWithIncomingNulls(size, numIncomingNulls);
 
@@ -1236,7 +1316,12 @@ void readColumns(
         BaseVector::ensureWritable(
             SelectivityVector::empty(), types[i], pool, columnResult);
       }
-      const auto it = readers.find(columnType->kind());
+
+      // If the column is ipprefix, we need to force the reader to be
+      // varbinary so that we can properly deserialize the data from Java.
+      const auto it = readers.find(
+          isIPPrefixType(columnType) ? TypeKind::VARBINARY
+                                     : columnType->kind());
       VELOX_CHECK(
           it != readers.end(),
           "Column reader for type {} is missing",

@@ -184,6 +184,10 @@ class VectorStream {
     return isIpAddress_;
   }
 
+  bool isIpPrefix() const {
+    return isIpPrefix_;
+  }
+
   void clear();
 
  private:
@@ -201,6 +205,7 @@ class VectorStream {
   const bool isLongDecimal_;
   const bool isUuid_;
   const bool isIpAddress_;
+  const bool isIpPrefix_;
   const PrestoVectorSerde::PrestoOptions opts_;
   std::optional<VectorEncoding::Simple> encoding_;
   int32_t nonNullCount_{0};

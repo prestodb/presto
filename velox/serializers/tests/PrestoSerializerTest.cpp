@@ -21,6 +21,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/serializers/PrestoVectorLexer.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -1163,6 +1164,54 @@ TEST_P(PrestoSerializerTest, longDecimal) {
     vector->setNull(i, true);
   }
   testRoundTrip(vector);
+}
+
+TEST_P(PrestoSerializerTest, ipprefix) {
+  std::vector<int128_t> randomIpAddresss;
+  randomIpAddresss.reserve(100);
+  for (auto i = 0; i < 100; i++) {
+    randomIpAddresss.push_back(
+        HugeInt::build(folly::Random::rand64(), folly::Random::rand64()));
+  }
+  auto ipaddress = makeFlatVector<int128_t>(
+      100,
+      [&](auto row) { return randomIpAddresss.at(row); },
+      /* isNullAt */ nullptr,
+      IPADDRESS());
+
+  auto prefix = makeFlatVector<int8_t>(
+      100,
+      [&](auto row) {
+        if (randomIpAddresss.at(row) >= 4294967296) {
+          return folly::Random::rand32(33, 65);
+        }
+        return folly::Random::rand32(0, 33);
+      },
+      /* isNullAt */ nullptr,
+      TINYINT());
+
+  auto vector = std::make_shared<RowVector>(
+      pool_.get(),
+      IPPREFIX(),
+      BufferPtr(nullptr),
+      100,
+      std::vector<VectorPtr>{ipaddress, prefix});
+
+  testRoundTrip(vector);
+
+  // Add some nulls.
+  for (auto i = 0; i < 100; i += 7) {
+    vector->setNull(i, true);
+  }
+  testRoundTrip(vector);
+
+  // Test that if the vector is wrapped, we can still properly
+  // deserialize the ipprefix type
+  auto oneIndex = makeIndices(100, [](auto) { return 0; });
+  auto wrappedVector = makeRowVector({
+      BaseVector::wrapInDictionary(nullptr, oneIndex, 100, vector),
+  });
+  testRoundTrip(wrappedVector);
 }
 
 TEST_P(PrestoSerializerTest, ipaddress) {

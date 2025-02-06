@@ -18,6 +18,7 @@
 
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/DecimalUtil.h"
 #include "velox/type/Type.h"
@@ -56,6 +57,20 @@ static inline const std::string_view kRLE{"RLE"};
 static inline const std::string_view kDictionary{"DICTIONARY"};
 
 void initBitsToMapOnce();
+
+FOLLY_ALWAYS_INLINE std::array<int8_t, ipaddress::kIPPrefixBytes>
+toJavaIPPrefixType(int128_t currentIpBytes, int8_t prefix) {
+  std::array<int8_t, ipaddress::kIPPrefixBytes> byteArray{{0}};
+  memcpy(&byteArray, &currentIpBytes, sizeof(currentIpBytes));
+  memcpy((byteArray.begin() + sizeof(currentIpBytes)), &prefix, sizeof(prefix));
+  if constexpr (folly::kIsLittleEndian) {
+    std::reverse(byteArray.begin(), byteArray.begin() + sizeof(currentIpBytes));
+    return byteArray;
+  } else {
+    return byteArray;
+  }
+}
+
 FOLLY_ALWAYS_INLINE int128_t
 reverseIpAddressByteOrder(int128_t currentIpBytes) {
   return DecimalUtil::bigEndian(currentIpBytes);
