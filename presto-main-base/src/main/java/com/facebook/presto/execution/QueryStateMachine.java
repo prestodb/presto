@@ -388,6 +388,16 @@ public class QueryStateMachine
                 stageStats.getRunningDrivers(),
                 stageStats.getCompletedDrivers(),
 
+                stageStats.getTotalNewDrivers(),
+                stageStats.getQueuedNewDrivers(),
+                stageStats.getRunningNewDrivers(),
+                stageStats.getCompletedNewDrivers(),
+
+                stageStats.getTotalSplits(),
+                stageStats.getQueuedSplits(),
+                stageStats.getRunningSplits(),
+                stageStats.getCompletedSplits(),
+
                 succinctBytes(stageStats.getRawInputDataSizeInBytes()),
                 stageStats.getRawInputPositions(),
 
@@ -1302,6 +1312,14 @@ public class QueryStateMachine
                 queryStats.getRunningDrivers(),
                 queryStats.getBlockedDrivers(),
                 queryStats.getCompletedDrivers(),
+                queryStats.getTotalNewDrivers(),
+                queryStats.getQueuedNewDrivers(),
+                queryStats.getRunningNewDrivers(),
+                queryStats.getCompletedNewDrivers(),
+                queryStats.getTotalSplits(),
+                queryStats.getQueuedSplits(),
+                queryStats.getRunningSplits(),
+                queryStats.getCompletedSplits(),
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getCumulativeTotalMemory(),
                 queryStats.getUserMemoryReservation(),
