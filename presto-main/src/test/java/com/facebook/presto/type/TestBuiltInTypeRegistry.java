@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
@@ -52,6 +53,7 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.metadata.CastType.CAST;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TYPE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.JoniRegexpType.JONI_REGEXP;
 import static com.facebook.presto.type.JsonPathType.JSON_PATH;
@@ -73,13 +75,17 @@ public class TestBuiltInTypeRegistry
     {
         try {
             functionAndTypeManager.getType(parseTypeSignature("not a real type"));
-            fail("Expect to throw IllegalArgumentException");
+            fail("Expect to throw PrestoException");
         }
-        catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().matches("Unknown type.*"));
+        catch (PrestoException e) {
+            if (e.getErrorCode() == UNKNOWN_TYPE.toErrorCode()) {
+                assertTrue(e.getMessage().matches("Unknown type.*"));
+                return;
+            }
+            throw e;
         }
         catch (Throwable t) {
-            fail("Expect to throw IllegalArgumentException, got " + t.getClass());
+            fail("Expect to throw PrestoException, got " + t.getClass());
         }
     }
 

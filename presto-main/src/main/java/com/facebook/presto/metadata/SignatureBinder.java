@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.LongVariableConstraint;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
@@ -39,6 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TYPE;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.type.TypeCalculation.calculateLiteralValue;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -532,7 +534,15 @@ public class SignatureBinder
     private boolean satisfiesCoercion(boolean allowCoercion, Type fromType, TypeSignature toTypeSignature)
     {
         if (allowCoercion) {
-            return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getType(toTypeSignature));
+            try {
+                return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getType(toTypeSignature));
+            }
+            catch (PrestoException e) {
+                if (e.getErrorCode() == UNKNOWN_TYPE.toErrorCode()) {
+                    return false;
+                }
+                throw e;
+            }
         }
         else if (fromType.getTypeSignature().equals(toTypeSignature)) {
             return true;

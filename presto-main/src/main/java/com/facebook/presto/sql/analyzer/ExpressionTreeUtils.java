@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.common.type.EnumType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -43,6 +44,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.spi.StandardErrorCode.UNKNOWN_TYPE;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -152,8 +154,11 @@ public final class ExpressionTreeUtils
                 return Optional.of((TypeWithName) baseType);
             }
         }
-        catch (IllegalArgumentException e) {
-            return Optional.empty();
+        catch (PrestoException e) {
+            if (e.getErrorCode() == UNKNOWN_TYPE.toErrorCode()) {
+                return Optional.empty();
+            }
+            throw e;
         }
         return Optional.empty();
     }
