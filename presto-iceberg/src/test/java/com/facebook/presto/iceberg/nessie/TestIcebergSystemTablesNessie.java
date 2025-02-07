@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
@@ -70,6 +71,7 @@ public class TestIcebergSystemTablesNessie
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .build();
+
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         Path dataDirectory = queryRunner.getCoordinator().getDataDirectory();
@@ -77,6 +79,7 @@ public class TestIcebergSystemTablesNessie
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
+                .put("iceberg.catalog.type", String.valueOf(NESSIE))
                 .putAll(nessieConnectorProperties(nessieContainer.getRestApiUri()))
                 .put("iceberg.catalog.warehouse", catalogDirectory.getParent().toFile().toURI().toString())
                 .build();

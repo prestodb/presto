@@ -87,7 +87,6 @@ import static com.facebook.presto.iceberg.IcebergAbstractMetadata.isEntireColumn
 import static com.facebook.presto.iceberg.IcebergColumnHandle.getSynthesizedIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
@@ -130,7 +129,10 @@ public class TestIcebergLogicalPlanner
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"), ImmutableMap.of());
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of("experimental.pushdown-subfields-enabled", "true"))
+                .build()
+                .getQueryRunner();
     }
 
     @DataProvider(name = "push_down_filter_enabled")

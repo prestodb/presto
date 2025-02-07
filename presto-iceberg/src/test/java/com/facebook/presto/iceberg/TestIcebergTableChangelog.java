@@ -16,7 +16,6 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -24,7 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 
 public class TestIcebergTableChangelog
         extends AbstractTestQueryFramework
@@ -33,7 +32,10 @@ public class TestIcebergTableChangelog
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), CatalogType.HADOOP);
+        return IcebergQueryRunner.builder()
+                .setCatalogType(HADOOP)
+                .build()
+                .getQueryRunner();
     }
 
     private long[] snapshots = new long[0];
