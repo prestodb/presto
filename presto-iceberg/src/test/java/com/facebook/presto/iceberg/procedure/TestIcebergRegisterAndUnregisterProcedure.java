@@ -74,9 +74,9 @@ public class TestIcebergRegisterAndUnregisterProcedure
             throws Exception
     {
         session = testSessionBuilder()
-            .setCatalog(ICEBERG_CATALOG)
-            .setSchema(TEST_SCHEMA)
-            .build();
+                .setCatalog(ICEBERG_CATALOG)
+                .setSchema(TEST_SCHEMA)
+                .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
@@ -537,6 +537,7 @@ public class TestIcebergRegisterAndUnregisterProcedure
                 hiveClientConfig);
         return new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
     }
+
     protected ExtendedHiveMetastore getFileHiveMetastore()
     {
         FileHiveMetastore fileHiveMetastore = new FileHiveMetastore(getHdfsEnvironment(),

@@ -125,9 +125,9 @@ public class TestIcebergSmokeRestNestedNamespace
         // additional catalog for testing nested namespace disabled
         icebergQueryRunner.createCatalog(ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG, "iceberg",
                 new ImmutableMap.Builder<String, String>()
-                .putAll(restConnectorProperties)
-                .put("iceberg.rest.nested.namespace.enabled", "false")
-                .build());
+                        .putAll(restConnectorProperties)
+                        .put("iceberg.rest.nested.namespace.enabled", "false")
+                        .build());
 
         return icebergQueryRunner;
     }

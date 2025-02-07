@@ -33,6 +33,7 @@ public class SortField
         this.sourceColumnId = sourceColumnId;
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
     }
+
     public static SortField fromIceberg(org.apache.iceberg.SortField sortField)
     {
         SortOrder sortOrder;

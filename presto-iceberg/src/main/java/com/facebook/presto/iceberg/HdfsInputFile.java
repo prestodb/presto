@@ -83,7 +83,8 @@ public class HdfsInputFile
         }
 
         @Override
-        public int read() throws IOException
+        public int read()
+                throws IOException
         {
             return delegate.read();
         }
@@ -96,19 +97,22 @@ public class HdfsInputFile
         }
 
         @Override
-        public long getPos() throws IOException
+        public long getPos()
+                throws IOException
         {
             return delegate.getPos();
         }
 
         @Override
-        public void seek(long newPos) throws IOException
+        public void seek(long newPos)
+                throws IOException
         {
             delegate.seek(newPos);
         }
 
         @Override
-        public void close() throws IOException
+        public void close()
+                throws IOException
         {
             delegate.close();
         }
