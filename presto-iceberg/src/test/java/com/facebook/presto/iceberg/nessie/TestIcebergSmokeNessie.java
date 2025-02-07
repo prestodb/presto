@@ -103,7 +103,7 @@ public class TestIcebergSmokeNessie
     {
         IcebergConfig icebergConfig = new IcebergConfig();
         icebergConfig.setCatalogType(NESSIE);
-        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toFile().getPath());
+        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toString());
 
         IcebergNessieConfig nessieConfig = new IcebergNessieConfig().setServerUri(nessieContainer.getRestApiUri());
 
