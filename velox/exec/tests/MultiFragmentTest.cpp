@@ -2287,10 +2287,32 @@ class DataFetcher {
         out.str() + "]";
   }
 
+  std::atomic<bool>& bufferFull() {
+    return bufferFull_;
+  }
+
+  std::atomic<bool>& bufferDone() {
+    return bufferDone_;
+  }
+
+  folly::EventCount& bufferFullOrDoneWait() {
+    return bufferFullOrDoneWait_;
+  }
+
  private:
   static constexpr int64_t kInitialSequence = 0;
 
   void doFetch(int64_t sequence) {
+    // We only want to consume data when the buffer is full or done because we
+    // want to make sure maxBytes is respected, so there needs to be enough data
+    // in the buffer for maxBytes to have an effect.
+    bufferFullOrDoneWait_.await(
+        [&]() { return bufferFull_.load() || bufferDone_.load(); });
+    // Reset the bufferFull_ flag as we're about to consume some data and we
+    // want to detect when it fills up again. Note that we don't reset the
+    // bufferDone_ flag because once it's done it's done.
+    bufferFull_ = false;
+
     bool ok = bufferManager_->getData(
         taskId_,
         destination_,
@@ -2348,6 +2370,14 @@ class DataFetcher {
   /// All the pages sizes of each packet.
   std::vector<std::vector<std::size_t>> packetPageSizes_;
 
+  /// Flag that gets set when the OutputBuffer is full.
+  std::atomic<bool> bufferFull_{false};
+  /// Flag that gets set when the OutputBuffer sees that all upstream Drivers
+  /// have finished.
+  std::atomic<bool> bufferDone_{false};
+  /// Used to notify DataFetcher that one of the above bool flags has been set.
+  folly::EventCount bufferFullOrDoneWait_;
+
   std::shared_ptr<OutputBufferManager> bufferManager_{
       OutputBufferManager::getInstance().lock()};
 };
@@ -2387,14 +2417,29 @@ TEST_P(MultiFragmentTest, maxBytes) {
 
     SCOPED_TRACE(taskId);
     SCOPED_TRACE(fmt::format("maxBytes: {}", maxBytes));
+
+    DataFetcher fetcher(taskId, 0, maxBytes);
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::OutputBuffer::enqueue",
+        std::function<void(const OutputBuffer*)>(
+            [&](const OutputBuffer* /* unused */) {
+              fetcher.bufferFull() = true;
+              fetcher.bufferFullOrDoneWait().notifyAll();
+            }));
+
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::OutputBuffer::checkIfDone",
+        std::function<void(const OutputBuffer*)>(
+            [&](const OutputBuffer* /* unused */) {
+              fetcher.bufferDone() = true;
+              fetcher.bufferFullOrDoneWait().notifyAll();
+            }));
+
     auto task = makeTask(taskId, plan, 0);
     task->start(1);
     task->updateOutputBuffers(1, true);
 
-    // Allow for data to accumulate.
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-
-    DataFetcher fetcher(taskId, 0, maxBytes);
     fetcher.fetch().wait();
 
     ASSERT_TRUE(waitForTaskCompletion(task.get()));
