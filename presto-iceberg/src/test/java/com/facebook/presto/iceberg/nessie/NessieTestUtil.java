@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 
-import static com.facebook.presto.iceberg.CatalogType.NESSIE;
-
 public class NessieTestUtil
 {
     private NessieTestUtil()
@@ -27,6 +25,6 @@ public class NessieTestUtil
 
     public static Map<String, String> nessieConnectorProperties(String serverUri)
     {
-        return ImmutableMap.of("iceberg.catalog.type", NESSIE.name(), "iceberg.nessie.uri", serverUri);
+        return ImmutableMap.of("iceberg.nessie.uri", serverUri);
     }
 }

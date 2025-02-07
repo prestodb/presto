@@ -21,11 +21,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -36,17 +33,15 @@ public class TestIcebergParquetMetadataCaching
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(
-                        "iceberg.parquet.metadata-cache-enabled", "true",
-                        "iceberg.parquet.metadata-cache-size", "100MB",
-                        "iceberg.parquet.metadata-cache-ttl-since-last-access", "1h"),
-                PARQUET,
-                false,
-                true,
-                OptionalInt.of(2),
-                Optional.empty());
+        return IcebergQueryRunner.builder()
+                .setExtraConnectorProperties(
+                        ImmutableMap.of(
+                                "iceberg.parquet.metadata-cache-enabled", "true",
+                                "iceberg.parquet.metadata-cache-size", "100MB",
+                                "iceberg.parquet.metadata-cache-ttl-since-last-access", "1h"))
+                .setNodeCount(OptionalInt.of(2))
+                .build()
+                .getQueryRunner();
     }
 
     @BeforeClass

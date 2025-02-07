@@ -29,7 +29,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.assertj.core.util.Files;
@@ -41,10 +40,8 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
@@ -110,27 +107,25 @@ public class TestIcebergSmokeRestNestedNamespace
             throws Exception
     {
         Map<String, String> restConnectorProperties = restConnectorProperties(serverUri);
-        DistributedQueryRunner icebergQueryRunner = IcebergQueryRunner.createIcebergQueryRunner(
-                ImmutableMap.of(),
-                restConnectorProperties,
-                PARQUET,
-                true,
-                false,
-                OptionalInt.empty(),
-                Optional.empty(),
-                Optional.of(warehouseLocation.toPath()),
-                false,
-                Optional.of("ns1.ns2"),
-                ImmutableMap.of());
+        IcebergQueryRunner icebergQueryRunner = IcebergQueryRunner.builder()
+                .setCatalogType(REST)
+                .setExtraConnectorProperties(ImmutableMap.<String, String>builder()
+                        .putAll(restConnectorProperties(serverUri))
+                        .put("iceberg.rest.nested.namespace.enabled", "true")
+                        .build())
+                .setDataDirectory(Optional.of(warehouseLocation.toPath()))
+                .setSchemaName("ns1.ns2")
+                .build();
 
         // additional catalog for testing nested namespace disabled
-        icebergQueryRunner.createCatalog(ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG, "iceberg",
+        icebergQueryRunner.addCatalog(ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG,
                 new ImmutableMap.Builder<String, String>()
                         .putAll(restConnectorProperties)
+                        .put("iceberg.catalog.type", REST.name())
                         .put("iceberg.rest.nested.namespace.enabled", "false")
                         .build());
 
-        return icebergQueryRunner;
+        return icebergQueryRunner.getQueryRunner();
     }
 
     protected IcebergNativeCatalogFactory getCatalogFactory(IcebergRestConfig restConfig)
