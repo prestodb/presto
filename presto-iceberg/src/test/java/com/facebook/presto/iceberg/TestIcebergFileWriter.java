@@ -76,7 +76,8 @@ public class TestIcebergFileWriter
     private ConnectorSession connectorSession;
 
     @BeforeClass
-    public void setup() throws Exception
+    public void setup()
+            throws Exception
     {
         ConnectorId connectorId = new ConnectorId("iceberg");
         SessionPropertyManager sessionPropertyManager = createTestingSessionPropertyManager();
@@ -119,7 +120,8 @@ public class TestIcebergFileWriter
     }
 
     @Test
-    public void testWriteParquetFileWithLogicalTypes() throws Exception
+    public void testWriteParquetFileWithLogicalTypes()
+            throws Exception
     {
         Path path = new Path(createTempDir().getAbsolutePath() + "/test.parquet");
         Schema icebergSchema = toIcebergSchema(ImmutableList.of(

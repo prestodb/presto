@@ -65,6 +65,7 @@ public class TestSortFieldUtils
         assertParse("order_key ASC NULLS FIRST", sortOrder(builder -> builder.asc("order_key", NullOrder.NULLS_FIRST)));
         assertParse("order_key ASC NULLS LAST", sortOrder(builder -> builder.asc("order_key", NullOrder.NULLS_LAST)));
     }
+
     @Test
     public void testParseDesc()
     {
@@ -101,6 +102,7 @@ public class TestSortFieldUtils
         assertParse("\"OrDER_keY\" Asc NullS LAst", sortOrder(builder -> builder.asc("order_key", NullOrder.NULLS_LAST)));
         assertParse("\"OrDER_keY\" Desc NullS FIrsT", sortOrder(builder -> builder.desc("order_key", NullOrder.NULLS_FIRST)));
     }
+
     @Test
     public void testParseQuoted()
     {
@@ -110,6 +112,7 @@ public class TestSortFieldUtils
         assertParse("\"\"\"another\"\" \"\"quoted\"\" \"\"field\"\"\" ASC    NULLS   LAST    ", sortOrder(builder -> builder.asc("\"another\" \"quoted\" \"field\"", NullOrder.NULLS_LAST)));
         assertParse("\"\"\"another\"\" \"\"quoted\"\" \"\"field\"\"\" DESC NULLS FIRST", sortOrder(builder -> builder.desc("\"another\" \"quoted\" \"field\"", NullOrder.NULLS_FIRST)));
     }
+
     @Test
     public void testDoesNotParse()
     {

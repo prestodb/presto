@@ -147,6 +147,7 @@ public class TestIcebergTableVersion
         return (long) computeActual("SELECT snapshot_id FROM " + schemaName + "." + "\"" + tableName + "$snapshots\" ORDER BY committed_at DESC LIMIT 1")
                 .getOnlyValue();
     }
+
     private String getLatestTimestampId(String tableName)
     {
         return (String) computeActual("SELECT cast(made_current_at as varchar) FROM " + schemaName + "." + "\"" + tableName + "$history\" ORDER BY made_current_at DESC LIMIT 1")

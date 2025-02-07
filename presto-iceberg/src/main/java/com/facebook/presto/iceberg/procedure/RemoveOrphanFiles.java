@@ -82,7 +82,7 @@ public class RemoveOrphanFiles
 
     @Inject
     public RemoveOrphanFiles(IcebergMetadataFactory metadataFactory,
-                             HdfsEnvironment hdfsEnvironment)
+            HdfsEnvironment hdfsEnvironment)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");

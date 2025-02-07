@@ -141,10 +141,10 @@ public class PartitionTable
     private List<ColumnMetadata> getColumnMetadata(List<Types.NestedField> columns)
     {
         return columns.stream().map(column -> new ColumnMetadata(column.name(),
-                RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("min"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("max"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("null_count"), BIGINT)))))
+                        RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("min"), toPrestoType(column.type(), typeManager)),
+                                new RowType.Field(Optional.of("max"), toPrestoType(column.type(), typeManager)),
+                                new RowType.Field(Optional.of("null_count"), BIGINT)))))
                 .collect(toImmutableList());
     }
 
