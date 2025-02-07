@@ -218,6 +218,21 @@ Aws::Utils::Logging::LogLevel inferS3LogLevel(std::string_view logLevel) {
   }
   return Aws::Utils::Logging::LogLevel::Fatal;
 }
+
+// Supported values are "Always", "RequestDependent", "Never"(default).
+Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy inferPayloadSign(
+    std::string sign) {
+  // Convert to upper case.
+  std::transform(sign.begin(), sign.end(), sign.begin(), [](unsigned char c) {
+    return std::toupper(c);
+  });
+  if (sign == "ALWAYS") {
+    return Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Always;
+  } else if (sign == "REQUESTDEPENDENT") {
+    return Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::RequestDependent;
+  }
+  return Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never;
+}
 } // namespace
 
 class S3WriteFile::Impl {
@@ -529,7 +544,7 @@ class S3FileSystem::Impl {
  public:
   Impl(const S3Config& s3Config) {
     VELOX_CHECK(getAwsInstance()->isInitialized(), "S3 is not initialized");
-    Aws::Client::ClientConfiguration clientConfig;
+    Aws::S3::S3ClientConfiguration clientConfig;
     if (s3Config.endpoint().has_value()) {
       clientConfig.endpointOverride = s3Config.endpoint().value();
     }
@@ -586,13 +601,14 @@ class S3FileSystem::Impl {
       clientConfig.retryStrategy = retryStrategy.value();
     }
 
+    clientConfig.useVirtualAddressing = s3Config.useVirtualAddressing();
+    clientConfig.payloadSigningPolicy =
+        inferPayloadSign(s3Config.payloadSigningPolicy());
+
     auto credentialsProvider = getCredentialsProvider(s3Config);
 
     client_ = std::make_shared<Aws::S3::S3Client>(
-        credentialsProvider,
-        clientConfig,
-        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-        s3Config.useVirtualAddressing());
+        credentialsProvider, nullptr /* endpointProvider */, clientConfig);
     ++fileSystemCount;
   }
 

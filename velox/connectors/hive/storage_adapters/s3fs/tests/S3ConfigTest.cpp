@@ -34,6 +34,7 @@ TEST(S3ConfigTest, defaultConfig) {
   ASSERT_EQ(s3Config.secretKey(), std::nullopt);
   ASSERT_EQ(s3Config.iamRole(), std::nullopt);
   ASSERT_EQ(s3Config.iamRoleSessionName(), "velox-session");
+  ASSERT_EQ(s3Config.payloadSigningPolicy(), "Never");
 }
 
 TEST(S3ConfigTest, overrideConfig) {
@@ -42,6 +43,7 @@ TEST(S3ConfigTest, overrideConfig) {
       {S3Config::baseConfigKey(S3Config::Keys::kSSLEnabled), "false"},
       {S3Config::baseConfigKey(S3Config::Keys::kUseInstanceCredentials),
        "true"},
+      {"hive.s3.payload-signing-policy", "RequestDependent"},
       {S3Config::baseConfigKey(S3Config::Keys::kEndpoint), "endpoint"},
       {S3Config::baseConfigKey(S3Config::Keys::kEndpointRegion), "region"},
       {S3Config::baseConfigKey(S3Config::Keys::kAccessKey), "access"},
@@ -59,6 +61,7 @@ TEST(S3ConfigTest, overrideConfig) {
   ASSERT_EQ(s3Config.secretKey(), std::optional("secret"));
   ASSERT_EQ(s3Config.iamRole(), std::optional("iam"));
   ASSERT_EQ(s3Config.iamRoleSessionName(), "velox");
+  ASSERT_EQ(s3Config.payloadSigningPolicy(), "RequestDependent");
 }
 
 TEST(S3ConfigTest, overrideBucketConfig) {
@@ -74,6 +77,7 @@ TEST(S3ConfigTest, overrideBucketConfig) {
       {S3Config::baseConfigKey(S3Config::Keys::kAccessKey), "access"},
       {S3Config::bucketConfigKey(S3Config::Keys::kAccessKey, bucket),
        "bucket-access"},
+      {"hive.s3.payload-signing-policy", "Always"},
       {S3Config::baseConfigKey(S3Config::Keys::kSecretKey), "secret"},
       {S3Config::bucketConfigKey(S3Config::Keys::kSecretKey, bucket),
        "bucket-secret"},
@@ -92,6 +96,7 @@ TEST(S3ConfigTest, overrideBucketConfig) {
   ASSERT_EQ(s3Config.secretKey(), std::optional("bucket-secret"));
   ASSERT_EQ(s3Config.iamRole(), std::optional("iam"));
   ASSERT_EQ(s3Config.iamRoleSessionName(), "velox");
+  ASSERT_EQ(s3Config.payloadSigningPolicy(), "Always");
 }
 
 } // namespace

@@ -73,6 +73,8 @@ S3Config::S3Config(
       }
     }
   }
+  payloadSigningPolicy_ =
+      properties->get<std::string>(kS3PayloadSigningPolicy, "Never");
 }
 
 std::optional<std::string> S3Config::endpointRegion() const {

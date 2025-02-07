@@ -47,6 +47,10 @@ class S3Config {
   /// Log granularity of AWS C++ SDK.
   static constexpr const char* kS3LogLevel = "hive.s3.log-level";
 
+  /// Payload signing policy.
+  static constexpr const char* kS3PayloadSigningPolicy =
+      "hive.s3.payload-signing-policy";
+
   /// S3FileSystem default identity.
   static constexpr const char* kDefaultS3Identity = "s3-default-identity";
 
@@ -220,8 +224,13 @@ class S3Config {
     return folly::to<bool>(value);
   }
 
+  std::string payloadSigningPolicy() const {
+    return payloadSigningPolicy_;
+  }
+
  private:
   std::unordered_map<Keys, std::optional<std::string>> config_;
+  std::string payloadSigningPolicy_;
 };
 
 } // namespace facebook::velox::filesystems
