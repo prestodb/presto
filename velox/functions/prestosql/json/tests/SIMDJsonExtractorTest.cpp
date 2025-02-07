@@ -31,8 +31,12 @@ simdjson::error_code simdJsonExtract(
     const std::string& path,
     TConsumer&& consumer) {
   auto& extractor = SIMDJsonExtractor::getInstance(path);
+  bool isDefinitePath = true;
   return simdJsonExtract(
-      velox::StringView(json), extractor, std::forward<TConsumer>(consumer));
+      velox::StringView(json),
+      extractor,
+      std::forward<TConsumer>(consumer),
+      isDefinitePath);
 }
 
 class SIMDJsonExtractorTest : public testing::Test {
@@ -177,6 +181,17 @@ TEST_F(SIMDJsonExtractorTest, generalJsonTest) {
   testExtract(json, "$[\"e mail\"]", "\"amy@only_for_json_udf_test.net\"");
   testExtract(json, "$.owner", "\"amy\"");
 
+  // Wildcard over object's value elements
+  testExtract(
+      json,
+      "$.store.book[0].[*]",
+      std::vector<std::string>{
+          "\"Nigel Rees\"",
+          "\"ayings of the Century\"",
+          "\"reference\"",
+          "8.95"});
+  testExtract(json, "$.store.[*].price", std::vector<std::string>{"19.95"});
+
   testExtract("[[1.1,[2.1,2.2]],2,{\"a\":\"b\"}]", "$[0][1][1]", "2.2");
 
   json = "[1,2,{\"a\":\"b\"}]";
@@ -190,6 +205,7 @@ TEST_F(SIMDJsonExtractorTest, generalJsonTest) {
 
   testExtract("{\"a\":\"b\"}", " $ ", "{\"a\":\"b\"}");
 
+  // Wildcard over array elements
   json =
       "[[{\"key\": 1, \"value\": 2},"
       "{\"key\": 2, \"value\": 4}],"

@@ -29,27 +29,19 @@ namespace facebook::velox::functions {
 
 class SIMDJsonExtractor {
  public:
+  /// Executes json extract on 'json' and passes all the matches to 'consumer'.
+  /// 'isDefinitePath' is an ouput param that will get set to false if a token
+  /// is evaluated which can return multiple results like '*'.
   template <typename TConsumer>
   simdjson::error_code extract(
       simdjson::ondemand::value& json,
       TConsumer& consumer,
+      bool& isDefinitePath,
       size_t tokenStartIndex = 0);
 
   /// Returns true if this extractor was initialized with the trivial path "$".
   bool isRootOnlyPath() {
     return tokens_.empty();
-  }
-
-  /// Returns true if this extractor was initialized with a path that's
-  /// guaranteed to match at most one entry.
-  bool isDefinitePath() {
-    for (const auto& token : tokens_) {
-      if (token == "*") {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   /// Use this method to get an instance of SIMDJsonExtractor given a JSON path.
@@ -87,6 +79,7 @@ template <typename TConsumer>
 simdjson::error_code SIMDJsonExtractor::extract(
     simdjson::ondemand::value& json,
     TConsumer& consumer,
+    bool& isDefinitePath,
     size_t tokenStartIndex) {
   simdjson::ondemand::value input = json;
   // Temporary extraction result holder.
@@ -95,8 +88,29 @@ simdjson::error_code SIMDJsonExtractor::extract(
   for (int tokenIndex = tokenStartIndex; tokenIndex < tokens_.size();
        tokenIndex++) {
     auto& token = tokens_[tokenIndex];
+    if (token == "*") {
+      isDefinitePath = false;
+    }
     if (input.type() == simdjson::ondemand::json_type::object) {
-      SIMDJSON_TRY(extractObject(input, token, result));
+      if (token == "*") {
+        SIMDJSON_ASSIGN_OR_RAISE(auto jsonObj, input.get_object());
+        for (auto field : jsonObj) {
+          simdjson::ondemand::value val = field.value();
+          if (tokenIndex == tokens_.size() - 1) {
+            // If this is the last token in the path, consume each element in
+            // the object.
+            SIMDJSON_TRY(consumer(val));
+          } else {
+            // If not, then recursively call the extract function on each
+            // element in the object.
+            SIMDJSON_TRY(
+                extract(val, consumer, isDefinitePath, tokenIndex + 1));
+          }
+        }
+        return simdjson::SUCCESS;
+      } else {
+        SIMDJSON_TRY(extractObject(input, token, result));
+      }
     } else if (input.type() == simdjson::ondemand::json_type::array) {
       if (token == "*") {
         for (auto child : input.get_array()) {
@@ -107,10 +121,10 @@ simdjson::error_code SIMDJsonExtractor::extract(
           } else {
             // If not, then recursively call the extract function on each
             // element in the array.
-            SIMDJSON_TRY(extract(child.value(), consumer, tokenIndex + 1));
+            SIMDJSON_TRY(extract(
+                child.value(), consumer, isDefinitePath, tokenIndex + 1));
           }
         }
-
         return simdjson::SUCCESS;
       } else {
         SIMDJSON_TRY(extractArray(input, token, result));
@@ -135,7 +149,8 @@ simdjson::error_code SIMDJsonExtractor::extract(
  *                       object, an array, or a scalar.
  *              "."      Child operator to get a child object.
  *              "[]"     Subscript operator for array.
- *              "*"      Wildcard for [], get all the elements of an array.
+ *              "*"      Wildcard for [], get all the elements of an array or
+ * all values in an object.
  * @param consumer: Function to consume the extracted elements. Should be able
  *                  to take an argument that can either be a
  *                  simdjson::ondemand::document or a simdjson::ondemand::value.
@@ -149,7 +164,8 @@ template <typename TConsumer>
 simdjson::error_code simdJsonExtract(
     const velox::StringView& json,
     SIMDJsonExtractor& extractor,
-    TConsumer&& consumer) {
+    TConsumer&& consumer,
+    bool& isDefinitePath) {
   simdjson::padded_string paddedJson(json.data(), json.size());
   SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
 
@@ -160,7 +176,8 @@ simdjson::error_code simdJsonExtract(
     return consumer(jsonDoc);
   }
   SIMDJSON_ASSIGN_OR_RAISE(auto value, jsonDoc.get_value());
-  return extractor.extract(value, std::forward<TConsumer>(consumer));
+  return extractor.extract(
+      value, std::forward<TConsumer>(consumer), isDefinitePath);
 }
 
 } // namespace facebook::velox::functions

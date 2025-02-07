@@ -916,6 +916,19 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   EXPECT_EQ("[]", jsonExtract(R"({"a": [{"b": 123}]})", "$.a[*].c"));
   EXPECT_EQ(std::nullopt, jsonExtract(R"({"a": [{"b": 123}]})", "$.a[0].c"));
 
+  // Wildcard on empty object and array
+  EXPECT_EQ("[]", jsonExtract("{\"a\": {}", "$.a.[*]"));
+  EXPECT_EQ("[]", jsonExtract("{\"a\": []}", "$.a.[*]"));
+
+  // Calling wildcard on a scalar
+  EXPECT_EQ("[]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a.b.[0].[*]"));
+
+  // non-definite paths that end up being evaluated vs. not evaluated
+  EXPECT_EQ(
+      "[123,456]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a.b[*]"));
+  EXPECT_EQ(
+      std::nullopt, jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a.c[*]"));
+
   // TODO The following paths are supported by Presto via Jayway, but do not
   // work in Velox yet. Figure out how to add support for these.
   VELOX_ASSERT_THROW(jsonExtract(kJson, "$..price"), "Invalid JSON path");

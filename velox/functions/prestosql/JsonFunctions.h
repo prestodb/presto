@@ -254,7 +254,8 @@ struct JsonExtractScalarFunction {
     };
 
     auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
-    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer));
+    bool isDefinitePath = true;
+    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer, isDefinitePath));
 
     if (resultStr.has_value()) {
       result.copy_from(*resultStr);
@@ -321,16 +322,17 @@ struct JsonExtractFunction {
     };
 
     auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
-    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer));
+    bool isDefinitePath = true;
+    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer, isDefinitePath));
 
     if (resultSize == 0) {
-      if (extractor.isDefinitePath()) {
+      if (isDefinitePath) {
         // If the path didn't map to anything in the JSON object, return null.
         return simdjson::NO_SUCH_FIELD;
       }
 
       result.copy_from("[]");
-    } else if (resultSize == 1 && extractor.isDefinitePath()) {
+    } else if (resultSize == 1 && isDefinitePath) {
       // If there was only one value mapped to by the path, don't wrap it in an
       // array.
       result.copy_from(results);
@@ -392,7 +394,8 @@ struct JsonSizeFunction {
     };
 
     auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
-    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer));
+    bool isDefinitePath = true;
+    SIMDJSON_TRY(simdJsonExtract(json, extractor, consumer, isDefinitePath));
 
     if (resultCount == 0) {
       // If the path didn't map to anything in the JSON object, return null.
