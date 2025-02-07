@@ -27,6 +27,7 @@ import org.apache.arrow.memory.RootAllocator;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 
@@ -53,11 +54,15 @@ public class ArrowFlightQueryRunner
             throws Exception
     {
         Session session = testSessionBuilder()
-                .setCatalog("arrow")
+                .setCatalog("arrowflight")
                 .setSchema("tpch")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setExtraProperties(extraProperties).build();
+        DistributedQueryRunner.Builder queryRunnerBuilder = DistributedQueryRunner.builder(session);
+        Optional<Integer> workerCount = getProperty("WORKER_COUNT").map(Integer::parseInt);
+        workerCount.ifPresent(queryRunnerBuilder::setNodeCount);
+
+        DistributedQueryRunner queryRunner = queryRunnerBuilder.setExtraProperties(extraProperties).build();
 
         try {
             queryRunner.installPlugin(new TestingArrowFlightPlugin());
@@ -69,13 +74,26 @@ public class ArrowFlightQueryRunner
                     .put("arrow-flight.server-ssl-certificate", "src/test/resources/server.crt")
                     .put("arrow-flight.server.verify", "true");
 
-            queryRunner.createCatalog("arrow", "arrow", properties.build());
+            queryRunner.createCatalog("arrowflight", "arrow-flight", properties.build());
 
             return queryRunner;
         }
         catch (Exception e) {
             throw new RuntimeException("Failed to create ArrowQueryRunner", e);
         }
+    }
+
+    private static Optional<String> getProperty(String name)
+    {
+        String systemPropertyValue = System.getProperty(name);
+        if (systemPropertyValue != null) {
+            return Optional.of(systemPropertyValue);
+        }
+        String environmentVariableValue = System.getenv(name);
+        if (environmentVariableValue != null) {
+            return Optional.of(environmentVariableValue);
+        }
+        return Optional.empty();
     }
 
     public static void main(String[] args)
