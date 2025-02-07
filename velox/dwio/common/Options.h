@@ -636,7 +636,7 @@ struct WriterOptions {
   std::function<std::unique_ptr<dwio::common::FlushPolicy>()>
       flushPolicyFactory;
 
-  const tz::TimeZone* sessionTimezone{nullptr};
+  std::string sessionTimezoneName;
   bool adjustTimestampToTimezone{false};
 
   // WriterOption implementations can implement this function to specify how to

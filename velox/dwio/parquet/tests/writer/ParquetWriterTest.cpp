@@ -205,8 +205,7 @@ TEST_F(ParquetWriterTest, parquetWriteTimestampTimeZoneWithDefault) {
 
 TEST_F(ParquetWriterTest, updateWriterOptionsFromHiveConfig) {
   std::unordered_map<std::string, std::string> configFromFile = {
-      {parquet::WriterOptions::kParquetSessionWriteTimestampUnit, "3"},
-      {core::QueryConfig::kSessionTimezone, "UTC"}};
+      {parquet::WriterOptions::kParquetSessionWriteTimestampUnit, "3"}};
   const config::ConfigBase connectorConfig(std::move(configFromFile));
   const config::ConfigBase connectorSessionProperties({});
 
@@ -218,11 +217,10 @@ TEST_F(ParquetWriterTest, updateWriterOptionsFromHiveConfig) {
   ASSERT_EQ(
       options.parquetWriteTimestampUnit.value(),
       TimestampPrecision::kMilliseconds);
-  ASSERT_EQ(options.parquetWriteTimestampTimeZone.value(), "UTC");
 }
 
 #ifdef VELOX_ENABLE_PARQUET
-DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromHiveConfig) {
+DEBUG_ONLY_TEST_F(ParquetWriterTest, timestampUnitAndTimeZone) {
   SCOPED_TESTVALUE_SET(
       "facebook::velox::parquet::Writer::write",
       std::function<void(const ::arrow::Schema*)>(
@@ -231,6 +229,14 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromHiveConfig) {
                 std::dynamic_pointer_cast<::arrow::TimestampType>(
                     arrowSchema->field(0)->type());
             ASSERT_EQ(tsType->unit(), ::arrow::TimeUnit::MICRO);
+          })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::parquet::Writer::Writer",
+      std::function<void(const ArrowOptions* options)>(
+          ([&](const ArrowOptions* options) {
+            ASSERT_TRUE(options->timestampTimeZone.has_value());
+            ASSERT_EQ(options->timestampTimeZone.value(), "America/New_York");
           })));
 
   const auto data = makeRowVector({makeFlatVector<Timestamp>(
@@ -248,7 +254,9 @@ DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromHiveConfig) {
                             {},
                             writerOptions)
                         .planNode();
-  AssertQueryBuilder(plan).copyResults(pool_.get());
+  AssertQueryBuilder(plan)
+      .config(core::QueryConfig::kSessionTimezone, "America/New_York")
+      .copyResults(pool_.get());
 }
 #endif
 

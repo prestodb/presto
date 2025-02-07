@@ -264,6 +264,8 @@ Writer::Writer(
       static_cast<TimestampUnit>(options.parquetWriteTimestampUnit.value_or(
           TimestampPrecision::kNanoseconds));
   options_.timestampTimeZone = options.parquetWriteTimestampTimeZone;
+  common::testutil::TestValue::adjust(
+      "facebook::velox::parquet::Writer::Writer", &options_);
   arrowContext_->properties =
       getArrowParquetWriterOptions(options, flushPolicy_);
   setMemoryReclaimers();
@@ -463,12 +465,7 @@ void WriterOptions::processConfigs(
         : getTimestampUnit(connectorConfig, kParquetSessionWriteTimestampUnit);
   }
   if (!parquetWriteTimestampTimeZone) {
-    parquetWriteTimestampTimeZone =
-        getTimestampTimeZone(session, core::QueryConfig::kSessionTimezone)
-            .has_value()
-        ? getTimestampTimeZone(session, core::QueryConfig::kSessionTimezone)
-        : getTimestampTimeZone(
-              connectorConfig, core::QueryConfig::kSessionTimezone);
+    parquetWriteTimestampTimeZone = parquetWriterOptions->sessionTimezoneName;
   }
 }
 
