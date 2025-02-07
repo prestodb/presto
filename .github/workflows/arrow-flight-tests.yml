@@ -47,7 +47,7 @@ jobs:
           show-progress: false
 
       # Set up Java for the build environment
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: 'temurin'

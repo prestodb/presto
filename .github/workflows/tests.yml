@@ -75,7 +75,7 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         with:
           show-progress: false
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v4
         if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: 'temurin'
