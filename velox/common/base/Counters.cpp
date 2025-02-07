@@ -553,6 +553,13 @@ void registerVeloxMetrics() {
   // The peak spilling memory usage in bytes.
   DEFINE_METRIC(kMetricSpillPeakMemoryBytes, facebook::velox::StatType::AVG);
 
+  /// ================== Exchange Counters =================
+
+  // Tracks exchange http transaction create delay in range of [0, 30s] with
+  // 30 buckets and reports P50, P90, P99, and P100.
+  DEFINE_HISTOGRAM_METRIC(
+      kMetricExchangeTransactionCreateDelay, 1'000, 0, 30'000, 50, 90, 99, 100);
+
   // The data exchange time distribution in range of [0, 5s] with 50 buckets. It
   // is configured to report the latency at P50, P90, P99, and P100 percentiles.
   DEFINE_HISTOGRAM_METRIC(
