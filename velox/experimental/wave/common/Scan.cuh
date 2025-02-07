@@ -35,10 +35,12 @@ struct WarpScan {
 
   };
 
+  int laneId;
+
   static constexpr unsigned int member_mask =
       kNumLanes == 32 ? 0xffffffff : (1 << kNumLanes) - 1;
 
-  WarpScan() = default;
+  __device__ WarpScan() : laneId(LaneId()) {}
 
   __device__ __forceinline__ void exclusiveSum(
       T input, ///< [in] Calling thread's input item.
@@ -71,36 +73,15 @@ struct WarpScan {
     exclusive_output = initial_value + inclusive_output - input;
   }
 
-  __device__ __forceinline__ unsigned int inclusiveSumStep(
-      unsigned int input,
-      int first_lane, ///< [in] Index of first lane in segment
-      int offset) ///< [in] Up-offset to pull from
-  {
-    unsigned int output;
-    int shfl_c = first_lane | SHFL_C; // Shuffle control (mask and first-lane)
-
-    // Use predicate set from SHFL to guard against invalid peers
-    asm volatile(
-        "{"
-        "  .reg .u32 r0;"
-        "  .reg .pred p;"
-        "  shfl.sync.up.b32 r0|p, %1, %2, %3, %5;"
-        "  @p add.u32 r0, r0, %4;"
-        "  mov.u32 %0, r0;"
-        "}"
-        : "=r"(output)
-        : "r"(input), "r"(offset), "r"(shfl_c), "r"(input), "r"(member_mask));
-
-    return output;
-  }
-
   __device__ __forceinline__ void inclusiveSum(T input, T& inclusive_output) {
     inclusive_output = input;
-    int segment_first_lane = 0;
 #pragma unroll
     for (int STEP = 0; STEP < STEPS; STEP++) {
-      inclusive_output =
-          inclusiveSumStep(inclusive_output, segment_first_lane, (1 << STEP));
+      int offset = (1 << STEP);
+      T other = __shfl_up_sync(member_mask, inclusive_output, offset);
+      if (laneId >= offset) {
+        inclusive_output += other;
+      }
     }
   }
 };
