@@ -41,8 +41,15 @@ using optional_arg_type = OptionalAccessor<T>;
 template <typename FUNC>
 class SimpleAggregateAdapter : public Aggregate {
  public:
-  explicit SimpleAggregateAdapter(TypePtr resultType)
-      : Aggregate(std::move(resultType)) {}
+  explicit SimpleAggregateAdapter(
+      core::AggregationNode::Step step,
+      const std::vector<TypePtr>& argTypes,
+      TypePtr resultType)
+      : Aggregate(std::move(resultType)), fn_{std::make_unique<FUNC>()} {
+    if constexpr (support_initialize_) {
+      fn_->initialize(step, argTypes, resultType_);
+    }
+  }
 
   // Assume most aggregate functions have fixed-size accumulators. Functions
   // that
@@ -145,6 +152,13 @@ class SimpleAggregateAdapter : public Aggregate {
   struct support_to_intermediate<T, std::void_t<decltype(&T::toIntermediate)>>
       : std::true_type {};
 
+  template <typename T, typename = void>
+  struct support_initialize : std::false_type {};
+
+  template <typename T>
+  struct support_initialize<T, std::void_t<decltype(&T::initialize)>>
+      : std::true_type {};
+
   // Whether the accumulator requires aligned access. If it is defined,
   // SimpleAggregateAdapter::accumulatorAlignmentSize() returns
   // alignof(typename FUNC::AccumulatorType).
@@ -171,6 +185,8 @@ class SimpleAggregateAdapter : public Aggregate {
 
   static constexpr bool support_to_intermediate_ =
       support_to_intermediate<FUNC>::value;
+
+  static constexpr bool support_initialize_ = support_initialize<FUNC>::value;
 
   static constexpr bool accumulator_is_aligned_ =
       accumulator_is_aligned<typename FUNC::AccumulatorType>::value;
@@ -350,7 +366,8 @@ class SimpleAggregateAdapter : public Aggregate {
       folly::Range<const vector_size_t*> indices) override {
     setAllNulls(groups, indices);
     for (auto i : indices) {
-      new (groups[i] + offset_) typename FUNC::AccumulatorType(allocator_);
+      new (groups[i] + offset_)
+          typename FUNC::AccumulatorType(allocator_, fn_.get());
     }
   }
 
@@ -571,6 +588,8 @@ class SimpleAggregateAdapter : public Aggregate {
 
   std::vector<DecodedVector> inputDecoded_;
   DecodedVector intermediateDecoded_;
+
+  std::unique_ptr<FUNC> fn_;
 };
 
 } // namespace facebook::velox::exec

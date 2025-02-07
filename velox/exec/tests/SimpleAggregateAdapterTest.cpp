@@ -362,7 +362,9 @@ class CountNullsAggregate {
 
     Accumulator() = delete;
 
-    explicit Accumulator(HashStringAllocator* /*allocator*/) {
+    explicit Accumulator(
+        HashStringAllocator* /*allocator*/,
+        CountNullsAggregate* /*fn*/) {
       nullsCount_ = 0;
     }
 
@@ -423,7 +425,7 @@ exec::AggregateRegistrationResult registerSimpleCountNullsAggregate(
       name,
       std::move(signatures),
       [name](
-          core::AggregationNode::Step /*step*/,
+          core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
@@ -431,7 +433,7 @@ exec::AggregateRegistrationResult registerSimpleCountNullsAggregate(
         VELOX_CHECK_LE(
             argTypes.size(), 1, "{} takes at most one argument", name);
         return std::make_unique<SimpleAggregateAdapter<CountNullsAggregate>>(
-            resultType);
+            step, argTypes, resultType);
       },
       false /*registerCompanionFunctions*/,
       true /*overwrite*/);
@@ -467,6 +469,137 @@ TEST_F(SimpleCountNullsAggregationTest, basic) {
 
   expected = makeRowVector({makeNullableFlatVector<int64_t>({3})});
   testAggregations({vectors}, {}, {"simple_count_nulls(c2)"}, {expected});
+}
+
+// A testing simple avg aggregate function, and it is used to check for
+// expectations for function-level variables. The validation logic is in the
+// Accumulator::addInput method.
+class FuncLevelVariableTestAggregate {
+ public:
+  using InputType = Row<int64_t>;
+  using IntermediateType = Row<int64_t, double>;
+  using OutputType = double;
+
+  // These two variables are used for testing, they are set during the creation
+  // of the aggregation function and will be checked in addInput().
+  TypePtr inputType_;
+  TypePtr resultType_;
+
+  void initialize(
+      core::AggregationNode::Step /*step*/,
+      const std::vector<TypePtr>& argTypes,
+      const TypePtr& resultType) {
+    VELOX_CHECK_EQ(argTypes.size(), 1);
+    inputType_ = argTypes[0];
+    resultType_ = resultType;
+  }
+
+  struct Accumulator {
+    int64_t sum{0};
+    double count{0};
+    FuncLevelVariableTestAggregate* fn_;
+
+    explicit Accumulator(
+        HashStringAllocator* /*allocator*/,
+        FuncLevelVariableTestAggregate* fn)
+        : fn_(fn) {}
+
+    void addInput(
+        HashStringAllocator* /*allocator*/,
+        exec::arg_type<int64_t> data) {
+      VELOX_CHECK_NOT_NULL(fn_->inputType_);
+      VELOX_CHECK_NOT_NULL(fn_->resultType_);
+      if (fn_->inputType_->isRow()) {
+        VELOX_CHECK_EQ(fn_->inputType_->size(), 2);
+        VELOX_CHECK_EQ(fn_->inputType_->childAt(0), BIGINT());
+        VELOX_CHECK_EQ(fn_->inputType_->childAt(1), DOUBLE());
+      } else {
+        VELOX_CHECK_EQ(fn_->inputType_, BIGINT());
+      }
+      if (fn_->resultType_->isRow()) {
+        VELOX_CHECK_EQ(fn_->resultType_->size(), 2);
+        VELOX_CHECK_EQ(fn_->resultType_->childAt(0), BIGINT());
+        VELOX_CHECK_EQ(fn_->resultType_->childAt(1), DOUBLE());
+      } else {
+        VELOX_CHECK_EQ(fn_->resultType_, DOUBLE());
+      }
+      sum += data;
+      count = checkedPlus<int64_t>(count, 1);
+    }
+
+    void combine(
+        HashStringAllocator* /*allocator*/,
+        exec::arg_type<IntermediateType> other) {
+      VELOX_CHECK(other.at<0>().has_value());
+      VELOX_CHECK(other.at<1>().has_value());
+      sum += other.at<0>().value();
+      count += other.at<1>().value();
+    }
+
+    bool writeIntermediateResult(exec::out_type<IntermediateType>& out) {
+      out = std::make_tuple(sum, count);
+      return true;
+    }
+
+    bool writeFinalResult(exec::out_type<OutputType>& out) {
+      out = sum / count;
+      return true;
+    }
+  };
+
+  using AccumulatorType = Accumulator;
+};
+
+exec::AggregateRegistrationResult registerFuncLevelVariableTestAggregate(
+    const std::string& name) {
+  std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
+      exec::AggregateFunctionSignatureBuilder()
+          .returnType("DOUBLE")
+          .intermediateType("ROW(BIGINT, DOUBLE)")
+          .argumentType("BIGINT")
+          .build()};
+
+  return exec::registerAggregateFunction(
+      name,
+      std::move(signatures),
+      [name](
+          core::AggregationNode::Step step,
+          const std::vector<TypePtr>& argTypes,
+          const TypePtr& resultType,
+          const core::QueryConfig& /*config*/)
+          -> std::unique_ptr<exec::Aggregate> {
+        VELOX_CHECK_LE(argTypes.size(), 1, "{} takes at most 1 argument", name);
+        return std::make_unique<
+            SimpleAggregateAdapter<FuncLevelVariableTestAggregate>>(
+            step, argTypes, resultType);
+      },
+      true /*registerCompanionFunctions*/,
+      true /*overwrite*/);
+}
+
+class SimpleFuncLevelVariableAggregationTest : public AggregationTestBase {
+ protected:
+  void SetUp() override {
+    AggregationTestBase::SetUp();
+    registerFuncLevelVariableTestAggregate("simple_func_level_variable_agg");
+  }
+};
+
+TEST_F(SimpleFuncLevelVariableAggregationTest, simpleAggregateVariables) {
+  auto inputVectors = makeRowVector({makeFlatVector<int64_t>({1, 2, 3, 4})});
+  std::vector<double> finalResult = {2.5};
+  auto expected = makeRowVector({makeFlatVector<double>(finalResult)});
+  testAggregations(
+      {inputVectors}, {}, {"simple_func_level_variable_agg(c0)"}, {expected});
+  testAggregationsWithCompanion(
+      {inputVectors},
+      [](auto& /*builder*/) {},
+      {},
+      {"simple_func_level_variable_agg(c0)"},
+      {{BIGINT()}},
+      {},
+      {expected},
+      {});
 }
 
 } // namespace

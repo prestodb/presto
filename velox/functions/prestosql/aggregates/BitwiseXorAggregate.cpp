@@ -42,7 +42,9 @@ class BitwiseXorAggregate {
 
     AccumulatorType() = delete;
 
-    explicit AccumulatorType(HashStringAllocator* /*allocator*/) {}
+    explicit AccumulatorType(
+        HashStringAllocator* /*allocator*/,
+        BitwiseXorAggregate<T>* /*fn*/) {}
 
     void addInput(HashStringAllocator* /*allocator*/, exec::arg_type<T> data) {
       xor_ ^= data;
@@ -101,19 +103,19 @@ void registerBitwiseXorAggregate(
           case TypeKind::TINYINT:
             return std::make_unique<
                 SimpleAggregateAdapter<BitwiseXorAggregate<int8_t>>>(
-                resultType);
+                step, argTypes, resultType);
           case TypeKind::SMALLINT:
             return std::make_unique<
                 SimpleAggregateAdapter<BitwiseXorAggregate<int16_t>>>(
-                resultType);
+                step, argTypes, resultType);
           case TypeKind::INTEGER:
             return std::make_unique<
                 SimpleAggregateAdapter<BitwiseXorAggregate<int32_t>>>(
-                resultType);
+                step, argTypes, resultType);
           case TypeKind::BIGINT:
             return std::make_unique<
                 SimpleAggregateAdapter<BitwiseXorAggregate<int64_t>>>(
-                resultType);
+                step, argTypes, resultType);
           default:
             VELOX_USER_FAIL(
                 "Unknown input type for {} aggregation {}",

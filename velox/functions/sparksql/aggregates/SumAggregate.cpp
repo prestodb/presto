@@ -43,24 +43,29 @@ void checkAccumulatorRowType(const TypePtr& type) {
 }
 
 std::unique_ptr<exec::Aggregate> constructDecimalSumAgg(
+    core::AggregationNode::Step step,
+    const std::vector<TypePtr>& argTypes,
+    const TypePtr& resultType,
     const TypePtr& inputType,
-    const TypePtr& sumType,
-    const TypePtr& resultType) {
+    const TypePtr& sumType) {
   uint8_t precision = getDecimalPrecisionScale(*sumType).first;
   switch (precision) {
     // The sum precision is calculated from the input precision with the formula
     // min(p + 10, 38). Therefore, the sum precision must >= 11.
-#define PRECISION_CASE(precision)                                           \
-  case precision:                                                           \
-    if (inputType->isShortDecimal() && sumType->isShortDecimal()) {         \
-      return std::make_unique<exec::SimpleAggregateAdapter<                 \
-          DecimalSumAggregate<int64_t, int64_t, precision>>>(resultType);   \
-    } else if (inputType->isShortDecimal() && sumType->isLongDecimal()) {   \
-      return std::make_unique<exec::SimpleAggregateAdapter<                 \
-          DecimalSumAggregate<int64_t, int128_t, precision>>>(resultType);  \
-    } else {                                                                \
-      return std::make_unique<exec::SimpleAggregateAdapter<                 \
-          DecimalSumAggregate<int128_t, int128_t, precision>>>(resultType); \
+#define PRECISION_CASE(precision)                                         \
+  case precision:                                                         \
+    if (inputType->isShortDecimal() && sumType->isShortDecimal()) {       \
+      return std::make_unique<exec::SimpleAggregateAdapter<               \
+          DecimalSumAggregate<int64_t, int64_t, precision>>>(             \
+          step, argTypes, resultType);                                    \
+    } else if (inputType->isShortDecimal() && sumType->isLongDecimal()) { \
+      return std::make_unique<exec::SimpleAggregateAdapter<               \
+          DecimalSumAggregate<int64_t, int128_t, precision>>>(            \
+          step, argTypes, resultType);                                    \
+    } else {                                                              \
+      return std::make_unique<exec::SimpleAggregateAdapter<               \
+          DecimalSumAggregate<int128_t, int128_t, precision>>>(           \
+          step, argTypes, resultType);                                    \
     }
     PRECISION_CASE(11)
     PRECISION_CASE(12)
@@ -155,7 +160,11 @@ exec::AggregateRegistrationResult registerSum(
           case TypeKind::BIGINT: {
             if (inputType->isShortDecimal()) {
               return constructDecimalSumAgg(
-                  inputType, getDecimalSumType(resultType), resultType);
+                  step,
+                  argTypes,
+                  resultType,
+                  inputType,
+                  getDecimalSumType(resultType));
             }
             return std::make_unique<SumAggregate<int64_t, int64_t, int64_t>>(
                 BIGINT());
@@ -165,7 +174,11 @@ exec::AggregateRegistrationResult registerSum(
             // If inputType is long decimal,
             // its output type is always long decimal.
             return constructDecimalSumAgg(
-                inputType, getDecimalSumType(resultType), resultType);
+                step,
+                argTypes,
+                resultType,
+                inputType,
+                getDecimalSumType(resultType));
           }
           case TypeKind::REAL:
             if (resultType->kind() == TypeKind::REAL) {
@@ -187,7 +200,11 @@ exec::AggregateRegistrationResult registerSum(
             // For the intermediate aggregation step, input intermediate sum
             // type is equal to final result sum type.
             return constructDecimalSumAgg(
-                inputType->childAt(0), inputType->childAt(0), resultType);
+                step,
+                argTypes,
+                resultType,
+                inputType->childAt(0),
+                inputType->childAt(0));
           }
             [[fallthrough]];
           default:

@@ -72,7 +72,9 @@ class DecimalSumAggregate {
 
     AccumulatorType() = delete;
 
-    explicit AccumulatorType(HashStringAllocator* /*allocator*/) {}
+    explicit AccumulatorType(
+        HashStringAllocator* /*allocator*/,
+        DecimalSumAggregate<TInputType, TSumType, ResultPrecision>* /*fn*/) {}
 
     std::optional<int128_t> computeFinalResult() const {
       if (!sum.has_value()) {

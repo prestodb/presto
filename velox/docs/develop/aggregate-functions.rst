@@ -157,8 +157,23 @@ A simple aggregation function is implemented as a class as the following.
 
     // Optional.
     static bool toIntermediate(
-      exec::out_type<Array<Generic<T1>>>& out,
-      exec::optional_arg_type<Generic<T1>> in);
+        exec::out_type<Array<Generic<T1>>>& out,
+        exec::optional_arg_type<Generic<T1>> in);
+
+    // Optional. Define some function-level variables.
+    TypePtr inputType_;
+    TypePtr resultType_;
+
+    // Optional. Defined only when the aggregation function needs to use function-level variables.
+    // This method is called once when the aggregation function is created.
+    void initialize(
+        core::AggregationNode::Step step,
+        const std::vector<TypePtr>& argTypes,
+        const TypePtr& resultType) {
+      VELOX_CHECK_EQ(argTypes.size(), 1);
+      inputType_ = argTypes[0];
+      resultType_ = resultType;
+    }
 
     struct AccumulatorType { ... };
   };
@@ -168,6 +183,14 @@ type in the simple aggregation function class. The input type must be the
 function's argument type(s) wrapped in a Row<> even if the function only takes
 one argument. This is needed for the SimpleAggregateAdapter to parse input
 types for arbitrary aggregation functions properly.
+
+The author can optionally define function-level variables in the simple
+aggregation function class. These variables are initialized once when the
+aggregation function is created and used at every row when adding inputs to
+accumulators or extracting values from accumulators. For example, if the
+aggregation function needs to get the result type or the raw input type of the
+aggregation function, these types can be defined as member variables in the
+aggregate class and initialized in the initialize() method.
 
 The author can define an optional flag `default_null_behavior_` indicating
 whether the aggregation function has default-null behavior. This flag is true
@@ -248,6 +271,10 @@ For aggregaiton functions of default-null behavior, the author defines an
     // Author defines data members
     ...
 
+    // Optional. Define a pointer to the UDAF class if the aggregation
+    // function uses function-level variables.
+    ArrayAggAggregate* fn_;
+
     // Optional. Default is true.
     static constexpr bool is_fixed_size_ = false;
 
@@ -257,7 +284,9 @@ For aggregaiton functions of default-null behavior, the author defines an
     // Optional. Default is false.
     static constexpr bool is_aligned_ = true;
 
-    explicit AccumulatorType(HashStringAllocator* allocator);
+    explicit AccumulatorType(
+        HashStringAllocator* allocator, ArrayAggAggregate* fn)
+        : fn_(fn);
 
     void addInput(HashStringAllocator* allocator, exec::arg_type<T1> value1, ...);
 
@@ -353,7 +382,7 @@ For aggregaiton functions of non-default-null behavior, the author defines an
     // Optional. Default is false.
     static constexpr bool is_aligned_ = true;
 
-    explicit AccumulatorType(HashStringAllocator* allocator);
+    explicit AccumulatorType(HashStringAllocator* allocator, ArrayAggAggregate* fn);
 
     bool addInput(HashStringAllocator* allocator, exec::optional_arg_type<T1> value1, ...);
 
@@ -873,7 +902,7 @@ unique pointers. Below is an example.
       name,
       std::move(signatures),
       [name](
-          core::AggregationNode::Step /*step*/,
+          core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
@@ -881,7 +910,7 @@ unique pointers. Below is an example.
         VELOX_CHECK_EQ(
             argTypes.size(), 1, "{} takes at most one argument", name);
         return std::make_unique<SimpleAggregateAdapter<SimpleArrayAggAggregate>>(
-            resultType);
+            step, argTypes, resultType);
       });
 }
 

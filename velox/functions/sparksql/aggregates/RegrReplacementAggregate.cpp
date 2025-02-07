@@ -41,7 +41,9 @@ class RegrReplacementAggregate {
     double avg{0.0};
     double m2{0.0};
 
-    explicit AccumulatorType(HashStringAllocator* /*allocator*/) {}
+    explicit AccumulatorType(
+        HashStringAllocator* /*allocator*/,
+        RegrReplacementAggregate* /*fn*/) {}
 
     void addInput(
         HashStringAllocator* /*allocator*/,
@@ -101,7 +103,7 @@ exec::AggregateRegistrationResult registerRegrReplacement(
       name,
       std::move(signatures),
       [name](
-          core::AggregationNode::Step /*step*/,
+          core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
@@ -109,7 +111,8 @@ exec::AggregateRegistrationResult registerRegrReplacement(
         VELOX_CHECK_EQ(
             argTypes.size(), 1, "{} takes at most one argument", name);
         return std::make_unique<
-            exec::SimpleAggregateAdapter<RegrReplacementAggregate>>(resultType);
+            exec::SimpleAggregateAdapter<RegrReplacementAggregate>>(
+            step, argTypes, resultType);
       },
       withCompanionFunctions,
       overwrite);
