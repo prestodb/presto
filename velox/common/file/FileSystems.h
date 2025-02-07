@@ -62,6 +62,12 @@ struct FileOptions {
   /// filesystem on Unix-like operating system, this corresponds to the direct
   /// IO mode if set.
   bool bufferIo{true};
+
+  /// Property bag to set onto files/directories. Think something similar to
+  /// ioctl(2). For other remote filesystems, this can be PutObjectTagging in
+  /// S3.
+  std::optional<std::unordered_map<std::string, std::string>> properties{
+      std::nullopt};
 };
 
 /// Defines directory options
@@ -143,6 +149,22 @@ class FileSystem {
   /// Remove a directory (all the files and sub-directories underneath
   /// recursively). Throws velox exception on failure.
   virtual void rmdir(std::string_view path) = 0;
+
+  /// Sets the property for a directory. The user provides the key-value pairs
+  /// inside 'properties' field of options. Throws velox exception on failure.
+  virtual void setDirectoryProperty(
+      std::string_view /*path*/,
+      const DirectoryOptions& options = {}) {
+    VELOX_UNSUPPORTED("setDirectoryProperty not implemented");
+  }
+
+  /// Gets the property for a directory. If no property is found, std::nullopt
+  /// is returned. Throws velox exception on failure.
+  virtual std::optional<std::string> getDirectoryProperty(
+      std::string_view /*path*/,
+      std::string_view /*propertyKey*/) {
+    VELOX_UNSUPPORTED("getDirectoryProperty not implemented");
+  }
 
  protected:
   std::shared_ptr<const config::ConfigBase> config_;
