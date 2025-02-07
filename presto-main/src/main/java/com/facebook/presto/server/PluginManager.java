@@ -23,6 +23,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
+import com.facebook.presto.dispatcher.QueryRewriterManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.metadata.Metadata;
@@ -42,6 +43,7 @@ import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
+import com.facebook.presto.spi.rewriter.QueryRewriterProviderFactory;
 import com.facebook.presto.spi.security.PasswordAuthenticatorFactory;
 import com.facebook.presto.spi.security.PrestoAuthenticatorFactory;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
@@ -144,6 +146,7 @@ public class PluginManager
     private final ClientRequestFilterManager clientRequestFilterManager;
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final ExpressionOptimizerManager expressionOptimizerManager;
+    private final QueryRewriterManager queryRewriterManager;
 
     @Inject
     public PluginManager(
@@ -169,7 +172,8 @@ public class PluginManager
             NodeStatusNotificationManager nodeStatusNotificationManager,
             ClientRequestFilterManager clientRequestFilterManager,
             PlanCheckerProviderManager planCheckerProviderManager,
-            ExpressionOptimizerManager expressionOptimizerManager)
+            ExpressionOptimizerManager expressionOptimizerManager,
+            QueryRewriterManager queryRewriterManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -205,6 +209,7 @@ public class PluginManager
         this.clientRequestFilterManager = requireNonNull(clientRequestFilterManager, "clientRequestFilterManager is null");
         this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
         this.expressionOptimizerManager = requireNonNull(expressionOptimizerManager, "expressionManager is null");
+        this.queryRewriterManager = requireNonNull(queryRewriterManager, "queryRewriterManager is null");
     }
 
     public void loadPlugins()
@@ -378,6 +383,11 @@ public class PluginManager
         for (ClientRequestFilterFactory clientRequestFilterFactory : plugin.getClientRequestFilterFactories()) {
             log.info("Registering client request filter factory");
             clientRequestFilterManager.registerClientRequestFilterFactory(clientRequestFilterFactory);
+        }
+
+        for (QueryRewriterProviderFactory queryRewriterProviderFactory : plugin.getQueryRewriterProviderFactories()) {
+            log.info("Registering query rewriter provider factory %s", queryRewriterProviderFactory.getName());
+            queryRewriterManager.addQueryRewriterProviderFactory(queryRewriterProviderFactory);
         }
     }
 
