@@ -18,9 +18,9 @@ import com.facebook.airlift.configuration.Config;
 public class ArrowFlightConfig
 {
     private String server;
-    private Boolean verifyServer;
+    private boolean verifyServer = true;
     private String flightServerSSLCertificate;
-    private Boolean arrowFlightServerSslEnabled;
+    private boolean arrowFlightServerSslEnabled;
     private Integer arrowFlightPort;
 
     public String getFlightServerName()
@@ -35,13 +35,13 @@ public class ArrowFlightConfig
         return this;
     }
 
-    public Boolean getVerifyServer()
+    public boolean getVerifyServer()
     {
         return verifyServer;
     }
 
     @Config("arrow-flight.server.verify")
-    public ArrowFlightConfig setVerifyServer(Boolean verifyServer)
+    public ArrowFlightConfig setVerifyServer(boolean verifyServer)
     {
         this.verifyServer = verifyServer;
         return this;
@@ -71,13 +71,13 @@ public class ArrowFlightConfig
         return this;
     }
 
-    public Boolean getArrowFlightServerSslEnabled()
+    public boolean getArrowFlightServerSslEnabled()
     {
         return arrowFlightServerSslEnabled;
     }
 
     @Config("arrow-flight.server-ssl-enabled")
-    public ArrowFlightConfig setArrowFlightServerSslEnabled(Boolean arrowFlightServerSslEnabled)
+    public ArrowFlightConfig setArrowFlightServerSslEnabled(boolean arrowFlightServerSslEnabled)
     {
         this.arrowFlightServerSslEnabled = arrowFlightServerSslEnabled;
         return this;

@@ -410,7 +410,7 @@ public class TestArrowFlightEchoQueries
     private static FlightClient createFlightClient(BufferAllocator allocator) throws IOException
     {
         InputStream trustedCertificate = new ByteArrayInputStream(Files.readAllBytes(Paths.get("src/test/resources/server.crt")));
-        return FlightClient.builder(allocator, getServerLocation()).verifyServer(true).useTls().trustedCertificates(trustedCertificate).build();
+        return FlightClient.builder(allocator, getServerLocation()).useTls().trustedCertificates(trustedCertificate).build();
     }
 
     private void addTableToServer(FlightClient client, VectorSchemaRoot root, String tableName)
