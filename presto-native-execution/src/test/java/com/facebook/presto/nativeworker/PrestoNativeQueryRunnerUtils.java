@@ -25,6 +25,7 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.iceberg.FileFormat;
+import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -55,7 +56,6 @@ import static com.facebook.presto.hive.HiveQueryRunner.createDatabaseMetastoreOb
 import static com.facebook.presto.hive.HiveQueryRunner.getFileHiveMetastore;
 import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeSidecarProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerIcebergProperties;
@@ -86,6 +86,7 @@ public class PrestoNativeQueryRunnerUtils
             ParquetHiveSerDe.class.getName(),
             SymlinkTextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName());
+
     private PrestoNativeQueryRunnerUtils() {}
 
     public static QueryRunner createQueryRunner(boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled)
@@ -225,21 +226,18 @@ public class PrestoNativeQueryRunnerUtils
         ImmutableMap.Builder<String, String> icebergPropertiesBuilder = new ImmutableMap.Builder<>();
         icebergPropertiesBuilder.put("hive.parquet.writer.version", "PARQUET_1_0");
 
-        DistributedQueryRunner queryRunner = createIcebergQueryRunner(
-                ImmutableMap.of(
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of(
                         "regex-library", "RE2J",
                         "offset-clause-enabled", "true",
-                        "query.max-stage-count", "110"),
-                icebergPropertiesBuilder.build(),
-                FileFormat.valueOf(storageFormat),
-                false,
-                false,
-                OptionalInt.empty(),
-                Optional.empty(),
-                baseDataDirectory,
-                addStorageFormatToPath);
-
-        return queryRunner;
+                        "query.max-stage-count", "110"))
+                .setExtraConnectorProperties(icebergPropertiesBuilder.build())
+                .setAddJmxPlugin(false)
+                .setCreateTpchTables(false)
+                .setDataDirectory(baseDataDirectory)
+                .setAddStorageFormatToPath(addStorageFormatToPath)
+                .setFormat(FileFormat.valueOf(storageFormat))
+                .build().getQueryRunner();
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift)
@@ -298,21 +296,21 @@ public class PrestoNativeQueryRunnerUtils
                 .build();
 
         // Make query runner with external workers for tests
-        return createIcebergQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8080")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .put("query.max-stage-count", "110")
                         .putAll(getNativeWorkerSystemProperties())
-                        .build(),
-                icebergProperties,
-                FileFormat.valueOf(storageFormat),
-                false,
-                false,
-                OptionalInt.of(workerCount.orElse(4)),
-                getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, false),
-                dataDirectory,
-                addStorageFormatToPath);
+                        .build())
+                .setFormat(FileFormat.valueOf(storageFormat))
+                .setCreateTpchTables(false)
+                .setAddJmxPlugin(false)
+                .setNodeCount(OptionalInt.of(workerCount.orElse(4)))
+                .setExternalWorkerLauncher(getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, false))
+                .setAddStorageFormatToPath(addStorageFormatToPath)
+                .setDataDirectory(dataDirectory)
+                .build().getQueryRunner();
     }
 
     public static QueryRunner createNativeQueryRunner(
@@ -475,10 +473,10 @@ public class PrestoNativeQueryRunnerUtils
     public static NativeQueryRunnerParameters getNativeQueryRunnerParameters()
     {
         Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
-                .orElse("_build/debug/presto_cpp/main/presto_server"))
+                        .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
         Path dataDirectory = Paths.get(getProperty("DATA_DIR")
-                .orElse("target/velox_data"))
+                        .orElse("target/velox_data"))
                 .toAbsolutePath();
         Optional<Integer> workerCount = getProperty("WORKER_COUNT").map(Integer::parseInt);
 

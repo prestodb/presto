@@ -29,15 +29,12 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static org.testng.Assert.assertEquals;
@@ -54,7 +51,7 @@ public class TestIcebergSplitManager
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of(), Optional.empty());
+        return IcebergQueryRunner.builder().build().getQueryRunner();
     }
 
     @Test

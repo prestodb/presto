@@ -14,7 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableMap;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -27,11 +26,9 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import java.util.Optional;
 import java.util.OptionalInt;
 
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Benchmark;
@@ -49,14 +46,10 @@ public class BenchmarkIcebergHiveCatalog
     public DistributedQueryRunner getQueryRunner()
     {
         try {
-            return createIcebergQueryRunner(
-                    ImmutableMap.of(),
-                    ImmutableMap.of(),
-                    PARQUET,
-                    false,
-                    true,
-                    OptionalInt.of(1),
-                    Optional.empty());
+            return IcebergQueryRunner.builder()
+                    .setCatalogType(HIVE)
+                    .setNodeCount(OptionalInt.of(1))
+                    .build().getQueryRunner();
         }
         catch (Exception e) {
             e.printStackTrace();

@@ -69,7 +69,10 @@ public class TestIcebergDistributedNessie
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), nessieConnectorProperties(nessieContainer.getRestApiUri()));
+        return IcebergQueryRunner.builder()
+                .setCatalogType(NESSIE)
+                .setExtraConnectorProperties(nessieConnectorProperties(nessieContainer.getRestApiUri()))
+                .build().getQueryRunner();
     }
 
     @Override
