@@ -21,6 +21,6 @@ public class TestingArrowFlightPlugin
 {
     public TestingArrowFlightPlugin()
     {
-        super("arrow", new TestingArrowModule(), new JsonModule());
+        super("arrow-flight", new TestingArrowModule(), new JsonModule());
     }
 }
