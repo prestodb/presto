@@ -40,7 +40,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.iceberg.CatalogType.REST;
 import static com.facebook.presto.iceberg.IcebergDistributedTestBase.getHdfsEnvironment;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.CatalogProperties.URI;
@@ -56,7 +55,7 @@ public class IcebergRestTestUtil
 
     public static Map<String, String> restConnectorProperties(String serverUri)
     {
-        return ImmutableMap.of("iceberg.catalog.type", REST.name(), "iceberg.rest.uri", serverUri);
+        return ImmutableMap.of("iceberg.rest.uri", serverUri);
     }
 
     public static TestingHttpServer getRestServer(String location)

@@ -28,7 +28,6 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.containers.NessieContainer;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -95,7 +94,10 @@ public class TestIcebergSmokeNessie
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), nessieConnectorProperties(nessieContainer.getRestApiUri()));
+        return IcebergQueryRunner.builder()
+                .setCatalogType(NESSIE)
+                .setExtraConnectorProperties(nessieConnectorProperties(nessieContainer.getRestApiUri()))
+                .build().getQueryRunner();
     }
 
     @Override

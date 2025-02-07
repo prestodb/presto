@@ -14,20 +14,18 @@
 package com.facebook.presto.iceberg.rest;
 
 import com.facebook.airlift.http.server.testing.TestingHttpServer;
+import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.iceberg.TestIcebergDistributedQueries;
 import com.facebook.presto.testing.QueryRunner;
-import com.google.common.collect.ImmutableMap;
 import org.assertj.core.util.Files;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
 import java.io.File;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -73,14 +71,13 @@ public class TestIcebergRestCatalogDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(
-                ImmutableMap.of(),
-                restConnectorProperties(serverUri),
-                PARQUET,
-                true,
-                false,
-                OptionalInt.empty(),
-                Optional.of(warehouseLocation.toPath()));
+        return IcebergQueryRunner.builder()
+                .setCatalogType(REST)
+                .setExtraConnectorProperties(restConnectorProperties(serverUri))
+                .setFormat(PARQUET)
+                .setDataDirectory(Optional.of(warehouseLocation.toPath()))
+                .build()
+                .getQueryRunner();
     }
 
     @Override

@@ -45,7 +45,7 @@ public class TestSetCurrentSnapshotProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), HADOOP, ImmutableMap.of());
+        return IcebergQueryRunner.builder().setCatalogType(HADOOP).build().getQueryRunner();
     }
 
     public void createTable(String tableName)
