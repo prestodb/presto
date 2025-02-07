@@ -1454,7 +1454,8 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
-    public void testWithSortOrder() throws IOException
+    public void testWithSortOrder()
+            throws IOException
     {
         String tableName = "test_create_sorted_table_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar) WITH (sorted_by = ARRAY['id'])");
@@ -1465,7 +1466,8 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
-    public void testWithDescSortOrder() throws IOException
+    public void testWithDescSortOrder()
+            throws IOException
     {
         String tableName = "test_create_sorted_table_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar) WITH (sorted_by = ARRAY['id DESC'])");
@@ -1476,7 +1478,8 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
-    public void testWithoutSortOrder() throws IOException
+    public void testWithoutSortOrder()
+            throws IOException
     {
         String tableName = "test_create_unsorted_table_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar)");
@@ -1486,7 +1489,8 @@ public abstract class IcebergDistributedTestBase
         }
     }
 
-    public boolean isFileSorted(String path, String sortColumnName, String sortOrder) throws IOException
+    public boolean isFileSorted(String path, String sortColumnName, String sortOrder)
+            throws IOException
     {
         Configuration configuration = new Configuration();
         try (ParquetReader<Group> reader = ParquetReader.builder(new GroupReadSupport(), new org.apache.hadoop.fs.Path(path))
@@ -2557,6 +2561,7 @@ public abstract class IcebergDistributedTestBase
         int totalDeleteFiles = Integer.valueOf(map.get(TOTAL_DELETE_FILES_PROP));
         assertEquals(totalDeleteFiles, deleteFilesCount);
     }
+
     @Test
     public void testSortByAllTypes()
     {

@@ -90,10 +90,10 @@ public class IcebergMetadataOptimizer
     private final StandardFunctionResolution functionResolution;
 
     public IcebergMetadataOptimizer(FunctionMetadataManager functionMetadataManager,
-                                    TypeManager typeManager,
-                                    IcebergTransactionManager icebergTransactionManager,
-                                    RowExpressionService rowExpressionService,
-                                    StandardFunctionResolution functionResolution)
+            TypeManager typeManager,
+            IcebergTransactionManager icebergTransactionManager,
+            RowExpressionService rowExpressionService,
+            StandardFunctionResolution functionResolution)
     {
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -131,13 +131,13 @@ public class IcebergMetadataOptimizer
         private final List<Predicate<FunctionHandle>> allowedFunctionsPredicates;
 
         private Optimizer(ConnectorSession connectorSession,
-                          PlanNodeIdAllocator idAllocator,
-                          FunctionMetadataManager functionMetadataManager,
-                          TypeManager typeManager,
-                          IcebergTransactionManager icebergTransactionManager,
-                          RowExpressionService rowExpressionService,
-                          StandardFunctionResolution functionResolution,
-                          int rowsForMetadataOptimizationThreshold)
+                PlanNodeIdAllocator idAllocator,
+                FunctionMetadataManager functionMetadataManager,
+                TypeManager typeManager,
+                IcebergTransactionManager icebergTransactionManager,
+                RowExpressionService rowExpressionService,
+                StandardFunctionResolution functionResolution,
+                int rowsForMetadataOptimizationThreshold)
         {
             checkArgument(rowsForMetadataOptimizationThreshold >= 0, "The value of `rowsForMetadataOptimizationThreshold` should not less than 0");
             this.connectorSession = connectorSession;

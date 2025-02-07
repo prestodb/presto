@@ -153,7 +153,7 @@ public class IcebergFilterPushdown
             Optional<Set<IcebergColumnHandle>> requestedColumns = currentLayoutHandle.map(layout -> ((IcebergTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty());
 
             TupleDomain<ColumnHandle> partitionColumnPredicate = TupleDomain.withColumnDomains(Maps.filterKeys(
-                            constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
+                    constraint.getSummary().getDomains().get(), Predicates.in(partitionColumns)));
 
             List<HivePartition> partitions = getPartitions(
                     typeManager,

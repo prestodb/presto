@@ -174,10 +174,10 @@ public class TestIcebergSplitManager
     }
 
     private void validateSplitsPlannedForSql(SplitManager splitManager,
-                                            TransactionManager transactionManager,
-                                            boolean filterPushdown,
-                                            String sql,
-                                            int expectedSplitCount)
+            TransactionManager transactionManager,
+            boolean filterPushdown,
+            String sql,
+            int expectedSplitCount)
     {
         Session session = sessionWithFilterPushdown(filterPushdown);
         List<TableScanNode> tableScanNodes = getTableScanFromOptimizedPlanOfSql(sql, session);

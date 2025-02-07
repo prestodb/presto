@@ -87,9 +87,9 @@ public class IcebergPlanOptimizer
     private final IcebergTransactionManager transactionManager;
 
     IcebergPlanOptimizer(StandardFunctionResolution functionResolution,
-                         RowExpressionService rowExpressionService,
-                         FunctionMetadataManager functionMetadataManager,
-                         IcebergTransactionManager transactionManager)
+            RowExpressionService rowExpressionService,
+            FunctionMetadataManager functionMetadataManager,
+            IcebergTransactionManager transactionManager)
     {
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
@@ -190,10 +190,10 @@ public class IcebergPlanOptimizer
 
             // Get predicate expression on entire columns that could not be enforced by iceberg table
             TupleDomain<RowExpression> nonPartitionColumnPredicate = TupleDomain.withColumnDomains(
-                    Maps.filterKeys(
-                            entireColumnDomain.transform(icebergColumnHandle -> (ColumnHandle) icebergColumnHandle)
-                                    .getDomains().get(),
-                            Predicates.not(Predicates.in(enforcedColumns))))
+                            Maps.filterKeys(
+                                    entireColumnDomain.transform(icebergColumnHandle -> (ColumnHandle) icebergColumnHandle)
+                                            .getDomains().get(),
+                                    Predicates.not(Predicates.in(enforcedColumns))))
                     .transform(columnHandle -> new Subfield(columnHandleToNameMapping.get(columnHandle), ImmutableList.of()))
                     .transform(subfield -> subfieldExtractor.toRowExpression(subfield, columnTypes.get(subfield.getRootName())));
             RowExpression nonPartitionColumn = rowExpressionService.getDomainTranslator().toPredicate(nonPartitionColumnPredicate);
@@ -374,13 +374,13 @@ public class IcebergPlanOptimizer
                 !field.transform().isIdentity()) {
             TimestampType timestampType = (TimestampType) sourceType;
             first = adjustTimestampForPartitionTransform(
-                            session.getSqlFunctionProperties(),
-                            timestampType,
-                            first);
+                    session.getSqlFunctionProperties(),
+                    timestampType,
+                    first);
             second = adjustTimestampForPartitionTransform(
-                            session.getSqlFunctionProperties(),
-                            timestampType,
-                            second);
+                    session.getSqlFunctionProperties(),
+                    timestampType,
+                    second);
         }
         Object firstTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, first), 0);
         Object secondTransformed = transform.getValueTransform().apply(nativeValueToBlock(sourceType, second), 0);

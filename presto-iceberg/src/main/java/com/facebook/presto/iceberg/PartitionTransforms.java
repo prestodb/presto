@@ -61,6 +61,7 @@ public final class PartitionTransforms
     private static final DateTimeField MONTH_OF_YEAR_UTC = getInstanceUTC().monthOfYear();
     public static final int MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
     public static final int MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
+
     private PartitionTransforms() {}
 
     /**
@@ -550,9 +551,9 @@ public final class PartitionTransforms
         private final ValueTransform valueTransform;
 
         public ColumnTransform(String transformName,
-                               Type type,
-                               Function<Block, Block> transform,
-                               ValueTransform valueTransform)
+                Type type,
+                Function<Block, Block> transform,
+                ValueTransform valueTransform)
         {
             this.transformName = requireNonNull(transformName, "transformName is null");
             this.type = requireNonNull(type, "resultType is null");

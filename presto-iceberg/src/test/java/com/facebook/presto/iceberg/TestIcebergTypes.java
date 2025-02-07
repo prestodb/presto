@@ -35,7 +35,8 @@ import static org.testng.Assert.assertTrue;
 public class TestIcebergTypes
         extends AbstractTestQueryFramework
 {
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         return createIcebergQueryRunner(ImmutableMap.of(), ImmutableMap.of());
     }

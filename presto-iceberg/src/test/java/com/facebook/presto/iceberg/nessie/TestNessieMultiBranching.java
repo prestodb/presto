@@ -70,7 +70,8 @@ public class TestNessieMultiBranching
     }
 
     @AfterMethod
-    public void resetData() throws NessieNotFoundException, NessieConflictException
+    public void resetData()
+            throws NessieNotFoundException, NessieConflictException
     {
         Branch defaultBranch = nessieApiV1.getDefaultBranch();
         for (Reference r : nessieApiV1.getAllReferences().get().getReferences()) {

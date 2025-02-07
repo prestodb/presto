@@ -516,9 +516,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-          <groupId>com.facebook.presto</groupId>
-          <artifactId>presto-parser</artifactId>
-          <scope>test</scope>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.facebook.presto</groupId>

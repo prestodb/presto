@@ -50,7 +50,7 @@ import static org.apache.iceberg.SortOrder.unsorted;
 
 /**
  * This is a dummy class required for {@link org.apache.iceberg.MetricsConfig#forTable}
- * */
+ */
 public class PrestoIcebergTableForMetricsConfig
         implements Table
 {
