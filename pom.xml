@@ -2684,57 +2684,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>de.qaware.maven</groupId>
-                <artifactId>go-offline-maven-plugin</artifactId>
-                <version>1.2.8</version>
-                <configuration>
-                    <dynamicDependencies>
-                        <DynamicDependency>
-                            <groupId>org.apache.maven.surefire</groupId>
-                            <artifactId>surefire-testng</artifactId>
-                            <version>3.0.0-M7</version>
-                            <repositoryType>PLUGIN</repositoryType>
-                        </DynamicDependency>
-                        <DynamicDependency>
-                            <groupId>org.apache.maven.surefire</groupId>
-                            <artifactId>surefire-junit4</artifactId>
-                            <version>3.0.0-M7</version>
-                            <repositoryType>PLUGIN</repositoryType>
-                        </DynamicDependency>
-                        <DynamicDependency>
-                            <groupId>com.google.protobuf</groupId>
-                            <artifactId>protoc</artifactId>
-                            <version>3.0.0</version>
-                            <classifier>${os.detected.classifier}</classifier>
-                            <type>exe</type>
-                            <repositoryType>PLUGIN</repositoryType>
-                        </DynamicDependency>
-                        <DynamicDependency>
-                            <groupId>io.grpc</groupId>
-                            <artifactId>protoc-gen-grpc-java</artifactId>
-                            <version>1.0.0</version>
-                            <classifier>${os.detected.classifier}</classifier>
-                            <type>exe</type>
-                            <repositoryType>PLUGIN</repositoryType>
-                        </DynamicDependency>
-                        <DynamicDependency>
-                            <groupId>com.querydsl</groupId>
-                            <artifactId>querydsl-apt</artifactId>
-                            <version>4.2.1</version>
-                            <classifier>jpa</classifier>
-                            <repositoryType>MAIN</repositoryType>
-                        </DynamicDependency>
-                        <DynamicDependency>
-                            <groupId>org.flywaydb</groupId>
-                            <artifactId>flyway-commandline</artifactId>
-                            <version>4.0.3</version>
-                            <type>zip</type>
-                            <repositoryType>MAIN</repositoryType>
-                        </DynamicDependency>
-                    </dynamicDependencies>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.7</version>
