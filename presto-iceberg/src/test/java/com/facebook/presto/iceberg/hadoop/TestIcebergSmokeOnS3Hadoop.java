@@ -125,7 +125,8 @@ public class TestIcebergSmokeOnS3Hadoop
                     "   metadata_delete_after_commit = false,\n" +
                     "   metadata_previous_versions_max = 100,\n" +
                     "   metrics_max_inferred_column = 100,\n" +
-                    "   \"write.data.path\" = '%s'\n" +
+                    "   \"write.data.path\" = '%s',\n" +
+                    "   \"write.update.mode\" = 'merge-on-read'\n" +
                     ")";
             assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo(format(createTableSql, schemaName, tableName, location, dataWriteLocation));
@@ -200,7 +201,8 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
-                "   \"write.data.path\" = '%s'\n" +
+                "   \"write.data.path\" = '%s',\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
@@ -232,7 +234,8 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate'],\n" +
-                "   \"write.data.path\" = '%s'\n" +
+                "   \"write.data.path\" = '%s',\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
         assertEquals(getTablePropertiesString("test_create_table_like_original"),
@@ -254,7 +257,8 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   \"write.data.path\" = '%s'\n" +
+                "   \"write.data.path\" = '%s',\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"),
                 format(tablePropertiesString,
@@ -271,7 +275,8 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   \"write.data.path\" = '%s'\n" +
+                "   \"write.data.path\" = '%s',\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"),
                 format(tablePropertiesString,
@@ -290,7 +295,8 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate'],\n" +
-                "   \"write.data.path\" = '%s'\n" +
+                "   \"write.data.path\" = '%s',\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertEquals(getTablePropertiesString("test_create_table_like_copy5"),
                 format(tablePropertiesString,
@@ -336,7 +342,8 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   \"write.data.path\" = '%s'\n" +
+                "   \"write.data.path\" = '%s',\n" +
+                "   \"write.update.mode\" = '%s'\n" +
                 ")";
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE " + tableName);
@@ -348,7 +355,8 @@ public class TestIcebergSmokeOnS3Hadoop
                         defaultDeleteMode,
                         formatVersion,
                         getLocation(getSession().getSchema().get(), tableName),
-                        getPathBasedOnDataDirectory(getSession().getSchema().get() + "/" + tableName)));
+                        getPathBasedOnDataDirectory(getSession().getSchema().get() + "/" + tableName),
+                        defaultDeleteMode));
 
         dropTable(session, tableName);
     }
@@ -376,7 +384,8 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   \"write.data.path\" = '%s'\n" +
+                "   \"write.data.path\" = '%s',\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .isEqualTo(format(createTableSql,
@@ -416,7 +425,8 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
                 "   metrics_max_inferred_column = 100,\n" +
-                "   \"write.data.path\" = '%s'\n" +
+                "   \"write.data.path\" = '%s',\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
 
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");

@@ -1492,12 +1492,13 @@ public abstract class IcebergDistributedTestBase
 
     public boolean isFileSorted(String path, String sortColumnName, String sortOrder) throws IOException
     {
-        Configuration configuration = new Configuration();
-        try (ParquetReader<Group> reader = ParquetReader.builder(new GroupReadSupport(), new org.apache.hadoop.fs.Path(path))
+        Path filePath = new Path(path);
+        Configuration configuration = getHdfsEnvironment().getConfiguration(new HdfsContext(SESSION), filePath);
+        try (ParquetReader<Group> reader = ParquetReader.builder(new GroupReadSupport(), new Path(path))
                 .withConf(configuration)
                 .build()) {
             Group record;
-            ParquetMetadata readFooter = ParquetFileReader.readFooter(configuration, new org.apache.hadoop.fs.Path(path));
+            ParquetMetadata readFooter = ParquetFileReader.readFooter(configuration, filePath);
             MessageType schema = readFooter.getFileMetaData().getSchema();
             Double previousValue = null;
             while ((record = reader.read()) != null) {
