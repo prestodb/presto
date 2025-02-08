@@ -68,7 +68,8 @@ public class TestIcebergSmokeHadoop
                     "   metadata_delete_after_commit = false,\n" +
                     "   metadata_previous_versions_max = 100,\n" +
                     "   metrics_max_inferred_column = 100,\n" +
-                    "   \"write.data.path\" = '%s'\n" +
+                    "   \"write.data.path\" = '%s',\n" +
+                    "   \"write.update.mode\" = 'merge-on-read'\n" +
                     ")";
             assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo(format(createTableSql, schemaName, tableName, location, dataWriteLocation));

@@ -1197,14 +1197,14 @@ public abstract class IcebergAbstractMetadata
         propertiesBuilder.put(TableProperties.FORMAT_VERSION, formatVersion);
 
         if (parseFormatVersion(formatVersion) < MIN_FORMAT_VERSION_FOR_DELETE) {
-            propertiesBuilder.put(DELETE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
-            propertiesBuilder.put(UPDATE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
+            propertiesBuilder.put(TableProperties.DELETE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
+            propertiesBuilder.put(TableProperties.UPDATE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
         }
         else {
             RowLevelOperationMode deleteMode = IcebergTableProperties.getDeleteMode(tableMetadata.getProperties());
-            propertiesBuilder.put(DELETE_MODE, deleteMode.modeName());
+            propertiesBuilder.put(TableProperties.DELETE_MODE, deleteMode.modeName());
             RowLevelOperationMode updateMode = IcebergTableProperties.getUpdateMode(tableMetadata.getProperties());
-            propertiesBuilder.put(UPDATE_MODE, updateMode.modeName());
+            propertiesBuilder.put(TableProperties.UPDATE_MODE, updateMode.modeName());
         }
 
         Integer metadataPreviousVersionsMax = IcebergTableProperties.getMetadataPreviousVersionsMax(tableMetadata.getProperties());
