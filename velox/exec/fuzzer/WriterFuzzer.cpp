@@ -18,6 +18,7 @@
 #include <boost/random/uniform_int_distribution.hpp>
 
 #include <re2/re2.h>
+#include <algorithm>
 #include <unordered_set>
 #include "velox/common/base/Fs.h"
 #include "velox/common/encode/Base64.h"
@@ -108,11 +109,24 @@ class WriterFuzzer {
   // zero-based ordinal number of the column.
   // Data types is chosen from '<columnTypes>' and for nested complex data type,
   // maxDepth limits the max layers of nesting.
+  // Offset represents the number of columns which has already been generated.
+  // The function will generate the remaining columns starting from this index.
   std::vector<std::string> generateColumns(
       int32_t maxNumColumns,
       const std::string& prefix,
       const std::vector<TypePtr>& dataTypes,
       int32_t maxDepth,
+      std::vector<std::string>& names,
+      std::vector<TypePtr>& types,
+      int32_t offset = 0);
+
+  // Generates at least one and up to maxNumColumns columns
+  // with a random number of those columns overlapping as bucket by columns.
+  // Returns sorted column names and the start offset of generated sort columns.
+  // The overlapped bucketed columns are listed first.
+  std::tuple<std::vector<std::string>, int> generateSortColumns(
+      int32_t maxNumColumns,
+      const std::vector<std::string>& bucketColumns,
       std::vector<std::string>& names,
       std::vector<TypePtr>& types);
 
@@ -342,12 +356,12 @@ void WriterFuzzer::go() {
         bucketCount =
             boost::random::uniform_int_distribution<int32_t>(1, 3)(rng_);
 
-        // TODO: sort columns can overlap as bucket columns
         // 50% of times test ordered write.
         if (vectorFuzzer_.coinToss(0.5)) {
           sortColumnOffset = names.size();
-          auto sortColumns = generateColumns(
-              3, "s", kSupportedSortColumnTypes_, 1, names, types);
+          auto [sortColumns, offset] =
+              generateSortColumns(3, bucketColumns, names, types);
+          sortColumnOffset -= offset;
           sortBy.reserve(sortColumns.size());
           for (const auto& sortByColumn : sortColumns) {
             sortBy.push_back(std::make_shared<const HiveSortingColumn>(
@@ -392,11 +406,12 @@ std::vector<std::string> WriterFuzzer::generateColumns(
     const std::vector<TypePtr>& dataTypes,
     int32_t maxDepth,
     std::vector<std::string>& names,
-    std::vector<TypePtr>& types) {
+    std::vector<TypePtr>& types,
+    const int32_t offset) {
   const auto numColumns =
       boost::random::uniform_int_distribution<uint32_t>(1, maxNumColumns)(rng_);
   std::vector<std::string> columns;
-  for (auto i = 0; i < numColumns; ++i) {
+  for (auto i = offset; i < numColumns; ++i) {
     columns.push_back(fmt::format("{}{}", prefix, i));
 
     // Pick random, possibly complex, type.
@@ -404,6 +419,41 @@ std::vector<std::string> WriterFuzzer::generateColumns(
     names.push_back(columns.back());
   }
   return columns;
+}
+
+std::tuple<std::vector<std::string>, int> WriterFuzzer::generateSortColumns(
+    int32_t maxNumColumns,
+    const std::vector<std::string>& bucketColumns,
+    std::vector<std::string>& names,
+    std::vector<TypePtr>& types) {
+  // A random number of sort columns will overlap as bucket columns, which are
+  // already generated
+  const auto maxOverlapColumns = std::min<int32_t>(
+      maxNumColumns, static_cast<int32_t>(bucketColumns.size()));
+  const auto numOverlapColumns =
+      static_cast<int32_t>(boost::random::uniform_int_distribution<uint32_t>(
+          0, maxOverlapColumns)(rng_));
+
+  std::vector<std::string> columns(
+      bucketColumns.end() - numOverlapColumns, bucketColumns.end());
+
+  // Remaining columns which do not overlap as bucket by columns are added as
+  // new columns with prefix "s"
+  const auto remainingColumns = maxNumColumns - numOverlapColumns;
+  if (remainingColumns > 0) {
+    auto nonOverlapColumns = generateColumns(
+        remainingColumns,
+        "s",
+        kSupportedSortColumnTypes_,
+        1,
+        names,
+        types,
+        numOverlapColumns);
+    columns.insert(
+        columns.end(), nonOverlapColumns.begin(), nonOverlapColumns.end());
+  }
+
+  return {columns, numOverlapColumns};
 }
 
 std::vector<RowVectorPtr> WriterFuzzer::generateInputData(
