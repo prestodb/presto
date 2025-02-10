@@ -30,6 +30,7 @@ void PrestoBatchVectorSerializer::serialize(
   const auto rowType = vector->type();
   const auto numChildren = vector->childrenSize();
 
+  StreamArena arena(pool_);
   std::vector<VectorStream> streams;
   streams.reserve(numChildren);
   for (int i = 0; i < numChildren; i++) {
@@ -37,7 +38,7 @@ void PrestoBatchVectorSerializer::serialize(
         rowType->childAt(i),
         std::nullopt,
         vector->childAt(i),
-        &arena_,
+        &arena,
         numRows,
         opts_);
 
@@ -47,9 +48,7 @@ void PrestoBatchVectorSerializer::serialize(
   }
 
   flushStreams(
-      streams, numRows, arena_, *codec_, opts_.minCompressionRatio, stream);
-
-  arena_.clear();
+      streams, numRows, arena, *codec_, opts_.minCompressionRatio, stream);
 }
 
 void PrestoBatchVectorSerializer::estimateSerializedSizeImpl(
@@ -178,90 +177,5 @@ void PrestoBatchVectorSerializer::estimateSerializedSizeImpl(
     default:
       VELOX_UNSUPPORTED("Unsupported vector encoding {}", vector->encoding());
   }
-}
-
-void PrestoBatchVectorSerializer::writeHeader(
-    BufferedOutputStream* stream,
-    const TypePtr& type) {
-  auto encoding = typeToEncodingName(type);
-  writeInt32(stream, encoding.size());
-  stream->write(encoding.data(), encoding.size());
-}
-
-template <>
-bool PrestoBatchVectorSerializer::hasNulls(
-    const VectorPtr& vector,
-    const folly::Range<const IndexRange*>& ranges) {
-  if (vector->nulls()) {
-    for (auto& range : ranges) {
-      if (!bits::isAllSet(
-              vector->rawNulls(), range.begin, range.begin + range.size)) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-template <>
-bool PrestoBatchVectorSerializer::hasNulls(
-    const VectorPtr& vector,
-    const folly::Range<const IndexRangeWithNulls*>& ranges) {
-  if (vector->nulls()) {
-    for (auto& range : ranges) {
-      if (range.isNull ||
-          !bits::isAllSet(
-              vector->rawNulls(), range.begin, range.begin + range.size)) {
-        return true;
-      }
-    }
-  } else {
-    for (auto& range : ranges) {
-      if (range.isNull) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-template <>
-void PrestoBatchVectorSerializer::writeNulls(
-    BufferedOutputStream* stream,
-    const VectorPtr& vector,
-    const folly::Range<const IndexRange*>& ranges,
-    const vector_size_t numRows) {
-  VELOX_DCHECK_EQ(numRows, rangesTotalSize(ranges));
-
-  nulls_.startWrite(bits::nbytes(numRows));
-  for (auto& range : ranges) {
-    nulls_.appendBits(
-        vector->rawNulls(), range.begin, range.begin + range.size);
-  }
-  nulls_.flush(stream);
-}
-
-template <>
-void PrestoBatchVectorSerializer::writeNulls(
-    BufferedOutputStream* stream,
-    const VectorPtr& vector,
-    const folly::Range<const IndexRangeWithNulls*>& ranges,
-    const vector_size_t numRows) {
-  VELOX_DCHECK_EQ(numRows, rangesTotalSize(ranges));
-
-  nulls_.startWrite(bits::nbytes(numRows));
-  for (auto& range : ranges) {
-    if (range.isNull) {
-      nulls_.appendBool(bits::kNull, range.size);
-    } else if (vector->mayHaveNulls()) {
-      nulls_.appendBits(
-          vector->rawNulls(), range.begin, range.begin + range.size);
-    } else {
-      nulls_.appendBool(bits::kNotNull, range.size);
-    }
-  }
-  nulls_.flush(stream);
 }
 } // namespace facebook::velox::serializer::presto::detail
