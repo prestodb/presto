@@ -106,7 +106,7 @@ void addSignatureBindings(py::module& m, bool asModuleLocalDefinitions) {
 
   m.def(
       "get_function_signatures",
-      &getFunctionSignatures,
+      []() { return getFunctionSignatures(); },
       py::return_value_policy::reference,
       "Returns a dictionary of the current signatures.");
 

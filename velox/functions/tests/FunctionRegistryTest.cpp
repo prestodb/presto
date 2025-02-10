@@ -107,6 +107,34 @@ class FunctionRegistryTest : public testing::Test {
   }
 };
 
+TEST_F(FunctionRegistryTest, getFunctionSignaturesByName) {
+  {
+    auto signatures = getFunctionSignatures("func_one");
+    ASSERT_EQ(signatures.size(), 1);
+    ASSERT_EQ(
+        signatures.at(0)->toString(),
+        exec::FunctionSignatureBuilder()
+            .returnType("varchar")
+            .argumentType("varchar")
+            .build()
+            ->toString());
+  }
+
+  {
+    auto signatures = getFunctionSignatures("vector_func_one");
+    ASSERT_EQ(signatures.size(), 1);
+    ASSERT_EQ(
+        signatures.at(0)->toString(),
+        exec::FunctionSignatureBuilder()
+            .returnType("bigint")
+            .argumentType("varchar")
+            .build()
+            ->toString());
+  }
+
+  ASSERT_TRUE(getFunctionSignatures("non-existent-function").empty());
+}
+
 TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   auto functionSignatures = getFunctionSignatures();
   ASSERT_EQ(functionSignatures.size(), 14);

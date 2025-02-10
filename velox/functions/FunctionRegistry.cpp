@@ -64,6 +64,27 @@ FunctionSignatureMap getFunctionSignatures() {
   return result;
 }
 
+std::vector<const exec::FunctionSignature*> getFunctionSignatures(
+    const std::string& functionName) {
+  // Some functions have both simple and vector implementations (for different
+  // signatures). Collect all signatures.
+  // Check simple functions first.
+  auto signatures = exec::simpleFunctions().getFunctionSignatures(functionName);
+
+  // Check vector functions.
+  auto& vectorFunctions = exec::vectorFunctionFactories();
+  vectorFunctions.withRLock([&](const auto& functions) {
+    auto it = functions.find(functionName);
+    if (it != functions.end()) {
+      for (const auto& signature : it->second.signatures) {
+        signatures.push_back(signature.get());
+      }
+    }
+  });
+
+  return signatures;
+}
+
 FunctionSignatureMap getVectorFunctionSignatures() {
   FunctionSignatureMap result;
   populateVectorFunctionSignatures(result);

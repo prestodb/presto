@@ -31,6 +31,11 @@ using FunctionSignatureMap = std::
 /// The mapping is function name -> list of function signatures
 FunctionSignatureMap getFunctionSignatures();
 
+/// Returns a list of function signatures for a given function name. Returns
+/// empty list if function with specified name not found.
+std::vector<const exec::FunctionSignature*> getFunctionSignatures(
+    const std::string& functionName);
+
 /// Returns a mapping of all Vector functions registered in Velox
 /// The mapping is function name -> list of function signatures
 FunctionSignatureMap getVectorFunctionSignatures();
