@@ -24,8 +24,10 @@ import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -35,7 +37,6 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
-import static org.assertj.core.api.Assertions.assertThat;
 
 @Test
 public class TestIcebergSmokeHadoop
@@ -56,23 +57,11 @@ public class TestIcebergSmokeHadoop
             assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
             String schemaName = getSession().getSchema().get();
             String location = getLocation(schemaName, tableName);
-            String createTableSql = "CREATE TABLE iceberg.%s.%s (\n" +
-                    "   \"a\" integer,\n" +
-                    "   \"b\" varchar\n" +
-                    ")\n" +
-                    "WITH (\n" +
-                    "   delete_mode = 'merge-on-read',\n" +
-                    "   format = 'PARQUET',\n" +
-                    "   format_version = '2',\n" +
-                    "   location = '%s',\n" +
-                    "   metadata_delete_after_commit = false,\n" +
-                    "   metadata_previous_versions_max = 100,\n" +
-                    "   metrics_max_inferred_column = 100,\n" +
-                    "   \"write.data.path\" = '%s',\n" +
-                    "   \"write.update.mode\" = 'merge-on-read'\n" +
-                    ")";
-            assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
-                    .isEqualTo(format(createTableSql, schemaName, tableName, location, dataWriteLocation));
+            validateShowCreateTable(tableName,
+                    ImmutableList.of("a integer", "b varchar"),
+                    getCustomizedTableProperties(ImmutableMap.of(
+                            "location", "'" + location + "'",
+                            "\"write.data.path\"", "'" + dataWriteLocation + "'")));
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
