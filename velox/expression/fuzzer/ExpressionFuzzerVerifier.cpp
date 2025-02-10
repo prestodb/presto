@@ -57,7 +57,9 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
     size_t initialSeed,
     const ExpressionFuzzerVerifier::Options& options,
     const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-        argGenerators)
+        argGenerators,
+    const std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>&
+        argsOverrideFuncs)
     : options_(options),
       queryCtx_(core::QueryCtx::create(
           nullptr,
@@ -77,7 +79,8 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
           initialSeed,
           vectorFuzzer_,
           options_.expressionFuzzerOptions,
-          argGenerators),
+          argGenerators,
+          argsOverrideFuncs),
       referenceQueryRunner_{
           options_.expressionFuzzerOptions.referenceQueryRunner} {
   filesystems::registerLocalFileSystem();
@@ -101,7 +104,8 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
 std::pair<std::vector<InputTestCase>, InputRowMetadata>
 ExpressionFuzzerVerifier::generateInput(
     const RowTypePtr& rowType,
-    VectorFuzzer& vectorFuzzer) {
+    VectorFuzzer& vectorFuzzer,
+    const std::vector<AbstractInputGeneratorPtr>& inputGenerators) {
   // Randomly pick to generate one or two input rows.
   std::vector<InputTestCase> inputs;
   int numInputs = vectorFuzzer.coinToss(0.5) ? 1 : 2;
@@ -123,6 +127,8 @@ ExpressionFuzzerVerifier::generateInput(
     std::vector<VectorPtr> children;
     children.reserve(rowType->size() + 1);
     for (auto i = 0; i < rowType->size(); ++i) {
+      const auto& inputGenerator =
+          inputGenerators.size() > i ? inputGenerators[i] : nullptr;
       if (std::binary_search(
               metadata.columnsToWrapInCommonDictionary.begin(),
               metadata.columnsToWrapInCommonDictionary.end(),
@@ -130,12 +136,15 @@ ExpressionFuzzerVerifier::generateInput(
         // These will be wrapped in common dictionary later.
         if (vectorFuzzer.getOptions().allowConstantVector &&
             vectorFuzzer.coinToss(0.2)) {
-          children.push_back(vectorFuzzer.fuzzConstant(rowType->childAt(i)));
+          children.push_back(
+              vectorFuzzer.fuzzConstant(rowType->childAt(i), inputGenerator));
         } else {
-          children.push_back(vectorFuzzer.fuzzFlat(rowType->childAt(i)));
+          children.push_back(
+              vectorFuzzer.fuzzFlat(rowType->childAt(i), inputGenerator));
         }
       } else {
-        children.push_back(vectorFuzzer.fuzz(rowType->childAt(i)));
+        children.push_back(
+            vectorFuzzer.fuzz(rowType->childAt(i), inputGenerator));
       }
     }
 
@@ -377,7 +386,7 @@ void ExpressionFuzzerVerifier::go() {
     // set.
     int numExpressionTrees = boost::random::uniform_int_distribution<int>(
         1, options_.maxExpressionTreesPerStep)(rng_);
-    auto [expressions, inputType, selectionStats] =
+    auto [expressions, inputType, inputGenerators, selectionStats] =
         expressionFuzzer_.fuzzExpressions(numExpressionTrees);
     // Project a row number column in the output to enable epsilon-comparison
     // for floating-point columns and make investigation of failures easier.
@@ -391,7 +400,7 @@ void ExpressionFuzzerVerifier::go() {
     std::vector<core::TypedExprPtr> plans = std::move(expressions);
 
     auto [inputTestCases, inputRowMetadata] =
-        generateInput(inputType, *vectorFuzzer_);
+        generateInput(inputType, *vectorFuzzer_, inputGenerators);
 
     auto resultVectors = generateResultVectors(plans);
     std::vector<fuzzer::ResultOrError> results;

@@ -107,6 +107,7 @@ int main(int argc, char** argv) {
       {{}},
       queryConfigs,
       argGenerators,
+      {{}},
       referenceQueryRunner,
       std::make_shared<
           facebook::velox::fuzzer::SparkSpecialFormSignatureGenerator>());

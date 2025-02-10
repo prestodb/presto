@@ -19,6 +19,8 @@
 
 #include "velox/exec/fuzzer/PrestoQueryRunner.h"
 #include "velox/expression/fuzzer/ArgGenerator.h"
+#include "velox/expression/fuzzer/ArgsOverrideFunctions.h"
+#include "velox/expression/fuzzer/ExpressionFuzzer.h"
 #include "velox/expression/fuzzer/FuzzerRunner.h"
 #include "velox/expression/fuzzer/SpecialFormSignatureGenerator.h"
 #include "velox/functions/prestosql/fuzzer/DivideArgGenerator.h"
@@ -52,7 +54,10 @@ DEFINE_uint32(
 using namespace facebook::velox::exec::test;
 using facebook::velox::exec::test::PrestoQueryRunner;
 using facebook::velox::fuzzer::ArgGenerator;
+using facebook::velox::fuzzer::ArgValuesGenerator;
+using facebook::velox::fuzzer::ExpressionFuzzer;
 using facebook::velox::fuzzer::FuzzerRunner;
+using facebook::velox::fuzzer::JsonParseArgValuesGenerator;
 using facebook::velox::test::ReferenceQueryRunner;
 
 int main(int argc, char** argv) {
@@ -122,6 +127,10 @@ int main(int argc, char** argv) {
           {"map_keys", std::make_shared<SortArrayTransformer>()},
           {"map_values", std::make_shared<SortArrayTransformer>()}};
 
+  std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>
+      argsOverrideFuncs = {
+          {"json_parse", std::make_shared<JsonParseArgValuesGenerator>()}};
+
   std::shared_ptr<facebook::velox::memory::MemoryPool> rootPool{
       facebook::velox::memory::memoryManager()->addRootPool()};
   std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
@@ -140,6 +149,7 @@ int main(int argc, char** argv) {
       {{"session_timezone", "America/Los_Angeles"},
        {"adjust_timestamp_to_session_timezone", "true"}},
       argGenerators,
+      argsOverrideFuncs,
       referenceQueryRunner,
       std::make_shared<
           facebook::velox::fuzzer::SpecialFormSignatureGenerator>());

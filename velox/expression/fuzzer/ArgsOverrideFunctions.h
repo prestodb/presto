@@ -13,27 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-#include "velox/common/fuzzer/ConstrainedGenerators.h"
-#include "velox/vector/BaseVector.h"
+#include "velox/expression/fuzzer/FuzzerToolkit.h"
 
 namespace facebook::velox::fuzzer {
 
-class ConstrainedVectorGenerator {
+class JsonParseArgValuesGenerator : public ArgValuesGenerator {
  public:
-  ConstrainedVectorGenerator() = delete;
+  ~JsonParseArgValuesGenerator() override = default;
 
-  static VectorPtr generateConstant(
-      const AbstractInputGeneratorPtr& customGenerator,
-      vector_size_t size,
-      memory::MemoryPool* pool);
-
-  static VectorPtr generateFlat(
-      const AbstractInputGeneratorPtr& customGenerator,
-      vector_size_t size,
-      memory::MemoryPool* pool);
+  std::vector<core::TypedExprPtr> generate(
+      const CallableSignature& signature,
+      const VectorFuzzer::Options& options,
+      FuzzerGenerator& rng,
+      ExpressionFuzzerState& state) override;
 };
 
 } // namespace facebook::velox::fuzzer

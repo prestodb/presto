@@ -22,6 +22,7 @@
 #include <unordered_set>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
@@ -272,11 +273,14 @@ ExpressionFuzzer::ExpressionFuzzer(
     const std::shared_ptr<VectorFuzzer>& vectorFuzzer,
     const std::optional<ExpressionFuzzer::Options>& options,
     const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-        argGenerators)
+        argGenerators,
+    const std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>&
+        argsOverrideFuncs)
     : options_(options.value_or(Options())),
       vectorFuzzer_(vectorFuzzer),
-      state{rng_, std::max(1, options_.maxLevelOfNesting)},
-      argGenerators_(argGenerators) {
+      state_{rng_, std::max(1, options_.maxLevelOfNesting)},
+      argGenerators_(argGenerators),
+      funcArgOverrides_{argsOverrideFuncs} {
   VELOX_CHECK(vectorFuzzer, "Vector fuzzer must be provided");
   seed(initialSeed);
 
@@ -432,10 +436,6 @@ ExpressionFuzzer::ExpressionFuzzer(
     addToTypeToExpressionListByTicketTimes("row", "row_constructor");
     addToTypeToExpressionListByTicketTimes(kTypeParameterName, "dereference");
   }
-
-  // Register function override (for cases where we want to restrict the types
-  // or parameters we pass to functions).
-  registerFuncOverride(&ExpressionFuzzer::generateSwitchArgs, "switch");
 }
 
 bool ExpressionFuzzer::isSupportedSignature(
@@ -519,13 +519,6 @@ void ExpressionFuzzer::addToTypeToExpressionListByTicketTimes(
   }
 }
 
-template <typename TFunc>
-void ExpressionFuzzer::registerFuncOverride(
-    TFunc func,
-    const std::string& name) {
-  funcArgOverrides_[name] = std::bind(func, this, std::placeholders::_1);
-}
-
 void ExpressionFuzzer::seed(size_t seed) {
   rng_.seed(seed);
   vectorFuzzer_->reSeed(seed);
@@ -548,22 +541,23 @@ core::TypedExprPtr ExpressionFuzzer::generateArgConstant(const TypePtr& arg) {
 // columns of the same type exist then there is a 30% chance that it will
 // re-use one of them.
 core::TypedExprPtr ExpressionFuzzer::generateArgColumn(const TypePtr& arg) {
-  auto& listOfCandidateCols = state.typeToColumnNames_[arg->toString()];
+  auto& listOfCandidateCols = state_.typeToColumnNames_[arg->toString()];
   bool reuseColumn = options_.enableColumnReuse &&
       !listOfCandidateCols.empty() && vectorFuzzer_->coinToss(0.3);
 
   if (!reuseColumn && options_.maxInputsThreshold.has_value() &&
-      state.inputRowTypes_.size() >= options_.maxInputsThreshold.value()) {
+      state_.inputRowTypes_.size() >= options_.maxInputsThreshold.value()) {
     reuseColumn = !listOfCandidateCols.empty();
   }
 
   if (!reuseColumn) {
-    state.inputRowTypes_.emplace_back(arg);
-    state.inputRowNames_.emplace_back(
-        fmt::format("c{}", state.inputRowTypes_.size() - 1));
-    listOfCandidateCols.push_back(state.inputRowNames_.back());
+    state_.inputRowTypes_.emplace_back(arg);
+    state_.inputRowNames_.emplace_back(
+        fmt::format("c{}", state_.inputRowTypes_.size() - 1));
+    state_.customInputGenerators_.emplace_back(nullptr);
+    listOfCandidateCols.push_back(state_.inputRowNames_.back());
     return std::make_shared<core::FieldAccessTypedExpr>(
-        arg, state.inputRowNames_.back());
+        arg, state_.inputRowNames_.back());
   }
   size_t chosenColIndex = rand32(0, listOfCandidateCols.size() - 1);
   return std::make_shared<core::FieldAccessTypedExpr>(
@@ -582,7 +576,7 @@ core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
   // - Lambdas
   // - Try
   if (argClass >= kArgExpression) {
-    if (state.remainingLevelOfNesting_ > 0) {
+    if (state_.remainingLevelOfNesting_ > 0) {
       return generateExpression(arg);
     }
     argClass = rand32(0, 1);
@@ -732,9 +726,9 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateSwitchArgs(
 
 ExpressionFuzzer::FuzzedExpressionData ExpressionFuzzer::fuzzExpressions(
     const RowTypePtr& outType) {
-  state.reset();
+  state_.reset();
   VELOX_CHECK_EQ(
-      state.remainingLevelOfNesting_, std::max(1, options_.maxLevelOfNesting));
+      state_.remainingLevelOfNesting_, std::max(1, options_.maxLevelOfNesting));
 
   std::vector<core::TypedExprPtr> expressions;
   for (int i = 0; i < outType->size(); i++) {
@@ -742,8 +736,9 @@ ExpressionFuzzer::FuzzedExpressionData ExpressionFuzzer::fuzzExpressions(
   }
   return {
       std::move(expressions),
-      ROW(std::move(state.inputRowNames_), std::move(state.inputRowTypes_)),
-      std::move(state.expressionStats_)};
+      ROW(std::move(state_.inputRowNames_), std::move(state_.inputRowTypes_)),
+      std::move(state_.customInputGenerators_),
+      std::move(state_.expressionStats_)};
 }
 
 ExpressionFuzzer::FuzzedExpressionData ExpressionFuzzer::fuzzExpressions(
@@ -760,16 +755,16 @@ ExpressionFuzzer::FuzzedExpressionData ExpressionFuzzer::fuzzExpression() {
 // chance that it will re-use one of them.
 core::TypedExprPtr ExpressionFuzzer::generateExpression(
     const TypePtr& returnType) {
-  VELOX_CHECK_GT(state.remainingLevelOfNesting_, 0);
-  --state.remainingLevelOfNesting_;
-  auto guard = folly::makeGuard([&] { ++state.remainingLevelOfNesting_; });
+  VELOX_CHECK_GT(state_.remainingLevelOfNesting_, 0);
+  --state_.remainingLevelOfNesting_;
+  auto guard = folly::makeGuard([&] { ++state_.remainingLevelOfNesting_; });
 
   core::TypedExprPtr expression;
   bool reuseExpression =
       options_.enableExpressionReuse && vectorFuzzer_->coinToss(0.3);
   if (reuseExpression) {
-    expression = state.expressionBank_.getRandomExpression(
-        returnType, state.remainingLevelOfNesting_ + 1);
+    expression = state_.expressionBank_.getRandomExpression(
+        returnType, state_.remainingLevelOfNesting_ + 1);
     if (expression) {
       return expression;
     }
@@ -796,11 +791,11 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
 
     auto exprTransformer = options_.exprTransformers.find(chosenFunctionName);
     if (exprTransformer != options_.exprTransformers.end()) {
-      state.remainingLevelOfNesting_ -=
+      state_.remainingLevelOfNesting_ -=
           exprTransformer->second->extraLevelOfNesting();
     }
 
-    if (state.remainingLevelOfNesting_ >= 0) {
+    if (state_.remainingLevelOfNesting_ >= 0) {
       if (chosenFunctionName == "cast") {
         expression = generateCastExpression(returnType);
       } else if (chosenFunctionName == "row_constructor") {
@@ -825,7 +820,7 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
       if (expression) {
         expression = exprTransformer->second->transform(std::move(expression));
       }
-      state.remainingLevelOfNesting_ +=
+      state_.remainingLevelOfNesting_ +=
           exprTransformer->second->extraLevelOfNesting();
     }
   }
@@ -841,17 +836,32 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
       return generateArgColumn(returnType);
     }
   }
-  state.expressionBank_.insert(expression);
+  state_.expressionBank_.insert(expression);
   return expression;
 }
 
 std::vector<core::TypedExprPtr> ExpressionFuzzer::getArgsForCallable(
     const CallableSignature& callable) {
+  // Special case for switch because it has a variable number of arguments not
+  // specified in the signature. Other functions' argument override should be
+  // specified through funcArgOverrides_.
+  if (callable.name == "switch") {
+    return generateSwitchArgs(callable);
+  }
+
   auto funcIt = funcArgOverrides_.find(callable.name);
   if (funcIt == funcArgOverrides_.end()) {
     return generateArgs(callable);
   }
-  return funcIt->second(callable);
+  auto args = funcIt->second->generate(
+      callable, vectorFuzzer_->getOptions(), rng_, state_);
+  for (auto i = 0; i < args.size(); ++i) {
+    // Generate arguments not specified in the override.
+    if (args[i] == nullptr) {
+      args[i] = generateArg(callable.args.at(i), callable.constantArgs.at(i));
+    }
+  }
+  return args;
 }
 
 core::TypedExprPtr ExpressionFuzzer::getCallExprFromCallable(
@@ -1123,45 +1133,6 @@ core::TypedExprPtr ExpressionFuzzer::generateDereferenceExpression(
       returnType,
       inputExpressions[0],
       fmt::format("row_field{}", referencedIndex));
-}
-void ExpressionFuzzer::ExprBank::insert(const core::TypedExprPtr& expression) {
-  auto typeString = expression->type()->toString();
-  if (typeToExprsByLevel_.find(typeString) == typeToExprsByLevel_.end()) {
-    typeToExprsByLevel_.insert(
-        {typeString, ExprsIndexedByLevel(maxLevelOfNesting_ + 1)});
-  }
-  auto& expressionsByLevel = typeToExprsByLevel_[typeString];
-  int nestingLevel = getNestedLevel(expression);
-  VELOX_CHECK_LE(nestingLevel, maxLevelOfNesting_);
-  expressionsByLevel[nestingLevel].push_back(expression);
-}
-
-core::TypedExprPtr ExpressionFuzzer::ExprBank::getRandomExpression(
-    const facebook::velox::TypePtr& returnType,
-    int uptoLevelOfNesting) {
-  VELOX_CHECK_LE(uptoLevelOfNesting, maxLevelOfNesting_);
-  auto typeString = returnType->toString();
-  if (typeToExprsByLevel_.find(typeString) == typeToExprsByLevel_.end()) {
-    return nullptr;
-  }
-  auto& expressionsByLevel = typeToExprsByLevel_[typeString];
-  int totalToConsider = 0;
-  for (int i = 0; i <= uptoLevelOfNesting; i++) {
-    totalToConsider += expressionsByLevel[i].size();
-  }
-  if (totalToConsider > 0) {
-    int choice = boost::random::uniform_int_distribution<uint32_t>(
-        0, totalToConsider - 1)(rng_);
-    for (int i = 0; i <= uptoLevelOfNesting; i++) {
-      if (choice >= expressionsByLevel[i].size()) {
-        choice -= expressionsByLevel[i].size();
-        continue;
-      }
-      return expressionsByLevel[i][choice];
-    }
-    VELOX_CHECK(false, "Should have found an expression.");
-  }
-  return nullptr;
 }
 
 TypePtr ExpressionFuzzer::fuzzReturnType() {

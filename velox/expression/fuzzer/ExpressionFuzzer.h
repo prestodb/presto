@@ -17,16 +17,12 @@
 #pragma once
 
 #include "velox/core/ITypedExpr.h"
-#include "velox/core/QueryCtx.h"
 #include "velox/exec/fuzzer/ExprTransformer.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
-#include "velox/expression/Expr.h"
 #include "velox/expression/fuzzer/ArgGenerator.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
-#include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
-#include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -36,6 +32,8 @@ using facebook::velox::exec::test::ExprTransformer;
 // A tool that can be used to generate random expressions.
 class ExpressionFuzzer {
  public:
+  using State = ExpressionFuzzerState;
+
   struct Options {
     // The maximum number of variadic arguments fuzzer will generate for
     // functions that accept variadic arguments. Fuzzer will generate up to
@@ -120,10 +118,10 @@ class ExpressionFuzzer {
       const std::shared_ptr<VectorFuzzer>& vectorFuzzer,
       const std::optional<ExpressionFuzzer::Options>& options = std::nullopt,
       const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-          argGenerators = {});
-
-  template <typename TFunc>
-  void registerFuncOverride(TFunc func, const std::string& name);
+          argGenerators = {},
+      const std::unordered_map<
+          std::string,
+          std::shared_ptr<ArgValuesGenerator>>& argsOverrideFuncs = {});
 
   struct FuzzedExpressionData {
     // A list of generated expressions.
@@ -131,6 +129,12 @@ class ExpressionFuzzer {
 
     // The input vector type that is expected by the generated expressions.
     RowTypePtr inputType;
+
+    // Custom input generators for input vectors. The generator at index i
+    // corresponds to the i-th field in inputType. If customInputGenerators[i]
+    // doesn't exist or is nullptr, then no custom input generator is used for
+    // the i-th field.
+    std::vector<AbstractInputGeneratorPtr> customInputGenerators;
 
     // Count how many times each expression has been selected in expressions.
     std::unordered_map<std::string, size_t> selectionStats;
@@ -144,58 +148,6 @@ class ExpressionFuzzer {
 
   // Fuzz a single expression and return it along with the input row type.
   FuzzedExpressionData fuzzExpression();
-
-  /// Used to enable re-use of sub-expressions by exposing an API that allows
-  /// for randomly picking an expression that has a specific return type and a
-  /// nesting level less than or equal to a specified limit. It ensures that
-  /// all expressions that are valid candidates have an equal probability of
-  /// selection.
-  class ExprBank {
-   public:
-    ExprBank(FuzzerGenerator& rng, int maxLevelOfNesting)
-        : rng_(rng), maxLevelOfNesting_(maxLevelOfNesting) {}
-
-    /// Adds an expression to the bank.
-    void insert(const core::TypedExprPtr& expression);
-
-    /// Returns a randomly selected expression of the requested 'returnType'
-    /// which is guaranteed to have a nesting level less than or equal to
-    /// 'uptoLevelOfNesting'. Returns a nullptr if no such function can be
-    /// found.
-    core::TypedExprPtr getRandomExpression(
-        const TypePtr& returnType,
-        int uptoLevelOfNesting);
-
-    /// Removes all the expressions from the bank. Should be called after
-    /// every fuzzer iteration.
-    void reset() {
-      typeToExprsByLevel_.clear();
-    }
-
-   private:
-    int getNestedLevel(const core::TypedExprPtr& expression) {
-      int level = 0;
-      for (auto& input : expression->inputs()) {
-        level = std::max(level, getNestedLevel(input) + 1);
-      }
-      return level;
-    }
-
-    /// Reference to the random generator of the expression fuzzer.
-    FuzzerGenerator& rng_;
-
-    /// Only expression having less than or equal to this level of nesting
-    /// will be generated.
-    int maxLevelOfNesting_;
-
-    /// Represents a vector where each index contains a list of expressions
-    /// such that the depth of each expression tree is equal to that index.
-    using ExprsIndexedByLevel = std::vector<std::vector<core::TypedExprPtr>>;
-
-    /// Maps a 'Type' serialized as a string to an object of type
-    /// ExprsIndexedByLevel
-    std::unordered_map<std::string, ExprsIndexedByLevel> typeToExprsByLevel_;
-  };
 
   void seed(size_t seed);
 
@@ -341,7 +293,7 @@ class ExpressionFuzzer {
 
   /// Should be called whenever a function is selected by the fuzzer.
   void markSelected(const std::string& funcName) {
-    state.expressionStats_[funcName]++;
+    state_.expressionStats_[funcName]++;
   }
 
   // Returns random integer between min and max inclusive.
@@ -382,61 +334,32 @@ class ExpressionFuzzer {
   // --assign_function_tickets startup flag .
   std::unordered_map<std::string, int> functionsToTickets_;
 
-  /// We allow the arg generation routine to be specialized for particular
-  /// functions. This map stores the mapping between function name and the
-  /// overridden method.
-  using ArgsOverrideFunc = std::function<std::vector<core::TypedExprPtr>(
-      const CallableSignature& input)>;
-
-  std::unordered_map<std::string, ArgsOverrideFunc> funcArgOverrides_;
-
   std::shared_ptr<VectorFuzzer> vectorFuzzer_;
 
   FuzzerGenerator rng_;
 
   std::vector<std::string> supportedFunctions_;
 
-  struct State {
-    void reset() {
-      inputRowTypes_.clear();
-      inputRowNames_.clear();
-      typeToColumnNames_.clear();
-      expressionBank_.reset();
-      expressionStats_.clear();
-    }
-
-    State(FuzzerGenerator& rng, int maxLevelOfNesting)
-        : expressionBank_(rng, maxLevelOfNesting),
-          remainingLevelOfNesting_(maxLevelOfNesting) {}
-
-    /// Used to track all generated expressions within a single iteration and
-    /// support expression re-use.
-    ExprBank expressionBank_;
-
-    /// Contains the types and names of the input vector that the generated
-    /// expressions consume.
-    std::vector<TypePtr> inputRowTypes_;
-    std::vector<std::string> inputRowNames_;
-
-    // Count how many times each function has been selected.
-    std::unordered_map<std::string, size_t> expressionStats_;
-
-    /// Maps a 'Type' serialized as a string to the column names that have
-    /// already been generated. Used to easily look up columns that can be
-    /// re-used when a specific type is required as input to a callable.
-    std::unordered_map<std::string, std::vector<std::string>>
-        typeToColumnNames_;
-
-    /// The remaining levels of expression nesting. It's initialized by
-    /// FLAGS_max_level_of_nesting and updated in generateExpression(). When
-    /// its value decreases to 0, we don't generate subexpressions anymore.
-    int32_t remainingLevelOfNesting_;
-
-  } state;
-  friend class ExpressionFuzzerUnitTest;
+  State state_;
 
   // Maps from function name to a specific generator of argument types.
   std::unordered_map<std::string, std::shared_ptr<ArgGenerator>> argGenerators_;
+
+  /// We allow the arg generation routine to be specialized for particular
+  /// functions. This map stores the mapping between function name and the
+  /// overridden method.
+  /// The overridden method can specify all or a subset of arguments of the
+  /// input function signature. For a given function signature, the overridden
+  /// method returns a vector of TypedExprPtr, with unspecified arguments being
+  /// nullptr at the corresponding index. ExpressionFuzzer then generates random
+  /// arguments for these unspecified ones with the types specified in the
+  /// function signature. (Functions of variable arity must determine the number
+  /// of arguments in the overridden method. Arguments at indices beyond the
+  /// argument size in the input function signature cannot be left unspecified.)
+  std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>
+      funcArgOverrides_;
+
+  friend class ExpressionFuzzerUnitTest;
 };
 
 } // namespace facebook::velox::fuzzer

@@ -35,7 +35,7 @@ class ConstrainedVectorGeneratorTest : public testing::Test,
       const variant& excludedValue) {
     using T = typename TypeTraits<KIND>::NativeType;
     const uint32_t kSize = 1000;
-    std::shared_ptr<AbstractInputGenerator> generator =
+    AbstractInputGeneratorPtr generator =
         std::make_shared<NotEqualConstrainedGenerator>(
             0,
             type,
@@ -69,7 +69,7 @@ class ConstrainedVectorGeneratorTest : public testing::Test,
   void testGenerateVectorsComplex(const TypePtr& type) {
     using T = typename TypeTraits<KIND>::ImplType;
     const uint32_t kSize = 1000;
-    std::shared_ptr<AbstractInputGenerator> generator =
+    AbstractInputGeneratorPtr generator =
         std::make_shared<RandomInputGenerator<T>>(0, type, 0.5);
     auto vector =
         ConstrainedVectorGenerator::generateFlat(generator, kSize, pool());

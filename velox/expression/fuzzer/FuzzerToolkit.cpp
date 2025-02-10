@@ -195,4 +195,44 @@ InputRowMetadata InputRowMetadata::restoreFromFile(
   return ret;
 }
 
+void ExprBank::insert(const core::TypedExprPtr& expression) {
+  auto typeString = expression->type()->toString();
+  if (typeToExprsByLevel_.find(typeString) == typeToExprsByLevel_.end()) {
+    typeToExprsByLevel_.insert(
+        {typeString, ExprsIndexedByLevel(maxLevelOfNesting_ + 1)});
+  }
+  auto& expressionsByLevel = typeToExprsByLevel_[typeString];
+  int nestingLevel = getNestedLevel(expression);
+  VELOX_CHECK_LE(nestingLevel, maxLevelOfNesting_);
+  expressionsByLevel[nestingLevel].push_back(expression);
+}
+
+core::TypedExprPtr ExprBank::getRandomExpression(
+    const facebook::velox::TypePtr& returnType,
+    int uptoLevelOfNesting) {
+  VELOX_CHECK_LE(uptoLevelOfNesting, maxLevelOfNesting_);
+  auto typeString = returnType->toString();
+  if (typeToExprsByLevel_.find(typeString) == typeToExprsByLevel_.end()) {
+    return nullptr;
+  }
+  auto& expressionsByLevel = typeToExprsByLevel_[typeString];
+  int totalToConsider = 0;
+  for (int i = 0; i <= uptoLevelOfNesting; i++) {
+    totalToConsider += expressionsByLevel[i].size();
+  }
+  if (totalToConsider > 0) {
+    int choice = boost::random::uniform_int_distribution<uint32_t>(
+        0, totalToConsider - 1)(rng_);
+    for (int i = 0; i <= uptoLevelOfNesting; i++) {
+      if (choice >= expressionsByLevel[i].size()) {
+        choice -= expressionsByLevel[i].size();
+        continue;
+      }
+      return expressionsByLevel[i][choice];
+    }
+    VELOX_CHECK(false, "Should have found an expression.");
+  }
+  return nullptr;
+}
+
 } // namespace facebook::velox::fuzzer

@@ -25,7 +25,7 @@ using exec::VectorWriter;
 
 // static
 VectorPtr ConstrainedVectorGenerator::generateConstant(
-    const std::shared_ptr<AbstractInputGenerator>& customGenerator,
+    const AbstractInputGeneratorPtr& customGenerator,
     vector_size_t size,
     memory::MemoryPool* pool) {
   VELOX_CHECK_NOT_NULL(customGenerator);
@@ -119,7 +119,7 @@ void writeOne<TypeKind::ROW>(const variant& v, GenericWriter& writer) {
 
 // static
 VectorPtr ConstrainedVectorGenerator::generateFlat(
-    const std::shared_ptr<AbstractInputGenerator>& customGenerator,
+    const AbstractInputGeneratorPtr& customGenerator,
     vector_size_t size,
     memory::MemoryPool* pool) {
   VELOX_CHECK_NOT_NULL(customGenerator);

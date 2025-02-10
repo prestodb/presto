@@ -55,7 +55,10 @@ class ExpressionFuzzerVerifier {
       size_t initialSeed,
       const Options& options,
       const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-          argGenerators);
+          argGenerators,
+      const std::unordered_map<
+          std::string,
+          std::shared_ptr<ArgValuesGenerator>>& argsOverrideFuncs);
 
   // This function starts the test that is performed by the
   // ExpressionFuzzerVerifier which is generating random expressions and
@@ -173,7 +176,8 @@ class ExpressionFuzzerVerifier {
   // 4. Appends a row number column to the input row vector.
   std::pair<std::vector<InputTestCase>, InputRowMetadata> generateInput(
       const RowTypePtr& rowType,
-      VectorFuzzer& vectorFuzzer);
+      VectorFuzzer& vectorFuzzer,
+      const std::vector<AbstractInputGeneratorPtr>& inputGenerators);
 
   /// Randomize initial result vector data to test for correct null and data
   /// setting in functions.

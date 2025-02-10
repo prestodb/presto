@@ -15,8 +15,10 @@
  */
 #pragma once
 
+#include "velox/core/ITypedExpr.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/ComplexVector.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -142,5 +144,107 @@ struct InputRowMetadata {
   static InputRowMetadata restoreFromFile(
       const char* filePath,
       memory::MemoryPool* pool);
+};
+
+/// Used to enable re-use of sub-expressions in expression fuzzer by exposing an
+/// API that allows for randomly picking an expression that has a specific
+/// return type and a nesting level less than or equal to a specified limit. It
+/// ensures that all expressions that are valid candidates have an equal
+/// probability of selection.
+class ExprBank {
+ public:
+  ExprBank(FuzzerGenerator& rng, int maxLevelOfNesting)
+      : rng_(rng), maxLevelOfNesting_(maxLevelOfNesting) {}
+
+  /// Adds an expression to the bank.
+  void insert(const core::TypedExprPtr& expression);
+
+  /// Returns a randomly selected expression of the requested 'returnType'
+  /// which is guaranteed to have a nesting level less than or equal to
+  /// 'uptoLevelOfNesting'. Returns a nullptr if no such function can be
+  /// found.
+  core::TypedExprPtr getRandomExpression(
+      const TypePtr& returnType,
+      int uptoLevelOfNesting);
+
+  /// Removes all the expressions from the bank. Should be called after
+  /// every fuzzer iteration.
+  void reset() {
+    typeToExprsByLevel_.clear();
+  }
+
+ private:
+  int getNestedLevel(const core::TypedExprPtr& expression) {
+    int level = 0;
+    for (auto& input : expression->inputs()) {
+      level = std::max(level, getNestedLevel(input) + 1);
+    }
+    return level;
+  }
+
+  /// Reference to the random generator of the expression fuzzer.
+  FuzzerGenerator& rng_;
+
+  /// Only expression having less than or equal to this level of nesting
+  /// will be generated.
+  int maxLevelOfNesting_;
+
+  /// Represents a vector where each index contains a list of expressions
+  /// such that the depth of each expression tree is equal to that index.
+  using ExprsIndexedByLevel = std::vector<std::vector<core::TypedExprPtr>>;
+
+  /// Maps a 'Type' serialized as a string to an object of type
+  /// ExprsIndexedByLevel
+  std::unordered_map<std::string, ExprsIndexedByLevel> typeToExprsByLevel_;
+};
+
+struct ExpressionFuzzerState {
+  void reset() {
+    inputRowTypes_.clear();
+    inputRowNames_.clear();
+    typeToColumnNames_.clear();
+    expressionBank_.reset();
+    expressionStats_.clear();
+    customInputGenerators_.clear();
+  }
+
+  ExpressionFuzzerState(FuzzerGenerator& rng, int maxLevelOfNesting)
+      : expressionBank_(rng, maxLevelOfNesting),
+        remainingLevelOfNesting_(maxLevelOfNesting) {}
+
+  /// Used to track all generated expressions within a single iteration and
+  /// support expression re-use.
+  ExprBank expressionBank_;
+
+  /// Contains the types and names of the input vector that the generated
+  /// expressions consume.
+  std::vector<TypePtr> inputRowTypes_;
+  std::vector<std::string> inputRowNames_;
+  /// Contains the custom input generators for the input vectors.
+  std::vector<AbstractInputGeneratorPtr> customInputGenerators_;
+
+  // Count how many times each function has been selected.
+  std::unordered_map<std::string, size_t> expressionStats_;
+
+  /// Maps a 'Type' serialized as a string to the column names that have
+  /// already been generated. Used to easily look up columns that can be
+  /// re-used when a specific type is required as input to a callable.
+  std::unordered_map<std::string, std::vector<std::string>> typeToColumnNames_;
+
+  /// The remaining levels of expression nesting. It's initialized by
+  /// FLAGS_max_level_of_nesting and updated in generateExpression(). When
+  /// its value decreases to 0, we don't generate subexpressions anymore.
+  int32_t remainingLevelOfNesting_;
+};
+
+class ArgValuesGenerator {
+ public:
+  virtual ~ArgValuesGenerator() = default;
+
+  virtual std::vector<core::TypedExprPtr> generate(
+      const CallableSignature& signature,
+      const VectorFuzzer::Options& options,
+      FuzzerGenerator& rng,
+      ExpressionFuzzerState& state) = 0;
 };
 } // namespace facebook::velox::fuzzer

@@ -143,7 +143,7 @@ TEST_F(ExpressionFuzzerUnitTest, exprBank) {
         0,
         vectorfuzzer,
         makeOptionsWithMaxLevelNesting(maxLevelOfNesting)};
-    ExpressionFuzzer::ExprBank exprBank(seed, maxLevelOfNesting);
+    ExprBank exprBank(seed, maxLevelOfNesting);
     for (int i = 0; i < 5000; ++i) {
       auto expression = fuzzer.fuzzExpression().expressions[0];
       // Verify that if there is a single expression then it is returned
@@ -171,7 +171,7 @@ TEST_F(ExpressionFuzzerUnitTest, exprBank) {
         0,
         vectorfuzzer,
         makeOptionsWithMaxLevelNesting(maxLevelOfNesting)};
-    ExpressionFuzzer::ExprBank exprBank(seed, maxLevelOfNesting);
+    ExprBank exprBank(seed, maxLevelOfNesting);
     for (int i = 0; i < 1000; ++i) {
       auto expression = fuzzer.fuzzExpression().expressions[0];
       exprBank.insert(expression);
