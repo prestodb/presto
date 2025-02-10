@@ -234,7 +234,7 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_MAX_EXECUTION_TIME = "query_retry_max_execution_time";
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
     public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
-    public static final String ENHANCED_CTE_SCHEDULING_ENABLED = "enhanced-cte-scheduling-enabled";
+    public static final String ENHANCED_CTE_SCHEDULING_ENABLED = "enhanced_cte_scheduling_enabled";
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
     public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
