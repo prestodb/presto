@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/expression/fuzzer/ArgsOverrideFunctions.h"
+#include "velox/expression/fuzzer/ArgValuesGenerators.h"
 
 #include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/common/fuzzer/Utils.h"

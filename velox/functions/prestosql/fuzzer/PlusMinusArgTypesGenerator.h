@@ -15,25 +15,21 @@
  */
 #pragma once
 
-#include "velox/expression/fuzzer/DecimalArgGeneratorBase.h"
+#include "velox/expression/fuzzer/DecimalArgTypesGeneratorBase.h"
 
 namespace facebook::velox::exec::test {
 
-class MultiplyArgGenerator : public fuzzer::DecimalArgGeneratorBase {
+class PlusMinusArgTypesGenerator : public fuzzer::DecimalArgTypesGeneratorBase {
  public:
-  MultiplyArgGenerator() {
+  PlusMinusArgTypesGenerator() {
     initialize(2);
   }
 
  protected:
   std::optional<std::pair<int, int>>
   toReturnType(int p1, int s1, int p2, int s2) override {
-    if (s1 + s2 > 38) {
-      return std::nullopt;
-    }
-
-    auto p = std::min(38, p1 + p2);
-    auto s = s1 + s2;
+    auto s = std::max(s1, s2);
+    auto p = std::min(38, std::max(p1 - s1, p2 - s2) + 1 + s);
     return {{p, s}};
   }
 };

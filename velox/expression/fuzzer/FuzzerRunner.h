@@ -41,11 +41,11 @@ class FuzzerRunner {
       const std::unordered_map<std::string, std::shared_ptr<ExprTransformer>>&
           exprTransformers,
       const std::unordered_map<std::string, std::string>& queryConfigs,
-      const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-          argGenerators,
+      const std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>&
+          argTypesGenerators,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<ArgValuesGenerator>>& argsOverrideFuncs,
+          std::shared_ptr<ArgValuesGenerator>>& argValuesGenerators,
       std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner,
       const std::shared_ptr<SpecialFormSignatureGenerator>& signatureGenerator);
 
@@ -56,11 +56,11 @@ class FuzzerRunner {
       const std::unordered_map<std::string, std::shared_ptr<ExprTransformer>>&
           exprTransformers,
       const std::unordered_map<std::string, std::string>& queryConfigs,
-      const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-          argGenerators,
+      const std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>&
+          argTypesGenerators,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<ArgValuesGenerator>>& argsOverrideFuncs,
+          std::shared_ptr<ArgValuesGenerator>>& argValuesGenerators,
       std::shared_ptr<exec::test::ReferenceQueryRunner> referenceQueryRunner,
       const std::shared_ptr<SpecialFormSignatureGenerator>& signatureGenerator);
 };

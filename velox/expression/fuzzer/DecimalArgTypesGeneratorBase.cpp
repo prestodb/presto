@@ -13,7 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/fuzzer/DecimalArgGeneratorBase.h"
+#include "velox/expression/fuzzer/DecimalArgTypesGeneratorBase.h"
+
 #include <boost/random/uniform_int_distribution.hpp>
 
 namespace facebook::velox::fuzzer {
@@ -40,7 +41,7 @@ uint32_t rand32(uint32_t max, FuzzerGenerator& rng) {
 }
 } // namespace
 
-std::vector<TypePtr> DecimalArgGeneratorBase::generateArgs(
+std::vector<TypePtr> DecimalArgTypesGeneratorBase::generateArgs(
     const exec::FunctionSignature& /*signature*/,
     const TypePtr& returnType,
     FuzzerGenerator& rng) {
@@ -53,7 +54,7 @@ std::vector<TypePtr> DecimalArgGeneratorBase::generateArgs(
   return inputs;
 }
 
-void DecimalArgGeneratorBase::initialize(uint32_t numArgs) {
+void DecimalArgTypesGeneratorBase::initialize(uint32_t numArgs) {
   switch (numArgs) {
     case 1: {
       for (const auto& t : getAllTypes()) {
@@ -83,7 +84,7 @@ void DecimalArgGeneratorBase::initialize(uint32_t numArgs) {
   }
 }
 
-std::vector<TypePtr> DecimalArgGeneratorBase::findInputs(
+std::vector<TypePtr> DecimalArgTypesGeneratorBase::findInputs(
     const TypePtr& returnType,
     FuzzerGenerator& rng) const {
   const auto [p, s] = getDecimalPrecisionScale(*returnType);

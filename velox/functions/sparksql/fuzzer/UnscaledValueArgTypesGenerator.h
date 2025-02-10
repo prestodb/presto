@@ -16,27 +16,22 @@
 #pragma once
 
 #include <boost/random/uniform_int_distribution.hpp>
-#include "velox/expression/fuzzer/ArgGenerator.h"
+#include "velox/expression/fuzzer/ArgTypesGenerator.h"
 #include "velox/functions/sparksql/DecimalUtil.h"
 
 namespace facebook::velox::functions::sparksql::fuzzer {
 
-class MakeTimestampArgGenerator : public velox::fuzzer::ArgGenerator {
+class UnscaledValueArgTypesGenerator : public velox::fuzzer::ArgTypesGenerator {
  public:
   std::vector<TypePtr> generateArgs(
       const exec::FunctionSignature& signature,
       const TypePtr& returnType,
       FuzzerGenerator& rng) override {
-    const auto s = 6;
-    const auto p = rand32(s, ShortDecimalType::kMaxPrecision, rng);
-    std::vector<TypePtr> types = {
-        INTEGER(), INTEGER(), INTEGER(), INTEGER(), INTEGER(), DECIMAL(p, s)};
+    const auto p = rand32(
+        ShortDecimalType::kMinPrecision, ShortDecimalType::kMaxPrecision, rng);
+    const auto s = rand32(0, p, rng);
 
-    if (signature.argumentTypes().size() == 6) {
-      return types;
-    }
-    types.push_back(VARCHAR());
-    return types;
+    return {DECIMAL(p, s)};
   }
 
  private:

@@ -15,16 +15,16 @@
  */
 
 #include <gtest/gtest.h>
-#include "velox/expression/fuzzer/DecimalArgGeneratorBase.h"
-#include "velox/expression/fuzzer/tests/ArgGeneratorTestUtils.h"
+#include "velox/expression/fuzzer/DecimalArgTypesGeneratorBase.h"
+#include "velox/expression/fuzzer/tests/ArgTypesGeneratorTestUtils.h"
 
 namespace facebook::velox::fuzzer::test {
 
-class DecimalArgGeneratorTest : public testing::Test {
+class DecimalArgTypesGeneratorTest : public testing::Test {
  protected:
-  class UnaryArgGenerator : public DecimalArgGeneratorBase {
+  class UnaryArgTypesGenerator : public DecimalArgTypesGeneratorBase {
    public:
-    UnaryArgGenerator() {
+    UnaryArgTypesGenerator() {
       initialize(1);
     }
 
@@ -36,9 +36,9 @@ class DecimalArgGeneratorTest : public testing::Test {
     }
   };
 
-  class BinaryArgGenerator : public DecimalArgGeneratorBase {
+  class BinaryArgTypesGenerator : public DecimalArgTypesGeneratorBase {
    public:
-    BinaryArgGenerator() {
+    BinaryArgTypesGenerator() {
       initialize(2);
     }
 
@@ -52,7 +52,7 @@ class DecimalArgGeneratorTest : public testing::Test {
   };
 };
 
-TEST_F(DecimalArgGeneratorTest, unary) {
+TEST_F(DecimalArgTypesGeneratorTest, unary) {
   auto signature =
       exec::FunctionSignatureBuilder()
           .integerVariable("scale")
@@ -63,14 +63,14 @@ TEST_F(DecimalArgGeneratorTest, unary) {
           .argumentType("decimal(precision, scale)")
           .build();
 
-  const auto generator = std::make_shared<UnaryArgGenerator>();
+  const auto generator = std::make_shared<UnaryArgTypesGenerator>();
   for (auto returnType : {DECIMAL(10, 2), DECIMAL(38, 18)}) {
     assertReturnType(generator, *signature, returnType);
   }
   assertEmptyArgs(generator, *signature, DECIMAL(38, 20));
 }
 
-TEST_F(DecimalArgGeneratorTest, binary) {
+TEST_F(DecimalArgTypesGeneratorTest, binary) {
   auto signature =
       exec::FunctionSignatureBuilder()
           .integerVariable("a_scale")
@@ -86,7 +86,7 @@ TEST_F(DecimalArgGeneratorTest, binary) {
           .argumentType("decimal(b_precision, b_scale)")
           .build();
 
-  const auto generator = std::make_shared<BinaryArgGenerator>();
+  const auto generator = std::make_shared<BinaryArgTypesGenerator>();
   for (auto returnType :
        {DECIMAL(10, 2), DECIMAL(38, 20), DECIMAL(38, 38), DECIMAL(38, 0)}) {
     assertReturnType(generator, *signature, returnType);

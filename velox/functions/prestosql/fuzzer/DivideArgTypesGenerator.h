@@ -15,13 +15,13 @@
  */
 #pragma once
 
-#include "velox/expression/fuzzer/DecimalArgGeneratorBase.h"
+#include "velox/expression/fuzzer/DecimalArgTypesGeneratorBase.h"
 
 namespace facebook::velox::exec::test {
 
-class DivideArgGenerator : public fuzzer::DecimalArgGeneratorBase {
+class DivideArgTypesGenerator : public fuzzer::DecimalArgTypesGeneratorBase {
  public:
-  DivideArgGenerator() {
+  DivideArgTypesGenerator() {
     initialize(2);
   }
 

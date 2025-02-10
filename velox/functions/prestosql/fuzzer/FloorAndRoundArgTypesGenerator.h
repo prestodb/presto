@@ -16,11 +16,11 @@
 #pragma once
 
 #include <boost/random/uniform_int_distribution.hpp>
-#include "velox/expression/fuzzer/ArgGenerator.h"
+#include "velox/expression/fuzzer/ArgTypesGenerator.h"
 
 namespace facebook::velox::exec::test {
 
-class FloorAndRoundArgGenerator : public fuzzer::ArgGenerator {
+class FloorAndRoundArgTypesGenerator : public fuzzer::ArgTypesGenerator {
  public:
   std::vector<TypePtr> generateArgs(
       const exec::FunctionSignature& signature,

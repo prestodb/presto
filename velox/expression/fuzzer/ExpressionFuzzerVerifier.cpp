@@ -56,10 +56,10 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
     const FunctionSignatureMap& signatureMap,
     size_t initialSeed,
     const ExpressionFuzzerVerifier::Options& options,
-    const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-        argGenerators,
+    const std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>&
+        argTypesGenerators,
     const std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>&
-        argsOverrideFuncs)
+        argValuesGenerators)
     : options_(options),
       queryCtx_(core::QueryCtx::create(
           nullptr,
@@ -79,8 +79,8 @@ ExpressionFuzzerVerifier::ExpressionFuzzerVerifier(
           initialSeed,
           vectorFuzzer_,
           options_.expressionFuzzerOptions,
-          argGenerators,
-          argsOverrideFuncs),
+          argTypesGenerators,
+          argValuesGenerators),
       referenceQueryRunner_{
           options_.expressionFuzzerOptions.referenceQueryRunner} {
   filesystems::registerLocalFileSystem();

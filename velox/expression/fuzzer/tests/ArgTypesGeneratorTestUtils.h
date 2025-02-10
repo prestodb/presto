@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/expression/fuzzer/ArgGenerator.h"
+#include "velox/expression/fuzzer/ArgTypesGenerator.h"
 #include "velox/functions/FunctionRegistry.h"
 
 namespace facebook::velox::fuzzer::test {
@@ -23,13 +23,13 @@ namespace facebook::velox::fuzzer::test {
 /// Assert the equivalence between the given return type and the actual type
 /// resolved from generated argument types.
 void assertReturnType(
-    const std::shared_ptr<ArgGenerator>& generator,
+    const std::shared_ptr<ArgTypesGenerator>& generator,
     const exec::FunctionSignature& signature,
     const TypePtr& returnType);
 
 // Assert that no argument types can be generated for the given return type.
 void assertEmptyArgs(
-    std::shared_ptr<ArgGenerator> generator,
+    std::shared_ptr<ArgTypesGenerator> generator,
     const exec::FunctionSignature& signature,
     const TypePtr& returnType);
 

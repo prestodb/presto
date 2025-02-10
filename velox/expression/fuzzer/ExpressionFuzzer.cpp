@@ -272,15 +272,15 @@ ExpressionFuzzer::ExpressionFuzzer(
     size_t initialSeed,
     const std::shared_ptr<VectorFuzzer>& vectorFuzzer,
     const std::optional<ExpressionFuzzer::Options>& options,
-    const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-        argGenerators,
+    const std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>&
+        argTypesGenerators,
     const std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>&
-        argsOverrideFuncs)
+        argValuesGenerators)
     : options_(options.value_or(Options())),
       vectorFuzzer_(vectorFuzzer),
       state_{rng_, std::max(1, options_.maxLevelOfNesting)},
-      argGenerators_(argGenerators),
-      funcArgOverrides_{argsOverrideFuncs} {
+      argTypesGenerators_(argTypesGenerators),
+      argValuesGenerators_(argValuesGenerators) {
   VELOX_CHECK(vectorFuzzer, "Vector fuzzer must be provided");
   seed(initialSeed);
 
@@ -843,20 +843,20 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
 std::vector<core::TypedExprPtr> ExpressionFuzzer::getArgsForCallable(
     const CallableSignature& callable) {
   // Special case for switch because it has a variable number of arguments not
-  // specified in the signature. Other functions' argument override should be
-  // specified through funcArgOverrides_.
+  // specified in the signature. Other functions' argument generators should be
+  // specified through argValuesGenerators_.
   if (callable.name == "switch") {
     return generateSwitchArgs(callable);
   }
 
-  auto funcIt = funcArgOverrides_.find(callable.name);
-  if (funcIt == funcArgOverrides_.end()) {
+  auto funcIt = argValuesGenerators_.find(callable.name);
+  if (funcIt == argValuesGenerators_.end()) {
     return generateArgs(callable);
   }
   auto args = funcIt->second->generate(
       callable, vectorFuzzer_->getOptions(), rng_, state_);
   for (auto i = 0; i < args.size(); ++i) {
-    // Generate arguments not specified in the override.
+    // Generate arguments not specified in the generator.
     if (args[i] == nullptr) {
       args[i] = generateArg(callable.args.at(i), callable.constantArgs.at(i));
     }
@@ -1041,11 +1041,11 @@ core::TypedExprPtr ExpressionFuzzer::generateExpressionFromSignatureTemplate(
     // Use the argument fuzzer to generate argument types.
     argumentTypes = fuzzer.argumentTypes();
   } else {
-    auto it = argGenerators_.find(functionName);
+    auto it = argTypesGenerators_.find(functionName);
     // Since the argument type fuzzer cannot produce argument types, argument
     // generators should be provided.
     VELOX_CHECK(
-        it != argGenerators_.end(),
+        it != argTypesGenerators_.end(),
         "Cannot generate argument types for {} with return type {}.",
         functionName,
         returnType->toString());

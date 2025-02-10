@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/fuzzer/tests/ArgGeneratorTestUtils.h"
+#include "velox/expression/fuzzer/tests/ArgTypesGeneratorTestUtils.h"
+
 #include <gtest/gtest.h>
 #include "velox/expression/SignatureBinder.h"
 
 namespace facebook::velox::fuzzer::test {
 
 void assertReturnType(
-    const std::shared_ptr<ArgGenerator>& generator,
+    const std::shared_ptr<ArgTypesGenerator>& generator,
     const exec::FunctionSignature& signature,
     const TypePtr& returnType) {
   FuzzerGenerator seed{0};
@@ -39,7 +40,7 @@ void assertReturnType(
 }
 
 void assertEmptyArgs(
-    std::shared_ptr<ArgGenerator> generator,
+    std::shared_ptr<ArgTypesGenerator> generator,
     const exec::FunctionSignature& signature,
     const TypePtr& returnType) {
   FuzzerGenerator seed{0};

@@ -22,7 +22,7 @@ add_executable(
   ArrayMinTest.cpp
   ArraySortTest.cpp
   ArrayShuffleTest.cpp
-  ArgGeneratorTest.cpp
+  ArgTypesGeneratorTest.cpp
   AtLeastNNonNullsTest.cpp
   BitwiseTest.cpp
   ComparisonsTest.cpp

@@ -16,11 +16,11 @@
 #pragma once
 
 #include <boost/random/uniform_01.hpp>
-#include "velox/expression/fuzzer/DecimalArgGeneratorBase.h"
+#include "velox/expression/fuzzer/DecimalArgTypesGeneratorBase.h"
 
 namespace facebook::velox::exec::test {
 
-class TruncateArgGenerator : public fuzzer::ArgGenerator {
+class TruncateArgTypesGenerator : public fuzzer::ArgTypesGenerator {
  public:
   std::vector<TypePtr> generateArgs(
       const exec::FunctionSignature& signature,

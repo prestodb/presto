@@ -15,36 +15,27 @@
  */
 #pragma once
 
-#include "velox/expression/fuzzer/DecimalArgGeneratorBase.h"
-#include "velox/functions/sparksql/DecimalUtil.h"
+#include "velox/expression/fuzzer/DecimalArgTypesGeneratorBase.h"
 
-namespace facebook::velox::functions::sparksql::fuzzer {
+namespace facebook::velox::exec::test {
 
-class AddSubtractArgGenerator : public velox::fuzzer::DecimalArgGeneratorBase {
+class MultiplyArgTypesGenerator : public fuzzer::DecimalArgTypesGeneratorBase {
  public:
-  AddSubtractArgGenerator(bool allowPrecisionLoss)
-      : allowPrecisionLoss_{allowPrecisionLoss} {
+  MultiplyArgTypesGenerator() {
     initialize(2);
   }
 
  protected:
   std::optional<std::pair<int, int>>
   toReturnType(int p1, int s1, int p2, int s2) override {
-    auto precision = std::max(p1 - s1, p2 - s2) + std::max(s1, s2) + 1;
-    auto scale = std::max(s1, s2);
-    if (allowPrecisionLoss_) {
-      return DecimalUtil::adjustPrecisionScale(precision, scale);
+    if (s1 + s2 > 38) {
+      return std::nullopt;
     }
 
-    if (precision > 38) {
-      precision = 38;
-      scale = std::min(38, scale);
-    }
-    return {{precision, scale}};
+    auto p = std::min(38, p1 + p2);
+    auto s = s1 + s2;
+    return {{p, s}};
   }
-
- private:
-  const bool allowPrecisionLoss_;
 };
 
-} // namespace facebook::velox::functions::sparksql::fuzzer
+} // namespace facebook::velox::exec::test

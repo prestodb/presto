@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/expression/fuzzer/ArgGenerator.h"
+#include "velox/expression/fuzzer/ArgTypesGenerator.h"
 
 namespace facebook::velox::fuzzer {
 
@@ -26,7 +26,7 @@ namespace facebook::velox::fuzzer {
 /// classes should call 'initialize' from the constructor and specify the number
 /// of decimal arguments. They should also implement toReturnType with matching
 /// number of pairs of precision and scale.
-class DecimalArgGeneratorBase : public ArgGenerator {
+class DecimalArgTypesGeneratorBase : public ArgTypesGenerator {
  public:
   std::vector<TypePtr> generateArgs(
       const exec::FunctionSignature& signature,

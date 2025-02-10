@@ -25,9 +25,9 @@ target_link_libraries(
 
 add_library(
   velox_expression_fuzzer
-  ArgsOverrideFunctions.cpp
+  ArgValuesGenerators.cpp
   ArgumentTypeFuzzer.cpp
-  DecimalArgGeneratorBase.cpp
+  DecimalArgTypesGeneratorBase.cpp
   ExpressionFuzzer.cpp
   ExpressionFuzzerVerifier.cpp
   FuzzerRunner.cpp

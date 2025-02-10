@@ -13,20 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/fuzzer/tests/ArgGeneratorTestUtils.h"
-#include "velox/functions/prestosql/fuzzer/DivideArgGenerator.h"
-#include "velox/functions/prestosql/fuzzer/FloorAndRoundArgGenerator.h"
-#include "velox/functions/prestosql/fuzzer/ModulusArgGenerator.h"
-#include "velox/functions/prestosql/fuzzer/MultiplyArgGenerator.h"
-#include "velox/functions/prestosql/fuzzer/PlusMinusArgGenerator.h"
-#include "velox/functions/prestosql/fuzzer/TruncateArgGenerator.h"
+#include "velox/expression/fuzzer/tests/ArgTypesGeneratorTestUtils.h"
+#include "velox/functions/prestosql/fuzzer/DivideArgTypesGenerator.h"
+#include "velox/functions/prestosql/fuzzer/FloorAndRoundArgTypesGenerator.h"
+#include "velox/functions/prestosql/fuzzer/ModulusArgTypesGenerator.h"
+#include "velox/functions/prestosql/fuzzer/MultiplyArgTypesGenerator.h"
+#include "velox/functions/prestosql/fuzzer/PlusMinusArgTypesGenerator.h"
+#include "velox/functions/prestosql/fuzzer/TruncateArgTypesGenerator.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::fuzzer::test;
 namespace {
 
-class ArgGeneratorTest : public functions::test::FunctionBaseTest {
+class ArgTypesGeneratorTest : public functions::test::FunctionBaseTest {
  protected:
   // Returns the only signature with decimal return type for a given function
   // name.
@@ -38,9 +38,10 @@ class ArgGeneratorTest : public functions::test::FunctionBaseTest {
   }
 };
 
-TEST_F(ArgGeneratorTest, plus) {
+TEST_F(ArgTypesGeneratorTest, plus) {
   const auto& signature = getOnlySignature("plus");
-  const auto generator = std::make_shared<exec::test::PlusMinusArgGenerator>();
+  const auto generator =
+      std::make_shared<exec::test::PlusMinusArgTypesGenerator>();
 
   assertReturnType(generator, signature, DECIMAL(10, 2));
   assertReturnType(generator, signature, DECIMAL(32, 6));
@@ -50,9 +51,10 @@ TEST_F(ArgGeneratorTest, plus) {
   assertEmptyArgs(generator, signature, DECIMAL(18, 18));
 }
 
-TEST_F(ArgGeneratorTest, minus) {
+TEST_F(ArgTypesGeneratorTest, minus) {
   const auto& signature = getOnlySignature("minus");
-  const auto generator = std::make_shared<exec::test::PlusMinusArgGenerator>();
+  const auto generator =
+      std::make_shared<exec::test::PlusMinusArgTypesGenerator>();
 
   assertReturnType(generator, signature, DECIMAL(10, 2));
   assertReturnType(generator, signature, DECIMAL(32, 6));
@@ -62,9 +64,10 @@ TEST_F(ArgGeneratorTest, minus) {
   assertEmptyArgs(generator, signature, DECIMAL(18, 18));
 }
 
-TEST_F(ArgGeneratorTest, multiply) {
+TEST_F(ArgTypesGeneratorTest, multiply) {
   const auto& signature = getOnlySignature("multiply");
-  const auto generator = std::make_shared<exec::test::MultiplyArgGenerator>();
+  const auto generator =
+      std::make_shared<exec::test::MultiplyArgTypesGenerator>();
 
   assertReturnType(generator, signature, DECIMAL(10, 2));
   assertReturnType(generator, signature, DECIMAL(18, 18));
@@ -74,9 +77,10 @@ TEST_F(ArgGeneratorTest, multiply) {
   assertReturnType(generator, signature, DECIMAL(38, 0));
 }
 
-TEST_F(ArgGeneratorTest, divide) {
+TEST_F(ArgTypesGeneratorTest, divide) {
   const auto& signature = getOnlySignature("divide");
-  const auto generator = std::make_shared<exec::test::DivideArgGenerator>();
+  const auto generator =
+      std::make_shared<exec::test::DivideArgTypesGenerator>();
 
   assertReturnType(generator, signature, DECIMAL(10, 2));
   assertReturnType(generator, signature, DECIMAL(18, 18));
@@ -86,10 +90,10 @@ TEST_F(ArgGeneratorTest, divide) {
   assertReturnType(generator, signature, DECIMAL(38, 0));
 }
 
-TEST_F(ArgGeneratorTest, floor) {
+TEST_F(ArgTypesGeneratorTest, floor) {
   const auto& signature = getOnlySignature("floor");
   const auto generator =
-      std::make_shared<exec::test::FloorAndRoundArgGenerator>();
+      std::make_shared<exec::test::FloorAndRoundArgTypesGenerator>();
 
   assertReturnType(generator, signature, DECIMAL(10, 0));
   assertReturnType(generator, signature, DECIMAL(18, 0));
@@ -98,12 +102,12 @@ TEST_F(ArgGeneratorTest, floor) {
   assertEmptyArgs(generator, signature, DECIMAL(10, 2));
 }
 
-TEST_F(ArgGeneratorTest, round) {
+TEST_F(ArgTypesGeneratorTest, round) {
   const auto signatures = getSignatures("round", "decimal");
   VELOX_CHECK_EQ(signatures.size(), 2);
   bool isSingleArg = signatures[0]->argumentTypes().size() == 1;
   const auto generator =
-      std::make_shared<exec::test::FloorAndRoundArgGenerator>();
+      std::make_shared<exec::test::FloorAndRoundArgTypesGenerator>();
 
   const auto& singleArgSignature =
       isSingleArg ? *signatures[0] : *signatures[1];
@@ -123,9 +127,10 @@ TEST_F(ArgGeneratorTest, round) {
   assertEmptyArgs(generator, twoArgsSignature, DECIMAL(1, 0));
 }
 
-TEST_F(ArgGeneratorTest, modulus) {
+TEST_F(ArgTypesGeneratorTest, modulus) {
   const auto& signature = getOnlySignature("mod");
-  const auto generator = std::make_shared<exec::test::ModulusArgGenerator>();
+  const auto generator =
+      std::make_shared<exec::test::ModulusArgTypesGenerator>();
 
   assertReturnType(generator, signature, DECIMAL(10, 2));
   assertReturnType(generator, signature, DECIMAL(32, 6));
@@ -134,13 +139,14 @@ TEST_F(ArgGeneratorTest, modulus) {
   assertReturnType(generator, signature, DECIMAL(38, 0));
 }
 
-TEST_F(ArgGeneratorTest, truncate) {
+TEST_F(ArgTypesGeneratorTest, truncate) {
   const auto signatures = getSignatures("truncate", "decimal");
   VELOX_CHECK_EQ(signatures.size(), 2);
   const auto& signature = signatures[0]->argumentTypes().size() == 1
       ? *signatures[0]
       : *signatures[1];
-  const auto generator = std::make_shared<exec::test::TruncateArgGenerator>();
+  const auto generator =
+      std::make_shared<exec::test::TruncateArgTypesGenerator>();
 
   assertReturnType(generator, signature, DECIMAL(1, 0));
   assertReturnType(generator, signature, DECIMAL(10, 0));

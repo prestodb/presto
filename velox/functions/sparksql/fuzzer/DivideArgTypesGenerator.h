@@ -15,14 +15,15 @@
  */
 #pragma once
 
-#include "velox/expression/fuzzer/DecimalArgGeneratorBase.h"
+#include "velox/expression/fuzzer/DecimalArgTypesGeneratorBase.h"
 #include "velox/functions/sparksql/DecimalUtil.h"
 
 namespace facebook::velox::functions::sparksql::fuzzer {
 
-class DivideArgGenerator : public velox::fuzzer::DecimalArgGeneratorBase {
+class DivideArgTypesGenerator
+    : public velox::fuzzer::DecimalArgTypesGeneratorBase {
  public:
-  DivideArgGenerator(bool allowPrecisionLoss)
+  DivideArgTypesGenerator(bool allowPrecisionLoss)
       : allowPrecisionLoss_{allowPrecisionLoss} {
     initialize(2);
   }

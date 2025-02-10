@@ -25,16 +25,16 @@
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/expression/fuzzer/FuzzerRunner.h"
 #include "velox/expression/fuzzer/SparkSpecialFormSignatureGenerator.h"
-#include "velox/functions/prestosql/fuzzer/FloorAndRoundArgGenerator.h"
-#include "velox/functions/sparksql/fuzzer/AddSubtractArgGenerator.h"
-#include "velox/functions/sparksql/fuzzer/DivideArgGenerator.h"
-#include "velox/functions/sparksql/fuzzer/MakeTimestampArgGenerator.h"
-#include "velox/functions/sparksql/fuzzer/MultiplyArgGenerator.h"
-#include "velox/functions/sparksql/fuzzer/UnscaledValueArgGenerator.h"
+#include "velox/functions/prestosql/fuzzer/FloorAndRoundArgTypesGenerator.h"
+#include "velox/functions/sparksql/fuzzer/AddSubtractArgTypesGenerator.h"
+#include "velox/functions/sparksql/fuzzer/DivideArgTypesGenerator.h"
+#include "velox/functions/sparksql/fuzzer/MakeTimestampArgTypesGenerator.h"
+#include "velox/functions/sparksql/fuzzer/MultiplyArgTypesGenerator.h"
+#include "velox/functions/sparksql/fuzzer/UnscaledValueArgTypesGenerator.h"
 #include "velox/functions/sparksql/registration/Register.h"
 
 using namespace facebook::velox::functions::sparksql::fuzzer;
-using facebook::velox::fuzzer::ArgGenerator;
+using facebook::velox::fuzzer::ArgTypesGenerator;
 using facebook::velox::test::ReferenceQueryRunner;
 
 DEFINE_int64(
@@ -81,24 +81,27 @@ int main(int argc, char** argv) {
       {facebook::velox::core::QueryConfig::kSessionTimezone,
        "America/Los_Angeles"}};
 
-  std::unordered_map<std::string, std::shared_ptr<ArgGenerator>> argGenerators =
-      {{"add", std::make_shared<AddSubtractArgGenerator>(true)},
-       {"add_deny_precision_loss",
-        std::make_shared<AddSubtractArgGenerator>(false)},
-       {"subtract", std::make_shared<AddSubtractArgGenerator>(true)},
-       {"subtract_deny_precision_loss",
-        std::make_shared<AddSubtractArgGenerator>(false)},
-       {"multiply", std::make_shared<MultiplyArgGenerator>(true)},
-       {"multiply_deny_precision_loss",
-        std::make_shared<MultiplyArgGenerator>(false)},
-       {"divide", std::make_shared<DivideArgGenerator>(true)},
-       {"divide_deny_precision_loss",
-        std::make_shared<DivideArgGenerator>(false)},
-       {"floor",
-        std::make_shared<
-            facebook::velox::exec::test::FloorAndRoundArgGenerator>()},
-       {"unscaled_value", std::make_shared<UnscaledValueArgGenerator>()},
-       {"make_timestamp", std::make_shared<MakeTimestampArgGenerator>()}};
+  std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>
+      argTypesGenerators = {
+          {"add", std::make_shared<AddSubtractArgTypesGenerator>(true)},
+          {"add_deny_precision_loss",
+           std::make_shared<AddSubtractArgTypesGenerator>(false)},
+          {"subtract", std::make_shared<AddSubtractArgTypesGenerator>(true)},
+          {"subtract_deny_precision_loss",
+           std::make_shared<AddSubtractArgTypesGenerator>(false)},
+          {"multiply", std::make_shared<MultiplyArgTypesGenerator>(true)},
+          {"multiply_deny_precision_loss",
+           std::make_shared<MultiplyArgTypesGenerator>(false)},
+          {"divide", std::make_shared<DivideArgTypesGenerator>(true)},
+          {"divide_deny_precision_loss",
+           std::make_shared<DivideArgTypesGenerator>(false)},
+          {"floor",
+           std::make_shared<
+               facebook::velox::exec::test::FloorAndRoundArgTypesGenerator>()},
+          {"unscaled_value",
+           std::make_shared<UnscaledValueArgTypesGenerator>()},
+          {"make_timestamp",
+           std::make_shared<MakeTimestampArgTypesGenerator>()}};
 
   std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
   return FuzzerRunner::run(
@@ -106,7 +109,7 @@ int main(int argc, char** argv) {
       skipFunctions,
       {{}},
       queryConfigs,
-      argGenerators,
+      argTypesGenerators,
       {{}},
       referenceQueryRunner,
       std::make_shared<

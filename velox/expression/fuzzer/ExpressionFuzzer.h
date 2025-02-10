@@ -19,7 +19,7 @@
 #include "velox/core/ITypedExpr.h"
 #include "velox/exec/fuzzer/ExprTransformer.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
-#include "velox/expression/fuzzer/ArgGenerator.h"
+#include "velox/expression/fuzzer/ArgTypesGenerator.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -117,11 +117,11 @@ class ExpressionFuzzer {
       size_t initialSeed,
       const std::shared_ptr<VectorFuzzer>& vectorFuzzer,
       const std::optional<ExpressionFuzzer::Options>& options = std::nullopt,
-      const std::unordered_map<std::string, std::shared_ptr<ArgGenerator>>&
-          argGenerators = {},
+      const std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>&
+          argTypesGenerators = {},
       const std::unordered_map<
           std::string,
-          std::shared_ptr<ArgValuesGenerator>>& argsOverrideFuncs = {});
+          std::shared_ptr<ArgValuesGenerator>>& argValuesGenerators = {});
 
   struct FuzzedExpressionData {
     // A list of generated expressions.
@@ -343,7 +343,8 @@ class ExpressionFuzzer {
   State state_;
 
   // Maps from function name to a specific generator of argument types.
-  std::unordered_map<std::string, std::shared_ptr<ArgGenerator>> argGenerators_;
+  std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>
+      argTypesGenerators_;
 
   /// We allow the arg generation routine to be specialized for particular
   /// functions. This map stores the mapping between function name and the
@@ -357,7 +358,7 @@ class ExpressionFuzzer {
   /// of arguments in the overridden method. Arguments at indices beyond the
   /// argument size in the input function signature cannot be left unspecified.)
   std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>
-      funcArgOverrides_;
+      argValuesGenerators_;
 
   friend class ExpressionFuzzerUnitTest;
 };

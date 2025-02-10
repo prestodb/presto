@@ -22,9 +22,9 @@ namespace facebook::velox::fuzzer {
 
 /// Generates random, but valid input types for a specified function signature
 /// with the return type.
-class ArgGenerator {
+class ArgTypesGenerator {
  public:
-  virtual ~ArgGenerator() = default;
+  virtual ~ArgTypesGenerator() = default;
 
   /// Given a signature and a concrete return type returns randomly selected
   /// valid input types. Returns empty vector if no input types can produce the
