@@ -25,10 +25,12 @@ import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.AccessControl;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.connector.system.SystemConnectorSessionUtil.toSession;
@@ -88,15 +90,19 @@ public class TableJdbcTable
         for (String catalog : filter(listCatalogs(session, metadata, accessControl).keySet(), catalogFilter)) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
-            if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {
-                for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
-                    table.addRow(tableRow(catalog, name, "TABLE"));
+            Set<SchemaTableName> views = ImmutableSet.of();
+            if (FilterUtil.emptyOrEquals(typeFilter, "VIEW")) {
+                views = ImmutableSet.copyOf(listViews(session, metadata, accessControl, prefix));
+                for (SchemaTableName name : views) {
+                    table.addRow(tableRow(catalog, name, "VIEW"));
                 }
             }
 
-            if (FilterUtil.emptyOrEquals(typeFilter, "VIEW")) {
-                for (SchemaTableName name : listViews(session, metadata, accessControl, prefix)) {
-                    table.addRow(tableRow(catalog, name, "VIEW"));
+            if (FilterUtil.emptyOrEquals(typeFilter, "TABLE")) {
+                for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
+                    if (!views.contains(name)) {
+                        table.addRow(tableRow(catalog, name, "TABLE"));
+                    }
                 }
             }
         }
