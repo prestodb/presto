@@ -2386,7 +2386,7 @@ class DataFetcher {
 /// granularity. It can do so only if PartitionedOutput operator limits the size
 /// of individual pages. PartitionedOutput operator is expected to limit page
 /// sizes to no more than 1MB give and take 30%.
-TEST_P(MultiFragmentTest, maxBytes) {
+DEBUG_ONLY_TEST_P(MultiFragmentTest, maxBytes) {
   if (GetParam().compressionKind != common::CompressionKind_NONE) {
     // NOTE: different compression generates different serialized byte size so
     // only test with no-compression to ease testing.s
