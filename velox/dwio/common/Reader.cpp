@@ -49,6 +49,7 @@ VectorPtr RowReader::projectColumns(
     }
   }
   for (auto& childSpec : spec.children()) {
+    VELOX_CHECK_NULL(childSpec->deltaUpdate());
     VectorPtr child;
     if (childSpec->isConstant()) {
       child = BaseVector::wrapInConstant(
@@ -133,7 +134,7 @@ void RowReader::readWithRowNumber(
   const auto& rowNumberColumnName = rowNumberColumnInfo->name;
   column_index_t numChildren{0};
   for (auto& column : options.scanSpec()->children()) {
-    if (column->projectOut()) {
+    if (column->keepValues()) {
       ++numChildren;
     }
   }

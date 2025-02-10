@@ -95,6 +95,10 @@ class SplitReader {
 
   void setConnectorQueryCtx(const ConnectorQueryCtx* connectorQueryCtx);
 
+  const RowTypePtr& readerOutputType() const {
+    return readerOutputType_;
+  }
+
   std::string toString() const;
 
  protected:
@@ -113,7 +117,11 @@ class SplitReader {
 
   /// Create the dwio::common::Reader object baseReader_, which will be used to
   /// read the data file's metadata and schema
-  RowTypePtr createReader();
+  void createReader();
+
+  // Adjust the scan spec according to the current split, then return the
+  // adapted row type.
+  RowTypePtr getAdaptedRowType() const;
 
   // Check if the filters pass on the column statistics.  When delta update is
   // present, the corresonding filter should be disabled before calling this
@@ -155,7 +163,7 @@ class SplitReader {
   const ConnectorQueryCtx* connectorQueryCtx_;
   const std::shared_ptr<const HiveConfig> hiveConfig_;
 
-  const RowTypePtr readerOutputType_;
+  RowTypePtr readerOutputType_;
   const std::shared_ptr<io::IoStatistics> ioStats_;
   FileHandleFactory* const fileHandleFactory_;
   folly::Executor* const executor_;

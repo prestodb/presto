@@ -162,7 +162,7 @@ class ScanSpec {
   }
 
   bool keepValues() const {
-    return projectOut_;
+    return projectOut_ || deltaUpdate_;
   }
 
   // Position in the RowVector returned by the top level scan. Applies

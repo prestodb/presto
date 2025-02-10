@@ -487,7 +487,7 @@ void SelectiveStructColumnReaderBase::getValues(
   setComplexNulls(rows, *result);
   for (const auto& childSpec : scanSpec_->children()) {
     VELOX_TRACE_HISTORY_PUSH("getValues %s", childSpec->fieldName().c_str());
-    if (!childSpec->projectOut()) {
+    if (!childSpec->keepValues()) {
       continue;
     }
 
