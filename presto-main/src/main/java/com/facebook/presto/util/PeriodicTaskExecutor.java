@@ -17,10 +17,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongUnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.round;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -32,6 +34,7 @@ public class PeriodicTaskExecutor
     private final Runnable runnable;
     private final LongUnaryOperator nextDelayFunction;
     private final AtomicBoolean started = new AtomicBoolean();
+    private final AtomicLong lastRunMs = new AtomicLong();
 
     private volatile long delayMillis;
     private volatile ScheduledFuture<?> scheduledFuture;
@@ -81,6 +84,7 @@ public class PeriodicTaskExecutor
 
     public void forceRun()
     {
+        lastRunMs.set(currentTimeMillis());
         executor.execute(runnable);
     }
 
@@ -103,5 +107,10 @@ public class PeriodicTaskExecutor
             throws Exception
     {
         stop();
+    }
+
+    public long getLastRunDelayMs()
+    {
+        return currentTimeMillis() - lastRunMs.get();
     }
 }
