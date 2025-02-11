@@ -18,6 +18,13 @@
         <scala.version>2.12.2</scala.version>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.avro</groupId>
@@ -53,8 +60,14 @@
             <artifactId>tempto-ldap</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.prestodb.tempto</groupId>
+            <groupId>com.github.adkharat.tempto</groupId>
             <artifactId>tempto-kafka</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-cli</groupId>
+                    <artifactId>commons-cli</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>io.prestodb.tempto</groupId>
@@ -140,6 +153,10 @@
                 <exclusion>
                     <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.dropwizard.metrics</groupId>
+                    <artifactId>metrics-core</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
