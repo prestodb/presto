@@ -19,6 +19,7 @@ import com.facebook.presto.common.array.AdaptiveLongBigArray;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 import java.util.Optional;
@@ -40,12 +41,32 @@ public class JoinHashSupplier
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
+    public static long getEstimatedRetainedSizeInBytes(
+            int positionCount,
+            AdaptiveLongBigArray addresses,
+            List<ObjectArrayList<Block>> channels,
+            long blocksSizeInBytes,
+            Optional<Integer> sortChannel)
+    {
+        long result = 0;
+        if (sortChannel.isPresent()) {
+            result += SortedPositionLinks.getEstimatedRetainedSizeInBytes(positionCount);
+        }
+        else {
+            result += ArrayPositionLinks.getEstimatedRetainedSizeInBytes(positionCount);
+        }
+        result += getPageInstancesRetainedSizeInBytes(channels);
+        result += PagesHash.getEstimatedRetainedSizeInBytes(positionCount, addresses, channels, blocksSizeInBytes);
+
+        return result;
+    }
+
     public JoinHashSupplier(
             Session session,
             PagesHashStrategy pagesHashStrategy,
             AdaptiveLongBigArray addresses,
             int positionCount,
-            List<List<Block>> channels,
+            List<ObjectArrayList<Block>> channels,
             Optional<JoinFilterFunctionFactory> filterFunctionFactory,
             Optional<Integer> sortChannel,
             List<JoinFilterFunctionFactory> searchFunctionFactories)
@@ -121,5 +142,14 @@ public class JoinHashSupplier
                             .collect(toImmutableList());
                     return links.create(searchFunctions);
                 }));
+    }
+
+    private static long getPageInstancesRetainedSizeInBytes(List<ObjectArrayList<Block>> channels)
+    {
+        if (channels.isEmpty()) {
+            return 0;
+        }
+        int pagesCount = channels.get(0).size();
+        return Page.getInstanceSizeInBytes(channels.size()) * pagesCount;
     }
 }
