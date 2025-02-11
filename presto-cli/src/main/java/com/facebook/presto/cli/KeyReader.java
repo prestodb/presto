@@ -13,13 +13,12 @@
  */
 package com.facebook.presto.cli;
 
+import org.fusesource.jansi.AnsiConsole;
+
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-
-import static org.fusesource.jansi.internal.CLibrary.STDIN_FILENO;
-import static org.fusesource.jansi.internal.CLibrary.isatty;
 
 public final class KeyReader
 {
@@ -47,7 +46,10 @@ public final class KeyReader
     private static boolean hasTerminal()
     {
         try {
-            return isatty(STDIN_FILENO) == 1;
+            AnsiConsole.systemInstall();
+            boolean isAnsiSupported = AnsiConsole.isInstalled();
+            AnsiConsole.systemUninstall(); // Uninstall after check
+            return isAnsiSupported;
         }
         catch (Throwable e) {
             return false;
