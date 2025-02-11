@@ -45,6 +45,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.Grant;
 import com.facebook.presto.sql.tree.GrantRoles;
 import com.facebook.presto.sql.tree.Insert;
+import com.facebook.presto.sql.tree.Merge;
 import com.facebook.presto.sql.tree.Prepare;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
@@ -105,6 +106,7 @@ public final class StatementUtils
 
         builder.put(Delete.class, QueryType.DELETE);
         builder.put(Update.class, QueryType.UPDATE);
+        builder.put(Merge.class, QueryType.MERGE);
 
         builder.put(ShowCatalogs.class, QueryType.DESCRIBE);
         builder.put(ShowCreate.class, QueryType.DESCRIBE);
