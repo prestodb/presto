@@ -28,7 +28,7 @@ import java.util.Optional;
 
 public interface MetadataReader
 {
-    PostScript readPostScript(byte[] data, int offset, int length)
+    PostScript readPostScript(OrcDataSourceId orcDataSourceId, byte[] data, int offset, int length)
             throws IOException;
 
     Metadata readMetadata(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
