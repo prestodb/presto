@@ -17,6 +17,7 @@ package com.facebook.presto.execution.scheduler;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.AnalyzeTableHandle;
+import com.facebook.presto.metadata.DeleteTableHandle;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.TableLayoutResult;
 import com.facebook.presto.spi.ColumnHandle;
@@ -157,12 +158,15 @@ public class TableWriteInfo
 
     private static Optional<DeleteScanInfo> createDeleteScanInfo(DeleteNode delete, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
     {
-        TableHandle tableHandle = ((ExecutionWriterTarget.DeleteHandle) writerTarget.get()).getHandle();
+        /* Metadata.getLayout does not accept DeleteTableHandle
+        *  DeleteScanInfo should stay with TableHandle type so the effect does not continue to ripple out
+         */
+        DeleteTableHandle tableHandle = ((ExecutionWriterTarget.DeleteHandle) writerTarget.get()).getHandle(); //unused in placeholder fix
         TableScanNode tableScan = getDeleteTableScan(delete);
         TupleDomain<ColumnHandle> originalEnforcedConstraint = tableScan.getEnforcedConstraint();
         TableLayoutResult layoutResult = metadata.getLayout(
                 session,
-                tableHandle,
+                tableScan.getTable(), //TODO: untested placeholder fix, please check for discrepancies in output
                 new Constraint<>(originalEnforcedConstraint),
                 Optional.of(ImmutableSet.copyOf(tableScan.getAssignments().values())));
 

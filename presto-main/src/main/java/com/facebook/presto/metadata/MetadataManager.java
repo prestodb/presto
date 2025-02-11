@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
@@ -895,20 +896,19 @@ public class MetadataManager
     }
 
     @Override
-    public TableHandle beginDelete(Session session, TableHandle tableHandle)
+    public DeleteTableHandle beginDelete(Session session, TableHandle tableHandle)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, connectorId);
-        ConnectorTableHandle newHandle = catalogMetadata.getMetadata().beginDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
-        return new TableHandle(
+        ConnectorDeleteTableHandle newHandle = catalogMetadata.getMetadata().beginDelete(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle());
+        return new DeleteTableHandle(
                 tableHandle.getConnectorId(),
-                newHandle,
                 tableHandle.getTransaction(),
-                Optional.empty());
+                newHandle);
     }
 
     @Override
-    public void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments)
+    public void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadata(session, connectorId);
