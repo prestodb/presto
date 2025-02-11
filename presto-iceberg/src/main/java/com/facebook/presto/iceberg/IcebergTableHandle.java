@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.BaseHiveTableHandle;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -28,6 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergTableHandle
         extends BaseHiveTableHandle
+            implements ConnectorDeleteTableHandle
 {
     private final IcebergTableName icebergTableName;
     private final boolean snapshotSpecified;

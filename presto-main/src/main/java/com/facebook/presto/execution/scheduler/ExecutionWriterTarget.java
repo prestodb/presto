@@ -14,6 +14,7 @@
 
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.metadata.DeleteTableHandle;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -106,12 +107,12 @@ public abstract class ExecutionWriterTarget
     public static class DeleteHandle
             extends ExecutionWriterTarget
     {
-        private final TableHandle handle;
+        private final DeleteTableHandle handle;
         private final SchemaTableName schemaTableName;
 
         @JsonCreator
         public DeleteHandle(
-                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("handle") DeleteTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.handle = requireNonNull(handle, "handle is null");
@@ -119,7 +120,7 @@ public abstract class ExecutionWriterTarget
         }
 
         @JsonProperty
-        public TableHandle getHandle()
+        public DeleteTableHandle getHandle()
         {
             return handle;
         }

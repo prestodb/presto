@@ -379,13 +379,13 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public TableHandle beginDelete(Session session, TableHandle tableHandle)
+    public DeleteTableHandle beginDelete(Session session, TableHandle tableHandle)
     {
         return delegate.beginDelete(session, tableHandle);
     }
 
     @Override
-    public void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments)
+    public void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         delegate.finishDelete(session, tableHandle, fragments);
     }
