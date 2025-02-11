@@ -159,7 +159,7 @@ Query failure without ``TRY``:
 
 .. code-block:: none
 
-    Query failed: / by zero
+    Query failed: Division by zero
 
 Default values with ``TRY`` and ``COALESCE``:
 
