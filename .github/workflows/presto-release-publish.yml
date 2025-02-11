@@ -1,4 +1,4 @@
-name: Publish Presto Release
+name: Publish Presto Stable Release
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ on:
         required: true
 
 jobs:
-  publish-release:
+  publish-stable-release:
     runs-on: ubuntu-latest
     environment: release
     timeout-minutes: 300  # 5 hours

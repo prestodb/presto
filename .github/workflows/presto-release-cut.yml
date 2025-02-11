@@ -1,11 +1,10 @@
-name: Presto Stable Release Workflow
+name: Cut Presto Stable Release
 
 on:
   workflow_dispatch:
 
 jobs:
-  presto-release:
-    name: Presto Stable Release Workflow
+  cut-stable-release:
     runs-on: ubuntu-latest
     environment: release
 
@@ -60,11 +59,15 @@ jobs:
             -DautoVersionSubmodules \
             -DdevelopmentVersion=${{ env.PRESTO_RELEASE_VERSION }} \
             -DreleaseVersion=${{ env.PRESTO_RELEASE_VERSION }}
+          grep -m 1 "<version>" pom.xml
+          git log --pretty="format:%ce: %s" -5
           git push --follow-tags origin master
 
       - name: Push release branch
         env:
           PRESTO_RELEASE_VERSION: ${{ steps.get-version.outputs.PRESTO_RELEASE_VERSION }}
         run: |
-          git checkout -b release-${{ env.PRESTO_RELEASE_VERSION }}
+          git checkout ${{ env.PRESTO_RELEASE_VERSION }}
+          git switch -c release-${{ env.PRESTO_RELEASE_VERSION }}
+          git log --pretty="format:%ce: %s" -3
           git push origin release-${{ env.PRESTO_RELEASE_VERSION }}
