@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.storage;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
@@ -47,7 +46,6 @@ import static java.util.Objects.requireNonNull;
 
 public class TempStorageManager
 {
-    private static final Logger log = Logger.get(TempStorageManager.class);
     // TODO: Make this configurable
     private static final File TEMP_STORAGE_CONFIGURATION_DIR = new File("etc/temp-storage/");
     public static final String TEMP_STORAGE_FACTORY_NAME = "temp-storage-factory.name";
@@ -131,8 +129,6 @@ public class TempStorageManager
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
 
-        log.info("-- Loading temp storage %s --", name);
-
         String tempStorageFactoryName = null;
         ImmutableMap.Builder<String, String> tempStorageProperties = ImmutableMap.builder();
         for (Map.Entry<String, String> entry : properties.entrySet()) {
@@ -153,8 +149,6 @@ public class TempStorageManager
         if (loadedTempStorages.putIfAbsent(name, tempStorage) != null) {
             throw new IllegalArgumentException(format("Temp Storage '%s' is already loaded", name));
         }
-
-        log.info("-- Loaded temp storage %s --", name);
     }
 
     private static List<File> listFiles(File dir)
