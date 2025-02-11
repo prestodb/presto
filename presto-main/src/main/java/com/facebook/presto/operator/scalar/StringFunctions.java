@@ -104,6 +104,15 @@ public final class StringFunctions
         return x;
     }
 
+    @Description("count of bits for the given string")
+    @ScalarFunction("bit_length")
+    @LiteralParameters("x")
+    @SqlType(StandardTypes.BIGINT)
+    public static long bitLength(@SqlType("varchar(x)") Slice slice)
+    {
+        return (long) slice.length() * 8;
+    }
+
     @Description("greedily removes occurrences of a pattern in a string")
     @ScalarFunction
     @LiteralParameters({"x", "y"})

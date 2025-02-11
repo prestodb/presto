@@ -137,6 +137,16 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testBitLength()
+    {
+        assertFunction("BIT_LENGTH('')", BIGINT, 0L);
+        assertFunction("BIT_LENGTH('hello')", BIGINT, 40L);
+        // Test bit_length for non-ASCII
+        assertFunction("BIT_LENGTH('hell o\u00EF')", BIGINT, 64L);
+        assertFunction("BIT_LENGTH('中123')", BIGINT, 48L);
+    }
+
+    @Test
     public void testCharLength()
     {
         assertFunction("LENGTH(CAST('hello' AS CHAR(5)))", BIGINT, 5L);
