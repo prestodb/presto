@@ -1,0 +1,111 @@
+name: Publish Presto Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      RELEASE_BRANCH:
+        description: 'Release branch (e.g., release-0.290)'
+        required: true
+      RELEASE_VERSION:
+        description: 'Release version (e.g., 0.290)'
+        required: true
+
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 300  # 5 hours
+
+    env:
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+
+    steps:
+      - name: Setup JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git gpg python3 python3-venv
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.RELEASE_BRANCH }}
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "ci@lists.prestodb.io"
+          git config --global user.name "prestodb-ci"
+          git checkout ${{ github.event.inputs.RELEASE_VERSION }}
+          git log --pretty="format:%ce: %s" -5
+
+      - name: Import GPG key
+        run: |
+          echo "${{ secrets.GPG_SECRET }}" > ${{ github.workspace }}/secret-key.gpg
+          chmod 600 ${{ github.workspace }}/secret-key.gpg
+          gpg --import --batch ${{ github.workspace }}/secret-key.gpg
+          rm -f ${{ github.workspace }}/secret-key.gpg
+          gpg --list-secret-keys
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+        env:
+          GPG_TTY: $(tty)
+
+      - name: Create Maven Settings
+        run: |
+          cat > ${{ github.workspace }}/settings.xml << 'EOL'
+          <settings>
+            <servers>
+              <server>
+                <id>sonatype-nexus-snapshots</id>
+                <username>${env.NEXUS_USERNAME}</username>
+                <password>${env.NEXUS_PASSWORD}</password>
+              </server>
+              <server>
+                <id>sonatype.snapshots</id>
+                <username>${env.NEXUS_USERNAME}</username>
+                <password>${env.NEXUS_PASSWORD}</password>
+              </server>
+              <server>
+                <id>ossrh</id>
+                <username>${env.NEXUS_USERNAME}</username>
+                <password>${env.NEXUS_PASSWORD}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>nexus</id>
+                <!--Enable snapshots for the built in central repo to direct -->
+                <!--all requests to nexus via the mirror -->
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>nexus</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOL
+
+      - name: Release Maven Artifacts
+        run: |
+          unset MAVEN_CONFIG
+          ./mvnw -s ${{ github.workspace }}/settings.xml -V -B -U -e -T1C deploy \
+            -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
+            -Dmaven.wagon.http.retryHandler.count=8 \
+            -DskipTests \
+            -DstagingProfileId=28a0d8c4350ed \
+            -DkeepStagingRepositoryOnFailure=true \
+            -DkeepStagingRepositoryOnCloseRuleFailure=true \
+            -DautoReleaseAfterClose=true \
+            -DstagingProgressTimeoutMinutes=60 \
+            -Poss-release \
+            -Pdeploy-to-ossrh \
+            -pl '!presto-test-coverage'
+        env:
+          GPG_TTY: $(tty)
