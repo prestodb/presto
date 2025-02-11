@@ -1,0 +1,46 @@
+[
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "constant",
+        "type": "bigint",
+        "valueBlock": "CgAAAExPTkdfQVJSQVkBAAAAAEDiAQAAAAAA"
+      },
+      {
+        "@type": "constant",
+        "type": "real",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAH4VFQQ=="
+      },
+      {
+        "@type": "constant",
+        "type": "varchar",
+        "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAMAAAAAAwAAAGFiYw=="
+      }
+    ],
+    "form": "ROW_CONSTRUCTOR",
+    "returnType": "row(bigint,real,varchar)"
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "constant",
+        "type": "real",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAADAfw=="
+      },
+      {
+        "@type": "constant",
+        "type": "varchar",
+        "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAAAAAAAAAAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAA////fw=="
+      }
+    ],
+    "form": "ROW_CONSTRUCTOR",
+    "returnType": "row(real,varchar,integer)"
+  }
+]

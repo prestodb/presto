@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sidecar;
 
+import com.facebook.presto.session.sql.expressions.NativeExpressionOptimizerFactory;
 import com.facebook.presto.sidecar.functionNamespace.NativeFunctionNamespaceManagerFactory;
 import com.facebook.presto.sidecar.nativechecker.NativePlanCheckerProviderFactory;
 import com.facebook.presto.sidecar.sessionpropertyproviders.NativeSystemSessionPropertyProviderFactory;
@@ -20,6 +21,7 @@ import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.plan.PlanCheckerProviderFactory;
 import com.facebook.presto.spi.session.WorkerSessionPropertyProviderFactory;
+import com.facebook.presto.spi.sql.planner.ExpressionOptimizerFactory;
 import com.google.common.collect.ImmutableList;
 
 public class NativeSidecarPlugin
@@ -50,5 +52,10 @@ public class NativeSidecarPlugin
             classLoader = NativeSidecarPlugin.class.getClassLoader();
         }
         return classLoader;
+    }
+    @Override
+    public Iterable<ExpressionOptimizerFactory> getExpressionOptimizerFactories()
+    {
+        return ImmutableList.of(new NativeExpressionOptimizerFactory(getClassLoader()));
     }
 }

@@ -131,3 +131,36 @@ target_link_libraries(
   velox_exec_test_lib
   GTest::gtest
   GTest::gtest_main)
+
+add_executable(presto_expression_converter_test RowExpressionConverterTest.cpp)
+
+add_test(
+  NAME presto_expression_converter_test
+  COMMAND presto_expression_converter_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_expression_converter_test
+  presto_expression_optimizer
+  presto_http
+  presto_type_test_utils
+  velox_exec_test_lib
+  GTest::gtest
+  GTest::gtest_main)
+
+add_executable(presto_expression_optimizer_test RowExpressionOptimizerTest.cpp)
+
+add_test(
+  NAME presto_expression_optimizer_test
+  COMMAND presto_expression_optimizer_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_expression_optimizer_test
+  presto_expression_optimizer
+  presto_http
+  presto_type_test_utils
+  velox_exec_test_lib
+  velox_parse_utils
+  GTest::gtest
+  GTest::gtest_main)

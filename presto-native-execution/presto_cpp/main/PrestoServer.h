@@ -25,6 +25,7 @@
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
+#include "presto_cpp/main/types/RowExpressionOptimizer.h"
 #include "presto_cpp/main/types/VeloxPlanValidator.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MemoryAllocator.h"
@@ -216,6 +217,11 @@ class PrestoServer {
       proxygen::ResponseHandler* downstream);
 
   protocol::NodeStatus fetchNodeStatus();
+
+  void optimizeExpressions(
+      const proxygen::HTTPMessage& message,
+      const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+      proxygen::ResponseHandler* downstream);
 
   void populateMemAndCPUInfo();
 

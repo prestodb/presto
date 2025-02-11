@@ -1,0 +1,193 @@
+[
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+          }
+        ],
+        "displayName": "LESS_THAN",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "integer",
+              "integer"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$less_than",
+            "returnType": "boolean",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "boolean"
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+      }
+    ],
+    "form": "IF",
+    "returnType": "integer"
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+          }
+        ],
+        "displayName": "LESS_THAN",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "integer",
+              "integer"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$less_than",
+            "returnType": "boolean",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "boolean"
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+          }
+        ],
+        "displayName": "LESS_THAN",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "integer",
+              "integer"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$less_than",
+            "returnType": "boolean",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "boolean"
+      }
+    ],
+    "form": "AND",
+    "returnType": "boolean"
+  },
+  {
+    "@type": "special",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAQAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+          }
+        ],
+        "displayName": "LESS_THAN",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "integer",
+              "integer"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$less_than",
+            "returnType": "boolean",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "boolean"
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+          },
+          {
+            "@type": "constant",
+            "type": "integer",
+            "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+          }
+        ],
+        "displayName": "LESS_THAN",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "integer",
+              "integer"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$less_than",
+            "returnType": "boolean",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "boolean"
+      }
+    ],
+    "form": "OR",
+    "returnType": "boolean"
+  }
+]
