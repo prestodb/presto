@@ -2014,4 +2014,20 @@ core::ExecCtx* SimpleExpressionEvaluator::ensureExecCtx() {
   return execCtx_.get();
 }
 
+VectorPtr evaluateConstantExpression(
+    const core::TypedExprPtr& expr,
+    memory::MemoryPool* pool) {
+  auto data = BaseVector::create<RowVector>(ROW({}), 1, pool);
+
+  auto queryCtx = velox::core::QueryCtx::create();
+  velox::core::ExecCtx execCtx{pool, queryCtx.get()};
+  velox::exec::ExprSet exprSet({expr}, &execCtx);
+  velox::exec::EvalCtx evalCtx(&execCtx, &exprSet, data.get());
+
+  velox::SelectivityVector singleRow(1);
+  std::vector<velox::VectorPtr> results(1);
+  exprSet.eval(singleRow, evalCtx, results);
+  return results.at(0);
+}
+
 } // namespace facebook::velox::exec

@@ -830,6 +830,12 @@ std::unique_ptr<ExprSet> makeExprSetFromFlag(
     std::vector<core::TypedExprPtr>&& source,
     core::ExecCtx* execCtx);
 
+/// Evaluates an expression that doesn't depend on any inputs and returns the
+/// result as single-row vector.
+VectorPtr evaluateConstantExpression(
+    const core::TypedExprPtr& expr,
+    memory::MemoryPool* pool);
+
 /// Returns a string representation of the expression trees annotated with
 /// runtime statistics. Expected to be called after calling ExprSet::eval one or
 /// more times. If called before ExprSet::eval runtime statistics will be all

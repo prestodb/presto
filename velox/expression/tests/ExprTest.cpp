@@ -4970,5 +4970,18 @@ TEST_F(ExprTest, disabledeferredLazyLoading) {
       expressions, makeRowVector({c0, c1}), {}, execCtx.get());
 }
 
+TEST_F(ExprTest, evaluateConstantExpression) {
+  auto eval = [&](const std::string& sql) {
+    auto expr = parseExpression(sql, ROW({}));
+    return exec::evaluateConstantExpression(expr, pool());
+  };
+
+  assertEqualVectors(eval("1 + 2"), makeConstant<int64_t>(3, 1));
+
+  assertEqualVectors(
+      eval("transform(array[1, 2, 3], x -> (x * 2))"),
+      makeArrayVectorFromJson<int64_t>({"[2, 4, 6]"}));
+}
+
 } // namespace
 } // namespace facebook::velox::test
