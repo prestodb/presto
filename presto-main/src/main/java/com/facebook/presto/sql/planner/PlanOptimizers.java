@@ -929,7 +929,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(taskCountEstimator, taskManagerConfig, metadata).rules()));
+                new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(taskCountEstimator, taskManagerConfig, metadata, featuresConfig.isNativeExecutionEnabled()).rules()));
 
         builder.add(new IterativeOptimizer(
                 metadata,
