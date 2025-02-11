@@ -23,12 +23,15 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
 import static com.facebook.presto.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
 
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
 {
     protected static final String GOOGLE_SHEETS = "gsheets";
+    protected static final String SHEET_RANGE = "Sheet1";
+    protected static final String SHEET_VALUE_INPUT_OPTION = "RAW";
+    protected static final String DRIVE_PERMISSION_TYPE = "user";
+    protected static final String DRIVE_PERMISSION_ROLE = "writer";
 
     private static Session createSession()
     {
@@ -46,11 +49,16 @@ public class TestGoogleSheets
             SheetsPlugin sheetsPlugin = new SheetsPlugin();
             queryRunner = DistributedQueryRunner.builder(createSession()).build();
             queryRunner.installPlugin(sheetsPlugin);
-            queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, ImmutableMap.of(
-                    "credentials-path", getTestCredentialsPath(),
-                    "metadata-sheet-id", TEST_METADATA_SHEET_ID,
-                    "sheets-data-max-cache-size", "1000",
-                    "sheets-data-expire-after-write", "5m"));
+            queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, new ImmutableMap.Builder<String, String>()
+                    .put("credentials-path", getTestCredentialsPath())
+                    .put("metadata-sheet-id", TEST_METADATA_SHEET_ID)
+                    .put("sheets-data-max-cache-size", "2000")
+                    .put("sheets-data-expire-after-write", "10m")
+                    .put("sheets-range", "Sheet1")
+                    .put("sheets-value-input-option", "RAW")
+                    .put("drive-permission-type", "user")
+                    .put("drive-permission-role", "writer")
+                    .build());
         }
         catch (Exception e) {
             throw new IllegalStateException(e.getMessage());
@@ -59,21 +67,11 @@ public class TestGoogleSheets
     }
 
     @Test(enabled = false)
-    public void testListTable()
-    {
-        assertQuery("show tables", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
-        assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
-        assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema'", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
-        assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema' LIMIT 1000", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
-        assertEquals(getQueryRunner().execute("select table_name from gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount(), 0);
-    }
-
-    @Test(enabled = false)
     public void testDescTable()
     {
-        assertQuery("desc number_text", "SELECT * FROM (VALUES('number','varchar','',''), ('text','varchar','',''))");
+        assertQuery("desc number_text", "SELECT * FROM (VALUES('number','integer','',''), ('text','varchar','',''))");
         assertQuery("desc metadata_table", "SELECT * FROM (VALUES('table name','varchar','',''), ('sheetid_sheetname','varchar','',''), "
-                + "('owner','varchar','',''), ('notes','varchar','',''))");
+                + "('owner','varchar','',''), ('isarchived','varchar','',''),('column_types','varchar','',''))");
     }
 
     @Test(enabled = false)
@@ -96,7 +94,7 @@ public class TestGoogleSheets
     public void testQueryingUnknownSchemaAndTable()
     {
         assertQueryFails("select * from gsheets.foo.bar", "line 1:15: Schema foo does not exist");
-        assertQueryFails("select * from gsheets.default.foo_bar_table", "Sheet expression not found for table foo_bar_table");
+        assertQueryFails("select * from gsheets.default.foo_bar_table", "line 1:15: Table gsheets.default.foo_bar_table does not exist");
     }
 
     @Test(enabled = false)
