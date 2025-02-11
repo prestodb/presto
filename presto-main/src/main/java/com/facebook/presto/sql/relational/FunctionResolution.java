@@ -15,6 +15,7 @@ package com.facebook.presto.sql.relational;
 
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.PrestoException;
@@ -408,5 +409,9 @@ public final class FunctionResolution
     public FunctionHandle lookupBuiltInFunction(String functionName, List<Type> inputTypes)
     {
         return functionAndTypeResolver.lookupFunction(functionName, fromTypes(inputTypes));
+    }
+
+    public FunctionHandle nullIfFunction(Type leftType, Type rightType) {
+        return functionAndTypeResolver.lookupFunction("NULLIF", fromTypes(leftType, rightType));
     }
 }
