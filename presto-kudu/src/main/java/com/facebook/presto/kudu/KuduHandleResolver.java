@@ -14,6 +14,7 @@
 package com.facebook.presto.kudu;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -59,6 +60,12 @@ public class KuduHandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return KuduInsertTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorDeleteTableHandle> getDeleteTableHandleClass()
+    {
+        return KuduTableHandle.class;
     }
 
     @Override

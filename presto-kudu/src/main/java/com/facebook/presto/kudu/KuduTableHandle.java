@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.kudu;
 
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,7 +26,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class KuduTableHandle
-        implements ConnectorTableHandle
+        implements ConnectorTableHandle, ConnectorDeleteTableHandle
 {
     private final String connectorId;
     private final SchemaTableName schemaTableName;
