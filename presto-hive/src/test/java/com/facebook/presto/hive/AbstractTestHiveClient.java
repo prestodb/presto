@@ -287,6 +287,7 @@ import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDeci
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static com.facebook.presto.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.OBJECT_NOT_READABLE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_QUERY_ID_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.PRESTO_VERSION_NAME;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.createDirectory;
@@ -1029,7 +1030,7 @@ public abstract class AbstractTestHiveClient
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
                 FILTER_STATS_CALCULATOR_SERVICE,
-                new TableParameterCodec(),
+                new TestTableParameterCodec(),
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 listeningDecorator(executor),
@@ -6069,6 +6070,28 @@ public abstract class AbstractTestHiveClient
             // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
             // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
             assertFalse(hdfsEnvironment.getFileSystem(context, path).exists(path));
+        }
+    }
+
+    protected static class TestTableParameterCodec
+            extends TableParameterCodec
+    {
+        @Override
+        public Map<String, Object> decode(Map<String, String> tableParameters)
+        {
+            if (tableParameters.containsKey(OBJECT_NOT_READABLE)) {
+                return ImmutableMap.of(OBJECT_NOT_READABLE, tableParameters.get(OBJECT_NOT_READABLE));
+            }
+            return ImmutableMap.of();
+        }
+
+        @Override
+        public Map<String, String> encode(Map<String, Object> tableProperties)
+        {
+            if (tableProperties.containsKey(OBJECT_NOT_READABLE)) {
+                return ImmutableMap.of(OBJECT_NOT_READABLE, (String) tableProperties.get(OBJECT_NOT_READABLE));
+            }
+            return ImmutableMap.of();
         }
     }
 }
