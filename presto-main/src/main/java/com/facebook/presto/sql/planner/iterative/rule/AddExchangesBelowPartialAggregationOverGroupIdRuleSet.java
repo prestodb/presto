@@ -130,15 +130,18 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
     private final TaskCountEstimator taskCountEstimator;
     private final DataSize maxPartialAggregationMemoryUsage;
     private final Metadata metadata;
+    private final boolean nativeExecution;
 
     public AddExchangesBelowPartialAggregationOverGroupIdRuleSet(
             TaskCountEstimator taskCountEstimator,
             TaskManagerConfig taskManagerConfig,
-            Metadata metadata)
+            Metadata metadata,
+            boolean nativeExecution)
     {
         this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
         this.maxPartialAggregationMemoryUsage = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
         this.metadata = metadata;
+        this.nativeExecution = nativeExecution;
     }
 
     public Set<Rule<?>> rules()
@@ -355,7 +358,7 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
             List<StreamProperties> inputProperties = resolvedPlanNode.getSources().stream()
                     .map(source -> derivePropertiesRecursively(source, context))
                     .collect(toImmutableList());
-            return deriveProperties(resolvedPlanNode, inputProperties, metadata, context.getSession());
+            return deriveProperties(resolvedPlanNode, inputProperties, metadata, context.getSession(), nativeExecution);
         }
     }
 }

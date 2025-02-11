@@ -62,7 +62,8 @@ public class TestAddExchangesBelowPartialAggregationOverGroupIdRuleSet
         return new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(
                 taskCountEstimator,
                 taskManagerConfig,
-                ruleTester.getMetadata()
+                ruleTester.getMetadata(),
+                false
         ).belowExchangeRule();
     }
 
@@ -73,7 +74,8 @@ public class TestAddExchangesBelowPartialAggregationOverGroupIdRuleSet
         return new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(
                 taskCountEstimator,
                 taskManagerConfig,
-                ruleTester.getMetadata()
+                ruleTester.getMetadata(),
+                false
         ).belowProjectionRule();
     }
 
