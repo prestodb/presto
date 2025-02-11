@@ -100,7 +100,6 @@ class TestPyVeloxRunner(unittest.TestCase):
 
             plan_builder = PlanBuilder()
             plan_builder.values([input_batch]).table_write(
-                output_schema=ROW(["c0"], [BIGINT()]),
                 output_file=DWRF(output_file),
                 connector_id="hive",
             )

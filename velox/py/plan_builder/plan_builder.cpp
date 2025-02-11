@@ -108,17 +108,18 @@ PYBIND11_MODULE(plan_builder, m) {
       .def(
           "table_write",
           &velox::py::PyPlanBuilder::tableWrite,
-          py::arg("output_schema"),
           py::arg("output_file"),
           py::arg("connector_id") = "hive",
+          py::arg("output_schema") = std::nullopt,
           py::doc(R"(
         Adds a table write node to the plan.
 
         Args:
-          output_schema: A RowType containing the schema to be written to
-                         the file.
           output_file: Name of the file to be written.
           connector_id: ID of the connector to use for this scan.
+          output_schema: An optional RowType containing the schema to be
+                         written to the file. By default write the schema
+                         produced by the operator upstream.
       )"))
       .def(
           "values",

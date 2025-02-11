@@ -150,15 +150,16 @@ class PyPlanBuilder {
 
   /// Adds a table writer node to write to an output file(s).
   ///
-  /// @param outputSchema The schema to be used when writing the file (columns
-  /// and types).
   /// @param outputFile The output file to be written.
   /// @param connectorId The id of the connector to use during the write
   /// process.
+  /// @param outputSchema An optional schema to be used when writing the file
+  /// (columns and types). By default use the schema produced by the upstream
+  /// operator.
   PyPlanBuilder& tableWrite(
-      const PyType& outputSchema,
       const PyFile& outputFile,
-      const std::string& connectorId);
+      const std::string& connectorId,
+      const std::optional<PyType>& outputSchema);
 
   // Add the provided vectors straight into the operator tree.
   PyPlanBuilder& values(const std::vector<PyVector>& values);

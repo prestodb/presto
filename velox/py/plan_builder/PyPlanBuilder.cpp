@@ -97,19 +97,24 @@ std::optional<PyPlanNode> PyPlanBuilder::planNode() const {
 }
 
 PyPlanBuilder& PyPlanBuilder::tableWrite(
-    const PyType& outputSchema,
     const PyFile& outputFile,
-    const std::string& connectorId) {
+    const std::string& connectorId,
+    const std::optional<PyType>& outputSchema) {
   exec::test::PlanBuilder::TableWriterBuilder builder(planBuilder_);
 
   // Try to convert the output type.
-  auto outputRowSchema = asRowType(outputSchema.type());
-  if (outputRowSchema == nullptr) {
-    throw std::runtime_error("Output schema must be a ROW().");
+  RowTypePtr outputRowSchema;
+
+  if (outputSchema != std::nullopt) {
+    outputRowSchema = asRowType(outputSchema->type());
+
+    if (outputRowSchema == nullptr) {
+      throw std::runtime_error("Output schema must be a ROW().");
+    }
+    builder.outputType(outputRowSchema);
   }
 
-  builder.outputType(outputRowSchema)
-      .outputFileName(outputFile.filePath())
+  builder.outputFileName(outputFile.filePath())
       .fileFormat(outputFile.fileFormat())
       .connectorId(connectorId)
       .endTableWriter();
