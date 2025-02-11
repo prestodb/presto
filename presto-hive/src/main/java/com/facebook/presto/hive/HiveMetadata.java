@@ -43,6 +43,7 @@ import com.facebook.presto.hive.metastore.thrift.ThriftMetastoreUtil;
 import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
@@ -2517,7 +2518,7 @@ public class HiveMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ConnectorDeleteTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
     }

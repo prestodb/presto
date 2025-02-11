@@ -324,12 +324,12 @@ public interface Metadata
     /**
      * Begin delete query
      */
-    TableHandle beginDelete(Session session, TableHandle tableHandle);
+    DeleteTableHandle beginDelete(Session session, TableHandle tableHandle);
 
     /**
      * Finish delete query
      */
-    void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
+    void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Begin update query

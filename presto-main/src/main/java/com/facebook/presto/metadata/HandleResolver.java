@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.connector.informationSchema.InformationSchemaHandleResolver;
 import com.facebook.presto.connector.system.SystemHandleResolver;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
@@ -114,6 +115,11 @@ public class HandleResolver
         return getId(insertHandle, MaterializedHandleResolver::getInsertTableHandleClass);
     }
 
+    public String getId(ConnectorDeleteTableHandle deleteHandle)
+    {
+        return getId(deleteHandle, MaterializedHandleResolver::getDeleteTableHandleClass);
+    }
+
     public String getId(ConnectorPartitioningHandle partitioningHandle)
     {
         return getId(partitioningHandle, MaterializedHandleResolver::getPartitioningHandleClass);
@@ -169,6 +175,11 @@ public class HandleResolver
         return resolverFor(id).getInsertTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
+    public Class<? extends ConnectorDeleteTableHandle> getDeleteTableHandleClass(String id)
+    {
+        return resolverFor(id).getDeleteTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
     public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass(String id)
     {
         return resolverFor(id).getPartitioningHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
@@ -214,7 +225,7 @@ public class HandleResolver
             catch (UnsupportedOperationException ignored) {
             }
         }
-        throw new IllegalArgumentException("No connector for handle: " + handle);
+        throw new IllegalArgumentException("No connector for handle: " + handle + " of type " + handle.getClass());
     }
 
     private <T> String getFunctionNamespaceId(T handle, Function<MaterializedFunctionHandleResolver, Optional<Class<? extends T>>> getter)
@@ -240,6 +251,7 @@ public class HandleResolver
         private final Optional<Class<? extends ConnectorIndexHandle>> indexHandle;
         private final Optional<Class<? extends ConnectorOutputTableHandle>> outputTableHandle;
         private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
+        private final Optional<Class<? extends ConnectorDeleteTableHandle>> deleteTableHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
         private final Optional<Class<? extends ConnectorMetadataUpdateHandle>> metadataUpdateHandle;
@@ -253,6 +265,7 @@ public class HandleResolver
             indexHandle = getHandleClass(resolver::getIndexHandleClass);
             outputTableHandle = getHandleClass(resolver::getOutputTableHandleClass);
             insertTableHandle = getHandleClass(resolver::getInsertTableHandleClass);
+            deleteTableHandle = getHandleClass(resolver::getDeleteTableHandleClass);
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
             metadataUpdateHandle = getHandleClass(resolver::getMetadataUpdateHandleClass);
@@ -303,6 +316,11 @@ public class HandleResolver
             return insertTableHandle;
         }
 
+        public Optional<Class<? extends ConnectorDeleteTableHandle>> getDeleteTableHandleClass()
+        {
+            return deleteTableHandle;
+        }
+
         public Optional<Class<? extends ConnectorPartitioningHandle>> getPartitioningHandleClass()
         {
             return partitioningHandle;
@@ -335,6 +353,7 @@ public class HandleResolver
                     Objects.equals(indexHandle, that.indexHandle) &&
                     Objects.equals(outputTableHandle, that.outputTableHandle) &&
                     Objects.equals(insertTableHandle, that.insertTableHandle) &&
+                    Objects.equals(deleteTableHandle, that.deleteTableHandle) &&
                     Objects.equals(partitioningHandle, that.partitioningHandle) &&
                     Objects.equals(transactionHandle, that.transactionHandle) &&
                     Objects.equals(metadataUpdateHandle, that.metadataUpdateHandle);
@@ -343,7 +362,7 @@ public class HandleResolver
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, partitioningHandle, transactionHandle, metadataUpdateHandle);
+            return Objects.hash(tableHandle, layoutHandle, columnHandle, split, indexHandle, outputTableHandle, insertTableHandle, deleteTableHandle, partitioningHandle, transactionHandle, metadataUpdateHandle);
         }
     }
 
