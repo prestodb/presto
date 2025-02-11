@@ -171,12 +171,15 @@ class JsonParseFunction : public exec::VectorFunction {
 
         if (auto error = parse(size, needNormalize)) {
           context.setErrors(rows, errors_[error]);
+          clearState();
           return;
         }
         auto* output = buffer->asMutable<char>();
         auto outputSize = concatViews(views_, output);
         rawStringViews[0] = StringView(output, outputSize);
       } catch (const VeloxException& e) {
+        clearState();
+
         if (!e.isUserError()) {
           throw;
         }
@@ -256,6 +259,8 @@ class JsonParseFunction : public exec::VectorFunction {
             output += outputSize;
           }
         } catch (const VeloxException& e) {
+          clearState();
+
           if (!e.isUserError()) {
             throw;
           }
@@ -264,8 +269,6 @@ class JsonParseFunction : public exec::VectorFunction {
 
           FB_LOG_EVERY_MS(WARNING, 1000)
               << "Caught user error in json_parse: " << e.message();
-
-          clearState();
         }
       });
 

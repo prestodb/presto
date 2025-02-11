@@ -376,7 +376,7 @@ TEST_F(JsonFunctionsTest, jsonParse) {
 
   // Test try with invalid escape sequence.
   {
-    auto data = makeRowVector({makeFlatVector<StringView>({
+    data = makeRowVector({makeFlatVector<StringView>({
         // The logic for sorting keys checks the validity of escape sequences
         // and will throw a user error in this case.
         "{\"k\\i\":\"abc\",\"k2\":\"xyz\"}", // invalid json
@@ -384,9 +384,9 @@ TEST_F(JsonFunctionsTest, jsonParse) {
         R"([{"k1": "v1" }, {"k2": "v2" }])" // valid json
     })});
 
-    auto result = evaluate("try(json_parse(c0))", data);
+    result = evaluate("try(json_parse(c0))", data);
 
-    auto expected = makeNullableFlatVector<StringView>(
+    expected = makeNullableFlatVector<StringView>(
         {std::nullopt, R"([{"k1":"v1"},{"k2":"v2"}])"}, JSON());
 
     velox::test::assertEqualVectors(expected, result);
@@ -395,14 +395,68 @@ TEST_F(JsonFunctionsTest, jsonParse) {
   // Test try with invalid escape sequence going through fast path for
   // constants.
   {
-    auto data =
+    data =
         makeRowVector({makeConstant("{\"k\\i\":\"abc\",\"k2\":\"xyz\"}", 3)});
 
-    auto result = evaluate("try(json_parse(c0))", data);
+    result = evaluate("try(json_parse(c0))", data);
 
-    auto expected = makeNullableFlatVector<StringView>(
+    expected = makeNullableFlatVector<StringView>(
         {std::nullopt, std::nullopt, std::nullopt}, JSON());
 
+    velox::test::assertEqualVectors(expected, result);
+  }
+
+  // Test reusing ExprSet after user exception thrown.
+  {
+    // A batch with an invalid value that will throw a user error.
+    auto data1 = makeRowVector(
+        {makeConstant(R"({\"k\\i\":\"abc\",\"k2\":\"xyz\u4FE\"})", 3)});
+
+    // A batch with valid values.
+    auto data2 = makeRowVector({makeFlatVector<StringView>(
+        {R"([{"k1": "v1" }, {"k2": "v2" }])",
+         R"([{"k3": "v3" }, {"k4": "v4" }])"})});
+
+    auto typedExpr = makeTypedExpr("json_parse(c0)", asRowType(data1->type()));
+    exec::ExprSet exprSet({typedExpr}, &execCtx_);
+
+    VELOX_ASSERT_USER_THROW(evaluate(exprSet, data1), "Invalid escape digit");
+
+    expected = makeNullableFlatVector<StringView>(
+        {R"([{"k1":"v1"},{"k2":"v2"}])", R"([{"k3":"v3"},{"k4":"v4"}])"},
+        JSON());
+
+    result = evaluate(exprSet, data2);
+    velox::test::assertEqualVectors(expected, result);
+  }
+
+  // Test reusing ExprSet after user exception thrown in fast path for
+  // constants.
+  {
+    // A batch with an invalid value that will throw a user error.
+    auto data1 = makeRowVector({makeFlatVector<StringView>({
+        // The logic for sorting keys checks the validity of escape sequences
+        // and will throw a user error if unicode sequences are invalid.
+        R"({"k\\i":"abc","k2":"xyz\u4FE"})", // invalid json
+        // Add a second value to ensure the state is cleared.
+        R"([{"k1": "v1" }, {"k2": "v2" }])" // valid json
+    })});
+
+    // A batch with valid values.
+    auto data2 = makeRowVector({makeFlatVector<StringView>(
+        {R"([{"k1": "v1" }, {"k2": "v2" }])",
+         R"([{"k3": "v3" }, {"k4": "v4" }])"})});
+
+    auto typedExpr = makeTypedExpr("json_parse(c0)", asRowType(data1->type()));
+    exec::ExprSet exprSet({typedExpr}, &execCtx_);
+
+    VELOX_ASSERT_USER_THROW(evaluate(exprSet, data1), "Invalid escape digit");
+
+    expected = makeNullableFlatVector<StringView>(
+        {R"([{"k1":"v1"},{"k2":"v2"}])", R"([{"k3":"v3"},{"k4":"v4"}])"},
+        JSON());
+
+    result = evaluate(exprSet, data2);
     velox::test::assertEqualVectors(expected, result);
   }
 }
