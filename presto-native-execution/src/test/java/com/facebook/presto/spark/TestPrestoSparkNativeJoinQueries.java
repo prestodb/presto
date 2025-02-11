@@ -38,4 +38,12 @@ public class TestPrestoSparkNativeJoinQueries
     {
         return new Object[][] {{partitionedJoin()}};
     }
+
+    // Disable this test due to issue https://github.com/prestodb/presto/issues/22585
+    @Override
+    public void testCrossJoin() {}
+
+    // Disable this test due to issue https://github.com/prestodb/presto/issues/22585
+    @Override
+    public void testJoinsWithoutEquiClause() {}
 }
