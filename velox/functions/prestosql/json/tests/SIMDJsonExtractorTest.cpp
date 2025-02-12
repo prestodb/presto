@@ -32,9 +32,8 @@ simdjson::error_code simdJsonExtract(
     TConsumer&& consumer) {
   auto& extractor = SIMDJsonExtractor::getInstance(path);
   bool isDefinitePath = true;
-  return simdJsonExtract(
+  return extractor.extract(
       velox::StringView(json),
-      extractor,
       std::forward<TConsumer>(consumer),
       isDefinitePath);
 }

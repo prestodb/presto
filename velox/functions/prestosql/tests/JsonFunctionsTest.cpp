@@ -976,6 +976,16 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
 
   // Calling wildcard on a scalar
   EXPECT_EQ("[]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a.b.[0].[*]"));
+  EXPECT_EQ("[]", jsonExtract("1", "$.*"));
+
+  // Scalar json
+  EXPECT_EQ("1", jsonExtract("1", "$"));
+  EXPECT_EQ(std::nullopt, jsonExtract("1", "$.foo"));
+  EXPECT_EQ(std::nullopt, jsonExtract("1", "$.[0]"));
+  // Scalar 'null' json
+  EXPECT_EQ("null", jsonExtract("null", "$"));
+  EXPECT_EQ(std::nullopt, jsonExtract("null", "$.foo"));
+  EXPECT_EQ(std::nullopt, jsonExtract("null", "$.[0]"));
 
   // non-definite paths that end up being evaluated vs. not evaluated
   EXPECT_EQ(
