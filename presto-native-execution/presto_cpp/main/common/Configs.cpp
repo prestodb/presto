@@ -240,6 +240,8 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
           STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
+          NUM_PROP(kExchangeIoEvbViolationThresholdMs, 1000),
+          NUM_PROP(kHttpSrvIoEvbViolationThresholdMs, 1000),
       };
 }
 
@@ -761,6 +763,16 @@ bool SystemConfig::enableRuntimeMetricsCollection() const {
 
 std::string SystemConfig::prestoDefaultNamespacePrefix() const {
   return optionalProperty(kPrestoDefaultNamespacePrefix).value().append(".");
+}
+
+int32_t SystemConfig::exchangeIoEvbViolationThresholdMs() const {
+  return optionalProperty<int32_t>(kExchangeIoEvbViolationThresholdMs)
+      .value();
+}
+
+int32_t SystemConfig::httpSrvIoEvbViolationThresholdMs() const {
+  return optionalProperty<int32_t>(kHttpSrvIoEvbViolationThresholdMs)
+      .value();
 }
 
 NodeConfig::NodeConfig() {

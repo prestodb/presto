@@ -144,7 +144,7 @@ class ConfigBase {
  protected:
   ConfigBase()
       : config_(std::make_unique<velox::config::ConfigBase>(
-            std::unordered_map<std::string, std::string>())){};
+            std::unordered_map<std::string, std::string>())) {};
 
   // Check if all properties are registered.
   void checkRegisteredProperties(
@@ -659,6 +659,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPrestoDefaultNamespacePrefix{
       "presto.default-namespace"};
 
+  static constexpr std::string_view kExchangeIoEvbViolationThresholdMs{
+      "exchange.io-evb-violation-threshold-ms"};
+  static constexpr std::string_view kHttpSrvIoEvbViolationThresholdMs{
+      "http-server.io-evb-violation-threshold-ms"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -898,6 +903,10 @@ class SystemConfig : public ConfigBase {
 
   bool prestoNativeSidecar() const;
   std::string prestoDefaultNamespacePrefix() const;
+
+  int32_t exchangeIoEvbViolationThresholdMs() const;
+
+  int32_t httpSrvIoEvbViolationThresholdMs() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

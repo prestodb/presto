@@ -409,6 +409,12 @@ void PrestoServer::run() {
                            << exchangeHttpIoExecutor_->getName() << "' has "
                            << exchangeHttpIoExecutor_->numThreads()
                            << " threads.";
+  for (auto evb : exchangeHttpIoExecutor_->getAllEventBases()) {
+    evb->setMaxLatency(
+        std::chrono::milliseconds(systemConfig->exchangeIoEvbViolationThresholdMs()),
+        []() { RECORD_METRIC_VALUE(kCounterExchangeIoEvbViolation, 1); },
+        false);
+  }
 
   const auto numExchangeHttpClientCpuThreads = std::max<size_t>(
       systemConfig->exchangeHttpClientNumCpuThreadsHwMultiplier() *
@@ -524,6 +530,12 @@ void PrestoServer::run() {
     PRESTO_STARTUP_LOG(INFO)
         << "HTTP Server CPU executor '" << httpSrvCpuExecutor_->getName()
         << "' has " << httpSrvCpuExecutor_->numThreads() << " threads.";
+    for (auto evb : httpSrvIoExecutor_->getAllEventBases()) {
+      evb->setMaxLatency(
+          std::chrono::milliseconds(systemConfig->httpSrvIoEvbViolationThresholdMs()),
+          []() { RECORD_METRIC_VALUE(kCounterHttpServerIoEvbViolation, 1); },
+          false);
+    }
   }
   if (spillerExecutor_ != nullptr) {
     PRESTO_STARTUP_LOG(INFO)
