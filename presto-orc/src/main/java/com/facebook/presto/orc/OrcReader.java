@@ -46,10 +46,7 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.ZoneId;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -91,7 +88,10 @@ public class OrcReader
 
     private final RuntimeStats runtimeStats;
 
+    private final Map<String, String> statMap;
+
     @VisibleForTesting
+    // This is based on the Apache Hive ORC code
     public OrcReader(
             OrcDataSource orcDataSource,
             OrcEncoding orcEncoding,
@@ -280,6 +280,7 @@ public class OrcReader
 
         requireNonNull(stripeMetadataSourceFactory, "stripeMetadataSourceFactory is null");
         this.stripeMetadataSource = requireNonNull(stripeMetadataSourceFactory.create(dwrfStripeCache), "stripeMetadataSource is null");
+        this.statMap = new HashMap();
     }
 
     @VisibleForTesting
@@ -549,5 +550,10 @@ public class OrcReader
                 tailBuffer.length)) {
             return this.metadataReader.readStripeFooter(orcDataSource.getId(), footer.getTypes(), inputStream);
         }
+    }
+
+    public Map<String, String> getStatMap()
+    {
+        return statMap;
     }
 }
