@@ -95,6 +95,11 @@ public class ExpressionRewriter<C>
         return rewriteExpression(node, context, treeRewriter);
     }
 
+    public Expression rewriteFormat(Format node, C context, ExpressionTreeRewriter<C> treeRewriter)
+    {
+        return rewriteExpression(node, context, treeRewriter);
+    }
+
     public Expression rewriteInListExpression(InListExpression node, C context, ExpressionTreeRewriter<C> treeRewriter)
     {
         return rewriteExpression(node, context, treeRewriter);
