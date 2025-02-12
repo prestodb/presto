@@ -18,10 +18,8 @@
 
 from typing import List
 
-# pyre-fixme[21]: Could not find `velox.py.vector`.
 from velox.py.vector import Vector
 from pyarrow import Array
 
-# pyre-fixme[11]: Annotation `Vector` is not defined as a type.
 def to_velox(array: Array) -> Vector: ...
 def to_arrow(vector: Vector) -> Array: ...
