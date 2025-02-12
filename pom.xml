@@ -1345,7 +1345,7 @@
             <dependency>
                 <groupId>com.singlestore</groupId>
                 <artifactId>singlestore-jdbc-client</artifactId>
-                <version>1.1.9</version>
+                <version>1.2.7</version>
             </dependency>
 
             <dependency>

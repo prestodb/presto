@@ -86,6 +86,7 @@ public class TestSingleStoreTypeMapping
                 .addRoundTrip(integerDataType(), 1_234_567_890)
                 .addRoundTrip(smallintDataType(), (short) 32_456)
                 .addRoundTrip(tinyintDataType(), (byte) 125)
+                .addRoundTrip(tinyintDataType(), (byte) 0)
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
