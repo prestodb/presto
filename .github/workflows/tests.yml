@@ -76,11 +76,13 @@ jobs:
         with:
           show-progress: false
       - uses: actions/setup-java@v4
+        if: needs.changes.outputs.codechange == 'true'
         with:
           distribution: 'temurin'
           java-version: 8
           cache: 'maven'
       - name: Download nodejs to maven cache
+        if: needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs
       - name: Maven Install
         if: needs.changes.outputs.codechange == 'true'
