@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.hive.orc;
 
-import com.facebook.hive.orc.OrcSerde;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
@@ -111,10 +110,6 @@ public class DwrfSelectivePageSourceFactory
             boolean appendRowNumberEnabled,
             Optional<byte[]> rowIDPartitionComponent)
     {
-        if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
-            return Optional.empty();
-        }
-
         if (fileSplit.getFileSize() == 0) {
             throw new PrestoException(HIVE_BAD_DATA, "ORC file is empty: " + fileSplit.getPath());
         }
