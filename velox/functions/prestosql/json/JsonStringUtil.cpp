@@ -264,7 +264,9 @@ int32_t getEscapedChar(std::string_view view, size_t& pos) {
         return '\t';
 
       default:
-        VELOX_USER_FAIL("Bad escape character in view {}", view);
+        // Presto java ignores bad escape sequences.
+        pos += 1;
+        return view[pos];
     }
   }
 

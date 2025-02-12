@@ -374,12 +374,12 @@ TEST_F(JsonFunctionsTest, jsonParse) {
     velox::test::assertEqualVectors(expected, result);
   }
 
-  // Test try with invalid escape sequence.
+  // Test try with invalid json unicode sequences.
   {
     data = makeRowVector({makeFlatVector<StringView>({
         // The logic for sorting keys checks the validity of escape sequences
-        // and will throw a user error in this case.
-        "{\"k\\i\":\"abc\",\"k2\":\"xyz\"}", // invalid json
+        // and will throw a user error if unicode sequences are invalid.
+        R"({"k\\i":"abc","k2":"xyz\u4FE"})", // invalid json
         // Add a second value to ensure the state is cleared.
         R"([{"k1": "v1" }, {"k2": "v2" }])" // valid json
     })});
@@ -392,11 +392,11 @@ TEST_F(JsonFunctionsTest, jsonParse) {
     velox::test::assertEqualVectors(expected, result);
   }
 
-  // Test try with invalid escape sequence going through fast path for
+  // Test try going through fast path for
   // constants.
   {
-    data =
-        makeRowVector({makeConstant("{\"k\\i\":\"abc\",\"k2\":\"xyz\"}", 3)});
+    data = makeRowVector(
+        {makeConstant(R"({\"k\\i\":\"abc\",\"k2\":\"xyz\u4FE\"})", 3)});
 
     result = evaluate("try(json_parse(c0))", data);
 
@@ -458,6 +458,27 @@ TEST_F(JsonFunctionsTest, jsonParse) {
 
     result = evaluate(exprSet, data2);
     velox::test::assertEqualVectors(expected, result);
+  }
+
+  // Test with escape sequences in keys.
+  {
+    // Invalid escape sequence in key should be ignored.
+    testJsonParse(
+        R"({"\\&page=20": "a", "\\&page=26": "c"})",
+        R"({"\\&page=20":"a","\\&page=26":"c"})");
+
+    // Valid escape sequence in key should be parsed correctly.
+    testJsonParse(
+        R"({"\b&page=20": "a", "\\&page=26": "c"})",
+        R"({"\b&page=20":"a","\\&page=26":"c"})");
+
+    testJsonParse(
+        R"({"\/&page=20": "a", "\/&page=26": "c"})",
+        R"({"/&page=20":"a","/&page=26":"c"})");
+
+    testJsonParse(
+        R"({"\/&\"\f\r\n": "a", "\/&page=26": "c"})",
+        R"({"/&\"\f\r\n":"a","/&page=26":"c"})");
   }
 }
 
