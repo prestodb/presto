@@ -99,6 +99,7 @@ import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 
+import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -173,6 +174,7 @@ public final class SqlToRowExpressionTranslator
     private static final Pattern LIKE_PREFIX_MATCH_PATTERN = Pattern.compile("^[^%_]*%$");
     private static final Pattern LIKE_SUFFIX_MATCH_PATTERN = Pattern.compile("^%[^%_]*$");
     private static final Pattern LIKE_SIMPLE_EXISTS_PATTERN = Pattern.compile("^%[^%_]*%$");
+    private static final int MAX_LENGTH = 254;
 
     private SqlToRowExpressionTranslator() {}
 
@@ -1015,6 +1017,20 @@ public final class SqlToRowExpressionTranslator
             List<Type> argumentTypes = arguments.stream()
                     .map(RowExpression::getType)
                     .collect(toImmutableList());
+
+            if (arguments.size() > MAX_LENGTH) {
+                List<RowExpression> concatenatedArguments = new ArrayList<>();
+                for (int i = 0; i < arguments.size(); i += MAX_LENGTH) {
+                    int end = Math.min(i + MAX_LENGTH, arguments.size());
+                    List<RowExpression> chunk = arguments.subList(i, end);
+                    RowExpression chunkArray = call("ARRAY", functionResolution.arrayConstructor(argumentTypes.subList(i, end)), getType(node), chunk);
+                    concatenatedArguments.add(chunkArray);
+                }
+                List<Type> concatenatedArgumentTypes = concatenatedArguments.stream()
+                        .map(RowExpression::getType)
+                        .collect(toImmutableList());
+                return call("concat", functionAndTypeResolver.lookupFunction("concat", fromTypes(concatenatedArgumentTypes)), getType(node), concatenatedArguments);
+            }
             return call("ARRAY", functionResolution.arrayConstructor(argumentTypes), getType(node), arguments);
         }
 

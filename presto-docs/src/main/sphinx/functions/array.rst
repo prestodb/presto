@@ -21,6 +21,8 @@ The ``||`` operator is used to concatenate an array with an array or an element 
 Array Functions
 ---------------
 
+When users write an array with a large number of elements, such as `ARRAY[1,2,3..1000]`, Presto automatically splits the array into multiple smaller arrays and concatenates them during the plan/RowExpression generation phase. 
+
 .. function:: all_match(array(T), function(T,boolean)) -> boolean
 
     Returns whether all elements of an array match the given predicate. Returns ``true`` if all the elements
