@@ -51,6 +51,7 @@ class CacheTest : public ::testing::Test {
     std::unique_ptr<CachedBufferedInput> input;
     std::vector<std::unique_ptr<SeekableInputStream>> streams;
     std::vector<Region> regions;
+    bool prefetched;
   };
 
   static void SetUpTestCase() {
@@ -373,11 +374,16 @@ class CacheTest : public ::testing::Test {
             ioStats));
         if (stripes.back()->input->shouldPreload()) {
           stripes.back()->input->load(LogType::TEST);
+          stripes.back()->prefetched = true;
+        } else {
+          stripes.back()->prefetched = false;
         }
       }
       auto currentStripe = std::move(stripes.front());
       stripes.erase(stripes.begin());
-      currentStripe->input->load(LogType::TEST);
+      if (!currentStripe->prefetched) {
+        currentStripe->input->load(LogType::TEST);
+      }
       for (auto columnIndex = 0; columnIndex < numColumns; ++columnIndex) {
         if (shouldRead(*currentStripe, columnIndex, readPct, readPctModulo)) {
           readStream(*currentStripe, columnIndex);
