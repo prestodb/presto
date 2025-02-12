@@ -1409,12 +1409,18 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
   // TODO(imjalpreet): Modify 'hiveType' argument of the 'HiveColumnHandle'
   //  constructor similar to how Hive Connector is handling for bucketing
   velox::type::fbhive::HiveTypeParser hiveTypeParser;
+  auto type = stringToType(icebergColumn->type, typeParser);
+  connector::hive::HiveColumnHandle::ColumnParseParameters columnParseParameters;
+  if (type->isDate()) {
+    columnParseParameters.partitionDateValueFormat = connector::hive::HiveColumnHandle::ColumnParseParameters::kDaysSinceEpoch;
+  }
   return std::make_unique<connector::hive::HiveColumnHandle>(
       icebergColumn->columnIdentity.name,
       toHiveColumnType(icebergColumn->columnType),
-      stringToType(icebergColumn->type, typeParser),
-      stringToType(icebergColumn->type, typeParser),
-      toRequiredSubfields(icebergColumn->requiredSubfields));
+      type,
+      type,
+      toRequiredSubfields(icebergColumn->requiredSubfields),
+      columnParseParameters);
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>
