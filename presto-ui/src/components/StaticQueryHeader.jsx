@@ -121,7 +121,7 @@ export default function StaticQueryHeader({ query, tabs, switchTab, tabIndex = 0
                         </a>
                     </h3>
                 </div>
-                <div className="col-6">
+                <div className="col-6 d-flex justify-content-end">
                     <nav className="nav nav-tabs">
                         <QueryHeaderTabs tabs={tabs} current={state.tab} clickHandler={clickHandler} />
                     </nav>
