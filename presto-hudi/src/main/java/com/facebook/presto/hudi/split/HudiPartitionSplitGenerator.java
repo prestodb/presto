@@ -34,6 +34,7 @@ import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.common.util.HoodieTimer;
+import org.apache.hudi.hadoop.fs.HadoopFSUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -107,7 +108,7 @@ public class HudiPartitionSplitGenerator
     {
         HudiPartition hudiPartition = getHudiPartition(metastore, metastoreContext, layout, partitionName);
         Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
-        String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
+        String relativePartitionPath = HadoopFSUtils.getRelativePartitionPath(tablePath, partitionPath);
         Stream<FileSlice> fileSlices = HudiTableType.MOR.equals(table.getTableType()) ?
                 fsView.getLatestMergedFileSlicesBeforeOrOn(relativePartitionPath, latestInstant) :
                 fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, latestInstant, false);
