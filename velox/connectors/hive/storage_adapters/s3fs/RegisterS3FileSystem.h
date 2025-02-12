@@ -16,10 +16,21 @@
 
 #pragma once
 
+#include <functional>
+#include <memory>
+#include <string>
+
+namespace facebook::velox::config {
+class ConfigBase;
+}
+
 namespace facebook::velox::filesystems {
 
+using CacheKeyFn = std::function<
+    std::string(std::shared_ptr<const config::ConfigBase>, std::string_view)>;
+
 // Register the S3 filesystem.
-void registerS3FileSystem();
+void registerS3FileSystem(CacheKeyFn cacheKeyFunc = nullptr);
 
 /// Teardown the AWS SDK C++.
 /// Velox users need to manually invoke this before exiting an application.

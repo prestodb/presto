@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h" // @manual
+
 #ifdef VELOX_ENABLE_S3
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Config.h" // @manual
 #include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h" // @manual
@@ -42,17 +44,23 @@ FileSystemMap& fileSystems() {
   return instances;
 }
 
+CacheKeyFn cacheKeyFunc;
+
 std::shared_ptr<FileSystem> fileSystemGenerator(
     std::shared_ptr<const config::ConfigBase> properties,
     std::string_view s3Path) {
-  std::string bucketName, key;
+  std::string cacheKey, bucketName, key;
   getBucketAndKeyFromPath(getPath(s3Path), bucketName, key);
-  auto identity = S3Config::identity(bucketName, properties);
+  if (!cacheKeyFunc) {
+    cacheKey = S3Config::cacheKey(bucketName, properties);
+  } else {
+    cacheKey = cacheKeyFunc(properties, s3Path);
+  }
 
   // Check if an instance exists with a read lock (shared).
   auto fs = fileSystems().withRLock(
       [&](auto& instanceMap) -> std::shared_ptr<FileSystem> {
-        auto iterator = instanceMap.find(identity);
+        auto iterator = instanceMap.find(cacheKey);
         if (iterator != instanceMap.end()) {
           return iterator->second;
         }
@@ -65,7 +73,7 @@ std::shared_ptr<FileSystem> fileSystemGenerator(
   return fileSystems().withWLock(
       [&](auto& instanceMap) -> std::shared_ptr<FileSystem> {
         // Repeat the checks with a write lock.
-        auto iterator = instanceMap.find(identity);
+        auto iterator = instanceMap.find(cacheKey);
         if (iterator != instanceMap.end()) {
           return iterator->second;
         }
@@ -74,7 +82,7 @@ std::shared_ptr<FileSystem> fileSystemGenerator(
             properties->get(S3Config::kS3LogLevel, std::string("FATAL"));
         initializeS3(logLevel);
         auto fs = std::make_shared<S3FileSystem>(bucketName, properties);
-        instanceMap.insert({identity, fs});
+        instanceMap.insert({cacheKey, fs});
         return fs;
       });
 }
@@ -95,10 +103,11 @@ std::unique_ptr<velox::dwio::common::FileSink> s3WriteFileSinkGenerator(
 }
 #endif
 
-void registerS3FileSystem() {
+void registerS3FileSystem(CacheKeyFn identityFunction) {
 #ifdef VELOX_ENABLE_S3
   fileSystems().withWLock([&](auto& instanceMap) {
     if (instanceMap.empty()) {
+      cacheKeyFunc = identityFunction;
       registerFileSystem(isS3File, std::function(fileSystemGenerator));
       dwio::common::FileSink::registerFactory(
           std::function(s3WriteFileSinkGenerator));
