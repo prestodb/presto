@@ -16,15 +16,11 @@
 
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
-#include <gtest/gtest.h>
-#include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/SharedArbitrator.h"
-#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/MemoryReclaimer.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/exec/fuzzer/ReferenceQueryRunner.h"
 #include "velox/exec/fuzzer/RowNumberFuzzer.h"
-#include "velox/serializers/PrestoSerializer.h"
 
 /// RowNumberFuzzerRunner leverages RowNumberFuzzer and VectorFuzzer to
 /// automatically generate and execute the fuzzer. It works as follows:
@@ -97,7 +93,5 @@ int main(int argc, char** argv) {
       "row_number_fuzzer",
       FLAGS_req_timeout_ms);
   const size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
-  facebook::velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
-  facebook::velox::filesystems::registerLocalFileSystem();
   rowNumberFuzzer(initialSeed, std::move(referenceQueryRunner));
 }
