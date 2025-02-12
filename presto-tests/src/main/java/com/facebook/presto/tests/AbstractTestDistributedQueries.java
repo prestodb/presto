@@ -51,6 +51,7 @@ import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_CAST_TO_VARCHAR_IN_JOIN;
 import static com.facebook.presto.SystemSessionProperties.SHARDED_JOINS_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.sql.tree.CreateView.Security.INVOKER;
@@ -1568,5 +1569,27 @@ public abstract class AbstractTestDistributedQueries
                 .replaceAll("sum_[0-9][0-9]", "sumXXX")
                 .replaceAll("\\[PlanNodeId (\\d+(?:,\\d+)*)\\]", "")
                 .replaceAll("Values => .*\n", "\n");
+    }
+
+    @Test
+    public void testViewWithUUID()
+    {
+        skipTestUnless(supportsViews());
+
+        @Language("SQL") String query = "SELECT * FROM (VALUES (CAST(0 AS INTEGER), NULL), (CAST(1 AS INTEGER), UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59')) AS t (rum, c1)";
+
+        // Create View with UUID type in Hive
+        assertQuerySucceeds("CREATE VIEW test_hive_view AS " + query);
+
+        // Select UUID from the view
+        MaterializedResult result = computeActual("SELECT c1 FROM test_hive_view WHERE rum = 1");
+
+        // Verify the result set is not empty
+        assertTrue(result.getMaterializedRows().size() > 0, "Result set is empty");
+        assertEquals(result.getTypes(), ImmutableList.of(UUID));
+        assertEquals(result.getOnlyValue(), "12151fd2-7586-11e9-8f9e-2a86e4085a59");
+
+        // Drop the view after the test
+        assertQuerySucceeds("DROP VIEW test_hive_view");
     }
 }
