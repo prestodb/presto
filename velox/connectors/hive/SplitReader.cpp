@@ -35,7 +35,8 @@ VectorPtr newConstantFromString(
     const std::optional<std::string>& value,
     vector_size_t size,
     velox::memory::MemoryPool* pool,
-    const std::string& sessionTimezone) {
+    const std::string& sessionTimezone,
+    bool asLocalTime) {
   using T = typename TypeTraits<kind>::NativeType;
   if (!value.has_value()) {
     return std::make_shared<ConstantVector<T>>(pool, size, true, type, T());
@@ -56,7 +57,9 @@ VectorPtr newConstantFromString(
                       VELOX_USER_FAIL("{}", status.message());
                     });
     if constexpr (kind == TypeKind::TIMESTAMP) {
-      copy.toGMT(Timestamp::defaultTimezone());
+      if (asLocalTime) {
+        copy.toGMT(Timestamp::defaultTimezone());
+      }
     }
     return std::make_shared<ConstantVector<T>>(
         pool, size, false, type, std::move(copy));
@@ -341,7 +344,9 @@ std::vector<TypePtr> SplitReader::adaptColumns(
           iter->second,
           1,
           connectorQueryCtx_->memoryPool(),
-          connectorQueryCtx_->sessionTimezone());
+          connectorQueryCtx_->sessionTimezone(),
+          hiveConfig_->readTimestampPartitionValueAsLocalTime(
+              connectorQueryCtx_->sessionProperties()));
       childSpec->setConstantValue(constant);
     } else if (
         childSpec->columnType() == common::ScanSpec::ColumnType::kRegular) {
@@ -395,7 +400,9 @@ void SplitReader::setPartitionValue(
       value,
       1,
       connectorQueryCtx_->memoryPool(),
-      connectorQueryCtx_->sessionTimezone());
+      connectorQueryCtx_->sessionTimezone(),
+      hiveConfig_->readTimestampPartitionValueAsLocalTime(
+          connectorQueryCtx_->sessionProperties()));
   spec->setConstantValue(constant);
 }
 

@@ -207,6 +207,13 @@ uint8_t HiveConfig::readTimestampUnit(const config::ConfigBase* session) const {
   return unit;
 }
 
+bool HiveConfig::readTimestampPartitionValueAsLocalTime(
+    const config::ConfigBase* session) const {
+  return session->get<bool>(
+      kReadTimestampPartitionValueAsLocalTimeSession,
+      config_->get<bool>(kReadTimestampPartitionValueAsLocalTime, true));
+}
+
 bool HiveConfig::readStatsBasedFilterReorderDisabled(
     const config::ConfigBase* session) const {
   return session->get<bool>(
