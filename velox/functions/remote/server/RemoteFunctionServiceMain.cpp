@@ -26,7 +26,7 @@
 /// to ensure that the client instrumentation of remote function execution works
 /// as expected.
 ///
-/// It currently listens on a local unix domain socket controleed by the flag
+/// It currently listens on a local unix domain socket controlled by the flag
 /// below.
 
 DEFINE_string(
