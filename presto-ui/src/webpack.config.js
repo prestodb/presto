@@ -13,17 +13,6 @@ module.exports = (env) => {
     const outputDir = 'target/webapp';
     const baseConfig = {
         entry: {
-            'index': './index.jsx',
-            'query': './query.jsx',
-            'plan': './plan.jsx',
-            'query_viewer': {import: './query_viewer.jsx', filename: path.join('dev', '[name].js')},
-            'embedded_plan': './embedded_plan.jsx',
-            'stage': './stage.jsx',
-            'worker': './worker.jsx',
-            'timeline': './timeline.jsx',
-            'res_groups': './res_groups.jsx',
-            'sql_client': './sql_client.jsx',
-            'bootstrap_css': path.join(__dirname, 'static', 'vendor', 'bootstrap', 'css', 'bootstrap.min.external-fonts.css'),
             'css_loader': path.join(__dirname, 'static', 'vendor', 'css-loaders', 'loader.css'),
             'css_presto': path.join(__dirname, 'static', 'assets', 'presto.css'),
         },
@@ -88,7 +77,6 @@ module.exports = (env) => {
     const mainConfig = {
         ...baseConfig,
         entry: {
-            ...baseConfig.entry,
             'index': './index.jsx',
             'query': './query.jsx',
             'plan': './plan.jsx',
@@ -98,6 +86,7 @@ module.exports = (env) => {
             'timeline': './timeline.jsx',
             'res_groups': './res_groups.jsx',
             'sql_client': './sql_client.jsx',
+            ...baseConfig.entry,
         },
         optimization: {
             ...baseConfig.optimization,
@@ -159,8 +148,8 @@ module.exports = (env) => {
             }),
         ],
         entry: {
-            ...baseConfig.entry,
             'query_viewer': {import: './query_viewer.jsx', filename: path.join('dev', '[name].js')},
+            ...baseConfig.entry,
         },
         optimization: {
             ...baseConfig.optimization,
