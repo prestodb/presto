@@ -21,6 +21,7 @@ array_min_by
 array_normalize
 array_position
 array_remove
+array_split_into_chunks
 array_sort
 array_sort_desc
 array_sum
@@ -151,6 +152,8 @@ inverse_normal_cdf
 inverse_poisson_cdf
 inverse_weibull_cdf
 ip_prefix
+ip_prefix_collapse
+ip_prefix_subnets
 ip_subnet_max
 ip_subnet_min
 ip_subnet_range
@@ -158,6 +161,7 @@ is_finite
 is_infinite
 is_json_scalar
 is_nan
+is_private_ip
 is_subnet_of
 jaccard_index
 json_array_contains
@@ -196,6 +200,7 @@ map_remove_null_values
 map_subset
 map_top_n
 map_top_n_keys
+map_top_n_keys_by_value
 map_top_n_values
 map_values
 map_zip_with
@@ -261,6 +266,8 @@ shuffle
 sign
 simplify_geometry
 sin
+sketch_kll_quantile
+sketch_kll_rank
 slice
 spatial_partitions
 split

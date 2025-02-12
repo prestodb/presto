@@ -61,8 +61,11 @@ regr_slope
 regr_sxx
 regr_sxy
 regr_syy
+reservoir_sample
 set_agg
 set_union
+sketch_kll
+sketch_kll_with_k
 skewness
 spatial_partitioning
 stddev
