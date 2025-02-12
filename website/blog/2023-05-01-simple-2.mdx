@@ -62,7 +62,7 @@ The reason the simple is faster than the vector for some benchmarks is because w
 ### Writer types for outputs
 
 
-A similar pattern of inefficiency existed for functions with complex output types. The graph below shows the previous path of writing complex types through the simple function interface. In the previous  path, for each row, the result is first written to a temporary object (std::vector, folly::f14FastMap<\>, etc.), then serialized into the Velox vector.
+A similar pattern of inefficiency existed for functions with complex output types. The graph below shows the previous path of writing complex types through the simple function interface. In the previous  path, for each row, the result is first written to a temporary object (std::vector, folly::f14FastMap\<\>, etc.), then serialized into the Velox vector.
 <figure>
  <img src="/img/simple1_5.png"/>
 </figure>
@@ -80,17 +80,17 @@ outerArray is an array writer and whenever push_back is called, the underlying v
 
 **In order & final elements writing**: Unlike the previous interface, the new writer interface needs to write things in order, since it directly serializes elements into Velox vector buffers. Written elements also can not be modified.
 
-For example, for a function with an Array<Map\> output , we can't add three maps, and write to them concurrently. The new interface should enforce that one map is written completely before the next one starts. This is because we are serializing things directly in the map vector, and to determine the offset of the new map we need first to know the end offset of the previous one.
+For example, for a function with an Array\<Map\> output , we can't add three maps, and write to them concurrently. The new interface should enforce that one map is written completely before the next one starts. This is because we are serializing things directly in the map vector, and to determine the offset of the new map we need first to know the end offset of the previous one.
 
-The code below shows a function with Array<Map\> output:
+The code below shows a function with Array\<Map\> output:
 <figure>
  <img src="/img/simple1_code2.png"/>
 </figure>
 
 **Compatibility with std::like containers.**: Unfortunately, the new interface is not completely compatible with std::like interfaces, in fact, it deviates syntactically and semantically (for example a std::map enforces unique keys and ordering of elements) while map writer does not.
-When the element type is primitive (ex: Array<int\>) we enable std::like APIs (push_back, emplace()).
+When the element type is primitive (ex: Array\<int\>) we enable std::like APIs (push_back, emplace()).
 
-But we can not do that for nested complex types (ex:Array<Array<int\>\>) since it breaks the in-order & final elements writing rule mentioned above.
+But we can not do that for nested complex types (ex:Array\<Array\<int\>\>) since it breaks the in-order & final elements writing rule mentioned above.
 
 The figure below shows the performance gain achieved by this change, functions' performance is evaluated before and after the change.
 <figure>

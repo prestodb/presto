@@ -64,7 +64,7 @@ In the code above, the overhead of checking the encoding is switched outside the
 One issue with this optimization is that the core loop is replicated many times. In general, the numbers of times it will be replicated
 is `n^m` where `n` is the number of args, and `m` is the number of encodings.
 
-To avoid code size blowing, we only apply this optimization when all input arguments are primitives and the number of input arguments is <=3.
+To avoid code size blowing, we only apply this optimization when all input arguments are primitives and the number of input arguments is \<=3.
 The figure below shows the effect of this optimization on the processing time of a query of primitive operations (the expression is a common pattern in ML use cases).
 
 <figure>
