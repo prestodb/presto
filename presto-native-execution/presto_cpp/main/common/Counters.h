@@ -41,6 +41,8 @@ constexpr folly::StringPiece kCounterHTTPRequestLatencyMs{
 
 constexpr folly::StringPiece kCounterHttpClientNumConnectionsCreated{
     "presto_cpp.http.client.num_connections_created"};
+constexpr folly::StringPiece kCounterHTTPClientTransactionCreateDelay{
+    "presto_cpp.http.client.transaction_create_delay_ms"};
 /// Peak number of bytes queued in PrestoExchangeSource waiting for consume.
 constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
