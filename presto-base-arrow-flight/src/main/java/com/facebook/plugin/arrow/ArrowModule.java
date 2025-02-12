@@ -49,6 +49,6 @@ public class ArrowModule
         binder.bind(ArrowPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSourceProvider.class).to(ArrowPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(Connector.class).to(ArrowConnector.class).in(Scopes.SINGLETON);
-        binder.bind(ArrowBlockBuilder.class).to(ArrowBlockBuilder.class).in(Scopes.SINGLETON);
+        binder.bind(ArrowBlockBuilder.class).in(Scopes.SINGLETON);
     }
 }
