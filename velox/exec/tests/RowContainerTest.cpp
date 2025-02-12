@@ -21,6 +21,7 @@
 #include "velox/expression/VectorReaders.h"
 #include "velox/type/tests/utils/CustomTypesForTesting.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -933,6 +934,99 @@ static int32_t sign(int32_t n) {
   return n < 0 ? -1 : n == 0 ? 0 : 1;
 }
 } // namespace
+
+TEST_F(RowContainerTest, extractWithNullsAndTargetOffset) {
+  constexpr int32_t kNumRows = 100;
+  // The second column must have no nulls in the first batch.
+  auto rowVector1 = makeRowVector({
+      makeFlatVector<bool>(
+          kNumRows, [](auto row) { return row % 11 + 1; }, nullEvery(17)),
+      makeFlatVector<StringView>(
+          kNumRows, [](auto /* row */) { return StringView("abcd"); }),
+      makeFlatVector<int8_t>(
+          kNumRows, [](auto /* row */) { return 4; }, nullEvery(1)),
+  });
+  // The second column must have at least one null in the second batch.
+  auto rowVector2 = makeRowVector({
+      makeFlatVector<bool>(
+          kNumRows, [](auto row) { return row % 11 + 1; }, nullEvery(23)),
+      makeFlatVector<StringView>(
+          kNumRows,
+          [](auto /* row */) { return StringView(""); },
+          nullEvery(3)),
+      makeFlatVector<int8_t>(
+          kNumRows, [](auto /* row */) { return 5; }, nullEvery(5)),
+  });
+
+  // Create and fill up two row containers from two row vectors.
+  std::vector<TypePtr> vecTypes = {BOOLEAN(), VARCHAR(), TINYINT()};
+  RowTypePtr rowType = VectorMaker::rowType({BOOLEAN(), VARCHAR(), TINYINT()});
+  auto data1 = makeRowContainer({}, vecTypes);
+  auto data2 = makeRowContainer({}, vecTypes);
+  for (auto i = 0; i < kNumRows; i++) {
+    data1->newRow();
+    data2->newRow();
+  }
+
+  std::vector<char*> rows1(kNumRows);
+  RowContainerIterator iter1;
+  EXPECT_EQ(data1->listRows(&iter1, kNumRows, rows1.data()), kNumRows);
+  SelectivityVector allRows1(kNumRows);
+  for (int i = 0; i < rowVector1->childrenSize(); i++) {
+    DecodedVector decoded(*rowVector1->childAt(i), allRows1);
+    for (auto j = 0; j < kNumRows; ++j) {
+      data1->store(decoded, j, rows1[j], i);
+    }
+  }
+
+  std::vector<char*> rows2(kNumRows);
+  RowContainerIterator iter2;
+  EXPECT_EQ(data2->listRows(&iter2, kNumRows, rows2.data()), kNumRows);
+  SelectivityVector allRows2(kNumRows);
+  for (int i = 0; i < rowVector2->childrenSize(); i++) {
+    DecodedVector decoded(*rowVector2->childAt(i), allRows2);
+    for (auto j = 0; j < kNumRows; ++j) {
+      data2->store(decoded, j, rows2[j], i);
+    }
+  }
+
+  // Now create the result row vector and extract two row containers into it.
+  auto result =
+      BaseVector::create<RowVector>(rowType, kNumRows * 2, pool_.get());
+
+  for (int32_t col = 0; col < 3; col++) {
+    RowContainer::extractColumn(
+        rows1.data(),
+        kNumRows,
+        data1->columnAt(col),
+        data1->columnHasNulls(col),
+        0,
+        result->childAt(col));
+  }
+  for (int32_t col = 0; col < 3; col++) {
+    RowContainer::extractColumn(
+        rows2.data(),
+        kNumRows,
+        data2->columnAt(col),
+        data2->columnHasNulls(col),
+        kNumRows,
+        result->childAt(col));
+  }
+
+  // Check we have all nulls correct.
+  ASSERT_EQ(result->size(), kNumRows * 2);
+  for (int32_t col = 0; col < 3; col++) {
+    auto resultColVector = result->childAt(col);
+    auto batch1ColVector = rowVector1->childAt(col);
+    auto batch2ColVector = rowVector2->childAt(col);
+    for (int32_t row = 0; row < kNumRows; row++) {
+      ASSERT_EQ(resultColVector->isNullAt(row), batch1ColVector->isNullAt(row));
+      ASSERT_EQ(
+          resultColVector->isNullAt(row + kNumRows),
+          batch2ColVector->isNullAt(row));
+    }
+  }
+}
 
 TEST_F(RowContainerTest, storeExtractArrayOfVarchar) {
   // Make a string vector with two rows each having 2 elements.

@@ -828,7 +828,7 @@ class RowContainer {
   /// invalidated. Any row erase operations will invalidate column stats.
   std::optional<RowColumn::Stats> columnStats(int32_t columnIndex) const;
 
-  uint32_t columnNullCount(int32_t columnIndex) {
+  uint32_t columnNullCount(int32_t columnIndex) const {
     return rowColumnsStats_[columnIndex].nullCount();
   }
 
@@ -1108,7 +1108,7 @@ class RowContainer {
     auto maxRows = numRows + resultOffset;
     VELOX_DCHECK_LE(maxRows, result->size());
 
-    BufferPtr& nullBuffer = result->mutableNulls(maxRows);
+    BufferPtr& nullBuffer = result->mutableNulls(maxRows, true);
     auto nulls = nullBuffer->asMutable<uint64_t>();
     BufferPtr valuesBuffer = result->mutableValues(maxRows);
     [[maybe_unused]] auto values = valuesBuffer->asMutableRange<T>();
