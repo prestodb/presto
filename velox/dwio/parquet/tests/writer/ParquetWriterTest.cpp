@@ -22,6 +22,7 @@
 #include "velox/connectors/hive/HiveConnector.h" // @manual
 #include "velox/core/QueryCtx.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h" // @manual
+#include "velox/dwio/parquet/reader/PageReader.h"
 #include "velox/dwio/parquet/tests/ParquetTestBase.h"
 #include "velox/exec/Cursor.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -145,6 +146,124 @@ TEST_F(ParquetWriterTest, compression) {
   auto rowReader = createRowReaderWithSchema(std::move(reader), schema);
   assertReadWithReaderAndExpected(schema, *rowReader, data, *leafPool_);
 };
+
+TEST_F(ParquetWriterTest, toggleDataPageVersion) {
+  auto schema = ROW({"c0"}, {INTEGER()});
+  const int64_t kRows = 1;
+  const auto data = makeRowVector({
+      makeFlatVector<int32_t>(kRows, [](auto row) { return 987; }),
+  });
+
+  // Write Parquet test data, then read and return the DataPage
+  // (thrift::PageType::type) used.
+  const auto testDataPageVersion =
+      [&](std::unordered_map<std::string, std::string> configFromFile,
+          std::unordered_map<std::string, std::string> sessionProperties) {
+        // Create an in-memory writer.
+        auto sink = std::make_unique<MemorySink>(
+            200 * 1024 * 1024,
+            dwio::common::FileSink::Options{.pool = leafPool_.get()});
+        auto sinkPtr = sink.get();
+        parquet::WriterOptions writerOptions;
+        writerOptions.memoryPool = leafPool_.get();
+
+        // Simulate setting of Hive config & connector session properties, then
+        // write test data.
+        auto connectorConfig = config::ConfigBase(std::move(configFromFile));
+        auto connectorSessionProperties =
+            config::ConfigBase(std::move(sessionProperties));
+
+        writerOptions.processConfigs(
+            connectorConfig, connectorSessionProperties);
+        auto writer = std::make_unique<parquet::Writer>(
+            std::move(sink), writerOptions, rootPool_, schema);
+        writer->write(data);
+        writer->close();
+
+        // Read to identify DataPage used.
+        dwio::common::ReaderOptions readerOptions{leafPool_.get()};
+        auto reader = createReaderInMemory(*sinkPtr, readerOptions);
+
+        auto colChunkPtr = reader->fileMetaData().rowGroup(0).columnChunk(0);
+        std::string_view sinkData(sinkPtr->data(), sinkPtr->size());
+
+        auto readFile = std::make_shared<InMemoryReadFile>(sinkData);
+        auto file = std::make_shared<ReadFileInputStream>(std::move(readFile));
+
+        auto inputStream = std::make_unique<SeekableFileInputStream>(
+            std::move(file),
+            colChunkPtr.dataPageOffset(),
+            150,
+            *leafPool_,
+            LogType::TEST);
+        auto pageReader = std::make_unique<PageReader>(
+            std::move(inputStream),
+            *leafPool_,
+            colChunkPtr.compression(),
+            colChunkPtr.totalCompressedSize());
+
+        return pageReader->readPageHeader().type;
+      };
+
+  // Test default behavior - DataPage should be V1.
+  ASSERT_EQ(testDataPageVersion({}, {}), thrift::PageType::type::DATA_PAGE);
+
+  // Simulate setting DataPage version to V2 via Hive config from file.
+  std::unordered_map<std::string, std::string> configFromFile = {
+      {parquet::WriterOptions::kParquetHiveConnectorDataPageVersion, "V2"}};
+
+  ASSERT_EQ(
+      testDataPageVersion(configFromFile, {}),
+      thrift::PageType::type::DATA_PAGE_V2);
+
+  // Simulate setting DataPage version to V1 via Hive config from file.
+  configFromFile = {
+      {parquet::WriterOptions::kParquetHiveConnectorDataPageVersion, "V1"}};
+
+  ASSERT_EQ(
+      testDataPageVersion(configFromFile, {}),
+      thrift::PageType::type::DATA_PAGE);
+
+  // Simulate setting DataPage version to V2 via connector session property.
+  std::unordered_map<std::string, std::string> sessionProperties = {
+      {parquet::WriterOptions::kParquetSessionDataPageVersion, "V2"}};
+
+  ASSERT_EQ(
+      testDataPageVersion({}, sessionProperties),
+      thrift::PageType::type::DATA_PAGE_V2);
+
+  // Simulate setting DataPage version to V1 via connector session property.
+  sessionProperties = {
+      {parquet::WriterOptions::kParquetSessionDataPageVersion, "V1"}};
+
+  ASSERT_EQ(
+      testDataPageVersion({}, sessionProperties),
+      thrift::PageType::type::DATA_PAGE);
+
+  // Simulate setting DataPage version to V1 via connector session property,
+  // and to V2 via Hive config from file. Session property should take
+  // precedence.
+  sessionProperties = {
+      {parquet::WriterOptions::kParquetSessionDataPageVersion, "V1"}};
+  configFromFile = {
+      {parquet::WriterOptions::kParquetHiveConnectorDataPageVersion, "V2"}};
+
+  ASSERT_EQ(
+      testDataPageVersion({}, sessionProperties),
+      thrift::PageType::type::DATA_PAGE);
+
+  // Simulate setting DataPage version to V2 via connector session property,
+  // and to V1 via Hive config from file. Session property should take
+  // precedence.
+  sessionProperties = {
+      {parquet::WriterOptions::kParquetSessionDataPageVersion, "V2"}};
+  configFromFile = {
+      {parquet::WriterOptions::kParquetHiveConnectorDataPageVersion, "V1"}};
+
+  ASSERT_EQ(
+      testDataPageVersion({}, sessionProperties),
+      thrift::PageType::type::DATA_PAGE_V2);
+}
 
 DEBUG_ONLY_TEST_F(ParquetWriterTest, unitFromWriterOptions) {
   SCOPED_TESTVALUE_SET(

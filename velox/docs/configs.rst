@@ -657,6 +657,12 @@ Each query can override the config by setting corresponding query session proper
      - 9
      - Timestamp unit used when writing timestamps into Parquet through Arrow bridge.
        Valid values are 3 (millisecond), 6 (microsecond), and 9 (nanosecond).
+   * - hive.parquet.writer.datapage-version
+     - hive.parquet.writer.datapage_version
+     - string
+     - V1
+     - Data Page version used when writing into Parquet through Arrow bridge.
+       Valid values are "V1" and "V2".
 
 ``Amazon S3 Configuration``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
