@@ -87,7 +87,7 @@ public final class PlanChecker
         checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
         for (PlanCheckerProvider provider : planCheckerProviderManager.getPlanCheckerProviders()) {
             for (com.facebook.presto.spi.plan.PlanChecker checker : provider.getFinalPlanCheckers()) {
-                checker.validate(planNode, warningCollector);
+                checker.validate(planNode, warningCollector, session.toConnectorSession());
             }
         }
     }
@@ -97,7 +97,7 @@ public final class PlanChecker
         checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, warningCollector));
         for (PlanCheckerProvider provider : planCheckerProviderManager.getPlanCheckerProviders()) {
             for (com.facebook.presto.spi.plan.PlanChecker checker : provider.getIntermediatePlanCheckers()) {
-                checker.validate(planNode, warningCollector);
+                checker.validate(planNode, warningCollector, session.toConnectorSession());
             }
         }
     }
@@ -107,15 +107,18 @@ public final class PlanChecker
         checkers.get(Stage.FRAGMENT).forEach(checker -> checker.validateFragment(planFragment, session, metadata, warningCollector));
         for (PlanCheckerProvider provider : planCheckerProviderManager.getPlanCheckerProviders()) {
             for (com.facebook.presto.spi.plan.PlanChecker checker : provider.getFragmentPlanCheckers()) {
-                checker.validateFragment(new SimplePlanFragment(
-                        planFragment.getId(),
-                        planFragment.getRoot(),
-                        planFragment.getVariables(),
-                        planFragment.getPartitioning(),
-                        planFragment.getTableScanSchedulingOrder(),
-                        planFragment.getPartitioningScheme(),
-                        planFragment.getStageExecutionDescriptor(),
-                        planFragment.isOutputTableWriterFragment()), warningCollector);
+                checker.validateFragment(
+                        new SimplePlanFragment(
+                                planFragment.getId(),
+                                planFragment.getRoot(),
+                                planFragment.getVariables(),
+                                planFragment.getPartitioning(),
+                                planFragment.getTableScanSchedulingOrder(),
+                                planFragment.getPartitioningScheme(),
+                                planFragment.getStageExecutionDescriptor(),
+                                planFragment.isOutputTableWriterFragment()),
+                        warningCollector,
+                        session.toConnectorSession());
             }
         }
     }

@@ -93,7 +93,7 @@ public class TestPlanCheckerProvider
             PlanConversionResponse responseOk = new PlanConversionResponse(ImmutableList.of());
             String responseOkString = PLAN_CONVERSION_RESPONSE_JSON_CODEC.toJson(responseOk);
             server.enqueue(new MockResponse().setBody(responseOkString));
-            checker.validateFragment(fragment, null);
+            checker.validateFragment(fragment, null, null);
 
             String errorMessage = "native conversion error";
             ErrorCode errorCode = StandardErrorCode.NOT_SUPPORTED.toErrorCode();
@@ -101,7 +101,7 @@ public class TestPlanCheckerProvider
             String responseErrorString = PLAN_CONVERSION_RESPONSE_JSON_CODEC.toJson(responseError);
             server.enqueue(new MockResponse().setResponseCode(500).setBody(responseErrorString));
             PrestoException error = expectThrows(PrestoException.class,
-                    () -> checker.validateFragment(fragment, null));
+                    () -> checker.validateFragment(fragment, null, null));
             assertEquals(error.getErrorCode(), errorCode);
             assertTrue(error.getMessage().contains(errorMessage));
         }
