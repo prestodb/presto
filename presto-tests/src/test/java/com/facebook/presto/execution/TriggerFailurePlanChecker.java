@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.WarningCollector;
@@ -36,7 +37,7 @@ public class TriggerFailurePlanChecker
     }
 
     @Override
-    public void validate(PlanNode planNode, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, WarningCollector warningCollector, ConnectorSession session)
     {
         if (triggerValidationFailure.get()) {
             throw new PrestoException(FAILURE_ERROR_CODE, FAILURE_MESSAGE);

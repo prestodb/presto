@@ -16,6 +16,7 @@ package com.facebook.presto.sidecar.nativechecker;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
@@ -61,13 +62,13 @@ public final class NativePlanChecker
     }
 
     @Override
-    public void validate(PlanNode planNode, WarningCollector warningCollector)
+    public void validate(PlanNode planNode, WarningCollector warningCollector, ConnectorSession session)
     {
         // NO-OP, only validating fragments
     }
 
     @Override
-    public void validateFragment(SimplePlanFragment planFragment, WarningCollector warningCollector)
+    public void validateFragment(SimplePlanFragment planFragment, WarningCollector warningCollector, ConnectorSession session)
     {
         if (!planFragment.getPartitioning().isCoordinatorOnly() && !isInternalSystemConnector(planFragment.getRoot())) {
             runValidation(planFragment);
