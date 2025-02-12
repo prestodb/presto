@@ -114,7 +114,7 @@ export default function PlanView({show, data}) {
             widgets.current.svg = d3.select("#plan-canvas");
         }
         updateD3Graph();
-        $('[data-bs-toggle="tooltip"]')?.tooltip()
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.()
     }, [data, show]);
 
     return (
