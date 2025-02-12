@@ -646,7 +646,7 @@ public class TestSqlTaskExecution
     {
         return new PartitionedOutputBuffer(
                 "queryId.0.0",
-                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
+                new StateMachine<>("bufferState", OPEN, TERMINAL_BUFFER_STATES),
                 createInitialEmptyOutputBuffers(PARTITIONED)
                         .withBuffer(OUTPUT_BUFFER_ID, 0)
                         .withNoMoreBufferIds(),

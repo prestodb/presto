@@ -16,16 +16,16 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -46,15 +46,13 @@ public class StateMachine<T>
     private static final Logger log = Logger.get(StateMachine.class);
 
     private final String name;
-    private final Executor executor;
     private final Object lock = new Object();
     private final Set<T> terminalStates;
 
     @GuardedBy("lock")
     private volatile T state;
 
-    @GuardedBy("lock")
-    private final List<StateChangeListener<T>> stateChangeListeners = new ArrayList<>();
+    private final ConcurrentHashMap<StateChangeListener<T>, Executor> stateChangeListeners = new ConcurrentHashMap<>();
 
     private final AtomicReference<FutureStateChange<T>> futureStateChange = new AtomicReference<>(new FutureStateChange<>());
 
@@ -62,26 +60,23 @@ public class StateMachine<T>
      * Creates a state machine with the specified initial state and no terminal states.
      *
      * @param name name of this state machine to use in debug statements
-     * @param executor executor for firing state change events; must not be a same thread executor
      * @param initialState the initial state
      */
-    public StateMachine(String name, Executor executor, T initialState)
+    public StateMachine(String name, T initialState)
     {
-        this(name, executor, initialState, ImmutableSet.of());
+        this(name, initialState, ImmutableSet.of());
     }
 
     /**
      * Creates a state machine with the specified initial state and terminal states.
      *
      * @param name name of this state machine to use in debug statements
-     * @param executor executor for firing state change events; must not be a same thread executor
      * @param initialState the initial state
      * @param terminalStates the terminal states
      */
-    public StateMachine(String name, Executor executor, T initialState, Iterable<T> terminalStates)
+    public StateMachine(String name, T initialState, Iterable<T> terminalStates)
     {
         this.name = requireNonNull(name, "name is null");
-        this.executor = requireNonNull(executor, "executor is null");
         this.state = requireNonNull(initialState, "initialState is null");
         this.terminalStates = ImmutableSet.copyOf(requireNonNull(terminalStates, "terminalStates is null"));
     }
@@ -106,7 +101,7 @@ public class StateMachine<T>
 
         T oldState;
         FutureStateChange<T> futureStateChange;
-        ImmutableList<StateChangeListener<T>> stateChangeListeners;
+        ImmutableMap<StateChangeListener<T>, Executor> stateChangeListeners;
         synchronized (lock) {
             if (state.equals(newState)) {
                 return state;
@@ -118,7 +113,7 @@ public class StateMachine<T>
             state = newState;
 
             futureStateChange = this.futureStateChange.getAndSet(new FutureStateChange<>());
-            stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
+            stateChangeListeners = ImmutableMap.copyOf(this.stateChangeListeners);
 
             // if we are now in a terminal state, free the listeners since this will be the last notification
             if (isTerminalState(state)) {
@@ -175,7 +170,7 @@ public class StateMachine<T>
         requireNonNull(newState, "newState is null");
 
         FutureStateChange<T> futureStateChange;
-        ImmutableList<StateChangeListener<T>> stateChangeListeners;
+        ImmutableMap<StateChangeListener<T>, Executor> stateChangeListeners;
         synchronized (lock) {
             if (!state.equals(expectedState)) {
                 return false;
@@ -191,7 +186,7 @@ public class StateMachine<T>
             state = newState;
 
             futureStateChange = this.futureStateChange.getAndSet(new FutureStateChange<>());
-            stateChangeListeners = ImmutableList.copyOf(this.stateChangeListeners);
+            stateChangeListeners = ImmutableMap.copyOf(this.stateChangeListeners);
 
             // if we are now in a terminal state, free the listeners since this will be the last notification
             if (isTerminalState(state)) {
@@ -203,24 +198,17 @@ public class StateMachine<T>
         return true;
     }
 
-    private void fireStateChanged(T newState, FutureStateChange<T> futureStateChange, List<StateChangeListener<T>> stateChangeListeners)
+    private void fireStateChanged(T newState, FutureStateChange<T> futureStateChange, ImmutableMap<StateChangeListener<T>, Executor> stateChangeListeners)
     {
-        checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
         requireNonNull(newState, "newState is null");
+        checkState(!Thread.holdsLock(lock), "Can not fire state change event while holding the lock");
 
-        // always fire listener callbacks from a different thread
-        safeExecute(() -> {
-            checkState(!Thread.holdsLock(lock), "Can not notify while holding the lock");
-            try {
-                futureStateChange.complete(newState);
-            }
-            catch (Throwable e) {
-                log.error(e, "Error setting future state for %s", name);
-            }
-            for (StateChangeListener<T> stateChangeListener : stateChangeListeners) {
-                fireStateChangedListener(newState, stateChangeListener);
-            }
-        });
+        futureStateChange.complete(newState);
+
+        // use the provided executor to run the listener callbacks
+        for (Map.Entry<StateChangeListener<T>, Executor> entry : stateChangeListeners.entrySet()) {
+            safeExecute(() -> fireStateChangedListener(newState, entry.getKey()), entry.getValue());
+        }
     }
 
     private void fireStateChangedListener(T newState, StateChangeListener<T> stateChangeListener)
@@ -253,12 +241,11 @@ public class StateMachine<T>
 
     /**
      * Adds a listener to be notified when the state instance changes according to {@code .equals()}.
-     * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
-     * be taken to avoid leaking {@code this} when adding a listener in a constructor. Additionally, it is
+     * Listener is always notified using the provided executor. Additionally, it is
      * possible notifications are observed out of order due to the asynchronous execution. The listener is
-     * immediately notified immediately of the current state.
+     * immediately notified of the current state.
      */
-    public void addStateChangeListener(StateChangeListener<T> stateChangeListener)
+    public void addStateChangeListener(StateChangeListener<T> stateChangeListener, Executor executor)
     {
         requireNonNull(stateChangeListener, "stateChangeListener is null");
 
@@ -268,13 +255,13 @@ public class StateMachine<T>
             currentState = state;
             inTerminalState = isTerminalState(currentState);
             if (!inTerminalState) {
-                stateChangeListeners.add(stateChangeListener);
+                stateChangeListeners.put(stateChangeListener, executor);
             }
         }
 
         // fire state change listener with the current state
-        // always fire listener callbacks from a different thread
-        safeExecute(() -> stateChangeListener.stateChanged(currentState));
+        // always execute listener callbacks within the given executor
+        safeExecute(() -> stateChangeListener.stateChanged(currentState), executor);
     }
 
     @VisibleForTesting
@@ -289,10 +276,10 @@ public class StateMachine<T>
     }
 
     @VisibleForTesting
-    List<StateChangeListener<T>> getStateChangeListeners()
+    ImmutableMap<StateChangeListener<T>, Executor> getStateChangeListeners()
     {
         synchronized (lock) {
-            return ImmutableList.copyOf(stateChangeListeners);
+            return ImmutableMap.copyOf(stateChangeListeners);
         }
     }
 
@@ -307,7 +294,7 @@ public class StateMachine<T>
         return get().toString();
     }
 
-    private void safeExecute(Runnable command)
+    private void safeExecute(Runnable command, Executor executor)
     {
         try {
             executor.execute(command);
