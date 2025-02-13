@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.containers;
+package com.facebook.presto.iceberg.container;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -25,36 +25,28 @@ import org.testcontainers.containers.Network;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
-import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.Network.newNetwork;
 
-public class HiveMinIODataLake
+public class IcebergMinIODataLake
         implements Closeable
 {
-    public static final String EMPTY_DIR = "test-empty-dir-" + randomTableSuffix() + "/";
     public static final String ACCESS_KEY = "accesskey";
     public static final String SECRET_KEY = "secretkey";
 
     private final String bucketName;
+    private final String warehouseDir;
     private final MinIOContainer minIOContainer;
-    private final HiveHadoopContainer hiveHadoopContainer;
 
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
-    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
-    {
-        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE);
-    }
-
-    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
+    public IcebergMinIODataLake(String bucketName, String warehouseDir)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
+        this.warehouseDir = requireNonNull(warehouseDir, "warehouseDir is null");
         Network network = closer.register(newNetwork());
         this.minIOContainer = closer.register(
                 MinIOContainer.builder()
@@ -63,23 +55,6 @@ public class HiveMinIODataLake
                                 .put("MINIO_ACCESS_KEY", ACCESS_KEY)
                                 .put("MINIO_SECRET_KEY", SECRET_KEY)
                                 .build())
-                        .build());
-
-        ImmutableMap.Builder filesToMount = ImmutableMap.<String, String>builder()
-                .putAll(hiveHadoopFilesToMount);
-
-        String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
-        if (hiveHadoopImage == HIVE3_IMAGE) {
-            hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
-            filesToMount.put("hive_s3_insert_overwrite/hive-site.xml", "/opt/hive/conf/hive-site.xml");
-        }
-        filesToMount.put("hive_s3_insert_overwrite/hadoop-core-site.xml", hadoopCoreSitePath);
-
-        this.hiveHadoopContainer = closer.register(
-                HiveHadoopContainer.builder()
-                        .withFilesToMount(filesToMount.build())
-                        .withImage(hiveHadoopImage)
-                        .withNetwork(network)
                         .build());
     }
 
@@ -90,7 +65,6 @@ public class HiveMinIODataLake
         }
         try {
             this.minIOContainer.start();
-            this.hiveHadoopContainer.start();
             AmazonS3 s3Client = AmazonS3ClientBuilder
                     .standard()
                     .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
@@ -101,7 +75,7 @@ public class HiveMinIODataLake
                             new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY)))
                     .build();
             s3Client.createBucket(this.bucketName);
-            s3Client.putObject(this.bucketName, EMPTY_DIR, "");
+            s3Client.putObject(this.bucketName, this.warehouseDir, "");
         }
         finally {
             isStarted.set(true);
@@ -122,7 +96,7 @@ public class HiveMinIODataLake
             closer.close();
         }
         catch (Exception e) {
-            throw new RuntimeException("Failed to stop HiveMinioDataLake", e);
+            throw new RuntimeException("Failed to stop IcebergMinioDataLake", e);
         }
         finally {
             isStarted.set(false);
@@ -132,11 +106,6 @@ public class HiveMinIODataLake
     public MinIOContainer getMinio()
     {
         return minIOContainer;
-    }
-
-    public HiveHadoopContainer getHiveHadoop()
-    {
-        return hiveHadoopContainer;
     }
 
     @Override

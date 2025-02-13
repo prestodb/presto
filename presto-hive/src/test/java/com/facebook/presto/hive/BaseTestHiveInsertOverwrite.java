@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
+import static com.facebook.presto.hive.containers.HiveMinIODataLake.EMPTY_DIR;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -132,6 +133,21 @@ public abstract class BaseTestHiveInsertOverwrite
                 format("external_location = 's3a://%s/%s/%s/'", this.bucketName, HIVE_TEST_SCHEMA, tableName)));
         copyTpchNationToTable(testTable);
         assertOverwritePartition(externalTableName);
+    }
+
+    @Test
+    public void testCreateExternalTableOnEmptyS3Directory()
+    {
+        String testTable = getTestTableName();
+        String tableName = testTable.substring(testTable.lastIndexOf('.') + 1);
+        computeActual(getCreateTableStatement(
+                tableName,
+                "partitioned_by=ARRAY['regionkey']",
+                "bucketed_by = ARRAY['nationkey']",
+                "bucket_count = 3",
+                format("external_location = 's3a://%s/%s'", this.bucketName, EMPTY_DIR)));
+        MaterializedResult materializedRows = computeActual("select * from " + tableName);
+        assertEquals(materializedRows.getRowCount(), 0);
     }
 
     protected void assertOverwritePartition(String testTable)
