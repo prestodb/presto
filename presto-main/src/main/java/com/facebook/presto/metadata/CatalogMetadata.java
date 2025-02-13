@@ -110,7 +110,7 @@ public class CatalogMetadata
 
     public ConnectorId getConnectorId(Session session, QualifiedObjectName table)
     {
-        if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
+        if (table.getSchemaName().equalsIgnoreCase(INFORMATION_SCHEMA_NAME)) {
             return informationSchemaId;
         }
 

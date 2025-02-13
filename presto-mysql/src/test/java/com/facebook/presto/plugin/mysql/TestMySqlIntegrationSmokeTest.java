@@ -306,4 +306,18 @@ public class TestMySqlIntegrationSmokeTest
         assertUpdate("CREATE TABLE test_column (name VARCHAR NOT NULL, email VARCHAR)");
         assertQuery("SELECT is_nullable FROM information_schema.columns WHERE table_name = 'test_column'", "VALUES 'NO','YES'");
     }
+
+    @Test
+    public void testDuplicatedRowCreateTable()
+    {
+        assertQueryFails("CREATE TABLE test (a integer, a integer)",
+                "line 1:31: Column name 'a' specified more than once");
+        assertQueryFails("CREATE TABLE test (a integer, orderkey integer, LIKE orders INCLUDING PROPERTIES)",
+                "line 1:49: Column name 'orderkey' specified more than once");
+
+        assertQueryFails("CREATE TABLE test (a integer, A integer)",
+                "Duplicate column name 'a'");
+        assertQueryFails("CREATE TABLE test (a integer, OrderKey integer, LIKE orders INCLUDING PROPERTIES)",
+                "Duplicate column name 'orderkey'");
+    }
 }
