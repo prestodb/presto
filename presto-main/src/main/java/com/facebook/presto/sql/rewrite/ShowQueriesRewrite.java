@@ -220,7 +220,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowTables(ShowTables showTables, Void context)
         {
-            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
+            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema(), metadata);
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
@@ -413,8 +413,8 @@ final class ShowQueriesRewrite
                             aliasedNullToEmpty("comment", "Comment")),
                     from(tableName.getCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
-                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
+                            equal(identifier("table_schema"), new StringLiteral(tableName.getLegacySchemaName())),
+                            equal(identifier("table_name"), new StringLiteral(tableName.getLegacyObjectName()))),
                     ordering(ascending("ordinal_position")));
         }
 

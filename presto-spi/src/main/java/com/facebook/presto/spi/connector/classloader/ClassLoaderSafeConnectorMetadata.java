@@ -784,4 +784,11 @@ public class ClassLoaderSafeConnectorMetadata
             delegate.addConstraint(session, tableHandle, tableConstraint);
         }
     }
+
+    public String normalizeIdentifier(ConnectorSession session, String identifier, boolean delimited)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.normalizeIdentifier(session, identifier, delimited);
+        }
+    }
 }

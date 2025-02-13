@@ -54,6 +54,8 @@ import static com.facebook.presto.common.type.VarcharType.createUnboundedVarchar
 import static com.facebook.presto.metadata.MetadataUtil.SchemaMetadataBuilder.schemaMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static com.facebook.presto.metadata.MetadataUtil.findColumnMetadata;
+import static com.facebook.presto.metadata.QualifiedTablePrefix.toQualifiedTablePrefix;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.compose;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -264,7 +266,6 @@ public class InformationSchemaMetadata
         Optional<Set<String>> schemas = filterString(constraint, SCHEMA_COLUMN_HANDLE);
         if (schemas.isPresent()) {
             return schemas.get().stream()
-                    .filter(this::isLowerCase)
                     .map(schema -> new QualifiedTablePrefix(catalogName, schema))
                     .collect(toImmutableSet());
         }
@@ -289,11 +290,12 @@ public class InformationSchemaMetadata
         if (tables.isPresent()) {
             return prefixes.stream()
                     .flatMap(prefix -> tables.get().stream()
-                            .filter(this::isLowerCase)
-                            .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
                     .filter(objectName -> metadataResolver.getView(objectName).isPresent() || metadataResolver.getTableHandle(objectName).isPresent())
-                    .map(QualifiedTablePrefix::toQualifiedTablePrefix)
+                    .map(value -> toQualifiedTablePrefix(new QualifiedObjectName(
+                            value.getCatalogName(),
+                            metadata.normalizeIdentifier(session, value.getCatalogName(), value.getSchemaName(), identifier(value.getSchemaName()).isDelimited()),
+                            metadata.normalizeIdentifier(session, value.getCatalogName(), value.getObjectName(), identifier(value.getObjectName()).isDelimited()))))
                     .collect(toImmutableSet());
         }
 
@@ -302,7 +304,10 @@ public class InformationSchemaMetadata
                         metadata.listTables(session, prefix).stream(),
                         metadata.listViews(session, prefix).stream()))
                 .filter(objectName -> !predicate.isPresent() || predicate.get().test(asFixedValues(objectName)))
-                .map(QualifiedTablePrefix::toQualifiedTablePrefix)
+                .map(value -> toQualifiedTablePrefix(new QualifiedObjectName(
+                        value.getCatalogName(),
+                        metadata.normalizeIdentifier(session, value.getCatalogName(), value.getSchemaName(), identifier(value.getSchemaName()).isDelimited()),
+                        metadata.normalizeIdentifier(session, value.getCatalogName(), value.getObjectName(), identifier(value.getObjectName()).isDelimited()))))
                 .collect(toImmutableSet());
     }
 
