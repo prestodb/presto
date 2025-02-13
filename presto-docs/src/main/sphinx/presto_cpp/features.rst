@@ -252,4 +252,7 @@ Users can enable collection of worker level metrics by setting the property:
 * **Default value:** ``false``
 
   When true, the default behavior is a no-op. There is a prior setup that must be done before enabling this flag. To enable
-  metrics collection in Prometheus Data Format refer `here <https://github.com/prestodb/presto/tree/master/presto-native-execution#build-prestissimo>`_. 
+  metrics collection in Prometheus Data Format refer `here <https://github.com/prestodb/presto/tree/master/presto-native-execution#build-prestissimo>`_.
+
+  When enabled and Presto C++ workers interact with the S3 filesystem, additional runtime metrics are collected.
+  For a detailed list of these metrics, see `runtime metrics <https://facebookincubator.github.io/velox/monitoring/metrics.html#s3-filesystem>`_.

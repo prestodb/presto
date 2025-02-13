@@ -1371,6 +1371,7 @@ void PrestoServer::unregisterFileReadersAndWriters() {
 void PrestoServer::registerStatsCounters() {
   registerPrestoMetrics();
   velox::registerVeloxMetrics();
+  velox::filesystems::registerS3Metrics();
 }
 
 std::string PrestoServer::getLocalIp() const {
