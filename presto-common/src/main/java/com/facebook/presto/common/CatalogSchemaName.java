@@ -19,7 +19,6 @@ import com.facebook.drift.annotations.ThriftStruct;
 
 import java.util.Objects;
 
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -33,8 +32,8 @@ public final class CatalogSchemaName
     @ThriftConstructor
     public CatalogSchemaName(String catalogName, String schemaName)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null").toLowerCase(ENGLISH);
-        this.schemaName = requireNonNull(schemaName, "schemaName is null").toLowerCase(ENGLISH);
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
     }
 
     @ThriftField(1)

@@ -83,10 +83,10 @@ public class MetadataUtils
                 () -> metadataResolver.getTableHandle(tableName));
 
         if (!tableHandle.isPresent()) {
-            if (!metadataResolver.catalogExists(tableName.getCatalogName())) {
+            if (!metadataResolver.catalogExists(tableName.getLegacyCatalogName())) {
                 throw new SemanticException(MISSING_CATALOG, "Catalog %s does not exist", tableName.getCatalogName());
             }
-            if (!metadataResolver.schemaExists(new CatalogSchemaName(tableName.getCatalogName(), tableName.getSchemaName()))) {
+            if (!metadataResolver.schemaExists(new CatalogSchemaName(tableName.getLegacyCatalogName(), tableName.getSchemaName()))) {
                 throw new SemanticException(MISSING_SCHEMA, "Schema %s does not exist", tableName.getSchemaName());
             }
             throw new SemanticException(MISSING_TABLE, "Table %s does not exist", tableName);
