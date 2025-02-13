@@ -46,7 +46,7 @@ public class RenameViewTask
 
     public ListenableFuture<?> execute(RenameView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
 
         Optional<ViewDefinition> view = metadata.getMetadataResolver(session).getView(viewName);
         if (!view.isPresent()) {
@@ -56,7 +56,7 @@ public class RenameViewTask
             return immediateFuture(null);
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
+        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget(), metadata);
         if (!metadata.getCatalogHandle(session, target.getCatalogName()).isPresent()) {
             throw new SemanticException(MISSING_CATALOG, statement, "Target catalog '%s' does not exist", target.getCatalogName());
         }
