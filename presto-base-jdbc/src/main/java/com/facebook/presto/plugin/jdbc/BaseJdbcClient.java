@@ -30,7 +30,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -77,7 +76,6 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -150,7 +148,7 @@ public class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             return listSchemas(connection).stream()
-                    .map(schemaName -> schemaName.toLowerCase(ENGLISH))
+                    .map(schemaName -> normalizeIdentifier(session, schemaName))
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
@@ -186,7 +184,8 @@ public class BaseJdbcClient
                 while (resultSet.next()) {
                     String tableSchema = getTableSchemaName(resultSet);
                     String tableName = resultSet.getString("TABLE_NAME");
-                    list.add(new SchemaTableName(tableSchema.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH)));
+                    list.add(new SchemaTableName(normalizeIdentifier(session, tableSchema),
+                            normalizeIdentifier(session, tableName)));
                 }
                 return list.build();
             }
@@ -605,6 +604,12 @@ public class BaseJdbcClient
         return connection.prepareStatement(sql);
     }
 
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return identifier.toLowerCase(ENGLISH);
+    }
+
     protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
             throws SQLException
     {
@@ -626,7 +631,7 @@ public class BaseJdbcClient
     protected String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName)
     {
         requireNonNull(schemaName, "schemaName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
+//        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
 
         if (caseInsensitiveNameMatching) {
             try {
@@ -671,7 +676,7 @@ public class BaseJdbcClient
     {
         requireNonNull(remoteSchema, "remoteSchema is null");
         requireNonNull(tableName, "tableName is null");
-        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
+//        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
 
         if (caseInsensitiveNameMatching) {
             try {

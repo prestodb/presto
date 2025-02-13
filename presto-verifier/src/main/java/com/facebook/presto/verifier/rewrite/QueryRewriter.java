@@ -350,7 +350,7 @@ public class QueryRewriter
             parts.addAll(originalName.get().getOriginalParts().subList(0, originalSize - prefixSize));
         }
         parts.addAll(prefix.getOriginalParts());
-        parts.set(parts.size() - 1, prefix.getSuffix() + "_" + randomUUID().toString().replace("-", ""));
+        parts.set(parts.size() - 1, prefix.getOriginalSuffix() + "_" + randomUUID().toString().replace("-", ""));
         return QualifiedName.of(parts);
     }
 

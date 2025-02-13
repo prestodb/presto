@@ -57,7 +57,7 @@ public class AlterColumnNotNullTask
     @Override
     public ListenableFuture<?> execute(AlterColumnNotNull statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
         Optional<TableHandle> tableHandleOptional = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandleOptional.isPresent()) {
             if (!statement.isTableExists()) {

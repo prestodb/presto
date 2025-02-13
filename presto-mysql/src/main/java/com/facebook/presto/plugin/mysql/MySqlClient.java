@@ -241,4 +241,10 @@ public class MySqlClient
         // catalogName parameter to null it will be omitted in the alter table statement.
         super.renameTable(identity, null, oldTable, newTable);
     }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return identifier;
+    }
 }
