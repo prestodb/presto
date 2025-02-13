@@ -718,13 +718,13 @@ public final class SqlStageExecution
                 failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
-    private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
+    private void updateFinalTaskInfo(TaskInfo finalTaskInfo)
     {
         runningTasks.remove(finalTaskInfo.getTaskId());
         checkAllTaskFinal();
     }
 
-    private synchronized void checkAllTaskFinal()
+    private void checkAllTaskFinal()
     {
         if (stateMachine.getState().isDone() && runningTasks.isEmpty()) {
             if (getFragment().getStageExecutionDescriptor().isStageGroupedExecution()) {
