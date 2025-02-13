@@ -64,6 +64,13 @@ public class TpcdsConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(config);
+        // The Java TPC-DS connector works with either char or varchar columns.
+        // However, native execution only supports varchar columns, hence in a native cluster `tpcds.use-varchar-type` must be true.
+        boolean useVarcharType = useVarcharType(config);
+        if (context.getConnectorSystemConfig().isNativeExecution() && !(useVarcharType)) {
+            throw new IllegalArgumentException("`tpcds.use-varchar-type` config property is not true for a native cluster");
+        }
+
         NodeManager nodeManager = context.getNodeManager();
         return new Connector()
         {
@@ -76,7 +83,7 @@ public class TpcdsConnectorFactory
             @Override
             public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
             {
-                return new TpcdsMetadata();
+                return new TpcdsMetadata(useVarcharType);
             }
 
             @Override
@@ -88,7 +95,7 @@ public class TpcdsConnectorFactory
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
-                return new TpcdsRecordSetProvider();
+                return new TpcdsRecordSetProvider(useVarcharType);
             }
 
             @Override
@@ -106,6 +113,16 @@ public class TpcdsConnectorFactory
         }
         catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid property tpcds.splits-per-node");
+        }
+    }
+
+    private boolean useVarcharType(Map<String, String> properties)
+    {
+        try {
+            return parseBoolean(firstNonNull(properties.get("tpcds.use-varchar-type"), String.valueOf(false)));
+        }
+        catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid property tpcds.use-varchar-type");
         }
     }
 

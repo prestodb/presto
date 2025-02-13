@@ -33,6 +33,13 @@ import static com.teradata.tpcds.Table.getTable;
 public class TpcdsRecordSetProvider
         implements ConnectorRecordSetProvider
 {
+    private final boolean useVarcharType;
+
+    public TpcdsRecordSetProvider(boolean useVarcharType)
+    {
+        this.useVarcharType = useVarcharType;
+    }
+
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
@@ -63,6 +70,6 @@ public class TpcdsRecordSetProvider
                 .withTable(table)
                 .withNoSexism(noSexism);
         Results results = constructResults(table, session);
-        return new TpcdsRecordSet(results, builder.build());
+        return new TpcdsRecordSet(results, builder.build(), useVarcharType);
     }
 }

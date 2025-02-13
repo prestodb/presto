@@ -25,8 +25,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PARTIAL_AGGREGATION_PUSHDOWN_ENABLED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -47,7 +45,7 @@ public class TestHiveNativeLogicalPlanner
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS),
                 ImmutableMap.of("native-execution-enabled", "true"),
-                Optional.empty());
+                ImmutableMap.of("tpcds.use-varchar-type", "true"));
     }
 
     @Test
