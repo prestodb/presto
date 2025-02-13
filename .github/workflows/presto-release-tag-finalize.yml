@@ -1,0 +1,50 @@
+name: Presto Stable Release Tag Finalize
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: 'Release tag (e.g., 0.291)'
+        required: true
+      release-notes-commit:
+        description: 'Commit hash containing release notes'
+        required: true
+
+env:
+  RELEASE_BRANCH: release-${{ github.event.inputs.release-tag }}
+  RELEASE_TAG: ${{ github.event.inputs.release-tag }}
+  RELEASE_NOTES_COMMIT: ${{ github.event.inputs.release-notes-commit }}
+
+jobs:
+  finalize-release:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_BRANCH }}
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          fetch-depth: 0
+          fetch-tags: true
+          show-progress: false
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "ci@lists.prestodb.io"
+          git config --global user.name "prestodb-ci"
+          git config pull.rebase false
+
+      - name: Cherry-pick release notes
+        run: |
+          git cherry-pick ${{ env.RELEASE_NOTES_COMMIT }}
+
+      - name: Delete existing release tag
+        run: |
+          git push origin :${{ env.RELEASE_TAG }} || true
+          git tag -d ${{ env.RELEASE_TAG }} || true
+
+      - name: Create new release tag
+        run: |
+          git tag -a ${{ env.RELEASE_TAG }} -m "release ${{ env.RELEASE_TAG }}"
+          git push origin ${{ env.RELEASE_BRANCH }} --tags
