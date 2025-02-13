@@ -262,6 +262,7 @@ public class TestFastForwardBranchProcedure
 
     private Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName, ICEBERG_CATALOG);
         Catalog catalog = CatalogUtil.loadCatalog(HadoopCatalog.class.getName(), ICEBERG_CATALOG, getProperties(), new Configuration());
         return catalog.loadTable(TableIdentifier.of(TEST_SCHEMA, tableName));
     }

@@ -98,4 +98,6 @@ public interface JdbcClient
             throws SQLException;
 
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> tupleDomain);
+
+    String normalizeIdentifier(ConnectorSession session, String identifier);
 }

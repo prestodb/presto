@@ -27,8 +27,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.checkCatalogName;
-import static com.facebook.presto.metadata.MetadataUtil.checkSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.checkTableName;
 
 @Immutable
 @ThriftStruct
@@ -48,15 +46,15 @@ public class QualifiedTablePrefix
     public QualifiedTablePrefix(String catalogName, String schemaName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
+        this.schemaName = Optional.of(schemaName);
         this.tableName = Optional.empty();
     }
 
     public QualifiedTablePrefix(String catalogName, String schemaName, String tableName)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.schemaName = Optional.of(checkSchemaName(schemaName));
-        this.tableName = Optional.of(checkTableName(tableName));
+        this.schemaName = Optional.of(schemaName);
+        this.tableName = Optional.of(tableName);
     }
 
     @JsonCreator
@@ -66,7 +64,7 @@ public class QualifiedTablePrefix
             @JsonProperty("schemaName") Optional<String> schemaName,
             @JsonProperty("tableName") Optional<String> tableName)
     {
-        checkTableName(catalogName, schemaName, tableName);
+        checkCatalogName(catalogName);
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.tableName = tableName;

@@ -99,7 +99,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -316,7 +315,7 @@ public class MetadataManager
             for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 metadata.listSchemaNames(connectorSession).stream()
-                        .map(schema -> schema.toLowerCase(Locale.ENGLISH))
+                        .map(schema -> normalizeIdentifier(session, connectorId.getCatalogName(), schema))
                         .forEach(schemaNames::add);
             }
         }
@@ -349,7 +348,7 @@ public class MetadataManager
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-            ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(connectorId), toSchemaTableName(table), analyzeProperties);
+            ConnectorTableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session.toConnectorSession(connectorId), toSchemaTableName(table.getSchemaName(), table.getObjectName()), analyzeProperties);
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
                         connectorId,
@@ -381,7 +380,7 @@ public class MetadataManager
             ConnectorId connectorId = catalogMetadata.getConnectorId();
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-            return metadata.getSystemTable(session.toConnectorSession(connectorId), toSchemaTableName(tableName));
+            return metadata.getSystemTable(session.toConnectorSession(connectorId), toSchemaTableName(tableName.getSchemaName(), tableName.getObjectName()));
         }
         return Optional.empty();
     }
@@ -564,13 +563,14 @@ public class MetadataManager
         Set<QualifiedObjectName> tables = new LinkedHashSet<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-
             for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(prefix::matches)
+                        .filter(name -> prefix.matches(new QualifiedObjectName(name.getCatalogName(),
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getSchemaName()),
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName()))))
                         .forEach(tables::add);
             }
         }
@@ -694,7 +694,9 @@ public class MetadataManager
         }
 
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
-        metadata.renameTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), toSchemaTableName(newTableName));
+
+        metadata.renameTable(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(),
+                toSchemaTableName(newTableName.getSchemaName(), newTableName.getObjectName()));
     }
 
     @Override
@@ -982,7 +984,9 @@ public class MetadataManager
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(prefix::matches)
+                        .filter(name -> prefix.matches(new QualifiedObjectName(name.getCatalogName(),
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getSchemaName()),
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName()))))
                         .forEach(views::add);
             }
         }
@@ -1033,7 +1037,9 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.renameView(session.toConnectorSession(connectorId), toSchemaTableName(source), toSchemaTableName(target));
+        metadata.renameView(session.toConnectorSession(connectorId),
+                toSchemaTableName(source.getSchemaName(), source.getObjectName()),
+                toSchemaTableName(target.getSchemaName(), target.getObjectName()));
     }
 
     @Override
@@ -1043,7 +1049,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.dropView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
+        metadata.dropView(session.toConnectorSession(connectorId), toSchemaTableName(viewName.getSchemaName(), viewName.getObjectName()));
     }
 
     @Override
@@ -1063,7 +1069,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.dropMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
+        metadata.dropMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName.getSchemaName(), viewName.getObjectName()));
     }
 
     private MaterializedViewStatus getMaterializedViewStatus(Session session, QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
@@ -1075,7 +1081,9 @@ public class MetadataManager
 
         return session.getRuntimeStats().recordWallTime(
                 GET_MATERIALIZED_VIEW_STATUS_TIME_NANOS,
-                () -> metadata.getMaterializedViewStatus(session.toConnectorSession(connectorId), toSchemaTableName(materializedViewName), baseQueryDomain));
+                () -> metadata.getMaterializedViewStatus(session.toConnectorSession(connectorId),
+                        toSchemaTableName(materializedViewName.getSchemaName(), materializedViewName.getObjectName()),
+                        baseQueryDomain));
     }
 
     @Override
@@ -1106,7 +1114,8 @@ public class MetadataManager
         if (catalog.isPresent()) {
             ConnectorMetadata metadata = catalog.get().getMetadata();
             ConnectorSession connectorSession = session.toConnectorSession(catalog.get().getConnectorId());
-            Optional<List<SchemaTableName>> materializedViews = metadata.getReferencedMaterializedViews(connectorSession, toSchemaTableName(tableName));
+
+            Optional<List<SchemaTableName>> materializedViews = metadata.getReferencedMaterializedViews(connectorSession, toSchemaTableName(tableName.getSchemaName(), tableName.getObjectName()));
             if (materializedViews.isPresent()) {
                 return materializedViews.get().stream().map(convertFromSchemaTableName(tableName.getCatalogName())).collect(toImmutableList());
             }
@@ -1227,7 +1236,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.grantTablePrivileges(session.toConnectorSession(connectorId), toSchemaTableName(tableName), privileges, grantee, grantOption);
+        metadata.grantTablePrivileges(session.toConnectorSession(connectorId), toSchemaTableName(tableName.getSchemaName(), tableName.getObjectName()), privileges, grantee, grantOption);
     }
 
     @Override
@@ -1237,7 +1246,7 @@ public class MetadataManager
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
-        metadata.revokeTablePrivileges(session.toConnectorSession(connectorId), toSchemaTableName(tableName), privileges, grantee, grantOption);
+        metadata.revokeTablePrivileges(session.toConnectorSession(connectorId), toSchemaTableName(tableName.getSchemaName(), tableName.getObjectName()), privileges, grantee, grantOption);
     }
 
     @Override
@@ -1423,8 +1432,8 @@ public class MetadataManager
 
                     Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
                             session.toConnectorSession(connectorId),
-                            toSchemaTableName(viewName).toSchemaTablePrefix());
-                    ConnectorViewDefinition view = views.get(toSchemaTableName(viewName));
+                            toSchemaTableName(viewName.getSchemaName(), viewName.getObjectName()).toSchemaTablePrefix());
+                    ConnectorViewDefinition view = views.get(toSchemaTableName(viewName.getSchemaName(), viewName.getObjectName()));
                     if (view != null) {
                         ViewDefinition definition = deserializeView(view.getViewData());
                         if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
@@ -1445,7 +1454,7 @@ public class MetadataManager
                     ConnectorId connectorId = catalogMetadata.getConnectorId(session, viewName);
                     ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
-                    return metadata.getMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
+                    return metadata.getMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName.getSchemaName(), viewName.getObjectName()));
                 }
                 return Optional.empty();
             }
@@ -1494,6 +1503,18 @@ public class MetadataManager
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
         metadata.addConstraint(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), tableConstraint);
+    }
+
+    @Override
+    public String normalizeIdentifier(Session session, String catalogName, String identifier)
+    {
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalogName);
+        if (catalogMetadata.isPresent()) {
+            ConnectorId connectorId = catalogMetadata.get().getConnectorId();
+            ConnectorMetadata metadata = catalogMetadata.get().getMetadataFor(connectorId);
+            return metadata.normalizeIdentifier(session.toConnectorSession(connectorId), identifier);
+        }
+        return identifier.toLowerCase(ENGLISH);
     }
 
     private ViewDefinition deserializeView(String data)
