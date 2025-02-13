@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.metastore.file;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
@@ -63,6 +64,7 @@ import io.airlift.units.Duration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -99,7 +101,6 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.extractPartitionV
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveBasicStatistics;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getPartitionNamesWithEmptyVersion;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergTable;
-import static com.facebook.presto.hive.metastore.MetastoreUtil.isIcebergView;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.makePartName;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.toPartitionValues;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.updateStatisticsParameters;
@@ -117,6 +118,7 @@ import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -128,6 +130,7 @@ import static org.apache.hadoop.hive.common.FileUtils.unescapePathName;
 public class FileHiveMetastore
         implements ExtendedHiveMetastore
 {
+    private static final Logger LOG = Logger.get(FileHiveMetastore.class);
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
     private static final String PRESTO_SCHEMA_FILE_NAME = ".prestoSchema";
@@ -208,9 +211,8 @@ public class FileHiveMetastore
         verifyDatabaseNotExists(metastoreContext, newDatabaseName);
 
         try {
-            if (!metadataFileSystem.rename(getDatabaseMetadataDirectory(databaseName), getDatabaseMetadataDirectory(newDatabaseName))) {
-                throw new PrestoException(HIVE_METASTORE_ERROR, "Could not rename database metadata directory");
-            }
+            renamePath(getDatabaseMetadataDirectory(databaseName), getDatabaseMetadataDirectory(newDatabaseName),
+                    "Could not rename database metadata directory");
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -514,22 +516,85 @@ public class FileHiveMetastore
         requireNonNull(newTableName, "newTableName is null");
         Table table = getRequiredTable(metastoreContext, databaseName, tableName);
         getRequiredDatabase(metastoreContext, newDatabaseName);
-        if (isIcebergTable(table) && !isIcebergView(table)) {
-            throw new PrestoException(NOT_SUPPORTED, "Rename not supported for Iceberg tables");
-        }
         // verify new table does not exist
         verifyTableNotExists(metastoreContext, newDatabaseName, newTableName);
 
+        Path metadataDirectory = getTableMetadataDirectory(databaseName, tableName);
+        Path newMetadataDirectory = getTableMetadataDirectory(newDatabaseName, newTableName);
+
+        if (isIcebergTable(table)) {
+            renameIcebergTable(metadataDirectory, newMetadataDirectory);
+        }
+        else {
+            renameTable(metadataDirectory, newMetadataDirectory);
+        }
+
+        return EMPTY_RESULT;
+    }
+
+    private void renameIcebergTable(Path originalMetadataDirectory, Path newMetadataDirectory)
+    {
+        Optional<Runnable> rollbackAction = Optional.empty();
         try {
-            if (!metadataFileSystem.rename(getTableMetadataDirectory(databaseName, tableName), getTableMetadataDirectory(newDatabaseName, newTableName))) {
-                throw new PrestoException(HIVE_METASTORE_ERROR, "Could not rename table directory");
+            // If the directory `.prestoPermissions` exists, copy it to the new table metadata directory
+            Path originTablePermissionDir = new Path(originalMetadataDirectory, PRESTO_PERMISSIONS_DIRECTORY_NAME);
+            Path newTablePermissionDir = new Path(newMetadataDirectory, PRESTO_PERMISSIONS_DIRECTORY_NAME);
+            if (metadataFileSystem.exists(originTablePermissionDir)) {
+                if (!FileUtil.copy(metadataFileSystem, originTablePermissionDir,
+                        metadataFileSystem, newTablePermissionDir, false, metadataFileSystem.getConf())) {
+                    throw new IOException(format("Could not rename table. Failed to copy directory: %s to %s", originTablePermissionDir, newTablePermissionDir));
+                }
+                else {
+                    rollbackAction = Optional.of(() -> {
+                        try {
+                            metadataFileSystem.delete(newTablePermissionDir, true);
+                        }
+                        catch (IOException e) {
+                            LOG.warn("Could not delete table permission directory: %s", newTablePermissionDir);
+                        }
+                    });
+                }
             }
+
+            // Rename file `.prestoSchema` to change it to the new metadata path
+            // This will atomically execute the table renaming behavior
+            Path originMetadataFile = new Path(originalMetadataDirectory, PRESTO_SCHEMA_FILE_NAME);
+            Path newMetadataFile = new Path(newMetadataDirectory, PRESTO_SCHEMA_FILE_NAME);
+            renamePath(originMetadataFile, newMetadataFile,
+                    format("Could not rename table. Failed to rename file %s to %s", originMetadataFile, newMetadataFile));
+
+            // Subsequent action, delete the redundant directory `.prestoPermissions` from the original table metadata path
+            try {
+                metadataFileSystem.delete(new Path(originalMetadataDirectory, PRESTO_PERMISSIONS_DIRECTORY_NAME), true);
+            }
+            catch (IOException e) {
+                // ignore
+            }
+        }
+        catch (IOException e) {
+            // If table renaming fails and rollback action has already been recorded, perform the rollback action to clean up junk files
+            rollbackAction.ifPresent(Runnable::run);
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    private void renameTable(Path originalMetadataDirectory, Path newMetadataDirectory)
+    {
+        try {
+            renamePath(originalMetadataDirectory, newMetadataDirectory,
+                    format("Could not rename table. Failed to rename directory %s to %s", originalMetadataDirectory, newMetadataDirectory));
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
         }
+    }
 
-        return EMPTY_RESULT;
+    private void renamePath(Path originalPath, Path targetPath, String errorMessage)
+            throws IOException
+    {
+        if (!metadataFileSystem.rename(originalPath, targetPath)) {
+            throw new IOException(errorMessage);
+        }
     }
 
     @Override
