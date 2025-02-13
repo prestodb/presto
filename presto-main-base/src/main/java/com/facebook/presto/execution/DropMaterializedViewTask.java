@@ -44,7 +44,7 @@ public class DropMaterializedViewTask
     @Override
     public ListenableFuture<?> execute(DropMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), metadata);
 
         Optional<MaterializedViewDefinition> view = metadata.getMetadataResolver(session).getMaterializedView(name);
         if (!view.isPresent()) {

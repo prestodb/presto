@@ -44,7 +44,7 @@ public class DropViewTask
     @Override
     public ListenableFuture<?> execute(DropView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
-        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName(), metadata);
 
         Optional<ViewDefinition> view = metadata.getMetadataResolver(session).getView(name);
         if (!view.isPresent()) {

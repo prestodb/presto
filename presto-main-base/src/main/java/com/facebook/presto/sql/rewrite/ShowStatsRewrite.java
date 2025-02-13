@@ -255,7 +255,7 @@ public class ShowStatsRewrite
 
         private TableHandle getTableHandle(ShowStats node, QualifiedName table)
         {
-            QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table);
+            QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, node, table, metadata);
             return metadata.getMetadataResolver(session).getTableHandle(qualifiedTableName)
                     .orElseThrow(() -> new SemanticException(MISSING_TABLE, node, "Table %s not found", table));
         }

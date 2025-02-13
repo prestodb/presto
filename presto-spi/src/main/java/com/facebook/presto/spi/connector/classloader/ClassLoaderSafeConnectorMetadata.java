@@ -802,4 +802,11 @@ public class ClassLoaderSafeConnectorMetadata
             return delegate.isPushdownSupportedForFilter(session, tableHandle, filter, symbolToColumnHandleMap);
         }
     }
+
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.normalizeIdentifier(session, identifier);
+        }
+    }
 }

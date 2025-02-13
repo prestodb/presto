@@ -81,7 +81,7 @@ public class CallTask
             throw new PrestoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
         }
 
-        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
+        QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName(), metadata);
         ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, procedureName.getCatalogName(), call, catalogError);
         Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName));
 
