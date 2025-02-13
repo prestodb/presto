@@ -64,7 +64,7 @@ public class TestTpcdsRecordSet
                 CC_NAME,            // Varchar
                 CC_STATE,           // CharType
                 CC_TAX_PERCENTAGE); // Decimal
-        RecordSet recordSet = new TpcdsRecordSet(constructResults(table, session), columns);
+        RecordSet recordSet = new TpcdsRecordSet(constructResults(table, session), columns, false);
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(
                 BIGINT,
                 INTEGER,
@@ -77,7 +77,7 @@ public class TestTpcdsRecordSet
                 DV_CREATE_DATE, // Date
                 DV_CREATE_TIME, // Time
                 DV_VERSION);    // Varchar
-        recordSet = new TpcdsRecordSet(constructResults(table, session), columns);
+        recordSet = new TpcdsRecordSet(constructResults(table, session), columns, false);
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(
                 DATE,
                 TIME,
@@ -85,7 +85,7 @@ public class TestTpcdsRecordSet
 
         table = getTable(DBGEN_VERSION.getName());
         columns = ImmutableList.of();
-        recordSet = new TpcdsRecordSet(constructResults(table, session), columns);
+        recordSet = new TpcdsRecordSet(constructResults(table, session), columns, false);
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of());
     }
 
@@ -94,7 +94,7 @@ public class TestTpcdsRecordSet
     {
         Table table = getTable(CALL_CENTER.getName());
         Results result = constructResults(table, session);
-        RecordSet recordSet = new TpcdsRecordSet(result, ImmutableList.copyOf(table.getColumns()));
+        RecordSet recordSet = new TpcdsRecordSet(result, ImmutableList.copyOf(table.getColumns()), false);
 
         try (RecordCursor cursor = recordSet.cursor()) {
             if (cursor.advanceNextPosition()) {
