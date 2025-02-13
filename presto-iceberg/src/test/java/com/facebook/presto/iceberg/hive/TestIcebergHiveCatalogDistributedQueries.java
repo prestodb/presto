@@ -28,10 +28,4 @@ public class TestIcebergHiveCatalogDistributedQueries
     {
         super(HIVE, ImmutableMap.of("iceberg.hive-statistics-merge-strategy", Joiner.on(",").join(NUMBER_OF_DISTINCT_VALUES.name(), TOTAL_SIZE_IN_BYTES.name())));
     }
-
-    @Override
-    public void testRenameTable()
-    {
-        // Rename table are not supported by hive catalog
-    }
 }
