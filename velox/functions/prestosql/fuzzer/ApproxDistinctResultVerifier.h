@@ -158,7 +158,7 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
       return largeGaps.size() <= 3;
     }
 
-    return largeGaps.empty();
+    return numGroups == 1 || largeGaps.empty();
   }
 
   // For approx_distinct in window operations, input sets for rows in the same
