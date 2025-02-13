@@ -109,10 +109,10 @@ void readData(ReadFile* readFile) {
   delete[] buffer3;
   ASSERT_EQ(readFile->size(), 15 + kOneMB);
   char buffer4[10];
-  const std::string_view arf = readFile->pread(5, 10, &buffer4);
-  const std::string_view zarf = readFile->pread(kOneMB, 15);
+  auto arf = readFile->pread(5, 10, &buffer4);
+  auto zarf = readFile->pread(kOneMB, 15);
   auto buf = std::make_unique<char[]>(8);
-  const std::string_view warf = readFile->pread(4, 8, buf.get());
+  auto warf = readFile->pread(4, 8, buf.get());
   const std::string_view warfFromBuf(buf.get(), 8);
   ASSERT_EQ(arf, "bbbbbccccc");
   ASSERT_EQ(zarf, "ccccccccccddddd");
