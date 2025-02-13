@@ -74,9 +74,10 @@ public class TestS3SelectPushdown
                 .setLocation("location")
                 .build();
 
-        partition = new Partition("db", "table", emptyList(), storage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
+        partition = new Partition(Optional.of("catalogname"), "db", "table", emptyList(), storage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
 
         table = new Table(
+                Optional.of("catalogName"),
                 "db",
                 "table",
                 "owner",
@@ -132,6 +133,7 @@ public class TestS3SelectPushdown
                 .setLocation("location")
                 .build();
         Table newTable = new Table(
+                Optional.of("catalogName"),
                 "db",
                 "table",
                 "owner",
@@ -145,7 +147,7 @@ public class TestS3SelectPushdown
 
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.empty()));
 
-        Partition newPartition = new Partition("db", "table", emptyList(), newStorage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
+        Partition newPartition = new Partition(Optional.of("catalogname"), "db", "table", emptyList(), newStorage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.of(newPartition)));
     }
 
@@ -157,6 +159,7 @@ public class TestS3SelectPushdown
                 .setLocation("location")
                 .build();
         Table newTable = new Table(
+                Optional.of("catalogName"),
                 "db",
                 "table",
                 "owner",
@@ -175,6 +178,7 @@ public class TestS3SelectPushdown
     {
         Column newColumn = new Column("column", HIVE_BINARY, Optional.empty(), Optional.empty());
         Table newTable = new Table(
+                Optional.of("catalogName"),
                 "db",
                 "table",
                 "owner",
@@ -187,7 +191,7 @@ public class TestS3SelectPushdown
                 Optional.empty());
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.empty()));
 
-        Partition newPartition = new Partition("db", "table", emptyList(), storage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
+        Partition newPartition = new Partition(Optional.of("catalogname"), "db", "table", emptyList(), storage, singletonList(column), emptyMap(), Optional.empty(), false, false, 1234, 4567L, Optional.empty());
         assertFalse(shouldEnablePushdownForTable(session, newTable, "s3://fakeBucket/fakeObject", Optional.of(newPartition)));
     }
 

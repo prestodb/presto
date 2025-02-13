@@ -81,6 +81,6 @@ public class TestIcebergSmokeHive
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
                 session,
-                SchemaTableName.valueOf(schema + "." + tableName));
+                SchemaTableName.valueOf(schema + "." + tableName), null);
     }
 }

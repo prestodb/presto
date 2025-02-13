@@ -1043,7 +1043,7 @@ public abstract class AbstractTestHiveClient
                 new HiveFileRenamer(),
                 DEFAULT_COLUMN_CONVERTER_PROVIDER,
                 new QuickStatsProvider(metastoreClient, HDFS_ENVIRONMENT, DO_NOTHING_DIRECTORY_LISTER, new HiveClientConfig(), new NamenodeStats(), ImmutableList.of()),
-                new HiveTableWritabilityChecker(false));
+                new HiveTableWritabilityChecker(false), null);
 
         transactionManager = new HiveTransactionManager();
         encryptionInformationProvider = new HiveEncryptionInformationProvider(ImmutableList.of());
@@ -3894,6 +3894,7 @@ public abstract class AbstractTestHiveClient
     {
         byte[] rowIdPartitionComponent = {98, 45};
         return Partition.builder()
+                .setCatalogName(table.getCatalogName())
                 .setDatabaseName(table.getDatabaseName())
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())
