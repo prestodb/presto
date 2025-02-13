@@ -51,7 +51,7 @@ public class SetPropertiesTask
     @Override
     public ListenableFuture<?> execute(SetProperties statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector, String query)
     {
-        QualifiedObjectName tableName = MetadataUtil.createQualifiedObjectName(session, statement, statement.getTableName());
+        QualifiedObjectName tableName = MetadataUtil.createQualifiedObjectName(session, statement, statement.getTableName(), metadata);
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
 
         if (statement.getType() == TABLE) {

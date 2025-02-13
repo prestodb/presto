@@ -267,4 +267,10 @@ public class JdbcMetadata
         List<JdbcColumnHandle> columns = columnHandles.stream().map(JdbcColumnHandle.class::cast).collect(Collectors.toList());
         return jdbcClient.getTableStatistics(session, handle, columns, constraint.getSummary());
     }
+
+    @Override
+    public String normalizeIdentifier(ConnectorSession session, String identifier)
+    {
+        return jdbcClient.normalizeIdentifier(session, identifier);
+    }
 }

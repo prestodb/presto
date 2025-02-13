@@ -81,12 +81,13 @@ public class QualifiedName
      */
     public Optional<QualifiedName> getPrefix()
     {
-        if (parts.size() == 1) {
+        if (originalParts.size() == 1) {
             return Optional.empty();
         }
 
+        List<String> originalSubList = originalParts.subList(0, originalParts.size() - 1);
         List<String> subList = parts.subList(0, parts.size() - 1);
-        return Optional.of(new QualifiedName(subList, subList));
+        return Optional.of(new QualifiedName(originalSubList, subList));
     }
 
     public boolean hasSuffix(QualifiedName suffix)
@@ -103,6 +104,11 @@ public class QualifiedName
     public String getSuffix()
     {
         return Streams.findLast(parts.stream()).orElseThrow(() -> new IllegalStateException("No suffix found for " + this));
+    }
+
+    public String getOriginalSuffix()
+    {
+        return Streams.findLast(originalParts.stream()).orElseThrow(() -> new IllegalStateException("No suffix found for " + this));
     }
 
     @Override

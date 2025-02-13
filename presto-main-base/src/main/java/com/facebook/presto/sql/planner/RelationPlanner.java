@@ -182,7 +182,7 @@ class RelationPlanner
         if (namedQuery != null) {
             String cteName = node.getName().toString();
             if (namedQuery.isFromView()) {
-                cteName = createQualifiedObjectName(session, node, node.getName()).toString();
+                cteName = createQualifiedObjectName(session, node, node.getName(), metadata).toString();
             }
             RelationPlan subPlan = process(namedQuery.getQuery(), context);
             if (getCteMaterializationStrategy(session).equals(NONE)) {

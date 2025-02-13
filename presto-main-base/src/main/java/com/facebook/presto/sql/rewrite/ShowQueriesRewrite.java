@@ -225,7 +225,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowTables(ShowTables showTables, Void context)
         {
-            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
+            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema(), metadata);
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
@@ -263,7 +263,7 @@ final class ShowQueriesRewrite
 
             Optional<QualifiedName> tableName = showGrants.getTableName();
             if (tableName.isPresent()) {
-                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get(), metadata);
 
                 if (!metadataResolver.getView(qualifiedTableName).isPresent() &&
                         !metadataResolver.getTableHandle(qualifiedTableName).isPresent()) {
@@ -403,7 +403,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable(), metadata);
 
             if (!metadataResolver.getView(tableName).isPresent() &&
                     !metadataResolver.getTableHandle(tableName).isPresent()) {
@@ -477,7 +477,7 @@ final class ShowQueriesRewrite
                 return singleValueQuery("Create Schema", formatSql(createSchema, Optional.of(parameters)).trim());
             }
 
-            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName(), metadata);
             Optional<ViewDefinition> viewDefinition = metadataResolver.getView(objectName);
             Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(objectName);
 

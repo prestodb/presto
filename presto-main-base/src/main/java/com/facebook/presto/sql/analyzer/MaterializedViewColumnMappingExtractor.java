@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
@@ -48,6 +49,7 @@ public class MaterializedViewColumnMappingExtractor
 {
     private final Analysis analysis;
     private final Session session;
+    private final Metadata metadata;
 
     /**
      * We create a undirected graph where each node corresponds to a base table column.
@@ -79,10 +81,11 @@ public class MaterializedViewColumnMappingExtractor
      */
     private List<SchemaTableName> baseTablesOnOuterJoinSide;
 
-    public MaterializedViewColumnMappingExtractor(Analysis analysis, Session session)
+    public MaterializedViewColumnMappingExtractor(Analysis analysis, Session session, Metadata metadata)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.session = requireNonNull(session, "session is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.mappedBaseColumns = new HashMap<>();
         this.directMappedBaseColumns = new HashMap<>();
         this.baseTablesOnOuterJoinSide = new ArrayList<>();
@@ -166,7 +169,7 @@ public class MaterializedViewColumnMappingExtractor
         super.visitTable(node, context);
 
         if (context.isWithinOuterJoin()) {
-            baseTablesOnOuterJoinSide.add(toSchemaTableName(createQualifiedObjectName(session, node, node.getName())));
+            baseTablesOnOuterJoinSide.add(toSchemaTableName(createQualifiedObjectName(session, node, node.getName(), metadata)));
         }
 
         return null;
