@@ -56,13 +56,14 @@ public class TestHiveS3Config
                 .setS3ConnectTimeout(new Duration(5, TimeUnit.SECONDS))
                 .setS3SocketTimeout(new Duration(5, TimeUnit.SECONDS))
                 .setS3MultipartMinFileSize(new DataSize(16, Unit.MEGABYTE))
-                .setS3MultipartMinPartSize(new DataSize(5, Unit.MEGABYTE))
+                .setS3MultipartMinPartSize(new DataSize(10, Unit.MEGABYTE))
                 .setS3MaxConnections(500)
                 .setS3StagingDirectory(new File(StandardSystemProperty.JAVA_IO_TMPDIR.value()))
                 .setPinS3ClientToCurrentRegion(false)
                 .setS3UserAgentPrefix("")
                 .setS3AclType(PrestoS3AclType.PRIVATE)
-                .setSkipGlacierObjects(false));
+                .setSkipGlacierObjects(false)
+                .setUseStreamingUploads(false));
     }
 
     @Test
@@ -98,6 +99,7 @@ public class TestHiveS3Config
                 .put("hive.s3.user-agent-prefix", "user-agent-prefix")
                 .put("hive.s3.upload-acl-type", "PUBLIC_READ")
                 .put("hive.s3.skip-glacier-objects", "true")
+                .put("hive.s3.use-streaming-uploads", "true")
                 .build();
 
         HiveS3Config expected = new HiveS3Config()
@@ -129,7 +131,8 @@ public class TestHiveS3Config
                 .setPinS3ClientToCurrentRegion(true)
                 .setS3UserAgentPrefix("user-agent-prefix")
                 .setS3AclType(PrestoS3AclType.PUBLIC_READ)
-                .setSkipGlacierObjects(true);
+                .setSkipGlacierObjects(true)
+                .setUseStreamingUploads(true);
 
         assertFullMapping(properties, expected);
     }
