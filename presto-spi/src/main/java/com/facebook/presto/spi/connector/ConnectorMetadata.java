@@ -64,6 +64,7 @@ import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.TableLayoutFilterCoverage.NOT_APPLICABLE;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
 public interface ConnectorMetadata
@@ -839,5 +840,13 @@ public interface ConnectorMetadata
     default void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> constraint)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding table constraints");
+    }
+
+    /**
+     * Normalize the provided SQL identifier according to connector-specific rules
+     */
+    default String normalizeIdentifier(ConnectorSession session, String identifier, boolean delimited)
+    {
+        return identifier.toLowerCase(ENGLISH);
     }
 }

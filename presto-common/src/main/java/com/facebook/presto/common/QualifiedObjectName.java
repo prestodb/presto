@@ -61,12 +61,19 @@ public class QualifiedObjectName
     @ThriftConstructor
     public QualifiedObjectName(String catalogName, String schemaName, String objectName)
     {
-        checkLowerCase(catalogName, "catalogName");
-        checkLowerCase(schemaName, "schemaName");
-        checkLowerCase(objectName, "objectName");
         this.catalogName = catalogName;
         this.schemaName = schemaName;
         this.objectName = objectName;
+    }
+
+    public String getLegacySchemaName()
+    {
+        return schemaName.toLowerCase(ENGLISH);
+    }
+
+    public String getLegacyObjectName()
+    {
+        return objectName.toLowerCase(ENGLISH);
     }
 
     public CatalogSchemaName getCatalogSchemaName()
