@@ -22,6 +22,7 @@ import com.facebook.presto.operator.project.CursorProcessor;
 import com.facebook.presto.operator.project.PageFilter;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.operator.project.PageProjectionWithOutputs;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -148,9 +149,10 @@ public class ExpressionCompiler
             List<? extends RowExpression> projections,
             boolean isOptimizeCommonSubExpression,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
-            Optional<String> classNameSuffix)
+            Optional<String> classNameSuffix,
+            Optional<List<ColumnHandle>> columnHandles)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, sessionFunctions, classNameSuffix, OptionalInt.empty());
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, sessionFunctions, classNameSuffix, OptionalInt.empty(), columnHandles);
     }
 
     private Supplier<PageProcessor> compilePageProcessor(
@@ -160,7 +162,8 @@ public class ExpressionCompiler
             boolean isOptimizeCommonSubExpression,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
             Optional<String> classNameSuffix,
-            OptionalInt initialBatchSize)
+            OptionalInt initialBatchSize,
+            Optional<List<ColumnHandle>> columnHandles)
     {
         Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression ->
                 pageFunctionCompiler.compileFilter(sqlFunctionProperties, sessionFunctions, expression, isOptimizeCommonSubExpression, classNameSuffix));
@@ -176,26 +179,26 @@ public class ExpressionCompiler
             List<PageProjectionWithOutputs> pageProjections = pageProjectionSuppliers.stream()
                     .map(Supplier::get)
                     .collect(toImmutableList());
-            return new PageProcessor(filterFunction, pageProjections, initialBatchSize);
+            return new PageProcessor(filterFunction, pageProjections, initialBatchSize, columnHandles, Optional.of(projections));
         };
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, true, emptyMap(), Optional.empty());
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, true, emptyMap(), Optional.empty(), Optional.empty());
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, int initialBatchSize)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, emptyMap(), Optional.empty(), OptionalInt.of(initialBatchSize));
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, emptyMap(), Optional.empty(), OptionalInt.of(initialBatchSize), Optional.empty());
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, List<? extends RowExpression> projections, boolean isOptimizeCommonSubExpression, Optional<String> classNameSuffix)
     {
-        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, emptyMap(), classNameSuffix);
+        return compilePageProcessor(sqlFunctionProperties, filter, projections, isOptimizeCommonSubExpression, emptyMap(), classNameSuffix, Optional.empty());
     }
 
     private <T> Class<? extends T> compile(

@@ -197,7 +197,7 @@ public final class TimestampWithTimeZoneOperators
             return parseTimestampWithTimeZone(properties.getTimeZoneKey(), trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp with time zone: " + value.toStringUtf8(), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "cannot cast varchar to timestamp with time zone: " + value.toStringUtf8(), e);
         }
     }
 
