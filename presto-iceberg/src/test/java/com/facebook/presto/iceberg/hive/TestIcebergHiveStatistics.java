@@ -586,6 +586,7 @@ public class TestIcebergHiveStatistics
 
     private Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName);
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
         ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
 
@@ -595,6 +596,17 @@ public class TestIcebergHiveStatistics
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
                 SchemaTableName.valueOf("tpch." + tableName));
+    }
+
+    private String normalizeIdentifier(String name)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+
+        return metadata.normalizeIdentifier(session, connectorId.getCatalogName(), name);
     }
 
     protected ExtendedHiveMetastore getFileHiveMetastore()
