@@ -648,4 +648,10 @@ public abstract class DelegatingMetadataManager
     {
         delegate.addConstraint(session, tableHandle, tableConstraint);
     }
+
+    @Override
+    public String normalizeIdentifier(Session session, String catalogName, String identifier)
+    {
+        return delegate.normalizeIdentifier(session, catalogName, identifier);
+    }
 }
