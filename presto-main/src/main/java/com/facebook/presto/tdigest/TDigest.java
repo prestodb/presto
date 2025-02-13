@@ -68,6 +68,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Collections.shuffle;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Maintains a t-digest by collecting new points in a buffer that is then sorted occasionally and merged
@@ -247,7 +248,7 @@ public class TDigest
 
     public void merge(TDigest other)
     {
-        checkArgument(other != null, "Cannot merge with a null t-digest");
+        requireNonNull(other, "Cannot merge with a null t-digest");
         checkArgument(this.publicCompression == other.getCompressionFactor(), "TDigests must have the same compression, found (%s, %s)", this.publicCompression,
                 other.getCompressionFactor());
         List<Centroid> tmp = new ArrayList<>();
@@ -299,7 +300,7 @@ public class TDigest
         arraycopy(weight, 0, incomingWeight, incomingCount, activeCentroids);
         incomingCount += activeCentroids;
 
-        checkArgument(incomingOrder != null, "Incoming order array was null");
+        requireNonNull(incomingOrder, "Incoming order array was null");
         sort(incomingOrder, incomingMean, incomingCount);
 
         if (runBackwards) {

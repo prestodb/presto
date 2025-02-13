@@ -37,7 +37,7 @@ class NegateBytecodeExpression
         this.value = value;
 
         Class<?> type = value.getType().getPrimitiveType();
-        checkArgument(type != null, "value is not a primitive");
+        requireNonNull(type, "value is not a primitive");
         checkArgument(type != void.class, "value is void");
         checkArgument(type == int.class || type == long.class || type == float.class || type == double.class,
                 "value argument must be int, long, float, or double, but is %s",

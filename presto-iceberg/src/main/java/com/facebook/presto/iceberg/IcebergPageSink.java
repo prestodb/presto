@@ -76,7 +76,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.PartitionTransforms.getColumnTransform;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -478,7 +478,7 @@ public class IcebergPageSink
         return partitionSpec.fields().stream()
                 .map(field -> {
                     Integer channel = idChannels.get(field.sourceId());
-                    checkArgument(channel != null, "partition field not found: %s", field);
+                    checkNotNull(channel, "partition field not found: %s", field);
                     Type inputType = handles.get(channel).getType();
                     ColumnTransform transform = getColumnTransform(field, inputType);
                     return new PartitionColumn(field, channel, inputType, transform.getType(), transform.getTransform());

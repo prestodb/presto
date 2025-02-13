@@ -74,7 +74,7 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -281,7 +281,7 @@ public final class ExpressionDomainTranslator
         private Type checkedTypeLookup(Expression expression)
         {
             Type type = types.get(expression);
-            checkArgument(type != null, "Types is missing info for expression: %s", expression);
+            checkNotNull(type, "Types is missing info for expression: %s", expression);
             return type;
         }
 
@@ -513,7 +513,7 @@ public final class ExpressionDomainTranslator
 
         private static Domain extractOrderableDomain(ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
         {
-            checkArgument(value != null);
+            requireNonNull(value);
             switch (comparisonOperator) {
                 case EQUAL:
                     return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false);
@@ -537,7 +537,7 @@ public final class ExpressionDomainTranslator
 
         private static Domain extractEquatableDomain(ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
         {
-            checkArgument(value != null);
+            requireNonNull(value);
             switch (comparisonOperator) {
                 case EQUAL:
                     return Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);

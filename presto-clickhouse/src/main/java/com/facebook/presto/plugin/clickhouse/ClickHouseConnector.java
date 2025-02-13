@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTA
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
@@ -136,7 +137,7 @@ public class ClickHouseConnector
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
         ClickHouseMetadata metadata = transactions.get(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         return metadata;
     }
 
@@ -151,7 +152,7 @@ public class ClickHouseConnector
     public void rollback(ConnectorTransactionHandle transaction)
     {
         ClickHouseMetadata metadata = transactions.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         metadata.rollback();
     }
 
