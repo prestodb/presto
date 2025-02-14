@@ -26,5 +26,6 @@ const uint16_t kHttpInternalServerError = 500;
 const char kMimeTypeApplicationJson[] = "application/json";
 const char kMimeTypeApplicationThrift[] = "application/x-thrift+binary";
 const char kShuttingDown[] = "\"SHUTTING_DOWN\"";
+const char kCleanAsyncDataCache[] = "\"CLEAN_ASYNC_DATA_CACHE\"";
 static const char kPrestoInternalBearer[] = "X-Presto-Internal-Bearer";
 } // namespace facebook::presto::http
