@@ -315,7 +315,7 @@ public class VerifierConfig
         return setupOnMainClusters;
     }
 
-    @ConfigDescription("If true, run control/test setup queries on control/test clusters. Otherwise, run setup queries on the help cluster.X")
+    @ConfigDescription("If true, run control/test setup queries on control/test clusters. Otherwise, run setup queries on the help cluster.")
     @Config("setup-on-main-clusters")
     public VerifierConfig setSetupOnMainClusters(boolean setupOnMainClusters)
     {
