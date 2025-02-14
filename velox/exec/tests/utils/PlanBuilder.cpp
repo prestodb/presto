@@ -270,7 +270,8 @@ core::PlanNodePtr PlanBuilder::TableWriterBuilder::build(core::PlanNodeId id) {
       bucketProperty,
       compressionKind_,
       serdeParameters_,
-      options_);
+      options_,
+      ensureFiles_);
 
   auto insertHandle =
       std::make_shared<core::InsertTableHandle>(connectorId_, hiveHandle);
@@ -508,7 +509,8 @@ PlanBuilder& PlanBuilder::tableWrite(
     const std::shared_ptr<dwio::common::WriterOptions>& options,
     const std::string& outputFileName,
     const common::CompressionKind compressionKind,
-    const RowTypePtr& schema) {
+    const RowTypePtr& schema,
+    const bool ensureFiles) {
   return TableWriterBuilder(*this)
       .outputDirectoryPath(outputDirectoryPath)
       .outputFileName(outputFileName)
@@ -523,6 +525,7 @@ PlanBuilder& PlanBuilder::tableWrite(
       .serdeParameters(serdeParameters)
       .options(options)
       .compressionKind(compressionKind)
+      .ensureFiles(ensureFiles)
       .endTableWriter();
 }
 

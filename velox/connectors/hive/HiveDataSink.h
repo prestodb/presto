@@ -19,6 +19,7 @@
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/PartitionIdGenerator.h"
+#include "velox/connectors/hive/TableHandle.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Writer.h"
 #include "velox/dwio/common/WriterFactory.h"
@@ -29,8 +30,6 @@ class Writer;
 }
 
 namespace facebook::velox::connector::hive {
-
-class HiveColumnHandle;
 
 class LocationHandle;
 using LocationHandlePtr = std::shared_ptr<const LocationHandle>;
@@ -206,18 +205,38 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
       std::optional<common::CompressionKind> compressionKind = {},
       const std::unordered_map<std::string, std::string>& serdeParameters = {},
       const std::shared_ptr<dwio::common::WriterOptions>& writerOptions =
-          nullptr)
+          nullptr,
+      // When this option is set the HiveDataSink will always write a file even
+      // if there's no data. This is useful when the table is bucketed, but the
+      // engine handles ensuring a 1 to 1 mapping from task to bucket.
+      const bool ensureFiles = false)
       : inputColumns_(std::move(inputColumns)),
         locationHandle_(std::move(locationHandle)),
         storageFormat_(storageFormat),
         bucketProperty_(std::move(bucketProperty)),
         compressionKind_(compressionKind),
         serdeParameters_(serdeParameters),
-        writerOptions_(writerOptions) {
+        writerOptions_(writerOptions),
+        ensureFiles_(ensureFiles) {
     if (compressionKind.has_value()) {
       VELOX_CHECK(
           compressionKind.value() != common::CompressionKind_MAX,
           "Unsupported compression type: CompressionKind_MAX");
+    }
+
+    if (ensureFiles_) {
+      // If ensureFiles is set and either the bucketProperty is set or some
+      // partition keys are in the data, there is not a 1:1 mapping from Task to
+      // files so we can't proactively create writers.
+      VELOX_CHECK(
+          bucketProperty_ == nullptr || bucketProperty_->bucketCount() == 0,
+          "ensureFiles is not supported with bucketing");
+
+      for (const auto& inputColumn : inputColumns_) {
+        VELOX_CHECK(
+            !inputColumn->isPartitionKey(),
+            "ensureFiles is not supported with partition keys in the data");
+      }
     }
   }
 
@@ -248,6 +267,10 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
     return writerOptions_;
   }
 
+  bool ensureFiles() const {
+    return ensureFiles_;
+  }
+
   bool supportsMultiThreading() const override {
     return true;
   }
@@ -276,6 +299,7 @@ class HiveInsertTableHandle : public ConnectorInsertTableHandle {
   const std::optional<common::CompressionKind> compressionKind_;
   const std::unordered_map<std::string, std::string> serdeParameters_;
   const std::shared_ptr<dwio::common::WriterOptions> writerOptions_;
+  const bool ensureFiles_;
 };
 
 /// Parameters for Hive writers.

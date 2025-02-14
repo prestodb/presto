@@ -150,7 +150,8 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
       const std::shared_ptr<connector::hive::HiveBucketProperty>&
           bucketProperty = nullptr,
       const std::shared_ptr<dwio::common::WriterOptions>& writerOptions =
-          nullptr) {
+          nullptr,
+      const bool ensureFiles = false) {
     return makeHiveInsertTableHandle(
         outputRowType->names(),
         outputRowType->children(),
@@ -163,7 +164,8 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
         fileFormat,
         CompressionKind::CompressionKind_ZSTD,
         {},
-        writerOptions);
+        writerOptions,
+        ensureFiles);
   }
 
   std::shared_ptr<HiveDataSink> createDataSink(
@@ -174,7 +176,8 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
       const std::shared_ptr<connector::hive::HiveBucketProperty>&
           bucketProperty = nullptr,
       const std::shared_ptr<dwio::common::WriterOptions>& writerOptions =
-          nullptr) {
+          nullptr,
+      const bool ensureFiles = false) {
     return std::make_shared<HiveDataSink>(
         rowType,
         createHiveInsertTableHandle(
@@ -183,7 +186,8 @@ class HiveDataSinkTest : public exec::test::HiveConnectorTestBase {
             fileFormat,
             partitionedBy,
             bucketProperty,
-            writerOptions),
+            writerOptions,
+            ensureFiles),
         connectorQueryCtx_.get(),
         CommitStrategy::kNoCommit,
         connectorConfig_);
@@ -1211,6 +1215,105 @@ TEST_F(HiveDataSinkTest, flushPolicyWithDWRF) {
   ASSERT_EQ(reader->getRowsPerStripe()[0], 500);
 }
 
+TEST_F(HiveDataSinkTest, ensureFilesNoData) {
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto dataSink = createDataSink(
+      rowType_,
+      outputDirectory->getPath(),
+      dwio::common::FileFormat::DWRF,
+      {}, // partitionBy
+      nullptr, // bucketProperty
+      nullptr, // writeOptions
+      true // ensureFiles
+  );
+
+  ASSERT_TRUE(dataSink->finish());
+
+  auto partitions = dataSink->close();
+  auto stats = dataSink->stats();
+  ASSERT_FALSE(stats.empty());
+  ASSERT_GT(stats.numWrittenBytes, 0);
+  ASSERT_EQ(stats.numWrittenFiles, 1);
+  ASSERT_EQ(partitions.size(), 1);
+
+  std::vector<RowVectorPtr> vectors{RowVector::createEmpty(rowType_, pool())};
+  createDuckDbTable(vectors);
+  verifyWrittenData(outputDirectory->getPath());
+}
+
+TEST_F(HiveDataSinkTest, ensureFilesWithData) {
+  const auto outputDirectory = TempDirectoryPath::create();
+  auto dataSink = createDataSink(
+      rowType_,
+      outputDirectory->getPath(),
+      dwio::common::FileFormat::DWRF,
+      {}, // partitionBy
+      nullptr, // bucketProperty
+      nullptr, // writeOptions
+      true // ensureFiles
+  );
+
+  const int numBatches = 10;
+  const auto vectors = createVectors(500, numBatches);
+  for (const auto& vector : vectors) {
+    dataSink->appendData(vector);
+  }
+
+  ASSERT_TRUE(dataSink->finish());
+
+  auto partitions = dataSink->close();
+  auto stats = dataSink->stats();
+  ASSERT_FALSE(stats.empty());
+  ASSERT_GT(stats.numWrittenBytes, 0);
+  ASSERT_EQ(stats.numWrittenFiles, 1);
+  ASSERT_EQ(partitions.size(), 1);
+
+  createDuckDbTable(vectors);
+  verifyWrittenData(outputDirectory->getPath());
+}
+
+TEST_F(HiveDataSinkTest, ensureFilesUnsupported) {
+  VELOX_ASSERT_THROW(
+      makeHiveInsertTableHandle(
+          rowType_->names(),
+          rowType_->children(),
+          {rowType_->names()[0]}, // partitionedBy
+          nullptr, // bucketProperty
+          makeLocationHandle(
+              "/path/to/test",
+              std::nullopt,
+              connector::hive::LocationHandle::TableType::kNew),
+          dwio::common::FileFormat::DWRF,
+          CompressionKind::CompressionKind_ZSTD,
+          {}, // serdeParameters
+          nullptr, // writeOptions
+          true // ensureFiles
+          ),
+      "ensureFiles is not supported with partition keys in the data");
+
+  VELOX_ASSERT_THROW(
+      makeHiveInsertTableHandle(
+          rowType_->names(),
+          rowType_->children(),
+          {}, // partitionedBy
+          {std::make_shared<HiveBucketProperty>(
+              HiveBucketProperty::Kind::kPrestoNative,
+              1,
+              std::vector<std::string>{rowType_->names()[0]},
+              std::vector<TypePtr>{rowType_->children()[0]},
+              std::vector<std::shared_ptr<const HiveSortingColumn>>{})},
+          makeLocationHandle(
+              "/path/to/test",
+              std::nullopt,
+              connector::hive::LocationHandle::TableType::kNew),
+          dwio::common::FileFormat::DWRF,
+          CompressionKind::CompressionKind_ZSTD,
+          {}, // serdeParameters
+          nullptr, // writeOptions
+          true // ensureFiles
+          ),
+      "ensureFiles is not supported with bucketing");
+}
 } // namespace
 } // namespace facebook::velox::connector::hive
 

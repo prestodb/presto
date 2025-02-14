@@ -408,6 +408,13 @@ class PlanBuilder {
       return *this;
     }
 
+    /// @param ensureFiles When set the Task will always output a file, even if
+    /// it's empty.
+    TableWriterBuilder& ensureFiles(const bool ensureFiles) {
+      ensureFiles_ = ensureFiles;
+      return *this;
+    }
+
     /// Stop the TableWriterBuilder.
     PlanBuilder& endTableWriter() {
       planBuilder_.planNode_ = build(planBuilder_.nextPlanNodeId());
@@ -436,6 +443,8 @@ class PlanBuilder {
 
     dwio::common::FileFormat fileFormat_{dwio::common::FileFormat::DWRF};
     common::CompressionKind compressionKind_{common::CompressionKind_NONE};
+
+    bool ensureFiles_{false};
   };
 
   /// Start a TableWriterBuilder.
@@ -629,6 +638,8 @@ class PlanBuilder {
   /// output data files.
   /// @param schema Output schema to be passed to the writer. By default use the
   /// output of the previous operator.
+  /// @param ensureFiles When this option is set the HiveDataSink will always
+  /// create a file even if there is no data.
   PlanBuilder& tableWrite(
       const std::string& outputDirectoryPath,
       const std::vector<std::string>& partitionBy,
@@ -644,7 +655,8 @@ class PlanBuilder {
       const std::shared_ptr<dwio::common::WriterOptions>& options = nullptr,
       const std::string& outputFileName = "",
       const common::CompressionKind = common::CompressionKind_NONE,
-      const RowTypePtr& schema = nullptr);
+      const RowTypePtr& schema = nullptr,
+      const bool ensureFiles = false);
 
   /// Add a TableWriteMergeNode.
   PlanBuilder& tableWriteMerge(

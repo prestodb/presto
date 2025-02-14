@@ -412,6 +412,13 @@ HiveDataSink::HiveDataSink(
       "Unsupported commit strategy: {}",
       commitStrategyToString(commitStrategy_));
 
+  if (insertTableHandle_->ensureFiles()) {
+    VELOX_CHECK(
+        !isPartitioned() && !isBucketed(),
+        "ensureFiles is not supported with bucketing or partition keys in the data");
+    ensureWriter(HiveWriterId::unpartitionedId());
+  }
+
   if (!isBucketed()) {
     return;
   }
@@ -1011,6 +1018,8 @@ folly::dynamic HiveInsertTableHandle::serialize() const {
     params[key] = value;
   }
   obj["serdeParameters"] = params;
+
+  obj["ensureFiles"] = ensureFiles_;
   return obj;
 }
 
@@ -1040,13 +1049,17 @@ HiveInsertTableHandlePtr HiveInsertTableHandle::create(
     serdeParameters.emplace(pair.first.asString(), pair.second.asString());
   }
 
+  bool ensureFiles = obj["ensureFiles"].asBool();
+
   return std::make_shared<HiveInsertTableHandle>(
       inputColumns,
       locationHandle,
       storageFormat,
       bucketProperty,
       compressionKind,
-      serdeParameters);
+      serdeParameters,
+      nullptr, // writerOptions is not serializable
+      ensureFiles);
 }
 
 void HiveInsertTableHandle::registerSerDe() {
