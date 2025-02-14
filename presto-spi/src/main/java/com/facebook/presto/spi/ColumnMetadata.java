@@ -25,6 +25,7 @@ import java.util.Optional;
 import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnMetadata
@@ -79,7 +80,7 @@ public class ColumnMetadata
         requireNonNull(type, "type is null");
         requireNonNull(properties, "properties is null");
 
-        this.name = name;
+        this.name = name.toLowerCase(ENGLISH);
         this.type = type;
         this.comment = comment;
         this.extraInfo = extraInfo;
