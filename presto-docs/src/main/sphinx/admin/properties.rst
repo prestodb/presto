@@ -911,7 +911,27 @@ The corresponding session property is :ref:`admin/properties-session:\`\`treat-l
 
 Enable retry for failed queries who can potentially be helped by HBO. 
 
-The corresponding session property is :ref:`admin/properties-session:\`\`retry-query-with-history-based-optimization\`\``. 
+The corresponding session property is :ref:`admin/properties-session:\`\`retry-query-with-history-based-optimization\`\``.
+
+``optimizer.inner-join-pushdown-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable push down inner join predicates to database. Only allows equality joins to be pushed down.
+Use :ref:`admin/properties:\`\`optimizer.inequality-join-pushdown-enabled\`\`` along with this configuration to push down inequality join predicates.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`optimizer_inner_join_pushdown_enabled\`\``.
+
+``optimizer.inequality-join-pushdown-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable push down inner join inequality predicates to database. For this configuration to be enabled, :ref:`admin/properties:\`\`optimizer.inner-join-pushdown-enabled\`\`` should be set to ``true``.
+The corresponding session property is :ref:`admin/properties-session:\`\`optimizer_inequality_join_pushdown_enabled\`\``.
 
 ``optimizer.use-histograms``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
