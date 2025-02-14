@@ -659,6 +659,9 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPrestoDefaultNamespacePrefix{
       "presto.default-namespace"};
 
+  // Specifies the type of worker pool
+  static constexpr std::string_view kPoolType{"pool-type"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -898,6 +901,8 @@ class SystemConfig : public ConfigBase {
 
   bool prestoNativeSidecar() const;
   std::string prestoDefaultNamespacePrefix() const;
+
+  std::string poolType() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

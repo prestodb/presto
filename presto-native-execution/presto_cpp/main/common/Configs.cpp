@@ -290,6 +290,12 @@ std::string SystemConfig::prestoVersion() const {
   return requiredProperty(std::string(kPrestoVersion));
 }
 
+std::string SystemConfig::poolType() const {
+  static constexpr std::string_view kPoolTypeDefault = "DEFAULT";
+  return optionalProperty<std::string>(kPoolType)
+      .value_or(std::string(kPoolTypeDefault));;
+}
+
 bool SystemConfig::mutableConfig() const {
   return optionalProperty<bool>(kMutableConfig).value();
 }

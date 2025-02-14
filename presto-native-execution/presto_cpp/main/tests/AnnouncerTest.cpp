@@ -176,6 +176,7 @@ TEST_P(AnnouncerTestSuite, basic) {
       true,
       {"hive", "tpch"},
       500 /*milliseconds*/,
+      "DEFAULT",
       useHttps ? sslContext_ : nullptr);
 
   announcer.start();
