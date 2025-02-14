@@ -3,7 +3,7 @@ services:
   presto-master:
     domainname: docker.cluster
     hostname: presto-master
-    image: aaneja/hdp2.6-hive-kerberized-jdk17
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-kerberos-master run
     ports:
       - '7778:7778'
@@ -13,11 +13,12 @@ services:
          - presto-master.docker.cluster
     volumes:
       - ../../../conf/presto/etc/environment-specific-catalogs/singlenode-kerberos-hdfs-no-impersonation/hive.properties:/docker/volumes/conf/presto/etc/catalog/hive.properties
+      - ${OVERRIDE_JDK_DIR}:/docker/volumes/overridejdk
 
   presto-worker-1:
     domainname: docker.cluster
     hostname: presto-worker-1
-    image: aaneja/hdp2.6-hive-kerberized-jdk17
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
     extends:
       file: ../common/standard.yml
       service: java-17-base
@@ -34,7 +35,7 @@ services:
   presto-worker-2:
     domainname: docker.cluster
     hostname: presto-worker-2
-    image: aaneja/hdp2.6-hive-kerberized-jdk17
+    image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
     extends:
       file: ../common/standard.yml
       service: java-17-base
