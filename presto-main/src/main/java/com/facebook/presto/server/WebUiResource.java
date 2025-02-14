@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.presto.server.security.oauth2.OAuthWebUiCookie;
+
 import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
@@ -21,15 +23,19 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import java.util.Optional;
+
 import static com.facebook.presto.server.security.RoleType.ADMIN;
+import static com.facebook.presto.server.security.oauth2.OAuth2Utils.getLastURLParameter;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
-import static javax.ws.rs.core.Response.Status.MOVED_PERMANENTLY;
 
-@Path("/")
+@Path(WebUiResource.UI_ENDPOINT)
 @RolesAllowed(ADMIN)
 public class WebUiResource
 {
+    public static final String UI_ENDPOINT = "/";
+
     @GET
     public Response redirectIndexHtml(
             @HeaderParam(X_FORWARDED_PROTO) String proto,
@@ -38,9 +44,30 @@ public class WebUiResource
         if (isNullOrEmpty(proto)) {
             proto = uriInfo.getRequestUri().getScheme();
         }
+        Optional<String> lastURL = getLastURLParameter(uriInfo.getQueryParameters());
+        if (lastURL.isPresent()) {
+            return Response
+                    .seeOther(uriInfo.getRequestUriBuilder().scheme(proto).uri(lastURL.get()).build())
+                    .build();
+        }
 
-        return Response.status(MOVED_PERMANENTLY)
-                .location(uriInfo.getRequestUriBuilder().scheme(proto).path("/ui/").build())
+        return Response
+                .seeOther(uriInfo.getRequestUriBuilder().scheme(proto).path("/ui/").replaceQuery("").build())
+                .build();
+    }
+
+    @GET
+    @Path("/logout")
+    public Response logout(
+            @HeaderParam(X_FORWARDED_PROTO) String proto,
+            @Context UriInfo uriInfo)
+    {
+        if (isNullOrEmpty(proto)) {
+            proto = uriInfo.getRequestUri().getScheme();
+        }
+        return Response
+                .seeOther(uriInfo.getBaseUriBuilder().scheme(proto).path("/ui/logout.html").build())
+                .cookie(OAuthWebUiCookie.delete())
                 .build();
     }
 }

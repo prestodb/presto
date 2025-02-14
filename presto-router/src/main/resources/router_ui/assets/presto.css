@@ -197,6 +197,11 @@ pre {
     font-size: 16px;
 }
 
+.navbar-cluster-info.logout {
+    padding-top: 17px;
+    padding-bottom: 17px;
+}
+
 #page-subtitle {
     color: #8c8c8c;
     padding-left: 3px;

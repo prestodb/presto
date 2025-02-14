@@ -35,9 +35,9 @@ const STATE_COLOR_MAP = {
     UNKNOWN_ERROR: '#943524'
 };
 
-export function getQueryStateColor(query: any): string
+export function getQueryStateColor(queryState: string, fullyBlocked: boolean, errorType: string, errorCodeName: string): string
 {
-    switch (query.state) {
+    switch (queryState) {
         case "QUEUED":
             return STATE_COLOR_MAP.QUEUED;
         case "PLANNING":
@@ -45,14 +45,14 @@ export function getQueryStateColor(query: any): string
         case "STARTING":
         case "FINISHING":
         case "RUNNING":
-            if (query.queryStats && query.queryStats.fullyBlocked) {
+            if (fullyBlocked) {
                 return STATE_COLOR_MAP.BLOCKED;
             }
             return STATE_COLOR_MAP.RUNNING;
         case "FAILED":
-            switch (query.errorType) {
+            switch (errorType) {
                 case "USER_ERROR":
-                    if (query.errorCode.name === 'USER_CANCELED') {
+                    if (errorCodeName === 'USER_CANCELED') {
                         return STATE_COLOR_MAP.CANCELED;
                     }
                     return STATE_COLOR_MAP.USER_ERROR;
@@ -96,23 +96,28 @@ export function getStageStateColor(stage: any): string
     }
 }
 
-// This relies on the fact that BasicQueryInfo and QueryInfo have all the fields
-// necessary to compute this string, and that these fields are consistently named.
-export function getHumanReadableState(query: any): string
+export function getHumanReadableState(
+    queryState: string,
+    scheduled: boolean,
+    fullyBlocked: boolean,
+    blockedReasons: Array<mixed>,
+    memoryPool: string,
+    errorType: string,
+    errorCodeName: string): string
 {
-    if (query.state === "RUNNING") {
+    if (queryState === "RUNNING") {
         let title = "RUNNING";
 
-        if (query.scheduled && query.queryStats.totalDrivers > 0 && query.queryStats.runningDrivers >= 0) {
-            if (query.queryStats.fullyBlocked) {
+        if (scheduled) {
+            if (fullyBlocked) {
                 title = "BLOCKED";
 
-                if (query.queryStats.blockedReasons && query.queryStats.blockedReasons.length > 0) {
-                    title += " (" + query.queryStats.blockedReasons.join(", ") + ")";
+                if (blockedReasons && blockedReasons.length > 0) {
+                    title += " (" + blockedReasons.join(", ") + ")";
                 }
             }
 
-            if (query.memoryPool === "reserved") {
+            if (memoryPool === "reserved") {
                 title += " (RESERVED)"
             }
 
@@ -120,10 +125,10 @@ export function getHumanReadableState(query: any): string
         }
     }
 
-    if (query.state === "FAILED") {
-        switch (query.errorType) {
+    if (queryState === "FAILED") {
+        switch (errorType) {
             case "USER_ERROR":
-                if (query.errorCode.name === "USER_CANCELED") {
+                if (errorCodeName === "USER_CANCELED") {
                     return "USER CANCELED";
                 }
                 return "USER ERROR";
@@ -136,33 +141,31 @@ export function getHumanReadableState(query: any): string
         }
     }
 
-    return query.state;
+    return queryState;
 }
 
-export function getProgressBarPercentage(query: any): number
+export function getProgressBarPercentage(progress: number, queryState: string): number
 {
-    const progress = query.queryStats.progressPercentage;
-
     // progress bars should appear 'full' when query progress is not meaningful
-    if (!progress || query.state !== "RUNNING") {
+    if (!progress || queryState !== "RUNNING") {
         return 100;
     }
 
     return Math.round(progress);
 }
 
-export function getProgressBarTitle(query: any): string
+export function getProgressBarTitle(progress: any, queryState: string, humanReadableState: string): string
 {
-    if (query.queryStats.progressPercentage && query.state === "RUNNING") {
-        return getHumanReadableState(query) + " (" + getProgressBarPercentage(query) + "%)"
+    if (progress && queryState === "RUNNING") {
+        return humanReadableState + " (" + getProgressBarPercentage(progress, queryState) + "%)";
     }
 
-    return getHumanReadableState(query)
+    return humanReadableState;
 }
 
-export function isQueryEnded(query: any): boolean
+export function isQueryEnded(queryState: any): boolean
 {
-    return ["FINISHED", "FAILED", "CANCELED"].indexOf(query.state) > -1;
+    return ["FINISHED", "FAILED", "CANCELED"].indexOf(queryState) > -1;
 }
 
 // Sparkline-related functions
@@ -214,47 +217,48 @@ export function initializeSvg(selector: any)
 export function getChildren(nodeInfo: any)
 {
     // TODO: Remove this function by migrating StageDetail to use node JSON representation
-    switch (nodeInfo['@type']) {
-        case 'output':
-        case 'explainAnalyze':
-        case 'project':
-        case 'filter':
-        case 'aggregation':
-        case 'sort':
-        case 'markDistinct':
-        case 'window':
-        case 'rowNumber':
-        case 'topnRowNumber':
-        case 'limit':
-        case 'distinctlimit':
-        case 'topn':
-        case 'sample':
-        case 'tablewriter':
-        case 'delete':
-        case 'metadatadelete':
-        case 'tablecommit':
-        case 'groupid':
-        case 'unnest':
-        case 'scalar':
+    const nodeType = removeNodeTypePackage(nodeInfo["@type"]);
+    switch (nodeType) {
+        case "OutputNode":
+        case "ExplainAnalyzeNode":
+        case "ProjectNode":
+        case "FilterNode":
+        case "AggregationNode":
+        case "SortNode":
+        case "MarkDistinctNode":
+        case "WindowNode":
+        case "RowNumberNode":
+        case "TopNRowNumberNode":
+        case "LimitNode":
+        case "DistinctLimitNode":
+        case "TopNNode":
+        case "SampleNode":
+        case "TableWriterNode":
+        case "DeleteNode":
+        case "MetadataDeleteNode":
+        case "TableFinishNode":
+        case "GroupIdNode":
+        case "UnnestNode":
+        case "EnforceSingleRowNode":
             return [nodeInfo.source];
-        case 'join':
+        case "JoinNode":
             return [nodeInfo.left, nodeInfo.right];
-        case 'semijoin':
+        case "SemiJoinNode":
             return [nodeInfo.source, nodeInfo.filteringSource];
-        case 'spatialjoin':
+        case "SpatialJoinNode":
             return [nodeInfo.left, nodeInfo.right];
-        case 'indexjoin':
+        case "IndexJoinNode":
             return [nodeInfo.probeSource, nodeInfo.indexSource];
-        case 'union':
-        case 'exchange':
+        case "UnionNode":
+        case "ExchangeNode":
             return nodeInfo.sources;
-        case 'remoteSource':
-        case 'tablescan':
-        case 'values':
-        case 'indexsource':
+        case "RemoteSourceNode":
+        case "TableScanNode":
+        case "ValuesNode":
+        case "IndexSourceNode":
             break;
         default:
-            console.log("NOTE: Unhandled PlanNode: " + nodeInfo['@type']);
+            console.log("NOTE: Unhandled PlanNode: " + nodeType);
     }
 
     return [];
@@ -485,4 +489,20 @@ export function formatShortDateTime(date: Date): string {
     const month = "" + (date.getMonth() + 1);
     const dayOfMonth = "" + date.getDate();
     return year + "-" + (month[1] ? month : "0" + month[0]) + "-" + (dayOfMonth[1] ? dayOfMonth: "0" + dayOfMonth[0]) + " " + formatShortTime(date);
+}
+
+// Remove the Java package from each node type to convert the node type to the short name.
+// For example, in the response sent from the server, an output node is represented by
+// "com.facebook.presto.sql.planner.plan.OutputNode". After the invocation of this function,
+// the short name "OutputNode" will be returned.
+export function removeNodeTypePackage(nodeType: string): string {
+    const classEndIndex = nodeType.lastIndexOf(".");
+    return nodeType.substr(classEndIndex + 1);
+}
+
+export function getLastUrl(): string {
+    const path = window.location.pathname;
+    const queryString = window.location.search;
+
+    return path + queryString;
 }
