@@ -59,7 +59,7 @@ public class TestQueryManagerConfig
                 .setQueryManagerExecutorPoolSize(5)
                 .setRemoteTaskMinErrorDuration(new Duration(5, TimeUnit.MINUTES))
                 .setRemoteTaskMaxErrorDuration(new Duration(5, TimeUnit.MINUTES))
-                .setRemoteTaskMaxCallbackThreads(1000)
+                .setRemoteTaskMaxCallbackThreads(Runtime.getRuntime().availableProcessors())
                 .setQueryExecutionPolicy("all-at-once")
                 .setQueryMaxRunTime(new Duration(100, TimeUnit.DAYS))
                 .setQueryMaxExecutionTime(new Duration(100, TimeUnit.DAYS))

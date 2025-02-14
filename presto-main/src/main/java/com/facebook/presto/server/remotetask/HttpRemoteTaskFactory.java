@@ -95,15 +95,7 @@ public class HttpRemoteTaskFactory
     private final QueryManager queryManager;
     private final DecayCounter taskUpdateRequestSize;
     private final boolean taskUpdateSizeTrackingEnabled;
-    private final EventLoopGroup eventLoopGroup = new DefaultEventLoopGroup(Runtime.getRuntime().availableProcessors(),
-            new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build())
-    {
-        @Override
-        protected EventLoop newChild(Executor executor, Object... args)
-        {
-            return new SafeEventLoop(this, executor);
-        }
-    };
+    private final EventLoopGroup eventLoopGroup;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -182,6 +174,15 @@ public class HttpRemoteTaskFactory
 
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
         this.taskUpdateSizeTrackingEnabled = taskConfig.isTaskUpdateSizeTrackingEnabled();
+        this.eventLoopGroup = new DefaultEventLoopGroup(config.getRemoteTaskMaxCallbackThreads(),
+                new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build())
+        {
+            @Override
+            protected EventLoop newChild(Executor executor, Object... args)
+            {
+                return new SafeEventLoop(this, executor);
+            }
+        };
     }
 
     @Managed
