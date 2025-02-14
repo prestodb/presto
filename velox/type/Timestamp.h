@@ -158,13 +158,12 @@ struct Timestamp {
   int64_t toMillis() const {
     // We use int128_t to make sure the computation does not overflow since
     // there are cases such that seconds*1000 does not fit in int64_t,
-    // but seconds*1000 + nanos does, an example is TimeStamp::minMillis().
+    // but seconds*1000 + nanos does, an example is Timestamp::minMillis().
 
     // If the final result does not fit in int64_t we throw.
     __int128_t result =
         (__int128_t)seconds_ * 1'000 + (int64_t)(nanos_ / 1'000'000);
-    if (result < std::numeric_limits<int64_t>::min() ||
-        result > std::numeric_limits<int64_t>::max()) {
+    if (result < INT64_MIN || result > INT64_MAX) {
       VELOX_USER_FAIL(
           "Could not convert Timestamp({}, {}) to milliseconds",
           seconds_,
@@ -183,19 +182,21 @@ struct Timestamp {
 
   // Keep it in header for getting inlined.
   int64_t toMicros() const {
-    // When an integer overflow occurs in the calculation,
-    // an exception will be thrown.
-    try {
-      return checkedPlus(
-          checkedMultiply(seconds_, (int64_t)1'000'000),
-          (int64_t)(nanos_ / 1'000));
-    } catch (const std::exception& e) {
+    // We use int128_t to make sure the computation does not overflows since
+    // there are cases such that a negative seconds*1000000 does not fit in
+    // int64_t, but seconds*1000000 + nanos does. An example is
+    // Timestamp(-9223372036855, 224'192'000).
+
+    // If the final result does not fit in int64_t we throw.
+    __int128_t result = static_cast<__int128_t>(seconds_) * 1'000'000 +
+        static_cast<int64_t>(nanos_ / 1'000);
+    if (result < INT64_MIN || result > INT64_MAX) {
       VELOX_USER_FAIL(
-          "Could not convert Timestamp({}, {}) to microseconds, {}",
+          "Could not convert Timestamp({}, {}) to microseconds",
           seconds_,
-          nanos_,
-          e.what());
+          nanos_);
     }
+    return result;
   }
 
   Timestamp toPrecision(const TimestampPrecision& precision) const {
