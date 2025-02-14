@@ -642,6 +642,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kInternalCommunicationJwtExpirationSeconds{
       "internal-communication.jwt.expiration-seconds"};
 
+  /// Optional string containing the path to the plugin directory
+  static constexpr std::string_view kPluginDir{"plugin.dir"};
   /// Below are the Presto properties from config.properties that get converted
   /// to their velox counterparts in BaseVeloxQueryConfig and used solely from
   /// BaseVeloxQueryConfig.
@@ -898,6 +900,8 @@ class SystemConfig : public ConfigBase {
 
   bool prestoNativeSidecar() const;
   std::string prestoDefaultNamespacePrefix() const;
+
+  std::string pluginDir() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

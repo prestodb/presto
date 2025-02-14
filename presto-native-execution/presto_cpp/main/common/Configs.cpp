@@ -240,6 +240,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
           STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
+          STR_PROP(kPluginDir, ""),
       };
 }
 
@@ -761,6 +762,10 @@ bool SystemConfig::enableRuntimeMetricsCollection() const {
 
 std::string SystemConfig::prestoDefaultNamespacePrefix() const {
   return optionalProperty(kPrestoDefaultNamespacePrefix).value().append(".");
+}
+
+std::string SystemConfig::pluginDir() const {
+  return optionalProperty(kPluginDir).value();
 }
 
 NodeConfig::NodeConfig() {

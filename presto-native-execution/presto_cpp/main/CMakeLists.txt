@@ -14,6 +14,7 @@ add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
 add_subdirectory(thrift)
+add_subdirectory(dynamic_registry)
 
 add_library(
   presto_server_lib
@@ -62,9 +63,11 @@ target_link_libraries(
   velox_dwio_orc_reader
   velox_dwio_parquet_reader
   velox_dwio_parquet_writer
+  velox_dynamic_library_loader
   velox_encode
   velox_exec
   velox_file
+  velox_function_registry
   velox_functions_lib
   velox_functions_prestosql
   velox_gcs
@@ -99,6 +102,15 @@ set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
                                                presto_link_job_pool)
 
 add_executable(presto_server PrestoMain.cpp)
+
+# The below additional flags are necessary for resolving dependencies for
+# loading dynamic libraries.
+if(APPLE)
+  target_link_options(presto_server BEFORE PUBLIC
+                      "-Wl,-undefined,dynamic_lookup")
+else()
+  target_link_options(presto_server BEFORE PUBLIC "-Wl,-export-dynamic")
+endif()
 
 # Moving velox_hive_connector and velox_tpch_connector to presto_server_lib
 # results in multiple link errors similar to the one below only on GCC.
