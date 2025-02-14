@@ -144,10 +144,10 @@ public class CoordinatorModule
     {
         httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html")
                 .withExtraHeader(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
-                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'");
+                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:");
         httpServerBinder(binder).bindResource("/tableau", "webapp/tableau")
                 .withExtraHeader(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
-                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'");
+                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:");
 
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
