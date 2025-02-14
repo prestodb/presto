@@ -6,6 +6,10 @@ import { PageTitle } from "./components/PageTitle";
 const ClusterHUD = lazy('ClusterHUD');
 const QueryList = lazy('QueryList');
 
+jQuery.htmlPrefilter = function( html ) {
+    return html;
+};
+
 ReactDOM.render(
     <PageTitle titles={['Cluster Overview', 'Resource Groups', 'SQL Client']} urls={['./index.html', 'res_groups.html', 'sql_client.html']} current={0}/>,
     document.getElementById('title')
