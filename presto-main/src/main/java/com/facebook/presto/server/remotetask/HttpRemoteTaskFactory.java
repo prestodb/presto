@@ -94,6 +94,7 @@ public class HttpRemoteTaskFactory
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
     private final DecayCounter taskUpdateRequestSize;
+    private final boolean taskUpdateSizeTrackingEnabled;
     private final EventLoopGroup eventLoopGroup = new DefaultEventLoopGroup(Runtime.getRuntime().availableProcessors(),
             new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build())
     {
@@ -180,6 +181,7 @@ public class HttpRemoteTaskFactory
         this.queryManager = queryManager;
 
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
+        this.taskUpdateSizeTrackingEnabled = taskConfig.isTaskUpdateSizeTrackingEnabled();
     }
 
     @Managed
@@ -239,6 +241,7 @@ public class HttpRemoteTaskFactory
                 metadataManager,
                 queryManager,
                 taskUpdateRequestSize,
+                taskUpdateSizeTrackingEnabled,
                 handleResolver,
                 connectorTypeSerdeManager,
                 schedulerStatsTracker,
