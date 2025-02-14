@@ -14,14 +14,15 @@
 
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.WarningCollector;
 
 public interface PlanChecker
 {
-    void validate(PlanNode planNode, WarningCollector warningCollector);
+    void validate(PlanNode planNode, WarningCollector warningCollector, ConnectorSession session);
 
-    default void validateFragment(SimplePlanFragment planFragment, WarningCollector warningCollector)
+    default void validateFragment(SimplePlanFragment planFragment, WarningCollector warningCollector, ConnectorSession session)
     {
-        validate(planFragment.getRoot(), warningCollector);
+        validate(planFragment.getRoot(), warningCollector, session);
     }
 }
