@@ -116,12 +116,22 @@ public final class PropertyMetadata<T>
         return decoder.apply(value);
     }
 
+    public Function<Object, T> getDecoder()
+    {
+        return decoder;
+    }
+
     /**
      * Encodes the Java type value to SQL type object value
      */
     public Object encode(T value)
     {
         return encoder.apply(value);
+    }
+
+    public Function<T, Object> getEncoder()
+    {
+        return encoder;
     }
 
     public static PropertyMetadata<Boolean> booleanProperty(String name, String description, Boolean defaultValue, boolean hidden)

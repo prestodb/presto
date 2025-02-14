@@ -82,7 +82,7 @@ public class TestIcebergSystemTables
         assertUpdate("INSERT INTO test_schema.test_table VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table", "VALUES 6");
 
-        assertUpdate("CREATE TABLE test_schema.test_table_v1 (_bigint BIGINT, _date DATE) WITH (format_version = '1', partitioning = ARRAY['_date'])");
+        assertUpdate("CREATE TABLE test_schema.test_table_v1 (_bigint BIGINT, _date DATE) WITH (\"format-version\" = '1', partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO test_schema.test_table_v1 VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
         assertUpdate("INSERT INTO test_schema.test_table_v1 VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
         assertQuery("SELECT count(*) FROM test_schema.test_table_v1", "VALUES 6");
@@ -97,14 +97,14 @@ public class TestIcebergSystemTables
         assertQuery("SELECT count(*) FROM test_schema.test_table_drop_column", "VALUES 6");
         assertUpdate("ALTER TABLE test_schema.test_table_drop_column DROP COLUMN _varchar");
 
-        assertUpdate("CREATE TABLE test_schema.test_table_orc (_bigint BIGINT) WITH (format_version = '1', format = 'ORC')");
+        assertUpdate("CREATE TABLE test_schema.test_table_orc (_bigint BIGINT) WITH (\"format-version\" = '1', \"write.format.default\" = 'ORC')");
         assertUpdate("INSERT INTO test_schema.test_table_orc VALUES (0), (1), (2)", 3);
 
         assertUpdate("CREATE TABLE test_schema.test_metadata_versions_maintain (_bigint BIGINT)" +
-                " WITH (metadata_previous_versions_max = 1, metadata_delete_after_commit = true)");
+                " WITH (\"write.metadata.previous-versions-max\" = 1, \"write.metadata.delete-after-commit.enabled\" = true)");
 
         assertUpdate("CREATE TABLE test_schema.test_metrics_max_inferred_column (_bigint BIGINT)" +
-                " WITH (metrics_max_inferred_column = 16)");
+                " WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 16)");
     }
 
     @Test

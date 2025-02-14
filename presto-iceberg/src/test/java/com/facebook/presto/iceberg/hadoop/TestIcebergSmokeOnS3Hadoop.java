@@ -120,15 +120,15 @@ public class TestIcebergSmokeOnS3Hadoop
                     "   \"b\" varchar\n" +
                     ")\n" +
                     "WITH (\n" +
-                    "   delete_mode = 'merge-on-read',\n" +
-                    "   format = 'PARQUET',\n" +
-                    "   format_version = '2',\n" +
+                    "   \"format-version\" = '2',\n" +
                     "   location = '%s',\n" +
-                    "   metadata_delete_after_commit = false,\n" +
-                    "   metadata_previous_versions_max = 100,\n" +
-                    "   metrics_max_inferred_column = 100,\n" +
                     "   \"read.split.target-size\" = 134217728,\n" +
                     "   \"write.data.path\" = '%s',\n" +
+                    "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                    "   \"write.format.default\" = 'PARQUET',\n" +
+                    "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                    "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                    "   \"write.metadata.previous-versions-max\" = 100,\n" +
                     "   \"write.update.mode\" = 'merge-on-read'\n" +
                     ")";
             assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
@@ -196,16 +196,16 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   \"order_status\" varchar\n" +
                 ")\n" +
                 "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = '" + fileFormat + "',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.data.path\" = '%s',\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = '%s',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
 
@@ -216,7 +216,8 @@ public class TestIcebergSmokeOnS3Hadoop
                         getSession().getSchema().get(),
                         tableName,
                         getLocation(getSession().getSchema().get(), tableName),
-                        getPathBasedOnDataDirectory(getSession().getSchema().get() + "/" + tableName)));
+                        getPathBasedOnDataDirectory(getSession().getSchema().get() + "/" + tableName),
+                        fileFormat));
 
         assertQuery(session, "SELECT * from " + tableName, "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -230,16 +231,16 @@ public class TestIcebergSmokeOnS3Hadoop
         String schemaName = session.getSchema().get();
 
         String tablePropertiesString = "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate'],\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.data.path\" = '%s',\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'PARQUET',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertUpdate(session, "CREATE TABLE test_create_table_like_original (col1 INTEGER, aDate DATE) WITH(format = 'PARQUET', partitioning = ARRAY['aDate'])");
@@ -255,15 +256,15 @@ public class TestIcebergSmokeOnS3Hadoop
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy1 (LIKE test_create_table_like_original)");
         tablePropertiesString = "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.data.path\" = '%s',\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'PARQUET',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertEquals(getTablePropertiesString("test_create_table_like_copy1"),
@@ -274,15 +275,15 @@ public class TestIcebergSmokeOnS3Hadoop
 
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
         tablePropertiesString = "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.data.path\" = '%s',\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'PARQUET',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertEquals(getTablePropertiesString("test_create_table_like_copy2"),
@@ -294,16 +295,16 @@ public class TestIcebergSmokeOnS3Hadoop
         assertUpdate(session, "CREATE TABLE test_create_table_like_copy5 (LIKE test_create_table_like_original INCLUDING PROPERTIES)" +
                 " WITH (location = '', \"write.data.path\" = '', format = 'ORC')");
         tablePropertiesString = "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   partitioning = ARRAY['adate'],\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.data.path\" = '%s',\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'ORC',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertEquals(getTablePropertiesString("test_create_table_like_copy5"),
@@ -343,15 +344,15 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   \"order_status\" varchar\n" +
                 ")\n" +
                 "WITH (\n" +
-                "   delete_mode = '%s',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '%s',\n" +
+                "   \"format-version\" = '%s',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.data.path\" = '%s',\n" +
+                "   \"write.delete.mode\" = '%s',\n" +
+                "   \"write.format.default\" = 'PARQUET',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = '%s'\n" +
                 ")";
 
@@ -361,10 +362,10 @@ public class TestIcebergSmokeOnS3Hadoop
                         getSession().getCatalog().get(),
                         getSession().getSchema().get(),
                         tableName,
-                        defaultDeleteMode,
                         formatVersion,
                         getLocation(getSession().getSchema().get(), tableName),
                         getPathBasedOnDataDirectory(getSession().getSchema().get() + "/" + tableName),
+                        defaultDeleteMode,
                         defaultDeleteMode));
 
         dropTable(session, tableName);
@@ -386,15 +387,15 @@ public class TestIcebergSmokeOnS3Hadoop
                 "   \"comment\" varchar\n" +
                 ")\n" +
                 "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'PARQUET',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.data.path\" = '%s',\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'PARQUET',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
@@ -428,15 +429,15 @@ public class TestIcebergSmokeOnS3Hadoop
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
                 "   \"write.data.path\" = '%s',\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'ORC',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
 
