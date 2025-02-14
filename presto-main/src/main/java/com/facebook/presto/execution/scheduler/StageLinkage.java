@@ -18,12 +18,13 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.spi.plan.PartitioningHandle;
-import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -31,13 +32,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 public class StageLinkage
 {
-    private final PlanFragmentId currentStageFragmentId;
+    private final SqlStageExecution currentStageExecution;
     private final ExchangeLocationsConsumer parent;
     private final Set<OutputBufferManager> childOutputBufferManagers;
 
-    public StageLinkage(PlanFragmentId fragmentId, ExchangeLocationsConsumer parent, Set<SqlStageExecution> children)
+    public StageLinkage(SqlStageExecution stageExecution, ExchangeLocationsConsumer parent, Set<SqlStageExecution> children)
     {
-        this.currentStageFragmentId = fragmentId;
+        this.currentStageExecution = stageExecution;
         this.parent = parent;
         this.childOutputBufferManagers = children.stream()
                 .map(childStage -> {
@@ -56,41 +57,47 @@ public class StageLinkage
                 .collect(toImmutableSet());
     }
 
-    public void processScheduleResults(StageExecutionState newState, Set<RemoteTask> newTasks)
+    public void processScheduleResults(ListenableFuture<Set<RemoteTask>> newTasks)
     {
-        boolean noMoreTasks = false;
-        switch (newState) {
-            case PLANNED:
-            case SCHEDULING:
-                // workers are still being added to the query
-                break;
-            case FINISHED_TASK_SCHEDULING:
-            case SCHEDULING_SPLITS:
-            case SCHEDULED:
-            case RUNNING:
-            case FINISHED:
-            case CANCELED:
-                // no more workers will be added to the query
-                noMoreTasks = true;
-            case ABORTED:
-            case FAILED:
-                // DO NOT complete a FAILED or ABORTED stage.  This will cause the
-                // stage above to finish normally, which will result in a query
-                // completing successfully when it should fail..
-                break;
-        }
-
-        // Add an exchange location to the parent stage for each new task
-        parent.addExchangeLocations(currentStageFragmentId, newTasks, noMoreTasks);
-
-        if (!childOutputBufferManagers.isEmpty()) {
-            // Add an output buffer to the child stages for each new task
-            List<OutputBuffers.OutputBufferId> newOutputBuffers = newTasks.stream()
-                    .map(task -> new OutputBuffers.OutputBufferId(task.getTaskId().getId()))
-                    .collect(toImmutableList());
-            for (OutputBufferManager child : childOutputBufferManagers) {
-                child.addOutputBuffers(newOutputBuffers, noMoreTasks);
+        currentStageExecution.getStageEventLoop().execute(() -> {
+            StageExecutionState currentState = currentStageExecution.getState();
+            boolean noMoreTasks = false;
+            switch (currentState) {
+                case PLANNED:
+                case SCHEDULING:
+                    // workers are still being added to the query
+                    break;
+                case FINISHED_TASK_SCHEDULING:
+                case SCHEDULING_SPLITS:
+                case SCHEDULED:
+                case RUNNING:
+                case FINISHED:
+                case CANCELED:
+                    // no more workers will be added to the query
+                    noMoreTasks = true;
+                case ABORTED:
+                case FAILED:
+                    // DO NOT complete a FAILED or ABORTED stage.  This will cause the
+                    // stage above to finish normally, which will result in a query
+                    // completing successfully when it should fail..
+                    break;
             }
-        }
+
+            final boolean copyOfNoMoreTasks = noMoreTasks;
+            addSuccessCallback(newTasks, tasks -> {
+                // Add an exchange location to the parent stage for each new task
+                parent.addExchangeLocations(currentStageExecution.getFragment().getId(), tasks.stream().collect(toImmutableSet()), copyOfNoMoreTasks);
+
+                if (!childOutputBufferManagers.isEmpty()) {
+                    // Add an output buffer to the child stages for each new task
+                    List<OutputBuffers.OutputBufferId> newOutputBuffers = tasks.stream()
+                            .map(task -> new OutputBuffers.OutputBufferId(task.getTaskId().getId()))
+                            .collect(toImmutableList());
+                    for (OutputBufferManager child : childOutputBufferManagers) {
+                        child.addOutputBuffers(newOutputBuffers, copyOfNoMoreTasks);
+                    }
+                }
+            });
+        });
     }
 }

@@ -14,11 +14,11 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.SafeEventLoopGroup;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageExecutionState;
@@ -51,6 +51,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.netty.channel.EventLoopGroup;
 
 import javax.inject.Inject;
 
@@ -61,7 +63,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -101,20 +102,20 @@ public class SectionExecutionFactory
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeTaskMap nodeTaskMap;
-    private final ExecutorService executor;
     private final ScheduledExecutorService scheduledExecutor;
     private final FailureDetector failureDetector;
     private final SplitSchedulerStats schedulerStats;
     private final NodeScheduler nodeScheduler;
     private final int splitBatchSize;
     private final boolean isEnableWorkerIsolation;
+    private final EventLoopGroup eventLoopGroup = new SafeEventLoopGroup(Runtime.getRuntime().availableProcessors(),
+            new ThreadFactoryBuilder().setNameFormat("stage-event-loop-%s").setDaemon(true).build());
 
     @Inject
     public SectionExecutionFactory(
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
             NodeTaskMap nodeTaskMap,
-            @ForQueryExecution ExecutorService executor,
             @ForScheduler ScheduledExecutorService scheduledExecutor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
@@ -125,7 +126,6 @@ public class SectionExecutionFactory
                 metadata,
                 nodePartitioningManager,
                 nodeTaskMap,
-                executor,
                 scheduledExecutor,
                 failureDetector,
                 schedulerStats,
@@ -138,7 +138,6 @@ public class SectionExecutionFactory
             Metadata metadata,
             NodePartitioningManager nodePartitioningManager,
             NodeTaskMap nodeTaskMap,
-            ExecutorService executor,
             ScheduledExecutorService scheduledExecutor,
             FailureDetector failureDetector,
             SplitSchedulerStats schedulerStats,
@@ -149,7 +148,6 @@ public class SectionExecutionFactory
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
-        this.executor = requireNonNull(executor, "executor is null");
         this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -214,6 +212,8 @@ public class SectionExecutionFactory
 
         PlanFragmentId fragmentId = plan.getFragment().getId();
         StageId stageId = new StageId(session.getQueryId(), fragmentId.getId());
+
+        SafeEventLoopGroup.SafeEventLoop stageEventLoop = (SafeEventLoopGroup.SafeEventLoop) eventLoopGroup.next();
         SqlStageExecution stageExecution = createSqlStageExecution(
                 new StageExecutionId(stageId, attemptId),
                 plan.getFragment(),
@@ -221,10 +221,10 @@ public class SectionExecutionFactory
                 session,
                 summarizeTaskInfo,
                 nodeTaskMap,
-                executor,
                 failureDetector,
                 schedulerStats,
-                tableWriteInfo);
+                tableWriteInfo,
+                stageEventLoop);
 
         PartitioningHandle partitioningHandle = plan.getFragment().getPartitioning();
         List<RemoteSourceNode> remoteSourceNodes = plan.getFragment().getRemoteSourceNodes();
@@ -255,7 +255,7 @@ public class SectionExecutionFactory
             }
         });
 
-        StageLinkage stageLinkage = new StageLinkage(fragmentId, parent, childStageExecutions);
+        StageLinkage stageLinkage = new StageLinkage(stageExecution, parent, childStageExecutions);
         StageScheduler stageScheduler = createStageScheduler(
                 splitSourceFactory,
                 session,
@@ -325,7 +325,6 @@ public class SectionExecutionFactory
                     sourceTasksProvider,
                     writerTasksProvider,
                     nodeScheduler.createNodeSelector(session, null, nodePredicate),
-                    scheduledExecutor,
                     getWriterMinSize(session),
                     isOptimizedScaleWriterProducerBuffer(session),
                     taskNumberIfScaledWriter);

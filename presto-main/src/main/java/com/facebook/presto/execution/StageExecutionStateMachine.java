@@ -25,17 +25,12 @@ import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import org.joda.time.DateTime;
 
-import javax.annotation.concurrent.ThreadSafe;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.common.RuntimeMetricName.GET_SPLITS_TIME_NANOS;
@@ -63,6 +58,7 @@ import static com.facebook.presto.execution.StageExecutionState.TERMINAL_STAGE_S
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
@@ -70,7 +66,15 @@ import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-@ThreadSafe
+/**
+ * <p>
+ * This class now uses an event loop concurrency model to eliminate the need for explicit synchronization:
+ * <ul>
+ * <li>All mutable state access and modifications are performed on a single dedicated event loop thread</li>
+ * <li>External threads submit operations to the event loop using {@code safeExecuteOnEventLoop()}</li>
+ * <li>The event loop serializes all operations, eliminating race conditions without using locks</li>
+ * </ul>
+ */
 public class StageExecutionStateMachine
         implements SchedulerStatsTracker
 {
@@ -82,37 +86,45 @@ public class StageExecutionStateMachine
 
     private final StateMachine<StageExecutionState> state;
     private final StateMachine<Optional<StageExecutionInfo>> finalInfo;
-    private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
+    private ExecutionFailureInfo failureCause;
 
-    private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
+    private DateTime schedulingCompleteDateTime;
     private final Distribution getSplitDistribution = new Distribution();
 
-    private final AtomicLong peakUserMemory = new AtomicLong();
-    private final AtomicLong peakNodeTotalMemory = new AtomicLong();
-    private final AtomicLong currentUserMemory = new AtomicLong();
-    private final AtomicLong currentTotalMemory = new AtomicLong();
+    private long peakUserMemory;
+    private long peakNodeTotalMemory;
+    private long currentUserMemory;
+    private long currentTotalMemory;
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
+    private final SafeEventLoopGroup.SafeEventLoop stageEventLoop;
 
     public StageExecutionStateMachine(
             StageExecutionId stageExecutionId,
-            ExecutorService executor,
+            SafeEventLoopGroup.SafeEventLoop stageEventLoop,
             SplitSchedulerStats schedulerStats,
             boolean containsTableScans)
     {
         this.stageExecutionId = requireNonNull(stageExecutionId, "stageId is null");
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.containsTableScans = containsTableScans;
+        this.stageEventLoop = requireNonNull(stageEventLoop, "stageEventLoop is null");
 
-        state = new StateMachine<>("stage execution " + stageExecutionId, executor, PLANNED, TERMINAL_STAGE_STATES);
+        state = new StateMachine<>("stage execution " + stageExecutionId, stageEventLoop, PLANNED, TERMINAL_STAGE_STATES);
         state.addStateChangeListener(state -> log.debug("Stage Execution %s is %s", stageExecutionId, state));
 
-        finalInfo = new StateMachine<>("final stage execution " + stageExecutionId, executor, Optional.empty());
+        finalInfo = new StateMachine<>("final stage execution " + stageExecutionId, stageEventLoop, Optional.empty());
     }
 
     public StageExecutionId getStageExecutionId()
     {
         return stageExecutionId;
+    }
+
+    public StageExecutionState getFutureState()
+    {
+        verify(stageEventLoop.inEventLoop());
+        return state.get();
     }
 
     public StageExecutionState getState()
@@ -130,52 +142,65 @@ public class StageExecutionStateMachine
         state.addStateChangeListener(stateChangeListener);
     }
 
-    public synchronized boolean transitionToScheduling()
+    public boolean transitionToScheduling()
     {
+        verify(stageEventLoop.inEventLoop());
         return state.compareAndSet(PLANNED, SCHEDULING);
     }
 
-    public synchronized boolean transitionToFinishedTaskScheduling()
+    public boolean transitionToFinishedTaskScheduling()
     {
+        verify(stageEventLoop.inEventLoop());
         return state.compareAndSet(SCHEDULING, FINISHED_TASK_SCHEDULING);
     }
 
-    public synchronized boolean transitionToSchedulingSplits()
+    public boolean transitionToSchedulingSplits()
     {
+        verify(stageEventLoop.inEventLoop());
         return state.setIf(SCHEDULING_SPLITS, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING);
     }
 
-    public synchronized boolean transitionToScheduled()
+    public boolean transitionToScheduled()
     {
-        schedulingComplete.compareAndSet(null, DateTime.now());
+        verify(stageEventLoop.inEventLoop());
+        if (schedulingCompleteDateTime == null) {
+            schedulingCompleteDateTime = DateTime.now();
+        }
         return state.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING || currentState == SCHEDULING_SPLITS);
     }
 
     public boolean transitionToRunning()
     {
+        verify(stageEventLoop.inEventLoop());
         return state.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
     }
 
     public boolean transitionToFinished()
     {
+        verify(stageEventLoop.inEventLoop());
         return state.setIf(FINISHED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToCanceled()
     {
+        verify(stageEventLoop.inEventLoop());
         return state.setIf(CANCELED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToAborted()
     {
+        verify(stageEventLoop.inEventLoop());
         return state.setIf(ABORTED, currentState -> !currentState.isDone());
     }
 
     public boolean transitionToFailed(Throwable throwable)
     {
+        verify(stageEventLoop.inEventLoop());
         requireNonNull(throwable, "throwable is null");
 
-        failureCause.compareAndSet(null, Failures.toFailure(throwable));
+        if (failureCause == null) {
+            failureCause = Failures.toFailure(throwable);
+        }
         boolean failed = state.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
             log.error(throwable, "Stage execution %s failed", stageExecutionId);
@@ -214,20 +239,20 @@ public class StageExecutionStateMachine
 
     public long getUserMemoryReservation()
     {
-        return currentUserMemory.get();
+        return currentUserMemory;
     }
 
     public long getTotalMemoryReservation()
     {
-        return currentTotalMemory.get();
+        return currentTotalMemory;
     }
 
     public void updateMemoryUsage(long deltaUserMemoryInBytes, long deltaTotalMemoryInBytes, long peakNodeTotalMemoryReservationInBytes)
     {
-        currentTotalMemory.addAndGet(deltaTotalMemoryInBytes);
-        currentUserMemory.addAndGet(deltaUserMemoryInBytes);
-        peakUserMemory.updateAndGet(currentPeakValue -> max(currentUserMemory.get(), currentPeakValue));
-        peakNodeTotalMemory.accumulateAndGet(peakNodeTotalMemoryReservationInBytes, Math::max);
+        currentTotalMemory += deltaTotalMemoryInBytes;
+        currentUserMemory += deltaUserMemoryInBytes;
+        peakUserMemory = max(peakUserMemory, currentUserMemory);
+        peakNodeTotalMemory = max(peakNodeTotalMemory, peakNodeTotalMemoryReservationInBytes);
     }
 
     public BasicStageExecutionStats getBasicStageStats(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
@@ -348,18 +373,18 @@ public class StageExecutionStateMachine
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
         Optional<ExecutionFailureInfo> failureInfo = Optional.empty();
         if (state == FAILED) {
-            failureInfo = Optional.of(failureCause.get());
+            failureInfo = Optional.of(failureCause);
         }
         return StageExecutionInfo.create(
                 stageExecutionId,
                 state,
                 failureInfo,
                 taskInfos,
-                schedulingComplete.get(),
+                schedulingCompleteDateTime,
                 getSplitDistribution.snapshot(),
                 runtimeStats,
-                succinctBytes(peakUserMemory.get()),
-                succinctBytes(peakNodeTotalMemory.get()),
+                succinctBytes(peakUserMemory),
+                succinctBytes(peakNodeTotalMemory),
                 finishedLifespans,
                 totalLifespans);
     }
