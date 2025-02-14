@@ -671,7 +671,7 @@ StopReason Driver::runInternal(
               });
               if (finished) {
                 withDeltaCpuWallTimer(
-                    op, &OperatorStats::finishTiming, [this, &nextOp]() {
+                    nextOp, &OperatorStats::finishTiming, [this, &nextOp]() {
                       TestValue::adjust(
                           "facebook::velox::exec::Driver::runInternal::noMoreInput",
                           nextOp);

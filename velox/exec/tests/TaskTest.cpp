@@ -1241,7 +1241,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
   EXPECT_EQ(numBatches, operatorStats.outputVectors);
   // isBlocked() should be called at least twice for each batch
   EXPECT_LE(2 * numBatches, operatorStats.isBlockedTiming.count);
-  EXPECT_EQ(2, operatorStats.finishTiming.count);
+  EXPECT_EQ(1, operatorStats.finishTiming.count);
   // No operators with background CPU time yet.
   EXPECT_EQ(0, operatorStats.backgroundTiming.count);
 
@@ -2414,5 +2414,30 @@ DEBUG_ONLY_TEST_F(TaskTest, taskCancellation) {
 
   task.reset();
   waitForAllTasksToBeDeleted();
+}
+
+TEST_F(TaskTest, finishTiming) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
+  });
+  core::PlanNodeId projectId;
+  core::PlanNodeId orderById;
+  auto plan = PlanBuilder()
+                  .values({data, data})
+                  .project({"c0"})
+                  .capturePlanNodeId(projectId)
+                  .orderBy({"c0 DESC NULLS LAST"}, false)
+                  .capturePlanNodeId(orderById)
+                  .planFragment();
+
+  auto [task, _] = executeSerial(plan);
+  auto taskStats = exec::toPlanStats(task->taskStats());
+  auto& projectStats = taskStats.at(projectId);
+  auto& orderByStats = taskStats.at(orderById);
+  // Since the sort is executed in the 'noMoreInput' function of the OrderBy
+  // operator, the finish time of the OrderBy operator should be greater than
+  // that of the Project operator.
+  ASSERT_GT(
+      orderByStats.finishTiming.wallNanos, projectStats.finishTiming.wallNanos);
 }
 } // namespace facebook::velox::exec::test
