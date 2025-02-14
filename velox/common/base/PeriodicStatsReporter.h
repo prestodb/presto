@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <folly/experimental/ThreadedRepeatingFunctionRunner.h>
+#include <folly/executors/ThreadedRepeatingFunctionRunner.h>
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/SsdFile.h"
 #include "velox/common/memory/MemoryArbitrator.h"
