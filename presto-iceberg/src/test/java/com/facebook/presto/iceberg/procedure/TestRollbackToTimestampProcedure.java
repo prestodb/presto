@@ -55,7 +55,7 @@ public class TestRollbackToTimestampProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), HADOOP, ImmutableMap.of());
+        return IcebergQueryRunner.builder().setCatalogType(HADOOP).build().getQueryRunner();
     }
 
     @DataProvider(name = "timezones")
