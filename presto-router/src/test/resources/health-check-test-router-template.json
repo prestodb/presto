@@ -1,7 +1,7 @@
 {
   "groups": [
     {
-      "name": "all",
+      "name": "group1",
       "members": ${SERVERS}
     }
   ],
