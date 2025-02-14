@@ -227,6 +227,7 @@ public final class HttpRemoteTask
     private final TableWriteInfo tableWriteInfo;
 
     private final DecayCounter taskUpdateRequestSize;
+    private final boolean taskUpdateSizeTrackingEnabled;
     private final SchedulerStatsTracker schedulerStatsTracker;
 
     private final HttpRemoteTaskFactory.SafeEventLoop taskEventLoop;
@@ -263,6 +264,7 @@ public final class HttpRemoteTask
             MetadataManager metadataManager,
             QueryManager queryManager,
             DecayCounter taskUpdateRequestSize,
+            boolean taskUpdateSizeTrackingEnabled,
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
             SchedulerStatsTracker schedulerStatsTracker,
@@ -299,6 +301,7 @@ public final class HttpRemoteTask
                 metadataManager,
                 queryManager,
                 taskUpdateRequestSize,
+                taskUpdateSizeTrackingEnabled,
                 handleResolver,
                 connectorTypeSerdeManager,
                 schedulerStatsTracker,
@@ -338,6 +341,7 @@ public final class HttpRemoteTask
             MetadataManager metadataManager,
             QueryManager queryManager,
             DecayCounter taskUpdateRequestSize,
+            boolean taskUpdateSizeTrackingEnabled,
             HandleResolver handleResolver,
             ConnectorTypeSerdeManager connectorTypeSerdeManager,
             SchedulerStatsTracker schedulerStatsTracker,
@@ -404,6 +408,7 @@ public final class HttpRemoteTask
                 .map(PlanNode::getId)
                 .collect(toImmutableSet());
         this.taskUpdateRequestSize = taskUpdateRequestSize;
+        this.taskUpdateSizeTrackingEnabled = taskUpdateSizeTrackingEnabled;
         this.schedulerStatsTracker = schedulerStatsTracker;
 
         for (Entry<PlanNodeId, Split> entry : requireNonNull(initialSplits, "initialSplits is null").entries()) {
@@ -983,20 +988,22 @@ public final class HttpRemoteTask
             byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toBytes(updateRequest);
             schedulerStatsTracker.recordTaskUpdateSerializedCpuTime(THREAD_MX_BEAN.getCurrentThreadCpuTime() - serializeStartCpuTimeNanos);
 
-            taskUpdateRequestSize.add(taskUpdateRequestJson.length);
-
             if (taskUpdateRequestJson.length > maxTaskUpdateSizeInBytes) {
                 failTask(new PrestoException(EXCEEDED_TASK_UPDATE_SIZE_LIMIT, getExceededTaskUpdateSizeMessage(taskUpdateRequestJson)));
                 return;
             }
 
-            if (fragment.isPresent()) {
-                stats.updateWithPlanSize(taskUpdateRequestJson.length);
-            }
-            else {
-                if (ThreadLocalRandom.current().nextDouble() < UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE) {
-                    // This is to keep track of the task update size even when the plan fragment is NOT present
-                    stats.updateWithoutPlanSize(taskUpdateRequestJson.length);
+            if (taskUpdateSizeTrackingEnabled) {
+                taskUpdateRequestSize.add(taskUpdateRequestJson.length);
+
+                if (fragment.isPresent()) {
+                    stats.updateWithPlanSize(taskUpdateRequestJson.length);
+                }
+                else {
+                    if (ThreadLocalRandom.current().nextDouble() < UPDATE_WITHOUT_PLAN_STATS_SAMPLE_RATE) {
+                        // This is to keep track of the task update size even when the plan fragment is NOT present
+                        stats.updateWithoutPlanSize(taskUpdateRequestJson.length);
+                    }
                 }
             }
 
