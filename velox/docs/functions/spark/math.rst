@@ -64,7 +64,7 @@ Mathematical Functions
 .. spark:function:: ceil(x) -> [same as x]
 
     Returns ``x`` rounded up to the nearest integer.  
-    Supported types are: BIGINT and DOUBLE.
+    Supported types are: BIGINT, DOUBLE and DECIMAL.
 
 .. function:: checked_add(x, y) -> [same as x]
 

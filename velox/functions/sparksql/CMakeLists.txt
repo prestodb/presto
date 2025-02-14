@@ -20,6 +20,7 @@ velox_add_library(
   Comparisons.cpp
   ConcatWs.cpp
   DecimalArithmetic.cpp
+  DecimalCeil.cpp
   DecimalCompare.cpp
   Hash.cpp
   In.cpp

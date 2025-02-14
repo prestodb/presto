@@ -114,6 +114,14 @@ Returns NULL when the actual result cannot be represented with the calculated de
 
 Decimal Functions
 -----------------
+.. spark:function:: ceil(x: decimal(p, s)) -> r: decimal(pr, 0)
+
+    Returns ``x`` rounded up to the type ``decimal(min(38, p - s + min(1, s)), 0)``.
+
+    ::
+
+        SELECT ceil(cast(1.23 as DECIMAL(3, 2))); -- 2 // Output type: decimal(2,0)
+
 .. spark:function:: floor(x: decimal(p, s)) -> r: decimal(pr, 0)
 
     Returns ``x`` rounded down to the type ``decimal(min(38, p - s + min(1, s)), 0)``.
