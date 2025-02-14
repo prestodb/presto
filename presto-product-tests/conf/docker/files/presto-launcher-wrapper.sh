@@ -14,13 +14,14 @@ if [[ ! -f "${CONFIG_PROPERTIES_LOCATION}" ]]; then
    exit 1
 fi
 
-# If we have an updated JDK for Presto in a specific path, use it
-if [ -d /opt/java/openjdk ]; then
-  export JAVA_HOME=/opt/java/openjdk
+# If we have an overriden JDK volume mount, use it
+# This is set to /dev/null ignore
+if [ -d /docker/volumes/overridejdk ]; then
+  export JAVA_HOME=/docker/volumes/overridejdk
   export PATH=$JAVA_HOME/bin:$PATH
 fi
 
-echo "Starting Presto with java set to -"
+echo "Starting Presto with java set to :"
 java -version
 
 /docker/volumes/presto-server/bin/launcher \
