@@ -168,16 +168,15 @@ public class PrestoS3FileSystem
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = new DataSize(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = new DataSize(1, MEGABYTE);
-    private static final String PATH_SEPARATOR = "/";
+    protected static final String PATH_SEPARATOR = "/";
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
     private static final MediaType X_DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
-    private static final MediaType OCTET_STREAM_MEDIA_TYPE = MediaType.create("application", "octet-stream");
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
 
-    private URI uri;
+    protected URI uri;
     private Path workingDirectory;
-    private AmazonS3 s3;
+    protected AmazonS3 s3;
     private AWSCredentialsProvider credentialsProvider;
     private File stagingDirectory;
     private int maxAttempts;
@@ -396,8 +395,7 @@ public class PrestoS3FileSystem
         }
 
         return mediaType.is(X_DIRECTORY_MEDIA_TYPE) ||
-                (mediaType.is(OCTET_STREAM_MEDIA_TYPE)
-                        && metadata.isKeyNeedsPathSeparator()
+                (metadata.isKeyNeedsPathSeparator()
                         && objectMetadata.getContentLength() == 0);
     }
 
