@@ -18,6 +18,7 @@ import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
 import com.facebook.presto.router.cluster.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.ForClusterInfoTracker;
+import com.facebook.presto.router.cluster.ForClusterManager;
 import com.facebook.presto.router.cluster.ForQueryInfoTracker;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
 import com.facebook.presto.router.predictor.ForQueryCpuPredictor;
@@ -29,11 +30,14 @@ import com.google.inject.Scopes;
 import io.airlift.units.Duration;
 
 import java.lang.annotation.Annotation;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class RouterModule
@@ -54,6 +58,8 @@ public class RouterModule
     {
         httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
+
+        binder.bind(ScheduledExecutorService.class).annotatedWith(ForClusterManager.class).toInstance(newSingleThreadScheduledExecutor(threadsNamed("cluster-config")));
 
         binder.bind(ClusterManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteInfoFactory.class).in(Scopes.SINGLETON);

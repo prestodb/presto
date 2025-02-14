@@ -24,7 +24,9 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.jdbc.PrestoResultSet;
+import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusTracker;
+import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -64,6 +66,7 @@ public class TestClusterManager
     private HttpServerInfo httpServerInfo;
     private ClusterStatusTracker clusterStatusTracker;
     private File configFile;
+    private ClusterManager clusterManager;
 
     @BeforeClass
     public void setup()
@@ -78,6 +81,7 @@ public class TestClusterManager
         }
         prestoServers = builder.build();
         configFile = getConfigFile(prestoServers);
+        configFile.setWritable(true, false);
 
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),
@@ -90,6 +94,7 @@ public class TestClusterManager
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
         httpServerInfo = injector.getInstance(HttpServerInfo.class);
         clusterStatusTracker = injector.getInstance(ClusterStatusTracker.class);
+        clusterManager = injector.getInstance(ClusterManager.class);
     }
 
     @AfterClass(alwaysRun = true)
@@ -190,5 +195,14 @@ public class TestClusterManager
     private String getResourceFilePath(String fileName)
     {
         return this.getClass().getClassLoader().getResource(fileName).getPath();
+    }
+
+    @Test(enabled = false)
+    public void testConfigReload()
+            throws Exception
+    {
+        clusterManager.startConfigReloadTask();
+        SchedulerType schedulerType = clusterManager.getSchedulerType();
+        assertEquals(schedulerType, SchedulerType.RANDOM_CHOICE);
     }
 }
