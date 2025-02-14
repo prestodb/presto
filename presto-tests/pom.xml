@@ -344,7 +344,13 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
-        
+
+        <dependency>
+            <groupId>org.apache.ratis</groupId>
+            <artifactId>ratis-metrics-default</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -382,6 +388,11 @@
                             <groupId>org.apache.ratis</groupId>
                             <artifactId>ratis-server-api</artifactId>
                         </dependency>
+                        <dependency>
+                            <groupId>org.apache.ratis</groupId>
+                            <artifactId>ratis-metrics-default</artifactId>
+                        </dependency>
+
                     </ignoredDependencies>
                 </configuration>
             </plugin>
