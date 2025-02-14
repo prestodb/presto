@@ -6,12 +6,6 @@ services:
       - ../..:/docker/volumes/conf
       - ../../target:/docker/volumes/logs
 
-  java-17-base:
-    image: 'aaneja/ubi9_jdk17_python:latest'
-    volumes:
-      - ../..:/docker/volumes/conf
-      - ../../target:/docker/volumes/logs
-
   hadoop-master:
     extends:
       service: java-8-base
@@ -34,7 +28,7 @@ services:
 
   presto-master:
     extends:
-      service: java-17-base
+      service: java-8-base
     hostname: presto-master
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh singlenode run
     ports:
@@ -45,10 +39,11 @@ services:
     volumes:
        - ${PRESTO_SERVER_DIR}:/docker/volumes/presto-server
        - ../../../src/main/resources/avro:/docker/volumes/presto-product-tests/avro
+       - ${OVERRIDE_JDK_DIR}:/docker/volumes/overridejdk
 
   application-runner:
     extends:
-      service: java-17-base
+      service: java-8-base
     hostname: application-runner
     command: bash -c 'echo please provide command to application-runner >&2; exit 1'
     volumes:

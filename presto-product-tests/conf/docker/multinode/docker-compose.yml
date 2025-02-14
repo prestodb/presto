@@ -4,11 +4,12 @@ services:
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-master run
     volumes:
       - ../../../conf/presto/etc/multinode-master-jvm.config:/docker/volumes/conf/presto/etc/jvm.config
+      - ${OVERRIDE_JDK_DIR}:/docker/volumes/overridejdk
 
   presto-worker:
     extends:
       file: ../common/standard.yml
-      service: java-17-base
+      service: java-8-base
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-worker run
     depends_on:
       - presto-master
