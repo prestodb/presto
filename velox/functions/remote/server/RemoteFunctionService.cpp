@@ -71,7 +71,7 @@ void RemoteFunctionServiceHandler::handleErrors(
     apache::thrift::field_ref<remote::RemoteFunctionPage&> result,
     exec::EvalErrors* evalErrors,
     const std::unique_ptr<VectorSerde>& serde) const {
-  const std::int64_t numRows = result->get_rowCount();
+  const std::int64_t numRows = folly::copy(result->rowCount().value());
   BufferPtr dataBuffer =
       AlignedBuffer::allocate<StringView>(numRows, pool_.get());
 
@@ -109,18 +109,18 @@ void RemoteFunctionServiceHandler::handleErrors(
 void RemoteFunctionServiceHandler::invokeFunction(
     remote::RemoteFunctionResponse& response,
     std::unique_ptr<remote::RemoteFunctionRequest> request) {
-  const auto& functionHandle = request->get_remoteFunctionHandle();
-  const auto& inputs = request->get_inputs();
+  const auto& functionHandle = request->remoteFunctionHandle().value();
+  const auto& inputs = request->inputs().value();
 
   // Deserialize types and data.
-  auto inputType = deserializeArgTypes(functionHandle.get_argumentTypes());
-  auto outputType = deserializeType(functionHandle.get_returnType());
+  auto inputType = deserializeArgTypes(functionHandle.argumentTypes().value());
+  auto outputType = deserializeType(functionHandle.returnType().value());
 
-  auto serdeFormat = inputs.get_pageFormat();
+  auto serdeFormat = folly::copy(inputs.pageFormat().value());
   auto serde = getSerde(serdeFormat);
 
-  auto inputVector =
-      IOBufToRowVector(inputs.get_payload(), inputType, *pool_, serde.get());
+  auto inputVector = IOBufToRowVector(
+      inputs.payload().value(), inputType, *pool_, serde.get());
 
   // Execute the expression.
   const vector_size_t numRows = inputVector->size();
@@ -133,11 +133,11 @@ void RemoteFunctionServiceHandler::invokeFunction(
       getExpressions(
           inputType,
           outputType,
-          getFunctionName(functionPrefix_, functionHandle.get_name())),
+          getFunctionName(functionPrefix_, functionHandle.name().value())),
       &execCtx};
 
   exec::EvalCtx evalCtx(&execCtx, &exprSet, inputVector.get());
-  if (!request->get_throwOnError()) {
+  if (!folly::copy(request->throwOnError().value())) {
     *evalCtx.mutableThrowOnError() = false;
   }
 
