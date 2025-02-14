@@ -130,6 +130,54 @@ TEST_F(ArrayAggTest, groupBy) {
   testFunction("simple_array_agg", false);
 }
 
+TEST_F(ArrayAggTest, sortGroupByWithAllNullsByMask) {
+  auto data = makeRowVector(
+      {makeNullableFlatVector<int16_t>(
+           {std::nullopt, std::nullopt, 1, 1, 1, 1, 1}),
+       makeNullableFlatVector<int64_t>(
+           {std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt}),
+       makeNullableFlatVector<StringView>(
+           {"hello",
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt}),
+       makeNullableFlatVector<int64_t>(
+           {std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt,
+            std::nullopt})});
+
+  createDuckDbTable({data});
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .project({"c0", "c1", "c2", "c1 % 2 = 1 as m"})
+                  .singleAggregation(
+                      {"c0"},
+                      {
+                          fmt::format("{}(c1 ORDER BY c2 DESC)", "array_agg"),
+                          "sum(c1)",
+                      },
+                      {"m", "m"})
+                  .planNode();
+
+  AssertQueryBuilder(plan, duckDbQueryRunner_)
+      .assertResults(
+          "SELECT c0, array_agg(c1 ORDER BY c2 DESC) FILTER (WHERE c1 % 2 = 1), sum(c1)  FILTER (WHERE c1 % 2 = 1)"
+          " FROM tmp GROUP BY 1");
+}
+
 TEST_F(ArrayAggTest, sortedGroupBy) {
   auto testFunction = [this](const std::string& functionName) {
     auto data = makeRowVector({

@@ -403,6 +403,7 @@ void SortedAggregations::extractValues(
         const auto numRows =
             extractSingleGroup(groupRows, *aggregate, aggregateInputs);
         if (numRows == 0) {
+          firstInputColumn += aggregateInputs.size();
           // Mask must be false for all 'groupRows'.
           continue;
         }
