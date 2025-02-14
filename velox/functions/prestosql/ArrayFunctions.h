@@ -21,10 +21,13 @@
 #include "velox/expression/PrestoCastHooks.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/lib/CheckedArithmetic.h"
+#include "velox/functions/lib/ComparatorUtil.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/FloatingPointUtil.h"
+
+#include <queue>
 
 namespace facebook::velox::functions {
 
@@ -728,6 +731,153 @@ inline void checkIndexArrayTrim(int64_t size, int64_t arraySize) {
         size);
   }
 }
+
+/// This class implements the array_top_n function.
+///
+/// DEFINITION:
+/// array_top_n(array(T), int) -> array(T)
+/// Returns the top n elements of the array in descending order.
+template <typename T>
+struct ArrayTopNFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  // Definition for primitives.
+  template <typename TReturn, typename TInput>
+  FOLLY_ALWAYS_INLINE void
+  call(TReturn& result, const TInput& array, int32_t n) {
+    VELOX_USER_CHECK_GE(n, 0, "Parameter n: {} to ARRAY_TOP_N is negative", n);
+
+    // If top n is zero or input array is empty then exit early.
+    if (n == 0 || array.size() == 0) {
+      return;
+    }
+
+    // Define comparator that wraps built-in function for basic primitives or
+    // calls floating point handler for NaNs.
+    using facebook::velox::util::floating_point::NaNAwareGreaterThan;
+    struct GreaterThanComparator {
+      bool operator()(
+          const typename TInput::element_t& a,
+          const typename TInput::element_t& b) const {
+        if constexpr (
+            std::is_same_v<typename TInput::element_t, float> ||
+            std::is_same_v<typename TInput::element_t, double>) {
+          return NaNAwareGreaterThan<typename TInput::element_t>{}(a, b);
+        } else {
+          return std::greater<typename TInput::element_t>{}(a, b);
+        }
+      }
+    };
+
+    // Define min-heap to store the top n elements.
+    std::priority_queue<
+        typename TInput::element_t,
+        std::vector<typename TInput::element_t>,
+        GreaterThanComparator>
+        minHeap;
+
+    // Iterate through the array and push elements to the min-heap.
+    GreaterThanComparator comparator;
+    int numNull = 0;
+    for (const auto& item : array) {
+      if (item.has_value()) {
+        if (minHeap.size() < n) {
+          minHeap.push(item.value());
+        } else if (comparator(item.value(), minHeap.top())) {
+          minHeap.push(item.value());
+          minHeap.pop();
+        }
+      } else {
+        ++numNull;
+      }
+    }
+
+    // Reverse the min-heap to get the top n elements in descending order.
+    std::vector<typename TInput::element_t> reversed(minHeap.size());
+    auto index = minHeap.size();
+    while (!minHeap.empty()) {
+      reversed[--index] = minHeap.top();
+      minHeap.pop();
+    }
+
+    // Copy mutated vector to result vector up to minHeap's size items.
+    for (const auto& item : reversed) {
+      result.push_back(item);
+    }
+
+    // Backfill nulls if needed.
+    while (result.size() < n && numNull > 0) {
+      result.add_null();
+      --numNull;
+    }
+  }
+
+  // Generic implementation.
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<Orderable<T1>>>& result,
+      const arg_type<Array<Orderable<T1>>>& array,
+      const int32_t n) {
+    VELOX_USER_CHECK_GE(n, 0, "Parameter n: {} to ARRAY_TOP_N is negative", n);
+
+    // If top n is zero or input array is empty then exit early.
+    if (n == 0 || array.size() == 0) {
+      return;
+    }
+
+    // Define comparator to compare complex types.
+    struct ComplexTypeComparator {
+      const arg_type<Array<Orderable<T1>>>& array;
+      ComplexTypeComparator(const arg_type<Array<Orderable<T1>>>& array)
+          : array(array) {}
+
+      bool operator()(const int32_t& a, const int32_t& b) const {
+        static constexpr CompareFlags kFlags = {
+            .nullHandlingMode =
+                CompareFlags::NullHandlingMode::kNullAsIndeterminate};
+        return array[a].value().compare(array[b].value(), kFlags).value() > 0;
+      }
+    };
+
+    // Define min-heap to store the top n elements.
+    std::priority_queue<int32_t, std::vector<int32_t>, ComplexTypeComparator>
+        minHeap(array);
+
+    // Iterate through the array and push elements to the min-heap.
+    ComplexTypeComparator comparator(array);
+    int numNull = 0;
+    for (int i = 0; i < array.size(); ++i) {
+      if (array[i].has_value()) {
+        if (minHeap.size() < n) {
+          minHeap.push(i);
+        } else if (comparator(i, minHeap.top())) {
+          minHeap.push(i);
+          minHeap.pop();
+        }
+      } else {
+        ++numNull;
+      }
+    }
+
+    // Reverse the min-heap to get the top n elements in descending order.
+    std::vector<int32_t> reversed(minHeap.size());
+    auto index = minHeap.size();
+    while (!minHeap.empty()) {
+      reversed[--index] = minHeap.top();
+      minHeap.pop();
+    }
+
+    // Copy mutated vector to result vector up to minHeap's size items.
+    for (const auto& index : reversed) {
+      result.push_back(array[index].value());
+    }
+
+    // Backfill nulls if needed.
+    while (result.size() < n && numNull > 0) {
+      result.add_null();
+      --numNull;
+    }
+  }
+};
 
 template <typename T>
 struct ArrayTrimFunction {
