@@ -3,12 +3,12 @@ Vectors
 =======
 
 Velox vectors is columnar in-memory format for storing query data during
-execution. It is similar to Arrow, but features more encodings and different
+execution. It is similar to Arrow, but features more encodings and a different
 layout for strings, arrays and maps which support out-of-order writes. Vectors
 form the very foundation of the Velox library.
 
-Velox vectors support :doc:`scalar and complex types</develop/types>` and come in a few different
-encodings.
+Velox vectors support :doc:`scalar and complex types</develop/types>` and come
+in a few different encodings.
 
 Supported encodings are:
 
@@ -18,8 +18,8 @@ Supported encodings are:
 * Bias
 * Sequence
 
-In this guide we’ll discuss flat, constant and dictionary encoding. Bias and
-sequence encodings are not in scope for this guide.
+In this guide, we’ll discuss flat, constant, and dictionary encodings. Bias and
+sequence encodings are not in the scope of this guide.
 
 A single vector represents multiple rows of a single column. RowVector is used
 to represent a set of rows for multiple columns as well as a set of rows for a
@@ -202,10 +202,10 @@ the prefix and the pointer.
     :align: center
 
 The following diagram illustrates the difference in in-memory representation of
-a long and short string. “Yellowstone national park” is a 25-characters long
+a long and short string. “Yellowstone National Park” is a 25-character long
 string which is too long to be inlined. Hence, StringView stores a 4-byte
 prefix “Yell” and a pointer to the whole string in a string buffer. The “heavy
-rain” string is only 10-characters long and therefore stored inlined in the
+rain” string is only 10 characters long and therefore stored inlined in the
 StringView. Having prefixes of long strings stored in the StringView allows
 optimizing comparison operations.
 
@@ -252,7 +252,7 @@ this:
 This vector is using the same string buffer as the original one. It simply
 references it using std::shared_ptr. The individual StringView entries either
 contain strings inline or refer to positions in the original strings buffer.
-After applying substr(s, 2) function string in position 1 became short enough
+After applying substr(s, 2) function a string in position 1 became short enough
 to fit inside the StringView, hence, it no longer contains a pointer to a
 position in the string buffer.
 
@@ -340,15 +340,15 @@ the filter.
     :width: 500
     :align: center
 
-When filter or filter-like operation applies to multiple columns, the results
+When a filter or a filter-like operation is applied to multiple columns, the results
 can be represented as multiple dictionary vectors all sharing the same indices
 buffer. This allows to reduce the amount of memory needed for the indices
 buffers and enables efficient expression evaluation via peeling of shared
 dictionaries.
 
 Dictionary encoding is used to represent the results of a join, where probe side
-columns are wrapped into dictionaries to avoid duplicating the rows with
-multiple matches in the build side. Dictionary encoding is also used to
+columns are wrapped into dictionaries to avoid duplicating rows with
+multiple matches on the build side. Dictionary encoding is also used to
 represent the results of an unnest.
 
 Dictionary vector can wrap any other vector including another dictionary.
