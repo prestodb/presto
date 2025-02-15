@@ -366,6 +366,7 @@ public final class TableWriterNode
         }
     }
 
+    //Naming discrepancy with InsertReference
     public static class DeleteHandle
             extends WriterTarget
     {
