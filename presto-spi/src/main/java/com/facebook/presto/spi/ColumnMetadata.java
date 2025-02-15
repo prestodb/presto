@@ -91,6 +91,9 @@ public class ColumnMetadata
 
     public String getName()
     {
+        if (properties.containsKey("original-name")) {
+            return String.valueOf(properties.get("original-name"));
+        }
         return name;
     }
 

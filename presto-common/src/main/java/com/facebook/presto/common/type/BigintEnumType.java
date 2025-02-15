@@ -31,7 +31,6 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TypeUtils.normalizeEnumMap;
 import static com.facebook.presto.common.type.TypeUtils.validateEnumMap;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -93,7 +92,7 @@ public class BigintEnumType
         public LongEnumMap(@JsonProperty("typeName") String typeName, @JsonProperty("enumMap") Map<String, Long> enumMap)
         {
             validateEnumMap(requireNonNull(enumMap, "enumMap is null"));
-            this.typeName = requireNonNull(typeName.toLowerCase(ENGLISH), "typeName is null");
+            this.typeName = requireNonNull(typeName, "typeName is null");
             this.enumMap = normalizeEnumMap(enumMap);
             this.flippedEnumMap = this.enumMap.entrySet().stream()
                     .collect(toMap(Map.Entry::getValue, Map.Entry::getKey));
