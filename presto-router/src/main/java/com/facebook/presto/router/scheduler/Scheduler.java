@@ -14,10 +14,12 @@
 package com.facebook.presto.router.scheduler;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.router.ClusterInfo;
 
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -28,8 +30,18 @@ public interface Scheduler
      * Schedules a request from a user to a concrete candidate. Returns the
      * URI of this candidate.
      */
-    Optional<URI> getDestination(String user);
-
+    default Optional<URI> getDestination(String user)
+    {
+        return Optional.empty();
+    };
+    /**
+     * Schedules a request from a user with specific query string to a concrete candidate. Returns the
+     * URI of this candidate.
+     */
+    default Optional<URI> getDestination(String user, String query)
+    {
+        return Optional.empty();
+    };
     /**
      * Sets the candidates with the list of URIs for scheduling.
      */
@@ -42,4 +54,9 @@ public interface Scheduler
     {
         throw new PrestoException(NOT_SUPPORTED, "This scheduler does not support setting weights");
     }
+
+    /**
+     * Sets the scheduler with cluster info for clusters.
+     */
+    default void setClusterInfos(Map<URI, ClusterInfo> clusterInfos) {}
 }
