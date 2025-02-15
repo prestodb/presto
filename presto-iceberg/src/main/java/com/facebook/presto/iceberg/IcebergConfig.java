@@ -67,7 +67,7 @@ public class IcebergConfig
 
     private EnumSet<ColumnStatisticType> hiveStatisticsMergeFlags = EnumSet.noneOf(ColumnStatisticType.class);
     private String fileIOImpl = HadoopFileIO.class.getName();
-    private boolean manifestCachingEnabled;
+    private boolean manifestCachingEnabled = true;
     private long maxManifestCacheSize = IO_MANIFEST_CACHE_MAX_TOTAL_BYTES_DEFAULT;
     private long manifestCacheExpireDuration = IO_MANIFEST_CACHE_EXPIRATION_INTERVAL_MS_DEFAULT;
     private long manifestCacheMaxContentLength = IO_MANIFEST_CACHE_MAX_CONTENT_LENGTH_DEFAULT;

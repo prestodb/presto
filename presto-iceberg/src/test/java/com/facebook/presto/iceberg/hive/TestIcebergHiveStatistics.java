@@ -36,6 +36,7 @@ import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
 import com.facebook.presto.iceberg.IcebergMetadataColumn;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
@@ -55,6 +56,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -573,6 +575,7 @@ public class TestIcebergHiveStatistics
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
                 SchemaTableName.valueOf("tpch." + tableName));
     }
