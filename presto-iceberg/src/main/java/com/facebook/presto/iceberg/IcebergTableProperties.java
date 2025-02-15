@@ -33,6 +33,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 
 public class IcebergTableProperties
 {
@@ -90,6 +91,11 @@ public class IcebergTableProperties
                         false,
                         value -> (List<?>) value,
                         value -> value))
+                .add(stringProperty(
+                        WRITE_DATA_LOCATION,
+                        "File system location URI for the table's data",
+                        null,
+                        false))
                 .add(stringProperty(
                         FORMAT_VERSION,
                         "Format version for the table",
@@ -174,6 +180,11 @@ public class IcebergTableProperties
     public static String getTableLocation(Map<String, Object> tableProperties)
     {
         return (String) tableProperties.get(LOCATION_PROPERTY);
+    }
+
+    public static String getWriteDataLocation(Map<String, Object> tableProperties)
+    {
+        return (String) tableProperties.get(WRITE_DATA_LOCATION);
     }
 
     public static String getFormatVersion(Map<String, Object> tableProperties)

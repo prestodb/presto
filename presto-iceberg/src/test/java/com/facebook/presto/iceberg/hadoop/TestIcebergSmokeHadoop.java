@@ -24,16 +24,19 @@ import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergUtil;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
+import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.nio.file.Path;
+import java.io.IOException;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 @Test
 public class TestIcebergSmokeHadoop
@@ -44,18 +47,75 @@ public class TestIcebergSmokeHadoop
         super(HADOOP);
     }
 
+    @Test
+    public void testShowCreateTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory("test1").toAbsolutePath().toString();
+        try {
+            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            String schemaName = getSession().getSchema().get();
+            String location = getLocation(schemaName, tableName);
+            validateShowCreateTable(tableName,
+                    ImmutableList.of("a integer", "b varchar"),
+                    getCustomizedTableProperties(ImmutableMap.of(
+                            "location", "'" + location + "'",
+                            "\"write.data.path\"", "'" + dataWriteLocation + "'")));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location2";
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate(format("create table %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
+            assertUpdate(format("delete from %s where a > 2", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        }
+        finally {
+            assertUpdate("drop table if exists " + tableName);
+        }
+    }
+
+    @Test
+    public void testPartitionedTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_partitioned_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], \"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
+            assertUpdate(format("delete from %s where a > 2", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        }
+        finally {
+            assertUpdate("drop table if exists " + tableName);
+        }
+    }
+
     @Override
     protected String getLocation(String schema, String table)
     {
-        File tempLocation = getCatalogDirectory().toFile();
-        return format("%s%s/%s", tempLocation.toURI(), schema, table);
+        Path tempLocation = getCatalogDirectory();
+        return format("%s%s/%s", tempLocation.toUri(), schema, table);
     }
 
     @Override
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
-        Path catalogDirectory = getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false);
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        Path catalogDirectory = new Path(getIcebergDataDirectoryPath(dataDirectory, HADOOP.name(), new IcebergConfig().getFileFormat(), false).toFile().toURI());
         return catalogDirectory;
     }
 
@@ -64,7 +124,7 @@ public class TestIcebergSmokeHadoop
     {
         IcebergConfig icebergConfig = new IcebergConfig();
         icebergConfig.setCatalogType(HADOOP);
-        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toFile().getPath());
+        icebergConfig.setCatalogWarehouse(getCatalogDirectory().toString());
 
         IcebergNativeCatalogFactory catalogFactory = new IcebergNativeCatalogFactory(icebergConfig,
                 new IcebergCatalogName(ICEBERG_CATALOG),
