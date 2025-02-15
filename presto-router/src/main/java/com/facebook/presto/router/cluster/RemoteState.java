@@ -74,6 +74,7 @@ public abstract class RemoteState
         if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
             Request request = prepareGet()
                     .setUri(remoteUri)
+                    .addHeader("Authorization", "Basic " + System.getenv("ROUTER_USER_CREDENTIALS"))
                     .build();
 
             HttpClient.HttpResponseFuture<FullJsonResponseHandler.JsonResponse<JsonNode>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(JSON_CODEC));
