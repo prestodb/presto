@@ -165,7 +165,7 @@ public class PlanFragment
 
     // Serialize this plan fragment with the provided codec, caching the results
     // This should be used when serializing the fragment to send to worker nodes.
-    public synchronized byte[] bytesForTaskSerialization(Codec<PlanFragment> codec)
+    public byte[] bytesForTaskSerialization(Codec<PlanFragment> codec)
     {
         requireNonNull(codec, "codec is null");
         if (cachedSerialization != null) {
