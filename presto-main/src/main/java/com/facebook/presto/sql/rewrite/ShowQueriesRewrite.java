@@ -265,17 +265,17 @@ final class ShowQueriesRewrite
                     throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
                 }
 
-                catalogName = qualifiedTableName.getCatalogName();
+                catalogName = qualifiedTableName.getLegacyCatalogName();
 
                 accessControl.checkCanShowTablesMetadata(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
                         session.getAccessControlContext(),
-                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
+                        new CatalogSchemaName(catalogName, qualifiedTableName.getLegacySchemaName()));
 
                 predicate = Optional.of(combineConjuncts(
                         equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
-                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
+                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getLegacyObjectName()))));
             }
             else {
                 if (catalogName == null) {
@@ -411,7 +411,7 @@ final class ShowQueriesRewrite
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
-                    from(tableName.getCatalogName(), TABLE_COLUMNS),
+                    from(tableName.getLegacyCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
                             equal(identifier("table_schema"), new StringLiteral(tableName.getLegacySchemaName())),
                             equal(identifier("table_name"), new StringLiteral(tableName.getLegacyObjectName()))),

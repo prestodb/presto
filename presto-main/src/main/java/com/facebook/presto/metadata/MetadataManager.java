@@ -551,13 +551,14 @@ public class MetadataManager
         Set<QualifiedObjectName> tables = new LinkedHashSet<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-
             for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(prefix::matches)
+                        .filter(name -> prefix.matches(new QualifiedObjectName(name.getCatalogName(),
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getSchemaName(), identifier(name.getSchemaName()).isDelimited()),
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName(), identifier(name.getObjectName()).isDelimited()))))
                         .forEach(tables::add);
             }
         }
@@ -970,7 +971,9 @@ public class MetadataManager
                 ConnectorSession connectorSession = session.toConnectorSession(connectorId);
                 metadata.listViews(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
-                        .filter(prefix::matches)
+                        .filter(name -> prefix.matches(new QualifiedObjectName(name.getCatalogName(),
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getSchemaName(), identifier(name.getSchemaName()).isDelimited()),
+                                normalizeIdentifier(session, connectorId.getCatalogName(), name.getObjectName(), identifier(name.getObjectName()).isDelimited()))))
                         .forEach(views::add);
             }
         }

@@ -82,7 +82,7 @@ public class CallTask
         }
 
         QualifiedObjectName procedureName = createQualifiedObjectName(session, call, call.getName());
-        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, procedureName.getCatalogName(), call, catalogError);
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, procedureName.getLegacyCatalogName(), call, catalogError);
         Procedure procedure = metadata.getProcedureRegistry().resolve(connectorId, toSchemaTableName(procedureName, metadata, session));
 
         // map declared argument names to positions

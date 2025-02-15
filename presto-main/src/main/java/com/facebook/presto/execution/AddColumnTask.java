@@ -78,7 +78,7 @@ public class AddColumnTask
             return immediateFuture(null);
         }
 
-        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getLegacyCatalogName());
 
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
@@ -108,14 +108,14 @@ public class AddColumnTask
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
         Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                 connectorId,
-                tableName.getCatalogName(),
+                tableName.getLegacyCatalogName(),
                 sqlProperties,
                 session,
                 metadata,
                 parameterExtractor(statement, parameters));
 
         Identifier columnIdentifier = element.getName();
-        String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue(), columnIdentifier.isDelimited());
+        String name = metadata.normalizeIdentifier(session, tableName.getLegacyCatalogName(), columnIdentifier.getValue(), columnIdentifier.isDelimited());
 
         ColumnMetadata column = new ColumnMetadata(
                 name,
