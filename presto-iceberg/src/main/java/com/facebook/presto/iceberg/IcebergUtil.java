@@ -38,7 +38,6 @@ import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -138,10 +137,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPS
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_TABLE_TIMESTAMP;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
@@ -180,12 +176,10 @@ import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_CONTENT
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_BYTES;
 import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
-import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 import static org.apache.iceberg.TableProperties.DELETE_MODE;
 import static org.apache.iceberg.TableProperties.DELETE_MODE_DEFAULT;
-import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.MERGE_MODE;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
 import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED_DEFAULT;
@@ -193,10 +187,9 @@ import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
-import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
-import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE_DEFAULT;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
@@ -477,6 +470,17 @@ public final class IcebergUtil
                 .build();
     }
 
+    public static Optional<String> tryGetLocation(Table table)
+    {
+        try {
+            return Optional.ofNullable(table.location());
+        }
+        catch (TableNotFoundException e) {
+            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
+            return Optional.empty();
+        }
+    }
+
     public static Optional<Map<String, String>> tryGetProperties(Table table)
     {
         try {
@@ -495,17 +499,6 @@ public final class IcebergUtil
         }
         catch (TableNotFoundException e) {
             log.warn(String.format("Unable to fetch snapshot for table %s: %s", table.name(), e.getMessage()));
-            return Optional.empty();
-        }
-    }
-
-    public static Optional<String> tryGetLocation(Table table)
-    {
-        try {
-            return Optional.ofNullable(table.location());
-        }
-        catch (TableNotFoundException e) {
-            log.warn(String.format("Unable to fetch location for table %s: %s", table.name(), e.getMessage()));
             return Optional.empty();
         }
     }
@@ -1135,50 +1128,6 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat, ConnectorSession session)
-    {
-        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
-        Integer commitRetries = getCommitRetries(tableMetadata.getProperties());
-        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
-        propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
-        switch (fileFormat) {
-            case PARQUET:
-                propertiesBuilder.put(PARQUET_COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().get().toString());
-                break;
-            case ORC:
-                propertiesBuilder.put(ORC_COMPRESSION, getCompressionCodec(session).getOrcCompressionKind().name());
-                break;
-        }
-        if (tableMetadata.getComment().isPresent()) {
-            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
-        }
-
-        String formatVersion = getFormatVersion(tableMetadata.getProperties());
-        verify(formatVersion != null, "Format version cannot be null");
-        propertiesBuilder.put(FORMAT_VERSION, formatVersion);
-
-        if (parseFormatVersion(formatVersion) < MIN_FORMAT_VERSION_FOR_DELETE) {
-            propertiesBuilder.put(DELETE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
-            propertiesBuilder.put(UPDATE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
-        }
-        else {
-            RowLevelOperationMode deleteMode = IcebergTableProperties.getDeleteMode(tableMetadata.getProperties());
-            propertiesBuilder.put(DELETE_MODE, deleteMode.modeName());
-            RowLevelOperationMode updateMode = IcebergTableProperties.getUpdateMode(tableMetadata.getProperties());
-            propertiesBuilder.put(UPDATE_MODE, updateMode.modeName());
-        }
-
-        Integer metadataPreviousVersionsMax = IcebergTableProperties.getMetadataPreviousVersionsMax(tableMetadata.getProperties());
-        propertiesBuilder.put(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(metadataPreviousVersionsMax));
-
-        Boolean metadataDeleteAfterCommit = IcebergTableProperties.isMetadataDeleteAfterCommit(tableMetadata.getProperties());
-        propertiesBuilder.put(METADATA_DELETE_AFTER_COMMIT_ENABLED, String.valueOf(metadataDeleteAfterCommit));
-
-        Integer metricsMaxInferredColumn = IcebergTableProperties.getMetricsMaxInferredColumn(tableMetadata.getProperties());
-        propertiesBuilder.put(METRICS_MAX_INFERRED_COLUMN_DEFAULTS, String.valueOf(metricsMaxInferredColumn));
-        return propertiesBuilder.build();
-    }
-
     public static int parseFormatVersion(String formatVersion)
     {
         try {
@@ -1274,7 +1223,7 @@ public final class IcebergUtil
     public static String dataLocation(Table icebergTable)
     {
         Map<String, String> properties = icebergTable.properties();
-        String dataLocation = properties.get(TableProperties.WRITE_DATA_LOCATION);
+        String dataLocation = properties.get(WRITE_DATA_LOCATION);
         if (dataLocation == null) {
             dataLocation = properties.get(TableProperties.OBJECT_STORE_PATH);
             if (dataLocation == null) {

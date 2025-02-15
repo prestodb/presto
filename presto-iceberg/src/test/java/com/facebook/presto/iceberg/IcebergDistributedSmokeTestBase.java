@@ -24,13 +24,15 @@ import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -150,6 +152,34 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   metrics_max_inferred_column = 100,\n" +
                         "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
+    }
+
+    @Test
+    public void testTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String dataWriteLocation = Files.createTempDirectory("test_table_with_specified_write_data_location2").toAbsolutePath().toString();
+        assertQueryFails(String.format("create table test_table_with_specified_write_data_location2(a int, b varchar) with (\"write.data.path\" = '%s')", dataWriteLocation),
+                "Table property write\\.data\\.path is not supported with catalog type: " + catalogType);
+    }
+
+    @Test
+    public void testPartitionedTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String dataWriteLocation = Files.createTempDirectory("test_partitioned_table_with_specified_write_data_location").toAbsolutePath().toString();
+        assertQueryFails(String.format("create table test_partitioned_table_with_specified_write_data_location(a int, b varchar) with (\"write.data.path\" = '%s', partitioning = ARRAY['a'])", dataWriteLocation),
+                "Table property write\\.data\\.path is not supported with catalog type: " + catalogType);
+    }
+
+    @Test
+    public void testShowCreateTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location";
+        String dataWriteLocation = java.nio.file.Files.createTempDirectory("test1").toAbsolutePath().toString();
+        assertQueryFails(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation),
+                "Table property write\\.data\\.path is not supported with catalog type: " + catalogType);
     }
 
     @Test
@@ -712,7 +742,7 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
-    private void testCreateTableLike()
+    protected void testCreateTableLike()
     {
         Session session = getSession();
         String schemaName = session.getSchema().get();
@@ -874,7 +904,7 @@ public abstract class IcebergDistributedSmokeTestBase
         test.accept("2", "merge-on-read");
     }
 
-    private String getTablePropertiesString(String tableName)
+    protected String getTablePropertiesString(String tableName)
     {
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
         String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
@@ -1207,8 +1237,8 @@ public abstract class IcebergDistributedSmokeTestBase
 
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
-        return getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false);
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        return new Path(getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile().toURI());
     }
 
     protected Table getIcebergTable(ConnectorSession session, String namespace, String tableName)
@@ -1529,7 +1559,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
-        String metadataLocation = getLocation(schemaName, tableName).replace("//", "/") + "_invalid";
+        String metadataLocation = getLocation(schemaName, tableName).replace("//", "") + "_invalid";
 
         @Language("RegExp") String errorMessage = format("Unable to find metadata at location %s/%s", metadataLocation, METADATA_FOLDER_NAME);
         assertQueryFails("CALL system.register_table ('" + schemaName + "', '" + tableName + "', '" + metadataLocation + "')", errorMessage);
