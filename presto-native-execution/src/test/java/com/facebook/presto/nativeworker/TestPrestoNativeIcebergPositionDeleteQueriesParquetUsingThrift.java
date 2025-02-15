@@ -15,33 +15,26 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import org.testng.annotations.Test;
 
-@Test(groups = {"parquet"})
-public class TestPrestoNativeIcebergTpcdsQueriesParquetUsingThrift
-        extends AbstractTestNativeTpcdsQueries
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner;
+import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner;
+
+public class TestPrestoNativeIcebergPositionDeleteQueriesParquetUsingThrift
+        extends AbstractTestNativeIcebergPositionDeleteQueries
 {
+    private final String storageFormat = "PARQUET";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "PARQUET");
+        return createNativeIcebergQueryRunner(true, storageFormat);
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("PARQUET");
-    }
-
-    @Test
-    public void doDeletesAndQuery() throws Exception
-    {
-        doDeletes();
-        verifyDeletes();
-        runAllQueries();
+        return createJavaIcebergQueryRunner(storageFormat);
     }
 }
