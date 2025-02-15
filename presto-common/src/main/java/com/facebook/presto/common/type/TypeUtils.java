@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -26,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.ArrayType.ARRAY_NULL_ELEMENT_MSG;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -189,7 +191,7 @@ public final class TypeUtils
     static void checkElementNotNull(boolean isNull, String errorMsg)
     {
         if (isNull) {
-            throw new NotSupportedException(errorMsg);
+            throw ARRAY_NULL_ELEMENT_MSG.equals(errorMsg) ? new InvalidFunctionArgumentException(errorMsg) : new NotSupportedException(errorMsg);
         }
     }
 
