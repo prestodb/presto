@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.writer;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.writer.ColumnWriter.BufferData;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
@@ -71,7 +72,8 @@ public class ParquetWriter
     private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.valueOf("128MB").toBytes());
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
 
-    private final List<ColumnWriter> columnWriters;
+    private final Supplier<List<ColumnWriter>> columnWritersSupplier;
+    private List<ColumnWriter> columnWriters;
     private final OutputStreamSliceOutput outputStream;
     private final List<Type> types;
     private final ParquetWriterOptions writerOption;
@@ -119,7 +121,8 @@ public class ParquetWriter
         }
         ParquetProperties parquetProperties = parquetPropertiesBuilder.build();
         CompressionCodecName compressionCodecName = getCompressionCodecName(compressionCodecClass);
-        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName);
+        columnWritersSupplier = () -> ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName);
+        this.columnWriters = columnWritersSupplier.get();
 
         this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
     }
@@ -188,7 +191,7 @@ public class ParquetWriter
         if (bufferedBytes >= writerOption.getMaxRowGroupSize()) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
-            columnWriters.forEach(ColumnWriter::reset);
+            columnWriters = columnWritersSupplier.get();
             rows = 0;
         }
     }
