@@ -69,7 +69,7 @@ public class DropColumnTask
 
         TableHandle tableHandle = tableHandleOptional.get();
         Identifier columnIdentifier = statement.getColumn();
-        String column = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue(), columnIdentifier.isDelimited());
+        String column = metadata.normalizeIdentifier(session, tableName.getLegacyCatalogName(), columnIdentifier.getValue(), columnIdentifier.isDelimited());
 
         accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 

@@ -110,7 +110,7 @@ public class CreateTableTask
             return immediateFuture(null);
         }
 
-        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getLegacyCatalogName());
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
@@ -120,7 +120,7 @@ public class CreateTableTask
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
                 String columnName = column.getName().getValue();
-                String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnName, column.getName().isDelimited());
+                String name = metadata.normalizeIdentifier(session, tableName.getLegacyCatalogName(), columnName, column.getName().isDelimited());
                 Type type;
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
@@ -141,7 +141,7 @@ public class CreateTableTask
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                         connectorId,
-                        tableName.getCatalogName(),
+                        tableName.getLegacyCatalogName(),
                         sqlProperties,
                         session,
                         metadata,
@@ -158,8 +158,8 @@ public class CreateTableTask
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
                 QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                getConnectorIdOrThrow(session, metadata, likeTableName.getCatalogName(), statement, likeTableCatalogError);
-                if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
+                getConnectorIdOrThrow(session, metadata, likeTableName.getLegacyCatalogName(), statement, likeTableCatalogError);
+                if (!tableName.getLegacyCatalogName().equals(likeTableName.getLegacyCatalogName())) {
                     throw new SemanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
                 }
                 TableHandle likeTable = metadata.getMetadataResolver(session).getTableHandle(likeTableName)
@@ -215,7 +215,7 @@ public class CreateTableTask
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 connectorId,
-                tableName.getCatalogName(),
+                tableName.getLegacyCatalogName(),
                 sqlProperties,
                 session,
                 metadata,
@@ -225,7 +225,7 @@ public class CreateTableTask
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(toSchemaTableName(tableName, metadata, session), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment(), constraints, Collections.emptyMap());
         try {
-            metadata.createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
+            metadata.createTable(session, tableName.getLegacyCatalogName(), tableMetadata, statement.isNotExists());
         }
         catch (PrestoException e) {
             // connectors are not required to handle the ignoreExisting flag

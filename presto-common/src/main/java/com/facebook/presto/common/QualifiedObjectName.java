@@ -76,6 +76,11 @@ public class QualifiedObjectName
         return objectName.toLowerCase(ENGLISH);
     }
 
+    public String getLegacyCatalogName()
+    {
+        return catalogName.toLowerCase(ENGLISH);
+    }
+
     public CatalogSchemaName getCatalogSchemaName()
     {
         return new CatalogSchemaName(catalogName, schemaName);
