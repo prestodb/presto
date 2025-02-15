@@ -13,14 +13,16 @@
  */
 #pragma once
 
-#include "presto_cpp/main/SystemSplit.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "PrestoToVeloxConnector.h"
+#include "SystemSplit.h"
 
 #include "velox/connectors/Connector.h"
 
 namespace facebook::presto {
-
 class TaskManager;
+}
+
+namespace facebook::presto {
 
 class SystemColumnHandle : public velox::connector::ColumnHandle {
  public:
