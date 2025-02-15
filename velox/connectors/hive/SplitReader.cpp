@@ -36,14 +36,22 @@ VectorPtr newConstantFromString(
     vector_size_t size,
     velox::memory::MemoryPool* pool,
     const std::string& sessionTimezone,
-    bool asLocalTime) {
+    bool asLocalTime,
+    bool isPartitionDateDaysSinceEpoch = false) {
   using T = typename TypeTraits<kind>::NativeType;
   if (!value.has_value()) {
     return std::make_shared<ConstantVector<T>>(pool, size, true, type, T());
   }
 
   if (type->isDate()) {
-    auto days = DATE()->toDays(static_cast<folly::StringPiece>(value.value()));
+    int32_t days = 0;
+    // For Iceberg, the date partition values are already in daysSinceEpoch
+    // form.
+    if (isPartitionDateDaysSinceEpoch) {
+      days = folly::to<int32_t>(value.value());
+    } else {
+      days = DATE()->toDays(static_cast<folly::StringPiece>(value.value()));
+    }
     return std::make_shared<ConstantVector<int32_t>>(
         pool, size, false, type, std::move(days));
   }
@@ -402,7 +410,8 @@ void SplitReader::setPartitionValue(
       connectorQueryCtx_->memoryPool(),
       connectorQueryCtx_->sessionTimezone(),
       hiveConfig_->readTimestampPartitionValueAsLocalTime(
-          connectorQueryCtx_->sessionProperties()));
+          connectorQueryCtx_->sessionProperties()),
+      it->second->isPartitionDateValueDaysSinceEpoch());
   spec->setConstantValue(constant);
 }
 

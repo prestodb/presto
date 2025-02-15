@@ -35,6 +35,13 @@ class HiveColumnHandle : public ColumnHandle {
     kRowId,
   };
 
+  struct ColumnParseParameters {
+    enum PartitionDateValueFormat {
+      kISO8601,
+      kDaysSinceEpoch,
+    } partitionDateValueFormat;
+  };
+
   /// NOTE: 'dataType' is the column type in target write table. 'hiveType' is
   /// converted type of the corresponding column in source table which might not
   /// be the same type, and the table scan needs to do data coercion if needs.
@@ -45,12 +52,14 @@ class HiveColumnHandle : public ColumnHandle {
       ColumnType columnType,
       TypePtr dataType,
       TypePtr hiveType,
-      std::vector<common::Subfield> requiredSubfields = {})
+      std::vector<common::Subfield> requiredSubfields = {},
+      ColumnParseParameters columnParseParameters = {})
       : name_(name),
         columnType_(columnType),
         dataType_(std::move(dataType)),
         hiveType_(std::move(hiveType)),
-        requiredSubfields_(std::move(requiredSubfields)) {
+        requiredSubfields_(std::move(requiredSubfields)),
+        columnParseParameters_(columnParseParameters) {
     VELOX_USER_CHECK(
         dataType_->equivalent(*hiveType_),
         "data type {} and hive type {} do not match",
@@ -96,6 +105,11 @@ class HiveColumnHandle : public ColumnHandle {
     return columnType_ == ColumnType::kPartitionKey;
   }
 
+  bool isPartitionDateValueDaysSinceEpoch() const {
+    return columnParseParameters_.partitionDateValueFormat ==
+        ColumnParseParameters::kDaysSinceEpoch;
+  }
+
   std::string toString() const;
 
   folly::dynamic serialize() const override;
@@ -115,6 +129,7 @@ class HiveColumnHandle : public ColumnHandle {
   const TypePtr dataType_;
   const TypePtr hiveType_;
   const std::vector<common::Subfield> requiredSubfields_;
+  const ColumnParseParameters columnParseParameters_;
 };
 
 class HiveTableHandle : public ConnectorTableHandle {
