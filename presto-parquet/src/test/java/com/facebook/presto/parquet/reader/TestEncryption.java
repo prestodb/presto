@@ -539,6 +539,7 @@ public class TestEncryption
                 null,
                 null,
                 false,
-                fileDecryptor);
+                fileDecryptor,
+                Optional.empty());
     }
 }

@@ -107,7 +107,8 @@ public class HudiPageSourceProvider
                     baseFile.getLength(),
                     dataColumns,
                     TupleDomain.all(), // TODO: predicates
-                    fileFormatDataSourceStats);
+                    fileFormatDataSourceStats,
+                    layout.getTable().getSchemaTableName());
         }
         else if (tableType == HudiTableType.MOR) {
             Properties schema = getHiveSchema(

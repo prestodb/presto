@@ -440,6 +440,7 @@ public class BenchmarkDecimalColumnBatchReader
                     null,
                     null,
                     false,
+                    Optional.empty(),
                     Optional.empty());
         }
 

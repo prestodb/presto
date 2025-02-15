@@ -42,6 +42,7 @@ import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
+import org.apache.parquet.anonymization.AnonymizationManager;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.HiddenColumnChunkMetaData;
 import org.apache.parquet.crypto.InternalFileDecryptor;
@@ -99,6 +100,7 @@ public class ParquetReader
     private final ColumnReader[] verificationColumnReaders;
     private final ParquetDataSource dataSource;
     private final Optional<InternalFileDecryptor> fileDecryptor;
+    private final Optional<AnonymizationManager> anonymizationManager;
     private final List<BlockMetaData> blocks;
     private final Optional<List<Long>> firstRowsOfBlocks;
     private final List<PrimitiveColumnIO> columns;
@@ -143,7 +145,8 @@ public class ParquetReader
             Predicate parquetPredicate,
             List<ColumnIndexStore> blockIndexStores,
             boolean columnIndexFilterEnabled,
-            Optional<InternalFileDecryptor> fileDecryptor)
+            Optional<InternalFileDecryptor> fileDecryptor,
+            Optional<AnonymizationManager> anonymizationManager)
     {
         this.blocks = blocks;
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
@@ -180,6 +183,7 @@ public class ParquetReader
         this.columnIndexFilterEnabled = columnIndexFilterEnabled;
         requireNonNull(fileDecryptor, "fileDecryptor is null");
         this.fileDecryptor = fileDecryptor;
+        this.anonymizationManager = anonymizationManager;
     }
 
     @Override
@@ -322,6 +326,17 @@ public class ParquetReader
     }
 
     private ColumnChunk readPrimitive(PrimitiveField field)
+            throws IOException
+    {
+        PrimitiveColumnReader reader = this::readPrimitiveInternal;
+        if (anonymizationManager.isPresent()) {
+            // Wrap the reader with anonymization reader
+            reader = new AnonymizedColumnReader(reader, anonymizationManager.get());
+        }
+        return reader.read(field);
+    }
+
+    private ColumnChunk readPrimitiveInternal(PrimitiveField field)
             throws IOException
     {
         ColumnDescriptor columnDescriptor = field.getDescriptor();

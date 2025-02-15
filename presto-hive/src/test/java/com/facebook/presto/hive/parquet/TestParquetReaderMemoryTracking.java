@@ -122,6 +122,7 @@ public class TestParquetReaderMemoryTracking
                 null,
                 null,
                 false,
+                Optional.empty(),
                 Optional.empty());
     }
 

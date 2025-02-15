@@ -48,6 +48,8 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.anonymization.AnonymizationManager;
+import org.apache.parquet.anonymization.AnonymizationManagerFactory;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.DecryptionPropertiesFactory;
 import org.apache.parquet.crypto.FileDecryptionProperties;
@@ -96,8 +98,10 @@ import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.hive.HiveColumnHandle.isPushedDownSubfield;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetAnonymizationManagerClass;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetAnonymizationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseParquetColumnNames;
@@ -254,6 +258,14 @@ public class ParquetPageSourceFactory
                 nextStart += block.getRowCount();
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+            Optional<AnonymizationManager> anonymizationManager = Optional.empty();
+            if (isParquetAnonymizationEnabled(session)) {
+                anonymizationManager = AnonymizationManagerFactory
+                        .getAnonymizationManager(
+                                getParquetAnonymizationManagerClass(session),
+                                configuration,
+                                tableName.toString());
+            }
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
@@ -266,7 +278,8 @@ public class ParquetPageSourceFactory
                     parquetPredicate,
                     blockIndexStores,
                     columnIndexFilterEnabled,
-                    fileDecryptor);
+                    fileDecryptor,
+                    anonymizationManager);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();

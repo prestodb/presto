@@ -47,7 +47,9 @@ public class TestHiveCommonClientConfig
                 .setZstdJniDecompressionEnabled(false)
                 .setParquetBatchReaderVerificationEnabled(false)
                 .setParquetBatchReadOptimizationEnabled(false)
-                .setReadNullMaskedParquetEncryptedValue(false));
+                .setReadNullMaskedParquetEncryptedValue(false)
+                .setParquetAnonymizationEnabled(false)
+                .setParquetAnonymizationManagerClass(null));
     }
 
     @Test
@@ -72,6 +74,9 @@ public class TestHiveCommonClientConfig
                 .put("hive.enable-parquet-batch-reader-verification", "true")
                 .put("hive.parquet-batch-read-optimization-enabled", "true")
                 .put("hive.read-null-masked-parquet-encrypted-value-enabled", "true")
+                .put("hive.enable-parquet-anonymization", "true")
+                .put("hive.parquet-anonymization-manager-class",
+                        "org.apache.parquet.anonymization.TestAnonymizationManager")
                 .build();
 
         HiveCommonClientConfig expected = new HiveCommonClientConfig()
@@ -92,7 +97,9 @@ public class TestHiveCommonClientConfig
                 .setZstdJniDecompressionEnabled(true)
                 .setParquetBatchReaderVerificationEnabled(true)
                 .setParquetBatchReadOptimizationEnabled(true)
-                .setReadNullMaskedParquetEncryptedValue(true);
+                .setReadNullMaskedParquetEncryptedValue(true)
+                .setParquetAnonymizationEnabled(true)
+                .setParquetAnonymizationManagerClass("org.apache.parquet.anonymization.TestAnonymizationManager");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

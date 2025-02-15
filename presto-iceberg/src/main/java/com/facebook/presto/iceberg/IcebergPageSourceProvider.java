@@ -75,6 +75,7 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -98,6 +99,8 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types.NestedField;
+import org.apache.parquet.anonymization.AnonymizationManager;
+import org.apache.parquet.anonymization.AnonymizationManagerFactory;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -135,10 +138,12 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxMerg
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetAnonymizationManagerClass;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getReadNullMaskedParquetEncryptedValue;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetAnonymizationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
@@ -248,6 +253,7 @@ public class IcebergPageSourceProvider
             Path path,
             long start,
             long length,
+            SchemaTableName tableName,
             List<IcebergColumnHandle> regularColumns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
@@ -332,6 +338,16 @@ public class IcebergPageSourceProvider
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+            Optional<AnonymizationManager> anonymizationManager = Optional.empty();
+            if (isParquetAnonymizationEnabled(session)) {
+                if (tableName != null) {
+                    anonymizationManager = AnonymizationManagerFactory
+                            .getAnonymizationManager(
+                                    getParquetAnonymizationManagerClass(session),
+                                    configuration,
+                                    tableName.toString());
+                }
+            }
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks,
@@ -344,7 +360,8 @@ public class IcebergPageSourceProvider
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    anonymizationManager);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
@@ -821,7 +838,8 @@ public class IcebergPageSourceProvider
                         split.getFileFormat(),
                         columnList,
                         icebergLayout.getValidPredicate(),
-                        splitContext.isCacheable());
+                        splitContext.isCacheable(),
+                        table.getSchemaTableName());
 
         ImmutableMap.Builder<Integer, Object> metadataValues = ImmutableMap.builder();
         for (IcebergColumnHandle icebergColumn : icebergColumns) {
@@ -1023,7 +1041,8 @@ public class IcebergPageSourceProvider
                 delete.format(),
                 columns,
                 tupleDomain,
-                false)
+                false,
+                null)
                 .getDelegate();
     }
 
@@ -1036,7 +1055,8 @@ public class IcebergPageSourceProvider
             FileFormat fileFormat,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
-            boolean isCacheable)
+            boolean isCacheable,
+            SchemaTableName tableName)
     {
         switch (fileFormat) {
             case PARQUET:
@@ -1047,6 +1067,7 @@ public class IcebergPageSourceProvider
                         path,
                         start,
                         length,
+                        tableName,
                         dataColumns,
                         predicate,
                         fileFormatDataSourceStats,
