@@ -155,12 +155,15 @@ public final class MetadataUtil
         String schemaName = session.getSchema().orElse(null);
 
         if (schema.isPresent()) {
-            List<String> parts = schema.get().getOriginalParts();
+            List<String> parts = schema.get().getParts();
             if (parts.size() > 2) {
                 throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
                 catalogName = parts.get(0).toLowerCase(ENGLISH);
+            }
+            if (catalogName == null) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
             }
             schemaName = metadata.normalizeIdentifier(session, catalogName, schema.get().getOriginalSuffix(), identifier(schema.get().getOriginalSuffix()).isDelimited());
         }
