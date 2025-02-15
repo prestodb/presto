@@ -102,8 +102,8 @@ public final class MetadataUtil
 
     public static SchemaTableName toSchemaTableName(QualifiedObjectName qualifiedObjectName, Metadata metadata, Session session)
     {
-        String schemaName = metadata.normalizeIdentifier(session, session.getCatalog().get(), qualifiedObjectName.getSchemaName(), identifier(qualifiedObjectName.getSchemaName()).isDelimited());
-        String tableName = metadata.normalizeIdentifier(session, session.getCatalog().get(), qualifiedObjectName.getObjectName(), identifier(qualifiedObjectName.getObjectName()).isDelimited());
+        String schemaName = metadata.normalizeIdentifier(session, qualifiedObjectName.getLegacyCatalogName(), qualifiedObjectName.getSchemaName(), identifier(qualifiedObjectName.getSchemaName()).isDelimited());
+        String tableName = metadata.normalizeIdentifier(session, qualifiedObjectName.getLegacyCatalogName(), qualifiedObjectName.getObjectName(), identifier(qualifiedObjectName.getObjectName()).isDelimited());
         return toSchemaTableName(schemaName, tableName);
     }
 
