@@ -264,10 +264,16 @@ void fixedWidthScan(
                 }
                 if (!hasFilter) {
                   if (hasHook) {
+#if defined(__GNUC__) && !defined(__clang__)
+                    T values2[values.size];
+                    values.store_unaligned(values2);
+                    hook.addValues(scatterRows + rowIndex, values2, kWidth);
+#else
                     hook.addValues(
                         scatterRows + rowIndex,
                         reinterpret_cast<T*>(&values),
                         kWidth);
+#endif
                   } else {
                     if (scatter) {
                       scatterDense<T>(

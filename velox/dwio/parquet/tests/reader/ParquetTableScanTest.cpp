@@ -408,6 +408,25 @@ TEST_F(ParquetTableScanTest, lazy) {
   ASSERT_TRUE(waitForTaskCompletion(cursor->task().get()));
 }
 
+TEST_F(ParquetTableScanTest, aggregatePushdown) {
+  auto keysVector = makeFlatVector<int64_t>({1, 4, 0, 3, 2});
+  auto valuesVector = makeFlatVector<int64_t>({8077, 6883, 5805, 10640, 3582});
+  auto outputType = ROW({"c1", "c2", "c3"}, {BIGINT(), BIGINT(), BIGINT()});
+  auto plan = PlanBuilder()
+                  .tableScan(outputType, {"c1 = 1"}, "")
+                  .singleAggregation({"c2"}, {"sum(c3)"})
+                  .planNode();
+  std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+  splits.push_back(makeSplit(getExampleFilePath("gcc_data_diff.parquet")));
+  auto result = AssertQueryBuilder(plan).splits(splits).copyResults(pool());
+  ASSERT_EQ(result->size(), 5);
+  auto rows = result->as<RowVector>();
+  ASSERT_TRUE(rows);
+  ASSERT_EQ(rows->childrenSize(), 2);
+  assertEqualVectors(rows->childAt(0), keysVector);
+  assertEqualVectors(rows->childAt(1), valuesVector);
+}
+
 TEST_F(ParquetTableScanTest, countStar) {
   // sample.parquet holds two columns (a: BIGINT, b: DOUBLE) and
   // 20 rows.
