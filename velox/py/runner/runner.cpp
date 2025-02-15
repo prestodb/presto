@@ -18,6 +18,7 @@
 #include <pybind11/stl.h>
 #include "velox/py/lib/PyInit.h"
 
+#include "velox/py/runner/PyConnectors.h"
 #include "velox/py/runner/PyLocalRunner.h"
 
 namespace py = pybind11;
@@ -63,18 +64,34 @@ PYBIND11_MODULE(runner, m) {
        "register_hive",
        &velox::py::registerHive,
        pybind11::arg("connector_name") = "hive",
+       pybind11::arg("configs") =
+           std::unordered_map<std::string, std::string>{},
        py::doc(R"(
         "Initialize and register Hive connector.
 
         Args:
           connector_name: Name to use for the registered connector.
+          configs: A dictionary containing connector configs.
       )"))
       .def(
-          "unregister_hive",
-          &velox::py::unregisterHive,
-          pybind11::arg("connector_name") = "hive",
+          "register_tpch",
+          &velox::py::registerTpch,
+          pybind11::arg("connector_name") = "tpch",
+          pybind11::arg("configs") =
+              std::unordered_map<std::string, std::string>{},
           py::doc(R"(
-        "Unregister Hive connector.
+        "Initialize and register TPC-H connector.
+
+        Args:
+          connector_name: Name to use for the registered connector.
+          configs: A dictionary containing connector configs.
+      )"))
+      .def(
+          "unregister",
+          &velox::py::unregister,
+          pybind11::arg("connector_name"),
+          py::doc(R"(
+        "Unregister connector.
 
         Args:
           connector_name: Name of the connector to unregister.",

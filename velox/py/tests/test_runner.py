@@ -21,7 +21,7 @@ from velox.py.arrow import to_velox
 from velox.py.plan_builder import PlanBuilder
 from velox.py.file import DWRF
 from velox.py.type import BIGINT, ROW
-from velox.py.runner import LocalRunner, register_hive
+from velox.py.runner import LocalRunner, register_hive, register_tpch, unregister
 
 
 class TestPyVeloxRunner(unittest.TestCase):
@@ -84,6 +84,18 @@ class TestPyVeloxRunner(unittest.TestCase):
         for vector in runner.execute():
             total_size += vector.size()
         self.assertEqual(total_size, batch_size * batch_size)
+
+    def test_register_connectors(self):
+        register_hive("conn1")
+        self.assertRaises(RuntimeError, register_hive, "conn1")
+        register_tpch("conn2")
+
+        unregister("conn1")
+        unregister("conn2")
+        self.assertRaises(RuntimeError, unregister, "conn3")
+        register_tpch("conn1")
+        unregister("conn1")
+        register_tpch("conn2")
 
     def test_write_read_file(self):
         # Test writing a batch of data to a dwrf file on disk, then

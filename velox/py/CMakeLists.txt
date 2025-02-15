@@ -53,6 +53,7 @@ velox_link_libraries(
   velox_functions_prestosql
   velox_parse_expression
   velox_exec_test_lib
+  velox_tpch_connector
   velox_dwio_dwrf_reader
   velox_dwio_dwrf_common
   velox_dwio_dwrf_writer
@@ -65,7 +66,8 @@ target_link_libraries(
   PRIVATE velox_py_plan_builder_lib)
 
 # velox.py.runner library:
-velox_add_library(velox_py_local_runner_lib runner/PyLocalRunner.cpp)
+velox_add_library(velox_py_local_runner_lib runner/PyLocalRunner.cpp
+                  runner/PyConnectors.cpp)
 velox_link_libraries(
   velox_py_local_runner_lib
   velox_py_type_lib

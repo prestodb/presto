@@ -26,15 +26,6 @@
 
 namespace facebook::velox::py {
 
-/// Register hive connector using a given `connectorId`
-void registerHive(const std::string& connectorId);
-
-/// Unregister the connector registered above.
-void unregisterHive(const std::string& connectorId);
-
-/// Unregister all connectors that have been registered by this module.
-void unregisterAll();
-
 class PyTaskIterator;
 
 /// A C++ wrapper to allow Python clients to execute plans using TaskCursor.
