@@ -42,8 +42,10 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.telemetry.TracingManager;
 import com.facebook.presto.transaction.TransactionInfo;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Ticker;
@@ -67,6 +69,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -95,6 +98,7 @@ import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.USER_CANCELED;
+import static com.facebook.presto.telemetry.TracingManager.addEvent;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -262,6 +266,11 @@ public class QueryStateMachine
             session = session.beginTransactionId(transactionId, transactionManager, accessControl);
         }
 
+        BaseSpan querySpan = session.getQuerySpan();
+        BaseSpan rootSpan = session.getRootSpan();
+
+        TracingManager.setAttributes(querySpan, ImmutableMap.of("QUERY_TYPE", queryType.map(Enum::name).orElse("UNKNOWN")));
+
         QueryStateMachine queryStateMachine = new QueryStateMachine(
                 query,
                 preparedQuery,
@@ -278,8 +287,32 @@ public class QueryStateMachine
         queryStateMachine.addStateChangeListener(newState -> {
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
             // mark finished or failed transaction as inactive
+
+            addEvent(querySpan, "query_state", newState.toString());
             if (newState.isDone()) {
-                queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+                try {
+                    queryStateMachine.getSession().getTransactionId().ifPresent(transactionManager::trySetInactive);
+
+                    queryStateMachine.getFailureInfo().ifPresent(
+                            failure -> {
+                                ErrorCode errorCode = requireNonNull(failure.getErrorCode());
+
+                                TracingManager.recordException(querySpan, failure.getMessage(), failure.toException(), errorCode);
+                            });
+
+                    queryStateMachine.getFailureInfo().orElseGet(() -> {
+                        TracingManager.setSuccess(querySpan);
+                        return null;
+                    });
+                }
+                finally {
+                    if (!Objects.isNull(querySpan)) {
+                        querySpan.end();
+                    }
+                    if (!Objects.isNull(rootSpan)) {
+                        rootSpan.end();
+                    }
+                }
             }
         });
         return queryStateMachine;

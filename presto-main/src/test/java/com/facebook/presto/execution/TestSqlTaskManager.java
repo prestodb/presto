@@ -39,6 +39,7 @@ import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.OrderingCompiler;
+import com.facebook.presto.telemetry.TracingManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -351,7 +352,8 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, splits, true)),
                 outputBuffers,
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                TracingManager.getRootSpan());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, OutputBuffers outputBuffers)
@@ -372,7 +374,8 @@ public class TestSqlTaskManager
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 outputBuffers,
-                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
+                Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())),
+                TracingManager.getRootSpan());
     }
 
     public static class MockExchangeClientSupplier

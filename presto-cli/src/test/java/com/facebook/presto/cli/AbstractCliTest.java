@@ -68,7 +68,6 @@ public abstract class AbstractCliTest
                 server.url("/").uri(),
                 "user",
                 "source",
-                Optional.empty(),
                 ImmutableSet.of(),
                 "clientInfo",
                 "catalog",

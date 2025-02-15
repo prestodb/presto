@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.ExceededCpuLimitException;
@@ -20,6 +21,7 @@ import com.facebook.presto.ExceededIntermediateWrittenBytesException;
 import com.facebook.presto.ExceededOutputSizeLimitException;
 import com.facebook.presto.ExceededScanLimitException;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
@@ -32,6 +34,7 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.version.EmbedVersion;
 import com.google.common.annotations.VisibleForTesting;
@@ -73,6 +76,7 @@ import static com.facebook.presto.execution.QueryLimit.getMinimum;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_POSITIONS_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.telemetry.TracingManager.scopedSpan;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static java.lang.String.format;
@@ -316,7 +320,12 @@ public class SqlQueryManager
         // TODO(pranjalssh): Support plan statistics tracking for other query managers
         historyBasedPlanStatisticsTracker.updateStatistics(queryExecution);
 
-        embedVersion.embedVersion(queryExecution::start).run();
+        BaseSpan querySpan = queryExecution.getSession().getQuerySpan();
+        try (SetThreadName ignored = new SetThreadName("Query-%s", queryExecution.getQueryId())) {
+            try (BaseSpan ignoredStartScope = scopedSpan(querySpan, TracingEnum.QUERY_START.getName())) {
+                embedVersion.embedVersion(queryExecution::start).run();
+            }
+        }
     }
 
     @Override

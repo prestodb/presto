@@ -27,7 +27,6 @@ import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
-import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -202,7 +201,6 @@ public class TestAnalyzer
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig(),
                 new CompilerConfig(),
                 new HistoryBasedOptimizationConfig()))).build();
         assertFails(session, WINDOW_FUNCTION_ORDERBY_LITERAL,
@@ -598,7 +596,6 @@ public class TestAnalyzer
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig(),
                 new CompilerConfig(),
                 new HistoryBasedOptimizationConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +

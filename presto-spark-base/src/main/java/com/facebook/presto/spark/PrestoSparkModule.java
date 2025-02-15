@@ -199,8 +199,7 @@ import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManager;
 import com.facebook.presto.sql.planner.sanity.PlanCheckerProviderManagerConfig;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
-import com.facebook.presto.tracing.TracerProviderManager;
-import com.facebook.presto.tracing.TracingConfig;
+import com.facebook.presto.telemetry.TracingManager;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.facebook.presto.transaction.TransactionManagerConfig;
@@ -276,7 +275,6 @@ public class PrestoSparkModule
         configBinder(binder).bindConfig(SqlEnvironmentConfig.class);
         configBinder(binder).bindConfig(StaticFunctionNamespaceStoreConfig.class);
         configBinder(binder).bindConfig(PrestoSparkConfig.class);
-        configBinder(binder).bindConfig(TracingConfig.class);
         configBinder(binder).bindConfig(NativeExecutionVeloxConfig.class);
         configBinder(binder).bindConfig(NativeExecutionSystemConfig.class);
         configBinder(binder).bindConfig(NativeExecutionNodeConfig.class);
@@ -352,9 +350,6 @@ public class PrestoSparkModule
 
         // expression manager
         binder.bind(ExpressionOptimizerManager.class).in(Scopes.SINGLETON);
-
-        // tracer provider managers
-        binder.bind(TracerProviderManager.class).in(Scopes.SINGLETON);
 
         // block encodings
         binder.bind(BlockEncodingManager.class).in(Scopes.SINGLETON);
@@ -563,6 +558,7 @@ public class PrestoSparkModule
         binder.bind(ClientRequestFilterManager.class).in(Scopes.SINGLETON);
         binder.bind(PlanCheckerProviderManager.class).in(Scopes.SINGLETON);
         binder.bind(NodeManager.class).to(PluginNodeManager.class).in(Scopes.SINGLETON);
+        binder.bind(TracingManager.class).in(Scopes.SINGLETON);
     }
 
     @Provides

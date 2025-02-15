@@ -344,7 +344,13 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
-        
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-open-telemetry</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>

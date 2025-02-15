@@ -17,6 +17,8 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.TelemetryConfig;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferResult;
 import com.facebook.presto.execution.buffer.LazyOutputBuffer;
@@ -38,9 +40,12 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.telemetry.TracingManager;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -51,6 +56,7 @@ import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -61,6 +67,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.TaskState.ABORTED;
 import static com.facebook.presto.execution.TaskState.FAILED;
+import static com.facebook.presto.telemetry.TracingManager.addEvent;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -89,6 +96,7 @@ public class SqlTask
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
     private final long creationTimeInMillis = System.currentTimeMillis();
+    private BaseSpan taskSpan = TracingManager.getInvalidSpan();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -157,48 +165,51 @@ public class SqlTask
     {
         requireNonNull(onDone, "onDone is null");
         requireNonNull(failedTasks, "failedTasks is null");
-        taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-        {
-            @Override
-            public void stateChanged(TaskState newState)
-            {
-                if (!newState.isDone()) {
+
+        taskStateMachine.addStateChangeListener(newState -> {
+            addEvent(taskSpan, "task-state " + newState.name());
+            if (!newState.isDone()) {
+                return;
+            }
+
+            // Update failed tasks counter
+            if (newState == FAILED) {
+                failedTasks.update(1);
+            }
+
+            // store final task info
+            while (true) {
+                TaskHolder taskHolder = taskHolderReference.get();
+                if (taskHolder.isFinished()) {
+                    // another concurrent worker already set the final state
                     return;
                 }
 
-                // Update failed tasks counter
-                if (newState == FAILED) {
-                    failedTasks.update(1);
+                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                    break;
                 }
+            }
 
-                // store final task info
-                while (true) {
-                    TaskHolder taskHolder = taskHolderReference.get();
-                    if (taskHolder.isFinished()) {
-                        // another concurrent worker already set the final state
-                        return;
-                    }
+            // make sure buffers are cleaned up
+            if (newState == FAILED || newState == ABORTED) {
+                // don't close buffers for a failed query
+                // closed buffers signal to upstream tasks that everything finished cleanly
+                outputBuffer.fail();
+            }
+            else {
+                outputBuffer.destroy();
+            }
 
-                    if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
-                        break;
-                    }
-                }
+            try {
+                onDone.apply(SqlTask.this);
+            }
+            catch (Exception e) {
+                log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
+            }
 
-                // make sure buffers are cleaned up
-                if (newState == FAILED || newState == ABORTED) {
-                    // don't close buffers for a failed query
-                    // closed buffers signal to upstream tasks that everything finished cleanly
-                    outputBuffer.fail();
-                }
-                else {
-                    outputBuffer.destroy();
-                }
-
-                try {
-                    onDone.apply(SqlTask.this);
-                }
-                catch (Exception e) {
-                    log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
+            if (newState.isDone()) {
+                if (taskSpan != null) {
+                    taskSpan.end();
                 }
             }
         });
@@ -433,7 +444,8 @@ public class SqlTask
             Optional<PlanFragment> fragment,
             List<TaskSource> sources,
             OutputBuffers outputBuffers,
-            Optional<TableWriteInfo> tableWriteInfo)
+            Optional<TableWriteInfo> tableWriteInfo,
+            BaseSpan span)
     {
         try {
             // The LazyOutput buffer does not support write methods, so the actual
@@ -453,6 +465,11 @@ public class SqlTask
                 if (taskExecution == null) {
                     checkState(fragment.isPresent(), "fragment must be present");
                     checkState(tableWriteInfo.isPresent(), "tableWriteInfo must be present");
+
+                    if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(taskSpan)) {
+                        taskSpan = TracingManager.getSpan(span, TracingEnum.TASK.getName(), ImmutableMap.of("node id", nodeId, "QUERY_ID", taskId.getQueryId().toString(), "STAGE_ID", taskId.getStageId().toString(), "TASK_ID", taskId.toString(), "task instance id", getTaskInstanceId()));
+                    }
+
                     taskExecution = sqlTaskExecutionFactory.create(
                             session,
                             queryContext,
@@ -461,7 +478,8 @@ public class SqlTask
                             taskExchangeClientManager,
                             fragment.get(),
                             sources,
-                            tableWriteInfo.get());
+                            tableWriteInfo.get(),
+                            taskSpan);
                     taskHolderReference.compareAndSet(taskHolder, new TaskHolder(taskExecution));
                     needsPlan.set(false);
                 }
