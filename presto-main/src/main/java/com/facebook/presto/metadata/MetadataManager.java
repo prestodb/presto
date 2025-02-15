@@ -312,6 +312,7 @@ public class MetadataManager
             for (ConnectorId connectorId : catalogMetadata.listConnectorIds()) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
                 metadata.listSchemaNames(connectorSession).stream()
+                        .map(schema -> normalizeIdentifier(session, connectorId.getCatalogName(), schema, identifier(schema).isDelimited()))
                         .forEach(schemaNames::add);
             }
         }
