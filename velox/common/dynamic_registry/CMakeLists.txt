@@ -11,18 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_subdirectory(base)
-add_subdirectory(caching)
-add_subdirectory(compression)
-add_subdirectory(config)
-add_subdirectory(dynamic_registry)
-add_subdirectory(encode)
-add_subdirectory(file)
-add_subdirectory(hyperloglog)
-add_subdirectory(io)
-add_subdirectory(memory)
-add_subdirectory(process)
-add_subdirectory(serialization)
-add_subdirectory(time)
-add_subdirectory(testutil)
-add_subdirectory(fuzzer)
+
+velox_add_library(velox_dynamic_library_loader DynamicLibraryLoader.cpp)
+
+velox_link_libraries(velox_dynamic_library_loader PRIVATE velox_exception)
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
