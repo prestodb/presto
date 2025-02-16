@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HivePageSourceProvider.ColumnMapping;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.google.common.annotations.VisibleForTesting;
@@ -76,6 +77,7 @@ public class HiveRecordCursor
     private final boolean[] nulls;
 
     public HiveRecordCursor(
+            ConnectorSession session,
             List<ColumnMapping> columnMappings,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
@@ -148,7 +150,7 @@ public class HiveRecordCursor
                     longs[columnIndex] = datePartitionKey(columnValue, name);
                 }
                 else if (TIMESTAMP.equals(type)) {
-                    longs[columnIndex] = timestampPartitionKey(columnValue, hiveStorageTimeZone, name);
+                    longs[columnIndex] = timestampPartitionKey(session, columnValue, hiveStorageTimeZone, name);
                 }
                 else if (isShortDecimal(type)) {
                     longs[columnIndex] = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);

@@ -234,7 +234,7 @@ json::array_t getOptimizedExpressions(
   auto configs = toVeloxConfigsFromSessionProperties(sessionProperties);
   configs.insert({velox::core::QueryConfig::kSessionTimezone, timezone});
   configs.insert(
-      {velox::core::QueryConfig::kAdjustTimestampToTimezone, "true"});
+      {velox::core::QueryConfig::kAdjustTimestampToTimezone, "false"});
 
   auto queryConfig = velox::core::QueryConfig{std::move(configs)};
   auto queryCtx =

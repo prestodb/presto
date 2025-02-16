@@ -14,6 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
@@ -28,13 +29,15 @@ public class CassandraRecordSet
         implements RecordSet
 {
     private final CassandraSession cassandraSession;
+    private final ConnectorSession session;
     private final String cql;
     private final List<FullCassandraType> cassandraTypes;
     private final List<Type> columnTypes;
 
-    public CassandraRecordSet(CassandraSession cassandraSession, String cql, List<CassandraColumnHandle> cassandraColumns)
+    public CassandraRecordSet(CassandraSession cassandraSession, ConnectorSession connectorSession, String cql, List<CassandraColumnHandle> cassandraColumns)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession is null");
+        this.session = requireNonNull(connectorSession, "connectorSession is null");
         this.cql = requireNonNull(cql, "cql is null");
 
         requireNonNull(cassandraColumns, "cassandraColumns is null");
@@ -51,7 +54,7 @@ public class CassandraRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new CassandraRecordCursor(cassandraSession, cassandraTypes, cql);
+        return new CassandraRecordCursor(cassandraSession, session, cassandraTypes, cql);
     }
 
     private static <T, R> List<R> transformList(List<T> list, Function<T, R> function)

@@ -31,6 +31,7 @@ import com.facebook.presto.parquet.reader.PageReader;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.parquet.internal.filter2.columnindex.RowRanges;
 import org.apache.parquet.io.ParquetDecodingException;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -71,7 +72,7 @@ public class TimestampFlatBatchReader
     }
 
     @Override
-    public void init(PageReader pageReader, Field field, RowRanges rowRanges)
+    public void init(PageReader pageReader, Field field, RowRanges rowRanges, Optional<DateTimeZone> timezone)
     {
         checkArgument(!isInitialized(), "Parquet batch reader already initialized");
         this.pageReader = requireNonNull(pageReader, "pageReader is null");
@@ -80,7 +81,7 @@ public class TimestampFlatBatchReader
 
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
         if (dictionaryPage != null) {
-            dictionary = Dictionaries.createDictionary(columnDescriptor, dictionaryPage);
+            dictionary = Dictionaries.createDictionary(columnDescriptor, dictionaryPage, timezone);
         }
     }
 
@@ -92,16 +93,16 @@ public class TimestampFlatBatchReader
     }
 
     @Override
-    public ColumnChunk readNext()
+    public ColumnChunk readNext(Optional<DateTimeZone> timezone)
     {
         ColumnChunk columnChunk = null;
         try {
             seek();
             if (field.isRequired()) {
-                columnChunk = readWithoutNull();
+                columnChunk = readWithoutNull(timezone);
             }
             else {
-                columnChunk = readWithNull();
+                columnChunk = readWithNull(timezone);
             }
         }
         catch (IOException exception) {
@@ -142,7 +143,7 @@ public class TimestampFlatBatchReader
         return true;
     }
 
-    private ColumnChunk readWithNull()
+    private ColumnChunk readWithNull(Optional<DateTimeZone> timezone)
             throws IOException
     {
         long[] values = new long[nextBatchSize];
@@ -163,7 +164,7 @@ public class TimestampFlatBatchReader
             totalNonNullCount += nonNullCount;
 
             if (nonNullCount > 0) {
-                valuesDecoder.readNext(values, startOffset, nonNullCount);
+                valuesDecoder.readNext(values, startOffset, nonNullCount, timezone);
 
                 int valueDestinationIndex = startOffset + chunkSize - 1;
                 int valueSourceIndex = startOffset + nonNullCount - 1;
@@ -196,7 +197,7 @@ public class TimestampFlatBatchReader
         return new ColumnChunk(block, new int[0], new int[0]);
     }
 
-    private ColumnChunk readWithoutNull()
+    private ColumnChunk readWithoutNull(Optional<DateTimeZone> timezone)
             throws IOException
     {
         long[] values = new long[nextBatchSize];
@@ -211,7 +212,7 @@ public class TimestampFlatBatchReader
 
             int chunkSize = Math.min(remainingCountInPage, remainingInBatch);
 
-            valuesDecoder.readNext(values, startOffset, chunkSize);
+            valuesDecoder.readNext(values, startOffset, chunkSize, timezone);
             startOffset += chunkSize;
             remainingInBatch -= chunkSize;
             remainingCountInPage -= chunkSize;
