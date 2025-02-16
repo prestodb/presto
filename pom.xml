@@ -237,6 +237,22 @@
         <module>presto-sql-helpers/presto-native-sql-invoked-functions-plugin</module>
     </modules>
 
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <dependencyManagement>
         <dependencies>
 
@@ -1080,29 +1096,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.hive</groupId>
-                <artifactId>hive-apache</artifactId>
-                <version>3.0.0-10</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.hive</groupId>
-                <artifactId>hive-llap-common</artifactId>
-                <version>2.3.4</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-common</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.apache.hive</groupId>
-                        <artifactId>hive-serde</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                </exclusions>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hive-apache</artifactId>
+                <version>hive4-upgrade-imjalpreet-8</version>
             </dependency>
 
             <dependency>
@@ -1192,9 +1188,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.hive</groupId>
-                <artifactId>hive-dwrf</artifactId>
-                <version>0.8.7</version>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hive-dwrf</artifactId>
+                <version>hive4-upgrade-imjalpreet-1</version>
             </dependency>
 
             <dependency>
@@ -2370,9 +2366,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-core</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2394,13 +2390,17 @@
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.presto.hive</groupId>
+                        <artifactId>hive-apache</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-ldap</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2418,9 +2418,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
@@ -2442,9 +2442,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.imjalpreet.tempto</groupId>
                 <artifactId>tempto-runner</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>hive4-upgrade-imjalpreet-2</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>

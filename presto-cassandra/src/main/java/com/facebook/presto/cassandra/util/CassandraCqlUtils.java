@@ -28,6 +28,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+
 public final class CassandraCqlUtils
 {
     private CassandraCqlUtils()
@@ -153,6 +155,9 @@ public final class CassandraCqlUtils
     public static String cqlValue(String value, CassandraType cassandraType)
     {
         switch (cassandraType) {
+            case TIMESTAMP_WITH_TIMEZONE:
+                long millis = Long.parseLong(value);
+                return String.valueOf(unpackMillisUtc(millis));
             case ASCII:
             case TEXT:
             case VARCHAR:
@@ -167,6 +172,9 @@ public final class CassandraCqlUtils
 
     public static String toCQLCompatibleString(Object value)
     {
+        if (value instanceof Long) {
+            return value.toString();
+        }
         if (value instanceof Slice) {
             return ((Slice) value).toStringUtf8();
         }

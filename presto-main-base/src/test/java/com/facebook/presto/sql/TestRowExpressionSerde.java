@@ -131,7 +131,7 @@ public class TestRowExpressionSerde
         assertLiteral("CAST(NULL AS VARCHAR)", constant(null, VARCHAR));
 
         assertLiteral("DATE '1991-01-01'", constant(7670L, DATE));
-        assertLiteral("TIMESTAMP '1991-01-01 00:00:00.000'", constant(662727600000L, TIMESTAMP));
+        assertLiteral("TIMESTAMP '1991-01-01 00:00:00.000'", constant(662688000000L, TIMESTAMP));
     }
 
     @Test

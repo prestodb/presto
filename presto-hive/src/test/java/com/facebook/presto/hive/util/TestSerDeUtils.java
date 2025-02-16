@@ -27,6 +27,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.io.BytesWritable;
@@ -35,7 +36,6 @@ import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Type;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -159,7 +159,7 @@ public class TestSerDeUtils
         // timestamp
         DateTime dateTime = new DateTime(2008, 10, 28, 16, 7, 15, 0);
         Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTime.getMillis()).closeEntry().build();
-        Block actualTimestamp = toBinaryBlock(BIGINT, new Timestamp(dateTime.getMillis()), getInspector(Timestamp.class));
+        Block actualTimestamp = toBinaryBlock(BIGINT, Timestamp.ofEpochMilli(dateTime.getMillis()), getInspector(Timestamp.class));
         assertBlockEquals(actualTimestamp, expectedTimestamp);
 
         // binary
@@ -283,7 +283,7 @@ public class TestSerDeUtils
         DateTime dateTimeInJvmZone = new DateTime(2008, 10, 28, 16, 7, 15, 0);
         DateTime dateTimeInStorageZone = dateTimeInJvmZone.withZoneRetainFields(storageTimeZone);
         Block expectedTimestamp = VARBINARY.createBlockBuilder(null, 1).writeLong(dateTimeInStorageZone.getMillis()).closeEntry().build();
-        Block actualTimestamp = getPrimitiveBlock(BIGINT, new Timestamp(dateTimeInJvmZone.getMillis()), getInspector(Timestamp.class), storageTimeZone);
+        Block actualTimestamp = getPrimitiveBlock(BIGINT, Timestamp.ofEpochMilli(dateTimeInJvmZone.getMillis()), getInspector(Timestamp.class), storageTimeZone);
         assertBlockEquals(actualTimestamp, expectedTimestamp);
     }
 

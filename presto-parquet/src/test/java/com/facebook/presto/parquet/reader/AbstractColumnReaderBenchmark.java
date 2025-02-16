@@ -22,6 +22,7 @@ import com.facebook.presto.parquet.PrimitiveField;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
@@ -127,23 +128,23 @@ public abstract class AbstractColumnReaderBenchmark<T>
             throws IOException
     {
         ColumnReader columnReader = ColumnReaderFactory.createReader(field.getDescriptor(), getBatchReaderEnabled());
-        columnReader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null);
+        columnReader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null, Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
 
         ColumnReader reader = null;
         if (ENABLE_VERIFICATION) {
             reader = ColumnReaderFactory.createReader(field.getDescriptor(), false);
-            reader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null);
+            reader.init(new PageReader(UNCOMPRESSED, new LinkedList<>(dataPages).listIterator(), MAX_VALUES, null, null, Optional.empty(), null, -1, -1), field, null, Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
         }
 
         int rowsRead = 0;
         while (rowsRead < dataPositions) {
             int remaining = dataPositions - rowsRead;
             columnReader.prepareNextRead(Math.min(READ_BATCH_SIZE, remaining));
-            ColumnChunk columnChunk = columnReader.readNext();
+            ColumnChunk columnChunk = columnReader.readNext(Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
             rowsRead += columnChunk.getBlock().getPositionCount();
             if (ENABLE_VERIFICATION) {
                 reader.prepareNextRead(Math.min(READ_BATCH_SIZE, remaining));
-                ColumnChunk expected = reader.readNext();
+                ColumnChunk expected = reader.readNext(Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
                 verifyColumnChunks(columnChunk, expected, false, field, null);
             }
         }

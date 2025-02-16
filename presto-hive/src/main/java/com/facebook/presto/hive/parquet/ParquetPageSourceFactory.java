@@ -153,7 +153,8 @@ public class ParquetPageSourceFactory
     private final ParquetMetadataSource parquetMetadataSource;
 
     @Inject
-    public ParquetPageSourceFactory(TypeManager typeManager,
+    public ParquetPageSourceFactory(
+            TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             HdfsEnvironment hdfsEnvironment,
             FileFormatDataSourceStats stats,
@@ -166,7 +167,7 @@ public class ParquetPageSourceFactory
         this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
     }
 
-    public static ConnectorPageSource createParquetPageSource(
+    public ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
@@ -254,6 +255,9 @@ public class ParquetPageSourceFactory
                 nextStart += block.getRowCount();
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Optional<DateTimeZone> timezone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks.build(),
@@ -266,7 +270,8 @@ public class ParquetPageSourceFactory
                     parquetPredicate,
                     blockIndexStores,
                     columnIndexFilterEnabled,
-                    fileDecryptor);
+                    fileDecryptor,
+                    timezone);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();

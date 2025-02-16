@@ -337,7 +337,7 @@ public class OrcSelectivePageSourceFactory
             Map<Integer, Object> typedPrefilledValues = Maps.transformEntries(
                     prefilledValues.entrySet().stream()
                             .collect(toImmutableMap(entry -> indexMapping.get(entry.getKey()), Map.Entry::getValue)),
-                    (hiveColumnIndex, value) -> typedPartitionKey(value, columnTypes.get(hiveColumnIndex), columnNames.get(hiveColumnIndex), hiveStorageTimeZone));
+                    (hiveColumnIndex, value) -> typedPartitionKey(session, value, columnTypes.get(hiveColumnIndex), columnNames.get(hiveColumnIndex), hiveStorageTimeZone));
 
             BiMap<Integer, Integer> inputs = IntStream.range(0, physicalColumns.size())
                     .boxed()

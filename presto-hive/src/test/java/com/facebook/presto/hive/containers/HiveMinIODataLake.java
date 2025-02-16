@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
+import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE4_IMAGE;
 import static com.facebook.presto.tests.SslKeystoreManager.getKeystorePath;
 import static com.facebook.presto.tests.SslKeystoreManager.getTruststorePath;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -77,7 +78,7 @@ public class HiveMinIODataLake
 
         String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
 
-        if (Objects.equals(hiveHadoopImage, HIVE3_IMAGE)) {
+        if (Objects.equals(hiveHadoopImage, HIVE3_IMAGE) || Objects.equals(hiveHadoopImage, HIVE4_IMAGE)) {
             hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
             filesToMount.put("hive_s3_insert_overwrite/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
