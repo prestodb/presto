@@ -217,15 +217,15 @@
     </modules>
 
     <repositories>
-<!--        <repository>-->
-<!--            <id>central</id>-->
-<!--            <name>Central Repository</name>-->
-<!--            <url>https://repo.maven.apache.org/maven2</url>-->
-<!--            <layout>default</layout>-->
-<!--            <snapshots>-->
-<!--                <enabled>true</enabled>-->
-<!--            </snapshots>-->
-<!--        </repository>-->
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
@@ -1023,9 +1023,9 @@
 <!--            </dependency>-->
 
             <dependency>
-                <groupId>com.facebook.presto.hive</groupId>
-                <artifactId>hive-apache</artifactId>
-                <version>4.0.1-1-SNAPSHOT</version>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hive-apache</artifactId>
+                <version>hive4-upgrade-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -1135,9 +1135,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.hive</groupId>
-                <artifactId>hive-dwrf</artifactId>
-                <version>0.8.8-SNAPSHOT</version>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hive-dwrf</artifactId>
+                <version>hive4-upgrade-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -2298,6 +2298,10 @@
                     <exclusion>
                         <groupId>org.testng</groupId>
                         <artifactId>testng</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.presto.hive</groupId>
+                        <artifactId>hive-apache</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
