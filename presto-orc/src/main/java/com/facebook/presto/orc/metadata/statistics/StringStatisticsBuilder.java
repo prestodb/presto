@@ -119,7 +119,7 @@ public class StringStatisticsBuilder
         }
         minimum = dropStringMinMaxIfNecessary(minimum);
         maximum = dropStringMinMaxIfNecessary(maximum);
-        return Optional.of(new StringStatistics(minimum, maximum, sum));
+        return Optional.of(new StringStatistics(minimum, maximum, false, false, sum));
     }
 
     @Override

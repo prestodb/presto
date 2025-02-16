@@ -27,6 +27,7 @@ import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.column.ParquetProperties.Builder;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.FileMetaData;
+import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Util;
@@ -34,6 +35,7 @@ import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
@@ -77,6 +79,8 @@ public class ParquetWriter
     private final ParquetWriterOptions writerOption;
     private final List<String> names;
     private final MessageType messageType;
+    private final DateTimeZone writerTimezone;
+    private final String prestoVersion;
 
     private final int chunkMaxLogicalBytes;
 
@@ -94,7 +98,9 @@ public class ParquetWriter
             List<String> columnNames,
             List<Type> types,
             ParquetWriterOptions writerOption,
-            String compressionCodecClass)
+            String compressionCodecClass,
+            DateTimeZone writerTimezone,
+            String prestoVersion)
     {
         this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
         this.names = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -122,6 +128,10 @@ public class ParquetWriter
         this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName);
 
         this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
+
+        this.writerTimezone = requireNonNull(writerTimezone, "writerTimezone is null");
+
+        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
     }
 
     public long getWrittenBytes()
@@ -249,7 +259,7 @@ public class ParquetWriter
             throws IOException
     {
         checkState(closed);
-        Slice footer = getFooter(rowGroupBuilder.build(), messageType);
+        Slice footer = getFooter(rowGroupBuilder.build(), messageType, writerTimezone, prestoVersion);
         createDataOutput(footer).writeData(outputStream);
 
         Slice footerSize = Slices.allocate(SIZE_OF_INT);
@@ -259,7 +269,7 @@ public class ParquetWriter
         createDataOutput(MAGIC).writeData(outputStream);
     }
 
-    static Slice getFooter(List<RowGroup> rowGroups, MessageType messageType)
+    static Slice getFooter(List<RowGroup> rowGroups, MessageType messageType, DateTimeZone writerTimezone, String prestoVersion)
             throws IOException
     {
         FileMetaData fileMetaData = new FileMetaData();
@@ -268,7 +278,16 @@ public class ParquetWriter
         fileMetaData.setNum_rows(totalRows);
         fileMetaData.setRow_groups(ImmutableList.copyOf(rowGroups));
 
+        // Apache Hive will skip timezone conversion if createdBy does not start with parquet-mr
+        // https://github.com/apache/hive/blob/3af4517eb8cfd9407ad34ed78a0b48b57dfaa264/ql/src/java/org/apache/hadoop/hive/ql/io/parquet/ParquetRecordReaderBase.java#L156
+        // Add "(build n/a)" suffix since it's required by Parquet's VersionParser
+        // https://github.com/apache/parquet-java/blob/eb65987333a6bb2ae729b88eef0d6f941a7c1867/parquet-common/src/main/java/org/apache/parquet/VersionParser.java#L34
+        String createdBy = "parquet-mr-presto version " + prestoVersion + " (build n/a)";
+        fileMetaData.setCreated_by(createdBy);
+
         fileMetaData.setSchema(getParquetSchema(fileMetaData.getCreated_by(), messageType));
+
+        fileMetaData.setKey_value_metadata(ImmutableList.of(new KeyValue("writer.time.zone").setValue(writerTimezone.getID())));
 
         DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(40);
         Util.writeFileMetaData(fileMetaData, dynamicSliceOutput);

@@ -15,11 +15,11 @@
 package com.facebook.presto.orc.reader;
 
 import com.facebook.presto.orc.DecodeTimestampOptions;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
 import org.testng.annotations.Test;
 
-import java.sql.Timestamp;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.orc.reader.ApacheHiveTimestampDecoder.decodeTimestamp;
@@ -68,17 +68,17 @@ public class TestApacheHiveTimestampDecoder
 
     private static void test(long seconds, long nanos, boolean microsecondsPrecision, Timestamp expected)
     {
-        long tsAsLong = decodeTimestamp(seconds, nanos, new DecodeTimestampOptions(UTC, microsecondsPrecision));
+        long tsAsLong = decodeTimestamp(seconds, nanos, new DecodeTimestampOptions(UTC.toTimeZone().toZoneId(), microsecondsPrecision));
         TimeUnit unit = microsecondsPrecision ? MICROSECONDS : MILLISECONDS;
         long unitsPerSec = unit.convert(1, TimeUnit.SECONDS);
-        Timestamp ts = new Timestamp(1000 * (tsAsLong / unitsPerSec));
+        Timestamp ts = Timestamp.ofEpochMilli(1000 * (tsAsLong / unitsPerSec));
         ts.setNanos((int) NANOSECONDS.convert(tsAsLong % unitsPerSec, unit));
         assertEquals(ts, expected);
     }
 
     private static Timestamp parseTimestamp(String s, int micros)
     {
-        Timestamp ts = new Timestamp(DateTime.parse(s, ISODateTimeFormat.dateTimeParser().withZoneUTC()).getMillis());
+        Timestamp ts = Timestamp.ofEpochMilli(DateTime.parse(s, ISODateTimeFormat.dateTimeParser().withZoneUTC()).getMillis());
         ts.setNanos((int) TimeUnit.MICROSECONDS.toNanos(micros));
         return ts;
     }

@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
@@ -64,13 +65,13 @@ public class TestS3SelectRecordCursor
     {
         new S3SelectRecordCursor(
                 new Configuration(),
+                TEST_SESSION.toConnectorSession(),
                 MOCK_PATH,
                 MOCK_RECORD_READER,
                 100L,
                 null,
                 singletonList(MOCK_HIVE_COLUMN_HANDLE),
-                DateTimeZone.UTC,
-                MOCK_TYPE_MANAGER);
+                DateTimeZone.UTC, MOCK_TYPE_MANAGER);
     }
 
     @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "columns is null")
@@ -78,13 +79,13 @@ public class TestS3SelectRecordCursor
     {
         new S3SelectRecordCursor(
                 new Configuration(),
+                TEST_SESSION.toConnectorSession(),
                 MOCK_PATH,
                 MOCK_RECORD_READER,
                 100L,
                 new Properties(),
                 null,
-                DateTimeZone.UTC,
-                MOCK_TYPE_MANAGER);
+                DateTimeZone.UTC, MOCK_TYPE_MANAGER);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid Thrift DDL struct article \\{ \\}")

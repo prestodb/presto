@@ -38,7 +38,6 @@ import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.Map;
@@ -60,7 +59,6 @@ public final class SelectiveStreamReaders
             Map<Subfield, TupleDomainFilter> filters,
             Optional<Type> outputType,
             List<Subfield> requiredSubfields,
-            DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory)
@@ -109,20 +107,19 @@ public final class SelectiveStreamReaders
                 return new TimestampSelectiveStreamReader(
                         streamDescriptor,
                         getOptionalOnlyFilter(type, filters),
-                        hiveStorageTimeZone,
                         outputType.isPresent(),
                         systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()),
                         enableMicroPrecision);
             }
             case LIST:
                 verifyStreamType(streamDescriptor, outputType, ArrayType.class::isInstance);
-                return new ListSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, null, 0, outputType, hiveStorageTimeZone, options, systemMemoryContext, isLowMemory);
+                return new ListSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, null, 0, outputType, options, systemMemoryContext, isLowMemory);
             case STRUCT:
                 verifyStreamType(streamDescriptor, outputType, RowType.class::isInstance);
-                return new StructSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, options, systemMemoryContext, isLowMemory);
+                return new StructSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, options, systemMemoryContext, isLowMemory);
             case MAP:
                 verifyStreamType(streamDescriptor, outputType, MapType.class::isInstance);
-                return new MapSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, hiveStorageTimeZone, options, systemMemoryContext, isLowMemory);
+                return new MapSelectiveStreamReader(streamDescriptor, filters, requiredSubfields, outputType, options, systemMemoryContext, isLowMemory);
             case DECIMAL: {
                 verifyStreamType(streamDescriptor, outputType, DecimalType.class::isInstance);
                 if (streamDescriptor.getOrcType().getPrecision().get() <= MAX_SHORT_PRECISION) {
@@ -161,7 +158,6 @@ public final class SelectiveStreamReaders
             Optional<HierarchicalFilter> parentFilter,
             Optional<Type> outputType,
             List<Subfield> requiredSubfields,
-            DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory)
@@ -193,16 +189,16 @@ public final class SelectiveStreamReaders
                     // No need to read the elements when output is not required and the filter is a simple IS [NOT] NULL
                     return null;
                 }
-                return createStreamReader(streamDescriptor, elementFilters, outputType, requiredSubfields, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+                return createStreamReader(streamDescriptor, elementFilters, outputType, requiredSubfields, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
             case LIST:
                 Optional<ListFilter> childFilter = parentFilter.map(HierarchicalFilter::getChild).map(ListFilter.class::cast);
-                return new ListSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, childFilter.orElse(null), level, outputType, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+                return new ListSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, childFilter.orElse(null), level, outputType, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
             case STRUCT:
                 checkArgument(!parentFilter.isPresent(), "Filters on nested structs are not supported yet");
-                return new StructSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, outputType, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+                return new StructSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, outputType, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
             case MAP:
                 checkArgument(!parentFilter.isPresent(), "Filters on nested maps are not supported yet");
-                return new MapSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, outputType, hiveStorageTimeZone, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
+                return new MapSelectiveStreamReader(streamDescriptor, ImmutableMap.of(), requiredSubfields, outputType, options, systemMemoryContext.newOrcAggregatedMemoryContext(), isLowMemory);
             case UNION:
             default:
                 throw new IllegalArgumentException("Unsupported type: " + streamDescriptor.getOrcTypeKind());

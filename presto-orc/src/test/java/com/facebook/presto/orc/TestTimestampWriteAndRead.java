@@ -89,10 +89,7 @@ public class TestTimestampWriteAndRead
             throws Exception
     {
         List<SqlTimestamp> microSecondValuesInMilli = MICROSECOND_VALUES.stream()
-                .map(microTimestamp -> new SqlTimestamp(
-                        floorDiv(microTimestamp.getMicrosUtc(), 1000),
-                        microTimestamp.getSessionTimeZoneKey().get(),
-                        TimeUnit.MILLISECONDS))
+                .map(microTimestamp -> new SqlTimestamp(floorDiv(microTimestamp.getMicros(), 1000), TimeUnit.MILLISECONDS))
                 .collect(toList());
 
         testPrestoRoundTrip(TIMESTAMP_MICROSECONDS, MICROSECOND_VALUES, TIMESTAMP, microSecondValuesInMilli);
@@ -211,10 +208,7 @@ public class TestTimestampWriteAndRead
     private List<SqlTimestamp> getMilliTimestampsInMicros(List<SqlTimestamp> millisecondValues)
     {
         return millisecondValues.stream()
-                .map(milliTimestamp -> new SqlTimestamp(
-                        milliTimestamp.getMillisUtc() * 1000,
-                        milliTimestamp.getSessionTimeZoneKey().get(),
-                        MICROSECONDS))
+                .map(milliTimestamp -> new SqlTimestamp(milliTimestamp.getMillis() * 1000, MICROSECONDS))
                 .collect(toList());
     }
 }

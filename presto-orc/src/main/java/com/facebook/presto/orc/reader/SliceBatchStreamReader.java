@@ -30,6 +30,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 
 import static com.facebook.presto.common.type.Chars.byteCountWithoutTrailingSpace;
 import static com.facebook.presto.common.type.Chars.isCharType;
@@ -81,7 +82,7 @@ public class SliceBatchStreamReader
     }
 
     @Override
-    public void startStripe(Stripe stripe)
+    public void startStripe(ZoneId timezone, Stripe stripe)
             throws IOException
     {
         ColumnEncodingKind columnEncodingKind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
@@ -90,14 +91,14 @@ public class SliceBatchStreamReader
         if (columnEncodingKind == DIRECT || columnEncodingKind == DIRECT_V2 || columnEncodingKind == DWRF_DIRECT) {
             currentReader = directReader;
             if (dictionaryReader != null && resetAllReaders) {
-                dictionaryReader.startStripe(stripe);
+                dictionaryReader.startStripe(timezone, stripe);
                 System.setProperty("RESET_SLICE_BATCH_READER", "RESET_SLICE_BATCH_READER");
             }
         }
         else if (columnEncodingKind == DICTIONARY || columnEncodingKind == DICTIONARY_V2) {
             currentReader = dictionaryReader;
             if (directReader != null && resetAllReaders) {
-                directReader.startStripe(stripe);
+                directReader.startStripe(timezone, stripe);
                 System.setProperty("RESET_SLICE_BATCH_READER", "RESET_SLICE_BATCH_READER");
             }
         }
@@ -105,7 +106,7 @@ public class SliceBatchStreamReader
             throw new IllegalArgumentException("Unsupported encoding " + columnEncodingKind);
         }
 
-        currentReader.startStripe(stripe);
+        currentReader.startStripe(timezone, stripe);
     }
 
     @Override

@@ -108,6 +108,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
 import org.roaringbitmap.longlong.Roaring64Bitmap;
 
@@ -246,7 +247,7 @@ public class IcebergPageSourceProvider
         this.sortParameters = requireNonNull(sortParameters, "sortParameters is null");
     }
 
-    private static ConnectorPageSourceWithRowPositions createParquetPageSource(
+    private ConnectorPageSourceWithRowPositions createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
@@ -337,6 +338,9 @@ public class IcebergPageSourceProvider
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
+
+            Optional<DateTimeZone> timezone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone")).map(DateTimeZone::forID);
+
             ParquetReader parquetReader = new ParquetReader(
                     messageColumnIO,
                     blocks,
@@ -349,7 +353,8 @@ public class IcebergPageSourceProvider
                     parquetPredicate,
                     blockIndexStores,
                     false,
-                    fileDecryptor);
+                    fileDecryptor,
+                    timezone);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
