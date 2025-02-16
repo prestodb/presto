@@ -26,8 +26,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
-            <artifactId>hive-apache</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hive-apache</artifactId>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.commons</groupId>
