@@ -36,6 +36,8 @@ public interface ColumnWriter
 
     void reset();
 
+    void resetChunk();
+
     class BufferData
     {
         private final ColumnMetaData metaData;
