@@ -68,8 +68,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.hive</groupId>
-            <artifactId>hive-dwrf</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hive-dwrf</artifactId>
         </dependency>
 
         <dependency>
@@ -129,8 +129,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hive</groupId>
-            <artifactId>hive-apache</artifactId>
+            <groupId>com.github.imjalpreet</groupId>
+            <artifactId>presto-hive-apache</artifactId>
         </dependency>
 
         <dependency>
@@ -586,6 +586,7 @@
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
+                                <exclude>**/TestHive4InsertOverwrite.java</exclude>
                                 <exclude>**/TestHiveSslWithKeyStore.java</exclude>
                                 <exclude>**/TestHiveSslWithTrustStore.java</exclude>
                                 <exclude>**/TestHiveSslWithTrustStoreKeyStore.java</exclude>
@@ -735,6 +736,7 @@
                             <includes>
                                 <include>**/TestHive2InsertOverwrite.java</include>
                                 <include>**/TestHive3InsertOverwrite.java</include>
+                                <include>**/TestHive4InsertOverwrite.java</include>
                             </includes>
                         </configuration>
                     </plugin>
