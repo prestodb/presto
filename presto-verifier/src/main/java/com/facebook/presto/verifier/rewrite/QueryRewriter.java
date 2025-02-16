@@ -603,7 +603,7 @@ public class QueryRewriter
                 return Optional.empty();
             }
 
-            NullableValue partitionValue = parsePartitionValue(partitionKey, partitionRawKeyValues.get(partitionKey), type, DateTimeZone.forTimeZone(TimeZone.getDefault()));
+            NullableValue partitionValue = parsePartitionValue(Optional.empty(), partitionKey, partitionRawKeyValues.get(partitionKey), type, DateTimeZone.forTimeZone(TimeZone.getDefault()));
 
             Expression equalPredicate = null;
             if (partitionValue.isNull()) {

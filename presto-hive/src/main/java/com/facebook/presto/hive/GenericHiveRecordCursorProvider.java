@@ -80,6 +80,7 @@ public class GenericHiveRecordCursorProvider
                 () -> HiveUtil.createRecordReader(actualConfiguration, path, fileSplit.getStart(), fileSplit.getLength(), schema, columns, fileSplit.getCustomSplitInfo()));
         return hdfsEnvironment.doAs(session.getUser(),
                 () -> Optional.of(new GenericHiveRecordCursor<>(
+                        session,
                         actualConfiguration,
                         path,
                         genericRecordReader(recordReader),

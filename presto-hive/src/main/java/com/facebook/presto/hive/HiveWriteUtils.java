@@ -51,6 +51,7 @@ import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -61,13 +62,14 @@ import org.apache.hadoop.hive.ql.io.RCFile;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.serde.serdeConstants;
+import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
@@ -129,7 +131,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
+import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESS_RESULT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
 import static org.apache.hadoop.hive.ql.exec.Utilities.createCompressedStream;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.getPrimitiveJavaObjectInspector;
@@ -174,7 +176,7 @@ public final class HiveWriteUtils
     public static RecordWriter createRecordWriter(Path target, JobConf conf, Properties properties, String outputFormatName, ConnectorSession session, Optional<TextCSVHeaderWriter> textCSVHeaderWriter)
     {
         try {
-            boolean compress = HiveConf.getBoolVar(conf, COMPRESSRESULT);
+            boolean compress = HiveConf.getBoolVar(conf, COMPRESS_RESULT);
             if (outputFormatName.equals(RCFileOutputFormat.class.getName())) {
                 return createRcFileWriter(target, conf, properties, compress);
             }
@@ -295,7 +297,7 @@ public final class HiveWriteUtils
     {
         try {
             Serializer result = (Serializer) Class.forName(serializerName).getConstructor().newInstance();
-            result.initialize(conf, properties);
+            ((AbstractSerDe) result).initialize(conf, properties, null);
             return result;
         }
         catch (ClassNotFoundException e) {
@@ -919,7 +921,7 @@ public final class HiveWriteUtils
     private static class DateFieldSetter
             extends FieldSetter
     {
-        private final DateWritable value = new DateWritable();
+        private final DateWritableV2 value = new DateWritableV2();
 
         public DateFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
         {
@@ -937,7 +939,7 @@ public final class HiveWriteUtils
     private static class TimestampFieldSetter
             extends FieldSetter
     {
-        private final TimestampWritable value = new TimestampWritable();
+        private final TimestampWritableV2 value = new TimestampWritableV2();
 
         public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
         {
@@ -948,7 +950,7 @@ public final class HiveWriteUtils
         public void setField(Block block, int position)
         {
             long millisUtc = TimestampType.TIMESTAMP.getLong(block, position);
-            value.setTime(millisUtc);
+            value.set(Timestamp.ofEpochMilli(millisUtc));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

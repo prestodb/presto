@@ -26,7 +26,7 @@ import java.util.Map;
 
 import static com.facebook.hive.orc.OrcConf.ConfVars.HIVE_ORC_COMPRESSION;
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
+import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESS_RESULT;
 import static org.apache.hadoop.io.SequenceFile.CompressionType.BLOCK;
 
 public final class ConfigurationUtils
@@ -103,7 +103,7 @@ public final class ConfigurationUtils
     private static void setCompressionProperties(Configuration config, HiveCompressionCodec compression)
     {
         boolean compressed = compression != HiveCompressionCodec.NONE;
-        config.setBoolean(COMPRESSRESULT.varname, compressed);
+        config.setBoolean(COMPRESS_RESULT.varname, compressed);
         config.setBoolean("mapreduce.output.fileoutputformat.compress", compressed);
         config.setBoolean(FileOutputFormat.COMPRESS, compressed);
         // For DWRF
