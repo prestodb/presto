@@ -32,8 +32,19 @@ public class AccessControlContext
     private final WarningCollector warningCollector;
     private final RuntimeStats runtimeStats;
     private final Optional<QueryType> queryType;
+    private final Optional<String> catalog;
+    private final Optional<String> schema;
 
-    public AccessControlContext(QueryId queryId, Optional<String> clientInfo, Set<String> clientTags, Optional<String> source, WarningCollector warningCollector, RuntimeStats runtimeStats, Optional<QueryType> queryType)
+    public AccessControlContext(
+            QueryId queryId,
+            Optional<String> clientInfo,
+            Set<String> clientTags,
+            Optional<String> source,
+            WarningCollector warningCollector,
+            RuntimeStats runtimeStats,
+            Optional<QueryType> queryType,
+            Optional<String> catalog,
+            Optional<String> schema)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
@@ -42,6 +53,8 @@ public class AccessControlContext
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
     }
 
     public QueryId getQueryId()
@@ -77,5 +90,15 @@ public class AccessControlContext
     public Optional<QueryType> getQueryType()
     {
         return queryType;
+    }
+
+    public Optional<String> getCatalog()
+    {
+        return catalog;
+    }
+
+    public Optional<String> getSchema()
+    {
+        return schema;
     }
 }

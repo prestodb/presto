@@ -47,7 +47,9 @@ public class AccessControlUtils
                             Optional.ofNullable(sessionContext.getSource()),
                             WarningCollector.NOOP,
                             sessionContext.getRuntimeStats(),
-                            Optional.empty()),
+                            Optional.empty(),
+                            Optional.ofNullable(sessionContext.getCatalog()),
+                            Optional.ofNullable(sessionContext.getSchema())),
                     identity.getPrincipal(),
                     identity.getUser());
         }
@@ -73,7 +75,9 @@ public class AccessControlUtils
                             Optional.ofNullable(sessionContext.getSource()),
                             WarningCollector.NOOP,
                             sessionContext.getRuntimeStats(),
-                            Optional.empty()),
+                            Optional.empty(),
+                            Optional.ofNullable(sessionContext.getCatalog()),
+                            Optional.ofNullable(sessionContext.getSchema())),
                     identity.getUser(),
                     sessionContext.getCertificates());
             return Optional.of(authorizedIdentity);
