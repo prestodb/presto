@@ -50,12 +50,12 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
-import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.StructObject;
 import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
+import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDeBase;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
@@ -219,7 +219,7 @@ public class RcFileTester
                     Properties tableProperties = new Properties();
                     tableProperties.setProperty("columns", "test");
                     tableProperties.setProperty("columns.types", "string");
-                    columnarSerDe.initialize(new JobConf(false), tableProperties);
+                    columnarSerDe.initialize(new JobConf(false), tableProperties, null);
                     return columnarSerDe;
                 }
                 catch (SerDeException e) {
@@ -774,14 +774,14 @@ public class RcFileTester
         schema.setProperty(META_TABLE_COLUMNS, "test");
         schema.setProperty(META_TABLE_COLUMN_TYPES, getJavaObjectInspector(type).getTypeName());
 
-        Deserializer deserializer;
+        ColumnarSerDeBase deserializer;
         if (format == Format.BINARY) {
             deserializer = new LazyBinaryColumnarSerDe();
         }
         else {
             deserializer = new ColumnarSerDe();
         }
-        deserializer.initialize(configuration, schema);
+        deserializer.initialize(configuration, schema, null);
         configuration.set(SERIALIZATION_LIB, deserializer.getClass().getName());
 
         InputFormat<K, V> inputFormat = new RCFileInputFormat<>();
@@ -927,7 +927,7 @@ public class RcFileTester
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", "test");
         tableProperties.setProperty("columns.types", objectInspector.getTypeName());
-        serializer.initialize(new JobConf(false), tableProperties);
+        ((ColumnarSerDeBase) serializer).initialize(new JobConf(false), tableProperties, null);
 
         while (values.hasNext()) {
             Object value = values.next();
