@@ -219,25 +219,34 @@ public final class Transport
             }
         }
 
-        // Methods added in libthrift 0.14.0 and not present in Hive Metastore <= 3.1.2
         @Override
         public TConfiguration getConfiguration()
         {
-            return TConfiguration.DEFAULT;
+            return transport.getConfiguration();
         }
 
         @Override
         public void updateKnownMessageSize(long size)
                 throws TTransportException
         {
-            // noop: method added in libthrift 0.14.0 and not present in Hive Metastore <= 3.1.2
+            try {
+                transport.updateKnownMessageSize(size);
+            }
+            catch (TTransportException e) {
+                throw rewriteException(e, address);
+            }
         }
 
         @Override
         public void checkReadBytesAvailable(long numBytes)
                 throws TTransportException
         {
-            // noop: method added in libthrift 0.14.0 and not present in Hive Metastore <= 3.1.2
+            try {
+                transport.checkReadBytesAvailable(numBytes);
+            }
+            catch (TTransportException e) {
+                throw rewriteException(e, address);
+            }
         }
     }
 }
