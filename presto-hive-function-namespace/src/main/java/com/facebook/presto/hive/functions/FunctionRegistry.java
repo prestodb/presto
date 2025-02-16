@@ -64,6 +64,7 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDFCharacterLength;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFCoalesce;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFConcat;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFConcatWS;
+import org.apache.hadoop.hive.ql.udf.generic.GenericUDFCurrentDatabase;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFCurrentDate;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFCurrentGroups;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFCurrentTimestamp;
@@ -114,7 +115,6 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDFMurmurHash;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFNamedStruct;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFNextDay;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFNullif;
-import org.apache.hadoop.hive.ql.udf.generic.GenericUDFNvl;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPFalse;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPNegative;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPNotFalse;
@@ -165,7 +165,6 @@ import org.apache.hadoop.hive.ql.udf.generic.GenericUDFUnixTimeStamp;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFUpper;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFWhen;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDFWidthBucket;
-import org.apache.hadoop.hive.ql.udf.generic.UDFCurrentDB;
 import org.apache.hadoop.hive.ql.udf.xml.GenericUDFXPath;
 
 import java.util.Set;
@@ -221,7 +220,7 @@ public final class FunctionRegistry
         system.registerGenericUDF("likeall", GenericUDFLikeAll.class);
         system.registerGenericUDF("rlike", GenericUDFRegExp.class);
         system.registerGenericUDF("regexp", GenericUDFRegExp.class);
-        system.registerGenericUDF("nvl", GenericUDFNvl.class);
+        system.registerGenericUDF("nvl", GenericUDFCoalesce.class); //HIVE-20961
         system.registerGenericUDF("split", GenericUDFSplit.class);
         system.registerGenericUDF("str_to_map", GenericUDFStringToMap.class);
         system.registerGenericUDF("translate", GenericUDFTranslate.class);
@@ -240,7 +239,7 @@ public final class FunctionRegistry
         system.registerGenericUDF("months_between", GenericUDFMonthsBetween.class);
         system.registerGenericUDF("xpath", GenericUDFXPath.class);
         system.registerGenericUDF("grouping", GenericUDFGrouping.class);
-        system.registerGenericUDF("current_database", UDFCurrentDB.class);
+        system.registerGenericUDF("current_database", GenericUDFCurrentDatabase.class);
         system.registerGenericUDF("current_date", GenericUDFCurrentDate.class);
         system.registerGenericUDF("current_timestamp", GenericUDFCurrentTimestamp.class);
         system.registerGenericUDF("current_user", GenericUDFCurrentUser.class);

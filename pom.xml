@@ -66,7 +66,7 @@
         <dep.asm.version>9.2</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
-        <dep.slf4j.version>1.7.32</dep.slf4j.version>
+        <dep.slf4j.version>1.7.35</dep.slf4j.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
@@ -930,7 +930,7 @@
             <dependency>
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.0.0-10</version>
+                <version>4.0.1-1-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -1036,7 +1036,7 @@
             <dependency>
                 <groupId>com.facebook.hive</groupId>
                 <artifactId>hive-dwrf</artifactId>
-                <version>0.8.7</version>
+                <version>0.8.8-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -1462,7 +1462,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.14.1</version>
+                <version>0.16.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.httpcomponents</groupId>

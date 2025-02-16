@@ -38,6 +38,7 @@ import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.convert.HiveSchemaConverter;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriteSupport;
+import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.HiveVarcharWritable;
@@ -212,7 +213,7 @@ public class ParquetTestUtils
     {
         try {
             Serializer result = ParquetHiveSerDe.class.getConstructor().newInstance();
-            result.initialize(conf, properties);
+            ((AbstractSerDe) result).initialize(conf, properties, null);
             return result;
         }
         catch (Exception e) {

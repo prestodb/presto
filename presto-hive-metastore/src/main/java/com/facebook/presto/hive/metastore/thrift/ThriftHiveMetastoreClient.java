@@ -26,6 +26,7 @@ import org.apache.hadoop.hive.metastore.api.DropConstraintRequest;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalRequest;
 import org.apache.hadoop.hive.metastore.api.GetRoleGrantsForPrincipalResponse;
+import org.apache.hadoop.hive.metastore.api.GetTableRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleRequest;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeRoleResponse;
 import org.apache.hadoop.hive.metastore.api.GrantRevokeType;
@@ -180,7 +181,8 @@ public class ThriftHiveMetastoreClient
     public Table getTable(String databaseName, String tableName)
             throws TException
     {
-        return client.get_table(databaseName, tableName);
+        GetTableRequest getTableRequest = new GetTableRequest(databaseName, tableName);
+        return client.get_table_req(getTableRequest).getTable();
     }
 
     @Override
@@ -211,7 +213,8 @@ public class ThriftHiveMetastoreClient
     public void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
             throws TException
     {
-        client.delete_table_column_statistics(databaseName, tableName, columnName);
+        // TODO: This is not backwards compatible
+        client.delete_table_column_statistics(databaseName, tableName, columnName, "hive");
     }
 
     @Override
@@ -236,7 +239,8 @@ public class ThriftHiveMetastoreClient
     public void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)
             throws TException
     {
-        client.delete_partition_column_statistics(databaseName, tableName, partitionName, columnName);
+        // TODO: This is not backwards compatible
+        client.delete_partition_column_statistics(databaseName, tableName, partitionName, columnName, "hive");
     }
 
     @Override
