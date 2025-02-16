@@ -176,7 +176,7 @@ public final class Session
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
-        this.context = new AccessControlContext(queryId, clientInfo, clientTags, source, warningCollector, runtimeStats, queryType);
+        this.context = new AccessControlContext(queryId, clientInfo, clientTags, source, warningCollector, runtimeStats, queryType, catalog, schema);
     }
 
     public QueryId getQueryId()
