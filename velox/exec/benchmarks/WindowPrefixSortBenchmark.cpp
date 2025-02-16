@@ -377,7 +377,7 @@ BENCHMARK_DRAW_LINE();
 } // namespace
 
 int main(int argc, char** argv) {
-  folly::Init(&argc, &argv);
+  folly::Init init(&argc, &argv);
   facebook::velox::memory::MemoryManager::initialize({});
 
   benchmark = std::make_unique<WindowPrefixSortBenchmark>();

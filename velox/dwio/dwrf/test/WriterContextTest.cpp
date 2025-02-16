@@ -143,8 +143,9 @@ TEST_F(WriterContextTest, BuildPhysicalSizeAggregators) {
     EXPECT_NO_THROW(context.getPhysicalSizeAggregator(i));
   }
   for (const auto nodeId : mapNodes) {
-    EXPECT_NO_THROW(dynamic_cast<MapPhysicalSizeAggregator&>(
-        context.getPhysicalSizeAggregator(nodeId)));
+    EXPECT_NO_THROW(
+        std::ignore = dynamic_cast<MapPhysicalSizeAggregator&>(
+            context.getPhysicalSizeAggregator(nodeId)));
   }
 }
 
