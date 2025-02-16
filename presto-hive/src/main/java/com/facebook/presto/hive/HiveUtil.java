@@ -27,7 +27,6 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hadoop.TextLineLengthLimitExceededException;
-import com.facebook.presto.hive.avro.PrestoAvroSerDe;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
@@ -65,6 +64,7 @@ import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
+import org.apache.hadoop.hive.serde2.avro.AvroSerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
@@ -535,7 +535,7 @@ public final class HiveUtil
         }
 
         if ("org.apache.hadoop.hive.serde2.avro.AvroSerDe".equals(name)) {
-            return PrestoAvroSerDe.class;
+            return AvroSerDe.class;
         }
 
         try {
@@ -563,18 +563,10 @@ public final class HiveUtil
     {
         try {
             configuration = copy(configuration); // Some SerDes (e.g. Avro) modify passed configuration
-            deserializer.initialize(configuration, schema);
-            validate(deserializer);
+            ((AbstractSerDe) deserializer).initialize(configuration, schema, null);
         }
         catch (SerDeException | RuntimeException e) {
             throw new RuntimeException("error initializing deserializer: " + deserializer.getClass().getName(), e);
-        }
-    }
-
-    private static void validate(Deserializer deserializer)
-    {
-        if (deserializer instanceof AbstractSerDe && !((AbstractSerDe) deserializer).getConfigurationErrors().isEmpty()) {
-            throw new RuntimeException("There are configuration errors: " + ((AbstractSerDe) deserializer).getConfigurationErrors());
         }
     }
 

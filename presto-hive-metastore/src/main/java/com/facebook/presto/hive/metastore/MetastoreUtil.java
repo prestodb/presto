@@ -74,7 +74,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.FileUtils;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
@@ -83,8 +85,6 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -97,6 +97,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -677,11 +678,11 @@ public class MetastoreUtil
         }
         if (DateType.DATE.equals(type)) {
             long days = type.getLong(block, position);
-            return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(days)));
+            return Date.ofEpochMilli(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), TimeUnit.DAYS.toMillis(days)));
         }
         if (TimestampType.TIMESTAMP.equals(type)) {
             long millisUtc = type.getLong(block, position);
-            return new Timestamp(millisUtc);
+            return Timestamp.ofEpochMilli(millisUtc, TimeZone.getDefault().toZoneId());
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;

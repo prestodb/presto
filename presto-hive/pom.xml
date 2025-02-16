@@ -566,6 +566,7 @@
                                 <exclude>**/TestParquetDistributedQueries.java</exclude>
                                 <exclude>**/TestHive2InsertOverwrite.java</exclude>
                                 <exclude>**/TestHive3InsertOverwrite.java</exclude>
+                                <exclude>**/TestHive4InsertOverwrite.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -712,6 +713,7 @@
                             <includes>
                                 <include>**/TestHive2InsertOverwrite.java</include>
                                 <include>**/TestHive3InsertOverwrite.java</include>
+                                <include>**/TestHive4InsertOverwrite.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -33,7 +33,7 @@ public class TestH2QueryRunner
     private H2QueryRunner h2QueryRunner;
 
     @BeforeClass
-    public void init()
+    public void init() throws Exception
     {
         h2QueryRunner = new H2QueryRunner();
     }
