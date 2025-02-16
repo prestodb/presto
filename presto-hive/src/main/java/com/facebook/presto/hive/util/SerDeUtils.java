@@ -284,7 +284,7 @@ public final class SerDeUtils
         }
 
         // Hive will return java.sql.Date at midnight in JVM time zone
-        long millisLocal = inspector.getPrimitiveJavaObject(object).getTime();
+        long millisLocal = inspector.getPrimitiveJavaObject(object).toEpochMilli();
         // Convert it to midnight in UTC
         long millisUtc = DateTimeZone.getDefault().getMillisKeepLocal(DateTimeZone.UTC, millisLocal);
         // Convert midnight UTC to days
@@ -309,6 +309,6 @@ public final class SerDeUtils
         if (object instanceof TimestampWritable) {
             return ((TimestampWritable) object).getTimestamp();
         }
-        return inspector.getPrimitiveJavaObject(object);
+        return inspector.getPrimitiveJavaObject(object).toSqlTimestamp();
     }
 }

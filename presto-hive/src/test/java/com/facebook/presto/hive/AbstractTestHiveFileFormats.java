@@ -53,6 +53,7 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.HiveOutputFormat;
+import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
@@ -582,7 +583,7 @@ public abstract class AbstractTestHiveFileFormats
         Properties tableProperties = new Properties();
         tableProperties.setProperty("columns", Joiner.on(',').join(transform(testColumns, TestColumn::getName)));
         tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(testColumns, TestColumn::getType)));
-        serializer.initialize(new Configuration(), tableProperties);
+        ((AbstractSerDe) serializer).initialize(new Configuration(), tableProperties, null);
 
         JobConf jobConf = configureCompression(new JobConf(), compressionCodec);
 
@@ -595,7 +596,7 @@ public abstract class AbstractTestHiveFileFormats
                 () -> {});
 
         try {
-            serializer.initialize(new Configuration(), tableProperties);
+            ((AbstractSerDe) serializer).initialize(new Configuration(), tableProperties, null);
 
             SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
                     ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
