@@ -21,7 +21,7 @@ services:
     image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
     extends:
       file: ../common/standard.yml
-      service: java-17-base
+      service: java-8-base
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-kerberos-worker run
     networks:
       default:
@@ -38,7 +38,7 @@ services:
     image: '${HADOOP_BASE_IMAGE}-kerberized:${DOCKER_IMAGES_VERSION}'
     extends:
       file: ../common/standard.yml
-      service: java-17-base
+      service: java-8-base
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-kerberos-worker run
     networks:
       default:
