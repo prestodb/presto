@@ -2920,7 +2920,7 @@ class StatementAnalyzer
                 ViewDefinition.ViewColumn column = columns.get(i);
                 Field field = fieldList.get(i);
                 if (!column.getName().equalsIgnoreCase(field.getName().orElse(null)) ||
-                        !functionAndTypeResolver.canCoerce(field.getType(), column.getType())) {
+                        !functionAndTypeResolver.canCoerce(column.getType(), field.getType())) {
                     return true;
                 }
             }
