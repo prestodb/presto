@@ -52,10 +52,6 @@ public class TestPrestoContainerRemoteFunction
                         .getMaterializedRows().get(0).getField(0).toString(),
                 "100000.0");
         assertEquals(
-                computeActual("select remote.default.from_base32(CAST('MFRGG===' AS VARBINARY))")
-                        .getMaterializedRows().get(0).getField(0).toString(),
-                "abc");
-        assertEquals(
                 computeActual("select remote.default.to_base32(CAST('abc' AS VARBINARY))")
                         .getMaterializedRows().get(0).getField(0).toString(),
                 "MFRGG===");

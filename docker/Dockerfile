@@ -3,7 +3,7 @@ FROM quay.io/centos/centos:stream9
 ARG PRESTO_VERSION
 ARG PRESTO_PKG=presto-server-$PRESTO_VERSION.tar.gz
 ARG PRESTO_CLI_JAR=presto-cli-$PRESTO_VERSION-executable.jar
-ARG PRESTO_REMOTE_SERVER_JAR=presto-remote-function-server-executable.jar
+ARG PRESTO_REMOTE_SERVER_JAR=presto-function-server-executable.jar
 ARG JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
 
 ENV PRESTO_HOME="/opt/presto-server"

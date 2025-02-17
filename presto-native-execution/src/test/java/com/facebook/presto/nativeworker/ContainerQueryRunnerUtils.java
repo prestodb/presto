@@ -120,23 +120,6 @@ public class ContainerQueryRunnerUtils
         createPropertiesFile("testcontainers/coordinator/etc/config.properties", properties);
     }
 
-    public static void createFunctionNamespaceRemoteProperties()
-            throws IOException
-    {
-        Properties properties = new Properties();
-        properties.setProperty("function-namespace-manager.name", "rest");
-        properties.setProperty("supported-function-languages", "Java");
-        properties.setProperty("function-implementation-type", "REST");
-
-        String directoryPath = "testcontainers/function-namespace";
-        File directory = new File(directoryPath);
-        if (!directory.exists()) {
-            directory.mkdirs();
-        }
-
-        createPropertiesFile("testcontainers/coordinator/etc/function-namespace/remote.properties", properties);
-    }
-
     public static void createFunctionNamespaceRemotePropertiesWithFunctionServer(int functionServerPort)
             throws IOException
     {
@@ -144,7 +127,7 @@ public class ContainerQueryRunnerUtils
         properties.setProperty("function-namespace-manager.name", "rest");
         properties.setProperty("supported-function-languages", "Java");
         properties.setProperty("function-implementation-type", "REST");
-        properties.setProperty("rest-based-function-manager.rest.url", "http://localhost:" + functionServerPort);
+        properties.setProperty("rest-based-function-manager.rest.url", "http://presto-coordinator:" + functionServerPort);
 
         String directoryPath = "testcontainers/function-namespace";
         File directory = new File(directoryPath);
@@ -286,7 +269,7 @@ public class ContainerQueryRunnerUtils
         }
 
         try (OutputStream output = new FileOutputStream(file);
-                OutputStreamWriter writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
+             OutputStreamWriter writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
             writer.write(scriptContent);
         }
 
