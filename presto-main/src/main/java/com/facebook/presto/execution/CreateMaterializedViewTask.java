@@ -107,7 +107,7 @@ public class CreateMaterializedViewTask
                 parameterLookup);
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
-                toSchemaTableName(viewName),
+                toSchemaTableName(viewName, metadata, session),
                 columnMetadata,
                 properties,
                 statement.getComment());
@@ -124,12 +124,12 @@ public class CreateMaterializedViewTask
                                 "Materialized view %s created from a base table in a different catalog %s is not supported.",
                                 viewName, tableName);
                     }
-                    return toSchemaTableName(tableName);
+                    return toSchemaTableName(tableName, metadata, session);
                 })
                 .distinct()
                 .collect(toImmutableList());
 
-        MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session);
+        MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session, metadata);
         MaterializedViewDefinition viewDefinition = new MaterializedViewDefinition(
                 sql,
                 viewName.getSchemaName(),

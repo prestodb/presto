@@ -574,7 +574,7 @@ public class LogicalPlanner
                 metadata,
                 parameters);
 
-        return new ConnectorTableMetadata(toSchemaTableName(table), columns, properties, comment);
+        return new ConnectorTableMetadata(toSchemaTableName(table, metadata, session), columns, properties, comment);
     }
 
     private RowExpression rowExpression(Expression expression, SqlPlannerContext context, Analysis analysis)

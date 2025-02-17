@@ -97,7 +97,7 @@ public class CreateViewTask
                 .map(column -> new ColumnMetadata(column.getName(), column.getType()))
                 .collect(toImmutableList());
 
-        ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(toSchemaTableName(name), columnMetadata);
+        ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(toSchemaTableName(name, metadata, session), columnMetadata);
 
         CreateView.Security defaultViewSecurityMode = getDefaultViewSecurityMode(session);
         Optional<String> owner = Optional.of(session.getUser());
