@@ -83,7 +83,7 @@ be executed within a single node.
 The corresponding session property is :ref:`admin/properties-session:\`\`single_node_execution_enabled\`\``.
 
 ``exclude-invalid-worker-session-properties``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
