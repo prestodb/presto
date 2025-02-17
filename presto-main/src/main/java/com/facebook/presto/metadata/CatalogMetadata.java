@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
@@ -114,7 +116,10 @@ public class CatalogMetadata
             return informationSchemaId;
         }
 
-        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), toSchemaTableName(table)) != null) {
+        SchemaTableName schemaTableName = toSchemaTableName(systemTables.normalizeIdentifier(session.toConnectorSession(systemTablesId), table.getSchemaName(), identifier(table.getSchemaName()).isDelimited()),
+                systemTables.normalizeIdentifier(session.toConnectorSession(systemTablesId), table.getObjectName(), identifier(table.getObjectName()).isDelimited()));
+
+        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), schemaTableName) != null) {
             return systemTablesId;
         }
 
