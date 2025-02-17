@@ -39,7 +39,7 @@ public class HiveS3Module
 {
     private static final String EMR_FS_CLASS_NAME = "com.amazon.ws.emr.hadoop.fs.EmrFileSystem";
 
-    private final String connectorId;
+    protected final String connectorId;
 
     public HiveS3Module(String connectorId)
     {
@@ -80,7 +80,7 @@ public class HiveS3Module
         return new AWSSecurityMappingsSupplier(config.getConfigFile(), config.getRefreshPeriod());
     }
 
-    private void bindSecurityMapping(Binder binder)
+    protected void bindSecurityMapping(Binder binder)
     {
         if (buildConfigObject(AWSSecurityMappingConfig.class).getConfigFile().isPresent() &&
                 buildConfigObject(AWSSecurityMappingConfig.class).getMappingType().equals(S3)) {
@@ -89,7 +89,7 @@ public class HiveS3Module
         }
     }
 
-    private static void validateEmrFsClass()
+    protected static void validateEmrFsClass()
     {
         // verify that the class exists
         try {

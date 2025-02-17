@@ -89,7 +89,7 @@ public class PrestoS3ConfigurationUpdater
     @Override
     public void updateConfiguration(Configuration config)
     {
-        // re-map filesystem schemes to match Amazon Elastic MapReduce
+        // re-map filesystem schemes to match customized presto s3 filesystem
         config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
         config.set("fs.s3a.impl", PrestoS3FileSystem.class.getName());
         config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
