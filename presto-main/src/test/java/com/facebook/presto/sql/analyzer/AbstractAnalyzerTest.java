@@ -364,7 +364,7 @@ public class AbstractAnalyzerTest
                                 new ViewDefinition.ViewColumn("a", BIGINT),
                                 new ViewDefinition.ViewColumn("b", BIGINT),
                                 new ViewDefinition.ViewColumn("c", BIGINT)),
-                        Optional.of(""),
+                        Optional.empty(),
                         true));
         ConnectorTableMetadata viewMetadata6 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v6"),
