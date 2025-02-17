@@ -397,7 +397,7 @@ public class BaseJdbcClient
         }
     }
 
-    private boolean isDelimited(String identifierQuote)
+    public static boolean isDelimited(String identifierQuote)
     {
         return identifierQuote != null && !identifierQuote.trim().isEmpty();
     }
