@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.RouterModule;
 import com.facebook.presto.router.scheduler.Scheduler;
-import com.facebook.presto.router.scheduler.SchedulerFactory;
 import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
@@ -33,6 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
 import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
@@ -49,11 +50,11 @@ public class ClusterManager
     private Map<String, GroupSpec> groups;
     private List<SelectorRuleSpec> groupSelectors;
     private SchedulerType schedulerType;
-    private final ScheduledExecutorService scheduledExecutorService;
+    //private final ScheduledExecutorService scheduledExecutorService;
     private Scheduler scheduler;
     private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
     private final AtomicLong lastConfigUpdate = new AtomicLong();
-    private final RemoteInfoFactory remoteInfoFactory;
+    //private final RemoteInfoFactory remoteInfoFactory;
     private final Logger log = Logger.get(RouterModule.class);
 
     // Cluster status
@@ -63,15 +64,20 @@ public class ClusterManager
     @Inject
     public ClusterManager(RouterConfig config)
     {
-        RouterSpec routerSpec = parseRouterConfig(config)
-                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
+        this.routerConfig = config;
+        initializeRouterConfigSpec(this.routerConfig);
+    }
 
+    private void initializeRouterConfigSpec(RouterConfig routerConfig)
+    {
+        RouterSpec routerSpec = parseRouterConfig(routerConfig)
+                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
         this.schedulerType = routerSpec.getSchedulerType();
-        this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
-
+        //this.scheduler = new SchedulerFactory(schedulerType, schedulerManager).create();
         this.initializeServerWeights();
+        //this.initializeMembersDiscoveryURI();
     }
 
     public List<URI> getAllClusters()
