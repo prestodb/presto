@@ -7,7 +7,7 @@ Overview
 
 This connector allows reading `Delta Lake <https://delta.io/>`_
 tables in Presto. The connector uses the
-`Delta Standalone Library (DSR) <https://github.com/delta-io/connectors/wiki/Delta-Standalone-Reader>`_
+`Delta Kernel API <https://docs.delta.io/latest/delta-kernel.html>`_
 provided by Delta Lake project to read the table metadata.
 
 Configuration
