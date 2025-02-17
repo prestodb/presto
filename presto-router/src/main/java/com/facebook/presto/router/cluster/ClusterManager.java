@@ -50,11 +50,9 @@ public class ClusterManager
     private Map<String, GroupSpec> groups;
     private List<SelectorRuleSpec> groupSelectors;
     private SchedulerType schedulerType;
-    //private final ScheduledExecutorService scheduledExecutorService;
     private Scheduler scheduler;
     private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
     private final AtomicLong lastConfigUpdate = new AtomicLong();
-    //private final RemoteInfoFactory remoteInfoFactory;
     private final Logger log = Logger.get(RouterModule.class);
 
     // Cluster status
@@ -75,9 +73,7 @@ public class ClusterManager
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
         this.schedulerType = routerSpec.getSchedulerType();
-        //this.scheduler = new SchedulerFactory(schedulerType, schedulerManager).create();
         this.initializeServerWeights();
-        //this.initializeMembersDiscoveryURI();
     }
 
     public List<URI> getAllClusters()
@@ -96,15 +92,17 @@ public class ClusterManager
 
         checkArgument(groups.containsKey(target.get()));
         GroupSpec groupSpec = groups.get(target.get());
-        scheduler.setCandidates(groupSpec.getMembers());
-        if (schedulerType == WEIGHTED_RANDOM_CHOICE || schedulerType == WEIGHTED_ROUND_ROBIN) {
-            scheduler.setWeights(serverWeights.get(groupSpec.getName()));
-        }
+        synchronized (scheduler) {
+            scheduler.setCandidates(groupSpec.getMembers());
+            if (schedulerType == WEIGHTED_RANDOM_CHOICE || schedulerType == WEIGHTED_ROUND_ROBIN) {
+                scheduler.setWeights(serverWeights.get(groupSpec.getName()));
+            }
 
-        if (schedulerType == ROUND_ROBIN || schedulerType == WEIGHTED_ROUND_ROBIN) {
-            scheduler.setCandidateGroupName(target.get());
+            if (schedulerType == ROUND_ROBIN || schedulerType == WEIGHTED_ROUND_ROBIN) {
+                scheduler.setCandidateGroupName(target.get());
+            }
+            return scheduler.getDestination(requestInfo.getUser());
         }
-        return scheduler.getDestination(requestInfo.getUser());
     }
 
     private Optional<String> matchGroup(RequestInfo requestInfo)
