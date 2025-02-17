@@ -208,6 +208,7 @@ import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.StandardErrorCode.DATATYPE_MISMATCH;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
@@ -3041,7 +3042,7 @@ class StatementAnalyzer
         {
             String column = columnMetadata.getName();
             if (analysis.hasColumnMask(tableName, column, currentIdentity)) {
-                throw new PrestoException(INVALID_ROW_FILTER, format("Column mask for '%s.%s' is recursive", tableName, column), null);
+                throw new PrestoException(INVALID_COLUMN_MASK, format("Column mask for '%s.%s' is recursive", tableName, column), null);
             }
 
             Expression expression;
@@ -3049,7 +3050,7 @@ class StatementAnalyzer
                 expression = sqlParser.createExpression(mask.getExpression(), createParsingOptions(session));
             }
             catch (ParsingException e) {
-                throw new PrestoException(INVALID_ROW_FILTER, format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
+                throw new PrestoException(INVALID_COLUMN_MASK, format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
             }
 
             ExpressionAnalysis expressionAnalysis;
