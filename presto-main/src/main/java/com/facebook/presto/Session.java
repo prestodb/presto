@@ -39,7 +39,6 @@ import com.facebook.presto.spi.telemetry.BaseSpan;
 import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
-import com.facebook.presto.telemetry.TracingManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,6 +66,8 @@ import static com.facebook.presto.SystemSessionProperties.warnOnCommonNanPattern
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.telemetry.TracingManager.getInvalidSpan;
+import static com.facebook.presto.telemetry.TracingManager.spanString;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -530,7 +531,7 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
-                .add("querySpan", TracingManager.spanString(querySpan).orElse(null))
+                .add("querySpan", spanString(querySpan).orElse(null))
                 .add("rootSpan", rootSpan.toString())
                 .add("transactionId", transactionId)
                 .add("user", getUser())
@@ -563,8 +564,8 @@ public final class Session
     public static class SessionBuilder
     {
         private QueryId queryId;
-        private BaseSpan querySpan = TracingManager.getInvalidSpan(); //do not initialize with null
-        private BaseSpan rootSpan = TracingManager.getInvalidSpan();  //do not initialize with null
+        private BaseSpan querySpan = getInvalidSpan(); //do not initialize with null
+        private BaseSpan rootSpan = getInvalidSpan();  //do not initialize with null
         private TransactionId transactionId;
         private boolean clientTransactionSupport;
         private Identity identity;

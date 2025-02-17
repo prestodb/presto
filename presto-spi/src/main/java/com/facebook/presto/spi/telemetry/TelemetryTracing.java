@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The interface Telemetry tracing.
+ * The SPI TelemetryTracing is implemented by the required serviceability framework.
  *
  * @param <T> the type parameter
  * @param <U> the type parameter
@@ -27,7 +27,7 @@ import java.util.Optional;
 public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
 {
     /**
-     * Load configured open telemetry.
+     * Instantiates required Telemetry instances after loading the plugin implementation.
      */
     void loadConfiguredOpenTelemetry();
 
@@ -40,14 +40,14 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     Runnable getCurrentContextWrap(Runnable runnable);
 
     /**
-     * Is recording boolean.
+     * Returns true if this Span records tracing events.
      *
      * @return the boolean
      */
     boolean isRecording();
 
     /**
-     * Gets headers map.
+     * Returns headers map from the input span.
      *
      * @param span the span
      * @return the headers map
@@ -55,7 +55,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     Map<String, String> getHeadersMap(T span);
 
     /**
-     * End span on error.
+     * Ends span by updating the status to error and record input exception.
      *
      * @param querySpan the query span
      * @param throwable the throwable
@@ -63,7 +63,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     void endSpanOnError(T querySpan, Throwable throwable);
 
     /**
-     * Add event.
+     * Add the input event to the input span.
      *
      * @param span      the span
      * @param eventName the event name
@@ -71,16 +71,16 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     void addEvent(T span, String eventName);
 
     /**
-     * Add event.
+     * Add the input event to the input span.
      *
-     * @param querySpan  the query span
+     * @param span  the query span
      * @param eventName  the event name
      * @param eventState the event state
      */
-    void addEvent(T querySpan, String eventName, String eventState);
+    void addEvent(T span, String eventName, String eventState);
 
     /**
-     * Sets attributes.
+     * Sets the attributes map to the input span.
      *
      * @param span       the span
      * @param attributes the attributes
@@ -88,40 +88,40 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     void setAttributes(T span, Map<String, String> attributes);
 
     /**
-     * Record exception.
+     * Records exception to the input span with error code and message.
      *
-     * @param querySpan        the query span
+     * @param span        the query span
      * @param message          the message
      * @param runtimeException the runtime exception
      * @param errorCode        the error code
      */
-    void recordException(T querySpan, String message, RuntimeException runtimeException, ErrorCode errorCode);
+    void recordException(T span, String message, RuntimeException runtimeException, ErrorCode errorCode);
 
     /**
-     * Sets success.
+     * Sets the status of the input span to success.
      *
-     * @param querySpan the query span
+     * @param span the query span
      */
-    void setSuccess(T querySpan);
+    void setSuccess(T span);
 
     //GetSpans
 
     /**
-     * Gets invalid span.
+     * Returns an invalid Span. An invalid Span is used when tracing is disabled.
      *
      * @return the invalid span
      */
     T getInvalidSpan();
 
     /**
-     * Gets root span.
+     * Creates and returns the root span.
      *
      * @return the root span
      */
     T getRootSpan();
 
     /**
-     * Gets span.
+     * Creates and returns the span with input name.
      *
      * @param spanName the span name
      * @return the span
@@ -129,7 +129,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     T getSpan(String spanName);
 
     /**
-     * Gets span.
+     * Creates and returns the span with input name and parent context from input.
      *
      * @param traceParent the trace parent
      * @param spanName    the span name
@@ -138,7 +138,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     T getSpan(String traceParent, String spanName);
 
     /**
-     * Gets span.
+     * Creates and returns the span with input name, attributes and parent span as the input span.
      *
      * @param parentSpan the parent span
      * @param spanName   the span name
@@ -148,7 +148,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     T getSpan(T parentSpan, String spanName, Map<String, String> attributes);
 
     /**
-     * Span string optional.
+     * Returns the span info as string.
      *
      * @param span the span
      * @return the optional
@@ -158,7 +158,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     //scoped spans
 
     /**
-     * Scoped span u.
+     * Creates and returns the ScopedSpan with input name.
      *
      * @param name     the name
      * @param skipSpan the skip span
@@ -167,7 +167,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     U scopedSpan(String name, Boolean... skipSpan);
 
     /**
-     * Scoped span u.
+     * Creates and returns the ScopedSpan with parent span as input span.
      *
      * @param span     the span
      * @param skipSpan the skip span
@@ -176,7 +176,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     U scopedSpan(T span, Boolean... skipSpan);
 
     /**
-     * Scoped span u.
+     * Creates and returns the ScopedSpan with input name, attributes and parent span as the input span.
      *
      * @param parentSpan the parent span
      * @param spanName   the span name
@@ -187,7 +187,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     U scopedSpan(T parentSpan, String spanName, Map<String, String> attributes, Boolean... skipSpan);
 
     /**
-     * Scoped span u.
+     * Creates and returns the ScopedSpan with input name and the parent span as input span.
      *
      * @param parentSpan the parent span
      * @param spanName   the span name
@@ -197,7 +197,7 @@ public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
     U scopedSpan(T parentSpan, String spanName, Boolean... skipSpan);
 
     /**
-     * Scoped span u.
+     * Creates and returns the ScopedSpan with input name and attributes.
      *
      * @param spanName   the span name
      * @param attributes the attributes

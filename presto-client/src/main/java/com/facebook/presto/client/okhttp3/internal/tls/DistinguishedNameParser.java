@@ -23,225 +23,191 @@ final class DistinguishedNameParser
 {
     private final String dn;
     private final int length;
-    private int pos;
-    private int beg;
+    private int position;
+    private int start;
     private int end;
-
-    /**
-     * Temporary variable to store positions of the currently parsed item.
-     */
     private int cur;
-
-    /**
-     * Distinguished name characters.
-     */
     private char[] chars;
 
+    /**
+     * Instantiates a new Distinguished name parser.
+     *
+     * @param principal the principal
+     */
     DistinguishedNameParser(X500Principal principal)
     {
-        // RFC2253 is used to ensure we get attributes in the reverse
-        // order of the underlying ASN.1 encoding, so that the most
-        // significant values of repeated attributes occur first.
         this.dn = principal.getName(X500Principal.RFC2253);
         this.length = this.dn.length();
     }
 
-    // gets next attribute type: (ALPHA 1*keychar) / oid
-    private String nextAT()
+    private String nextAttributeType()
     {
-        for (; pos < length && chars[pos] == ' '; pos++) {
-            // skip preceding space chars, they can present after
-            // comma or semicolon (compatibility with RFC 1779)
+        while (position < length && chars[position] == ' ') {
+            position++;
         }
-        if (pos == length) {
-            return null; // reached the end of DN
+        if (position == length) {
+            return null;
         }
 
-        // mark the beginning of attribute type
-        beg = pos;
+        start = position;
 
-        // attribute type chars
-        pos++;
-        for (; pos < length && chars[pos] != '=' && chars[pos] != ' '; pos++) {
-            // we don't follow exact BNF syntax here:
-            // accept any char except space and '='
+        position++;
+        while (position < length && chars[position] != '=' && chars[position] != ' ') {
+            position++;
         }
-        if (pos >= length) {
+        if (position >= length) {
             throw new IllegalStateException("Unexpected end of DN: " + dn);
         }
 
-        // mark the end of attribute type
-        end = pos;
+        end = position;
 
-        if (chars[pos] == ' ') {
-            for (; pos < length && chars[pos] != '=' && chars[pos] == ' '; pos++) {
-                // skip trailing space chars between attribute type and '='
-                // (compatibility with RFC 1779)
+        if (chars[position] == ' ') {
+            while (position < length && chars[position] != '=' && chars[position] == ' ') {
+                position++;
             }
 
-            if (chars[pos] != '=' || pos == length) {
+            if (chars[position] != '=' || position == length) {
                 throw new IllegalStateException("Unexpected end of DN: " + dn);
             }
         }
 
-        pos++; //skip '=' char
+        position++;
 
-        for (; pos < length && chars[pos] == ' '; pos++) {
-            // skip space chars between '=' and attribute value
-            // (compatibility with RFC 1779)
+        while (position < length && chars[position] == ' ') {
+            position++;
         }
 
-        // in case of oid attribute type skip its prefix: "oid." or "OID."
-        // (compatibility with RFC 1779)
-        if ((end - beg > 4) && (chars[beg + 3] == '.')
-                && (chars[beg] == 'O' || chars[beg] == 'o')
-                && (chars[beg + 1] == 'I' || chars[beg + 1] == 'i')
-                && (chars[beg + 2] == 'D' || chars[beg + 2] == 'd')) {
-            beg += 4;
+        if ((end - start > 4) && (chars[start + 3] == '.')
+                && (chars[start] == 'O' || chars[start] == 'o')
+                && (chars[start + 1] == 'I' || chars[start + 1] == 'i')
+                && (chars[start + 2] == 'D' || chars[start + 2] == 'd')) {
+            start += 4;
         }
 
-        return new String(chars, beg, end - beg);
+        return new String(chars, start, end - start);
     }
 
-    // gets quoted attribute value: QUOTATION *( quotechar / pair ) QUOTATION
-    private String quotedAV()
+    private String quotedAttributeValue()
     {
-        pos++;
-        beg = pos;
-        end = beg;
+        position++;
+        start = position;
+        end = start;
         while (true) {
-            if (pos == length) {
+            if (position == length) {
                 throw new IllegalStateException("Unexpected end of DN: " + dn);
             }
 
-            if (chars[pos] == '"') {
-                // enclosing quotation was found
-                pos++;
+            if (chars[position] == '"') {
+                position++;
                 break;
             }
-            else if (chars[pos] == '\\') {
+            else if (chars[position] == '\\') {
                 chars[end] = getEscaped();
             }
             else {
-                // shift char: required for string with escaped chars
-                chars[end] = chars[pos];
+                chars[end] = chars[position];
             }
-            pos++;
+            position++;
             end++;
         }
 
-        for (; pos < length && chars[pos] == ' '; pos++) {
-            // skip trailing space chars before comma or semicolon.
-            // (compatibility with RFC 1779)
+        while (position < length && chars[position] == ' ') {
+            position++;
         }
 
-        return new String(chars, beg, end - beg);
+        return new String(chars, start, end - start);
     }
 
-    // gets hex string attribute value: "#" hexstring
-    private String hexAV()
+    private String hexAttributeValue()
     {
-        if (pos + 4 >= length) {
-            // encoded byte array  must be not less then 4 c
+        if (position + 4 >= length) {
             throw new IllegalStateException("Unexpected end of DN: " + dn);
         }
 
-        beg = pos; // store '#' position
-        pos++;
+        start = position;
+        position++;
         while (true) {
-            // check for end of attribute value
-            // looks for space and component separators
-            if (pos == length || chars[pos] == '+' || chars[pos] == ','
-                    || chars[pos] == ';') {
-                end = pos;
+            if (position == length || chars[position] == '+' || chars[position] == ','
+                    || chars[position] == ';') {
+                end = position;
                 break;
             }
 
-            if (chars[pos] == ' ') {
-                end = pos;
-                pos++;
-                for (; pos < length && chars[pos] == ' '; pos++) {
-                    // skip trailing space chars before comma or semicolon.
-                    // (compatibility with RFC 1779)
+            if (chars[position] == ' ') {
+                end = position;
+                position++;
+                while (position < length && chars[position] == ' ') {
+                    position++;
                 }
                 break;
             }
-            else if (chars[pos] >= 'A' && chars[pos] <= 'F') {
-                chars[pos] += 32; //to low case
+            else if (chars[position] >= 'A' && chars[position] <= 'F') {
+                chars[position] += 32;
             }
 
-            pos++;
+            position++;
         }
 
-        // verify length of hex string
-        // encoded byte array  must be not less then 4 and must be even number
-        int hexLen = end - beg; // skip first '#' char
+        int hexLen = end - start;
         if (hexLen < 5 || (hexLen & 1) == 0) {
             throw new IllegalStateException("Unexpected end of DN: " + dn);
         }
 
-        // get byte encoding from string representation
         byte[] encoded = new byte[hexLen / 2];
-        for (int i = 0, p = beg + 1; i < encoded.length; p += 2, i++) {
+        for (int i = 0, p = start + 1; i < encoded.length; p += 2, i++) {
             encoded[i] = (byte) getByte(p);
         }
-        return new String(chars, beg, hexLen);
+        return new String(chars, start, hexLen);
     }
-    // gets string attribute value: *( stringchar / pair)
-    private String escapedAV()
+
+    private String escapedAttributeValue()
     {
-        beg = pos;
-        end = pos;
+        start = position;
+        end = position;
         while (true) {
-            if (pos >= length) {
-                // the end of DN has been found
-                return new String(chars, beg, end - beg);
+            if (position >= length) {
+                return new String(chars, start, end - start);
             }
 
-            switch (chars[pos]) {
+            switch (chars[position]) {
                 case '+':
                 case ',':
                 case ';':
-                    // separator char has been found
-                    return new String(chars, beg, end - beg);
+                    return new String(chars, start, end - start);
                 case '\\':
-                    // escaped char
                     chars[end++] = getEscaped();
-                    pos++;
+                    position++;
                     break;
                 case ' ':
-                    // need to figure out whether space defines
-                    // the end of attribute value or not
                     cur = end;
 
-                    pos++;
+                    position++;
                     chars[end++] = ' ';
 
-                    for (; pos < length && chars[pos] == ' '; pos++) {
+                    while (position < length && chars[position] == ' ') {
                         chars[end++] = ' ';
+                        position++;
                     }
-                    if (pos == length || chars[pos] == ',' || chars[pos] == '+'
-                            || chars[pos] == ';') {
-                        // separator char or the end of DN has been found
-                        return new String(chars, beg, cur - beg);
+                    if (position == length || chars[position] == ',' || chars[position] == '+'
+                            || chars[position] == ';') {
+                        return new String(chars, start, cur - start);
                     }
                     break;
                 default:
-                    chars[end++] = chars[pos];
-                    pos++;
+                    chars[end++] = chars[position];
+                    position++;
             }
         }
     }
 
-    // returns escaped char
     private char getEscaped()
     {
-        pos++;
-        if (pos == length) {
+        position++;
+        if (position == length) {
             throw new IllegalStateException("Unexpected end of DN: " + dn);
         }
 
-        switch (chars[pos]) {
+        switch (chars[position]) {
             case '"':
             case '\\':
             case ',':
@@ -255,51 +221,46 @@ final class DistinguishedNameParser
             case '*':
             case '%':
             case '_':
-                //FIXME: escaping is allowed only for leading or trailing space char
-                return chars[pos];
+                return chars[position];
             default:
-                // RFC doesn't explicitly say that escaped hex pair is
-                // interpreted as UTF-8 char. It only contains an example of such DN.
                 return getUTF8();
         }
     }
 
-    // decodes UTF-8 char
-    // see http://www.unicode.org for UTF-8 bit distribution table
     private char getUTF8()
     {
-        int res = getByte(pos);
-        pos++; //FIXME tmp
+        int res = getByte(position);
+        position++;
 
-        if (res < 128) { // one byte: 0-7F
+        if (res < 128) {
             return (char) res;
         }
         else if (res >= 192 && res <= 247) {
             int count;
-            if (res <= 223) { // two bytes: C0-DF
+            if (res <= 223) {
                 count = 1;
                 res = res & 0x1F;
             }
-            else if (res <= 239) { // three bytes: E0-EF
+            else if (res <= 239) {
                 count = 2;
                 res = res & 0x0F;
             }
-            else { // four bytes: F0-F7
+            else {
                 count = 3;
                 res = res & 0x07;
             }
             int b;
             for (int i = 0; i < count; i++) {
-                pos++;
-                if (pos == length || chars[pos] != '\\') {
-                    return 0x3F; //FIXME failed to decode UTF-8 char - return '?'
+                position++;
+                if (position == length || chars[position] != '\\') {
+                    return 0x3F;
                 }
-                pos++;
+                position++;
 
-                b = getByte(pos);
-                pos++; //FIXME tmp
+                b = getByte(position);
+                position++;
                 if ((b & 0xC0) != 0x80) {
-                    return 0x3F; //FIXME failed to decode UTF-8 char - return '?'
+                    return 0x3F;
                 }
 
                 res = (res << 6) + (b & 0x3F);
@@ -307,16 +268,10 @@ final class DistinguishedNameParser
             return (char) res;
         }
         else {
-            return 0x3F; //FIXME failed to decode UTF-8 char - return '?'
+            return 0x3F;
         }
     }
 
-    // Returns byte representation of a char pair
-    // The char pair is composed of DN char in
-    // specified 'position' and the next char
-    // According to BNF syntax:
-    // hexchar    = DIGIT / "A" / "B" / "C" / "D" / "E" / "F"
-    //                    / "a" / "b" / "c" / "d" / "e" / "f"
     private int getByte(int position)
     {
         if (position + 1 >= length) {
@@ -361,59 +316,55 @@ final class DistinguishedNameParser
      * if none found.
      *
      * @param attributeType attribute type to look for (e.g. "ca")
+     * @return the string
      */
     public String findMostSpecific(String attributeType)
     {
-        // Initialize internal state.
-        pos = 0;
-        beg = 0;
+        position = 0;
+        start = 0;
         end = 0;
         cur = 0;
         chars = dn.toCharArray();
 
-        String attType = nextAT();
+        String attType = nextAttributeType();
         if (attType == null) {
             return null;
         }
         while (true) {
             String attValue = "";
 
-            if (pos == length) {
+            if (position == length) {
                 return null;
             }
-            switch (chars[pos]) {
+            switch (chars[position]) {
                 case '"':
-                    attValue = quotedAV();
+                    attValue = quotedAttributeValue();
                     break;
                 case '#':
-                    attValue = hexAV();
+                    attValue = hexAttributeValue();
                     break;
                 case '+':
                 case ',':
-                case ';': // compatibility with RFC 1779: semicolon can separate RDNs
-                    //empty attribute value
+                case ';':
                     break;
                 default:
-                    attValue = escapedAV();
+                    attValue = escapedAttributeValue();
             }
 
-            // Values are ordered from most specific to least specific
-            // due to the RFC2253 formatting. So take the first match
-            // we see.
             if (attributeType.equalsIgnoreCase(attType)) {
                 return attValue;
             }
 
-            if (pos >= length) {
+            if (position >= length) {
                 return null;
             }
-            if (chars[pos] == ',' || chars[pos] == ';') {
+            if (chars[position] == ',' || chars[position] == ';') {
                 //Do nothing
-            } else if (chars[pos] != '+') {
+            } else if (chars[position] != '+') {
                 throw new IllegalStateException("Malformed DN: " + dn);
             }
-            pos++;
-            attType = nextAT();
+            position++;
+            attType = nextAttributeType();
             if (attType == null) {
                 throw new IllegalStateException("Malformed DN: " + dn);
             }

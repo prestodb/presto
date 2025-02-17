@@ -19,9 +19,6 @@ import com.google.inject.Scopes;
 
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-/**
- * The type Telemetry module.
- */
 public class TelemetryModule
         implements Module
 {

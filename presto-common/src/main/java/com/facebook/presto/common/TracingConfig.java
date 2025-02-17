@@ -19,7 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.annotation.concurrent.Immutable;
 
 /**
- * The type Tracing config.
+ * POJO to use with TelemetryResource for the dynamically enable/disable the trace endpoint.
  */
 @Immutable
 public class TracingConfig
@@ -38,11 +38,6 @@ public class TracingConfig
         this.tracingEnabled = tracingEnabled;
     }
 
-    /**
-     * Is tracing enabled boolean.
-     *
-     * @return the boolean
-     */
     @JsonProperty
     public boolean isTracingEnabled()
     {

@@ -21,7 +21,8 @@ import io.opentelemetry.context.Scope;
 import java.util.Objects;
 
 /**
- * The type Scoped span.
+ * ScopedSpan implements BaseSpan and holds the actual sdk span.
+ * ScopedSpan implements AutoCloseable and can be used within a try-with-resources block.
  */
 public final class ScopedSpan
         implements BaseSpan

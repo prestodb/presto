@@ -23,7 +23,7 @@ public class OpenTelemetryFactoryImpl
 {
     /**
      * uniquely identify all OpenTelemetryFactory implementations. This property is checked against the one passed in
-     * telemetry.properties file during registration
+     * telemetry-tracing.properties file during registration
      * @return String
      */
     @Override

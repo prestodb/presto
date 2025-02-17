@@ -19,7 +19,7 @@ import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 
 /**
- * The type TelemetryConfig to store all the values in telemetry.properties.
+ * The type TelemetryConfig to store the values from telemetry-tracing.properties.
  */
 public class TelemetryConfig
 {
@@ -31,11 +31,11 @@ public class TelemetryConfig
     private Integer exporterTimeout;
     private Integer scheduleDelay;
     private Double samplingRatio;
-    private Boolean tracingEnabled = false;
-    private Boolean spanSampling = false;
+    private boolean tracingEnabled;
+    private boolean spanSampling;
 
     /**
-     * The type Telemetry config constants.
+     * The type TelemetryConfigConstants to store constants.
      */
     public static class TelemetryConfigConstants
     {
@@ -54,7 +54,7 @@ public class TelemetryConfig
     }
 
     /**
-     * Gets telemetry config.
+     * Gets the singleton telemetryConfig.
      *
      * @return the telemetry config
      */
@@ -65,7 +65,7 @@ public class TelemetryConfig
     }
 
     /**
-     * Sets telemetry properties.
+     * Sets telemetry properties from the input.
      *
      * @param telemetryProperties the telemetry properties
      */
@@ -91,91 +91,46 @@ public class TelemetryConfig
         getTelemetryConfig().tracingEnabled = tracingEnabled;
     }
 
-    /**
-     * Sets span sampling.
-     *
-     * @param spanSampling the span sampling
-     */
     public void setSpanSampling(Boolean spanSampling)
     {
         getTelemetryConfig().spanSampling = spanSampling;
     }
 
-    /**
-     * Gets exporter endpoint.
-     *
-     * @return the exporter endpoint
-     */
     public String getTracingBackendUrl()
     {
         return this.tracingBackendUrl;
     }
 
-    /**
-     * Gets max exporter batch size.
-     *
-     * @return the max exporter batch size
-     */
     public Integer getMaxExporterBatchSize()
     {
         return this.maxExporterBatchSize;
     }
 
-    /**
-     * Gets max queue size.
-     *
-     * @return the max queue size
-     */
     public Integer getMaxQueueSize()
     {
         return this.maxQueueSize;
     }
 
-    /**
-     * Gets exporter timeout.
-     *
-     * @return the exporter timeout
-     */
     public Integer getExporterTimeout()
     {
         return this.exporterTimeout;
     }
 
-    /**
-     * Gets schedule delay.
-     *
-     * @return the schedule delay
-     */
     public Integer getScheduleDelay()
     {
         return this.scheduleDelay;
     }
 
-    /**
-     * Gets sampling ratio.
-     *
-     * @return the sampling ratio
-     */
     public Double getSamplingRatio()
     {
         return this.samplingRatio;
     }
 
-    /**
-     * Gets tracing enabled.
-     *
-     * @return the tracing enabled
-     */
     public static Boolean getTracingEnabled()
     {
         return getTelemetryConfig().tracingEnabled;
     }
 
-    /**
-     * Gets span sampling.
-     *
-     * @return the span sampling
-     */
     public static Boolean getSpanSampling()
     {
         return getTelemetryConfig().spanSampling;

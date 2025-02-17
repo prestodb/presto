@@ -23,21 +23,15 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The type Telemetry tracing.
+ * Default implementation of TelemetryTracing in presto-main for fallback in case Telemetry plugin implementation not loaded.
  */
 public class TelemetryTracingImpl
         implements TelemetryTracing<BaseSpan, BaseSpan>
 {
-    /**
-     * The constant NAME.
-     */
     public static final String NAME = "otel";
 
     private static final TelemetryTracingImpl INSTANCE = new TelemetryTracingImpl();
 
-    /**
-     * The type Factory.
-     */
     public static class Factory
             implements TelemetryFactory
     {
