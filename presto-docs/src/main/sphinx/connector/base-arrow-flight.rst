@@ -5,7 +5,8 @@ Arrow Flight Connector
 This connector allows querying multiple data sources that are supported by an Arrow Flight server. Flight supports parallel transfers, allowing data to be streamed to or from a cluster of servers simultaneously. Official documentation for Arrow Flight can be found at `Arrow Flight RPC <https://arrow.apache.org/docs/format/Flight.html>`_.
 
 Getting Started with presto-base-arrow-flight module: Essential Abstract Methods for Developers
----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------
+
 To create a plugin extending the presto-base-arrow-flight module, you need to implement certain abstract methods that are specific to your use case. Below are the required classes and their purposes:
 
 - ``BaseArrowFlightClientHandler.java``
