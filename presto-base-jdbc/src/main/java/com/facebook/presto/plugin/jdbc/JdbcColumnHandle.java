@@ -16,12 +16,14 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.facebook.presto.plugin.jdbc.BaseJdbcClient.isDelimited;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -90,8 +92,18 @@ public final class JdbcColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return ColumnMetadata.builder()
+        return JdbcColumnMetadata.jdbcBuilder()
                 .setName(columnName)
+                .setType(columnType)
+                .setNullable(nullable)
+                .setComment(comment)
+                .build();
+    }
+
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, JdbcClient jdbcClient)
+    {
+        return JdbcColumnMetadata.jdbcBuilder()
+                .setName(jdbcClient.normalizeIdentifier(session, columnName, isDelimited(jdbcClient.getIdentifierQuote())))
                 .setType(columnType)
                 .setNullable(nullable)
                 .setComment(comment)
