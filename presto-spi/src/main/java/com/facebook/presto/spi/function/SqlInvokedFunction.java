@@ -160,7 +160,7 @@ public class SqlInvokedFunction
         this.description = requireNonNull(description, "description is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
         this.body = requireNonNull(body, "body is null");
-        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, getArgumentTypes(parameters), false);
+        this.signature = new Signature(functionName, kind, typeVariableConstraints, emptyList(), returnType, getArgumentTypes(parameters), variableArity);
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.variableArity = variableArity;
         this.functionVersion = requireNonNull(version, "version is null");
