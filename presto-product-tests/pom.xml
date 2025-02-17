@@ -83,19 +83,19 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.github.aaneja.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.aaneja.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-ldap</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.aaneja.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-kafka</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.github.aaneja.tempto</groupId>
+            <groupId>io.prestodb.tempto</groupId>
             <artifactId>tempto-runner</artifactId>
         </dependency>
         <dependency>
