@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
@@ -48,6 +49,7 @@ public class MaterializedViewColumnMappingExtractor
 {
     private final Analysis analysis;
     private final Session session;
+    private final Metadata metadata;
 
     /**
      * We create a undirected graph where each node corresponds to a base table column.
@@ -79,10 +81,11 @@ public class MaterializedViewColumnMappingExtractor
      */
     private List<SchemaTableName> baseTablesOnOuterJoinSide;
 
-    public MaterializedViewColumnMappingExtractor(Analysis analysis, Session session)
+    public MaterializedViewColumnMappingExtractor(Analysis analysis, Session session, Metadata metadata)
     {
         this.analysis = requireNonNull(analysis, "analysis is null");
         this.session = requireNonNull(session, "session is null");
+        this.metadata = metadata;
         this.mappedBaseColumns = new HashMap<>();
         this.directMappedBaseColumns = new HashMap<>();
         this.baseTablesOnOuterJoinSide = new ArrayList<>();
@@ -110,7 +113,7 @@ public class MaterializedViewColumnMappingExtractor
      */
     public Map<String, Map<SchemaTableName, String>> getMaterializedViewColumnMappings()
     {
-        return getColumnMappings(analysis, mappedBaseColumns);
+        return getColumnMappings(analysis, mappedBaseColumns, metadata, session);
     }
 
     /**
@@ -124,7 +127,7 @@ public class MaterializedViewColumnMappingExtractor
      */
     public Map<String, Map<SchemaTableName, String>> getMaterializedViewDirectColumnMappings()
     {
-        return getColumnMappings(analysis, directMappedBaseColumns);
+        return getColumnMappings(analysis, directMappedBaseColumns, metadata, session);
     }
 
     public List<SchemaTableName> getBaseTablesOnOuterJoinSide()
@@ -145,8 +148,8 @@ public class MaterializedViewColumnMappingExtractor
         int numFields = outputDescriptorList.get(0).getVisibleFieldCount();
         for (int fieldIndex = 0; fieldIndex < numFields; fieldIndex++) {
             for (int firstRelationIndex = 1; firstRelationIndex < numRelations; firstRelationIndex++) {
-                Optional<TableColumn> firstBaseColumn = tryGetOriginalTableColumn(outputDescriptorList.get(firstRelationIndex).getFieldByIndex(fieldIndex));
-                Optional<TableColumn> secondBaseColumn = tryGetOriginalTableColumn(outputDescriptorList.get(firstRelationIndex - 1).getFieldByIndex(fieldIndex));
+                Optional<TableColumn> firstBaseColumn = tryGetOriginalTableColumn(outputDescriptorList.get(firstRelationIndex).getFieldByIndex(fieldIndex), metadata, session);
+                Optional<TableColumn> secondBaseColumn = tryGetOriginalTableColumn(outputDescriptorList.get(firstRelationIndex - 1).getFieldByIndex(fieldIndex), metadata, session);
                 if (firstBaseColumn.isPresent() && secondBaseColumn.isPresent()) {
                     mappedBaseColumns.computeIfAbsent(firstBaseColumn.get(), k -> new HashSet<>()).add(secondBaseColumn.get());
                     mappedBaseColumns.computeIfAbsent(secondBaseColumn.get(), k -> new HashSet<>()).add(firstBaseColumn.get());
@@ -166,7 +169,7 @@ public class MaterializedViewColumnMappingExtractor
         super.visitTable(node, context);
 
         if (context.isWithinOuterJoin()) {
-            baseTablesOnOuterJoinSide.add(toSchemaTableName(createQualifiedObjectName(session, node, node.getName())));
+            baseTablesOnOuterJoinSide.add(toSchemaTableName(createQualifiedObjectName(session, node, node.getName()), metadata, session));
         }
 
         return null;
@@ -196,8 +199,8 @@ public class MaterializedViewColumnMappingExtractor
                         "%s in join criteria is not supported for materialized view.", node.getRight().getClass().getSimpleName()))
                 .getField();
 
-        Optional<TableColumn> leftBaseColumn = tryGetOriginalTableColumn(left);
-        Optional<TableColumn> rightBaseColumn = tryGetOriginalTableColumn(right);
+        Optional<TableColumn> leftBaseColumn = tryGetOriginalTableColumn(left, metadata, session);
+        Optional<TableColumn> rightBaseColumn = tryGetOriginalTableColumn(right, metadata, session);
         if (leftBaseColumn.isPresent() && rightBaseColumn.isPresent()) {
             mappedBaseColumns.computeIfAbsent(leftBaseColumn.get(), k -> new HashSet<>()).add(rightBaseColumn.get());
             mappedBaseColumns.computeIfAbsent(rightBaseColumn.get(), k -> new HashSet<>()).add(leftBaseColumn.get());
@@ -211,7 +214,7 @@ public class MaterializedViewColumnMappingExtractor
         return null;
     }
 
-    private static Map<String, TableColumn> getOriginalColumnsFromAnalysis(Analysis analysis)
+    private static Map<String, TableColumn> getOriginalColumnsFromAnalysis(Analysis analysis, Metadata metadata, Session session)
     {
         Query viewQuery = ((CreateMaterializedView) analysis.getStatement()).getQuery();
 
@@ -219,10 +222,10 @@ public class MaterializedViewColumnMappingExtractor
                 .filter(field -> field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent())
                 .collect(toImmutableMap(
                         field -> field.getName().get(),
-                        field -> new TableColumn(toSchemaTableName(field.getOriginTable().get()), field.getOriginColumnName().get(), true)));
+                        field -> new TableColumn(toSchemaTableName(field.getOriginTable().get(), metadata, session), field.getOriginColumnName().get(), true)));
     }
 
-    private static Map<String, Map<SchemaTableName, String>> getColumnMappings(Analysis analysis, Map<TableColumn, Set<TableColumn>> columnMappings)
+    private static Map<String, Map<SchemaTableName, String>> getColumnMappings(Analysis analysis, Map<TableColumn, Set<TableColumn>> columnMappings, Metadata metadata, Session session)
     {
         checkState(
                 analysis.getStatement() instanceof CreateMaterializedView,
@@ -230,7 +233,7 @@ public class MaterializedViewColumnMappingExtractor
 
         ImmutableMap.Builder<String, Map<SchemaTableName, String>> fullColumnMappings = ImmutableMap.builder();
 
-        Map<String, TableColumn> originalColumnMappings = getOriginalColumnsFromAnalysis(analysis);
+        Map<String, TableColumn> originalColumnMappings = getOriginalColumnsFromAnalysis(analysis, metadata, session);
 
         for (Map.Entry<String, TableColumn> columnMapping : originalColumnMappings.entrySet()) {
             String viewColumn = columnMapping.getKey();
@@ -247,10 +250,10 @@ public class MaterializedViewColumnMappingExtractor
         return fullColumnMappings.build();
     }
 
-    private static Optional<TableColumn> tryGetOriginalTableColumn(Field field)
+    private static Optional<TableColumn> tryGetOriginalTableColumn(Field field, Metadata metadata, Session session)
     {
         if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-            SchemaTableName table = toSchemaTableName(field.getOriginTable().get());
+            SchemaTableName table = toSchemaTableName(field.getOriginTable().get(), metadata, session);
             String column = field.getOriginColumnName().get();
             return Optional.of(new TableColumn(table, column, true));
         }

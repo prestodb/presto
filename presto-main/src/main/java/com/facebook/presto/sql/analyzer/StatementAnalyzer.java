@@ -767,8 +767,8 @@ class StatementAnalyzer
             Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, node.getWhere(), viewScope, metadata, session);
 
             Query viewQuery = parseView(view.getOriginalSql(), viewName, node);
-            Query refreshQuery = tablePredicates.containsKey(toSchemaTableName(viewName)) ?
-                    buildQueryWithPredicate(viewQuery, tablePredicates.get(toSchemaTableName(viewName)))
+            Query refreshQuery = tablePredicates.containsKey(toSchemaTableName(viewName, metadata, session)) ?
+                    buildQueryWithPredicate(viewQuery, tablePredicates.get(toSchemaTableName(viewName, metadata, session)))
                     : viewQuery;
             // Check if the owner has SELECT permission on the base tables
             StatementAnalyzer queryAnalyzer = new StatementAnalyzer(
@@ -809,7 +809,7 @@ class StatementAnalyzer
             Scope viewScope = viewAnalyzer.analyze(refreshMaterializedView.getTarget(), scope);
             Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere(), viewScope, metadata, session);
 
-            SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()));
+            SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()), metadata, session);
             if (tablePredicates.containsKey(baseTableName)) {
                 Query tableSubquery = buildQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
                 analysis.registerNamedQuery(baseTable, tableSubquery, true);
@@ -1564,7 +1564,7 @@ class StatementAnalyzer
                 baseTablePredicates = generateBaseTablePredicates(materializedViewStatus.getPartitionsFromBaseTables(), metadata);
             }
 
-            Query predicateStitchedQuery = (Query) new PredicateStitcher(session, baseTablePredicates).process(createSqlStatement, new PredicateStitcherContext());
+            Query predicateStitchedQuery = (Query) new PredicateStitcher(session, baseTablePredicates, metadata).process(createSqlStatement, new PredicateStitcherContext());
 
             // TODO: consider materialized view predicates https://github.com/prestodb/presto/issues/16034
             QuerySpecification materializedViewQuerySpecification = new QuerySpecification(
