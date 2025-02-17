@@ -127,6 +127,8 @@ public class TestNativeSidecarPlugin
     @Test
     public void testGeneralQueries()
     {
+        assertQuery("SELECT ARRAY['abc']");
+        assertQuery("SELECT ARRAY[1, 2, 3]");
         assertQuery("SELECT substr(comment, 1, 10), length(comment), trim(comment) FROM orders");
         assertQuery("SELECT substr(comment, 1, 10), length(comment), ltrim(comment) FROM orders");
         assertQuery("SELECT substr(comment, 1, 10), length(comment), rtrim(comment) FROM orders");
@@ -170,6 +172,7 @@ public class TestNativeSidecarPlugin
         assertQuery("SELECT checksum(from_unixtime(orderkey, '+01:00')) FROM lineitem WHERE orderkey < 20");
         assertQuerySucceeds("SELECT shuffle(array_sort(quantities)) FROM orders_ex");
         assertQuery("SELECT array_sort(shuffle(quantities)) FROM orders_ex");
+        assertQuery("SELECT orderkey, array_sort(reduce_agg(linenumber, CAST(array[] as ARRAY(INTEGER)), (s, x) -> s || x, (s, s2) -> s || s2)) FROM lineitem group by orderkey");
     }
 
     @Test
@@ -188,8 +191,6 @@ public class TestNativeSidecarPlugin
     {
         assertQueryFails("SELECT array_sort(quantities, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) FROM orders_ex",
                 "line 1:31: Expected a lambda that takes 1 argument\\(s\\) but got 2");
-        assertQueryFails("SELECT orderkey, array_sort(reduce_agg(linenumber, CAST(array[] as ARRAY(INTEGER)), (s, x) -> s || x, (s, s2) -> s || s2)) FROM lineitem group by orderkey",
-                ".*Unexpected parameters \\(array\\(integer\\), array\\(integer\\)\\) for function native.default.concat.*");
     }
 
     @Test
