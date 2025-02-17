@@ -115,6 +115,7 @@ public class BaseJdbcClient
     protected final boolean caseInsensitiveNameMatching;
     protected final Cache<JdbcIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
+    protected final boolean isMixedCaseSupportEnabled;
 
     public BaseJdbcClient(JdbcConnectorId connectorId, BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
     {
@@ -128,6 +129,7 @@ public class BaseJdbcClient
                 .expireAfterWrite(config.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = remoteNamesCacheBuilder.build();
         this.remoteTableNames = remoteNamesCacheBuilder.build();
+        this.isMixedCaseSupportEnabled = config.isMixedCaseSupportEnabled();
     }
 
     @PreDestroy

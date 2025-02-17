@@ -16,6 +16,7 @@ package com.facebook.presto.plugin.jdbc;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorSession;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -88,23 +89,13 @@ public final class JdbcColumnHandle
         return comment;
     }
 
-    public ColumnMetadata getColumnMetadata()
+    public ColumnMetadata getColumnMetadata(ConnectorSession session, JdbcClient jdbcClient)
     {
-        return ColumnMetadata.builder()
-                .setName(columnName)
+        return JdbcColumnMetadata.jdbcBuilder()
+                .setName(jdbcClient.normalizeIdentifier(session, columnName))
                 .setType(columnType)
                 .setNullable(nullable)
-                .setComment(comment.orElse(null))
-                .build();
-    }
-
-    public ColumnMetadata getColumnMetadata()
-    {
-        return ColumnMetadata.builder()
-                .setName(columnName)
-                .setType(columnType)
-                .setNullable(nullable)
-                .setComment(comment.orElse(null))
+                .setComment(comment)
                 .build();
     }
 
