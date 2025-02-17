@@ -69,6 +69,7 @@ public final class MySqlQueryRunner
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", jdbcUrl);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
+            connectorProperties.putIfAbsent("mixed-case-support", "true"); // for testing enable mixed case by default for mysql
 
             queryRunner.installPlugin(new MySqlPlugin());
             queryRunner.createCatalog("mysql", "mysql", connectorProperties);
