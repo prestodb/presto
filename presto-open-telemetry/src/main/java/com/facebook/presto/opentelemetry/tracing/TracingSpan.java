@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.opentelemetry.tracing;
 
-import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import io.opentelemetry.api.trace.Span;
 
 /**
- * The type Tracing span.
+ * TracingSpan implements BaseSpan and holds the actual sdk span.
+ * TracingSpan can be use where we know the scope and can manually start and end.
  */
 public class TracingSpan
         implements BaseSpan

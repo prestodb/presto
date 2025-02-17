@@ -25,7 +25,7 @@ import com.facebook.presto.spi.analyzer.QueryAnalyzer;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.google.inject.Inject;
@@ -34,7 +34,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
-import static com.facebook.presto.telemetry.TracingManager.scopedSpan;
+import static com.facebook.presto.tracing.TracingManager.scopedSpan;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 

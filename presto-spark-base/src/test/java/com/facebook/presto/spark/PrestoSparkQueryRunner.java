@@ -642,7 +642,8 @@ public class PrestoSparkQueryRunner
                 Optional.of(session.getTimeZoneKey().getId()),
                 Optional.empty(),
                 session.getSystemProperties(),
-                catalogSessionProperties.build());
+                catalogSessionProperties.build(),
+                session.getTraceToken());
     }
 
     @Override

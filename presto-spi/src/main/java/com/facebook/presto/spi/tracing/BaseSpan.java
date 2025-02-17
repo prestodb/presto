@@ -11,24 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.telemetry;
-
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
-
-import static org.weakref.jmx.guice.ExportBinder.newExporter;
+package com.facebook.presto.spi.tracing;
 
 /**
- * The type Telemetry module.
+ * The SPI BaseSpan implemented by TracingSpan and ScopedSpan.
  */
-public class TelemetryModule
-        implements Module
+public interface BaseSpan
+        extends AutoCloseable
 {
     @Override
-    public void configure(Binder binder)
+    default void close()
     {
-        binder.bind(TracingManager.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(TracingManager.class).withGeneratedName();
+        return;
+    }
+
+    default void end()
+    {
+        return;
     }
 }

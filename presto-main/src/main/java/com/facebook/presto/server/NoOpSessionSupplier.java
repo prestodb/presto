@@ -16,7 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.spi.tracing.BaseSpan;
 
 import static com.facebook.presto.Session.SessionBuilder;
 

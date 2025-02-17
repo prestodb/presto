@@ -14,16 +14,15 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.opentelemetry.OpenTelemetryTracingImpl;
-import com.facebook.presto.spi.telemetry.TelemetryFactory;
-import com.facebook.presto.spi.testing.TestingTelemetryTracing;
+import com.facebook.presto.opentelemetry.OpenTelemetryTracer;
+import com.facebook.presto.spi.testing.TestingTracer;
+import com.facebook.presto.spi.tracing.TracerProvider;
 
-public class TestingOpenTelemetryFactoryImpl
-        implements TelemetryFactory<TestingTelemetryTracing>
+public class TestingOpenTelemetryTracerProvider
+        implements TracerProvider<TestingTracer>
 {
     /**
-     * uniquely identify all OpenTelemetryFactory implementations. This property is checked against the one passed in
-     * telemetry.properties file during registration
+     * TestingOpenTelemetryTracerProvider provides the implementations for testing.
      * @return String
      */
     @Override
@@ -33,13 +32,13 @@ public class TestingOpenTelemetryFactoryImpl
     }
 
     /**
-     * Create OpenTelemetryImpl instance
+     * Create TestingOpenTelemetryTracer instance
      *
-     * @return {@link OpenTelemetryTracingImpl}
+     * @return {@link OpenTelemetryTracer}
      */
     @Override
-    public TestingOpenTelemetryTracing create()
+    public TestingOpenTelemetryTracer create()
     {
-        return new TestingOpenTelemetryTracing();
+        return new TestingOpenTelemetryTracer();
     }
 }

@@ -82,6 +82,7 @@ public class TestCassandraConnector
             "user",
             new ConnectorIdentity("user", Optional.empty(), Optional.empty()),
             Optional.of("test"),
+            Optional.empty(),
             UTC_KEY,
             ENGLISH,
             System.currentTimeMillis(),

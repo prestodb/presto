@@ -165,6 +165,7 @@ public class TestPrestoDatabaseMetaData
             assertEquals(resultSet.getString(4), "Comma-delimited string of tags for the session");
 
             assertTrue(resultSet.next());
+            assertEquals(resultSet.getString(1), "TraceToken");
             assertEquals(resultSet.getInt(2), MAX_LENGTH);
             assertNull(resultSet.getString(3));
             assertEquals(resultSet.getString(4), "Sets the trace token of the session");

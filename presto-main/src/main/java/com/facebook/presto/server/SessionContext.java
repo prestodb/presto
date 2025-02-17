@@ -79,6 +79,8 @@ public interface SessionContext
 
     Optional<TransactionId> getTransactionId();
 
+    Optional<String> getTraceToken();
+
     boolean supportClientTransaction();
 
     Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions();

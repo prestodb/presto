@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.telemetry;
+package com.facebook.presto.tracing;
 
 import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.TracingConfig;
@@ -30,7 +30,7 @@ import static com.facebook.presto.server.security.RoleType.USER;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 
 /**
- * The type Telemetry resource.
+ * The type Telemetry resource holds the end point to enable/disable the traces dynamically.
  */
 @Path("/v1/telemetry")
 @RolesAllowed({USER, ADMIN})

@@ -1172,6 +1172,12 @@ public abstract class AbstractTestHiveClient
             }
 
             @Override
+            public Optional<String> getTraceToken()
+            {
+                return session.getTraceToken();
+            }
+
+            @Override
             public Optional<String> getClientInfo()
             {
                 return session.getClientInfo();

@@ -32,7 +32,7 @@ import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SemiJoinNode;
-import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -41,7 +41,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
-import com.facebook.presto.telemetry.TracingManager;
+import com.facebook.presto.tracing.TracingManager;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
@@ -58,8 +58,8 @@ import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.getOptimizerNameForLog;
 import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.trackOptimizerRuntime;
-import static com.facebook.presto.telemetry.TracingManager.scopedSpan;
-import static com.facebook.presto.telemetry.TracingManager.setAttributes;
+import static com.facebook.presto.tracing.TracingManager.scopedSpan;
+import static com.facebook.presto.tracing.TracingManager.setAttributes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

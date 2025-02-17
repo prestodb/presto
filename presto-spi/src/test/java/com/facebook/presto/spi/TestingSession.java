@@ -84,6 +84,12 @@ public final class TestingSession
         }
 
         @Override
+        public Optional<String> getTraceToken()
+        {
+            return Optional.empty();
+        }
+
+        @Override
         public SqlFunctionProperties getSqlFunctionProperties()
         {
             return SqlFunctionProperties.builder()

@@ -43,6 +43,7 @@ public class PrestoSparkSession
     private final Optional<String> language;
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogSessionProperties;
+    private final Optional<String> traceToken;
 
     public PrestoSparkSession(
             String user,
@@ -57,7 +58,8 @@ public class PrestoSparkSession
             Optional<String> timeZoneId,
             Optional<String> language,
             Map<String, String> systemProperties,
-            Map<String, Map<String, String>> catalogSessionProperties)
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> traceToken)
 
     {
         this.user = requireNonNull(user, "user is null");
@@ -74,6 +76,7 @@ public class PrestoSparkSession
         this.systemProperties = unmodifiableMap(new HashMap<>(requireNonNull(systemProperties, "systemProperties is null")));
         this.catalogSessionProperties = unmodifiableMap(requireNonNull(catalogSessionProperties, "catalogSessionProperties is null").entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, entry -> unmodifiableMap(new HashMap<>(entry.getValue())))));
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
     }
 
     public String getUser()
@@ -139,5 +142,10 @@ public class PrestoSparkSession
     public Map<String, Map<String, String>> getCatalogSessionProperties()
     {
         return catalogSessionProperties;
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 }

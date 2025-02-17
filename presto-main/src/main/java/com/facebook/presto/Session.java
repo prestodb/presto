@@ -35,11 +35,10 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
-import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
-import com.facebook.presto.telemetry.TracingManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -67,6 +66,8 @@ import static com.facebook.presto.SystemSessionProperties.warnOnCommonNanPattern
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.tracing.TracingManager.getInvalidSpan;
+import static com.facebook.presto.tracing.TracingManager.spanString;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -89,6 +90,7 @@ public final class Session
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
+    private final Optional<String> traceToken;
     private final Set<String> clientTags;
     private final ResourceEstimates resourceEstimates;
     private final long startTime;
@@ -119,6 +121,7 @@ public final class Session
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
+            Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
             Optional<String> remoteUserAddress,
@@ -146,6 +149,7 @@ public final class Session
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
@@ -248,6 +252,11 @@ public final class Session
     public Set<String> getClientTags()
     {
         return clientTags;
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     public ResourceEstimates getResourceEstimates()
@@ -442,6 +451,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -509,6 +519,7 @@ public final class Session
                 source,
                 catalog,
                 schema,
+                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -530,7 +541,7 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
-                .add("querySpan", TracingManager.spanString(querySpan).orElse(null))
+                .add("querySpan", spanString(querySpan).orElse(null))
                 .add("rootSpan", rootSpan.toString())
                 .add("transactionId", transactionId)
                 .add("user", getUser())
@@ -538,6 +549,7 @@ public final class Session
                 .add("source", source.orElse(null))
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))
+                .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("remoteUserAddress", remoteUserAddress.orElse(null))
@@ -563,14 +575,15 @@ public final class Session
     public static class SessionBuilder
     {
         private QueryId queryId;
-        private BaseSpan querySpan = TracingManager.getInvalidSpan(); //do not initialize with null
-        private BaseSpan rootSpan = TracingManager.getInvalidSpan();  //do not initialize with null
+        private BaseSpan querySpan = getInvalidSpan(); //do not initialize with null
+        private BaseSpan rootSpan = getInvalidSpan();  //do not initialize with null
         private TransactionId transactionId;
         private boolean clientTransactionSupport;
         private Identity identity;
         private String source;
         private String catalog;
         private String schema;
+        private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
         private Locale locale = Locale.getDefault();
         private String remoteUserAddress;
@@ -606,6 +619,7 @@ public final class Session
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.schema = session.schema.orElse(null);
+            this.traceToken = requireNonNull(session.traceToken, "traceToken is null");
             this.timeZoneKey = session.timeZoneKey;
             this.locale = session.locale;
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
@@ -668,6 +682,12 @@ public final class Session
         public SessionBuilder setSource(String source)
         {
             this.source = source;
+            return this;
+        }
+
+        public SessionBuilder setTraceToken(Optional<String> traceToken)
+        {
+            this.traceToken = requireNonNull(traceToken, "traceToken is null");
             return this;
         }
 
@@ -844,6 +864,7 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
+                    traceToken,
                     timeZoneKey,
                     locale,
                     Optional.ofNullable(remoteUserAddress),

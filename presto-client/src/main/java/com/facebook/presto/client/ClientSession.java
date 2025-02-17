@@ -24,6 +24,7 @@ import java.nio.charset.CharsetEncoder;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -36,6 +37,7 @@ public class ClientSession
     private final URI server;
     private final String user;
     private final String source;
+    private final Optional<String> traceToken;
     private final Set<String> clientTags;
     private final String clientInfo;
     private final String catalog;
@@ -70,6 +72,7 @@ public class ClientSession
             URI server,
             String user,
             String source,
+            Optional<String> traceToken,
             Set<String> clientTags,
             String clientInfo,
             String catalog,
@@ -91,6 +94,7 @@ public class ClientSession
         this.server = requireNonNull(server, "server is null");
         this.user = user;
         this.source = source;
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
         this.clientInfo = clientInfo;
         this.catalog = catalog;
@@ -159,6 +163,11 @@ public class ClientSession
     public String getSource()
     {
         return source;
+    }
+
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     public Set<String> getClientTags()
@@ -264,6 +273,7 @@ public class ClientSession
                 .add("clientInfo", clientInfo)
                 .add("catalog", catalog)
                 .add("schema", schema)
+                .add("traceToken", traceToken.orElse(null))
                 .add("timeZone", timeZone)
                 .add("locale", locale)
                 .add("properties", properties)
@@ -277,6 +287,7 @@ public class ClientSession
         private URI server;
         private String user;
         private String source;
+        private Optional<String> traceToken;
         private Set<String> clientTags;
         private String clientInfo;
         private String catalog;
@@ -301,6 +312,7 @@ public class ClientSession
             server = clientSession.getServer();
             user = clientSession.getUser();
             source = clientSession.getSource();
+            traceToken = clientSession.getTraceToken();
             clientTags = clientSession.getClientTags();
             clientInfo = clientSession.getClientInfo();
             catalog = clientSession.getCatalog();
@@ -398,6 +410,7 @@ public class ClientSession
                     server,
                     user,
                     source,
+                    traceToken,
                     clientTags,
                     clientInfo,
                     catalog,

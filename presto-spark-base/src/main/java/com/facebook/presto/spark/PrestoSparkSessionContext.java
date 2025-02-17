@@ -51,6 +51,7 @@ public class PrestoSparkSessionContext
 
     private final Map<String, String> systemProperties;
     private final Map<String, Map<String, String>> catalogSessionProperties;
+    private final Optional<String> traceToken;
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
     public static PrestoSparkSessionContext createFromSessionInfo(
@@ -83,7 +84,8 @@ public class PrestoSparkSessionContext
                 prestoSparkSession.getTimeZoneId().orElse(null),
                 prestoSparkSession.getLanguage().orElse(null),
                 prestoSparkSession.getSystemProperties(),
-                prestoSparkSession.getCatalogSessionProperties());
+                prestoSparkSession.getCatalogSessionProperties(),
+                prestoSparkSession.getTraceToken());
     }
 
     public PrestoSparkSessionContext(
@@ -97,7 +99,8 @@ public class PrestoSparkSessionContext
             String timeZoneId,
             String language,
             Map<String, String> systemProperties,
-            Map<String, Map<String, String>> catalogSessionProperties)
+            Map<String, Map<String, String>> catalogSessionProperties,
+            Optional<String> traceToken)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.catalog = catalog;
@@ -110,6 +113,7 @@ public class PrestoSparkSessionContext
         this.language = language;
         this.systemProperties = ImmutableMap.copyOf(requireNonNull(systemProperties, "systemProperties is null"));
         this.catalogSessionProperties = ImmutableMap.copyOf(requireNonNull(catalogSessionProperties, "catalogSessionProperties is null"));
+        this.traceToken = requireNonNull(traceToken, "traceToken is null");
     }
 
     @Override
@@ -210,6 +214,12 @@ public class PrestoSparkSessionContext
     {
         // presto on spark does not support explicit transaction management
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     @Override

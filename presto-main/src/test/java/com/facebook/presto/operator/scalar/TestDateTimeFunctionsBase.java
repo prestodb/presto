@@ -167,6 +167,7 @@ public abstract class TestDateTimeFunctionsBase
                         "test",
                         new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
                         Optional.empty(),
+                        Optional.empty(),
                         timeZoneKey,
                         US,
                         instant,

@@ -68,6 +68,7 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SOURCE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.server.security.ServletSecurityUtils.authorizedIdentity;
@@ -98,6 +99,7 @@ public final class HttpRequestSessionContext
     private final List<X509Certificate> certificates;
 
     private final String source;
+    private final Optional<String> traceToken;
     private final String userAgent;
     private final String remoteUserAddress;
     private final String timeZoneId;
@@ -209,18 +211,8 @@ public final class HttpRequestSessionContext
         this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
 
-        Map<String, String> requestHeaders = getRequestHeaders(servletRequest);
-    }
-
-    private static Map<String, String> getRequestHeaders(HttpServletRequest servletRequest)
-    {
-        ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
-        Enumeration<String> headerNames = servletRequest.getHeaderNames();
-        while (headerNames.hasMoreElements()) {
-            String header = headerNames.nextElement();
-            headers.put(header, servletRequest.getHeader(header));
-        }
-        return headers.build();
+        String tunnelTraceId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN));
+        traceToken = Optional.ofNullable(tunnelTraceId);
     }
 
     public static List<String> splitSessionHeader(Enumeration<String> headers)
@@ -484,6 +476,12 @@ public final class HttpRequestSessionContext
     public Map<SqlFunctionId, SqlInvokedFunction> getSessionFunctions()
     {
         return sessionFunctions;
+    }
+
+    @Override
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
     }
 
     @Override

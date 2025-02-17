@@ -121,6 +121,12 @@ public class FullConnectorSession
     }
 
     @Override
+    public Optional<String> getTraceToken()
+    {
+        return session.getTraceToken();
+    }
+
+    @Override
     public Optional<String> getClientInfo()
     {
         return session.getClientInfo();
@@ -173,6 +179,7 @@ public class FullConnectorSession
                 .add("queryId", getQueryId())
                 .add("user", getUser())
                 .add("source", getSource().orElse(null))
+                .add("traceToken", getTraceToken().orElse(null))
                 .add("timeZoneKey", getTimeZoneKey())
                 .add("locale", getLocale())
                 .add("startTime", getStartTime())

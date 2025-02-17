@@ -14,14 +14,15 @@
 package com.facebook.presto.opentelemetry.tracing;
 
 import com.facebook.presto.common.TelemetryConfig;
-import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.context.Scope;
 
 import java.util.Objects;
 
 /**
- * The type Scoped span.
+ * ScopedSpan implements BaseSpan and holds the actual sdk span.
+ * ScopedSpan implements AutoCloseable and can be used within a try-with-resources block.
  */
 public final class ScopedSpan
         implements BaseSpan

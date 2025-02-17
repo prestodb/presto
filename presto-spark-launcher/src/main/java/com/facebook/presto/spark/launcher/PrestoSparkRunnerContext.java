@@ -40,6 +40,7 @@ public class PrestoSparkRunnerContext
     private final Optional<String> sqlLocation;
     private final Optional<String> sqlFileHexHash;
     private final Optional<String> sqlFileSizeInBytes;
+    private final Optional<String> traceToken;
     private final Optional<String> sparkQueueName;
     private final Optional<String> queryStatusInfoOutputLocation;
     private final Optional<String> queryDataOutputLocation;
@@ -61,6 +62,7 @@ public class PrestoSparkRunnerContext
             Optional<String> sqlLocation,
             Optional<String> sqlFileHexHash,
             Optional<String> sqlFileSizeInBytes,
+            Optional<String> traceToken,
             Optional<String> sparkQueueName,
             Optional<String> queryStatusInfoOutputLocation,
             Optional<String> queryDataOutputLocation,
@@ -81,6 +83,7 @@ public class PrestoSparkRunnerContext
         this.sqlLocation = sqlLocation;
         this.sqlFileHexHash = sqlFileHexHash;
         this.sqlFileSizeInBytes = sqlFileSizeInBytes;
+        this.traceToken = traceToken;
         this.sparkQueueName = sparkQueueName;
         this.queryStatusInfoOutputLocation = queryStatusInfoOutputLocation;
         this.queryDataOutputLocation = queryDataOutputLocation;
@@ -162,6 +165,11 @@ public class PrestoSparkRunnerContext
         return sqlFileSizeInBytes;
     }
 
+    public Optional<String> getTraceToken()
+    {
+        return traceToken;
+    }
+
     public Optional<String> getSparkQueueName()
     {
         return sparkQueueName;
@@ -199,6 +207,7 @@ public class PrestoSparkRunnerContext
         private Optional<String> sqlLocation;
         private Optional<String> sqlFileHexHash;
         private Optional<String> sqlFileSizeInBytes;
+        private Optional<String> traceToken;
         private Optional<String> sparkQueueName;
         private Optional<String> queryStatusInfoOutputLocation;
         private Optional<String> queryDataOutputLocation;
@@ -221,6 +230,7 @@ public class PrestoSparkRunnerContext
             this.sqlLocation = prestoSparkRunnerContext.getSqlLocation();
             this.sqlFileHexHash = prestoSparkRunnerContext.getSqlFileHexHash();
             this.sqlFileSizeInBytes = prestoSparkRunnerContext.getSqlFileSizeInBytes();
+            this.traceToken = prestoSparkRunnerContext.getTraceToken();
             this.sparkQueueName = prestoSparkRunnerContext.getSparkQueueName();
             this.queryStatusInfoOutputLocation = prestoSparkRunnerContext.getQueryStatusInfoOutputLocation();
             this.queryDataOutputLocation = prestoSparkRunnerContext.getQueryDataOutputLocation();
@@ -251,6 +261,7 @@ public class PrestoSparkRunnerContext
                     sqlLocation,
                     sqlFileHexHash,
                     sqlFileSizeInBytes,
+                    traceToken,
                     sparkQueueName,
                     queryStatusInfoOutputLocation,
                     queryDataOutputLocation,

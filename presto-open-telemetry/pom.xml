@@ -130,19 +130,4 @@
         </dependency>
 
     </dependencies>
-    
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <ignoredUsedUndeclaredDependencies>
-                        <ignoredUsedUndeclaredDependency>io.opentelemetry:opentelemetry-api:jar:1.38.0</ignoredUsedUndeclaredDependency>
-                    </ignoredUsedUndeclaredDependencies>
-                </configuration>
-            </plugin>
-
-        </plugins>
-    </build>
 </project>

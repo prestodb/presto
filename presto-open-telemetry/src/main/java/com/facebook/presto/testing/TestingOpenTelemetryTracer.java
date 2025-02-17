@@ -14,8 +14,8 @@
 package com.facebook.presto.testing;
 
 import com.facebook.presto.common.TelemetryConfig;
-import com.facebook.presto.opentelemetry.OpenTelemetryTracingImpl;
-import com.facebook.presto.spi.testing.TestingTelemetryTracing;
+import com.facebook.presto.opentelemetry.OpenTelemetryTracer;
+import com.facebook.presto.spi.testing.TestingTracer;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.baggage.propagation.W3CBaggagePropagator;
 import io.opentelemetry.api.common.AttributeKey;
@@ -33,8 +33,8 @@ import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 
 import java.util.List;
 
-public class TestingOpenTelemetryTracing
-        extends OpenTelemetryTracingImpl implements TestingTelemetryTracing
+public class TestingOpenTelemetryTracer
+        extends OpenTelemetryTracer implements TestingTracer
 {
     private static OpenTelemetry openTelemetry = OpenTelemetry.noop();
 
@@ -61,8 +61,8 @@ public class TestingOpenTelemetryTracing
 
         if (TelemetryConfig.getTracingEnabled()) {
             tracer = openTelemetry.getTracer("sdk in mem tracer");
-            OpenTelemetryTracingImpl.setOpenTelemetry(openTelemetry);
-            OpenTelemetryTracingImpl.setTracer(tracer);
+            OpenTelemetryTracer.setOpenTelemetry(openTelemetry);
+            OpenTelemetryTracer.setTracer(tracer);
         }
     }
 
