@@ -33,12 +33,12 @@ export default function PlanView({show, data}) {
         const stageRootNodeId = "stage-" + stage.id + "-root";
         const color = getStageStateColor(stage);
 
-        graph.setNode(clusterId, { style: 'fill: ' + color, labelStyle: 'fill: #fff' });
+        graph.setNode(clusterId, { style: 'fill: ' + color, labelStyle: 'fill: #fff', class: 'text-center' });
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
         const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage} />);
 
-        graph.setNode(stageRootNodeId, { class: "stage-stats", label: html, labelType: "html" });
+        graph.setNode(stageRootNodeId, { class: "stage-stats text-center", label: html, labelType: "html" });
         graph.setParent(stageRootNodeId, clusterId);
         graph.setEdge("node-" + stage.root, stageRootNodeId, { style: "visibility: hidden" });
 
@@ -46,7 +46,7 @@ export default function PlanView({show, data}) {
             const nodeId = "node-" + node.id;
             const nodeHtml = ReactDOMServer.renderToString(<PlanNode {...node} />);
 
-            graph.setNode(nodeId, { label: nodeHtml, style: 'fill: #fff', labelType: "html" });
+            graph.setNode(nodeId, { label: nodeHtml, style: 'fill: #fff', labelType: "html", class: 'text-center' });
             graph.setParent(nodeId, clusterId);
 
             node.sources.forEach(source => {
@@ -54,7 +54,7 @@ export default function PlanView({show, data}) {
             });
 
             if (node.remoteSources.length > 0) {
-                graph.setNode(nodeId, { label: '', shape: "circle" });
+                graph.setNode(nodeId, { label: '', shape: "circle", class: 'text-center' });
 
                 node.remoteSources.forEach(sourceId => {
                     const source = allStages.get(sourceId);

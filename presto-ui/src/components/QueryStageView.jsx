@@ -529,15 +529,15 @@ export default function StageView({ data, show }) {
                         <div className="col-2 align-self-end">
                             <div className="stage-dropdown" role="group">
                                 <div className="btn-group">
-                                    <button type="button" className="btn btn-secondary dropdown-toggle"
+                                    <button type="button" className="btn btn-secondary dropdown-toggle bg-white text-dark"
                                         data-bs-toggle="dropdown" aria-haspopup="true"
                                         aria-expanded="false">Select Stage<span className="caret"/>
                                     </button>
-                                    <ul className="dropdown-menu">
+                                    <ul className="dropdown-menu bg-white">
                                         {
                                             allStages.map(stageId => (
                                                 <li key={stageId}>
-                                                    <a className={clsx('dropdown-item', stage.plan.id === stageId && 'active')}
+                                                    <a className={clsx('dropdown-item text-dark', stage.plan.id === stageId && 'selected')}
                                                         onClick={() => setState({selectedStageId: stageId})}>{stageId}</a>
                                                 </li>
                                             ))
