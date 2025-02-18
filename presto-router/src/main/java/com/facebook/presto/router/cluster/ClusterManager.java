@@ -90,45 +90,6 @@ public class ClusterManager
         });
     }
 
-    @PostConstruct
-    public void startConfigReloadTask()
-    {
-        File routerConfigFile = new File(routerConfig.getConfigFile());
-        //ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduledExecutorService.scheduleAtFixedRate(() -> {
-            long newConfigUpdateTime = routerConfigFile.lastModified();
-            if (lastConfigUpdate.get() != newConfigUpdateTime) {
-                RouterSpec routerSpec = parseRouterConfig(routerConfig)
-                        .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
-                this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
-                this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
-                this.schedulerType = routerSpec.getSchedulerType();
-                this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
-                this.initializeServerWeights();
-                this.initializeMembersDiscoveryURI();
-                List<URI> allClusters = getAllClusters();
-                allClusters.forEach(uri -> {
-                    if (!remoteClusterInfos.containsKey(uri)) {
-                        log.info("Attaching cluster %s to the router", uri.getHost());
-                        remoteClusterInfos.put(uri, remoteInfoFactory.createRemoteClusterInfo(discoveryURIs.get(uri)));
-                        remoteQueryInfos.put(uri, remoteInfoFactory.createRemoteQueryInfo(discoveryURIs.get(uri)));
-                        log.info("Successfully attached cluster %s to the router. Queries will be routed to cluster after successful health check", uri.getHost());
-                    }
-                });
-                for (URI uri : remoteClusterInfos.keySet()) {
-                    if (!allClusters.contains(uri)) {
-                        log.info("Removing cluster %s from the router", uri.getHost());
-                        remoteClusterInfos.remove(uri);
-                        remoteQueryInfos.remove(uri);
-                        discoveryURIs.remove(uri);
-                        log.info("Successfully removed cluster %s from the router", uri.getHost());
-                    }
-                }
-                lastConfigUpdate.set(newConfigUpdateTime);
-            }
-        }, 0L, (long) 5, TimeUnit.SECONDS);
-    }
-
     public List<URI> getAllClusters()
     {
         return groups.values().stream()
