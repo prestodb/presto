@@ -29,11 +29,19 @@ import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.WatchKey;
+import java.nio.file.WatchService;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -126,6 +134,59 @@ public class ClusterManager
                 lastConfigUpdate.set(newConfigUpdateTime);
             }
         }, 0L, 5L, TimeUnit.SECONDS);
+
+    }
+
+    public void startConfigReloadTaskFileWatcher()
+    {
+        CompletableFuture.supplyAsync(() -> {
+            try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
+                File routerConfigFile = new File(routerConfig.getConfigFile());
+                Path parentDir = routerConfigFile.toPath().getParent();
+                parentDir.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
+
+                while (true) {
+                    WatchKey key = watchService.take();
+                    for (WatchEvent<?> event : key.pollEvents()) {
+                        Path changed = (Path) event.context();
+                        if (changed.endsWith(routerConfigFile.getName())) {
+                            RouterSpec routerSpec = parseRouterConfig(routerConfig)
+                                    .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
+                            this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
+                            this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
+                            this.schedulerType = routerSpec.getSchedulerType();
+                            this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
+                            this.initializeServerWeights();
+                            this.initializeMembersDiscoveryURI();
+                            List<URI> allClusters = getAllClusters();
+
+                            allClusters.forEach(uri -> {
+                                if (!remoteClusterInfos.containsKey(uri)) {
+                                    log.info("Attaching cluster %s to the router", uri.getHost());
+                                    remoteClusterInfos.put(uri, remoteInfoFactory.createRemoteClusterInfo(discoveryURIs.get(uri)));
+                                    remoteQueryInfos.put(uri, remoteInfoFactory.createRemoteQueryInfo(discoveryURIs.get(uri)));
+                                    log.info("Successfully attached cluster %s to the router. Queries will be routed to cluster after successful health check", uri.getHost());
+                                }
+                            });
+
+                            for (URI uri : remoteClusterInfos.keySet()) {
+                                if (!allClusters.contains(uri)) {
+                                    log.info("Removing cluster %s from the router", uri.getHost());
+                                    remoteClusterInfos.remove(uri);
+                                    remoteQueryInfos.remove(uri);
+                                    discoveryURIs.remove(uri);
+                                    log.info("Successfully removed cluster %s from the router", uri.getHost());
+                                }
+                            }
+                        }
+                        key.reset();
+                    }
+                }
+            }
+            catch (IOException | InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     public List<URI> getAllClusters()
