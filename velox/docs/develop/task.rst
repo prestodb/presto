@@ -180,7 +180,7 @@ one per ExchangeNode. Task is passing the reference to the shared
 ExchangeClient for the corresponding ExchangeNode when creating Exchange
 operators.
 
-The following diagram shows the first Exhange operator (driverId == 0) fetching
+The following diagram shows the first Exchange operator (driverId == 0) fetching
 splits from the Task and initializing ExchangeClient, then all Exchange
 operators fetching data from the shared ExchangeClient. For each split,
 ExchangeClient creates an ExchangeSource which pulls data for a single
