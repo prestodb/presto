@@ -67,6 +67,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY;
+import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
@@ -106,6 +108,8 @@ public class AbstractAnalyzerTest
     protected static final Session CLIENT_SESSION = testSessionBuilder()
             .setCatalog(TPCH_CATALOG)
             .setSchema("s1")
+            .setSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, "true")
+            .setSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, "true")
             .build();
 
     protected static final SqlInvokedFunction SQL_FUNCTION_SQUARE = new SqlInvokedFunction(
@@ -353,6 +357,49 @@ public class AbstractAnalyzerTest
                 new SchemaTableName("s1", "v5"),
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata5, viewData5, false));
+
+
+        String viewData6 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select a,b,c from t1",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(
+                                new ViewDefinition.ViewColumn("a", BIGINT),
+                                new ViewDefinition.ViewColumn("b", BIGINT),
+                                new ViewDefinition.ViewColumn("c", BIGINT)),
+                        Optional.empty(),
+                        true));
+        ConnectorTableMetadata viewMetadata6 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v6"),
+                ImmutableList.of(
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT),
+                        new ColumnMetadata("c", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata6, viewData6, false));
+
+
+        String viewData7 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select x,y,z from t13",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(
+                                new ViewDefinition.ViewColumn("x", BIGINT),
+                                new ViewDefinition.ViewColumn("y", BIGINT),
+                                new ViewDefinition.ViewColumn("z", BIGINT)),
+                        Optional.empty(),
+                        true));
+        ConnectorTableMetadata viewMetadata7 = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v7"),
+                ImmutableList.of(
+                        new ColumnMetadata("x", BIGINT),
+                        new ColumnMetadata("y", BIGINT),
+                        new ColumnMetadata("z", BIGINT)));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata7, viewData7, false));
+
+
+
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)

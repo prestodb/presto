@@ -45,6 +45,9 @@ public class TestUtilizedColumnsAnalyzer
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b")));
     }
 
+
+
+
     @Test
     public void testCountStar()
     {
@@ -517,6 +520,17 @@ public class TestUtilizedColumnsAnalyzer
         // Prune column reference in UDF in select
         assertUtilizedTableColumns("SELECT mycolumn FROM (SELECT a as mycolumn, unittest.memory.square(b) FROM t1)",
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
+    }
+
+
+
+
+    public void testInvokerView()
+    {
+        assertUtilizedTableColumns("SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.x = v6.b",
+                ImmutableMap.of(
+                        QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of(),
+                        QualifiedObjectName.valueOf("tpch.s1.v6"), ImmutableSet.of("a", "c")));
     }
 
     private void assertUtilizedTableColumns(@Language("SQL") String query, Map<QualifiedObjectName, Set<String>> expected)
