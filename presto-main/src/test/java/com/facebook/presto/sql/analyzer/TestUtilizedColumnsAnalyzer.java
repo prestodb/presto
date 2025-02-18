@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static org.junit.Assert.assertTrue;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -524,14 +525,21 @@ public class TestUtilizedColumnsAnalyzer
 
 
 
-
-    public void testInvokerView()
-    {
-        assertUtilizedTableColumns("SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.x = v6.b",
-                ImmutableMap.of(
-                        QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of(),
-                        QualifiedObjectName.valueOf("tpch.s1.v6"), ImmutableSet.of("a", "c")));
+    public void testInvokerView() {
+        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.x = v6.b";
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(CLIENT_SESSION, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    Analysis analysis = analyzer.analyze(statement);
+                    assertEquals(analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl().values().toString(), "[{tpch.s1.v6=[b, a, c], tpch.s1.v7=[y, x]}, {tpch.s1.t1=[]}, {tpch.s1.t13=[]}]");
+                });
     }
+
+
 
     private void assertUtilizedTableColumns(@Language("SQL") String query, Map<QualifiedObjectName, Set<String>> expected)
     {
