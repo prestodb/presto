@@ -54,7 +54,7 @@ public abstract class RemoteState
     private final AtomicLong lastWarningLogged = new AtomicLong();
     private final long secondsToUnhealthy;
 
-    private Boolean isHealthy = false;
+    private boolean isHealthy = false;
     private long lastHealthyResponseTime;
 
     @Inject
@@ -126,7 +126,7 @@ public abstract class RemoteState
         }
     }
 
-    public Boolean isHealthy()
+    public boolean isHealthy()
     {
         return isHealthy;
     }
