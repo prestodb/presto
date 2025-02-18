@@ -657,18 +657,18 @@ void AggregationFuzzerBase::Stats::updateReferenceQueryStats(
 }
 
 void AggregationFuzzerBase::Stats::print(size_t numIterations) const {
-  LOG(INFO) << "Total functions tested: " << functionNames.size();
-  LOG(INFO) << "Total iterations requiring sorted inputs: "
-            << printPercentageStat(numSortedInputs, numIterations);
-  LOG(INFO) << "Total iterations verified against reference DB: "
-            << printPercentageStat(numVerified, numIterations);
-  LOG(INFO)
+  LOG(ERROR) << "Total functions tested: " << functionNames.size();
+  LOG(ERROR) << "Total iterations requiring sorted inputs: "
+             << printPercentageStat(numSortedInputs, numIterations);
+  LOG(ERROR) << "Total iterations verified against reference DB: "
+             << printPercentageStat(numVerified, numIterations);
+  LOG(ERROR)
       << "Total functions not verified (verification skipped / not supported by reference DB / reference DB failed): "
       << printPercentageStat(numVerificationSkipped, numIterations) << " / "
       << printPercentageStat(numReferenceQueryNotSupported, numIterations)
       << " / " << printPercentageStat(numReferenceQueryFailed, numIterations);
-  LOG(INFO) << "Total failed functions: "
-            << printPercentageStat(numFailed, numIterations);
+  LOG(ERROR) << "Total failed functions: "
+             << printPercentageStat(numFailed, numIterations);
 }
 
 std::string printPercentageStat(size_t n, size_t total) {
@@ -676,28 +676,28 @@ std::string printPercentageStat(size_t n, size_t total) {
 }
 
 void printStats(const AggregationFuzzerBase::FunctionsStats& stats) {
-  LOG(INFO) << fmt::format(
+  LOG(ERROR) << fmt::format(
       "Total functions: {} ({} signatures)",
       stats.numFunctions,
       stats.numSignatures);
-  LOG(INFO) << "Functions with at least one supported signature: "
-            << printPercentageStat(
-                   stats.numSupportedFunctions, stats.numFunctions);
+  LOG(ERROR) << "Functions with at least one supported signature: "
+             << printPercentageStat(
+                    stats.numSupportedFunctions, stats.numFunctions);
 
   size_t numNotSupportedFunctions =
       stats.numFunctions - stats.numSupportedFunctions;
-  LOG(INFO) << "Functions with no supported signature: "
-            << printPercentageStat(
-                   numNotSupportedFunctions, stats.numFunctions);
-  LOG(INFO) << "Supported function signatures: "
-            << printPercentageStat(
-                   stats.numSupportedSignatures, stats.numSignatures);
+  LOG(ERROR) << "Functions with no supported signature: "
+             << printPercentageStat(
+                    numNotSupportedFunctions, stats.numFunctions);
+  LOG(ERROR) << "Supported function signatures: "
+             << printPercentageStat(
+                    stats.numSupportedSignatures, stats.numSignatures);
 
   size_t numNotSupportedSignatures =
       stats.numSignatures - stats.numSupportedSignatures;
-  LOG(INFO) << "Unsupported function signatures: "
-            << printPercentageStat(
-                   numNotSupportedSignatures, stats.numSignatures);
+  LOG(ERROR) << "Unsupported function signatures: "
+             << printPercentageStat(
+                    numNotSupportedSignatures, stats.numSignatures);
 }
 
 std::string makeFunctionCall(

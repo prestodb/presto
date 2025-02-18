@@ -215,31 +215,32 @@ void ExpressionFuzzerVerifier::logStats() {
     return left.second.numProcessedRows > right.second.numProcessedRows;
   });
   int maxEntriesLimit = std::min<size_t>(10, entries.size());
-  LOG(INFO) << "==============================> Top " << maxEntriesLimit
-            << " by number of rows processed";
-  LOG(INFO)
+  LOG(ERROR) << "==============================> Top " << maxEntriesLimit
+             << " by number of rows processed";
+  LOG(ERROR)
       << "Format: functionName numTimesSelected proportionOfTimesSelected "
          "numProcessedRows";
   for (int i = 0; i < maxEntriesLimit; i++) {
-    LOG(INFO) << entries[i].first << " " << entries[i].second.numTimesSelected
-              << " " << std::fixed << std::setprecision(2)
-              << (entries[i].second.numTimesSelected * 100.00) / totalSelections
-              << "% " << entries[i].second.numProcessedRows;
+    LOG(ERROR) << entries[i].first << " " << entries[i].second.numTimesSelected
+               << " " << std::fixed << std::setprecision(2)
+               << (entries[i].second.numTimesSelected * 100.00) /
+            totalSelections
+               << "% " << entries[i].second.numProcessedRows;
   }
 
-  LOG(INFO) << "==============================> Bottom " << maxEntriesLimit
-            << " by number of rows processed";
-  LOG(INFO)
+  LOG(ERROR) << "==============================> Bottom " << maxEntriesLimit
+             << " by number of rows processed";
+  LOG(ERROR)
       << "Format: functionName numTimesSelected proportionOfTimesSelected "
          "numProcessedRows";
   for (int i = 0; i < maxEntriesLimit; i++) {
     int idx = entries.size() - 1 - i;
-    LOG(INFO) << entries[idx].first << " "
-              << entries[idx].second.numTimesSelected << " " << std::fixed
-              << std::setprecision(2)
-              << (entries[idx].second.numTimesSelected * 100.00) /
+    LOG(ERROR) << entries[idx].first << " "
+               << entries[idx].second.numTimesSelected << " " << std::fixed
+               << std::setprecision(2)
+               << (entries[idx].second.numTimesSelected * 100.00) /
             totalSelections
-              << "% " << entries[idx].second.numProcessedRows;
+               << "% " << entries[idx].second.numProcessedRows;
   }
 
   // sort by numTimesSelected
@@ -247,16 +248,16 @@ void ExpressionFuzzerVerifier::logStats() {
     return left.second.numTimesSelected > right.second.numTimesSelected;
   });
 
-  LOG(INFO) << "==============================> All stats sorted by number "
-               "of times the function was chosen";
-  LOG(INFO)
+  LOG(ERROR) << "==============================> All stats sorted by number "
+                "of times the function was chosen";
+  LOG(ERROR)
       << "Format: functionName numTimesSelected proportionOfTimesSelected "
          "numProcessedRows";
   for (auto& elem : entries) {
-    LOG(INFO) << elem.first << " " << elem.second.numTimesSelected << " "
-              << std::fixed << std::setprecision(2)
-              << (elem.second.numTimesSelected * 100.00) / totalSelections
-              << "% " << elem.second.numProcessedRows;
+    LOG(ERROR) << elem.first << " " << elem.second.numTimesSelected << " "
+               << std::fixed << std::setprecision(2)
+               << (elem.second.numTimesSelected * 100.00) / totalSelections
+               << "% " << elem.second.numProcessedRows;
   }
 }
 

@@ -1035,18 +1035,18 @@ void AggregationFuzzer::verifyAggregation(
 }
 
 void AggregationFuzzer::Stats::print(size_t numIterations) const {
-  LOG(INFO) << "Total masked aggregations: "
-            << printPercentageStat(numMask, numIterations);
-  LOG(INFO) << "Total global aggregations: "
-            << printPercentageStat(numGlobal, numIterations);
-  LOG(INFO) << "Total group-by aggregations: "
-            << printPercentageStat(numGroupBy, numIterations);
-  LOG(INFO) << "Total distinct aggregations: "
-            << printPercentageStat(numDistinct, numIterations);
-  LOG(INFO) << "Total aggregations over distinct inputs: "
-            << printPercentageStat(numDistinctInputs, numIterations);
-  LOG(INFO) << "Total window expressions: "
-            << printPercentageStat(numWindow, numIterations);
+  LOG(ERROR) << "Total masked aggregations: "
+             << printPercentageStat(numMask, numIterations);
+  LOG(ERROR) << "Total global aggregations: "
+             << printPercentageStat(numGlobal, numIterations);
+  LOG(ERROR) << "Total group-by aggregations: "
+             << printPercentageStat(numGroupBy, numIterations);
+  LOG(ERROR) << "Total distinct aggregations: "
+             << printPercentageStat(numDistinct, numIterations);
+  LOG(ERROR) << "Total aggregations over distinct inputs: "
+             << printPercentageStat(numDistinctInputs, numIterations);
+  LOG(ERROR) << "Total window expressions: "
+             << printPercentageStat(numWindow, numIterations);
   AggregationFuzzerBase::Stats::print(numIterations);
 }
 

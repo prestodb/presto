@@ -891,8 +891,8 @@ void windowFuzzer(
 
 void WindowFuzzer::Stats::print(size_t numIterations) const {
   AggregationFuzzerBase::Stats::print(numIterations);
-  LOG(INFO) << "Total functions verified in reference DB: "
-            << verifiedFunctionNames.size();
+  LOG(ERROR) << "Total functions verified in reference DB: "
+             << verifiedFunctionNames.size();
 }
 
 } // namespace facebook::velox::exec::test
