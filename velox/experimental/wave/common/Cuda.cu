@@ -87,6 +87,7 @@ Device* setDriverDevice(int32_t deviceId) {
     if (cnt == 0) {
       waveError("No Cuda devices found");
     }
+    driverInited = true;
   }
   if (deviceId >= contexts.size()) {
     waveError(fmt::format("Bad device id {}", deviceId));

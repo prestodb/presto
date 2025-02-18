@@ -19,6 +19,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/dwrf/writer/WriterContext.h"
 #include "velox/dwio/parquet/writer/Writer.h"
+#include "velox/experimental/wave/common/Cuda.h"
 #include "velox/experimental/wave/exec/ToWave.h"
 #include "velox/experimental/wave/exec/WaveHiveDataSource.h"
 #include "velox/experimental/wave/exec/tests/utils/FileFormat.h"
@@ -44,6 +45,7 @@ DEFINE_bool(
     true,
     "Generate input data. If false, data_path must "
     "contain a directory with a subdirectory per table.");
+
 DEFINE_bool(dwrf_vints, true, "Use vints in DWRF test dataset");
 
 DEFINE_int64(min_card, 1000, "Lowest cardinality of column");
@@ -467,8 +469,10 @@ int main(int argc, char** argv) {
       "This program benchmarks Wave. Run 'velox_wave_benchmark -helpon=WaveBenchmark' for available options.\n");
   gflags::SetUsageMessage(kUsage);
   folly::Init init{&argc, &argv, false};
-  facebook::velox::wave::printKernels();
   if (FLAGS_wave) {
+    auto device = facebook::velox::wave::getDevice();
+    std::cout << device->toString() << std::endl;
+    facebook::velox::wave::printKernels();
     facebook::velox::wave::CompiledKernel::initialize();
   }
   waveBenchmarkMain();
