@@ -191,7 +191,7 @@ public class SpoolingOutputBuffer
     @Override
     public void addStateChangeListener(StateMachine.StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override

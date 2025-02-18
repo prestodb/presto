@@ -94,20 +94,23 @@ public class StageExecutionStateMachine
 
     private final RuntimeStats runtimeStats = new RuntimeStats();
 
+    private final ExecutorService executorService;
+
     public StageExecutionStateMachine(
             StageExecutionId stageExecutionId,
-            ExecutorService executor,
+            ExecutorService executorService,
             SplitSchedulerStats schedulerStats,
             boolean containsTableScans)
     {
         this.stageExecutionId = requireNonNull(stageExecutionId, "stageId is null");
         this.scheduledStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.containsTableScans = containsTableScans;
+        this.executorService = requireNonNull(executorService, "executorService is null");
 
-        state = new StateMachine<>("stage execution " + stageExecutionId, executor, PLANNED, TERMINAL_STAGE_STATES);
-        state.addStateChangeListener(state -> log.debug("Stage Execution %s is %s", stageExecutionId, state));
+        state = new StateMachine<>("stage execution " + stageExecutionId, PLANNED, TERMINAL_STAGE_STATES);
+        state.addStateChangeListener(state -> log.debug("Stage Execution %s is %s", stageExecutionId, state), executorService);
 
-        finalInfo = new StateMachine<>("final stage execution " + stageExecutionId, executor, Optional.empty());
+        finalInfo = new StateMachine<>("final stage execution " + stageExecutionId, Optional.empty());
     }
 
     public StageExecutionId getStageExecutionId()
@@ -127,7 +130,7 @@ public class StageExecutionStateMachine
      */
     public void addStateChangeListener(StateChangeListener<StageExecutionState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executorService);
     }
 
     public synchronized boolean transitionToScheduling()
@@ -200,7 +203,7 @@ public class StageExecutionStateMachine
                 finalStatusListener.stateChanged(finalStageInfo.get());
             }
         };
-        finalInfo.addStateChangeListener(fireOnceStateChangeListener);
+        finalInfo.addStateChangeListener(fireOnceStateChangeListener, executorService);
     }
 
     public void setAllTasksFinal(Iterable<TaskInfo> finalTaskInfos, int totalLifespans)

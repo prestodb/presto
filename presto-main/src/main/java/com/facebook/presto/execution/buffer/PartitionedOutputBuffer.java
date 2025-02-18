@@ -55,6 +55,8 @@ public class PartitionedOutputBuffer
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
+    private final Executor executor;
+
     public PartitionedOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
@@ -64,7 +66,7 @@ public class PartitionedOutputBuffer
             Executor notificationExecutor)
     {
         this.state = requireNonNull(state, "state is null");
-
+        this.executor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
         checkArgument(outputBuffers.getType() == PARTITIONED, "Expected a PARTITIONED output buffer descriptor");
         checkArgument(outputBuffers.isNoMoreBufferIds(), "Expected a final output buffer descriptor");
@@ -73,7 +75,7 @@ public class PartitionedOutputBuffer
         this.memoryManager = new OutputBufferMemoryManager(
                 requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
-                requireNonNull(notificationExecutor, "notificationExecutor is null"));
+                notificationExecutor);
         this.pageTracker = new LifespanSerializedPageTracker(memoryManager);
 
         ImmutableList.Builder<ClientBuffer> partitions = ImmutableList.builder();
@@ -91,7 +93,7 @@ public class PartitionedOutputBuffer
     @Override
     public void addStateChangeListener(StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override

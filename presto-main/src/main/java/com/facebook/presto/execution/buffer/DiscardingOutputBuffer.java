@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
@@ -41,10 +42,13 @@ public class DiscardingOutputBuffer
     private final AtomicLong totalPagesAdded = new AtomicLong();
     private final AtomicLong totalRowsAdded = new AtomicLong();
 
-    public DiscardingOutputBuffer(OutputBuffers outputBuffers, StateMachine<BufferState> state)
+    private final Executor executor;
+
+    public DiscardingOutputBuffer(OutputBuffers outputBuffers, StateMachine<BufferState> state, Executor executor)
     {
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
         this.state = requireNonNull(state, "state is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -85,7 +89,7 @@ public class DiscardingOutputBuffer
     @Override
     public void addStateChangeListener(StateMachine.StateChangeListener<BufferState> stateChangeListener)
     {
-        state.addStateChangeListener(stateChangeListener);
+        state.addStateChangeListener(stateChangeListener, executor);
     }
 
     @Override
