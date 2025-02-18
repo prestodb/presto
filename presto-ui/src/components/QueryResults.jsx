@@ -49,9 +49,9 @@ export function QueryResults({ results }) {
                 <div className='col-6'>
                     <h3>Results</h3>
                 </div>
-                <div className="col-6">
+                <div className="col-6 mt-2">
                     {results.queryId &&
-                        <a style={{ display: 'block', marginTop: '27px', marginBottom: '10px' }}
+                        <a style={{ display: 'block'}}
                             href={"query.html?" + results.queryId} target="_blank"
                             data-bs-toggle="tooltip" data-trigger="hover" title="Query ID"
                         >

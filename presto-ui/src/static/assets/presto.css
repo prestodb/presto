@@ -127,6 +127,7 @@ pre {
 
 .table > tbody > tr > td {
     border: none;
+    background-color: inherit;
 }
 
 .table > tbody > tr:first-child {
