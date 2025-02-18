@@ -17,10 +17,10 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.iceberg.HiveTableOperations;
 import com.facebook.presto.iceberg.IcebergHiveTableOperationsConfig;
 import com.facebook.presto.iceberg.IcebergUtil;
+import com.facebook.presto.iceberg.hive.IcebergFileHiveMetastore;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -108,7 +108,7 @@ public class TestRemoveOrphanFilesProcedureHive
 
     private ExtendedHiveMetastore getFileHiveMetastore()
     {
-        FileHiveMetastore fileHiveMetastore = new FileHiveMetastore(getHdfsEnvironment(),
+        IcebergFileHiveMetastore fileHiveMetastore = new IcebergFileHiveMetastore(getHdfsEnvironment(),
                 getCatalogDirectory(HIVE).getPath(),
                 "test");
         return memoizeMetastore(fileHiveMetastore, false, 1000, 0);
