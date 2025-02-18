@@ -526,7 +526,7 @@ public class TestUtilizedColumnsAnalyzer
 
 
     public void testInvokerView() {
-        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.x = v6.b";
+        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.y = v6.c";
         transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
@@ -535,7 +535,7 @@ public class TestUtilizedColumnsAnalyzer
                     Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP);
                     Statement statement = SQL_PARSER.createStatement(query);
                     Analysis analysis = analyzer.analyze(statement);
-                    assertEquals(analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl().values().toString(), "[{tpch.s1.v6=[b, a, c], tpch.s1.v7=[y, x]}, {tpch.s1.t1=[]}, {tpch.s1.t13=[]}]");
+                    assertEquals(analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl().values().toString(), "[{tpch.s1.v6=[a, c], tpch.s1.v7=[y]}, {tpch.s1.t1=[]}, {tpch.s1.t13=[]}]");
                 });
     }
 
