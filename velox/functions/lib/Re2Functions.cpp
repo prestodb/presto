@@ -138,20 +138,22 @@ bool re2Extract(
     if (emptyNoMatch) {
       result.setNoCopy(row, StringView(nullptr, 0));
       return true;
-    } else {
-      result.setNull(row, true);
-      return false;
     }
+    result.setNull(row, true);
+    return false;
   } else {
     const re2::StringPiece extracted = groups[groupId];
     // Check if the extracted data is null.
     if (extracted.data()) {
       result.setNoCopy(row, StringView(extracted.data(), extracted.size()));
       return !StringView::isInline(extracted.size());
-    } else {
-      result.setNull(row, true);
-      return false;
     }
+    if (emptyNoMatch) {
+      result.setNoCopy(row, StringView(nullptr, 0));
+      return true;
+    }
+    result.setNull(row, true);
+    return false;
   }
 }
 
@@ -364,6 +366,8 @@ class Re2SearchAndExtractConstantPattern final : public exec::VectorFunction {
 
  private:
   RE2 re_;
+  // If true, returns empty string as result for no match case, which is Spark's
+  // behavior. Otherwise, returns null as result, which is Presto's behavior.
   const bool emptyNoMatch_;
 };
 
