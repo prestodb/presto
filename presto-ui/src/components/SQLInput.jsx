@@ -105,12 +105,12 @@ function SQLDropDown({ text, values, onSelect }) {
 
     return (
         <div className="btn-group">
-            <button type="button" className="btn btn-secondary dropdown-toggle"
+            <button type="button" className="btn btn-secondary dropdown-toggle bg-white text-dark"
                 data-bs-toggle="dropdown" aria-haspopup="true"
                 aria-expanded="false">{text}</button>
-            <ul className="dropdown-menu">
+            <ul className="dropdown-menu bg-white">
                 {items.map((item, idx) => (
-                    <li key={idx}><a href="#" className={clsx('dropdown-item', data.current === item && 'active')} onClick={() => selectItem(item)}>{item}</a></li>
+                    <li key={idx}><a href="#" className={clsx('dropdown-item text-dark', data.current === item && 'selected')} onClick={() => selectItem(item)}>{item}</a></li>
                 ))}
             </ul>
         </div>
