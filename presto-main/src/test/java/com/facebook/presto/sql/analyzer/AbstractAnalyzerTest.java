@@ -358,7 +358,6 @@ public class AbstractAnalyzerTest
                 ImmutableList.of(new ColumnMetadata("a", BIGINT)));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata5, viewData5, false));
 
-
         String viewData6 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a,b,c from t1",
@@ -378,7 +377,6 @@ public class AbstractAnalyzerTest
                         new ColumnMetadata("c", BIGINT)));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata6, viewData6, false));
 
-
         String viewData7 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select x,y,z from t13",
@@ -397,9 +395,6 @@ public class AbstractAnalyzerTest
                         new ColumnMetadata("y", BIGINT),
                         new ColumnMetadata("z", BIGINT)));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata7, viewData7, false));
-
-
-
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)

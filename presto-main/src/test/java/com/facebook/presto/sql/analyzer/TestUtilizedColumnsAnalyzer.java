@@ -25,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
-import static org.junit.Assert.assertTrue;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -45,9 +44,6 @@ public class TestUtilizedColumnsAnalyzer
         assertUtilizedTableColumns("SELECT * FROM (SELECT a + b FROM (SELECT * FROM t1))",
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b")));
     }
-
-
-
 
     @Test
     public void testCountStar()
@@ -523,9 +519,8 @@ public class TestUtilizedColumnsAnalyzer
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
     }
 
-
-
-    public void testInvokerView() {
+    public void testInvokerView()
+    {
         @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.y = v6.c";
         transaction(transactionManager, accessControl)
                 .singleStatement()
@@ -538,8 +533,6 @@ public class TestUtilizedColumnsAnalyzer
                     assertEquals(analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl().values().toString(), "[{tpch.s1.v6=[a, c], tpch.s1.v7=[y]}, {tpch.s1.t1=[]}, {tpch.s1.t13=[]}]");
                 });
     }
-
-
 
     private void assertUtilizedTableColumns(@Language("SQL") String query, Map<QualifiedObjectName, Set<String>> expected)
     {
