@@ -94,8 +94,7 @@ public abstract class RemoteState
             Futures.addCallback(responseFuture, new FutureCallback<FullJsonResponseHandler.JsonResponse<JsonNode>>()
             {
                 @Override
-                public void onSuccess(@Nullable FullJsonResponseHandler.JsonResponse<JsonNode> result)
-                {
+                public void onSuccess(@Nullable FullJsonResponseHandler.JsonResponse<JsonNode> result) {
                     lastUpdateNanos.set(System.nanoTime());
                     future.compareAndSet(responseFuture, null);
                     if (result != null) {
@@ -104,7 +103,6 @@ public abstract class RemoteState
                         }
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching node state from %s returned status code %d", remoteUri, result.getStatusCode());
-                        }
                             if (!isHealthy) {
                                 log.info("%s was unhealthy, and is nowhealthy", remoteUri.getHost());
                             }
@@ -112,6 +110,7 @@ public abstract class RemoteState
                             lastHealthyResponseTime = System.nanoTime();
                         }
                     }
+                }
 
                 @Override
                 public void onFailure(Throwable t)
