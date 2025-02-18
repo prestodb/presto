@@ -105,20 +105,13 @@ public abstract class RemoteState
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching node state from %s returned status code %d", remoteUri, result.getStatusCode());
                         }
- if (!isHealthy) {
-                                log.info("%s was unhealthy, and is nowhealthy", remoteUri.getHost());
-                              
-                            }
-isHealthy = true;
-lastHealthyResponseTime = System.nanoTime();
                             if (!isHealthy) {
-                                log.info("%s marked as healthy", remoteUri.getHost());
-                                isHealthy = true;
+                                log.info("%s was unhealthy, and is nowhealthy", remoteUri.getHost());
                             }
+                            isHealthy = true;
                             lastHealthyResponseTime = System.nanoTime();
                         }
                     }
-                }
 
                 @Override
                 public void onFailure(Throwable t)
