@@ -18,11 +18,11 @@ import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.PartitionMutator;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
-import com.facebook.presto.hive.metastore.HiveMetastoreModule;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
+import com.facebook.presto.iceberg.hive.IcebergHiveMetastoreModule;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 
@@ -48,7 +48,7 @@ public class IcebergHiveModule
     @Override
     public void setup(Binder binder)
     {
-        install(new HiveMetastoreModule(this.connectorId, this.metastore));
+        install(new IcebergHiveMetastoreModule(this.connectorId, this.metastore));
         binder.bind(ExtendedHiveMetastore.class).to(InMemoryCachingHiveMetastore.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(IcebergHiveTableOperationsConfig.class);
 
