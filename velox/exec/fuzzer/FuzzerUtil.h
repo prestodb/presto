@@ -140,6 +140,9 @@ std::unique_ptr<ReferenceQueryRunner> setupReferenceQueryRunner(
     const std::string& runnerName,
     const uint32_t& reqTimeoutMs);
 
+// Logs the input vectors if verbose logging is turned on.
+void logVectors(const std::vector<RowVectorPtr>& vectors);
+
 // Converts 'plan' into an SQL query and runs in the reference DB.
 // Result is returned as a MaterializedRowMultiset with the
 // ReferenceQueryErrorCode::kSuccess if successful, or an std::nullopt with a

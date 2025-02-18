@@ -213,18 +213,6 @@ bool isDone(size_t i, T startTime) {
   return i >= FLAGS_steps;
 }
 
-std::vector<RowVectorPtr> flatten(const std::vector<RowVectorPtr>& vectors) {
-  std::vector<RowVectorPtr> flatVectors;
-  for (const auto& vector : vectors) {
-    auto flat = BaseVector::create<RowVector>(
-        vector->type(), vector->size(), vector->pool());
-    flat->copy(vector.get(), 0, 0, vector->size());
-    flatVectors.push_back(flat);
-  }
-
-  return flatVectors;
-}
-
 std::pair<std::vector<std::string>, std::vector<TypePtr>>
 RowNumberFuzzer::generatePartitionKeys() {
   const auto numKeys = randInt(1, 3);
@@ -404,15 +392,7 @@ void RowNumberFuzzer::addPlansWithTableScan(
 void RowNumberFuzzer::verify() {
   const auto [keyNames, keyTypes] = generatePartitionKeys();
   const auto input = generateInput(keyNames, keyTypes);
-
-  if (VLOG_IS_ON(1)) {
-    // Flatten inputs.
-    const auto flatInput = flatten(input);
-    VLOG(1) << "Input: " << input[0]->toString();
-    for (const auto& v : flatInput) {
-      VLOG(1) << std::endl << v->toString(0, v->size());
-    }
-  }
+  test::logVectors(input);
 
   auto defaultPlan = makeDefaultPlan(keyNames, input);
   const auto expected = execute(defaultPlan, /*injectSpill=*/false);

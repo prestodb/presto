@@ -251,8 +251,6 @@ class AggregationFuzzerBase {
 
   void printSignatureStats();
 
-  void logVectors(const std::vector<RowVectorPtr>& vectors);
-
   const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>
       customVerificationFunctions_;
   const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>

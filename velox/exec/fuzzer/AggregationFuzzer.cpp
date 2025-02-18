@@ -25,11 +25,9 @@
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 #include "velox/exec/PartitionFunction.h"
-#include "velox/exec/fuzzer/AggregationFuzzerBase.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
 #include "velox/expression/fuzzer/FuzzerToolkit.h"
 #include "velox/vector/VectorSaver.h"
-#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 DEFINE_bool(
     enable_sorted_aggregations,
