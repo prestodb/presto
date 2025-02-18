@@ -33,7 +33,6 @@ import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.file.DatabaseMetadata;
-import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastoreConfig;
 import com.facebook.presto.hive.metastore.file.TableMetadata;
 import com.facebook.presto.iceberg.CommitTaskData;
@@ -347,7 +346,7 @@ public class TestRenameTableOnFragileFileSystem
     {
         FileHiveMetastoreConfig config = createFileHiveMetastoreConfig();
         TestingHdfsEnvironment hdfsEnvironment = getTestingHdfsEnvironment();
-        FileHiveMetastore metastore = new FileHiveMetastore(hdfsEnvironment, config);
+        IcebergFileHiveMetastore metastore = new IcebergFileHiveMetastore(hdfsEnvironment, config);
         IcebergHiveMetadata icebergHiveMetadata = (IcebergHiveMetadata) getIcebergHiveMetadata(metastore);
         ExtendedFileSystem fileSystem = hdfsEnvironment.getFileSystem(connectorSession.getUser(), new Path(originSchemaMetadataPath), new Configuration());
         try {
