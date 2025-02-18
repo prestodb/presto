@@ -125,7 +125,7 @@ public class ClusterManager
                 }
                 lastConfigUpdate.set(newConfigUpdateTime);
             }
-        }, 0L, (long) 5, TimeUnit.SECONDS);
+        }, 0L, 5L, TimeUnit.SECONDS);
     }
 
     public List<URI> getAllClusters()
