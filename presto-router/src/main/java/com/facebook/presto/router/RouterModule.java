@@ -80,10 +80,6 @@ public class RouterModule
         bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
         bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
 
-        //Determine the NodeVersion
-        NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
-        binder.bind(NodeVersion.class).toInstance(nodeVersion);
-
         binder.bind(ClusterStatusTracker.class).in(Scopes.SINGLETON);
 
         binder.bind(PredictorManager.class).in(Scopes.SINGLETON);
