@@ -2848,6 +2848,8 @@ download_to_string(const std::string& url, std::string& str)
         return false;
     std::string version;
     curl_easy_setopt(curl.get(), CURLOPT_USERAGENT, "curl");
+    // Use TLS 1.2 or later.
+    curl_easy_setopt(curl.get(), CURLOPT_SSLVERSION, static_cast<long>(CURL_SSLVERSION_TLSv1_2));
     curl_easy_setopt(curl.get(), CURLOPT_URL, url.c_str());
     curl_write_callback write_cb = [](char* contents, std::size_t size, std::size_t nmemb,
                                       void* userp) -> std::size_t
