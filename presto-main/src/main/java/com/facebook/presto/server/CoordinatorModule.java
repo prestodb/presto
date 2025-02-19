@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
+import com.facebook.airlift.http.server.HttpServerBinder.HttpResourceBinding;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
@@ -139,15 +140,23 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class CoordinatorModule
         extends AbstractConfigurationAwareModule
 {
+    private static final String DEFAULT_WEBUI_CSP =
+            "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+            "font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:";
+
+    private HttpResourceBinding webUIBinder(Binder binder, String path, String classPathResourceBase)
+    {
+        return httpServerBinder(binder).bindResource(path, classPathResourceBase)
+                .withExtraHeader(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
+                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, DEFAULT_WEBUI_CSP);
+    }
+
     @Override
     protected void setup(Binder binder)
     {
-        httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html")
-                .withExtraHeader(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
-                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:");
-        httpServerBinder(binder).bindResource("/tableau", "webapp/tableau")
-                .withExtraHeader(HttpHeaders.X_CONTENT_TYPE_OPTIONS, "nosniff")
-                .withExtraHeader(HttpHeaders.CONTENT_SECURITY_POLICY, "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; img-src http: https: data:");
+        webUIBinder(binder, "/ui/dev", "webapp/dev").withWelcomeFile("index.html");
+        webUIBinder(binder, "/ui", "webapp").withWelcomeFile("index.html");
+        webUIBinder(binder, "/tableau", "webapp/tableau");
 
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
