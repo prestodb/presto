@@ -15,6 +15,7 @@ package com.facebook.presto.metadata;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -85,23 +86,12 @@ public class StaticCatalogStore
         catalogsLoaded.set(true);
     }
 
-    private void loadCatalog(File file)
-            throws Exception
+    public ConnectorId loadCatalog(String catalogName, Map<String, String> properties)
     {
-        String catalogName = Files.getNameWithoutExtension(file.getName());
-
-        log.info("-- Loading catalog properties %s --", file);
-        Map<String, String> properties = loadProperties(file);
-        checkState(properties.containsKey("connector.name"), "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
-
-        loadCatalog(catalogName, properties);
-    }
-
-    private void loadCatalog(String catalogName, Map<String, String> properties)
-    {
+        ConnectorId connectorId = null;
         if (disabledCatalogs.contains(catalogName)) {
             log.info("Skipping disabled catalog %s", catalogName);
-            return;
+            return connectorId;
         }
 
         log.info("-- Loading catalog %s --", catalogName);
@@ -119,8 +109,26 @@ public class StaticCatalogStore
 
         checkState(connectorName != null, "Configuration for catalog %s does not contain connector.name", catalogName);
 
-        connectorManager.createConnection(catalogName, connectorName, connectorProperties.build());
+        connectorId = connectorManager.createConnection(catalogName, connectorName, connectorProperties.build());
         log.info("-- Added catalog %s using connector %s --", catalogName, connectorName);
+        return connectorId;
+    }
+
+    public void dropConnection(String catalogName)
+    {
+        connectorManager.dropConnection(catalogName);
+    }
+
+    private void loadCatalog(File file)
+            throws Exception
+    {
+        String catalogName = Files.getNameWithoutExtension(file.getName());
+
+        log.info("-- Loading catalog properties %s --", file);
+        Map<String, String> properties = loadProperties(file);
+        checkState(properties.containsKey("connector.name"), "Catalog configuration %s does not contain connector.name", file.getAbsoluteFile());
+
+        loadCatalog(catalogName, properties);
     }
 
     private static List<File> listFiles(File installedPluginsDir)

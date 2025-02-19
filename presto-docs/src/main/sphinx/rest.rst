@@ -12,4 +12,5 @@ This chapter outlines the REST API resources available in Presto.
     rest/stage
     rest/statement
     rest/task
+    rest/catalog
 

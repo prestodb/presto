@@ -762,6 +762,9 @@ public class ServerMainModule
         jaxrsBinder(binder).bind(StatusResource.class);
         jsonCodecBinder(binder).bindJsonCodec(NodeStatus.class);
 
+        // dynamic catalog resource
+        jaxrsBinder(binder).bind(CatalogResource.class);
+
         // plugin manager
         binder.bind(PluginManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PluginManagerConfig.class);
