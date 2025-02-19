@@ -66,7 +66,7 @@ public class RouterModule
         configBinder(binder).bindConfig(RouterConfig.class);
 
         configBinder(binder).bindConfig(RemoteStateConfig.class);
-        configBinder(binder).bindConfigDefaults(RemoteStateConfig.class, config -> config.setSecondsToUnhealthy(30));
+        configBinder(binder).bindConfigDefaults(RemoteStateConfig.class, config -> config.setTimeToUnhealthy(java.time.Duration.ofSeconds(30)));
 
         // resource for serving static content
         jaxrsBinder(binder).bind(WebUiResource.class);
