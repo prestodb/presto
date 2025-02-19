@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.execution.Lifespan;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy;
@@ -29,14 +30,20 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.TableProperties;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.AFFINITY_SCHEDULING_FILE_SECTION_SIZE;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.NODE_SELECTION_STRATEGY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.TARGET_SPLIT_SIZE;
@@ -179,13 +186,13 @@ public class TestIcebergSplitManager
                 Long.toString(TableProperties.SPLIT_SIZE_DEFAULT));
         assertQuerySucceeds("ALTER TABLE test_split_size SET PROPERTIES (\"read.split.target-size\" = 1)");
         String selectQuery = "SELECT * FROM test_split_size";
-        long maxSplits = getSplitsForSql(session, selectQuery);
+        long maxSplits = getSplitsForSql(session, selectQuery).size();
 
         IntStream.range(1, 5)
                 .mapToObj(i -> Math.pow(2, i))
                 .forEach(splitSize -> {
                     assertQuerySucceeds("ALTER TABLE test_split_size SET PROPERTIES (\"read.split.target-size\" =" + splitSize.intValue() + ")");
-                    assertEquals(getSplitsForSql(session, selectQuery), (double) maxSplits / splitSize, 5);
+                    assertEquals(getSplitsForSql(session, selectQuery).size(), (double) maxSplits / splitSize, 5);
                 });
         // split size should be set to 32 on the table property.
         // Set it to 1 with the session property to override the table value and verify we get the
@@ -193,8 +200,39 @@ public class TestIcebergSplitManager
         Session minSplitSession = Session.builder(session)
                 .setCatalogSessionProperty("iceberg", TARGET_SPLIT_SIZE, "1")
                 .build();
-        assertEquals(getSplitsForSql(minSplitSession, selectQuery), maxSplits);
+        assertEquals(getSplitsForSql(minSplitSession, selectQuery).size(), maxSplits);
         assertQuerySucceeds("DROP TABLE test_split_size");
+    }
+
+    @Test
+    public void testSoftAffinitySchedulingSectionConfig()
+    {
+        Session maxIdentifiers = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", AFFINITY_SCHEDULING_FILE_SECTION_SIZE, "1B")
+                .setCatalogSessionProperty("iceberg", TARGET_SPLIT_SIZE, "1")
+                .setCatalogSessionProperty("iceberg", NODE_SELECTION_STRATEGY, "SOFT_AFFINITY")
+                .build();
+        assertQuerySucceeds("CREATE TABLE test_affinity_section_scheduling as SELECT * FROM UNNEST(sequence(1, 512)) as t(i)");
+        String selectQuery = "SELECT * FROM test_affinity_section_scheduling";
+        Function<Session, Set<String>> getIdentifiers = (session) -> {
+            List<Split> splits = getSplitsForSql(session, selectQuery);
+            Set<String> allIdentifiers = new HashSet<>();
+            splits.stream().map(Split::getConnectorSplit)
+                    .forEach(connectorSplit -> connectorSplit.getPreferredNodes(identifier -> {
+                        allIdentifiers.add(identifier);
+                        return ImmutableList.of();
+                    }));
+            return allIdentifiers;
+        };
+        Set<String> maxSplitsIds = getIdentifiers.apply(maxIdentifiers);
+        Set<String> halfSplitIds = getIdentifiers.apply(Session.builder(maxIdentifiers)
+                .setCatalogSessionProperty("iceberg", AFFINITY_SCHEDULING_FILE_SECTION_SIZE, "2B").build());
+        assertEquals((double) halfSplitIds.size() / maxSplitsIds.size(), 0.5, 1E-10);
+
+        Set<String> singleSplitId = getIdentifiers.apply(Session.builder(maxIdentifiers)
+                .setCatalogSessionProperty("iceberg", AFFINITY_SCHEDULING_FILE_SECTION_SIZE, "1GB").build());
+        assertEquals(singleSplitId.size(), 1);
+        assertQuerySucceeds("DROP TABLE test_affinity_section_scheduling");
     }
 
     private Session sessionWithFilterPushdown(boolean pushdown)
@@ -204,7 +242,7 @@ public class TestIcebergSplitManager
                 .build();
     }
 
-    private long getSplitsForSql(Session session, String sql)
+    private List<Split> getSplitsForSql(Session session, String sql)
     {
         TransactionManager transactionManager = getQueryRunner().getTransactionManager();
         SplitManager splitManager = getQueryRunner().getSplitManager();
@@ -223,12 +261,12 @@ public class TestIcebergSplitManager
                 tableHandle.getDynamicFilter());
 
         try (SplitSource splitSource = splitManager.getSplits(session, newTableHandle, SplitSchedulingStrategy.UNGROUPED_SCHEDULING, WarningCollector.NOOP)) {
-            int splits = 0;
+            ImmutableList.Builder<Split> splits = ImmutableList.builder();
             while (!splitSource.isFinished()) {
-                splits += splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1024).get().getSplits().size();
+                splits.addAll(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1024).get().getSplits());
             }
             assertTrue(splitSource.isFinished());
-            return splits;
+            return splits.build();
         }
         catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);

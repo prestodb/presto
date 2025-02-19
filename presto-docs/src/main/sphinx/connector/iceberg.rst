@@ -428,6 +428,14 @@ Property Name                                         Description
 ``iceberg.target_split_size``                         Overrides the target split size for all tables in a query in bytes.
                                                       Set to 0 to use the value in each Iceberg table's
                                                       ``read.split.target-size`` property.
+``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or
+                                                      ``hive.node-selection-strategy`` property is set to ``SOFT_AFFINITY``,
+                                                      this configuration property will change the size of a file chunk that
+                                                      is hashed to a particular node when determining the which worker to
+                                                      assign a split to. Splits which read data from the same file within
+                                                      the same chunk will hash to the same node. A smaller chunk size will
+                                                      result in a higher probability splits being distributed evenly across
+                                                      the cluster, but reduce locality.
 ===================================================== ======================================================================
 
 Caching Support
