@@ -153,14 +153,19 @@ import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DEL
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
+import static com.facebook.presto.iceberg.IcebergUtil.getMetadataPreviousVersionsMax;
+import static com.facebook.presto.iceberg.IcebergUtil.getMetricsMaxInferredColumn;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionSpecsIncludingValidData;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdTimeOperator;
 import static com.facebook.presto.iceberg.IcebergUtil.getSortFields;
+import static com.facebook.presto.iceberg.IcebergUtil.getSplitSize;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
+import static com.facebook.presto.iceberg.IcebergUtil.getUpdateMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
+import static com.facebook.presto.iceberg.IcebergUtil.isMetadataDeleteAfterCommit;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
@@ -188,6 +193,7 @@ import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatistic
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardWarningCode.SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING;
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -204,6 +210,7 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 
 public abstract class IcebergAbstractMetadata
         implements ConnectorMetadata
@@ -716,12 +723,17 @@ public abstract class IcebergAbstractMetadata
             properties.put(LOCATION_PROPERTY, icebergTable.location());
         }
 
-        properties.put(DELETE_MODE, IcebergUtil.getDeleteMode(icebergTable));
-        properties.put(UPDATE_MODE, IcebergUtil.getUpdateMode(icebergTable));
-        properties.put(METADATA_PREVIOUS_VERSIONS_MAX, IcebergUtil.getMetadataPreviousVersionsMax(icebergTable));
-        properties.put(METADATA_DELETE_AFTER_COMMIT, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
-        properties.put(METRICS_MAX_INFERRED_COLUMN, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
-        properties.put(SPLIT_SIZE, IcebergUtil.getSplitSize(icebergTable));
+        String writeDataLocation = icebergTable.properties().get(WRITE_DATA_LOCATION);
+        if (!isNullOrEmpty(writeDataLocation)) {
+            properties.put(WRITE_DATA_LOCATION, writeDataLocation);
+        }
+
+        properties.put(DELETE_MODE, getDeleteMode(icebergTable));
+        properties.put(UPDATE_MODE, getUpdateMode(icebergTable));
+        properties.put(METADATA_PREVIOUS_VERSIONS_MAX, getMetadataPreviousVersionsMax(icebergTable));
+        properties.put(METADATA_DELETE_AFTER_COMMIT, isMetadataDeleteAfterCommit(icebergTable));
+        properties.put(METRICS_MAX_INFERRED_COLUMN, getMetricsMaxInferredColumn(icebergTable));
+        properties.put(SPLIT_SIZE, getSplitSize(icebergTable));
 
         SortOrder sortOrder = icebergTable.sortOrder();
         // TODO: Support sort column transforms (https://github.com/prestodb/presto/issues/24250)
