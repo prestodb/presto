@@ -149,22 +149,7 @@ public final class IcebergQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, false, Optional.empty());
-    }
-
-    public static DistributedQueryRunner createIcebergQueryRunner(
-            Map<String, String> extraProperties,
-            Map<String, String> extraConnectorProperties,
-            FileFormat format,
-            boolean createTpchTables,
-            boolean addJmxPlugin,
-            OptionalInt nodeCount,
-            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            Optional<Path> dataDirectory,
-            boolean addStorageFormatToPath)
-            throws Exception
-    {
-        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, addStorageFormatToPath, Optional.empty());
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, false, Optional.empty(), ImmutableMap.of());
     }
 
     public static DistributedQueryRunner createIcebergQueryRunner(
@@ -177,7 +162,24 @@ public final class IcebergQueryRunner
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
             Optional<Path> dataDirectory,
             boolean addStorageFormatToPath,
-            Optional<String> schemaName)
+            Map<String, String> tpcdsProperties)
+            throws Exception
+    {
+        return createIcebergQueryRunner(extraProperties, extraConnectorProperties, format, createTpchTables, addJmxPlugin, nodeCount, externalWorkerLauncher, dataDirectory, addStorageFormatToPath, Optional.empty(), tpcdsProperties);
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> extraConnectorProperties,
+            FileFormat format,
+            boolean createTpchTables,
+            boolean addJmxPlugin,
+            OptionalInt nodeCount,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<Path> dataDirectory,
+            boolean addStorageFormatToPath,
+            Optional<String> schemaName,
+            Map<String, String> tpcdsProperties)
             throws Exception
     {
         setupLogging();
@@ -198,7 +200,7 @@ public final class IcebergQueryRunner
         queryRunner.createCatalog("tpch", "tpch");
 
         queryRunner.installPlugin(new TpcdsPlugin());
-        queryRunner.createCatalog("tpcds", "tpcds");
+        queryRunner.createCatalog("tpcds", "tpcds", tpcdsProperties);
 
         queryRunner.getServers().forEach(server -> {
             MBeanServer mBeanServer = MBeanServerFactory.newMBeanServer();
