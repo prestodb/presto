@@ -249,12 +249,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-transport</artifactId>
-                <version>${dep.netty.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-testing-docker</artifactId>
                 <version>${project.version}</version>
