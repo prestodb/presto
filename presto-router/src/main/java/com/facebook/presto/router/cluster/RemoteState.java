@@ -28,6 +28,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,17 +53,17 @@ public abstract class RemoteState
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();
-    private final long secondsToUnhealthy;
+    private final java.time.Duration timeToUnhealthy;
 
     private boolean isHealthy;
-    private long lastHealthyResponseTime;
+    private Instant lastHealthyResponseTime;
 
     @Inject
     public RemoteState(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.remoteUri = requireNonNull(remoteUri, "remoteUri is null");
-        this.secondsToUnhealthy = remoteStateConfig.getSecondsToUnhealthy();
+        this.timeToUnhealthy = remoteStateConfig.getTimeToUnhealthy();
     }
 
     public void handleResponse(JsonNode response) {}
@@ -78,7 +79,8 @@ public abstract class RemoteState
             lastWarningLogged.set(System.nanoTime());
         }
 
-        if (nanosSince(lastHealthyResponseTime).toMillis() >= (secondsToUnhealthy * 1_000) && isHealthy) {
+        if (java.time.Duration.between(lastHealthyResponseTime, Instant.now()).compareTo(timeToUnhealthy) >= 0 && isHealthy)
+        {
             isHealthy = false;
             log.warn("%s marked as unhealthy", remoteUri.getHost());
         }
@@ -108,7 +110,7 @@ public abstract class RemoteState
                                 log.info("%s was unhealthy, and is nowhealthy", remoteUri.getHost());
                             }
                             isHealthy = true;
-                            lastHealthyResponseTime = System.nanoTime();
+                            lastHealthyResponseTime = Instant.now();
                         }
                     }
                 }
