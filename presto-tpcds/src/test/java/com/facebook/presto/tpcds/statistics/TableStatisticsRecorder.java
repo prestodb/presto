@@ -41,7 +41,7 @@ class TableStatisticsRecorder
                 .withNoSexism(false);
 
         List<Column> columns = ImmutableList.copyOf(table.getColumns());
-        RecordCursor recordCursor = new TpcdsRecordSet(Results.constructResults(table, session), columns)
+        RecordCursor recordCursor = new TpcdsRecordSet(Results.constructResults(table, session), columns, false)
                 .cursor();
 
         List<ColumnStatisticsRecorder> statisticsRecorders = createStatisticsRecorders(columns);

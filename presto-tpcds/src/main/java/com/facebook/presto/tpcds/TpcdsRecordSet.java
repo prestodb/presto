@@ -49,7 +49,9 @@ public class TpcdsRecordSet
 
     private final List<Type> columnTypes;
 
-    public TpcdsRecordSet(Results results, List<Column> columns)
+    private final boolean useVarcharType;
+
+    public TpcdsRecordSet(Results results, List<Column> columns, boolean useVarcharType)
     {
         requireNonNull(results, "results is null");
 
@@ -57,9 +59,10 @@ public class TpcdsRecordSet
         this.columns = ImmutableList.copyOf(columns);
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (Column column : columns) {
-            columnTypes.add(getPrestoType(column.getType()));
+            columnTypes.add(getPrestoType(column.getType(), useVarcharType));
         }
         this.columnTypes = columnTypes.build();
+        this.useVarcharType = useVarcharType;
     }
 
     @Override
@@ -103,7 +106,7 @@ public class TpcdsRecordSet
         @Override
         public Type getType(int field)
         {
-            return getPrestoType(columns.get(field).getType());
+            return getPrestoType(columns.get(field).getType(), useVarcharType);
         }
 
         @Override

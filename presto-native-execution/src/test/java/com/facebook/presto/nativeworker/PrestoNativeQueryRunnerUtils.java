@@ -60,6 +60,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeS
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerIcebergProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerTpcdsProperties;
 import static com.facebook.presto.nativeworker.SymlinkManifestGeneratorUtils.createSymlinkManifest;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -86,6 +87,7 @@ public class PrestoNativeQueryRunnerUtils
             ParquetHiveSerDe.class.getName(),
             SymlinkTextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName());
+
     private PrestoNativeQueryRunnerUtils() {}
 
     public static QueryRunner createQueryRunner(boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled)
@@ -175,7 +177,8 @@ public class PrestoNativeQueryRunnerUtils
                                 "offset-clause-enabled", "true"),
                         security,
                         hivePropertiesBuilder.build(),
-                        dataDirectory);
+                        dataDirectory,
+                        getNativeWorkerTpcdsProperties());
         return queryRunner;
     }
 
@@ -237,7 +240,8 @@ public class PrestoNativeQueryRunnerUtils
                 OptionalInt.empty(),
                 Optional.empty(),
                 baseDataDirectory,
-                addStorageFormatToPath);
+                addStorageFormatToPath,
+                getNativeWorkerTpcdsProperties());
 
         return queryRunner;
     }
@@ -312,7 +316,8 @@ public class PrestoNativeQueryRunnerUtils
                 OptionalInt.of(workerCount.orElse(4)),
                 getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, false),
                 dataDirectory,
-                addStorageFormatToPath);
+                addStorageFormatToPath,
+                getNativeWorkerTpcdsProperties());
     }
 
     public static QueryRunner createNativeQueryRunner(
@@ -356,7 +361,8 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled));
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled),
+                getNativeWorkerTpcdsProperties());
     }
 
     public static QueryRunner createNativeCteQueryRunner(boolean useThrift, String storageFormat)
@@ -399,7 +405,8 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), false, false));
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), false, false),
+                getNativeWorkerTpcdsProperties());
     }
 
     public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds)
@@ -475,10 +482,10 @@ public class PrestoNativeQueryRunnerUtils
     public static NativeQueryRunnerParameters getNativeQueryRunnerParameters()
     {
         Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
-                .orElse("_build/debug/presto_cpp/main/presto_server"))
+                        .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
         Path dataDirectory = Paths.get(getProperty("DATA_DIR")
-                .orElse("target/velox_data"))
+                        .orElse("target/velox_data"))
                 .toAbsolutePath();
         Optional<Integer> workerCount = getProperty("WORKER_COUNT").map(Integer::parseInt);
 
