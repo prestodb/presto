@@ -113,8 +113,9 @@ core::PlanNodePtr OperatorReplayerBase::createPlan() {
 }
 
 std::shared_ptr<core::QueryCtx> OperatorReplayerBase::createQueryCtx() {
+  static std::atomic_uint64_t replayQueryId{0};
   auto queryPool = memory::memoryManager()->addRootPool(
-      fmt::format("{}_replayer_{}", operatorType_, replayQueryId_++),
+      fmt::format("{}_replayer_{}", operatorType_, replayQueryId++),
       queryCapacity_);
   std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
       connectorConfigs;

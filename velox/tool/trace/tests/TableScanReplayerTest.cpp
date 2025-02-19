@@ -342,4 +342,52 @@ TEST_F(TableScanReplayerTest, subfieldPrunning) {
                                    .run();
   assertEqualResults({results}, {replayingResult});
 }
+
+TEST_F(TableScanReplayerTest, concurrent) {
+  const auto vectors = makeVectors(2, 10);
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  const auto fs = filesystems::getFileSystem(testDir->getPath(), nullptr);
+  std::vector<std::shared_ptr<TempFilePath>> splitFiles;
+  for (int i = 0; i < 2; ++i) {
+    auto filePath = TempFilePath::create();
+    writeToFile(filePath->getPath(), vectors);
+    splitFiles.push_back(std::move(filePath));
+  }
+
+  const auto plan = tableScanNode();
+  std::shared_ptr<Task> task;
+  auto traceResult =
+      AssertQueryBuilder(plan)
+          .maxDrivers(4)
+          .config(core::QueryConfig::kQueryTraceEnabled, true)
+          .config(core::QueryConfig::kQueryTraceDir, traceRoot)
+          .config(core::QueryConfig::kQueryTraceMaxBytes, 100UL << 30)
+          .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+          .config(core::QueryConfig::kQueryTraceNodeIds, traceNodeId_)
+          .splits(makeHiveConnectorSplits(splitFiles))
+          .copyResults(pool(), task);
+
+  const auto taskId = task->taskId();
+  std::vector<std::thread> threads;
+  threads.reserve(8);
+  for (int i = 0; i < 8; ++i) {
+    threads.emplace_back([&]() {
+      const auto replayingResult = TableScanReplayer(
+                                       traceRoot,
+                                       task->queryCtx()->queryId(),
+                                       task->taskId(),
+                                       traceNodeId_,
+                                       "TableScan",
+                                       "",
+                                       0,
+                                       executor_.get())
+                                       .run();
+      assertEqualResults({traceResult}, {replayingResult});
+    });
+  }
+  for (auto& thread : threads) {
+    thread.join();
+  }
+}
 } // namespace facebook::velox::tool::trace::test
