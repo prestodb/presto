@@ -503,16 +503,6 @@
             <artifactId>ratis-common</artifactId>
             <optional>true</optional>
         </dependency>
-
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport</artifactId>
-        </dependency>
-        
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-common</artifactId>
-        </dependency>
     </dependencies>
 
     <build>
