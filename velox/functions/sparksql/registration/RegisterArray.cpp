@@ -18,6 +18,7 @@
 #include "velox/functions/lib/Repeat.h"
 #include "velox/functions/lib/Slice.h"
 #include "velox/functions/prestosql/ArrayFunctions.h"
+#include "velox/functions/sparksql/ArrayAppend.h"
 #include "velox/functions/sparksql/ArrayFlattenFunction.h"
 #include "velox/functions/sparksql/ArrayInsert.h"
 #include "velox/functions/sparksql/ArrayMinMaxFunction.h"
@@ -141,6 +142,11 @@ void registerArrayFunctions(const std::string& prefix) {
       makeArrayShuffleWithCustomSeed,
       getMetadataForArrayShuffle());
   registerIntegerSliceFunction(prefix);
+  registerFunction<
+      ArrayAppendFunction,
+      Array<Generic<T1>>,
+      Array<Generic<T1>>,
+      Generic<T1>>({prefix + "array_append"});
 }
 
 } // namespace sparksql

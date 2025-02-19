@@ -15,6 +15,15 @@ Array Functions
 
         SELECT array(1, 2, 3); -- [1,2,3]
 
+.. spark:function:: array_append(array(E), element) -> array(E)
+
+    Add the ``element`` at the end of the input ``array``.
+    Type of ``element`` should be the same to the type of elements in the ``array``.
+    NULL element is also appended into the ``array``. Returns NULL when the input ``array`` is NULL. ::
+
+        SELECT array_append(array(1, 2, 3), 2); -- [1, 2, 3, 2]
+        SELECT array_append(array(1, 2, 3), NULL); -- [1, 2, 3, NULL]
+
 .. spark:function:: array_contains(array(E), value) -> boolean
 
     Returns true if the array contains the value. ::
