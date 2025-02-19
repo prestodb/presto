@@ -69,7 +69,6 @@ import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
-import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.ViewCatalog;
@@ -144,12 +143,14 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressio
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -196,13 +197,17 @@ import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX_DEFAULT;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS;
 import static org.apache.iceberg.TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS_DEFAULT;
+import static org.apache.iceberg.TableProperties.OBJECT_STORE_PATH;
 import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE_DEFAULT;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE;
 import static org.apache.iceberg.TableProperties.UPDATE_MODE_DEFAULT;
+import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
+import static org.apache.iceberg.TableProperties.WRITE_FOLDER_STORAGE_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
+import static org.apache.iceberg.TableProperties.WRITE_METADATA_LOCATION;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 
@@ -1143,6 +1148,12 @@ public final class IcebergUtil
     public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat, ConnectorSession session)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
+
+        String writeDataLocation = getWriteDataLocation(tableMetadata.getProperties());
+        if (!isNullOrEmpty(writeDataLocation)) {
+            propertiesBuilder.put(WRITE_DATA_LOCATION, writeDataLocation);
+        }
+
         Integer commitRetries = getCommitRetries(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
         propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
@@ -1265,7 +1276,7 @@ public final class IcebergUtil
      */
     public static String metadataLocation(Table icebergTable)
     {
-        String metadataLocation = icebergTable.properties().get(TableProperties.WRITE_METADATA_LOCATION);
+        String metadataLocation = icebergTable.properties().get(WRITE_METADATA_LOCATION);
 
         if (metadataLocation != null) {
             return String.format("%s", LocationUtil.stripTrailingSlash(metadataLocation));
@@ -1282,11 +1293,11 @@ public final class IcebergUtil
     public static String dataLocation(Table icebergTable)
     {
         Map<String, String> properties = icebergTable.properties();
-        String dataLocation = properties.get(TableProperties.WRITE_DATA_LOCATION);
+        String dataLocation = properties.get(WRITE_DATA_LOCATION);
         if (dataLocation == null) {
-            dataLocation = properties.get(TableProperties.OBJECT_STORE_PATH);
+            dataLocation = properties.get(OBJECT_STORE_PATH);
             if (dataLocation == null) {
-                dataLocation = properties.get(TableProperties.WRITE_FOLDER_STORAGE_LOCATION);
+                dataLocation = properties.get(WRITE_FOLDER_STORAGE_LOCATION);
                 if (dataLocation == null) {
                     dataLocation = String.format("%s/data", icebergTable.location());
                 }

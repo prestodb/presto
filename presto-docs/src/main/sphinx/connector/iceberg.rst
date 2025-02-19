@@ -370,6 +370,12 @@ Property Name                             Description                           
 ``location``                               Optionally specifies the file system location URI for
                                            the table.
 
+``write.data.path``                        Optionally specifies the file system location URI for
+                                           storing the data and delete files of the table. This only
+                                           applies to files written after this property is set. Files
+                                           previously written aren't relocated to reflect this
+                                           parameter.
+
 ``format_version``                         Optionally specifies the format version of the Iceberg           ``2``
                                            specification to use for new tables, either ``1`` or ``2``.
 

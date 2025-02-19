@@ -320,20 +320,21 @@ public class IcebergNativeMetadata
         try {
             TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
             String targetPath = getTableLocation(tableMetadata.getProperties());
+            Map<String, String> tableProperties = populateTableProperties(tableMetadata, fileFormat, session);
             if (!isNullOrEmpty(targetPath)) {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
                         targetPath,
-                        populateTableProperties(tableMetadata, fileFormat, session));
+                        tableProperties);
             }
             else {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
-                        populateTableProperties(tableMetadata, fileFormat, session));
+                        tableProperties);
             }
         }
         catch (AlreadyExistsException e) {
