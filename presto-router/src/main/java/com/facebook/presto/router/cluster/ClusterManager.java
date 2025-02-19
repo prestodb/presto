@@ -134,7 +134,6 @@ public class ClusterManager
                 lastConfigUpdate.set(newConfigUpdateTime);
             }
         }, 0L, 5L, TimeUnit.SECONDS);
-
     }
 
     public void startConfigReloadTaskFileWatcher()

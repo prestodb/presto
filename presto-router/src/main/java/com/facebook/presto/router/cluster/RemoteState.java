@@ -54,7 +54,7 @@ public abstract class RemoteState
     private final AtomicLong lastWarningLogged = new AtomicLong();
     private final long secondsToUnhealthy;
 
-    private boolean isHealthy = false;
+    private boolean isHealthy;
     private long lastHealthyResponseTime;
 
     @Inject
@@ -94,7 +94,8 @@ public abstract class RemoteState
             Futures.addCallback(responseFuture, new FutureCallback<FullJsonResponseHandler.JsonResponse<JsonNode>>()
             {
                 @Override
-                public void onSuccess(@Nullable FullJsonResponseHandler.JsonResponse<JsonNode> result) {
+                public void onSuccess(@Nullable FullJsonResponseHandler.JsonResponse<JsonNode> result)
+                {
                     lastUpdateNanos.set(System.nanoTime());
                     future.compareAndSet(responseFuture, null);
                     if (result != null) {
