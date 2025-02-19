@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.FileFormat.fromIcebergFileFormat;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMinimumAssignedSplitWeight;
@@ -60,6 +61,7 @@ public class IcebergSplitSource
     private final double minimumAssignedSplitWeight;
     private final long targetSplitSize;
     private final NodeSelectionStrategy nodeSelectionStrategy;
+    private final long affinitySchedulingFileSectionSize;
 
     private final TupleDomain<IcebergColumnHandle> metadataColumnConstraints;
 
@@ -73,11 +75,12 @@ public class IcebergSplitSource
         this.targetSplitSize = getTargetSplitSize(session, tableScan).toBytes();
         this.minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
         this.nodeSelectionStrategy = getNodeSelectionStrategy(session);
+        this.affinitySchedulingFileSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
         this.fileScanTaskIterator = closer.register(
                 splitFiles(
                         closer.register(tableScan.planFiles()),
                         targetSplitSize)
-                .iterator());
+                        .iterator());
     }
 
     @Override
@@ -139,6 +142,7 @@ public class IcebergSplitSource
                 SplitWeight.fromProportion(Math.min(Math.max((double) task.length() / targetSplitSize, minimumAssignedSplitWeight), 1.0)),
                 task.deletes().stream().map(DeleteFile::fromIceberg).collect(toImmutableList()),
                 Optional.empty(),
-                getDataSequenceNumber(task.file()));
+                getDataSequenceNumber(task.file()),
+                affinitySchedulingFileSectionSize);
     }
 }
