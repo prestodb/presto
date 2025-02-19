@@ -17,6 +17,7 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
+
 import java.time.Duration;
 
 public class RemoteStateConfig
