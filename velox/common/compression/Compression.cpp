@@ -21,7 +21,8 @@
 
 namespace facebook::velox::common {
 
-std::unique_ptr<folly::io::Codec> compressionKindToCodec(CompressionKind kind) {
+std::unique_ptr<folly::compression::Codec> compressionKindToCodec(
+    CompressionKind kind) {
   switch (static_cast<int32_t>(kind)) {
     case CompressionKind_NONE:
       return getCodec(folly::io::CodecType::NO_COMPRESSION);

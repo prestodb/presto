@@ -50,7 +50,7 @@ class PrestoBatchVectorSerializer : public BatchVectorSerializer {
       Scratch& scratch);
 
   memory::MemoryPool* const pool_;
-  const std::unique_ptr<folly::io::Codec> codec_;
+  const std::unique_ptr<folly::compression::Codec> codec_;
   const PrestoVectorSerde::PrestoOptions opts_;
 };
 } // namespace facebook::velox::serializer::presto::detail

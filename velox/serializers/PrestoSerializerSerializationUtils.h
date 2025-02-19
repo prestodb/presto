@@ -164,11 +164,12 @@ FlushSizes flushStreams(
     std::vector<VectorStream>& streams,
     int32_t numRows,
     const StreamArena& arena,
-    folly::io::Codec& codec,
+    folly::compression::Codec& codec,
     float minCompressionRatio,
     OutputStream* out);
 
-FOLLY_ALWAYS_INLINE bool needCompression(const folly::io::Codec& codec) {
+FOLLY_ALWAYS_INLINE bool needCompression(
+    const folly::compression::Codec& codec) {
   return codec.type() != folly::io::CodecType::NO_COMPRESSION;
 }
 

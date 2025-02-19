@@ -1007,7 +1007,7 @@ void flushSerialization(
 FlushSizes flushCompressed(
     std::vector<VectorStream>& streams,
     const StreamArena& arena,
-    folly::io::Codec& codec,
+    folly::compression::Codec& codec,
     int32_t numRows,
     float minCompressionRatio,
     OutputStream* output,
@@ -1296,7 +1296,7 @@ FlushSizes flushStreams(
     std::vector<VectorStream>& streams,
     int32_t numRows,
     const StreamArena& arena,
-    folly::io::Codec& codec,
+    folly::compression::Codec& codec,
     float minCompressionRatio,
     OutputStream* out) {
   auto listener = dynamic_cast<PrestoOutputStreamListener*>(out->listener());

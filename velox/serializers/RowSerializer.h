@@ -278,7 +278,7 @@ class RowSerializer : public IterativeVectorSerializer {
   }
 
   const VectorSerde::Options options_;
-  const std::unique_ptr<folly::io::Codec> codec_;
+  const std::unique_ptr<folly::compression::Codec> codec_;
   // Count of forthcoming compressions to skip.
   int32_t numCompressionToSkip_{0};
   CompressionStats stats_;

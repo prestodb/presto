@@ -53,7 +53,7 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
  private:
   const PrestoVectorSerde::PrestoOptions opts_;
   StreamArena* const streamArena_;
-  const std::unique_ptr<folly::io::Codec> codec_;
+  const std::unique_ptr<folly::compression::Codec> codec_;
 
   int32_t numRows_{0};
   std::vector<VectorStream> streams_;
