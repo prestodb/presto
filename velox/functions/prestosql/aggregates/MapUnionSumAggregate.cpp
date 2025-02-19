@@ -358,7 +358,8 @@ void registerMapUnionSumAggregate(
       "real",
       "double",
       "varchar",
-      "json"};
+      "json",
+      "boolean"};
   const std::vector<std::string> valueTypes = {
       "tinyint",
       "smallint",
@@ -416,6 +417,8 @@ void registerMapUnionSumAggregate(
           case TypeKind::VARCHAR:
             return createMapUnionSumAggregate<StringView>(
                 valueTypeKind, resultType);
+          case TypeKind::BOOLEAN:
+            return createMapUnionSumAggregate<bool>(valueTypeKind, resultType);
           default:
             VELOX_UNREACHABLE();
         }

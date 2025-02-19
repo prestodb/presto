@@ -129,7 +129,6 @@ int main(int argc, char** argv) {
       // Lambda functions are not supported yet.
       "reduce_agg",
       "max_data_size_for_stats",
-      "map_union_sum",
       "approx_set",
       "any_value",
   };

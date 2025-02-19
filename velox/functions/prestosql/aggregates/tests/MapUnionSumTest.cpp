@@ -416,6 +416,30 @@ TEST_F(MapUnionSumTest, groupByJsonKey) {
   testAggregations({data}, {"c0"}, {"map_union_sum(c1)"}, {expected});
 }
 
+TEST_F(MapUnionSumTest, groupByBooleanKeys) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 1, 2, 1}),
+      makeNullableMapVector<bool, int64_t>({
+          {}, // empty map
+          std::nullopt, // null map
+          {{{true, 10}, {false, 20}}},
+          {{{true, 11}, {false, 30}, {true, 40}}},
+          {{{false, 28}, {true, 50}, {true, 12}}},
+      }),
+
+  });
+
+  auto expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeMapVector<bool, int64_t>({
+          {{{true, 72}, {false, 48}}},
+          {{{true, 51}, {false, 30}}},
+      }),
+  });
+
+  testAggregations({data}, {"c0"}, {"map_union_sum(c1)"}, {expected});
+}
+
 TEST_F(MapUnionSumTest, floatingPointKeys) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 1, 2, 1, 1, 2, 2}),
@@ -442,8 +466,8 @@ TEST_F(MapUnionSumTest, floatingPointKeys) {
 }
 
 TEST_F(MapUnionSumTest, nanKeys) {
-  // Verify that NaNs with different binary representations are considered equal
-  // and deduplicated when used as keys in the output map.
+  // Verify that NaNs with different binary representations are considered
+  // equal and deduplicated when used as keys in the output map.
   constexpr double kNan = std::numeric_limits<double>::quiet_NaN();
   constexpr double kSNaN = std::numeric_limits<double>::signaling_NaN();
 
