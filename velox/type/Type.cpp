@@ -533,10 +533,10 @@ std::optional<int32_t> SerializedTypeCache::get(const Type& type) const {
 }
 
 int32_t SerializedTypeCache::put(const Type& type, folly::dynamic serialized) {
-  int32_t id = cache_.size();
+  const int32_t id = cache_.size();
 
   std::pair<int32_t, folly::dynamic> value{id, std::move(serialized)};
-  bool ok = cache_.emplace(&type, std::move(value)).second;
+  const bool ok = cache_.emplace(&type, std::move(value)).second;
   VELOX_CHECK(ok);
 
   return id;
@@ -585,7 +585,8 @@ void DeserializedTypeCache::deserialize(const folly::dynamic& obj) {
   VELOX_CHECK_EQ(size, values.size());
   for (auto i = 0; i < size; ++i) {
     auto type = velox::ISerializable::deserialize<Type>(values[i]);
-    cache_.emplace(keys[i].asInt(), type);
+    const bool ok = cache_.emplace(keys[i].asInt(), type).second;
+    VELOX_CHECK(ok);
   }
 }
 
