@@ -17,22 +17,29 @@ import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
 
 import javax.validation.constraints.NotNull;
+import java.time.Duration;
 
 public class RemoteStateConfig
 {
-    private long secondsToUnhealthy;
+    private Duration timeToUnhealthy;
 
     @Config("router.remote-state.cluster-unhealthy-timeout")
     @ConfigDescription("The amount of time in seconds that a cluster must remain unresponsive to health checks in order to be deemed \"unhealthy\"")
-    public RemoteStateConfig setSecondsToUnhealthy(long secondsToUnhealthy)
+    public RemoteStateConfig setTimeToUnhealthy(String timeToUnhealthy)
     {
-        this.secondsToUnhealthy = secondsToUnhealthy;
+        this.timeToUnhealthy = Duration.parse(timeToUnhealthy);
+        return this;
+    }
+
+    public RemoteStateConfig setTimeToUnhealthy(Duration timeToUnhealthy)
+    {
+        this.timeToUnhealthy = timeToUnhealthy;
         return this;
     }
 
     @NotNull
-    public long getSecondsToUnhealthy()
+    public Duration getTimeToUnhealthy()
     {
-        return this.secondsToUnhealthy;
+        return this.timeToUnhealthy;
     }
 }
