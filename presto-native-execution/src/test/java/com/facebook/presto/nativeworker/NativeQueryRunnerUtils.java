@@ -64,6 +64,13 @@ public class NativeQueryRunnerUtils
                 .build();
     }
 
+    public static Map<String, String> getNativeWorkerTpcdsProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("tpcds.use-varchar-type", "true")
+                .build();
+    }
+
     /**
      * Creates all tables for local testing, except for bench tables.
      *

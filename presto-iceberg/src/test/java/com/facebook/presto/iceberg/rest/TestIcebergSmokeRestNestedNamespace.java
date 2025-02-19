@@ -120,7 +120,8 @@ public class TestIcebergSmokeRestNestedNamespace
                 Optional.empty(),
                 Optional.of(warehouseLocation.toPath()),
                 false,
-                Optional.of("ns1.ns2"));
+                Optional.of("ns1.ns2"),
+                ImmutableMap.of());
 
         // additional catalog for testing nested namespace disabled
         icebergQueryRunner.createCatalog(ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG, "iceberg",

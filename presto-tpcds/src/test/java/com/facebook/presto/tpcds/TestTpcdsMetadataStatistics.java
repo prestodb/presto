@@ -45,7 +45,7 @@ public class TestTpcdsMetadataStatistics
 {
     private static final EstimateAssertion estimateAssertion = new EstimateAssertion(0.01);
     private static final ConnectorSession session = null;
-    private final TpcdsMetadata metadata = new TpcdsMetadata();
+    private final TpcdsMetadata metadata = new TpcdsMetadata(false);
 
     @Test
     public void testNoTableStatsForNotSupportedSchema()
