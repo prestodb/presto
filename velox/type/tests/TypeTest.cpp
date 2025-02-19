@@ -488,6 +488,45 @@ TEST(TypeTest, row) {
   testTypeSerde(rowInner);
 }
 
+TEST(TypeTest, serdeCache) {
+  std::vector<std::string> names;
+  names.reserve(100);
+  for (auto i = 0; i < 100; ++i) {
+    names.push_back(fmt::format("c{}", i));
+  }
+  std::vector<TypePtr> types(100, REAL());
+  auto rowType = ROW(std::move(names), std::move(types));
+
+  auto& cache = serializedTypeCache();
+  ASSERT_FALSE(cache.isEnabled());
+
+  testTypeSerde(rowType);
+  ASSERT_EQ(0, cache.size());
+
+  cache.enable();
+  SCOPE_EXIT {
+    cache.disable();
+    cache.clear();
+    deserializedTypeCache().clear();
+  };
+
+  folly::dynamic serializedType;
+  for (auto i = 0; i < 10; ++i) {
+    serializedType = rowType->serialize();
+    ASSERT_EQ(1, cache.size());
+  }
+
+  auto serializedCache = cache.serialize();
+
+  ASSERT_EQ(0, deserializedTypeCache().size());
+  deserializedTypeCache().deserialize(serializedCache);
+  ASSERT_EQ(1, deserializedTypeCache().size());
+
+  auto copy = velox::ISerializable::deserialize<Type>(serializedType);
+  ASSERT_EQ(rowType->toString(), copy->toString());
+  ASSERT_EQ(*rowType, *copy);
+}
+
 TEST(TypeTest, emptyRow) {
   auto row = ROW({});
   testTypeSerde(row);
@@ -528,9 +567,9 @@ TEST(TypeTest, opaque) {
   VELOX_ASSERT_THROW(
       approximateTypeEncodingwidth(foo), "Unsupported type: OPAQUE<Foo>");
   const auto bar = OpaqueType::create<Bar>();
-  // Names currently use typeid which is not stable across platforms. We'd need
-  // to change it later if we start serializing opaque types, e.g. we can ask
-  // user to "register" the name for the type explicitly.
+  // Names currently use typeid which is not stable across platforms. We'd
+  // need to change it later if we start serializing opaque types, e.g. we can
+  // ask user to "register" the name for the type explicitly.
   ASSERT_NE(std::string::npos, foo->toString().find("OPAQUE<"));
   ASSERT_NE(std::string::npos, foo->toString().find("Foo"));
   ASSERT_EQ(foo->size(), 0);
@@ -1052,8 +1091,8 @@ TEST(TypeTest, providesCustomComparison) {
   EXPECT_EQ(
       8633297058295171728, test::BIGINT_TYPE_WITH_CUSTOM_COMPARISON()->hash(0));
 
-  // BIGINT does not provide custom comparison so calling compare or hash on it
-  // should fail.
+  // BIGINT does not provide custom comparison so calling compare or hash on
+  // it should fail.
   EXPECT_THROW(BIGINT()->compare(0, 0), VeloxRuntimeError);
   EXPECT_THROW(BIGINT()->hash(0), VeloxRuntimeError);
 
