@@ -41,6 +41,9 @@
     "install": "webpack --env=production --config webpack.config.js",
     "watch": "webpack --config webpack.config.js --watch",
     "serve": "webpack serve --config webpack.config.js",
+    "build:spa": "webpack --config webpack.config.js --env production --env config=spa",
+    "serve:spa": "webpack serve --config webpack.config.js --env config=spa",
+    "watch:spa": "webpack --config webpack.config.js --env config=spa --watch",
     "analyze": "webpack --env=production --config webpack.config.js --profile --json > stats.json && mv stats.json ../target/webapp/ && npx webpack-bundle-analyzer ../target/webapp/stats.json"
   },
   "resolutions": {
