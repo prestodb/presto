@@ -178,7 +178,7 @@ public final class MetadataUtil
         return new CatalogSchemaName(catalogName, schemaName);
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
@@ -192,6 +192,9 @@ public final class MetadataUtil
                 new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
         String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
+
+        schemaName = metadata.normalizeIdentifier(session, catalogName, schemaName, identifier(schemaName).isDelimited());
+        objectName = metadata.normalizeIdentifier(session, catalogName, objectName, identifier(objectName).isDelimited());
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }

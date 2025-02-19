@@ -51,7 +51,7 @@ public class RenameColumnTask
     @Override
     public ListenableFuture<?> execute(RenameColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable(), metadata);
         Optional<TableHandle> tableHandleOptional = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandleOptional.isPresent()) {
             if (!statement.isTableExists()) {

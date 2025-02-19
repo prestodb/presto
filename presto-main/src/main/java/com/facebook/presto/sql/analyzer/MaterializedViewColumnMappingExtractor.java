@@ -169,7 +169,7 @@ public class MaterializedViewColumnMappingExtractor
         super.visitTable(node, context);
 
         if (context.isWithinOuterJoin()) {
-            baseTablesOnOuterJoinSide.add(toSchemaTableName(createQualifiedObjectName(session, node, node.getName()), metadata, session));
+            baseTablesOnOuterJoinSide.add(toSchemaTableName(createQualifiedObjectName(session, node, node.getName(), metadata), metadata, session));
         }
 
         return null;
