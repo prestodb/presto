@@ -75,7 +75,7 @@ public class CreateMaterializedViewTask
     @Override
     public ListenableFuture<?> execute(CreateMaterializedView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
 
         Optional<TableHandle> viewHandle = metadata.getMetadataResolver(session).getTableHandle(viewName);
         if (viewHandle.isPresent()) {
@@ -116,7 +116,7 @@ public class CreateMaterializedViewTask
 
         List<SchemaTableName> baseTables = analysis.getTableNodes().stream()
                 .map(table -> {
-                    QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+                    QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName(), metadata);
                     if (!viewName.getCatalogName().equals(tableName.getCatalogName())) {
                         throw new SemanticException(
                                 NOT_SUPPORTED,

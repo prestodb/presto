@@ -188,7 +188,7 @@ public class PredicateStitcher
     @Override
     protected Node visitTable(Table table, PredicateStitcherContext context)
     {
-        SchemaTableName schemaTableName = toSchemaTableName(createQualifiedObjectName(session, table, table.getName()), metadata, session);
+        SchemaTableName schemaTableName = toSchemaTableName(createQualifiedObjectName(session, table, table.getName(), metadata), metadata, session);
         if (!predicates.containsKey(schemaTableName)) {
             return table;
         }
