@@ -79,8 +79,7 @@ public abstract class RemoteState
             lastWarningLogged.set(System.nanoTime());
         }
 
-        if (java.time.Duration.between(lastHealthyResponseTime, Instant.now()).compareTo(timeToUnhealthy) >= 0 && isHealthy)
-        {
+        if (java.time.Duration.between(lastHealthyResponseTime, Instant.now()).compareTo(timeToUnhealthy) >= 0 && isHealthy) {
             isHealthy = false;
             log.warn("%s marked as unhealthy", remoteUri.getHost());
         }
