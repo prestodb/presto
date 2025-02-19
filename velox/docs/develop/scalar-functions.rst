@@ -513,7 +513,7 @@ NullableVariadicView, and NullFreeVariadicView, supports the following:
 
 - VariadicView<T>::Iterator end() : iterator indicating end of iteration.
 
-- bool mayHaveNulls() : a check on the nullity of the arugments (note this takes time proportional to the number of arguments). When it returns false, there are definitely no nulls, a true does not guarantee null existence.
+- bool mayHaveNulls() : a check on the nullity of the arguments (note this takes time proportional to the number of arguments). When it returns false, there are definitely no nulls, a true does not guarantee null existence.
 
 - VariadicView<T>::SkipNullsContainer SkipNulls() : return an iterable container that provides direct access to each argument with a non-null value.
 

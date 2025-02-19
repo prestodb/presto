@@ -230,13 +230,14 @@ toIntermediate
 ^^^^^^^^^^^^^^
 
 The author can optionally define a static method `toIntermediate()` that
-converts a raw input to an intermediate state. If defined, this function is
-used in query plans that abandon the partial aggregation step. If the aggregaiton function has
-default-null behavior, the toIntermediate() function has an out-parameter
-of the type `exec::out_type<IntermediateType>&` followed by in-parameters of
-the type `exec::arg_type<T>` for each `T` wrapped inside InputType . If the
-aggregation function has non-default null behavior, the in-parameters of
-toIntermediate() are of the type `exec::optional_arg_type<T>` instead.
+converts a raw input to an intermediate state. If defined, this function is used
+in query plans that abandon the partial aggregation step. If the aggregation
+function has default-null behavior, the toIntermediate() function has an
+out-parameter of the type `exec::out_type<IntermediateType>&` followed by
+in-parameters of the type `exec::arg_type<T>` for each `T` wrapped inside
+InputType . If the aggregation function has non-default null behavior, the
+in-parameters of toIntermediate() are of the type `exec::optional_arg_type<T>`
+instead.
 
 When `T` is a primitive type except Varchar and Varbinary, `exec::arg_type<T>`
 is simply `T` itself and `exec::out_type<T>` is `T&`. `exec::optional_arg_type<T>`
