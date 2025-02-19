@@ -220,7 +220,6 @@ public class HiveClientConfig
     private Duration parquetQuickStatsFileMetadataFetchTimeout = new Duration(60, TimeUnit.SECONDS);
     private int parquetQuickStatsMaxConcurrentCalls = 500;
     private int quickStatsMaxConcurrentCalls = 100;
-    private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
     private boolean legacyTimestampBucketing;
 
     @Min(0)
@@ -1791,19 +1790,6 @@ public class HiveClientConfig
     public int getMaxParallelParsingConcurrency()
     {
         return this.maxParallelParsingConcurrency;
-    }
-
-    @NotNull
-    public DataSize getAffinitySchedulingFileSectionSize()
-    {
-        return affinitySchedulingFileSectionSize;
-    }
-
-    @Config("hive.affinity-scheduling-file-section-size")
-    public HiveClientConfig setAffinitySchedulingFileSectionSize(DataSize affinitySchedulingFileSectionSize)
-    {
-        this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
-        return this;
     }
 
     @Config("hive.skip-empty-files")

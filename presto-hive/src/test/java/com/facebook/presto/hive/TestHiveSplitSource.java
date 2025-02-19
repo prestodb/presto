@@ -42,7 +42,7 @@ import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.hive.CacheQuotaScope.GLOBAL;
 import static com.facebook.presto.hive.CacheQuotaScope.PARTITION;
 import static com.facebook.presto.hive.CacheQuotaScope.TABLE;
-import static com.facebook.presto.hive.HiveSessionProperties.getAffinitySchedulingFileSectionSize;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;

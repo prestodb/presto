@@ -46,6 +46,7 @@ public class HiveCommonClientConfig
     private boolean readNullMaskedParquetEncryptedValueEnabled;
     private boolean useParquetColumnNames;
     private boolean zstdJniDecompressionEnabled;
+    private DataSize affinitySchedulingFileSectionSize = new DataSize(256, MEGABYTE);
 
     public NodeSelectionStrategy getNodeSelectionStrategy()
     {
@@ -282,6 +283,19 @@ public class HiveCommonClientConfig
     public HiveCommonClientConfig setZstdJniDecompressionEnabled(boolean zstdJniDecompressionEnabled)
     {
         this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getAffinitySchedulingFileSectionSize()
+    {
+        return affinitySchedulingFileSectionSize;
+    }
+
+    @Config("hive.affinity-scheduling-file-section-size")
+    public HiveCommonClientConfig setAffinitySchedulingFileSectionSize(DataSize affinitySchedulingFileSectionSize)
+    {
+        this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
         return this;
     }
 }
