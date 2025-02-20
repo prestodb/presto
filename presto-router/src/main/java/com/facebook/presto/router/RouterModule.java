@@ -14,6 +14,7 @@
 package com.facebook.presto.router;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
 import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
@@ -61,6 +62,10 @@ public class RouterModule
     protected void setup(Binder binder)
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+
+        //Determine the NodeVersion
+        NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
+        binder.bind(NodeVersion.class).toInstance(nodeVersion);
 
         httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
