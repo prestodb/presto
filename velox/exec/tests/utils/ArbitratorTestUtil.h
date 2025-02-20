@@ -107,7 +107,7 @@ std::shared_ptr<core::QueryCtx> newQueryCtx(
     facebook::velox::memory::MemoryManager* memoryManager,
     folly::Executor* executor,
     int64_t memoryCapacity = facebook::velox::memory::kMaxMemory,
-    std::unique_ptr<MemoryReclaimer>&& reclaimer = nullptr);
+    const std::string& queryId = "");
 
 std::unique_ptr<memory::MemoryManager> createMemoryManager(
     int64_t arbitratorCapacity = kMemoryCapacity,
