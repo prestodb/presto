@@ -2024,7 +2024,8 @@ class CustomTypeFactories {
   virtual ~CustomTypeFactories();
 
   /// Returns a shared pointer to the custom type.
-  virtual TypePtr getType() const = 0;
+  virtual TypePtr getType(
+      const std::vector<TypeParameter>& parameters) const = 0;
 
   /// Returns a shared pointer to the custom cast operator. If a custom type
   /// should be treated as its underlying native type during type castings,
@@ -2118,7 +2119,9 @@ std::unordered_set<std::string> getCustomTypeNames();
 
 /// Returns an instance of a custom type with the specified name and specified
 /// child types.
-TypePtr getCustomType(const std::string& name);
+TypePtr getCustomType(
+    const std::string& name,
+    const std::vector<TypeParameter>& parameters);
 
 /// Removes custom type from the registry if exists. Returns true if type was
 /// removed, false if type didn't exist.

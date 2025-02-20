@@ -27,6 +27,7 @@ add_test(velox_presto_types_test velox_presto_types_test)
 target_link_libraries(
   velox_presto_types_test
   velox_presto_types
+  velox_type_parser
   Folly::folly
   GTest::gtest
   GTest::gtest_main

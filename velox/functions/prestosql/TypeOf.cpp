@@ -81,8 +81,8 @@ std::string typeName(const TypePtr& type) {
       if (isHyperLogLogType(type)) {
         return "HyperLogLog";
       }
-      if (isTDigestType(type)) {
-        return "TDigest";
+      if (*type == *TDIGEST(DOUBLE())) {
+        return "tdigest(double)";
       }
       return "varbinary";
     case TypeKind::TIMESTAMP:

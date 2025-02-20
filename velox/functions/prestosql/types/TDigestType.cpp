@@ -17,6 +17,18 @@
 
 namespace facebook::velox {
 
+folly::dynamic TDigestType::serialize() const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["name"] = "Type";
+  obj["type"] = name();
+  folly::dynamic children = folly::dynamic::array;
+  for (auto& param : parameters_) {
+    children.push_back(param.type->serialize());
+  }
+  obj["cTypes"] = children;
+  return obj;
+}
+
 void registerTDigestType() {
   registerCustomType("tdigest", std::make_unique<const TDigestTypeFactories>());
 }

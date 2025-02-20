@@ -46,7 +46,8 @@ class TypeFactories : public CustomTypeFactories {
  public:
   TypeFactories(const TypePtr& type) : type_(type) {}
 
-  TypePtr getType() const override {
+  TypePtr getType(
+      const std::vector<TypeParameter>& /*parameters*/) const override {
     return type_;
   }
 
@@ -155,7 +156,7 @@ TEST_F(TypeParserTest, invalidType) {
   VELOX_ASSERT_THROW(
       parseType("blah()"),
       "Failed to parse type [blah()]. "
-      "syntax error, unexpected LPAREN, expecting WORD");
+      "syntax error, unexpected RPAREN");
 
   VELOX_ASSERT_THROW(parseType("array()"), "Failed to parse type [array()]");
 
@@ -165,9 +166,7 @@ TEST_F(TypeParserTest, invalidType) {
 
   // Ensure this is not treated as a row type.
   VELOX_ASSERT_THROW(
-      parseType("rowxxx(a)"),
-      "Failed to parse type [rowxxx(a)]. "
-      "syntax error, unexpected LPAREN, expecting WORD");
+      parseType("rowxxx(a)"), "Failed to parse type [a]. Type not registered.");
 }
 
 TEST_F(TypeParserTest, rowType) {

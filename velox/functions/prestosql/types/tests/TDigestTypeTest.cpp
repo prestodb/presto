@@ -15,8 +15,10 @@
  */
 #include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/tests/TypeTestBase.h"
+#include "velox/type/parser/TypeParser.h"
 
 namespace facebook::velox::test {
+namespace {
 
 class TDigestTypeTest : public testing::Test, public TypeTestBase {
  public:
@@ -26,16 +28,22 @@ class TDigestTypeTest : public testing::Test, public TypeTestBase {
 };
 
 TEST_F(TDigestTypeTest, basic) {
-  ASSERT_STREQ(TDIGEST()->name(), "TDIGEST");
-  ASSERT_STREQ(TDIGEST()->kindName(), "VARBINARY");
-  ASSERT_TRUE(TDIGEST()->parameters().empty());
-  ASSERT_EQ(TDIGEST()->toString(), "TDIGEST");
+  ASSERT_STREQ(TDIGEST(DOUBLE())->name(), "TDIGEST");
+  ASSERT_STREQ(TDIGEST(DOUBLE())->kindName(), "VARBINARY");
+  ASSERT_EQ(TDIGEST(DOUBLE())->parameters().size(), 1);
+  ASSERT_EQ(TDIGEST(DOUBLE())->toString(), "TDIGEST(DOUBLE)");
 
   ASSERT_TRUE(hasType("TDIGEST"));
-  ASSERT_EQ(*getType("TDIGEST", {}), *TDIGEST());
+  ASSERT_EQ(*getType("TDIGEST", {TypeParameter(DOUBLE())}), *TDIGEST(DOUBLE()));
 }
 
 TEST_F(TDigestTypeTest, serde) {
-  testTypeSerde(TDIGEST());
+  testTypeSerde(TDIGEST(DOUBLE()));
 }
+
+TEST_F(TDigestTypeTest, parse) {
+  ASSERT_EQ(*parseType("tdigest(double)"), *TDIGEST(DOUBLE()));
+}
+
+} // namespace
 } // namespace facebook::velox::test

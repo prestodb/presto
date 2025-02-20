@@ -37,6 +37,20 @@ TypePtr typeFromString(
   return inferredType;
 }
 
+TypePtr customTypeWithChildren(
+    const std::string& name,
+    const std::vector<TypePtr>& children) {
+  std::vector<TypeParameter> params;
+  params.reserve(children.size());
+  for (auto& child : children) {
+    params.emplace_back(child);
+  }
+  auto type = getType(name, params);
+  VELOX_CHECK_NOT_NULL(
+      type, "Failed to parse custom type with children [{}]", name);
+  return type;
+}
+
 std::pair<std::string, std::shared_ptr<const Type>> inferTypeWithSpaces(
     std::vector<std::string>& words,
     bool cannotHaveFieldName = false) {

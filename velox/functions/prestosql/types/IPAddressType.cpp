@@ -258,7 +258,8 @@ class IPAddressTypeFactories : public CustomTypeFactories {
  public:
   IPAddressTypeFactories() = default;
 
-  TypePtr getType() const override {
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK(parameters.empty());
     return IPADDRESS();
   }
 

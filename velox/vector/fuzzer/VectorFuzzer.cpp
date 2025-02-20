@@ -261,7 +261,7 @@ VectorPtr VectorFuzzer::fuzz(
     vectorSize += rand<uint32_t>(rng_) % 8;
   }
 
-  if (!inputGenerator && getCustomType(type->name())) {
+  if (!inputGenerator && customTypeExists(type->name())) {
     InputGeneratorConfig config{rand<uint32_t>(rng_), opts_.nullRatio};
     inputGenerator = getCustomTypeInputGenerator(type->name(), config);
   }

@@ -39,7 +39,7 @@
 %token YYEOF         0
 
 %nterm <std::shared_ptr<const Type>> type type_single_word 
-%nterm <std::shared_ptr<const Type>> special_type function_type decimal_type row_type array_type map_type variable_type
+%nterm <std::shared_ptr<const Type>> special_type function_type decimal_type row_type array_type map_type variable_type custom_type_with_children
 %nterm <RowArguments> type_list_opt_names
 %nterm <std::vector<std::shared_ptr<const Type>>> type_list
 %nterm <std::pair<std::string, std::shared_ptr<const Type>>> named_type
@@ -68,6 +68,7 @@ special_type : array_type     { $$ = $1; }
              | function_type  { $$ = $1; }
              | variable_type  { $$ = $1; }
              | decimal_type   { $$ = $1; }
+             | custom_type_with_children { $$ = $1; }
 
 /* 
  * Types with spaces have at least two words. They are joined in an 
@@ -111,6 +112,8 @@ function_type : FUNCTION LPAREN type_list RPAREN { auto returnType = $3.back(); 
 
 row_type : ROW LPAREN type_list_opt_names RPAREN  { $$ = ROW(std::move($3.names), std::move($3.types)); }
          ;
+
+custom_type_with_children : WORD LPAREN type_list RPAREN { $$ = customTypeWithChildren($1, $3); }
 
 /* Consecutive list of types, separated by a comma. */
 type_list : type                   { $$.push_back($1); }

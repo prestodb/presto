@@ -183,7 +183,8 @@ class IPPrefixCastOperator : public exec::CastOperator {
 
 class IPPrefixTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType() const override {
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK(parameters.empty());
     return IPPrefixType::get();
   }
 

@@ -55,7 +55,8 @@ class FancyIntType : public OpaqueType {
 
 class FancyIntTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType() const override {
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK(parameters.empty());
     return FancyIntType::get();
   }
 
@@ -145,7 +146,8 @@ struct FancyPlusFunction {
 
 class AlwaysFailingTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType() const override {
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK(parameters.empty());
     VELOX_UNSUPPORTED();
   }
 
@@ -256,7 +258,7 @@ TEST_F(CustomTypeTest, nullConstant) {
 
   auto names = getCustomTypeNames();
   for (const auto& name : names) {
-    auto type = getCustomType(name);
+    auto type = getCustomType(name, {});
     auto null = BaseVector::createNullConstant(type, 10, pool());
     EXPECT_TRUE(null->isConstantEncoding());
     EXPECT_TRUE(type->equivalent(*null->type()));

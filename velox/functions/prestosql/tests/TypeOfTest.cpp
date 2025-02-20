@@ -57,7 +57,7 @@ TEST_F(TypeOfTest, basic) {
 
   EXPECT_EQ("HyperLogLog", typeOf(HYPERLOGLOG()));
 
-  EXPECT_EQ("TDigest", typeOf(TDIGEST()));
+  EXPECT_EQ("tdigest(double)", typeOf(TDIGEST(DOUBLE())));
 
   EXPECT_EQ("unknown", typeOf(UNKNOWN()));
 

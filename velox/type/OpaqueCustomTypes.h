@@ -87,7 +87,9 @@ class OpaqueCustomTypeRegister {
    public:
     TypeFactory() = default;
 
-    TypePtr getType() const override {
+    TypePtr getType(
+        const std::vector<TypeParameter>& parameters) const override {
+      VELOX_CHECK(parameters.empty());
       return singletonTypePtr();
     }
 

@@ -27,6 +27,10 @@ TypePtr typeFromString(
     const std::string& type,
     bool failIfNotRegistered = true);
 
+TypePtr customTypeWithChildren(
+    const std::string& name,
+    const std::vector<TypePtr>& children);
+
 /// Convert words with spaces to a Velox type.
 /// First check if all the words are a Velox type.
 /// Then check if the first word is a field name and the remaining words are a

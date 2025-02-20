@@ -151,7 +151,8 @@ using TimestampWithTimezone = CustomType<TimestampWithTimezoneT, true>;
 
 class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType() const override {
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK(parameters.empty());
     return TIMESTAMP_WITH_TIME_ZONE();
   }
 

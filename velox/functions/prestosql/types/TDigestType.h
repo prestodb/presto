@@ -22,13 +22,14 @@
 namespace facebook::velox {
 
 class TDigestType : public VarbinaryType {
-  TDigestType() = default;
-
  public:
-  static const std::shared_ptr<const TDigestType>& get() {
-    static const std::shared_ptr<const TDigestType> instance =
-        std::shared_ptr<TDigestType>(new TDigestType());
-
+  static const std::shared_ptr<const TDigestType>& get(
+      const TypePtr& dataType) {
+    // Only TDIGEST(DOUBLE) exists in Presto so we use a singleton to improve
+    // performance.
+    VELOX_CHECK(dataType->isDouble());
+    static const auto instance =
+        std::shared_ptr<const TDigestType>(new TDigestType(DOUBLE()));
     return instance;
   }
 
@@ -41,25 +42,25 @@ class TDigestType : public VarbinaryType {
     return "TDIGEST";
   }
 
-  std::string toString() const override {
-    return name();
+  const std::vector<TypeParameter>& parameters() const override {
+    return parameters_;
   }
 
-  folly::dynamic serialize() const override {
-    folly::dynamic obj = folly::dynamic::object;
-    obj["name"] = "Type";
-    obj["type"] = name();
-    return obj;
+  std::string toString() const override {
+    return fmt::format("TDIGEST({})", parameters_[0].type->toString());
   }
+
+  folly::dynamic serialize() const override;
+
+ private:
+  explicit TDigestType(const TypePtr& dataType)
+      : parameters_({TypeParameter(dataType)}) {}
+
+  const std::vector<TypeParameter> parameters_;
 };
 
-inline bool isTDigestType(const TypePtr& type) {
-  // Pointer comparison works since this type is a singleton.
-  return TDigestType::get() == type;
-}
-
-inline std::shared_ptr<const TDigestType> TDIGEST() {
-  return TDigestType::get();
+inline std::shared_ptr<const TDigestType> TDIGEST(const TypePtr& dataType) {
+  return TDigestType::get(dataType);
 }
 
 // Type to use for inputs and outputs of simple functions, e.g.
@@ -73,8 +74,10 @@ using TDigest = CustomType<TDigestT>;
 
 class TDigestTypeFactories : public CustomTypeFactories {
  public:
-  TypePtr getType() const override {
-    return TDIGEST();
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK_EQ(parameters.size(), 1);
+    VELOX_CHECK(parameters[0].kind == TypeParameterKind::kType);
+    return TDIGEST(parameters[0].type);
   }
 
   // TDigest should be treated as Varbinary during type castings.

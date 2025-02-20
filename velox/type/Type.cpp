@@ -176,7 +176,12 @@ TypePtr Type::create(const folly::dynamic& obj) {
   }
   // Checks if 'typeName' specifies a custom type.
   if (customTypeExists(typeName)) {
-    return getCustomType(typeName);
+    std::vector<TypeParameter> params;
+    params.reserve(childTypes.size());
+    for (auto& child : childTypes) {
+      params.emplace_back(child);
+    }
+    return getCustomType(typeName, params);
   }
 
   // 'typeName' must be a built-in type.
@@ -1066,10 +1071,12 @@ getTypeFactories(const std::string& name) {
   return nullptr;
 }
 
-TypePtr getCustomType(const std::string& name) {
+TypePtr getCustomType(
+    const std::string& name,
+    const std::vector<TypeParameter>& parameters) {
   auto factories = getTypeFactories(name);
   if (factories) {
-    return factories->getType();
+    return factories->getType(parameters);
   }
 
   return nullptr;
@@ -1362,7 +1369,7 @@ TypePtr getType(
     return parametricBuiltinTypes().at(name)(parameters);
   }
 
-  return getCustomType(name);
+  return getCustomType(name, parameters);
 }
 
 std::type_index getTypeIdForOpaqueTypeAlias(const std::string& name) {

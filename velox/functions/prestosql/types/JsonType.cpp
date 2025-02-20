@@ -1248,7 +1248,8 @@ class JsonTypeFactories : public CustomTypeFactories {
  public:
   JsonTypeFactories() = default;
 
-  TypePtr getType() const override {
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK(parameters.empty());
     return JSON();
   }
 

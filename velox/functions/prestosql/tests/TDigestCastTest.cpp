@@ -24,24 +24,24 @@ class TDigestCastTest : public functions::test::CastBaseTest {};
 TEST_F(TDigestCastTest, toTDigest) {
   testCast<StringView, StringView>(
       VARBINARY(),
-      TDIGEST(),
+      TDIGEST(DOUBLE()),
       {"aaa"_sv, ""_sv, std::nullopt},
       {"aaa"_sv, ""_sv, std::nullopt});
   testCast<StringView, StringView>(
       VARBINARY(),
-      TDIGEST(),
+      TDIGEST(DOUBLE()),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 }
 
 TEST_F(TDigestCastTest, fromTDigest) {
   testCast<StringView, StringView>(
-      TDIGEST(),
+      TDIGEST(DOUBLE()),
       VARBINARY(),
       {"aaa"_sv, ""_sv, std::nullopt},
       {"aaa"_sv, ""_sv, std::nullopt});
   testCast<StringView, StringView>(
-      TDIGEST(),
+      TDIGEST(DOUBLE()),
       VARBINARY(),
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt});
