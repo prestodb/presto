@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(velox_common_encode_test Base64Test.cpp)
+add_executable(velox_common_encode_test Base64Test.cpp ZigZagTest.cpp)
 add_test(velox_common_encode_test velox_common_encode_test)
 target_link_libraries(
   velox_common_encode_test

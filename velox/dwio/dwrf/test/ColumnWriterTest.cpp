@@ -203,9 +203,21 @@ constexpr uint32_t ITERATIONS = 100'000;
 template <typename T>
 VectorPtr populateBatch(
     std::vector<std::optional<T>> const& data,
-    MemoryPool* pool) {
+    MemoryPool* pool,
+    const TypePtr& type = CppToType<T>::create()) {
   BufferPtr values = AlignedBuffer::allocate<T>(data.size(), pool);
   auto valuesPtr = values->asMutableRange<T>();
+
+  const size_t nulloptCount =
+      std::count(data.begin(), data.end(), std::nullopt);
+  if (nulloptCount == 0) {
+    size_t index = 0;
+    for (auto val : data) {
+      valuesPtr[index++] = val.value();
+    }
+    return std::make_shared<FlatVector<T>>(
+        pool, type, nullptr, data.size(), values, std::vector<BufferPtr>{});
+  }
 
   BufferPtr nulls = allocateNulls(data.size(), pool);
   auto* nullsPtr = nulls->asMutable<uint64_t>();
@@ -223,12 +235,7 @@ VectorPtr populateBatch(
   }
 
   auto batch = std::make_shared<FlatVector<T>>(
-      pool,
-      CppToType<T>::create(),
-      nulls,
-      data.size(),
-      values,
-      std::vector<BufferPtr>{});
+      pool, type, nulls, data.size(), values, std::vector<BufferPtr>{});
   batch->setNullCount(nullCount);
   return batch;
 }
@@ -278,8 +285,14 @@ void verifyBatch(
     const uint32_t seed) {
   auto size = data.size();
   ASSERT_EQ(out->size(), size) << "Batch size mismatch with seed " << seed;
-  ASSERT_EQ(nullCount, out->getNullCount())
-      << "nullCount mismatch with seed " << seed;
+  if (nullCount == std::nullopt) {
+    const auto outNullCount = out->getNullCount();
+    ASSERT_TRUE(outNullCount == std::nullopt || outNullCount == 0)
+        << "nullCount mismatch with seed " << seed;
+  } else {
+    ASSERT_EQ(nullCount, out->getNullCount())
+        << "nullCount mismatch with seed " << seed;
+  }
 
   auto outFv = std::dynamic_pointer_cast<FlatVector<T>>(out);
   size_t index = 0;
@@ -314,7 +327,8 @@ template <typename T>
 void testDataTypeWriter(
     const TypePtr& type,
     std::vector<std::optional<T>>& data,
-    const uint32_t sequence = 0) {
+    const uint32_t sequence = 0,
+    DwrfFormat format = DwrfFormat::kDwrf) {
   // Generate a seed and randomly shuffle the data
   uint32_t seed = Random::rand32();
   std::shuffle(data.begin(), data.end(), std::default_random_engine(seed));
@@ -327,9 +341,10 @@ void testDataTypeWriter(
   auto dataTypeWithId = TypeWithId::create(type, 1);
 
   // write
-  auto writer = BaseColumnWriter::create(context, *dataTypeWithId, sequence);
+  auto writer = BaseColumnWriter::create(
+      context, *dataTypeWithId, sequence, nullptr, format);
   auto size = data.size();
-  auto batch = populateBatch(data, pool.get());
+  auto batch = populateBatch(data, pool.get(), type);
   const size_t stripeCount = 2;
   const size_t strideCount = 3;
 
@@ -443,6 +458,43 @@ TEST_F(ColumnWriterTest, TestNullBooleanWriter) {
     data.emplace_back();
   }
   testDataTypeWriter(BOOLEAN(), data);
+}
+
+TEST_F(ColumnWriterTest, testDecimalWriter) {
+  const auto format = DwrfFormat::kOrc;
+  auto genShortDecimals = [&](bool hasNull) {
+    std::vector<std::optional<int64_t>> shortDecimals;
+    for (auto i = 0; i < ITERATIONS; ++i) {
+      if (!hasNull || i % 15) {
+        shortDecimals.emplace_back(i);
+      } else {
+        shortDecimals.emplace_back(std::nullopt);
+      }
+    }
+    return shortDecimals;
+  };
+
+  auto shortValues = genShortDecimals(false);
+  testDataTypeWriter(DECIMAL(10, 2), shortValues, /*sequence=*/0, format);
+  shortValues = genShortDecimals(true);
+  testDataTypeWriter(DECIMAL(10, 2), shortValues, /*sequence=*/0, format);
+
+  auto genLongDecimals = [&](bool hasNull) {
+    std::vector<std::optional<int128_t>> longDecimals;
+    for (auto i = 0; i < ITERATIONS; ++i) {
+      if (!hasNull || i % 15) {
+        longDecimals.emplace_back(HugeInt::build(123 * i, 456 * i + 789));
+      } else {
+        longDecimals.emplace_back(std::nullopt);
+      }
+    }
+    return longDecimals;
+  };
+
+  auto longValues = genLongDecimals(false);
+  testDataTypeWriter(DECIMAL(38, 4), longValues, /*sequence=*/0, format);
+  longValues = genLongDecimals(true);
+  testDataTypeWriter(DECIMAL(38, 4), longValues, /*sequence=*/0, format);
 }
 
 TEST_F(ColumnWriterTest, TestTimestampEpochWriter) {

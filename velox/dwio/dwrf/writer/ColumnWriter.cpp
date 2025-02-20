@@ -697,6 +697,118 @@ class TimestampColumnWriter : public BaseColumnWriter {
   std::unique_ptr<IntEncoder<false>> nanos_;
 };
 
+class DecimalColumnWriter : public BaseColumnWriter {
+ public:
+  DecimalColumnWriter(
+      WriterContext& context,
+      const TypeWithId& type,
+      uint32_t sequence,
+      std::function<void(IndexBuilder&)> onRecordPosition)
+      : BaseColumnWriter{context, type, sequence, std::move(onRecordPosition)},
+        type_{type.type()},
+        scale_{getDecimalPrecisionScale(*type_).second},
+        isShortDecimal_{type_->isShortDecimal()},
+        unscaledValues_{createDirectEncoder</*isSigned=*/true>(
+            newStream(StreamKind::StreamKind_DATA),
+            // IntDecoder and IntEncoder only support vInts for huge ints.
+            isShortDecimal_ ? getConfig(Config::USE_VINTS) : /*useVInts=*/true,
+            isShortDecimal_ ? LONG_BYTE_SIZE : 2 * LONG_BYTE_SIZE)},
+        scales_{createRleEncoder</*isSigned=*/true>(
+            RleVersion_1,
+            // DWRF's NANO_DATA has the same enum value as ORC's SECONDARY.
+            newStream(StreamKind::StreamKind_NANO_DATA),
+            getConfig(Config::USE_VINTS),
+            LONG_BYTE_SIZE)} {
+    reset();
+  }
+
+  uint64_t write(const VectorPtr& slice, const common::Ranges& ranges)
+      override {
+    VELOX_CHECK(
+        slice->type()->equivalent(*type_),
+        "Unexpected vector type: {}.",
+        slice->type()->toString());
+
+    // Always decode to reduce the number of branches. Fast paths for flat and
+    // constant encodings can be added for further optimization.
+    auto localDecoded = decode(slice, ranges);
+    auto& decodedVector = localDecoded.get();
+    writeNulls(decodedVector, ranges);
+
+    size_t count = 0;
+    if (isShortDecimal_) {
+      if (!decodedVector.mayHaveNulls()) {
+        for (auto pos : ranges) {
+          const auto val = decodedVector.valueAt<int64_t>(pos);
+          unscaledValues_->writeValue(val);
+          scales_->writeValue(scale_);
+        }
+        count += ranges.size();
+      } else {
+        for (auto pos : ranges) {
+          if (!decodedVector.isNullAt(pos)) {
+            const auto val = decodedVector.valueAt<int64_t>(pos);
+            unscaledValues_->writeValue(val);
+            scales_->writeValue(scale_);
+            ++count;
+          }
+        }
+      }
+    } else {
+      if (!decodedVector.mayHaveNulls()) {
+        for (auto pos : ranges) {
+          const auto val = decodedVector.valueAt<int128_t>(pos);
+          unscaledValues_->writeHugeInt(val);
+          scales_->writeValue(scale_);
+        }
+        count += ranges.size();
+      } else {
+        for (auto pos : ranges) {
+          if (!decodedVector.isNullAt(pos)) {
+            const auto val = decodedVector.valueAt<int128_t>(pos);
+            unscaledValues_->writeHugeInt(val);
+            scales_->writeValue(scale_);
+            ++count;
+          }
+        }
+      }
+    }
+
+    indexStatsBuilder_->increaseValueCount(count);
+    if (count != ranges.size()) {
+      indexStatsBuilder_->setHasNull();
+    }
+
+    const uint32_t decimalSize =
+        isShortDecimal_ ? 2 * LONG_BYTE_SIZE : 3 * LONG_BYTE_SIZE;
+    const auto rawSize =
+        count * decimalSize + (ranges.size() - count) * NULL_SIZE;
+    indexStatsBuilder_->increaseRawSize(rawSize);
+    return rawSize;
+  }
+
+  void flush(
+      std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
+      std::function<void(proto::ColumnEncoding&)> encodingOverride) override {
+    BaseColumnWriter::flush(encodingFactory, encodingOverride);
+    unscaledValues_->flush();
+    scales_->flush();
+  }
+
+  void recordPosition() override {
+    BaseColumnWriter::recordPosition();
+    unscaledValues_->recordPosition(*indexBuilder_);
+    scales_->recordPosition(*indexBuilder_);
+  }
+
+ private:
+  const TypePtr type_;
+  const uint8_t scale_;
+  const bool isShortDecimal_;
+  std::unique_ptr<IntEncoder<true>> unscaledValues_;
+  std::unique_ptr<IntEncoder<true>> scales_;
+};
+
 namespace {
 FOLLY_ALWAYS_INLINE int64_t formatTime(int64_t seconds, uint64_t nanos) {
   VELOX_CHECK_GE(seconds, MIN_SECONDS);
@@ -1986,7 +2098,8 @@ std::unique_ptr<BaseColumnWriter> BaseColumnWriter::create(
     WriterContext& context,
     const TypeWithId& type,
     uint32_t sequence,
-    std::function<void(IndexBuilder&)> onRecordPosition) {
+    std::function<void(IndexBuilder&)> onRecordPosition,
+    DwrfFormat format) {
   const auto flatMapEnabled = context.getConfig(Config::FLATTEN_MAP) &&
       type.parent() != nullptr && (type.parent()->id() == 0);
   bool isFlatMapColumn{false};
@@ -2036,9 +2149,20 @@ std::unique_ptr<BaseColumnWriter> BaseColumnWriter::create(
     case TypeKind::INTEGER:
       return std::make_unique<IntegerColumnWriter<int32_t>>(
           context, type, sequence, onRecordPosition);
-    case TypeKind::BIGINT:
+    case TypeKind::BIGINT: {
+      if (format == DwrfFormat::kOrc && type.type()->isDecimal()) {
+        return std::make_unique<DecimalColumnWriter>(
+            context, type, sequence, onRecordPosition);
+      }
       return std::make_unique<IntegerColumnWriter<int64_t>>(
           context, type, sequence, onRecordPosition);
+    }
+    case TypeKind::HUGEINT: {
+      VELOX_CHECK_EQ(
+          format, DwrfFormat::kOrc, "Decimal is not supported for DWRF.");
+      return std::make_unique<DecimalColumnWriter>(
+          context, type, sequence, onRecordPosition);
+    }
     case TypeKind::REAL:
       return std::make_unique<FloatColumnWriter<float>>(
           context, type, sequence, onRecordPosition);

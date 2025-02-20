@@ -264,13 +264,17 @@ class Varint {
 // Zig-zag encoding that maps signed integers with a small absolute value
 // to unsigned integers with a small (positive) value.
 // if x >= 0, ZigZag::encode(x) == 2*x
-// if x <  0, ZigZag::encode(x) == -2*x + 1
+// if x < 0, ZigZag::encode(x) == -2*x + 1
 class ZigZag {
  public:
   static uint64_t encode(int64_t val) {
     // Bit-twiddling magic stolen from the Google protocol buffer document;
     // val >> 63 is an arithmetic shift because val is signed
     return (static_cast<uint64_t>(val) << 1) ^ (val >> 63);
+  }
+
+  static __uint128_t encodeInt128(__int128_t val) {
+    return (static_cast<__uint128_t>(val) << 1) ^ (val >> 127);
   }
 
   template <typename U, typename T = typename std::make_signed<U>::type>

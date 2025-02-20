@@ -151,7 +151,8 @@ class BaseColumnWriter : public ColumnWriter {
       WriterContext& context,
       const dwio::common::TypeWithId& type,
       const uint32_t sequence = 0,
-      std::function<void(IndexBuilder&)> onRecordPosition = nullptr);
+      std::function<void(IndexBuilder&)> onRecordPosition = nullptr,
+      DwrfFormat format = DwrfFormat::kDwrf);
 
  protected:
   BaseColumnWriter(
