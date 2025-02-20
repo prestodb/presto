@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
@@ -107,7 +108,7 @@ public class TestOptimizedPartitionedOutputOperator
     private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("test-EXECUTOR-%s"));
     private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
     private static final DataSize MAX_MEMORY = new DataSize(1, GIGABYTE);
-    private static final PagesSerde PAGES_SERDE = new PagesSerdeFactory(new BlockEncodingManager(), false).createPagesSerde(); //testingPagesSerde();
+    private static final PagesSerde PAGES_SERDE = new PagesSerdeFactory(new BlockEncodingManager(), CompressionCodec.NONE).createPagesSerde(); //testingPagesSerde();
 
     private static final int PARTITION_COUNT = 16;
     private static final int PAGE_COUNT = 50;
@@ -897,7 +898,7 @@ public class TestOptimizedPartitionedOutputOperator
             OptionalInt nullChannel,
             DataSize maxMemory)
     {
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), false);
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), CompressionCodec.NONE);
 
         OutputPartitioning outputPartitioning = new OutputPartitioning(
                 partitionFunction,
