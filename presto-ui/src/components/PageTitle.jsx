@@ -156,13 +156,13 @@ export class PageTitle extends React.Component<Props, State> {
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Version</span><br/>
-                                        <span className="text" id="version-number">{isOffline() ? 'N/A' : info.nodeVersion.version}</span>
+                                        <span className="text" id="version-number">{isOffline() ? 'N/A' : info?.nodeVersion?.version}</span>
                                     </span>
                                 </li>
                                 <li>
                                     <span className="navbar-cluster-info">
                                         <span className="uppercase">Environment</span><br/>
-                                        <span className="text" id="environment">{isOffline() ? 'N/A' : info.environment}</span>
+                                        <span className="text" id="environment">{isOffline() ? 'N/A' : info?.environment}</span>
                                     </span>
                                 </li>
                                 <li>
@@ -172,7 +172,7 @@ export class PageTitle extends React.Component<Props, State> {
                                         {this.renderStatusLight()}
                                          </span>
                                         &nbsp;
-                                        <span className="text" id="uptime">{isOffline() ? 'Offline' : info.uptime}</span>
+                                        <span className="text" id="uptime">{isOffline() ? 'Offline' : info?.uptime}</span>
                                     </span>
                                 </li>
                             </ul>
