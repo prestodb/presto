@@ -16,7 +16,7 @@ package com.facebook.presto.router;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
-import com.facebook.presto.router.cluster.ClusterStatusTracker;
+import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.ForClusterInfoTracker;
 import com.facebook.presto.router.cluster.ForClusterManager;
 import com.facebook.presto.router.cluster.ForQueryInfoTracker;

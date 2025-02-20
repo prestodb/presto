@@ -38,11 +38,11 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public class ClusterStatusResource
 {
     private final String environment;
-    private final ClusterStatusTracker clusterStatusTracker;
+    private final ClusterManager.ClusterStatusTracker clusterStatusTracker;
     private final ClusterManager clusterManager;
 
     @Inject
-    public ClusterStatusResource(NodeInfo nodeInfo, ClusterStatusTracker clusterStatusTracker, ClusterManager clusterManager)
+    public ClusterStatusResource(NodeInfo nodeInfo, ClusterManager.ClusterStatusTracker clusterStatusTracker, ClusterManager clusterManager)
     {
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.clusterStatusTracker = requireNonNull(clusterStatusTracker, "clusterStatusTracker is null");
