@@ -34,7 +34,7 @@ final class AesSpillCipher
         implements SpillCipher
 {
     //  256-bit AES CBC mode
-    private static final String CIPHER_NAME = "AES/CBC/PKCS7Padding";
+    private static final String CIPHER_NAME = "AES/CTR/NoPadding";
     private static final int KEY_BITS = 256;
 
     private SecretKey key;
