@@ -242,6 +242,7 @@ void PrestoServer::run() {
       address_ = fmt::format("[{}]", address_);
     }
     nodeLocation_ = nodeConfig->nodeLocation();
+    nodePoolType_ = systemConfig->poolType();
     prestoBuiltinFunctionPrefix_ = systemConfig->prestoDefaultNamespacePrefix();
   } catch (const velox::VeloxUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
@@ -577,6 +578,7 @@ void PrestoServer::run() {
           environment_,
           nodeId_,
           nodeLocation_,
+          nodePoolType_,
           systemConfig->prestoNativeSidecar(),
           catalogNames,
           systemConfig->announcementMaxFrequencyMs(),
