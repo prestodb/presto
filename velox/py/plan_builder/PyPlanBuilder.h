@@ -31,11 +31,10 @@ void registerAllResources();
 class PyVector;
 
 // Stores the data associated with a table scan leaf operator. Map from the plan
-// node id to a pair containing the connector id, and a list of files to be
-// added as splits.
+// node id to a list of splits.
 using TScanFiles = std::unordered_map<
     core::PlanNodeId,
-    std::pair<std::string, std::vector<PyFile>>>;
+    std::vector<std::shared_ptr<connector::ConnectorSplit>>>;
 using TScanFilesPtr = std::shared_ptr<TScanFiles>;
 
 /// Thin wrapper class used to expose Velox plan nodes to Python. It is only
@@ -161,35 +160,35 @@ class PyPlanBuilder {
       const std::string& connectorId,
       const std::optional<PyType>& outputSchema);
 
-  // Add the provided vectors straight into the operator tree.
+  /// Add the provided vectors straight into the operator tree.
   PyPlanBuilder& values(const std::vector<PyVector>& values);
 
-  // Add a list of projections. Projections are specified as SQL expressions and
-  // currently use DuckDB's parser semantics.
+  /// Add a list of projections. Projections are specified as SQL expressions
+  /// and currently use DuckDB's parser semantics.
   PyPlanBuilder& project(const std::vector<std::string>& projections);
 
-  // Add a filter (selection) to the plan. Filters are specified as SQL
-  // expressions and currently use DuckDB's parser semantics.
+  /// Add a filter (selection) to the plan. Filters are specified as SQL
+  /// expressions and currently use DuckDB's parser semantics.
   PyPlanBuilder& filter(const std::string& filter);
 
-  // Add a single-stage aggregation given a set of group keys, and aggregations.
-  // Aggregations are specified as SQL expressions and currently use DuckDB's
-  // parser semantics.
+  /// Add a single-stage aggregation given a set of group keys, and
+  /// aggregations. Aggregations are specified as SQL expressions and currently
+  /// use DuckDB's parser semantics.
   PyPlanBuilder& singleAggregation(
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregations);
 
-  // Add a merge join node to the plan. Assumes that both left and right
-  // subtrees will produce input sorted in join key order.
-  //
-  // @param leftKeys Set of join keys from the left (current plan builder) plan
-  // subtree.
-  // @param leftKeys Set of join keys from the right plan subtree.
-  // @param rightPlanSubtree Subtree to join to.
-  // @param output List of column names to project in the output of the join.
-  // @param filter An optional filter specified as a SQL expression to be
-  // applied during the join.
-  // @param joinType The type of join (kInner, kLeft, kRight, or kFull)
+  /// Add a merge join node to the plan. Assumes that both left and right
+  /// subtrees will produce input sorted in join key order.
+  ///
+  /// @param leftKeys Set of join keys from the left (current plan builder) plan
+  /// subtree.
+  /// @param leftKeys Set of join keys from the right plan subtree.
+  /// @param rightPlanSubtree Subtree to join to.
+  /// @param output List of column names to project in the output of the join.
+  /// @param filter An optional filter specified as a SQL expression to be
+  /// applied during the join.
+  /// @param joinType The type of join (kInner, kLeft, kRight, or kFull)
   PyPlanBuilder& mergeJoin(
       const std::vector<std::string>& leftKeys,
       const std::vector<std::string>& rightKeys,
@@ -197,6 +196,27 @@ class PyPlanBuilder {
       const std::vector<std::string>& output,
       const std::string& filter,
       core::JoinType joinType);
+
+  /// Generates TPC-H data on the fly using dbgen. Note that generating data on
+  /// the fly is not terribly efficient, so for performance evaluation one
+  /// should generate data using this node, write it to output storage files,
+  /// (Parquet, ORC, or similar), then benchmark a query plan that reads those
+  /// files.
+  ///
+  /// @param tableName The TPC-H table name to generate data for.
+  /// @param columns The columns from `table_name` to generate data for. If
+  /// empty (the default), generate data for all columns.
+  /// @param scaleFactor TPC-H scale factor to use - controls the amount of
+  /// data generated.
+  /// @param numParts How many splits to generate. This controls the
+  /// parallelism and the number of output files to be generated.
+  /// @param connector_id ID of the connector to use for this scan.
+  PyPlanBuilder& tpchGen(
+      const std::string& tableName,
+      const std::vector<std::string>& columns,
+      double scaleFactor,
+      size_t numParts,
+      const std::string& connectorId);
 
   // TODO: Add other nodes.
 

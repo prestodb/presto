@@ -178,10 +178,12 @@ class PlanBuilder {
   /// and scale factor.
   /// @param columnNames The columns to be returned from that table.
   /// @param scaleFactor The TPC-H scale factor.
+  /// @param connectorId The TPC-H connector id.
   PlanBuilder& tpchTableScan(
       tpch::Table table,
-      std::vector<std::string>&& columnNames,
-      double scaleFactor = 1);
+      std::vector<std::string> columnNames,
+      double scaleFactor = 1,
+      std::string_view connectorId = kTpchDefaultConnectorId);
 
   /// Helper class to build a custom TableScanNode.
   /// Uses a planBuilder instance to get the next plan id, memory pool, and

@@ -95,9 +95,9 @@ py::iterator PyLocalRunner::execute() {
   }
 
   // Add any files passed by the client during plan building.
-  for (const auto& [scanId, scanPair] : *scanFiles_) {
-    for (const auto& inputFile : scanPair.second) {
-      addFileSplit(inputFile, scanId, scanPair.first);
+  for (auto& [scanId, splits] : *scanFiles_) {
+    for (auto& split : splits) {
+      cursor_->task()->addSplit(scanId, exec::Split(std::move(split)));
     }
     cursor_->task()->noMoreSplits(scanId);
   }

@@ -18,7 +18,9 @@
 
 #include <folly/executors/GlobalExecutor.h>
 #include <pybind11/stl.h>
+#include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/connectors/tpch/TpchConnectorSplit.h"
 #include "velox/core/PlanNode.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
@@ -29,6 +31,7 @@
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/py/vector/PyVector.h"
+#include "velox/tpch/gen/TpchGen.h"
 
 namespace facebook::velox::py {
 
@@ -201,9 +204,16 @@ PyPlanBuilder& PyPlanBuilder::tableScan(
       .connectorId(connectorId)
       .endTableScan();
 
-  // Store the id of the scan along with any files that were passed.
-  (*scanFiles_)[planBuilder_.planNode()->id()] =
-      std::make_pair(connectorId, inputFiles.value_or(std::vector<PyFile>{}));
+  // Store the id of the scan and the respective splits.
+  std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+  if (inputFiles.has_value()) {
+    for (const auto& inputFile : *inputFiles) {
+      splits.push_back(std::make_shared<connector::hive::HiveConnectorSplit>(
+          connectorId, inputFile.filePath(), inputFile.fileFormat()));
+    }
+  }
+
+  (*scanFiles_)[planBuilder_.planNode()->id()] = std::move(splits);
   return *this;
 }
 
@@ -256,6 +266,31 @@ PyPlanBuilder& PyPlanBuilder::mergeJoin(
       filter,
       output,
       joinType);
+  return *this;
+}
+
+PyPlanBuilder& PyPlanBuilder::tpchGen(
+    const std::string& tableName,
+    const std::vector<std::string>& columns,
+    double scaleFactor,
+    size_t numParts,
+    const std::string& connectorId) {
+  // If `columns` is empty, get all columns from `table`.
+  auto table = tpch::fromTableName(tableName);
+  planBuilder_.tpchTableScan(
+      table,
+      columns.empty() ? tpch::getTableSchema(table)->names() : columns,
+      scaleFactor,
+      connectorId);
+
+  // Generate one split per part.
+  std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+  for (size_t i = 0; i < numParts; ++i) {
+    splits.push_back(std::make_shared<connector::tpch::TpchConnectorSplit>(
+        connectorId, numParts, i));
+  }
+
+  (*scanFiles_)[planBuilder_.planNode()->id()] = std::move(splits);
   return *this;
 }
 
