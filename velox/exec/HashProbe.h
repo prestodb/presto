@@ -165,6 +165,12 @@ class HashProbe : public Operator {
       vector_size_t numRows,
       bool filterPropagateNulls);
 
+  // Prepares the hashers for probing with null keys.
+  // Initializes `nullKeyProbeHashers_` if empty, ensuring it has exactly one
+  // hasher. If the table's hash mode is `kHash`, creates and decodes a null
+  // input vector.
+  void prepareNullKeyProbeHashers();
+
   // Combine the selected probe-side rows with all or null-join-key (depending
   // on the iterator) build side rows and evaluate the filter.  Mark probe rows
   // that pass the filter in 'filterPassedRows'. Used in null-aware join
@@ -680,6 +686,12 @@ class HashProbe : public Operator {
 
   // The spilled probe partitions remaining to restore.
   SpillPartitionSet inputSpillPartitionSet_;
+
+  // VectorHashers used for listing rows with null keys.
+  std::vector<std::unique_ptr<VectorHasher>> nullKeyProbeHashers_;
+
+  // Input vector used for listing rows with null keys.
+  VectorPtr nullKeyProbeInput_;
 };
 
 inline std::ostream& operator<<(std::ostream& os, ProbeOperatorState state) {

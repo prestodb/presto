@@ -547,7 +547,14 @@ class HashTableTest : public testing::TestWithParam<bool>,
     ASSERT_EQ(table->hashMode(), mode);
     std::vector<char*> rows(nullValues.size());
     BaseHashTable::NullKeyRowsIterator iter;
-    auto numRows = table->listNullKeyRows(&iter, rows.size(), rows.data());
+    std::vector<std::unique_ptr<VectorHasher>> probeHashers;
+    probeHashers.push_back(std::make_unique<VectorHasher>(keys->type(), 0));
+    auto nullKeyProbeInput = BaseVector::create(keys->type(), 1, pool());
+    nullKeyProbeInput->setNull(0, true);
+    SelectivityVector selectivity(1);
+    probeHashers[0]->decode(*nullKeyProbeInput, selectivity);
+    auto numRows =
+        table->listNullKeyRows(&iter, rows.size(), rows.data(), probeHashers);
     ASSERT_EQ(numRows, nullValues.size());
     auto actual =
         BaseVector::create<FlatVector<int64_t>>(BIGINT(), numRows, pool());
@@ -558,7 +565,9 @@ class HashTableTest : public testing::TestWithParam<bool>,
       nullValues.erase(it);
     }
     ASSERT_TRUE(nullValues.empty());
-    ASSERT_EQ(0, table->listNullKeyRows(&iter, rows.size(), rows.data()));
+    ASSERT_EQ(
+        0,
+        table->listNullKeyRows(&iter, rows.size(), rows.data(), probeHashers));
   }
 
   // Bitmap of positions in batches_ that end up in the table.
