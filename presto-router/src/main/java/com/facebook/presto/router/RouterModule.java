@@ -63,10 +63,6 @@ public class RouterModule
     {
         ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
 
-        //Determine the NodeVersion
-        NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
-        binder.bind(NodeVersion.class).toInstance(nodeVersion);
-
         httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
 
