@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.repartition;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -152,8 +153,8 @@ public class BenchmarkPartitionedOutputOperator
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("test-%s"));
 
         @SuppressWarnings("unused")
-        @Param({"true", "false"})
-        private boolean enableCompression;
+        @Param({"NONE", "LZ4"})
+        private CompressionCodec compressionCodec;
 
         @Param({"1", "2"})
         private int channelCount = 1;
@@ -305,7 +306,7 @@ public class BenchmarkPartitionedOutputOperator
                     IntStream.range(0, PARTITION_COUNT).toArray());
             OutputPartitioning outputPartitioning = createOutputPartitioning(partitionFunction);
 
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), compressionCodec);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
             OptimizedPartitionedOutputFactory operatorFactory = new OptimizedPartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);
@@ -320,7 +321,7 @@ public class BenchmarkPartitionedOutputOperator
             PartitionFunction partitionFunction = new LocalPartitionGenerator(new PrecomputedHashGenerator(0), PARTITION_COUNT);
             OutputPartitioning outputPartitioning = createOutputPartitioning(partitionFunction);
 
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new BlockEncodingManager(), compressionCodec);
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 
             PartitionedOutputFactory operatorFactory = new PartitionedOutputFactory(buffer, MAX_PARTITION_BUFFER_SIZE);

@@ -22,6 +22,7 @@ import com.facebook.airlift.http.client.UnexpectedResponseException;
 import com.facebook.airlift.http.client.jetty.JettyHttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.testing.Closeables;
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.client.QueryError;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.common.Page;
@@ -193,7 +194,7 @@ public class TestServer
         byte[] decodedPage = Base64.getDecoder().decode((String) encodedPages.get(0));
 
         BlockEncodingManager blockEncodingSerde = new BlockEncodingManager();
-        PagesSerde pagesSerde = new PagesSerdeFactory(blockEncodingSerde, false, false).createPagesSerde();
+        PagesSerde pagesSerde = new PagesSerdeFactory(blockEncodingSerde, CompressionCodec.NONE, false).createPagesSerde();
         BasicSliceInput pageInput = new BasicSliceInput(Slices.wrappedBuffer(decodedPage, 0, decodedPage.length));
         SerializedPage serializedPage = readSerializedPage(pageInput);
 

@@ -839,11 +839,15 @@ public final class SystemSessionProperties
                         "Experimental: enable runtime optimizer",
                         featuresConfig.isRuntimeOptimizerEnabled(),
                         false),
-                booleanProperty(
+                new PropertyMetadata<>(
                         EXCHANGE_COMPRESSION,
-                        "Enable compression in exchanges",
-                        featuresConfig.isExchangeCompressionEnabled(),
-                        false),
+                        "Exchange compression code",
+                        VARCHAR,
+                        CompressionCodec.class,
+                        featuresConfig.getExchangeCompressionCodec(),
+                        false,
+                        value -> CompressionCodec.valueOf((String) value),
+                        CompressionCodec::name),
                 booleanProperty(
                         EXCHANGE_CHECKSUM,
                         "Enable checksum in exchanges",
@@ -2288,6 +2292,11 @@ public final class SystemSessionProperties
     public static boolean isExchangeCompressionEnabled(Session session)
     {
         return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+    }
+
+    public static CompressionCodec getExchangeCompressionCodec(Session session)
+    {
+        return session.getSystemProperty(EXCHANGE_COMPRESSION, CompressionCodec.class);
     }
 
     public static boolean isExchangeChecksumEnabled(Session session)

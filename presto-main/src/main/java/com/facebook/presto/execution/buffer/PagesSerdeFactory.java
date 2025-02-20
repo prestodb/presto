@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.buffer;
 
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.page.PageCompressor;
 import com.facebook.presto.spi.page.PageDecompressor;
@@ -31,18 +32,18 @@ import static java.util.Objects.requireNonNull;
 public class PagesSerdeFactory
 {
     private final BlockEncodingSerde blockEncodingSerde;
-    private final boolean compressionEnabled;
+    private final CompressionCodec compressionCodec;
     private final boolean checksumEnabled;
 
-    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, boolean compressionEnabled)
+    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec)
     {
-        this(blockEncodingSerde, compressionEnabled, false);
+        this(blockEncodingSerde, compressionCodec, false);
     }
 
-    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, boolean compressionEnabled, boolean checksumEnabled)
+    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec, boolean checksumEnabled)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.compressionEnabled = compressionEnabled;
+        this.compressionCodec = compressionCodec;
         this.checksumEnabled = checksumEnabled;
     }
 
@@ -58,7 +59,7 @@ public class PagesSerdeFactory
 
     private PagesSerde createPagesSerdeInternal(Optional<SpillCipher> spillCipher)
     {
-        if (compressionEnabled) {
+        if (compressionCodec == CompressionCodec.LZ4) {
             return new PagesSerde(
                     blockEncodingSerde,
                     Optional.of(new PageCompressor()
