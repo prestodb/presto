@@ -136,6 +136,70 @@ int main(int argc, char** argv) {
       facebook::velox::memory::memoryManager()->addRootPool()};
   std::shared_ptr<ReferenceQueryRunner> referenceQueryRunner{nullptr};
   if (!FLAGS_presto_url.empty()) {
+    // Add additional functions to skip since we are now querying Presto
+    // directly and are aware of certain failures.
+    skipFunctions.insert({
+        "cast(real) -> varchar", // https://github.com/facebookincubator/velox/issues/11034
+        "round", // https://github.com/facebookincubator/velox/issues/10634
+        "json_size", // https://github.com/facebookincubator/velox/issues/10700
+        "bitwise_right_shift_arithmetic", // https://github.com/facebookincubator/velox/issues/10841
+        "map_size_with", // https://github.com/facebookincubator/velox/issues/10964
+        "binomial_cdf", // https://github.com/facebookincubator/velox/issues/10702
+        "inverse_laplace_cdf", // https://github.com/facebookincubator/velox/issues/10699
+        "gamma_cdf", // https://github.com/facebookincubator/velox/issues/10749
+        "inverse_normal_cdf", // https://github.com/facebookincubator/velox/issues/10836
+        "regr_avgx", // https://github.com/facebookincubator/velox/issues/10610
+        "is_json_scalar", // https://github.com/facebookincubator/velox/issues/10748
+        "json_extract_scalar", // https://github.com/facebookincubator/velox/issues/10698
+        "rtrim", // https://github.com/facebookincubator/velox/issues/10973
+        "split", // https://github.com/facebookincubator/velox/issues/10867
+        "array_intersect", // https://github.com/facebookincubator/velox/issues/10740
+        "f_cdf", // https://github.com/facebookincubator/velox/issues/10633
+        "truncate", // https://github.com/facebookincubator/velox/issues/10628
+        "url_extract_query", // https://github.com/facebookincubator/velox/issues/10659
+        "laplace_cdf", // https://github.com/facebookincubator/velox/issues/10974
+        "inverse_beta_cdf", // https://github.com/facebookincubator/velox/issues/11802
+        "conjunct", // https://github.com/facebookincubator/velox/issues/10678
+        "url_extract_host", // https://github.com/facebookincubator/velox/issues/10578
+        "weibull_cdf", // https://github.com/facebookincubator/velox/issues/10977
+        "zip_with", // https://github.com/facebookincubator/velox/issues/10844
+        "url_extract_path", // https://github.com/facebookincubator/velox/issues/10579
+        "bitwise_shift_left", // https://github.com/facebookincubator/velox/issues/10870
+        "split_part", // https://github.com/facebookincubator/velox/issues/10839
+        "bitwise_arithmetic_shift_right", // https://github.com/facebookincubator/velox/issues/10750
+        "date_format", // https://github.com/facebookincubator/velox/issues/10968
+        "substr", // https://github.com/facebookincubator/velox/issues/10660
+        "cauchy_cdf", // https://github.com/facebookincubator/velox/issues/10976
+        "covar_pop", // https://github.com/facebookincubator/velox/issues/10627
+        "lpad", // https://github.com/facebookincubator/velox/issues/10757
+        "format_datetime", // https://github.com/facebookincubator/velox/issues/10779
+        "inverse_cauchy_cdf", // https://github.com/facebookincubator/velox/issues/10840
+        "array_position", // https://github.com/facebookincubator/velox/issues/10580
+        "url_extract_fragment", // https://github.com/facebookincubator/velox/issues/12324
+        "url_extract_protocol", // https://github.com/facebookincubator/velox/issues/12325
+        "chi_squared_cdf", // https://github.com/facebookincubator/velox/issues/12327
+        "bitwise_left_shift", // https://github.com/facebookincubator/velox/issues/12330
+        "log2", // https://github.com/facebookincubator/velox/issues/12338
+        "bitwise_right_shift", // https://github.com/facebookincubator/velox/issues/12339
+        "word_stem", // https://github.com/facebookincubator/velox/issues/12341
+        "rpad", // https://github.com/facebookincubator/velox/issues/12343
+        "json_extract", // https://github.com/facebookincubator/velox/issues/12344
+        "to_ieee754_32", // https://github.com/facebookincubator/velox/issues/12345
+        "beta_cdf", // https://github.com/facebookincubator/velox/issues/12346
+        "wilson_interval_upper", // https://github.com/facebookincubator/velox/issues/12347
+        "json_parse", // https://github.com/facebookincubator/velox/issues/12371
+        "to_ieee754_64", // https://github.com/facebookincubator/velox/issues/12372
+        // No default Hive type provided for unsupported Hive type: json
+        "json_format",
+        "json_array_length",
+        "json_array_get",
+        "json_array_contains",
+        "clamp", // Function clamp not registered
+        "current_date", // Non-deterministic
+        "xxhash64_internal",
+        "combine_hash_internal",
+    });
+
     referenceQueryRunner = std::make_shared<PrestoQueryRunner>(
         rootPool.get(),
         FLAGS_presto_url,

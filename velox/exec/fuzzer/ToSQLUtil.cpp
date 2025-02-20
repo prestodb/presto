@@ -132,6 +132,7 @@ const std::unordered_map<std::string, std::string>& binaryOperatorMap() {
   static std::unordered_map<std::string, std::string> binaryOperatorMap{
       {"plus", "+"},
       {"subtract", "-"},
+      {"minus", "-"},
       {"multiply", "*"},
       {"divide", "/"},
       {"eq", "="},
