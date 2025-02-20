@@ -114,7 +114,7 @@ class RemoteFunction : public exec::VectorFunction {
     }
 
     auto outputRowVector = IOBufToRowVector(
-        remoteResponse.result().value().get_payload(),
+        remoteResponse.result().value().payload().value(),
         ROW({outputType}),
         *context.pool(),
         serde_.get());
