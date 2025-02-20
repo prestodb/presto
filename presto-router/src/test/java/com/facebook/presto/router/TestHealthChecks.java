@@ -103,7 +103,7 @@ public class TestHealthChecks
         }
     }
 
-    @Test(enabled = false)
+    @Test(enabled = true)
     public void testHealthChecks()
     {
         prestoServers.get(0).stopResponding();
