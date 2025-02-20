@@ -521,7 +521,11 @@ public class TestUtilizedColumnsAnalyzer
 
     public void testInvokerView()
     {
+//        @Language("SQL") String query = "SELECT v6.a, v6.c FROM v6";
+//        @Language("SQL") String query = "SELECT v6.a, v6.c FROM (select a,b,c from t1) v6";
+//        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM (select a,b,c from t1) v6 left join (select x,y,z from t13) v7 on v7.y = v6.c";
         @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.y = v6.c";
+
         transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
