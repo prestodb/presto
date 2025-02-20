@@ -224,14 +224,17 @@ void deserializeString(
   VELOX_CHECK_EQ(result.encoding(), VectorEncoding::Simple::FLAT);
   auto values = result.asUnchecked<FlatVector<StringView>>();
   auto size = in.read<int32_t>();
-  auto buffer = values->getBufferWithSpace(size);
-  auto start = buffer->asMutable<char>() + buffer->size();
-  in.readBytes(start, size);
-  // If the string is not inlined in string view, we need to advance the buffer.
-  if (not StringView::isInline(size)) {
+  if (StringView::isInline(size)) {
+    char data[StringView::kInlineSize];
+    in.readBytes(data, size);
+    values->setNoCopy(index, StringView(data, size));
+  } else {
+    auto* buffer = values->getBufferWithSpace(size);
+    auto* start = buffer->asMutable<char>() + buffer->size();
+    in.readBytes(start, size);
     buffer->setSize(buffer->size() + size);
+    values->setNoCopy(index, StringView(start, size));
   }
-  values->setNoCopy(index, StringView(start, size));
 }
 
 template <>
@@ -250,14 +253,39 @@ void deserializeOne<TypeKind::VARBINARY>(
   deserializeString(in, index, result);
 }
 
-std::vector<uint64_t> readNulls(ByteInputStream& in, int32_t size) {
-  auto n = bits::nwords(size);
-  std::vector<uint64_t> nulls(n);
-  for (auto i = 0; i < n; ++i) {
-    nulls[i] = in.read<uint64_t>();
+class NullsReader {
+ public:
+  NullsReader(ByteInputStream& in, int32_t size) {
+    if (size <= 0) {
+      VELOX_DCHECK_EQ(size, 0);
+      data_ = nullptr;
+    } else if (size <= 64) {
+      small_ = in.read<uint64_t>();
+      data_ = &small_;
+    } else {
+      auto n = bits::nwords(size);
+      large_.resize(n);
+      for (auto i = 0; i < n; ++i) {
+        large_[i] = in.read<uint64_t>();
+      }
+      data_ = large_.data();
+    }
   }
-  return nulls;
-}
+
+  NullsReader(const NullsReader&) = delete;
+  NullsReader& operator=(const NullsReader&) = delete;
+  NullsReader(NullsReader&&) = delete;
+  NullsReader& operator=(NullsReader&&) = delete;
+
+  const uint64_t* data() const {
+    return data_;
+  }
+
+ private:
+  uint64_t small_;
+  std::vector<uint64_t> large_;
+  const uint64_t* data_;
+};
 
 template <>
 void deserializeOne<TypeKind::ROW>(
@@ -269,7 +297,7 @@ void deserializeOne<TypeKind::ROW>(
   auto row = result.asUnchecked<RowVector>();
   auto childrenSize = type.size();
   VELOX_CHECK_EQ(childrenSize, row->childrenSize());
-  auto nulls = readNulls(in, childrenSize);
+  NullsReader nulls(in, childrenSize);
   for (auto i = 0; i < childrenSize; ++i) {
     auto child = row->childAt(i);
     if (child->size() <= index) {
@@ -292,9 +320,9 @@ vector_size_t deserializeArray(
     BaseVector& elements,
     vector_size_t& offset) {
   auto size = in.read<int32_t>();
-  auto nulls = readNulls(in, size);
   offset = elements.size();
   elements.resize(offset + size);
+  NullsReader nulls(in, size);
   for (auto i = 0; i < size; ++i) {
     if (bits::isBitSet(nulls.data(), i)) {
       elements.setNull(i + offset, true);
@@ -453,7 +481,7 @@ std::optional<int32_t> compare(
   const auto& type = row->type()->as<TypeKind::ROW>();
   auto childrenSize = type.size();
   VELOX_CHECK_EQ(childrenSize, row->childrenSize());
-  auto nulls = readNulls(left, childrenSize);
+  NullsReader nulls(left, childrenSize);
   for (auto i = 0; i < childrenSize; ++i) {
     auto child = row->childAt(i);
     auto leftNull = bits::isBitSet(nulls.data(), i);
@@ -494,7 +522,7 @@ std::optional<int32_t> compareArrays(
     return flags.ascending ? 1 : -1;
   }
   auto compareSize = std::min(leftSize, rightSize);
-  auto leftNulls = readNulls(left, leftSize);
+  NullsReader leftNulls(left, leftSize);
   auto wrappedElements = elements.wrappedVector();
   for (auto i = 0; i < compareSize; ++i) {
     bool leftNull = bits::isBitSet(leftNulls.data(), i);
@@ -531,7 +559,7 @@ std::optional<int32_t> compareArrayIndices(
     return flags.ascending ? 1 : -1;
   }
   auto compareSize = std::min(leftSize, rightSize);
-  auto leftNulls = readNulls(left, leftSize);
+  NullsReader leftNulls(left, leftSize);
   auto wrappedElements = elements.wrappedVector();
   for (auto i = 0; i < compareSize; ++i) {
     bool leftNull = bits::isBitSet(leftNulls.data(), i);
@@ -737,8 +765,8 @@ std::optional<int32_t> compareArrays(
     return flags.ascending ? 1 : -1;
   }
   auto compareSize = std::min(leftSize, rightSize);
-  auto leftNulls = readNulls(left, leftSize);
-  auto rightNulls = readNulls(right, rightSize);
+  NullsReader leftNulls(left, leftSize);
+  NullsReader rightNulls(right, rightSize);
   for (auto i = 0; i < compareSize; ++i) {
     bool leftNull = bits::isBitSet(leftNulls.data(), i);
     bool rightNull = bits::isBitSet(rightNulls.data(), i);
@@ -771,8 +799,8 @@ std::optional<int32_t> compare(
     CompareFlags flags) {
   const auto& rowType = type->as<TypeKind::ROW>();
   int size = rowType.size();
-  auto leftNulls = readNulls(left, size);
-  auto rightNulls = readNulls(right, size);
+  NullsReader leftNulls(left, size);
+  NullsReader rightNulls(right, size);
   for (auto i = 0; i < size; ++i) {
     bool leftNull = bits::isBitSet(leftNulls.data(), i);
     bool rightNull = bits::isBitSet(rightNulls.data(), i);
@@ -912,7 +940,7 @@ template <bool elementTypeProvidesCustomComparison>
 uint64_t
 hashArray(ByteInputStream& in, uint64_t hash, const Type* elementType) {
   auto size = in.read<int32_t>();
-  auto nulls = readNulls(in, size);
+  NullsReader nulls(in, size);
   for (auto i = 0; i < size; ++i) {
     uint64_t value;
     if (bits::isBitSet(nulls.data(), i)) {
@@ -931,7 +959,7 @@ template <
     std::enable_if_t<Kind == TypeKind::ROW, int32_t> = 0>
 uint64_t hashOne(ByteInputStream& in, const Type* type) {
   auto size = type->size();
-  auto nulls = readNulls(in, size);
+  NullsReader nulls(in, size);
   uint64_t hash = BaseVector::kNullHash;
   for (auto i = 0; i < size; ++i) {
     uint64_t value;

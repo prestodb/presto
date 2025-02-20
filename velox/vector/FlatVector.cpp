@@ -119,23 +119,6 @@ void FlatVector<StringView>::set(vector_size_t idx, StringView value) {
   }
 }
 
-/// For types that requires buffer allocation this should be called only if
-/// value is inlined or if value is already allocated in a buffer within the
-/// vector. Used by StringWriter to allow UDFs to write directly into the
-/// buffers and avoid copying.
-template <>
-void FlatVector<StringView>::setNoCopy(
-    const vector_size_t idx,
-    const StringView& value) {
-  VELOX_DCHECK_LT(idx, BaseVector::length_);
-  ensureValues();
-  VELOX_DCHECK(!values_->isView());
-  if (BaseVector::nulls_) {
-    BaseVector::setNull(idx, false);
-  }
-  rawValues_[idx] = value;
-}
-
 template <>
 void FlatVector<StringView>::acquireSharedStringBuffers(
     const BaseVector* source) {
