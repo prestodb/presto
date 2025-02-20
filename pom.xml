@@ -76,10 +76,10 @@
         <dep.docker-java.version>3.3.0</dep.docker-java.version>
         <dep.jayway.version>2.9.0</dep.jayway.version>
         <dep.ratis.version>2.2.0</dep.ratis.version>
-        <dep.errorprone.version>2.28.0</dep.errorprone.version>
+        <dep.errorprone.version>2.36.0</dep.errorprone.version>
         <dep.guava.version>32.1.0-jre</dep.guava.version>
         <dep.jackson.version>2.15.4</dep.jackson.version>
-        <dep.j2objc.version>2.8</dep.j2objc.version>
+        <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.26.2</dep.commons.compress.version>
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
@@ -102,7 +102,7 @@
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
-        <grpc.version>1.68.0</grpc.version>
+        <grpc.version>1.70.0</grpc.version>
         <dep.log4j.version>2.24.3</dep.log4j.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
