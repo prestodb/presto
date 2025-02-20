@@ -40,6 +40,7 @@ import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -501,6 +502,11 @@ public class PrestoNativeQueryRunnerUtils
 
     public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, int cacheMaxSize, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled)
     {
+        return getExternalWorkerLauncher(catalogName, prestoServerPath, OptionalInt.empty(), cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled);
+    }
+
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, OptionalInt port, int cacheMaxSize, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled)
+    {
         return
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
@@ -513,7 +519,8 @@ public class PrestoNativeQueryRunnerUtils
                         String configProperties = format("discovery.uri=%s%n" +
                                 "presto.version=testversion%n" +
                                 "system-memory-gb=4%n" +
-                                "http-server.http.port=0%n", discoveryUri);
+                                "native-sidecar=true%n" +
+                                "http-server.http.port=%d", discoveryUri, port.orElse(0));
 
                         if (isCoordinatorSidecarEnabled) {
                             configProperties = format("%s%n" +
@@ -577,6 +584,45 @@ public class PrestoNativeQueryRunnerUtils
                 });
     }
 
+    public static Process getNativeSidecarProcess(URI discoveryUri, int port)
+            throws IOException
+    {
+        NativeQueryRunnerParameters nativeQueryRunnerParameters = getNativeQueryRunnerParameters();
+        return getNativeSidecarProcess(nativeQueryRunnerParameters.serverBinary.toString(), discoveryUri, port);
+    }
+
+    public static Process getNativeSidecarProcess(String prestoServerPath, URI discoveryUri, int port)
+            throws IOException
+    {
+        Path tempDirectoryPath = Files.createTempDirectory(PrestoNativeQueryRunnerUtils.class.getSimpleName());
+        log.info("Temp directory for Sidecar: %s", tempDirectoryPath.toString());
+
+        // Write config file
+        String configProperties = format("discovery.uri=%s%n" +
+                "presto.version=testversion%n" +
+                "system-memory-gb=4%n" +
+                "native-sidecar=true%n" +
+                "http-server.http.port=%d", discoveryUri, port);
+
+        Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
+        Files.write(tempDirectoryPath.resolve("node.properties"),
+                format("node.id=%s%n" +
+                        "node.internal-address=127.0.0.1%n" +
+                        "node.environment=testing%n" +
+                        "node.location=test-location", UUID.randomUUID()).getBytes());
+
+        // TODO: sidecars require that a catalog directory exist
+        Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
+        Files.createDirectory(catalogDirectoryPath);
+
+        return new ProcessBuilder(prestoServerPath)
+                .directory(tempDirectoryPath.toFile())
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("sidecar.out").toFile()))
+                .redirectError(ProcessBuilder.Redirect.to(tempDirectoryPath.resolve("sidecar.out").toFile()))
+                .start();
+    }
+
     public static class NativeQueryRunnerParameters
     {
         public final Path serverBinary;
@@ -622,5 +668,13 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    public static int findRandomPortForWorker()
+            throws IOException
+    {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 }
