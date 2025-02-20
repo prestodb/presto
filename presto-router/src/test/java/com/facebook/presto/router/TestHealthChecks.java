@@ -90,7 +90,10 @@ public class TestHealthChecks
                 new ServerSecurityModule(),
                 new RouterModule());
 
-        Injector injector = app.doNotInitializeLogging().setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath()).initialize();
+        Injector injector = app.doNotInitializeLogging()
+                .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
+                .setRequiredConfigurationProperty("presto.version", "testversion")
+                .initialize();
         clusterManager = injector.getInstance(ClusterManager.class);
     }
 
