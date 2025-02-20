@@ -246,5 +246,16 @@ class ArgValuesGenerator {
       const VectorFuzzer::Options& options,
       FuzzerGenerator& rng,
       ExpressionFuzzerState& state) = 0;
+
+ protected:
+  void populateInputTypesAndNames(
+      const CallableSignature& signature,
+      ExpressionFuzzerState& state) {
+    for (auto i = 0; i < signature.args.size(); ++i) {
+      state.inputRowTypes_.emplace_back(signature.args[i]);
+      state.inputRowNames_.emplace_back(
+          fmt::format("c{}", state.inputRowTypes_.size() - 1));
+    }
+  }
 };
 } // namespace facebook::velox::fuzzer

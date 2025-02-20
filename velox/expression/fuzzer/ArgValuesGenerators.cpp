@@ -29,12 +29,11 @@ std::vector<core::TypedExprPtr> JsonParseArgValuesGenerator::generate(
     FuzzerGenerator& rng,
     ExpressionFuzzerState& state) {
   VELOX_CHECK_EQ(signature.args.size(), 1);
-  std::vector<core::TypedExprPtr> inputExpressions;
+  populateInputTypesAndNames(signature, state);
 
-  state.inputRowTypes_.emplace_back(signature.args[0]);
-  state.inputRowNames_.emplace_back(
-      fmt::format("c{}", state.inputRowTypes_.size() - 1));
-
+  // Populate state.customInputGenerators_ for the argument that requires custom
+  // generation. A nullptr should be added at state.customInputGenerators_[i] if
+  // the i-th argument does not require custom input generation.
   const auto representedType = facebook::velox::randType(rng, 3);
   const auto seed = rand<uint32_t>(rng);
   const auto nullRatio = options.nullRatio;
@@ -46,8 +45,13 @@ std::vector<core::TypedExprPtr> JsonParseArgValuesGenerator::generate(
           fuzzer::getRandomInputGenerator(seed, representedType, nullRatio),
           true));
 
-  inputExpressions.push_back(std::make_shared<core::FieldAccessTypedExpr>(
-      signature.args[0], state.inputRowNames_.back()));
+  // Populate inputExpressions_ for the argument that requires custom
+  // generation. A nullptr should be added at inputExpressions[i] if the i-th
+  // argument does not require custom input generation.
+  std::vector<core::TypedExprPtr> inputExpressions{
+      signature.args.size(), nullptr};
+  inputExpressions[0] = std::make_shared<core::FieldAccessTypedExpr>(
+      signature.args[0], state.inputRowNames_.back());
   return inputExpressions;
 }
 
