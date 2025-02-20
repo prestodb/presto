@@ -22,8 +22,11 @@ import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.spi.PrestoException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -48,6 +51,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_ROUND_ROBIN;
@@ -55,6 +59,7 @@ import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.stream.Collectors.toMap;
 
 public class ClusterManager
@@ -261,5 +266,99 @@ public class ClusterManager
     public ConcurrentHashMap<URI, RemoteQueryInfo> getRemoteQueryInfos()
     {
         return remoteQueryInfos;
+    }
+
+    public static class ClusterStatusTracker
+    {
+        private final Logger log = Logger.get(com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker.class);
+
+        private final ClusterManager clusterManager;
+        private final ScheduledExecutorService queryInfoUpdateExecutor;
+
+        @Inject
+        public ClusterStatusTracker(
+                ClusterManager clusterManager,
+                RemoteInfoFactory remoteInfoFactory)
+        {
+            this.clusterManager = requireNonNull(clusterManager, "clusterManager is null");
+            this.queryInfoUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("query-info-poller-%s"));
+        }
+
+        @PostConstruct
+        public void startPollingQueryInfo()
+        {
+            queryInfoUpdateExecutor.scheduleWithFixedDelay(() -> {
+                try {
+                    pollQueryInfos();
+                }
+                catch (Exception e) {
+                    log.error(e, "Error polling list of queries");
+                }
+            }, 5, 5, TimeUnit.SECONDS);
+
+            pollQueryInfos();
+        }
+
+        private void pollQueryInfos()
+        {
+            clusterManager.getRemoteClusterInfos().values().forEach(RemoteClusterInfo::asyncRefresh);
+            clusterManager.getRemoteQueryInfos().values().forEach(RemoteQueryInfo::asyncRefresh);
+        }
+
+        @Managed
+        public long getRunningQueries()
+        {
+            return clusterManager.getRemoteClusterInfos().values().stream()
+                    .mapToLong(RemoteClusterInfo::getRunningQueries)
+                    .sum();
+        }
+
+        @Managed
+        public long getBlockedQueries()
+        {
+            return clusterManager.getRemoteClusterInfos().values().stream()
+                    .mapToLong(RemoteClusterInfo::getBlockedQueries)
+                    .sum();
+        }
+
+        @Managed
+        public long getQueuedQueries()
+        {
+            return clusterManager.getRemoteClusterInfos().values().stream()
+                    .mapToLong(RemoteClusterInfo::getQueuedQueries)
+                    .sum();
+        }
+
+        @Managed
+        public long getClusterCount()
+        {
+            return clusterManager.getRemoteClusterInfos().entrySet().size();
+        }
+
+        @Managed
+        public long getActiveWorkers()
+        {
+            return clusterManager.getRemoteClusterInfos().values().stream()
+                    .mapToLong(RemoteClusterInfo::getActiveWorkers)
+                    .sum();
+        }
+
+        @Managed
+        public long getRunningDrivers()
+        {
+            return clusterManager.getRemoteClusterInfos().values().stream()
+                    .mapToLong(RemoteClusterInfo::getRunningDrivers)
+                    .sum();
+        }
+
+        public List<JsonNode> getAllQueryInfos()
+        {
+            ImmutableList.Builder<JsonNode> builder = ImmutableList.builder();
+            clusterManager.getRemoteQueryInfos().forEach((coordinator, remoteQueryInfo) ->
+                    builder.addAll(remoteQueryInfo.getQueryList().orElse(ImmutableList.of()).stream()
+                            .map(queryInfo -> ((ObjectNode) queryInfo).put("coordinatorUri", coordinator.toASCIIString()))
+                            .collect(toImmutableList())));
+            return builder.build();
+        }
     }
 }
