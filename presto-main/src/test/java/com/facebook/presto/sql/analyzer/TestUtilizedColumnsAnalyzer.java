@@ -45,6 +45,17 @@ public class TestUtilizedColumnsAnalyzer
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b")));
     }
 
+    public void testInvokerView()
+    {
+        assertUtilizedTableColumns("SELECT a, c FROM v6",
+                ImmutableMap.of(
+                        QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of(),
+                        QualifiedObjectName.valueOf("tpch.s1.v6"), ImmutableSet.of("a", "c")));
+    }
+
+
+
+
     @Test
     public void testCountStar()
     {
