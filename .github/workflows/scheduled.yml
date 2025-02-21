@@ -751,6 +751,8 @@ jobs:
     container: ghcr.io/facebookincubator/velox-dev:centos9
     needs: compile
     timeout-minutes: 120
+    # Temporarily disable on PRs till flakiness is fixed #12167
+    if: ${{ github.event_name != 'pull_request' }}
     steps:
 
       - name: Download cache fuzzer
