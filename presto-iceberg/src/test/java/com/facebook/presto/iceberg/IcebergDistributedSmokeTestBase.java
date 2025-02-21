@@ -23,6 +23,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
 import org.intellij.lang.annotations.Language;
@@ -30,7 +31,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -801,7 +801,7 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
-    private void testCreateTableLike()
+    protected void testCreateTableLike()
     {
         Session session = getSession();
         String schemaName = session.getSchema().get();
@@ -970,7 +970,7 @@ public abstract class IcebergDistributedSmokeTestBase
         test.accept("2", "merge-on-read");
     }
 
-    private String getTablePropertiesString(String tableName)
+    protected String getTablePropertiesString(String tableName)
     {
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
         String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
@@ -1303,8 +1303,8 @@ public abstract class IcebergDistributedSmokeTestBase
 
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
-        return getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false);
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        return new Path(getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile().toURI());
     }
 
     protected Table getIcebergTable(ConnectorSession session, String namespace, String tableName)
@@ -1625,7 +1625,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
-        String metadataLocation = getLocation(schemaName, tableName).replace("//", "/") + "_invalid";
+        String metadataLocation = getLocation(schemaName, tableName).replace("//", "") + "_invalid";
 
         @Language("RegExp") String errorMessage = format("Unable to find metadata at location %s/%s", metadataLocation, METADATA_FOLDER_NAME);
         assertQueryFails("CALL system.register_table ('" + schemaName + "', '" + tableName + "', '" + metadataLocation + "')", errorMessage);
