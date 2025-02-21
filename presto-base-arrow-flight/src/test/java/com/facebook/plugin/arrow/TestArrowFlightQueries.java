@@ -50,10 +50,9 @@ import static org.testng.Assert.assertTrue;
 public class TestArrowFlightQueries
         extends AbstractTestQueries
 {
-    private static final Logger logger = Logger.get(TestArrowFlightQueries.class);
+    private static final Logger log = Logger.get(TestArrowFlightQueries.class);
     private RootAllocator allocator;
     private FlightServer server;
-    private Location serverLocation;
     private DistributedQueryRunner arrowFlightQueryRunner;
 
     @BeforeClass
@@ -61,17 +60,18 @@ public class TestArrowFlightQueries
             throws Exception
     {
         arrowFlightQueryRunner = getDistributedQueryRunner();
+
+        allocator = new RootAllocator(Long.MAX_VALUE);
+        Location location = Location.forGrpcTls("localhost", getServerPort());
         File certChainFile = new File("src/test/resources/server.crt");
         File privateKeyFile = new File("src/test/resources/server.key");
 
-        allocator = new RootAllocator(Long.MAX_VALUE);
-        serverLocation = Location.forGrpcTls("localhost", 9443);
-        server = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator))
+        server = FlightServer.builder(allocator, location, new TestingArrowProducer(allocator))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
 
         server.start();
-        logger.info("Server listening on port %s", server.getPort());
+        log.info("Server listening on port %s", server.getPort());
     }
 
     @AfterClass(alwaysRun = true)
@@ -83,11 +83,16 @@ public class TestArrowFlightQueries
         allocator.close();
     }
 
+    public static int getServerPort()
+    {
+        return 9443;
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return ArrowFlightQueryRunner.createQueryRunner(9443);
+        return ArrowFlightQueryRunner.createQueryRunner(getServerPort());
     }
 
     @Test

@@ -41,11 +41,11 @@ public class TestArrowFlightIntegrationSmokeTest
             throws Exception
     {
         arrowFlightQueryRunner = getDistributedQueryRunner();
-        File certChainFile = new File("src/test/resources/server.crt");
-        File privateKeyFile = new File("src/test/resources/server.key");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
         serverLocation = Location.forGrpcTls("127.0.0.1", 9442);
+        File certChainFile = new File("src/test/resources/server.crt");
+        File privateKeyFile = new File("src/test/resources/server.key");
         server = FlightServer.builder(allocator, serverLocation, new TestingArrowProducer(allocator))
                 .useTls(certChainFile, privateKeyFile)
                 .build();
@@ -65,8 +65,8 @@ public class TestArrowFlightIntegrationSmokeTest
     public void close()
             throws InterruptedException
     {
+        arrowFlightQueryRunner.close();
         server.close();
         allocator.close();
-        arrowFlightQueryRunner.close();
     }
 }
