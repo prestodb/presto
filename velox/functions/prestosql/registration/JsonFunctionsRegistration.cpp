@@ -16,6 +16,7 @@
 
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/JsonFunctions.h"
+#include "velox/functions/prestosql/types/JsonRegistration.h"
 
 namespace facebook::velox::functions {
 void registerJsonFunctions(const std::string& prefix) {

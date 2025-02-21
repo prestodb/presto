@@ -24,6 +24,7 @@
 #include "velox/functions/prestosql/ArrayFunctions.h"
 #include "velox/functions/prestosql/ArraySort.h"
 #include "velox/functions/prestosql/WidthBucketArray.h"
+#include "velox/functions/prestosql/types/JsonRegistration.h"
 
 namespace facebook::velox::functions {
 extern void registerArrayConcatFunctions(const std::string& prefix);

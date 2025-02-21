@@ -16,8 +16,8 @@
 #include "velox/duckdb/conversion/DuckParser.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/core/PlanNode.h"
-#include "velox/functions/prestosql/types/JsonType.h"
-#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/functions/prestosql/types/JsonRegistration.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneRegistration.h"
 #include "velox/parse/Expressions.h"
 
 using namespace facebook::velox;

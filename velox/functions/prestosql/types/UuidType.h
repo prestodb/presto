@@ -15,9 +15,11 @@
  */
 #pragma once
 
-#include "velox/expression/CastExpr.h"
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
+
+// TODO: Remove this once Presto is updated.
+#include "velox/functions/prestosql/types/UuidRegistration.h"
 
 namespace facebook::velox {
 
@@ -72,7 +74,5 @@ struct UuidT {
 };
 
 using Uuid = CustomType<UuidT>;
-
-void registerUuidType();
 
 } // namespace facebook::velox

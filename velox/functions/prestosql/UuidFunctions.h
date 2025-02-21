@@ -20,7 +20,7 @@
 
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/Comparisons.h"
+#include "velox/functions/prestosql/types/UuidRegistration.h"
 #include "velox/functions/prestosql/types/UuidType.h"
 
 namespace facebook::velox::functions {

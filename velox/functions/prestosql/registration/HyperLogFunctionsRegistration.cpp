@@ -15,6 +15,7 @@
  */
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/HyperLogLogFunctions.h"
+#include "velox/functions/prestosql/types/HyperLogLogRegistration.h"
 
 namespace facebook::velox::functions {
 

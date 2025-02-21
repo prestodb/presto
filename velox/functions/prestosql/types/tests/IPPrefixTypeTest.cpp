@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/types/IPPrefixType.h"
+#include "velox/functions/prestosql/types/IPPrefixRegistration.h"
 #include "velox/functions/prestosql/types/tests/TypeTestBase.h"
 
 namespace facebook::velox::test {

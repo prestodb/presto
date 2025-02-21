@@ -17,7 +17,9 @@
 
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
-#include "velox/vector/VectorTypeUtils.h"
+
+// TODO: Remove this once Presto is updated.
+#include "velox/functions/prestosql/types/HyperLogLogRegistration.h"
 
 namespace facebook::velox {
 
@@ -70,25 +72,5 @@ struct HyperLogLogT {
 };
 
 using HyperLogLog = CustomType<HyperLogLogT>;
-
-class HyperLogLogTypeFactories : public CustomTypeFactories {
- public:
-  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
-    VELOX_CHECK(parameters.empty());
-    return HYPERLOGLOG();
-  }
-
-  // HyperLogLog should be treated as Varbinary during type castings.
-  exec::CastOperatorPtr getCastOperator() const override {
-    return nullptr;
-  }
-
-  AbstractInputGeneratorPtr getInputGenerator(
-      const InputGeneratorConfig& /*config*/) const override {
-    return nullptr;
-  }
-};
-
-void registerHyperLogLogType();
 
 } // namespace facebook::velox

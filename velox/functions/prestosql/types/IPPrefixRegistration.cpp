@@ -13,15 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <folly/small_vector.h>
+
+#include "velox/functions/prestosql/types/IPPrefixRegistration.h"
 
 #include "velox/expression/CastExpr.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 
 namespace facebook::velox {
-
 namespace {
-
 class IPPrefixCastOperator : public exec::CastOperator {
  public:
   bool isSupportedFromType(const TypePtr& other) const override {
@@ -197,12 +196,10 @@ class IPPrefixTypeFactories : public CustomTypeFactories {
     return nullptr;
   }
 };
-
 } // namespace
 
 void registerIPPrefixType() {
   registerCustomType(
       "ipprefix", std::make_unique<const IPPrefixTypeFactories>());
 }
-
 } // namespace facebook::velox

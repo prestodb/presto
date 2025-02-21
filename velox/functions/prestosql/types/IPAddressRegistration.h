@@ -13,13 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/types/HyperLogLogType.h"
+
+#pragma once
 
 namespace facebook::velox {
-
-void registerHyperLogLogType() {
-  registerCustomType(
-      "hyperloglog", std::make_unique<const HyperLogLogTypeFactories>());
+void registerIPAddressType();
 }
-
-} // namespace facebook::velox

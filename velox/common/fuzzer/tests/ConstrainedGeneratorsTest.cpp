@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/common/memory/Memory.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/Variant.h"
 

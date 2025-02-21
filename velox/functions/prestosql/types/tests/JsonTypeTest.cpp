@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/JsonRegistration.h"
 #include "velox/functions/prestosql/types/tests/TypeTestBase.h"
 
 namespace facebook::velox::test {

@@ -15,10 +15,11 @@
  */
 #pragma once
 
-#include "velox/expression/CastExpr.h"
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
-#include "velox/vector/VectorTypeUtils.h"
+
+// TODO: Remove this once Presto is updated.
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneRegistration.h"
 
 namespace facebook::velox {
 
@@ -46,37 +47,6 @@ inline int64_t pack(const Timestamp& timestamp, TimeZoneKey timeZoneKey) {
 inline Timestamp unpackTimestampUtc(int64_t dateTimeWithTimeZone) {
   return Timestamp::fromMillis(unpackMillisUtc(dateTimeWithTimeZone));
 }
-
-class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
- public:
-  static const std::shared_ptr<const CastOperator>& get() {
-    static const std::shared_ptr<const CastOperator> instance{
-        new TimestampWithTimeZoneCastOperator()};
-
-    return instance;
-  }
-
-  bool isSupportedFromType(const TypePtr& other) const override;
-
-  bool isSupportedToType(const TypePtr& other) const override;
-
-  void castTo(
-      const BaseVector& input,
-      exec::EvalCtx& context,
-      const SelectivityVector& rows,
-      const TypePtr& resultType,
-      VectorPtr& result) const override;
-
-  void castFrom(
-      const BaseVector& input,
-      exec::EvalCtx& context,
-      const SelectivityVector& rows,
-      const TypePtr& resultType,
-      VectorPtr& result) const override;
-
- private:
-  TimestampWithTimeZoneCastOperator() = default;
-};
 
 /// Represents timestamp with time zone as a number of milliseconds since epoch
 /// and time zone ID.
@@ -148,25 +118,5 @@ struct TimestampWithTimezoneT {
 };
 
 using TimestampWithTimezone = CustomType<TimestampWithTimezoneT, true>;
-
-class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
- public:
-  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
-    VELOX_CHECK(parameters.empty());
-    return TIMESTAMP_WITH_TIME_ZONE();
-  }
-
-  // Type casting from and to TimestampWithTimezone is not supported yet.
-  exec::CastOperatorPtr getCastOperator() const override {
-    return TimestampWithTimeZoneCastOperator::get();
-  }
-
-  AbstractInputGeneratorPtr getInputGenerator(
-      const InputGeneratorConfig& /*config*/) const override {
-    return nullptr;
-  }
-};
-
-void registerTimestampWithTimeZoneType();
 
 } // namespace facebook::velox

@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPAddressRegistration.h"
+
 #include "velox/expression/CastExpr.h"
-#include "velox/expression/VectorWriters.h"
+#include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 
 namespace facebook::velox {
-
 namespace {
-
 class IPAddressCastOperator : public exec::CastOperator {
  public:
   bool isSupportedFromType(const TypePtr& other) const override {
@@ -272,12 +271,10 @@ class IPAddressTypeFactories : public CustomTypeFactories {
     return nullptr;
   }
 };
-
 } // namespace
 
 void registerIPAddressType() {
   registerCustomType(
       "ipaddress", std::make_unique<const IPAddressTypeFactories>());
 }
-
 } // namespace facebook::velox

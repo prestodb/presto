@@ -17,7 +17,9 @@
 
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
+#include "velox/functions/prestosql/types/IPAddressRegistration.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixRegistration.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 
 namespace facebook::velox::functions {

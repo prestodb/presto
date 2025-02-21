@@ -18,6 +18,7 @@
 #include <velox/type/HugeInt.h>
 #include <vector>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneRegistration.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::exec::test {
@@ -787,9 +788,7 @@ TEST(SignatureBinderTest, logicalType) {
 }
 
 TEST(SignatureBinderTest, customType) {
-  registerCustomType(
-      "timestamp with time zone",
-      std::make_unique<const TimestampWithTimeZoneTypeFactories>());
+  registerTimestampWithTimeZoneType();
 
   // Custom type as an argument type.
   {
@@ -846,9 +845,7 @@ TEST(SignatureBinderTest, hugeIntType) {
 }
 
 TEST(SignatureBinderTest, namedRows) {
-  registerCustomType(
-      "timestamp with time zone",
-      std::make_unique<const TimestampWithTimeZoneTypeFactories>());
+  registerTimestampWithTimeZoneType();
 
   // Simple named row field.
   {

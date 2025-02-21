@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/types/UuidType.h"
+#include "velox/functions/prestosql/types/UuidRegistration.h"
+
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+#include "velox/expression/CastExpr.h"
+#include "velox/functions/prestosql/types/UuidType.h"
+
 namespace facebook::velox {
-
 namespace {
-
 class UuidCastOperator : public exec::CastOperator {
  public:
   bool isSupportedFromType(const TypePtr& other) const override {
@@ -154,11 +156,9 @@ class UuidTypeFactories : public CustomTypeFactories {
     return nullptr;
   }
 };
-
 } // namespace
 
 void registerUuidType() {
   registerCustomType("uuid", std::make_unique<const UuidTypeFactories>());
 }
-
 } // namespace facebook::velox

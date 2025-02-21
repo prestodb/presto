@@ -23,7 +23,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/types/HyperLogLogType.h"
+#include "velox/functions/prestosql/types/HyperLogLogRegistration.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 

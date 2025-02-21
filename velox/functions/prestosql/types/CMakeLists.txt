@@ -13,13 +13,14 @@
 # limitations under the License.
 velox_add_library(
   velox_presto_types
-  HyperLogLogType.cpp
-  JsonType.cpp
-  TDigestType.cpp
-  TimestampWithTimeZoneType.cpp
-  UuidType.cpp
-  IPAddressType.cpp
-  IPPrefixType.cpp)
+  HyperLogLogRegistration.cpp
+  IPAddressRegistration.cpp
+  IPPrefixRegistration.cpp
+  JsonCastOperator.cpp
+  JsonRegistration.cpp
+  TDigestRegistration.cpp
+  TimestampWithTimeZoneRegistration.cpp
+  UuidRegistration.cpp)
 
 velox_link_libraries(
   velox_presto_types

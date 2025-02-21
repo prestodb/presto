@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "velox/expression/VectorFunction.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneRegistration.h"
 
 namespace facebook::velox::functions {
 namespace {

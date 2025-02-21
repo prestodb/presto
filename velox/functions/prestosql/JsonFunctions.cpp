@@ -17,10 +17,10 @@
 
 #include "velox/common/base/SortingNetwork.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/lib/Utf8Utils.h"
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/functions/prestosql/json/JsonStringUtil.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
+#include "velox/functions/prestosql/types/JsonCastOperator.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::functions {

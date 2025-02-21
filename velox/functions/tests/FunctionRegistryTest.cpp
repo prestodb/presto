@@ -17,7 +17,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/RegisterSpecialForm.h"
 #include "velox/expression/VectorFunction.h"
@@ -27,6 +26,7 @@
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/IPPrefixRegistration.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/tests/RegistryTestUtil.h"
 #include "velox/type/Type.h"

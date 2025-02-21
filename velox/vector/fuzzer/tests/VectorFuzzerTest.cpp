@@ -20,6 +20,7 @@
 
 #include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/functions/prestosql/types/JsonRegistration.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/type/TypeEncodingUtil.h"
 #include "velox/vector/DictionaryVector.h"

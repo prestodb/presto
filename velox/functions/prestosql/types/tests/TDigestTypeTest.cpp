@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/types/TDigestType.h"
+#include "velox/functions/prestosql/types/TDigestRegistration.h"
 #include "velox/functions/prestosql/types/tests/TypeTestBase.h"
 #include "velox/type/parser/TypeParser.h"
 

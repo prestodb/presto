@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 #include "velox/functions/Registerer.h"
-#include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/Comparisons.h"
+#include "velox/functions/prestosql/types/IPAddressRegistration.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixRegistration.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneRegistration.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-#include "velox/type/Type.h"
 
 namespace facebook::velox::functions {
 namespace {

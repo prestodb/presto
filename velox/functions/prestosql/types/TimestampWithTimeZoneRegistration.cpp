@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-#include "velox/expression/StringWriter.h"
+
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneRegistration.h"
+
+#include "velox/expression/CastExpr.h"
 #include "velox/functions/lib/DateTimeFormatter.h"
-#include "velox/type/Timestamp.h"
-#include "velox/type/TimestampConversion.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox {
 namespace {
-
 const tz::TimeZone* getTimeZoneFromConfig(const core::QueryConfig& config) {
   const auto sessionTzName = config.sessionTimezone();
 
@@ -183,92 +183,119 @@ void castToDate(
   });
 }
 
+class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
+ public:
+  static const std::shared_ptr<const CastOperator>& get() {
+    static const std::shared_ptr<const CastOperator> instance{
+        new TimestampWithTimeZoneCastOperator()};
+
+    return instance;
+  }
+
+  bool isSupportedFromType(const TypePtr& other) const override {
+    switch (other->kind()) {
+      case TypeKind::TIMESTAMP:
+        return true;
+      case TypeKind::VARCHAR:
+        return true;
+      case TypeKind::INTEGER:
+        return other->isDate();
+      default:
+        return false;
+    }
+  }
+
+  bool isSupportedToType(const TypePtr& other) const override {
+    switch (other->kind()) {
+      case TypeKind::TIMESTAMP:
+        return true;
+      case TypeKind::VARCHAR:
+        return true;
+      case TypeKind::INTEGER:
+        return other->isDate();
+      default:
+        return false;
+    }
+  }
+
+  void castTo(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override {
+    context.ensureWritable(rows, resultType, result);
+
+    auto* timestampWithTzResult = result->asFlatVector<int64_t>();
+    timestampWithTzResult->clearNulls(rows);
+
+    auto* rawResults = timestampWithTzResult->mutableRawValues();
+
+    if (input.typeKind() == TypeKind::TIMESTAMP) {
+      const auto inputVector = input.as<SimpleVector<Timestamp>>();
+      castFromTimestamp(*inputVector, context, rows, rawResults);
+    } else if (input.typeKind() == TypeKind::VARCHAR) {
+      const auto inputVector = input.as<SimpleVector<StringView>>();
+      castFromString(*inputVector, context, rows, rawResults);
+    } else if (input.typeKind() == TypeKind::INTEGER) {
+      VELOX_CHECK(input.type()->isDate());
+      const auto inputVector = input.as<SimpleVector<int32_t>>();
+      castFromDate(*inputVector, context, rows, rawResults);
+    } else {
+      VELOX_UNSUPPORTED(
+          "Cast from {} to TIMESTAMP WITH TIME ZONE not yet supported",
+          input.type()->toString());
+    }
+  }
+
+  void castFrom(
+      const BaseVector& input,
+      exec::EvalCtx& context,
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      VectorPtr& result) const override {
+    context.ensureWritable(rows, resultType, result);
+
+    if (resultType->kind() == TypeKind::TIMESTAMP) {
+      castToTimestamp(input, context, rows, *result);
+    } else if (resultType->kind() == TypeKind::VARCHAR) {
+      castToString(input, context, rows, *result);
+    } else if (resultType->kind() == TypeKind::INTEGER) {
+      VELOX_CHECK(resultType->isDate());
+      castToDate(input, context, rows, *result);
+    } else {
+      VELOX_UNSUPPORTED(
+          "Cast from TIMESTAMP WITH TIME ZONE to {} not yet supported",
+          resultType->toString());
+    }
+  }
+
+ private:
+  TimestampWithTimeZoneCastOperator() = default;
+};
+
+class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
+ public:
+  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
+    VELOX_CHECK(parameters.empty());
+    return TIMESTAMP_WITH_TIME_ZONE();
+  }
+
+  // Type casting from and to TimestampWithTimezone is not supported yet.
+  exec::CastOperatorPtr getCastOperator() const override {
+    return TimestampWithTimeZoneCastOperator::get();
+  }
+
+  AbstractInputGeneratorPtr getInputGenerator(
+      const InputGeneratorConfig& /*config*/) const override {
+    return nullptr;
+  }
+};
 } // namespace
-
-bool TimestampWithTimeZoneCastOperator::isSupportedFromType(
-    const TypePtr& other) const {
-  switch (other->kind()) {
-    case TypeKind::TIMESTAMP:
-      return true;
-    case TypeKind::VARCHAR:
-      return true;
-    case TypeKind::INTEGER:
-      return other->isDate();
-    default:
-      return false;
-  }
-}
-
-bool TimestampWithTimeZoneCastOperator::isSupportedToType(
-    const TypePtr& other) const {
-  switch (other->kind()) {
-    case TypeKind::TIMESTAMP:
-      return true;
-    case TypeKind::VARCHAR:
-      return true;
-    case TypeKind::INTEGER:
-      return other->isDate();
-    default:
-      return false;
-  }
-}
-
-void TimestampWithTimeZoneCastOperator::castTo(
-    const BaseVector& input,
-    exec::EvalCtx& context,
-    const SelectivityVector& rows,
-    const TypePtr& resultType,
-    VectorPtr& result) const {
-  context.ensureWritable(rows, resultType, result);
-
-  auto* timestampWithTzResult = result->asFlatVector<int64_t>();
-  timestampWithTzResult->clearNulls(rows);
-
-  auto* rawResults = timestampWithTzResult->mutableRawValues();
-
-  if (input.typeKind() == TypeKind::TIMESTAMP) {
-    const auto inputVector = input.as<SimpleVector<Timestamp>>();
-    castFromTimestamp(*inputVector, context, rows, rawResults);
-  } else if (input.typeKind() == TypeKind::VARCHAR) {
-    const auto inputVector = input.as<SimpleVector<StringView>>();
-    castFromString(*inputVector, context, rows, rawResults);
-  } else if (input.typeKind() == TypeKind::INTEGER) {
-    VELOX_CHECK(input.type()->isDate());
-    const auto inputVector = input.as<SimpleVector<int32_t>>();
-    castFromDate(*inputVector, context, rows, rawResults);
-  } else {
-    VELOX_UNSUPPORTED(
-        "Cast from {} to TIMESTAMP WITH TIME ZONE not yet supported",
-        input.type()->toString());
-  }
-}
-
-void TimestampWithTimeZoneCastOperator::castFrom(
-    const BaseVector& input,
-    exec::EvalCtx& context,
-    const SelectivityVector& rows,
-    const TypePtr& resultType,
-    VectorPtr& result) const {
-  context.ensureWritable(rows, resultType, result);
-
-  if (resultType->kind() == TypeKind::TIMESTAMP) {
-    castToTimestamp(input, context, rows, *result);
-  } else if (resultType->kind() == TypeKind::VARCHAR) {
-    castToString(input, context, rows, *result);
-  } else if (resultType->kind() == TypeKind::INTEGER) {
-    VELOX_CHECK(resultType->isDate());
-    castToDate(input, context, rows, *result);
-  } else {
-    VELOX_UNSUPPORTED(
-        "Cast from TIMESTAMP WITH TIME ZONE to {} not yet supported",
-        resultType->toString());
-  }
-}
 
 void registerTimestampWithTimeZoneType() {
   registerCustomType(
       "timestamp with time zone",
       std::make_unique<const TimestampWithTimeZoneTypeFactories>());
 }
-
 } // namespace facebook::velox

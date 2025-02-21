@@ -23,6 +23,8 @@
 #include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/type/DecimalUtil.h"
+#include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::aggregate {
 

@@ -14,32 +14,17 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/types/JsonType.h"
-#include "velox/type/DecimalUtil.h"
+#include "velox/functions/prestosql/types/JsonCastOperator.h"
 
-#include <algorithm>
-#include <stdexcept>
-#include <string>
-
-#include "folly/Conv.h"
-#include "folly/json.h"
-
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/fuzzer/ConstrainedGenerators.h"
-#include "velox/expression/EvalCtx.h"
 #include "velox/expression/PeeledEncoding.h"
-#include "velox/expression/StringWriter.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
-#include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/prestosql/json/JsonStringUtil.h"
-#include "velox/type/Conversions.h"
-#include "velox/type/Type.h"
+#include "velox/functions/prestosql/json/SIMDJsonUtil.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox {
-
 namespace {
-
 template <typename T, bool legacyCast>
 void generateJsonTyped(
     const SimpleVector<T>& input,
@@ -1094,7 +1079,6 @@ bool isSupportedBasicType(const TypePtr& type) {
       return false;
   }
 }
-
 } // namespace
 
 bool JsonCastOperator::isSupportedFromType(const TypePtr& other) const {
@@ -1243,47 +1227,4 @@ void JsonCastOperator::castFrom(
   VELOX_DYNAMIC_TYPE_DISPATCH(
       castFromJson, result->typeKind(), input, context, rows, *result);
 }
-
-class JsonTypeFactories : public CustomTypeFactories {
- public:
-  JsonTypeFactories() = default;
-
-  TypePtr getType(const std::vector<TypeParameter>& parameters) const override {
-    VELOX_CHECK(parameters.empty());
-    return JSON();
-  }
-
-  exec::CastOperatorPtr getCastOperator() const override {
-    return std::make_shared<JsonCastOperator>();
-  }
-
-  AbstractInputGeneratorPtr getInputGenerator(
-      const InputGeneratorConfig& config) const override {
-    static const std::vector<TypePtr> kScalarTypes{
-        BOOLEAN(),
-        TINYINT(),
-        SMALLINT(),
-        INTEGER(),
-        BIGINT(),
-        REAL(),
-        DOUBLE(),
-        VARCHAR(),
-    };
-    fuzzer::FuzzerGenerator rng(config.seed_);
-    return std::make_shared<fuzzer::JsonInputGenerator>(
-        config.seed_,
-        JSON(),
-        config.nullRatio_,
-        fuzzer::getRandomInputGenerator(
-            config.seed_,
-            fuzzer::randType(rng, kScalarTypes, 3),
-            config.nullRatio_),
-        false);
-  }
-};
-
-void registerJsonType() {
-  registerCustomType("json", std::make_unique<const JsonTypeFactories>());
-}
-
 } // namespace facebook::velox
