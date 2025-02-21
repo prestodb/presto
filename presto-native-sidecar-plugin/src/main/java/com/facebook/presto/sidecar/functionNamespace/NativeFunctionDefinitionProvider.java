@@ -54,7 +54,7 @@ public class NativeFunctionDefinitionProvider
         this.nativeFunctionSignatureMapJsonCodec =
                 requireNonNull(nativeFunctionSignatureMapJsonCodec, "nativeFunctionSignatureMapJsonCodec is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
-        this.httpClient = requireNonNull(httpClient, "typeManager is null");
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
 
     @Override
