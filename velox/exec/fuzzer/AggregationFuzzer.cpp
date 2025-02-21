@@ -34,11 +34,6 @@ DEFINE_bool(
     true,
     "When true, generates plans with aggregations over sorted inputs");
 
-DEFINE_bool(
-    enable_window_reference_verification,
-    false,
-    "When true, the results of the window aggregation are compared to reference DB results");
-
 using facebook::velox::fuzzer::CallableSignature;
 using facebook::velox::fuzzer::SignatureTemplate;
 
@@ -83,20 +78,9 @@ class AggregationFuzzer : public AggregationFuzzerBase {
 
     // Number of iterations using aggregations over distinct inputs.
     size_t numDistinctInputs{0};
-    // Number of iterations using window expressions.
-    size_t numWindow{0};
 
     void print(size_t numIterations) const;
   };
-
-  // Return 'true' if query plans failed.
-  bool verifyWindow(
-      const std::vector<std::string>& partitionKeys,
-      const std::vector<std::string>& sortingKeys,
-      const std::string& aggregate,
-      const std::vector<RowVectorPtr>& input,
-      bool customVerification,
-      bool enableWindowVerification);
 
   // Return 'true' if query plans failed.
   bool verifyAggregation(
@@ -374,110 +358,85 @@ void AggregationFuzzer::go() {
       std::vector<TypePtr> argTypes = signature.args;
       std::vector<std::string> argNames = makeNames(argTypes.size());
 
-      // 10% of times test window operator.
+      const bool sortedInputs = FLAGS_enable_sorted_aggregations &&
+          canSortInputs(signature) && vectorFuzzer_.coinToss(0.2);
+
+      // Exclude approx_xxx aggregations since their verifiers may not be able
+      // to verify the results. The approx_percentile verifier would discard
+      // the distinct property when calculating the expected result, say the
+      // expected result of the verifier would be approx_percentile(x), which
+      // may be different from the actual result of approx_percentile(distinct
+      // x).
+      const bool distinctInputs = !sortedInputs &&
+          (signature.name.find("approx_") == std::string::npos) &&
+          supportsDistinctInputs(signature, orderableGroupKeys_) &&
+          vectorFuzzer_.coinToss(0.2);
+
+      auto call = makeFunctionCall(
+          signature.name, argNames, sortedInputs, distinctInputs);
+
+      // 20% of times use mask.
+      std::vector<std::string> masks;
+      if (vectorFuzzer_.coinToss(0.2)) {
+        ++stats_.numMask;
+
+        masks.push_back("m0");
+        argTypes.push_back(BOOLEAN());
+        argNames.push_back(masks.back());
+      }
+
+      // 10% of times use global aggregation (no grouping keys).
+      std::vector<std::string> groupingKeys;
       if (vectorFuzzer_.coinToss(0.1)) {
-        ++stats_.numWindow;
+        ++stats_.numGlobal;
+      } else {
+        ++stats_.numGroupBy;
+        groupingKeys = generateKeys("g", argNames, argTypes);
+      }
 
-        auto call = makeFunctionCall(signature.name, argNames, false);
+      auto input = generateInputData(argNames, argTypes, signature);
 
-        auto partitionKeys = generateKeys("p", argNames, argTypes);
-        auto sortingKeys = generateSortingKeys("s", argNames, argTypes);
-        auto input = generateInputDataWithRowNumber(
-            argNames, argTypes, partitionKeys, {}, sortingKeys, signature);
+      logVectors(input);
 
-        logVectors(input);
+      std::shared_ptr<ResultVerifier> customVerifier;
+      if (customVerification) {
+        customVerifier = customVerificationFunctions_.at(signature.name);
+      }
 
-        bool failed = verifyWindow(
-            partitionKeys,
-            sortingKeys,
+      if (sortedInputs) {
+        ++stats_.numSortedInputs;
+        bool failed = verifySortedAggregation(
+            groupingKeys,
             call,
+            masks,
             input,
             customVerification,
-            FLAGS_enable_window_reference_verification);
+            customVerifier);
+        if (failed) {
+          signatureWithStats.second.numFailed++;
+        }
+      } else if (distinctInputs) {
+        ++stats_.numDistinctInputs;
+        bool failed = verifyDistinctAggregation(
+            groupingKeys,
+            call,
+            masks,
+            input,
+            customVerification,
+            customVerifier);
         if (failed) {
           signatureWithStats.second.numFailed++;
         }
       } else {
-        const bool sortedInputs = FLAGS_enable_sorted_aggregations &&
-            canSortInputs(signature) && vectorFuzzer_.coinToss(0.2);
-
-        // Exclude approx_xxx aggregations since their verifiers may not be able
-        // to verify the results. The approx_percentile verifier would discard
-        // the distinct property when calculating the expected result, say the
-        // expected result of the verifier would be approx_percentile(x), which
-        // may be different from the actual result of approx_percentile(distinct
-        // x).
-        const bool distinctInputs = !sortedInputs &&
-            (signature.name.find("approx_") == std::string::npos) &&
-            supportsDistinctInputs(signature, orderableGroupKeys_) &&
-            vectorFuzzer_.coinToss(0.2);
-
-        auto call = makeFunctionCall(
-            signature.name, argNames, sortedInputs, distinctInputs);
-
-        // 20% of times use mask.
-        std::vector<std::string> masks;
-        if (vectorFuzzer_.coinToss(0.2)) {
-          ++stats_.numMask;
-
-          masks.push_back("m0");
-          argTypes.push_back(BOOLEAN());
-          argNames.push_back(masks.back());
-        }
-
-        // 10% of times use global aggregation (no grouping keys).
-        std::vector<std::string> groupingKeys;
-        if (vectorFuzzer_.coinToss(0.1)) {
-          ++stats_.numGlobal;
-        } else {
-          ++stats_.numGroupBy;
-          groupingKeys = generateKeys("g", argNames, argTypes);
-        }
-
-        auto input = generateInputData(argNames, argTypes, signature);
-
-        logVectors(input);
-
-        std::shared_ptr<ResultVerifier> customVerifier;
-        if (customVerification) {
-          customVerifier = customVerificationFunctions_.at(signature.name);
-        }
-
-        if (sortedInputs) {
-          ++stats_.numSortedInputs;
-          bool failed = verifySortedAggregation(
-              groupingKeys,
-              call,
-              masks,
-              input,
-              customVerification,
-              customVerifier);
-          if (failed) {
-            signatureWithStats.second.numFailed++;
-          }
-        } else if (distinctInputs) {
-          ++stats_.numDistinctInputs;
-          bool failed = verifyDistinctAggregation(
-              groupingKeys,
-              call,
-              masks,
-              input,
-              customVerification,
-              customVerifier);
-          if (failed) {
-            signatureWithStats.second.numFailed++;
-          }
-        } else {
-          bool failed = verifyAggregation(
-              groupingKeys,
-              {call},
-              masks,
-              input,
-              customVerification,
-              customVerifier);
-          if (failed) {
-            signatureWithStats.second.numFailed++;
-          }
+        bool failed = verifyAggregation(
+            groupingKeys,
+            {call},
+            masks,
+            input,
+            customVerification,
+            customVerifier);
+        if (failed) {
+          signatureWithStats.second.numFailed++;
         }
       }
     }
@@ -687,63 +646,6 @@ void makeStreamingPlansWithTableScan(
           .localMerge(groupingKeys)
           .finalAggregation()
           .planNode());
-}
-
-bool AggregationFuzzer::verifyWindow(
-    const std::vector<std::string>& partitionKeys,
-    const std::vector<std::string>& sortingKeys,
-    const std::string& aggregate,
-    const std::vector<RowVectorPtr>& input,
-    bool customVerification,
-    bool enableWindowVerification) {
-  std::stringstream frame;
-  if (!partitionKeys.empty()) {
-    frame << "partition by " << folly::join(", ", partitionKeys);
-  }
-  if (!sortingKeys.empty()) {
-    frame << " order by " << folly::join(", ", sortingKeys);
-  }
-
-  auto plan = PlanBuilder()
-                  .values(input)
-                  .window({fmt::format("{} over ({})", aggregate, frame.str())})
-                  .planNode();
-  if (persistAndRunOnce_) {
-    persistReproInfo({{plan, {}}}, reproPersistPath_);
-  }
-  try {
-    auto resultOrError = execute(plan);
-    if (resultOrError.exceptionPtr) {
-      ++stats_.numFailed;
-    }
-
-    if (!customVerification && enableWindowVerification) {
-      if (resultOrError.result) {
-        auto referenceResult =
-            computeReferenceResults(plan, referenceQueryRunner_.get());
-        stats_.updateReferenceQueryStats(referenceResult.second);
-        if (auto expectedResult = referenceResult.first) {
-          ++stats_.numVerified;
-          VELOX_CHECK(
-              assertEqualResults(
-                  expectedResult.value(),
-                  plan->outputType(),
-                  {resultOrError.result}),
-              "Velox and reference DB results don't match");
-          LOG(INFO) << "Verified results against reference DB";
-        }
-      }
-    } else {
-      ++stats_.numVerificationSkipped;
-    }
-
-    return resultOrError.exceptionPtr != nullptr;
-  } catch (...) {
-    if (!reproPersistPath_.empty()) {
-      persistReproInfo({{plan, {}}}, reproPersistPath_);
-    }
-    throw;
-  }
 }
 
 bool AggregationFuzzer::verifyAggregation(
@@ -1045,8 +947,6 @@ void AggregationFuzzer::Stats::print(size_t numIterations) const {
              << printPercentageStat(numDistinct, numIterations);
   LOG(ERROR) << "Total aggregations over distinct inputs: "
              << printPercentageStat(numDistinctInputs, numIterations);
-  LOG(ERROR) << "Total window expressions: "
-             << printPercentageStat(numWindow, numIterations);
   AggregationFuzzerBase::Stats::print(numIterations);
 }
 
