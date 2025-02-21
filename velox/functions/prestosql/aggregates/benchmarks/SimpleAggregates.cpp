@@ -37,7 +37,6 @@ namespace {
 class SimpleAggregatesBenchmark : public HiveConnectorTestBase {
  public:
   SimpleAggregatesBenchmark() {
-    OperatorTestBase::SetUpTestCase();
     HiveConnectorTestBase::SetUp();
 
     inputType_ = ROW({
@@ -166,7 +165,7 @@ class SimpleAggregatesBenchmark : public HiveConnectorTestBase {
         std::move(plan),
         0,
         core::QueryCtx::create(executor_.get()),
-        exec::Task::ExecutionMode::kParallel);
+        exec::Task::ExecutionMode::kSerial);
   }
 
  private:

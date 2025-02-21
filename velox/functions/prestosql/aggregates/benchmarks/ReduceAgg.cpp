@@ -190,7 +190,7 @@ class ReduceAggBenchmark : public HiveConnectorTestBase {
         std::move(plan),
         0,
         core::QueryCtx::create(executor_.get()),
-        exec::Task::ExecutionMode::kParallel);
+        exec::Task::ExecutionMode::kSerial);
 
     task->addSplit(
         "0", exec::Split(makeHiveConnectorSplit(filePath_->getPath())));
