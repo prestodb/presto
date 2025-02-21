@@ -92,16 +92,15 @@ public final class ApproximateLongPercentileAggregations
             checkAccuracy(accuracy);
             digest = new QuantileDigest(accuracy);
             state.setDigest(digest);
+            state.setPercentile(percentile);
         }
         else {
             state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
         }
 
+        checkPercentile(percentile, state.getPercentile());
         digest.add(value, weight);
         state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-
-        // use last percentile
-        state.setPercentile(percentile);
     }
 
     @CombineFunction
@@ -135,6 +134,11 @@ public final class ApproximateLongPercentileAggregations
             checkCondition(0 <= percentile && percentile <= 1, INVALID_FUNCTION_ARGUMENT, "Percentile must be between 0 and 1");
             BIGINT.writeLong(out, digest.getQuantile(percentile));
         }
+    }
+
+    static void checkPercentile(double percentile, double statePercentile)
+    {
+        checkCondition(percentile == statePercentile, INVALID_FUNCTION_ARGUMENT, "Percentile argument must be constant for all input rows: %s vs. %s", percentile, statePercentile);
     }
 
     static void checkAccuracy(double accuracy)
