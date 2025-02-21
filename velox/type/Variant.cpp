@@ -497,9 +497,9 @@ folly::dynamic variant::serialize() const {
       break;
     }
     case TypeKind::ARRAY: {
-      auto& row = value<TypeKind::ARRAY>();
+      auto& array = value<TypeKind::ARRAY>();
       folly::dynamic arr = folly::dynamic::array;
-      for (auto& v : row) {
+      for (auto& v : array) {
         arr.push_back(v.serialize());
       }
       objValue = std::move(arr);
@@ -553,7 +553,7 @@ folly::dynamic variant::serialize() const {
     }
     case TypeKind::TIMESTAMP: {
       auto ts = value<TypeKind::TIMESTAMP>();
-      variantObj["value"] = -1; // Not used, but cannot be null.
+      objValue = -1; // Not used, but cannot be null.
       variantObj["seconds"] = ts.getSeconds();
       variantObj["nanos"] = ts.getNanos();
       break;
