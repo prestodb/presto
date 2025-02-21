@@ -17,8 +17,8 @@
 
 #include <cstddef>
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 /// Runs the async data cache fuzzer.
 /// @param seed Random seed - Pass the same seed for reproducibility.
 void cacheFuzzer(size_t seed);
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::exec

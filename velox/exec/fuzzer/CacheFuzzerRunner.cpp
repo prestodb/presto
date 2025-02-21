@@ -16,9 +16,10 @@
 
 #include <folly/init/Init.h>
 #include <gflags/gflags.h>
-#include <gtest/gtest.h>
 
-#include "velox/exec/fuzzer/CacheFuzzerRunner.h"
+#include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/Memory.h"
+#include "velox/exec/fuzzer/CacheFuzzer.h"
 
 DEFINE_int64(
     seed,
@@ -27,8 +28,6 @@ DEFINE_int64(
     "results (0 means start with random seed).");
 
 int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
@@ -37,8 +36,6 @@ int main(int argc, char** argv) {
   facebook::velox::memory::MemoryManager::initialize({});
 
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
-
-  using Runner = facebook::velox::exec::test::CacheRunner;
-
-  return Runner::run(initialSeed);
+  facebook::velox::filesystems::registerLocalFileSystem();
+  facebook::velox::exec::cacheFuzzer(initialSeed);
 }

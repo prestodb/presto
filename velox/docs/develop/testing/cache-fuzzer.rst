@@ -15,11 +15,11 @@ During each iteration, the fuzzer performs the following actions steps by steps:
 How to run
 ----------
 
-Use velox_cache_fuzzer_test binary to run cache fuzzer:
+Use velox_cache_fuzzer binary to run cache fuzzer:
 
 ::
 
-    velox/exec/tests/velox_cache_fuzzer_test
+    velox/exec/fuzzer/velox_cache_fuzzer
 
 By default, the fuzzer will go through 10 interations. Use --steps
 or --duration-sec flag to run fuzzer for longer. Use --seed to

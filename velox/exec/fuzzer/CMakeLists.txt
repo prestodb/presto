@@ -132,7 +132,14 @@ target_link_libraries(
   velox_functions_prestosql
   velox_aggregates)
 
-add_library(velox_cache_fuzzer CacheFuzzer.cpp)
+add_library(velox_cache_fuzzer_lib CacheFuzzer.cpp)
+
+# Cache Fuzzer
+add_executable(velox_cache_fuzzer CacheFuzzerRunner.cpp)
 
 target_link_libraries(
-  velox_cache_fuzzer velox_dwio_common velox_temp_path velox_vector_test_lib)
+  velox_cache_fuzzer velox_cache_fuzzer_lib velox_fuzzer_util)
+
+target_link_libraries(
+  velox_cache_fuzzer_lib velox_dwio_common velox_temp_path
+  velox_vector_test_lib)

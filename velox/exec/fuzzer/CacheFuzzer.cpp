@@ -17,9 +17,8 @@
 #include "velox/exec/fuzzer/CacheFuzzer.h"
 
 #include <boost/random/uniform_int_distribution.hpp>
-
 #include <folly/executors/IOThreadPoolExecutor.h>
-#include <gtest/gtest.h>
+
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
 #include "velox/common/file/FileSystems.h"
@@ -86,7 +85,7 @@ using namespace facebook::velox::cache;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::tests::utils;
 
-namespace facebook::velox::exec::test {
+namespace facebook::velox::exec {
 namespace {
 
 class CacheFuzzer {
@@ -474,7 +473,7 @@ void CacheFuzzer::read(uint32_t fileIdx, int32_t fragmentIdx) {
           // Verify read content.
           const auto* data = reinterpret_cast<const uint8_t*>(buffer);
           for (int32_t sequence = 0; sequence < size; ++sequence) {
-            ASSERT_EQ(data[sequence], (offset + numRead + sequence) % 256);
+            VELOX_CHECK_EQ(data[sequence], (offset + numRead + sequence) % 256);
           }
         }
         numRead += size;
@@ -489,7 +488,7 @@ void CacheFuzzer::read(uint32_t fileIdx, int32_t fragmentIdx) {
       }
     }
   }
-  ASSERT_EQ(numRead, length);
+  VELOX_CHECK_EQ(numRead, length);
 }
 
 void CacheFuzzer::go() {
@@ -548,4 +547,4 @@ void cacheFuzzer(size_t seed) {
   auto cacheFuzzer = CacheFuzzer(seed);
   cacheFuzzer.go();
 }
-} // namespace facebook::velox::exec::test
+} // namespace facebook::velox::exec
