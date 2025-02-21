@@ -18,17 +18,17 @@
 namespace facebook::velox::exec {
 
 std::shared_ptr<ExchangeSource> ExchangeSource::create(
-    const std::string& taskId,
+    const std::string& remoteTaskId,
     int destination,
     std::shared_ptr<ExchangeQueue> queue,
     memory::MemoryPool* pool) {
   for (auto& factory : factories()) {
-    auto result = factory(taskId, destination, queue, pool);
+    auto result = factory(remoteTaskId, destination, queue, pool);
     if (result) {
       return result;
     }
   }
-  VELOX_FAIL("No ExchangeSource factory matches {}", taskId);
+  VELOX_FAIL("No ExchangeSource factory matches {}", remoteTaskId);
 }
 
 // static

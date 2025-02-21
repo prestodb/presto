@@ -27,8 +27,8 @@ namespace facebook::velox::exec {
 struct RemoteConnectorSplit : public connector::ConnectorSplit {
   const std::string taskId;
 
-  explicit RemoteConnectorSplit(const std::string& _taskId)
-      : ConnectorSplit(""), taskId(_taskId) {}
+  explicit RemoteConnectorSplit(const std::string& remoteTaskId)
+      : ConnectorSplit(""), taskId(remoteTaskId) {}
 
   std::string toString() const override {
     return fmt::format("Remote: {}", taskId);
@@ -60,23 +60,22 @@ class Exchange : public SourceOperator {
   virtual VectorSerde* getSerde();
 
  private:
-  // Invoked to create exchange client for remote tasks.
-  // The function shuffles the source task ids first to randomize the source
-  // tasks we fetch data from. This helps to avoid different tasks fetching
-  // from the same source task in a distributed system.
-  void addTaskIds(std::vector<std::string>& taskIds);
+  // Invoked to create exchange client for remote tasks. The function shuffles
+  // the source task ids first to randomize the source tasks we fetch data from.
+  // This helps to avoid different tasks fetching from the same source task in a
+  // distributed system.
+  void addRemoteTaskIds(std::vector<std::string>& remoteTaskIds);
 
-  /// Fetches splits from the task until there are no more splits or task
-  /// returns a future that will be complete when more splits arrive. Adds
-  /// splits to exchangeClient_. Returns true if received a future from the
-  /// task and sets the 'future' parameter. Returns false if fetched all
-  /// splits or if this operator is not the first operator in the pipeline and
-  /// therefore is not responsible for fetching splits and adding them to the
-  /// exchangeClient_.
+  // Fetches splits from the task until there are no more splits or task returns
+  // a future that will be complete when more splits arrive. Adds splits to
+  // exchangeClient_. Returns true if received a future from the task and sets
+  // the 'future' parameter. Returns false if fetched all splits or if this
+  // operator is not the first operator in the pipeline and therefore is not
+  // responsible for fetching splits and adding them to the exchangeClient_.
   bool getSplits(ContinueFuture* future);
 
-  /// Fetches runtime stats from ExchangeClient and replaces these in this
-  /// operator's stats.
+  // Fetches runtime stats from ExchangeClient and replaces these in this
+  // operator's stats.
   void recordExchangeClientStats();
 
   const uint64_t preferredOutputBatchBytes_;
@@ -95,9 +94,8 @@ class Exchange : public SourceOperator {
 
   std::shared_ptr<ExchangeClient> exchangeClient_;
 
-  /// A future received from Task::getSplitOrFuture(). It will be complete
-  /// when there are more splits available or no-more-splits signal has
-  /// arrived.
+  // A future received from Task::getSplitOrFuture(). It will be complete when
+  // there are more splits available or no-more-splits signal has arrived.
   ContinueFuture splitFuture_{ContinueFuture::makeEmpty()};
 
   // Reusable result vector.

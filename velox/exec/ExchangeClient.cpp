@@ -20,13 +20,13 @@
 
 namespace facebook::velox::exec {
 
-void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
+void ExchangeClient::addRemoteTaskId(const std::string& remoteTaskId) {
   std::vector<RequestSpec> requestSpecs;
   std::shared_ptr<ExchangeSource> toClose;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
 
-    bool duplicate = !remoteTaskIds_.insert(taskId).second;
+    bool duplicate = !remoteTaskIds_.insert(remoteTaskId).second;
     if (duplicate) {
       // Do not add sources twice. Presto protocol may add duplicate sources
       // and the task updates have no guarantees of arriving in order.
@@ -35,15 +35,16 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
 
     std::shared_ptr<ExchangeSource> source;
     try {
-      source = ExchangeSource::create(taskId, destination_, queue_, pool_);
+      source =
+          ExchangeSource::create(remoteTaskId, destination_, queue_, pool_);
     } catch (const VeloxException&) {
       throw;
     } catch (const std::exception& e) {
-      // Task ID can be very long. Truncate to 128 characters.
+      // 'remoteTaskId' can be very long. Truncate to 128 characters.
       VELOX_FAIL(
           "Failed to create ExchangeSource: {}. Task ID: {}.",
           e.what(),
-          taskId.substr(0, 128));
+          remoteTaskId.substr(0, 128));
     }
 
     if (closed_) {
@@ -91,9 +92,9 @@ void ExchangeClient::close() {
 }
 
 folly::F14FastMap<std::string, RuntimeMetric> ExchangeClient::stats() const {
+  folly::F14FastMap<std::string, RuntimeMetric> stats;
   std::lock_guard<std::mutex> l(queue_->mutex());
 
-  folly::F14FastMap<std::string, RuntimeMetric> stats;
   for (const auto& source : sources_) {
     if (source->supportsMetrics()) {
       for (const auto& [name, value] : source->metrics()) {
