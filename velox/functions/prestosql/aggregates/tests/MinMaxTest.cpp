@@ -1284,6 +1284,114 @@ TEST_F(MinMaxNTest, longdecimal) {
   testNumericGroupByDecimal<int128_t>();
 }
 
+TEST_F(MinMaxNTest, string) {
+  auto data = makeRowVector(
+      {makeFlatVector<std::string>({"1", "2", "3", "4", "abc", "xyz"})});
+  auto expected = makeRowVector({
+      makeArrayVector<std::string>({
+          {"1", "2"},
+      }),
+      makeArrayVector<std::string>({
+          {"1", "2", "3", "4", "abc"},
+      }),
+      makeArrayVector<std::string>({
+          {"xyz", "abc", "4"},
+      }),
+      makeArrayVector<std::string>({
+          {"xyz", "abc", "4", "3", "2", "1"},
+      }),
+  });
+
+  testAggregations(
+      {data},
+      {},
+      {"min(c0, 2)", "min(c0, 5)", "max(c0, 3)", "max(c0, 7)"},
+      {expected});
+
+  // Add some nulls. Expect these to be ignored.
+  data = makeRowVector({makeNullableFlatVector<std::string>(
+      {"1",
+       std::nullopt,
+       "2",
+       "3",
+       "4",
+       "abc",
+       std::nullopt,
+       "xyz",
+       std::nullopt})});
+
+  testAggregations(
+      {data},
+      {},
+      {"min(c0, 2)", "min(c0, 5)", "max(c0, 3)", "max(c0, 7)"},
+      {expected});
+
+  // Test all null input.
+  data = makeRowVector({makeNullableFlatVector<std::string>(
+      {std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt})});
+
+  expected = makeRowVector({
+      makeAllNullArrayVector(1, data->childAt(0)->type()),
+      makeAllNullArrayVector(1, data->childAt(0)->type()),
+      makeAllNullArrayVector(1, data->childAt(0)->type()),
+      makeAllNullArrayVector(1, data->childAt(0)->type()),
+  });
+
+  testAggregations(
+      {data},
+      {},
+      {"min(c0, 2)", "min(c0, 5)", "max(c0, 3)", "max(c0, 7)"},
+      {expected});
+
+  // Test long string
+  data = makeRowVector({makeFlatVector<std::string>(
+      {"hello long string",
+       "hello long string2",
+       "hello long string3",
+       "hello long string a",
+       "this is a very long string",
+       "min max test",
+       "max min test"})});
+  expected = makeRowVector({
+      makeArrayVector<std::string>({
+          {"hello long string", "hello long string a"},
+      }),
+      makeArrayVector<std::string>({
+          {"hello long string",
+           "hello long string a",
+           "hello long string2",
+           "hello long string3",
+           "max min test"},
+      }),
+      makeArrayVector<std::string>({
+          {"this is a very long string", "min max test", "max min test"},
+      }),
+      makeArrayVector<std::string>({
+          {"this is a very long string",
+           "min max test",
+           "max min test",
+           "hello long string3",
+           "hello long string2",
+           "hello long string a",
+           "hello long string"},
+      }),
+  });
+
+  testAggregations(
+      {data},
+      {},
+      {"min(c0, 2)", "min(c0, 5)", "max(c0, 3)", "max(c0, 7)"},
+      {expected});
+}
+
 TEST_F(MinMaxNTest, incrementalWindow) {
   // SELECT
   //  c0, c1, c2, c3,
