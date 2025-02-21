@@ -136,7 +136,7 @@ export class WorkerStatus extends React.Component {
                                      style={{width: percentageRevocable + "%"}}>
                                     {formatDataSize(revocable)}
                                 </div>
-                                <div className="progress-bar memory-progress-bar progress-bar-success" role="progressbar" style={{width: percentageFree + "%"}}>
+                                <div className="progress-bar memory-progress-bar bg-success" role="progressbar" style={{width: percentageFree + "%"}}>
                                     {formatDataSize(size - reserved)}
                                 </div>
                             </div>
