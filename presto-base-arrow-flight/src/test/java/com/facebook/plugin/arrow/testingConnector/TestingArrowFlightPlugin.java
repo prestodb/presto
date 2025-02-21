@@ -19,8 +19,16 @@ import com.facebook.plugin.arrow.ArrowPlugin;
 public class TestingArrowFlightPlugin
         extends ArrowPlugin
 {
+    public static final String ARROW_FLIGHT_CATALOG = "arrowflight";
+    public static final String ARROW_FLIGHT_CONNECTOR = "arrow-flight";
+
+    public TestingArrowFlightPlugin(boolean nativeExecution)
+    {
+        super(ARROW_FLIGHT_CONNECTOR, new TestingArrowModule(nativeExecution), new JsonModule());
+    }
+
     public TestingArrowFlightPlugin()
     {
-        super("arrow-flight", new TestingArrowModule(), new JsonModule());
+        this(false);
     }
 }
