@@ -222,12 +222,26 @@ void PositionalDeleteFileReader::updateDeleteBitmap(
   // split.
   const int64_t* deletePositions =
       deletePositionsVector->as<FlatVector<int64_t>>()->rawValues();
-  int64_t offset = baseReadOffset + splitOffset_;
+  int64_t rowNumberLowerBound = baseReadOffset + splitOffset_;
 
+  // If the rowNumberLowerBound is greater than the last position in this delete
+  // rows batch, nothing to delete.
+  if (rowNumberLowerBound >
+      deletePositions[deletePositionsVector->size() - 1]) {
+    return;
+  }
+
+  // Skip the delete positions in deletePositionsVector until they are in the
+  // [rowNumberLowerBound, rowNumberUpperBound) range.
+  while (deletePositionsOffset_ < deletePositionsVector->size() &&
+         deletePositions[deletePositionsOffset_] < rowNumberLowerBound) {
+    deletePositionsOffset_++;
+  }
   while (deletePositionsOffset_ < deletePositionsVector->size() &&
          deletePositions[deletePositionsOffset_] < rowNumberUpperBound) {
     bits::setBit(
-        deleteBitmap, deletePositions[deletePositionsOffset_] - offset);
+        deleteBitmap,
+        deletePositions[deletePositionsOffset_] - rowNumberLowerBound);
     deletePositionsOffset_++;
   }
 
@@ -240,7 +254,8 @@ void PositionalDeleteFileReader::updateDeleteBitmap(
                deletePositions[deletePositionsOffset_] > rowNumberUpperBound)
           ? 0
           : bits::nbytes(
-                deletePositions[deletePositionsOffset_ - 1] + 1 - offset)));
+                deletePositions[deletePositionsOffset_ - 1] + 1 -
+                rowNumberLowerBound)));
 }
 
 bool PositionalDeleteFileReader::readFinishedForBatch(
