@@ -70,7 +70,7 @@ import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.facebook.presto.testing.TestingConnectorSession;
-import com.google.common.cache.CacheBuilder;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -413,8 +413,8 @@ public class TestRenameTableOnFragileFileSystem
                 new NodeVersion("test_node_v1"),
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new IcebergHiveTableOperationsConfig(),
-                new StatisticsFileCache(CacheBuilder.newBuilder().build()),
-                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024));
+                new StatisticsFileCache(Caffeine.newBuilder().build()),
+                new ManifestFileCache(Caffeine.newBuilder().build(), false, 0, 1024));
         return icebergHiveMetadataFactory.create();
     }
 

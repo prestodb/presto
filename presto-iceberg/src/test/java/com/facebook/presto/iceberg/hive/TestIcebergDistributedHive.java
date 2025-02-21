@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
@@ -113,17 +114,17 @@ public class TestIcebergDistributedHive
         ManifestFileCache manifestFileCache = metadata.getManifestFileCache();
         assertUpdate(session, "INSERT INTO test_manifest_file_cache VALUES 1, 2, 3, 4, 5", 5);
         manifestFileCache.invalidateAll();
-        assertEquals(manifestFileCache.size(), 0);
-        CacheStats initial = manifestFileCache.stats();
+        assertEquals(manifestFileCache.estimatedSize(), 0);
+        com.github.benmanes.caffeine.cache.stats.CacheStats initial = manifestFileCache.stats();
         assertQuerySucceeds(session, "SELECT count(*) from test_manifest_file_cache group by i");
-        CacheStats firstQuery = manifestFileCache.stats();
+        com.github.benmanes.caffeine.cache.stats.CacheStats firstQuery = manifestFileCache.stats();
         assertTrue(firstQuery.minus(initial).missCount() > 0);
-        assertTrue(manifestFileCache.size() > 0);
+        assertTrue(manifestFileCache.estimatedSize() > 0);
         assertQuerySucceeds(session, "SELECT count(*) from test_manifest_file_cache group by i");
-        CacheStats secondQuery = manifestFileCache.stats();
+        com.github.benmanes.caffeine.cache.stats.CacheStats secondQuery = manifestFileCache.stats();
         assertEquals(secondQuery.minus(firstQuery).missCount(), 0);
         assertTrue(secondQuery.minus(firstQuery).hitCount() > 0);
-        assertTrue(manifestFileCache.size() > 0);
+        assertTrue(manifestFileCache.estimatedSize() > 0);
 
         //drop table
         assertQuerySucceeds(session, "DROP TABLE test_manifest_file_cache");
@@ -158,15 +159,15 @@ public class TestIcebergDistributedHive
         IcebergHiveMetadata metadata = (IcebergHiveMetadata) delegate.get(catalogMetadata.getMetadataFor(handle.get().getConnectorId()));
         ManifestFileCache manifestFileCache = metadata.getManifestFileCache();
         assertFalse(manifestFileCache.isEnabled());
-        CacheStats initial = manifestFileCache.stats();
+        com.github.benmanes.caffeine.cache.stats.CacheStats initial = manifestFileCache.stats();
         assertQuerySucceeds(session, "SELECT count(*) from test_manifest_file_cache_disabled group by i");
-        CacheStats firstQuery = manifestFileCache.stats();
+        com.github.benmanes.caffeine.cache.stats.CacheStats firstQuery = manifestFileCache.stats();
         assertEquals(firstQuery.minus(initial).hitCount(), 0); //
-        assertEquals(manifestFileCache.size(), 0);
+        assertEquals(manifestFileCache.estimatedSize(), 0);
         assertQuerySucceeds(session, "SELECT count(*) from test_manifest_file_cache_disabled group by i");
-        CacheStats secondQuery = manifestFileCache.stats();
+        com.github.benmanes.caffeine.cache.stats.CacheStats secondQuery = manifestFileCache.stats();
         assertEquals(secondQuery.minus(firstQuery).hitCount(), 0);
-        assertEquals(manifestFileCache.size(), 0);
+        assertEquals(manifestFileCache.estimatedSize(), 0);
 
         //drop table
         assertQuerySucceeds(session, "DROP TABLE test_manifest_file_cache_disabled");
@@ -181,7 +182,7 @@ public class TestIcebergDistributedHive
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
-                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024 * 1024),
+                new ManifestFileCache(Caffeine.newBuilder().build(), false, 0, 1024 * 1024),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
                 SchemaTableName.valueOf("tpch." + tableName));
     }

@@ -14,10 +14,10 @@
 package com.facebook.presto.iceberg.statistics;
 
 import com.facebook.airlift.stats.DistributionStat;
-import com.facebook.presto.hive.CacheStatsMBean;
+import com.facebook.presto.iceberg.cache.CaffeineCacheStatsMBean;
+import com.facebook.presto.iceberg.cache.SimpleForwardingCache;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
-import com.google.common.cache.Cache;
-import com.google.common.cache.ForwardingCache.SimpleForwardingCache;
+import com.github.benmanes.caffeine.cache.Cache;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -26,17 +26,17 @@ public class StatisticsFileCache
 {
     private final DistributionStat fileSizes = new DistributionStat();
     private final DistributionStat columnCounts = new DistributionStat();
-    private final CacheStatsMBean cacheStats;
+    private final CaffeineCacheStatsMBean cacheStats;
 
     public StatisticsFileCache(Cache<StatisticsFileCacheKey, ColumnStatistics> delegate)
     {
         super(delegate);
-        cacheStats = new CacheStatsMBean(delegate);
+        cacheStats = new CaffeineCacheStatsMBean(delegate);
     }
 
     @Managed
     @Nested
-    public CacheStatsMBean getCacheStats()
+    public CaffeineCacheStatsMBean getCacheStats()
     {
         return cacheStats;
     }

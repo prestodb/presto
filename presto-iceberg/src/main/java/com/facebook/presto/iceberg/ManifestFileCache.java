@@ -14,20 +14,20 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.stats.DistributionStat;
-import com.facebook.presto.hive.CacheStatsMBean;
-import com.google.common.cache.Cache;
-import com.google.common.cache.ForwardingCache;
+import com.facebook.presto.iceberg.cache.CaffeineCacheStatsMBean;
+import com.facebook.presto.iceberg.cache.SimpleForwardingCache;
+import com.github.benmanes.caffeine.cache.Cache;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 public class ManifestFileCache
-        extends ForwardingCache.SimpleForwardingCache<ManifestFileCacheKey, ManifestFileCachedContent>
+        extends SimpleForwardingCache<ManifestFileCacheKey, ManifestFileCachedContent>
 {
     private final DistributionStat fileSizes = new DistributionStat();
     private final long maxFileLength;
     private final boolean enabled;
     private final long bufferChunkSize;
-    private final CacheStatsMBean statsMBean;
+    private final CaffeineCacheStatsMBean statsMBean;
 
     public ManifestFileCache(Cache<ManifestFileCacheKey, ManifestFileCachedContent> delegate, boolean enabled, long maxFileLength, long bufferChunkSize)
     {
@@ -35,12 +35,12 @@ public class ManifestFileCache
         this.maxFileLength = maxFileLength;
         this.enabled = enabled;
         this.bufferChunkSize = bufferChunkSize;
-        this.statsMBean = new CacheStatsMBean(delegate);
+        this.statsMBean = new CaffeineCacheStatsMBean(delegate);
     }
 
     @Managed
     @Nested
-    public CacheStatsMBean getCacheStats()
+    public CaffeineCacheStatsMBean getCacheStats()
     {
         return statsMBean;
     }

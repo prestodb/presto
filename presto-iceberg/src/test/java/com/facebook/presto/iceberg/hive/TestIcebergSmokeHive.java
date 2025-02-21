@@ -29,6 +29,7 @@ import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.Table;
@@ -81,7 +82,7 @@ public class TestIcebergSmokeHive
         return IcebergUtil.getHiveIcebergTable(getFileHiveMetastore(),
                 getHdfsEnvironment(),
                 new IcebergHiveTableOperationsConfig(),
-                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
+                new ManifestFileCache(Caffeine.newBuilder().build(), false, 0, 1024),
                 session,
                 SchemaTableName.valueOf(schema + "." + tableName));
     }
