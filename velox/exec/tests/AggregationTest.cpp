@@ -963,8 +963,13 @@ TEST_F(AggregationTest, partialDistinctWithAbandon) {
 }
 
 TEST_F(AggregationTest, distinctWithGroupingKeysReordered) {
-  rowType_ = ROW(
-      {"c0", "c1", "c2", "c3"}, {BIGINT(), INTEGER(), VARCHAR(), VARCHAR()});
+  rowType_ =
+      ROW({"c0", "c1", "c2", "c3", "c4"},
+          {BIGINT(),
+           VARCHAR(),
+           INTEGER(),
+           ROW({"a0", "a1", "a2"}, {VARCHAR(), BOOLEAN(), BIGINT()}),
+           BOOLEAN()});
 
   const int vectorSize = 2'000;
   VectorFuzzer::Options options;
@@ -983,19 +988,21 @@ TEST_F(AggregationTest, distinctWithGroupingKeysReordered) {
   // Distinct aggregation with grouping key with larger prefix encoded size
   // first.
   auto spillDirectory = exec::test::TempDirectoryPath::create();
-  auto task = AssertQueryBuilder(duckDbQueryRunner_)
-                  .config(QueryConfig::kAbandonPartialAggregationMinRows, 100)
-                  .config(QueryConfig::kAbandonPartialAggregationMinPct, 50)
-                  .spillDirectory(spillDirectory->getPath())
-                  .config(QueryConfig::kSpillEnabled, true)
-                  .config(QueryConfig::kAggregationSpillEnabled, true)
-                  .config(QueryConfig::kSpillPrefixSortEnabled, true)
-                  .maxDrivers(1)
-                  .plan(PlanBuilder()
-                            .values(vectors)
-                            .singleAggregation({"c2", "c0"}, {})
-                            .planNode())
-                  .assertResults("SELECT distinct c2, c0 FROM tmp");
+  TestScopedSpillInjection scopedSpillInjection(100);
+  auto task =
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .config(QueryConfig::kAbandonPartialAggregationMinRows, 100)
+          .config(QueryConfig::kAbandonPartialAggregationMinPct, 50)
+          .spillDirectory(spillDirectory->getPath())
+          .config(QueryConfig::kSpillEnabled, true)
+          .config(QueryConfig::kAggregationSpillEnabled, true)
+          .config(QueryConfig::kSpillPrefixSortEnabled, true)
+          .maxDrivers(1)
+          .plan(PlanBuilder()
+                    .values(vectors)
+                    .singleAggregation({"c4", "c1", "c3", "c2", "c0"}, {})
+                    .planNode())
+          .assertResults("SELECT distinct c4, c1, c3, c2, c0 FROM tmp");
 }
 
 TEST_F(AggregationTest, largeValueRangeArray) {

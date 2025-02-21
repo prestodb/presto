@@ -1191,6 +1191,46 @@ bool GroupingSet::mergeNextWithAggregates(
   VELOX_UNREACHABLE();
 }
 
+void GroupingSet::prepareSpillResultWithoutAggregates(
+    int32_t maxOutputRows,
+    const RowVectorPtr& result) {
+  const auto numColumns = result->type()->size();
+  if (spillResultWithoutAggregates_ == nullptr) {
+    std::vector<std::string> names(numColumns);
+    VELOX_CHECK_EQ(table_->rows()->keyTypes().size(), numColumns);
+    std::vector<TypePtr> types{table_->rows()->keyTypes()};
+
+    const auto& resultType = dynamic_cast<const RowType*>(result->type().get());
+    for (auto i = 0; i < numColumns; ++i) {
+      names[groupingKeyOutputProjections_[i]] = resultType->nameOf(i);
+    }
+    spillResultWithoutAggregates_ = BaseVector::create<RowVector>(
+        std::make_shared<RowType>(std::move(names), std::move(types)),
+        maxOutputRows,
+        &pool_);
+  } else {
+    VectorPtr spillResultWithoutAggregates =
+        std::move(spillResultWithoutAggregates_);
+    BaseVector::prepareForReuse(spillResultWithoutAggregates, maxOutputRows);
+    spillResultWithoutAggregates_ =
+        std::static_pointer_cast<RowVector>(spillResultWithoutAggregates);
+  }
+
+  VELOX_CHECK_NOT_NULL(spillResultWithoutAggregates_);
+  for (auto i = 0; i < numColumns; ++i) {
+    spillResultWithoutAggregates_->childAt(groupingKeyOutputProjections_[i]) =
+        std::move(result->childAt(i));
+  }
+}
+
+void GroupingSet::projectResult(const RowVectorPtr& result) {
+  for (auto i = 0; i < result->type()->size(); ++i) {
+    result->childAt(i) = std::move(spillResultWithoutAggregates_->childAt(
+        groupingKeyOutputProjections_[i]));
+  }
+  result->resize(spillResultWithoutAggregates_->size());
+}
+
 bool GroupingSet::mergeNextWithoutAggregates(
     int32_t maxOutputRows,
     const RowVectorPtr& result) {
@@ -1215,6 +1255,8 @@ bool GroupingSet::mergeNextWithoutAggregates(
   // less than 'numDistinctSpillFilesPerPartition_'.
   bool newDistinct{true};
   int32_t numOutputRows{0};
+  prepareSpillResultWithoutAggregates(maxOutputRows, result);
+
   while (numOutputRows < maxOutputRows) {
     const auto next = merge_->nextWithEquals();
     auto* stream = next.first;
@@ -1239,13 +1281,14 @@ bool GroupingSet::mergeNextWithoutAggregates(
     }
     if (newDistinct) {
       // Yield result for new distinct.
-      result->copy(
+      spillResultWithoutAggregates_->copy(
           &stream->current(), numOutputRows++, stream->currentIndex(), 1);
     }
     stream->pop();
     newDistinct = true;
   }
-  result->resize(numOutputRows);
+  spillResultWithoutAggregates_->resize(numOutputRows);
+  projectResult(result);
   return numOutputRows > 0;
 }
 
