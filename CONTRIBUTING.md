@@ -287,7 +287,7 @@ with a benchmark.
    line arguments.
 
    ```
-# Test the new function in isolation. Use --only flag to restrict the set of functions
+   # Test the new function in isolation. Use --only flag to restrict the set of functions
    # and run for 60 seconds or longer.
    velox_expression_fuzzer_test --only <my-new-function-name> --duration_sec 60 --logtostderr=1 --enable_variadic_signatures --velox_fuzzer_enable_complex_types --velox_fuzzer_enable_decimal_type --lazy_vector_generation_ratio 0.2 --velox_fuzzer_enable_column_reuse --velox_fuzzer_enable_expression_reuse
 
