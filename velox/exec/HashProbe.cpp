@@ -1059,24 +1059,35 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
   // Left semi and anti joins are always cardinality reducing, e.g. for a
   // given row of input they produce zero or 1 row of output. Therefore, if
   // there is no extra filter we can process each batch of input in one go.
-  auto outputBatchSize = (isLeftSemiOrAntiJoinNoFilter || emptyBuildSide)
+  auto maxOutputBatchRows = (isLeftSemiOrAntiJoinNoFilter || emptyBuildSide)
       ? inputSize
       : outputBatchSize_;
-  outputTableRowsCapacity_ = outputBatchSize;
-  if (filter_ &&
-      (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-       isAntiJoin(joinType_) || isLeftSemiFilterJoin(joinType_) ||
-       isLeftSemiProjectJoin(joinType_))) {
-    // If we need non-matching probe side row, there is a possibility that such
-    // row exists at end of an input batch and being carried over in the next
-    // output batch, so we need to make extra room of one row in output.
-    ++outputTableRowsCapacity_;
+  outputTableRowsCapacity_ = maxOutputBatchRows;
+  if (filter_) {
+    if (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
+        isAntiJoin(joinType_) || isLeftSemiFilterJoin(joinType_) ||
+        isLeftSemiProjectJoin(joinType_)) {
+      // If we need non-matching probe side row, there is a possibility that
+      // such row exists at end of an input batch and being carried over in the
+      // next output batch, so we need to make extra room of one row in output.
+      ++outputTableRowsCapacity_;
+    }
+
+    // Initialize 'leftSemiProjectIsNull_' for a null-aware left semi join.
+    if (isLeftSemiProjectJoin(joinType_) && nullAware_) {
+      leftSemiProjectIsNull_.resize(outputTableRowsCapacity_);
+      leftSemiProjectIsNull_.clearAll();
+    }
   }
+
   auto mapping = initializeRowNumberMapping(
       outputRowMapping_, outputTableRowsCapacity_, pool());
   auto* outputTableRows =
       initBuffer<char*>(outputTableRows_, outputTableRowsCapacity_, pool());
 
+  int numOutputRows = 0;
+  uint64_t maxOutputBatchBytes =
+      operatorCtx_->driverCtx()->queryConfig().preferredOutputBatchBytes();
   for (;;) {
     // If the task owning this operator has been cancelled, there is no point
     // to continue executing this procedure, which may be long in degenerate
@@ -1085,14 +1096,14 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
     if (operatorCtx_->task()->isCancelled()) {
       return nullptr;
     }
-    int numOut = 0;
+    int numJoinedRows = 0;
 
     if (emptyBuildSide) {
       // When build side is empty, anti and left joins return all probe side
       // rows, including ones with null join keys.
       std::iota(mapping.begin(), mapping.begin() + inputSize, 0);
       std::fill(outputTableRows, outputTableRows + inputSize, nullptr);
-      numOut = inputSize;
+      numJoinedRows = inputSize;
     } else if (isAntiJoin(joinType_) && !filter_) {
       if (nullAware_) {
         // When build side is not empty, anti join without a filter returns
@@ -1101,46 +1112,48 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
         for (auto i = 0; i < inputSize; ++i) {
           if (nonNullInputRows_.isValid(i) &&
               (!activeRows_.isValid(i) || !lookup_->hits[i])) {
-            mapping[numOut] = i;
-            ++numOut;
+            mapping[numJoinedRows++] = i;
           }
         }
       } else {
         for (auto i = 0; i < inputSize; ++i) {
           if (!nonNullInputRows_.isValid(i) ||
               (!activeRows_.isValid(i) || !lookup_->hits[i])) {
-            mapping[numOut] = i;
-            ++numOut;
+            mapping[numJoinedRows++] = i;
           }
         }
       }
     } else {
-      numOut = table_->listJoinResults(
+      numJoinedRows = table_->listJoinResults(
           *resultIter_,
           joinIncludesMissesFromLeft(joinType_),
-          folly::Range(mapping.data(), outputBatchSize),
-          folly::Range(outputTableRows, outputBatchSize),
-          operatorCtx_->driverCtx()->queryConfig().preferredOutputBatchBytes());
+          folly::Range(mapping.data(), maxOutputBatchRows),
+          folly::Range(outputTableRows, maxOutputBatchRows),
+          maxOutputBatchBytes);
     }
 
     // We are done processing the input batch if there are no more joined rows
     // to process and the NoMatchDetector isn't carrying forward a row that
     // still needs to be written to the output.
-    if (!numOut && !noMatchDetector_.hasLastMissedRow()) {
+    if (!numJoinedRows && !noMatchDetector_.hasLastMissedRow()) {
+      if (numOutputRows > 0) {
+        fillOutput(numOutputRows);
+        input_ = nullptr;
+        return output_;
+      }
       input_ = nullptr;
       return nullptr;
     }
-    VELOX_CHECK_LE(numOut, outputBatchSize);
+    VELOX_CHECK_LE(numJoinedRows, maxOutputBatchRows);
+    auto numJoinedRowsAfterFilter = evalFilter(numOutputRows, numJoinedRows);
 
-    numOut = evalFilter(numOut);
-
-    if (numOut == 0) {
+    if (numJoinedRowsAfterFilter == 0) {
       continue;
     }
 
     if (needLastProbe()) {
       // Mark build-side rows that have a match on the join condition.
-      table_->rows()->setProbedFlag(outputTableRows, numOut);
+      table_->rows()->setProbedFlag(outputTableRows, numJoinedRowsAfterFilter);
     }
 
     // Right semi join only returns the build side output when the probe side
@@ -1152,7 +1165,35 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
       return nullptr;
     }
 
-    fillOutput(numOut);
+    if (numJoinedRowsAfterFilter < numJoinedRows || numOutputRows > 0) {
+      numOutputRows += numJoinedRowsAfterFilter;
+      // Calculates the estimated size of the output batch in bytes after
+      // applying a filter. The estimation is based on the ratio of the number
+      // of joined rows to the number of output rows before the filter,
+      // multiplied by the size of the output batch in bytes.
+      const auto estimatedOutputBatchBytes =
+          (1.0 * numJoinedRowsAfterFilter / numJoinedRows) *
+          resultIter_->outputBatchBytes;
+      // Continue the loop to populate 'outputRowMapping_' and
+      // 'outputTableRows_' until either all input rows are processed or the
+      // desired row count / max bytes is reached, avoiding low-selectivity
+      // vectors.
+      if (!resultIter_->atEnd() && numOutputRows < maxOutputBatchRows &&
+          estimatedOutputBatchBytes < maxOutputBatchBytes) {
+        mapping = folly::Range(
+            outputRowMapping_->asMutable<vector_size_t>() + numOutputRows,
+            outputTableRowsCapacity_ - numOutputRows);
+        outputTableRows = outputTableRows_->asMutable<char*>() + numOutputRows;
+        maxOutputBatchRows -= numJoinedRowsAfterFilter;
+        maxOutputBatchBytes -= estimatedOutputBatchBytes;
+        continue;
+      }
+    }
+    if (numOutputRows > 0) {
+      numJoinedRowsAfterFilter = numOutputRows;
+    }
+
+    fillOutput(numJoinedRowsAfterFilter);
 
     if (isLeftSemiOrAntiJoinNoFilter || emptyBuildSide) {
       input_ = nullptr;
@@ -1177,7 +1218,15 @@ bool HashProbe::maybeReadSpillOutput() {
   return true;
 }
 
-RowVectorPtr HashProbe::createFilterInput(vector_size_t size) {
+RowVectorPtr HashProbe::createFilterInput(
+    vector_size_t offset,
+    vector_size_t size) {
+  BufferPtr outputRowMapping = outputRowMapping_;
+  if (offset > 0) {
+    VELOX_CHECK_LE(size, outputTableRowsCapacity_ - offset);
+    outputRowMapping = Buffer::slice<vector_size_t>(
+        outputRowMapping_, offset, outputTableRowsCapacity_ - offset, pool());
+  }
   std::vector<VectorPtr> filterColumns(filterInputType_->size());
   for (auto projection : filterInputProjections_) {
     if (projectedInputColumns_.find(projection.inputChannel) !=
@@ -1194,12 +1243,12 @@ RowVectorPtr HashProbe::createFilterInput(vector_size_t size) {
     }
 
     filterColumns[projection.outputChannel] = wrapChild(
-        size, outputRowMapping_, input_->childAt(projection.inputChannel));
+        size, outputRowMapping, input_->childAt(projection.inputChannel));
   }
 
   extractColumns(
       table_.get(),
-      folly::Range<char* const*>(outputTableRows_->as<char*>(), size),
+      folly::Range<char* const*>(outputTableRows_->as<char*>() + offset, size),
       filterTableProjections_,
       pool(),
       filterInputType_->children(),
@@ -1212,7 +1261,8 @@ RowVectorPtr HashProbe::createFilterInput(vector_size_t size) {
 void HashProbe::prepareFilterRowsForNullAwareJoin(
     RowVectorPtr& filterInput,
     vector_size_t numRows,
-    bool filterPropagateNulls) {
+    bool filterPropagateNulls,
+    vector_size_t* rawOutputProbeRowMapping) {
   VELOX_CHECK_LE(numRows, kBatchSize);
   if (filterTableInput_ == nullptr) {
     filterTableInput_ =
@@ -1255,10 +1305,9 @@ void HashProbe::prepareFilterRowsForNullAwareJoin(
   // with null join key columns(s) as we can apply filtering after they cross
   // join with the table rows later.
   if (!nonNullInputRows_.isAllSelected()) {
-    auto* rawMapping = outputRowMapping_->asMutable<vector_size_t>();
     for (int i = 0; i < numRows; ++i) {
       if (filterInputRows_.isValid(i) &&
-          !nonNullInputRows_.isValid(rawMapping[i])) {
+          !nonNullInputRows_.isValid(rawOutputProbeRowMapping[i])) {
         filterInputRows_.setValid(i, false);
       }
     }
@@ -1345,10 +1394,8 @@ void HashProbe::applyFilterOnTableRowsForNullAwareJoin(
 
 SelectivityVector HashProbe::evalFilterForNullAwareJoin(
     vector_size_t numRows,
-    bool filterPropagateNulls) {
-  auto* rawOutputProbeRowMapping =
-      outputRowMapping_->asMutable<vector_size_t>();
-
+    bool filterPropagateNulls,
+    vector_size_t* rawOutputProbeRowMapping) {
   // Subset of probe-side rows with a match that passed the filter.
   SelectivityVector filterPassedRows(input_->size(), false);
 
@@ -1417,15 +1464,15 @@ void HashProbe::prepareNullKeyProbeHashers() {
   }
 }
 
-int32_t HashProbe::evalFilter(int32_t numRows) {
+int32_t HashProbe::evalFilter(int32_t offset, int32_t numRows) {
   if (!filter_) {
     return numRows;
   }
 
   const bool filterPropagateNulls = filter_->expr(0)->propagatesNulls();
   auto* rawOutputProbeRowMapping =
-      outputRowMapping_->asMutable<vector_size_t>();
-  auto* outputTableRows = outputTableRows_->asMutable<char*>();
+      outputRowMapping_->asMutable<vector_size_t>() + offset;
+  auto* outputTableRows = outputTableRows_->asMutable<char*>() + offset;
 
   filterInputRows_.resizeFill(numRows);
 
@@ -1443,11 +1490,11 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     filterInputRows_.updateBounds();
   }
 
-  RowVectorPtr filterInput = createFilterInput(numRows);
+  RowVectorPtr filterInput = createFilterInput(offset, numRows);
 
   if (nullAware_) {
     prepareFilterRowsForNullAwareJoin(
-        filterInput, numRows, filterPropagateNulls);
+        filterInput, numRows, filterPropagateNulls, rawOutputProbeRowMapping);
   }
 
   EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput.get());
@@ -1525,21 +1572,18 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     static const char* kPassed = "passed";
 
     if (nullAware_) {
-      leftSemiProjectIsNull_.resize(numRows);
-      leftSemiProjectIsNull_.clearAll();
-
       auto addLast = [&](auto row, std::optional<bool> passed) {
         if (passed.has_value()) {
           outputTableRows[numPassed] =
               passed.value() ? const_cast<char*>(kPassed) : nullptr;
         } else {
-          leftSemiProjectIsNull_.setValid(numPassed, true);
+          leftSemiProjectIsNull_.setValid(numPassed + offset, true);
         }
         rawOutputProbeRowMapping[numPassed++] = row;
       };
 
-      auto passedRows =
-          evalFilterForNullAwareJoin(numRows, filterPropagateNulls);
+      auto passedRows = evalFilterForNullAwareJoin(
+          numRows, filterPropagateNulls, rawOutputProbeRowMapping);
       for (auto i = 0; i < numRows; ++i) {
         // filterPassed(i) -> TRUE
         // else passed -> NULL
@@ -1575,8 +1619,8 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
       rawOutputProbeRowMapping[numPassed++] = row;
     };
     if (nullAware_) {
-      auto passedRows =
-          evalFilterForNullAwareJoin(numRows, filterPropagateNulls);
+      auto passedRows = evalFilterForNullAwareJoin(
+          numRows, filterPropagateNulls, rawOutputProbeRowMapping);
       for (auto i = 0; i < numRows; ++i) {
         auto probeRow = rawOutputProbeRowMapping[i];
         bool passed = passedRows.isValid(probeRow);
