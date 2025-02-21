@@ -124,11 +124,10 @@ public class TestArrowFlightEchoQueries
             throws Exception
     {
         arrowFlightQueryRunner = getDistributedQueryRunner();
-        File certChainFile = new File("src/test/resources/server.crt");
-        File privateKeyFile = new File("src/test/resources/server.key");
 
         allocator = new RootAllocator(Long.MAX_VALUE);
-
+        File certChainFile = new File("src/test/resources/server.crt");
+        File privateKeyFile = new File("src/test/resources/server.key");
         requestCodec = jsonCodec(TestingArrowFlightRequest.class);
         responseCodec = jsonCodec(TestingArrowFlightResponse.class);
 
