@@ -20,7 +20,6 @@ set(TEST_LINK_LIBS
     velox_dwio_dwrf_writer
     velox_row_fast
     velox_flag_definitions
-    gflags::gflags
     GTest::gtest
     GTest::gtest_main
     GTest::gmock
@@ -133,7 +132,10 @@ add_test(velox_dwio_dwrf_dictionary_encoder_test
          velox_dwio_dwrf_dictionary_encoder_test)
 
 target_link_libraries(
-  velox_dwio_dwrf_dictionary_encoder_test velox_link_libs Folly::folly
+  velox_dwio_dwrf_dictionary_encoder_test
+  velox_link_libs
+  Folly::folly
+  gflags::gflags
   ${TEST_LINK_LIBS})
 
 add_executable(velox_dwio_dwrf_encoding_selector_test TestEncodingSelector.cpp)

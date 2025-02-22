@@ -20,6 +20,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/tests/CacheTestUtil.h"
+#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/io/IoStatistics.h"
 #include "velox/common/io/Options.h"
@@ -96,7 +97,7 @@ class CacheTest : public ::testing::Test {
 
     std::unique_ptr<SsdCache> ssd;
     if (ssdBytes > 0) {
-      FLAGS_ssd_odirect = false;
+      config::globalConfig().useSsdODirect = false;
       tempDirectory_ = exec::test::TempDirectoryPath::create();
       const SsdCache::Config config(
           fmt::format("{}/cache", tempDirectory_->getPath()),

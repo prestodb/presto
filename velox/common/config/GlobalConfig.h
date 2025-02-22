@@ -77,6 +77,14 @@ struct GlobalConfiguration {
   /// and be writable. This flag is ignored if
   /// saveInputOnExpressionAnyFailurePath flag is set.
   std::string saveInputOnExpressionSystemFailurePath;
+  /// Use O_DIRECT for SSD cache I/O. This allows to bypass Linux Kernel's page
+  /// cache and can improve performance on some filesystems. Disable if the
+  /// filesystem does not support it.
+  bool useSsdODirect{true};
+  /// Verify the data written to SSD. Once an entry is written, it is
+  /// immediately read back and is compared against the entry written. This is
+  /// helpful to protect against SSD write corruption.
+  bool verifySsdWrite{false};
 };
 
 GlobalConfiguration& globalConfig();

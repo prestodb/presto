@@ -25,9 +25,6 @@
 #include "velox/common/file/FileInputStream.h"
 #include "velox/common/file/FileSystems.h"
 
-DECLARE_bool(ssd_odirect);
-DECLARE_bool(ssd_verify_write);
-
 namespace facebook::velox::cache {
 
 namespace test {

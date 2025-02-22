@@ -66,6 +66,8 @@ DEFINE_int32(
     -1,
     "Number of SSD cache shards. When set to -1, a random value from 1 to 4 will be used, inclusively.");
 
+DEFINE_bool(ssd_odirect, true, "Use O_DIRECT for SSD cache IO");
+
 DEFINE_int64(
     ssd_checkpoint_interval_bytes,
     -1,

@@ -56,8 +56,7 @@ velox_link_libraries(
   velox_process
   glog::glog
   Folly::folly
-  fmt::fmt
-  gflags::gflags)
+  fmt::fmt)
 
 velox_add_library(velox_status Status.cpp)
 velox_link_libraries(

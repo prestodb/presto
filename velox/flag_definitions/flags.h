@@ -17,3 +17,13 @@
 namespace facebook::velox {
 void translateFlagsToGlobalConfig();
 }
+
+/// Use O_DIRECT for SSD cache I/O. This allows to bypass Linux Kernel's page
+/// cache and can improve performance on some filesystems. Disable if the
+/// filesystem does not support it.
+DECLARE_bool(velox_ssd_odirect);
+
+/// Verify the data written to SSD. Once an entry is written, it is immediately
+/// read back and is compared against the entry written.
+/// This is helpful to protect against SSD write corruption.
+DECLARE_bool(velox_ssd_verify_write);

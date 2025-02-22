@@ -39,6 +39,7 @@ target_link_libraries(
     velox_file_test_utils
     velox_memory
     velox_temp_path
+    velox_flag_definitions
     Folly::folly
     glog::glog
     GTest::gtest

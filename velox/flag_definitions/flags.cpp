@@ -133,6 +133,13 @@ DEFINE_int32(
     80,
     "Minimum percentage of actual uses over references to a column for prefetching. No prefetch if > 100");
 
+DEFINE_bool(velox_ssd_odirect, true, "Use O_DIRECT for SSD cache IO");
+
+DEFINE_bool(
+    velox_ssd_verify_write,
+    false,
+    "Read back data after writing to SSD");
+
 namespace facebook::velox {
 void translateFlagsToGlobalConfig() {
   config::globalConfig().memoryNumSharedLeafPools =
@@ -147,6 +154,8 @@ void translateFlagsToGlobalConfig() {
   config::globalConfig().memoryUseHugepages = FLAGS_velox_memory_use_hugepages;
   config::globalConfig().suppressMemoryCapacityExceedingErrorMessage =
       FLAGS_velox_suppress_memory_capacity_exceeding_error_message;
+  config::globalConfig().useSsdODirect = FLAGS_velox_ssd_odirect;
+  config::globalConfig().verifySsdWrite = FLAGS_velox_ssd_verify_write;
   config::globalConfig().memoryPoolCapacityTransferAcrossTasks =
       FLAGS_velox_memory_pool_capacity_transfer_across_tasks;
   config::globalConfig().exceptionSystemStacktraceEnabled =
