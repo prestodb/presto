@@ -174,18 +174,34 @@ class PyPlanBuilder {
   /// Add a single-stage aggregation given a set of group keys, and
   /// aggregations. Aggregations are specified as SQL expressions and currently
   /// use DuckDB's parser semantics.
-  PyPlanBuilder& singleAggregation(
+  PyPlanBuilder& aggregate(
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregations);
+
+  /// Sorts the input based on the values of sorting keys.
+  ///
+  /// @param keys List of columns to order by. The strings can be column
+  /// names and optionally contain the sort orientation ("col" or "col DESC").
+  /// @param is_partial
+  PyPlanBuilder& orderBy(const std::vector<std::string>& keys, bool isPartial);
+
+  /// Limit how many rows from the input to produce as output.
+  ///
+  /// @param count How many rows to produce, at most.
+  /// @param offset Hoy many rows from the beggining of the input to skip.
+  /// @param is_partial If this is restricting partial results and hence can be
+  /// applied once per driver, or if it's applied to the query output.
+  PyPlanBuilder& limit(int64_t count, int64_t offset, bool isPartial);
 
   /// Add a merge join node to the plan. Assumes that both left and right
   /// subtrees will produce input sorted in join key order.
   ///
-  /// @param leftKeys Set of join keys from the left (current plan builder) plan
-  /// subtree.
+  /// @param leftKeys Set of join keys from the left (current plan builder)
+  /// plan subtree.
   /// @param leftKeys Set of join keys from the right plan subtree.
   /// @param rightPlanSubtree Subtree to join to.
-  /// @param output List of column names to project in the output of the join.
+  /// @param output List of column names to project in the output of the
+  /// join.
   /// @param filter An optional filter specified as a SQL expression to be
   /// applied during the join.
   /// @param joinType The type of join (kInner, kLeft, kRight, or kFull)

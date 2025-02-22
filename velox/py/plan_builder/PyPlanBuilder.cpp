@@ -245,10 +245,23 @@ PyPlanBuilder& PyPlanBuilder::filter(const std::string& filter) {
   return *this;
 }
 
-PyPlanBuilder& PyPlanBuilder::singleAggregation(
+PyPlanBuilder& PyPlanBuilder::aggregate(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregations) {
   planBuilder_.singleAggregation(groupingKeys, aggregations);
+  return *this;
+}
+
+PyPlanBuilder& PyPlanBuilder::orderBy(
+    const std::vector<std::string>& keys,
+    bool isPartial) {
+  planBuilder_.orderBy(keys, isPartial);
+  return *this;
+}
+
+PyPlanBuilder&
+PyPlanBuilder::limit(int64_t count, int64_t offset, bool isPartial) {
+  planBuilder_.limit(offset, count, isPartial);
   return *this;
 }
 

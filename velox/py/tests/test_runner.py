@@ -64,6 +64,30 @@ class TestPyVeloxRunner(unittest.TestCase):
             total_size += vector.size()
         self.assertEqual(total_size, 100)
 
+    def test_runner_with_values_order_limit(self):
+        vectors = []
+        batch_size = 10
+        num_batches = 10
+
+        for i in range(num_batches):
+            array = pyarrow.array(list(range(i * batch_size, (i + 1) * batch_size)))
+            batch = pyarrow.record_batch([array], names=["c0"])
+            vectors.append(to_velox(batch))
+
+        plan_builder = (
+            PlanBuilder().values(vectors).order_by(["c0 DESC"]).limit(5, offset=2)
+        )
+        runner = LocalRunner(plan_builder.get_plan_node())
+
+        iterator = runner.execute()
+        output = next(iterator)
+        self.assertRaises(StopIteration, next, iterator)
+
+        expected_result = to_velox(
+            pyarrow.record_batch([pyarrow.array([97, 96, 95, 94, 93])], names=["c0"]
+        ))
+        self.assertEqual(output, expected_result)
+
     def test_runner_with_join(self):
         batch_size = 10
         array = pyarrow.array([42] * batch_size)
