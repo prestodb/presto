@@ -25,36 +25,36 @@ std::unique_ptr<folly::compression::Codec> compressionKindToCodec(
     CompressionKind kind) {
   switch (static_cast<int32_t>(kind)) {
     case CompressionKind_NONE:
-      return getCodec(folly::io::CodecType::NO_COMPRESSION);
+      return getCodec(folly::compression::CodecType::NO_COMPRESSION);
     case CompressionKind_ZLIB:
-      return getCodec(folly::io::CodecType::ZLIB);
+      return getCodec(folly::compression::CodecType::ZLIB);
     case CompressionKind_SNAPPY:
-      return getCodec(folly::io::CodecType::SNAPPY);
+      return getCodec(folly::compression::CodecType::SNAPPY);
     case CompressionKind_ZSTD:
-      return getCodec(folly::io::CodecType::ZSTD);
+      return getCodec(folly::compression::CodecType::ZSTD);
     case CompressionKind_LZ4:
-      return getCodec(folly::io::CodecType::LZ4);
+      return getCodec(folly::compression::CodecType::LZ4);
     case CompressionKind_GZIP:
-      return getCodec(folly::io::CodecType::GZIP);
+      return getCodec(folly::compression::CodecType::GZIP);
     default:
       VELOX_UNSUPPORTED(
           "Not support {} in folly", compressionKindToString(kind));
   }
 }
 
-CompressionKind codecTypeToCompressionKind(folly::io::CodecType type) {
+CompressionKind codecTypeToCompressionKind(folly::compression::CodecType type) {
   switch (type) {
-    case folly::io::CodecType::NO_COMPRESSION:
+    case folly::compression::CodecType::NO_COMPRESSION:
       return CompressionKind_NONE;
-    case folly::io::CodecType::ZLIB:
+    case folly::compression::CodecType::ZLIB:
       return CompressionKind_ZLIB;
-    case folly::io::CodecType::SNAPPY:
+    case folly::compression::CodecType::SNAPPY:
       return CompressionKind_SNAPPY;
-    case folly::io::CodecType::ZSTD:
+    case folly::compression::CodecType::ZSTD:
       return CompressionKind_ZSTD;
-    case folly::io::CodecType::LZ4:
+    case folly::compression::CodecType::LZ4:
       return CompressionKind_LZ4;
-    case folly::io::CodecType::GZIP:
+    case folly::compression::CodecType::GZIP:
       return CompressionKind_GZIP;
     default:
       VELOX_UNSUPPORTED(

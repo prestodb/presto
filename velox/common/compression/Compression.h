@@ -36,7 +36,7 @@ enum CompressionKind {
 std::unique_ptr<folly::compression::Codec> compressionKindToCodec(
     CompressionKind kind);
 
-CompressionKind codecTypeToCompressionKind(folly::io::CodecType type);
+CompressionKind codecTypeToCompressionKind(folly::compression::CodecType type);
 
 /// Get the name of the CompressionKind.
 std::string compressionKindToString(CompressionKind kind);

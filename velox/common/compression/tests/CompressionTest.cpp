@@ -38,10 +38,10 @@ TEST_F(CompressionTest, testCompressionNames) {
 
 TEST_F(CompressionTest, compressionKindToCodec) {
   ASSERT_EQ(
-      folly::io::CodecType::NO_COMPRESSION,
+      folly::compression::CodecType::NO_COMPRESSION,
       compressionKindToCodec(CompressionKind::CompressionKind_NONE)->type());
   ASSERT_EQ(
-      folly::io::CodecType::LZ4,
+      folly::compression::CodecType::LZ4,
       compressionKindToCodec(CompressionKind::CompressionKind_LZ4)->type());
   EXPECT_THROW(
       compressionKindToCodec(CompressionKind::CompressionKind_LZO),

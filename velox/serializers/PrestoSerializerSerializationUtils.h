@@ -170,7 +170,7 @@ FlushSizes flushStreams(
 
 FOLLY_ALWAYS_INLINE bool needCompression(
     const folly::compression::Codec& codec) {
-  return codec.type() != folly::io::CodecType::NO_COMPRESSION;
+  return codec.type() != folly::compression::CodecType::NO_COMPRESSION;
 }
 
 inline int64_t computeChecksum(

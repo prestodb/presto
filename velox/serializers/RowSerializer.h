@@ -266,7 +266,7 @@ class RowSerializer : public IterativeVectorSerializer {
   }
 
   bool needCompression() const {
-    return codec_->type() != folly::io::CodecType::NO_COMPRESSION;
+    return codec_->type() != folly::compression::CodecType::NO_COMPRESSION;
   }
 
   void flushUncompressed(int32_t size, OutputStream* stream) {
