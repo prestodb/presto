@@ -1,6 +1,6 @@
-**************
-Presto Clients
-**************
+*******
+Clients
+*******
 
 .. toctree::
     :maxdepth: 1
