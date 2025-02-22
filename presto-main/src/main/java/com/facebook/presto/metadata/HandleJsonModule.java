@@ -14,9 +14,11 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.index.IndexHandleJacksonModule;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandleJacksonModule;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+
 
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 
@@ -37,7 +39,7 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(PartitioningHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(FunctionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(MetadataUpdateJacksonModule.class);
-
+        jsonBinder(binder).addModuleBinding().to(ConnectorTableFunctionHandleJacksonModule.class);
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
     }
 }

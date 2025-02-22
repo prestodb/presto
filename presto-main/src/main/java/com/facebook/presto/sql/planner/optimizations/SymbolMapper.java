@@ -62,6 +62,9 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
+// TODO: Some additions here for bug fixes and comments on table function changes
+// (TableFunctionProcessorNode). Should already be added in previous PR.
+
 public class SymbolMapper
 {
     private final Map<String, String> mapping;

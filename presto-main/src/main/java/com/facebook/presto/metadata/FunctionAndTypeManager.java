@@ -52,6 +52,7 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
@@ -877,5 +878,37 @@ public class FunctionAndTypeManager
                     .add("parameterTypes", parameterTypes)
                     .toString();
         }
+    }
+
+    // This come from Trino FunctionManager.
+    // The TableFunctionProcessProvider contains all of the logic for executing a table Function
+    // It is created during analysis and contains both a Data Processor and a Split Processor.
+    // Data Processor - Used to generate and process data. Ex. ExcludeColumns(getDataProcessor).
+    // Used by TableFunctionOperator.
+    // Split Processor - Used to process splits. Ex. SequenceFunction(SequenceFunctionProcessor/TableFunctionSplitProcessor)
+    // Used by LeafTableFunctionOperator.
+
+    // getTableFunctionProcessorProvider - Is in both the FunctionManager and the GlobalFunctionCatalog?
+    // Connector one just returns the provider based on Connector functionHandle. EX getExcludeColumnsFunctionProcessorProvider
+    // public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
+
+
+    // We don't have Catalog Handle/Name anymore.
+    // We don't have a FunctionProvider in spi.
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
+    {
+        CatalogHandle catalogHandle = tableFunctionHandle.getCatalogHandle();
+        SchemaFunctionName functionName = tableFunctionHandle.getSchemaFunctionName();
+
+        FunctionProvider provider;
+        if (catalogHandle.equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            provider = globalFunctionCatalog;
+        }
+        else {
+            provider = functionProviders.getService(catalogHandle);
+            checkArgument(provider != null, "No function provider for catalog: '%s' (function '%s')", catalogHandle, functionName);
+        }
+
+        return provider.getTableFunctionProcessorProvider(functionName);
     }
 }
