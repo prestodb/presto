@@ -116,7 +116,7 @@ Because the Kafka tables all have the ``tpch.`` prefix in the configuration,
 the tables are in the ``tpch`` schema. The connector is mounted into the
 ``kafka`` catalog because the properties file is named ``kafka.properties``.
 
-Start the :doc:`Presto CLI </installation/cli>`:
+Start the :doc:`/clients/presto-cli`:
 
 .. code-block:: none
 
