@@ -41,12 +41,12 @@ TEST_F(MapTopNTest, basic) {
   auto result = evaluate("map_top_n(c0, 3)", data);
 
   auto expected = makeMapVectorFromJson<int32_t, int64_t>({
-      "{2:5, 4:4, 1:3}",
-      "{2:5, 4:4, 1:3}",
-      "{4:4, 3:1, 5:null}",
-      "{3:11, 1:10, 2:7}",
+      "{1:3, 2:5, 4:4}",
+      "{1:3, 2:5, 4:4}",
+      "{3:1, 4:4, 5:null}",
+      "{1:10, 2:7, 3:11}",
       "{1:10, 2:7, 3:0}",
-      "{2:10, 1:null}",
+      "{1:null, 2:10}",
       "{}",
       "{1:null, 2:null, 3:null}",
   });
@@ -97,10 +97,10 @@ TEST_F(MapTopNTest, equalValues) {
   auto result = evaluate("map_top_n(c0, 3)", data);
 
   auto expected = makeMapVectorFromJson<int32_t, int64_t>(
-      {"{2:5, 4:4, 6:3}",
-       "{6:5, 2:5, 4:4}",
-       "{4:4, 3:1, 5:null}",
-       "{4:null, 3:null, 5:null}"});
+      {"{6:3, 2:5, 4:4}",
+       "{2:5, 4:4, 6:5}",
+       "{5:null, 3:1, 4:4}",
+       "{5:null, 3:null, 4:null}"});
 
   assertEqualVectors(expected, result);
 
@@ -132,12 +132,13 @@ TEST_F(MapTopNTest, equalValues) {
 
   auto dataWithStrKey =
       makeRowVector({makeMapVectorFromJson<std::string, int64_t>(
-          {R"({"a":2, "b":3, "c":1})", R"({"a":null, "b":3, "c":null})"})});
+          {R"({"a":2, "b":3, "c":1})", R"({"a":null, "b":3,
+            "c":null})"})});
 
   auto resultWithStrKey = evaluate("map_top_n(c0, 2)", dataWithStrKey);
 
   auto expectedWithStrKey = makeMapVectorFromJson<std::string, int64_t>(
-      {R"({"b":3, "a":2})", R"({"b":3, "c":null})"});
+      {R"({"a":2, "b":3})", R"({"b":3, "c":null})"});
   assertEqualVectors(expectedWithStrKey, resultWithStrKey);
 }
 
@@ -164,30 +165,34 @@ TEST_F(MapTopNTest, timestampWithTimeZone) {
   testMapTopN(
       {1, 2, 3, 4, 5},
       {pack(3, 1), pack(5, 2), pack(1, 3), pack(4, 4), pack(2, 5)},
-      {2, 4, 1},
-      {pack(5, 2), pack(4, 4), pack(3, 1)});
+      {1, 2, 4},
+      {
+          pack(3, 1),
+          pack(5, 2),
+          pack(4, 4),
+      });
   testMapTopN(
       {1, 2, 3, 4, 5},
       {pack(3, 5), pack(5, 4), std::nullopt, pack(4, 2), pack(2, 1)},
-      {2, 4, 1},
-      {pack(5, 4), pack(4, 2), pack(3, 5)});
+      {1, 2, 4},
+      {pack(3, 5), pack(5, 4), pack(4, 2)});
   testMapTopN(
       {1, 2, 3, 4, 5},
       {std::nullopt, std::nullopt, pack(1, 1), pack(4, 4), std::nullopt},
-      {4, 3, 5},
-      {pack(4, 4), pack(1, 1), std::nullopt});
+      {3, 4, 5},
+      {pack(1, 1), pack(4, 4), std::nullopt});
   testMapTopN(
       {1, 2, 3, 5},
       {pack(10, 1), pack(7, 2), pack(11, 3), pack(4, 4)},
-      {3, 1, 2},
-      {pack(11, 3), pack(10, 1), pack(7, 2)});
+      {1, 2, 3},
+      {pack(10, 1), pack(7, 2), pack(11, 3)});
   testMapTopN(
       {1, 2, 3},
       {pack(10, 3), pack(7, 2), pack(0, 1)},
       {1, 2, 3},
       {pack(10, 3), pack(7, 2), pack(0, 1)});
   testMapTopN(
-      {1, 2}, {std::nullopt, pack(10, 1)}, {2, 1}, {pack(10, 1), std::nullopt});
+      {1, 2}, {std::nullopt, pack(10, 1)}, {1, 2}, {std::nullopt, pack(10, 1)});
   testMapTopN({}, {}, {}, {});
   testMapTopN(
       {1, 2, 3},
@@ -197,8 +202,8 @@ TEST_F(MapTopNTest, timestampWithTimeZone) {
   testMapTopN(
       {6, 2, 3, 4, 5, 1},
       {pack(3, 1), pack(5, 2), pack(1, 3), pack(4, 4), pack(2, 5), pack(3, 1)},
-      {2, 4, 6},
-      {pack(5, 2), pack(4, 4), pack(3, 1)});
+      {6, 4, 2},
+      {pack(3, 1), pack(4, 4), pack(5, 2)});
   testMapTopN(
       {1, 2, 3, 4, 5, 6},
       {pack(3, 6),
@@ -207,17 +212,21 @@ TEST_F(MapTopNTest, timestampWithTimeZone) {
        pack(4, 3),
        pack(2, 2),
        pack(5, 5)},
-      {6, 2, 4},
-      {pack(5, 5), pack(5, 5), pack(4, 3)});
+      {2, 4, 6},
+      {
+          pack(5, 5),
+          pack(4, 3),
+          pack(5, 5),
+      });
   testMapTopN(
       {5, 2, 3, 4, 1},
       {std::nullopt, std::nullopt, pack(1, 1), pack(4, 2), std::nullopt},
-      {4, 3, 5},
-      {pack(4, 2), pack(1, 1), std::nullopt});
+      {5, 3, 4},
+      {std::nullopt, pack(1, 1), pack(4, 2)});
   testMapTopN(
       {1, 5, 3, 4, 2},
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
-      {4, 3, 5},
+      {5, 3, 4},
       {std::nullopt, std::nullopt, std::nullopt});
 }
 

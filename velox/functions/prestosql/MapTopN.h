@@ -61,34 +61,32 @@ struct MapTopNFunction {
     }
 
     using It = typename arg_type<Map<Orderable<T1>, Orderable<T2>>>::Iterator;
-
-    Compare<It> comparator;
-
-    std::priority_queue<It, std::vector<It>, Compare<It>> topEntries(
-        comparator);
-
+    std::vector<It> vec;
+    vec.reserve(inputMap.size());
     for (auto it = inputMap.begin(); it != inputMap.end(); ++it) {
-      if (topEntries.size() < n) {
-        topEntries.push(it);
-      } else if (comparator(it, topEntries.top())) {
-        topEntries.pop();
-        topEntries.push(it);
-      }
+      vec.push_back(it);
     }
 
-    while (!topEntries.empty()) {
-      auto it = topEntries.top();
+    Compare<It> comparator;
+    if (n >= inputMap.size()) {
+      // Use std::sort to handle nulls when n >= inputMap.size(), as
+      // std::nth_element doesn't invoke the comparator in this case.
+      std::sort(vec.begin(), vec.end(), comparator);
+      out.copy_from(inputMap);
+      return;
+    }
 
-      if (!it->second.has_value()) {
+    std::nth_element(vec.begin(), vec.begin() + n, vec.end(), comparator);
+    for (auto it = vec.begin(); it != vec.begin() + n; ++it) {
+      const auto& ele = **it;
+      if (!ele.second.has_value()) {
         auto& keyWriter = out.add_null();
-        keyWriter.copy_from(it->first);
+        keyWriter.copy_from(ele.first);
       } else {
         auto [keyWriter, valueWriter] = out.add_item();
-        keyWriter.copy_from(it->first);
-        valueWriter.copy_from(it->second.value());
+        keyWriter.copy_from(ele.first);
+        valueWriter.copy_from(ele.second.value());
       }
-
-      topEntries.pop();
     }
   }
 };
