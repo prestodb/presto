@@ -61,7 +61,7 @@ public class ChangelogUtil
     public static List<ColumnMetadata> getColumnMetadata(TypeManager typeManager, List<ColumnMetadata> columns)
     {
         return changelogTableSchema(getRowTypeFromColumnMeta(columns)).columns().stream()
-                .map(column -> new ColumnMetadata(column.name(), toPrestoType(column.type(), typeManager)))
+                .map(column -> ColumnMetadata.builder(column.name(), toPrestoType(column.type(), typeManager)).build())
                 .collect(toImmutableList());
     }
 }

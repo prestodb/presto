@@ -96,14 +96,11 @@ public class BigQueryColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(
-                name,
-                getPrestoType(),
-                mode == NULLABLE,
-                description,
-                null,
-                false,
-                ImmutableMap.of());
+        return ColumnMetadata.builder(name, getPrestoType())
+                .setNullable(mode == NULLABLE)
+                .setComment(description)
+                .setHidden(false)
+                .setProperties(ImmutableMap.of()).build();
     }
 
     @Override

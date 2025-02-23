@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cassandra;
 
-import com.facebook.presto.cassandra.util.CassandraCqlUtils;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -26,6 +25,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.cqlNameToSqlName;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -131,7 +131,8 @@ public class CassandraColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(CassandraCqlUtils.cqlNameToSqlName(name), cassandraType.getNativeType(), null, hidden);
+        return ColumnMetadata.builder(cqlNameToSqlName(name), cassandraType.getNativeType())
+                .setHidden(hidden).build();
     }
 
     public Type getType()

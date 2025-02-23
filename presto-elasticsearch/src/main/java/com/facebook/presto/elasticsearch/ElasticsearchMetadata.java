@@ -98,9 +98,7 @@ public class ElasticsearchMetadata
         this.schemaName = config.getDefaultSchema();
 
         Type jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
-        queryResultColumnMetadata = ColumnMetadata.builder()
-                .setName("result")
-                .setType(jsonType)
+        queryResultColumnMetadata = ColumnMetadata.builder("result", jsonType)
                 .setNullable(true)
                 .setHidden(false)
                 .build();
@@ -231,7 +229,7 @@ public class ElasticsearchMetadata
         }
 
         for (IndexMetadata.Field field : fields) {
-            result.add(new ColumnMetadata(field.getName(), toPrestoType(field)));
+            result.add(ColumnMetadata.builder(field.getName(), toPrestoType(field)).build());
         }
         return result.build();
     }
@@ -392,9 +390,7 @@ public class ElasticsearchMetadata
             throw new IllegalArgumentException(format("Unexpected column for table '%s$query': %s", table.getIndex(), column.getName()));
         }
 
-        return ColumnMetadata.builder()
-                .setName(column.getName())
-                .setType(column.getType())
+        return ColumnMetadata.builder(column.getName(), column.getType())
                 .build();
     }
 

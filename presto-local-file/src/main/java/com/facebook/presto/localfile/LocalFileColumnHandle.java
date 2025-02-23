@@ -65,7 +65,7 @@ public class LocalFileColumnHandle
 
     public ColumnMetadata toColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType);
+        return ColumnMetadata.builder(columnName, columnType).build();
     }
 
     @Override
