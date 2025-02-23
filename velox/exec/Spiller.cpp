@@ -219,16 +219,11 @@ std::unique_ptr<SpillerBase::SpillStatus> SpillerBase::writeSpill(
   auto& run = spillRuns_[partition];
   try {
     ensureSorted(run);
-    int64_t totalBytes = 0;
     size_t written = 0;
     while (written < run.rows.size()) {
       extractSpillVector(
           run.rows, kTargetBatchRows, kTargetBatchBytes, spillVector, written);
-      totalBytes += state_.appendToPartition(partition, spillVector);
-      if (totalBytes > state_.targetFileSize()) {
-        VELOX_CHECK(!needSort());
-        state_.finishFile(partition);
-      }
+      state_.appendToPartition(partition, spillVector);
     }
     return std::make_unique<SpillStatus>(partition, written, nullptr);
   } catch (const std::exception&) {
