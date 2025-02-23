@@ -133,7 +133,13 @@ public final class ClickHouseColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, nullable, null, null, false, emptyMap());
+        return ColumnMetadata.builder()
+                .setName(columnName)
+                .setType(columnType)
+                .setNullable(nullable)
+                .setHidden(false)
+                .setProperties(emptyMap())
+                .build();
     }
 
     @Override

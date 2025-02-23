@@ -166,8 +166,8 @@ public class InformationSchemaPageSourceProvider
                             null,
                             column.isNullable() ? "YES" : "NO",
                             column.getType().getDisplayName(),
-                            column.getComment(),
-                            column.getExtraInfo());
+                            column.getComment().orElse(null),
+                            column.getExtraInfo().orElse(null));
                     ordinalPosition++;
                 }
             }

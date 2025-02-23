@@ -94,7 +94,10 @@ public class CreateMaterializedViewTask
 
         List<ColumnMetadata> columnMetadata = analysis.getOutputDescriptor(statement.getQuery())
                 .getVisibleFields().stream()
-                .map(field -> new ColumnMetadata(field.getName().get(), field.getType()))
+                .map(field -> ColumnMetadata.builder()
+                        .setName(field.getName().get())
+                        .setType(field.getType())
+                        .build())
                 .collect(toImmutableList());
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
