@@ -96,7 +96,7 @@ public final class JdbcColumnHandle
                 .setName(columnName)
                 .setType(columnType)
                 .setNullable(nullable)
-                .setComment(comment)
+                .setComment(comment.orElse(null))
                 .build();
     }
 
@@ -106,7 +106,7 @@ public final class JdbcColumnHandle
                 .setName(jdbcClient.normalizeIdentifier(session, columnName, isDelimited(jdbcClient.getIdentifierQuote())))
                 .setType(columnType)
                 .setNullable(nullable)
-                .setComment(comment)
+                .setComment(comment.orElse(null))
                 .build();
     }
 

@@ -538,7 +538,7 @@ final class ShowQueriesRewrite
                                     column.getType().getDisplayName(),
                                     column.isNullable() && !notNullColumns.contains(column.getName()),
                                     propertyNodes,
-                                    Optional.ofNullable(column.getComment()));
+                                    Optional.ofNullable(column.getComment().orElse(null)));
                         })
                         .collect(toList());
 

@@ -64,17 +64,17 @@ public class ManifestsTable
         tableMetadata = new ConnectorTableMetadata(
                 tableName,
                 ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("path", VARCHAR))
-                        .add(new ColumnMetadata("length", BIGINT))
-                        .add(new ColumnMetadata("partition_spec_id", INTEGER))
-                        .add(new ColumnMetadata("added_snapshot_id", BIGINT))
-                        .add(new ColumnMetadata("added_data_files_count", INTEGER))
-                        .add(new ColumnMetadata("existing_data_files_count", INTEGER))
-                        .add(new ColumnMetadata("deleted_data_files_count", INTEGER))
-                        .add(new ColumnMetadata("partitions", new ArrayType(RowType.from(asList(
+                        .add(ColumnMetadata.builder().setName("path").setType(VARCHAR).build())
+                        .add(ColumnMetadata.builder().setName("length").setType(BIGINT).build())
+                        .add(ColumnMetadata.builder().setName("partition_spec_id").setType(INTEGER).build())
+                        .add(ColumnMetadata.builder().setName("added_snapshot_id").setType(BIGINT).build())
+                        .add(ColumnMetadata.builder().setName("added_data_files_count").setType(INTEGER).build())
+                        .add(ColumnMetadata.builder().setName("existing_data_files_count").setType(INTEGER).build())
+                        .add(ColumnMetadata.builder().setName("deleted_data_files_count").setType(INTEGER).build())
+                        .add(ColumnMetadata.builder().setName("partitions").setType(new ArrayType(RowType.from(asList(
                                 RowType.field("contains_null", BOOLEAN),
                                 RowType.field("lower_bound", VARCHAR),
-                                RowType.field("upper_bound", VARCHAR))))))
+                                RowType.field("upper_bound", VARCHAR))))).build())
                         .build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
     }

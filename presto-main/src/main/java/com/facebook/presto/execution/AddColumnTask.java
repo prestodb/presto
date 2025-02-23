@@ -117,13 +117,12 @@ public class AddColumnTask
         Identifier columnIdentifier = element.getName();
         String name = metadata.normalizeIdentifier(session, tableName.getLegacyCatalogName(), columnIdentifier.getValue(), columnIdentifier.isDelimited());
 
-        ColumnMetadata column = new ColumnMetadata(
-                name,
-                type,
-                element.isNullable(), element.getComment().orElse(null),
-                null,
-                false,
-                columnProperties);
+        ColumnMetadata column = ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setNullable(element.isNullable())
+                .setComment(element.getComment().orElse(null))
+                .setProperties(columnProperties).build();
 
         metadata.addColumn(session, tableHandle.get(), column);
 

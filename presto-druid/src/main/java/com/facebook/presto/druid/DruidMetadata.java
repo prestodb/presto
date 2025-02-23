@@ -200,7 +200,9 @@ public class DruidMetadata
 
     private static ColumnMetadata toColumnMetadata(DruidColumnInfo column)
     {
-        return new ColumnMetadata(column.getColumnName(), column.getDataType().getPrestoType());
+        return ColumnMetadata.builder()
+                .setName(column.getColumnName())
+                .setType(column.getDataType().getPrestoType()).build();
     }
 
     private static ColumnHandle toColumnHandle(DruidColumnInfo column)
