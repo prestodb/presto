@@ -39,7 +39,14 @@ public class JdbcColumnMetadata
     @Deprecated
     public JdbcColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
     {
-        super(name, type, nullable, comment, extraInfo, hidden, properties);
+        super(ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setNullable(nullable)
+                .setComment(comment)
+                .setExtraInfo(extraInfo)
+                .setHidden(hidden)
+                .setProperties(properties));
         this.originalName = requireNonNull(name, "name cannot be null");
     }
 
@@ -108,15 +115,15 @@ public class JdbcColumnMetadata
             return this;
         }
 
-        public Builder setComment(Optional<String> comment)
+        public Builder setComment(String comment)
         {
-            this.comment = requireNonNull(comment, "comment is null");
+            this.comment = Optional.ofNullable(comment);
             return this;
         }
 
-        public Builder setExtraInfo(Optional<String> extraInfo)
+        public Builder setExtraInfo(String extraInfo)
         {
-            this.extraInfo = requireNonNull(extraInfo, "extraInfo is null");
+            this.extraInfo = Optional.ofNullable(extraInfo);
             return this;
         }
 
