@@ -41,12 +41,12 @@ public class RefsTable
     private final Table icebergTable;
 
     private static final List<ColumnMetadata> COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("name", VARCHAR))
-            .add(new ColumnMetadata("type", VARCHAR))
-            .add(new ColumnMetadata("snapshot_id", BIGINT))
-            .add(new ColumnMetadata("max_reference_age_in_ms", BIGINT))
-            .add(new ColumnMetadata("min_snapshots_to_keep", BIGINT))
-            .add(new ColumnMetadata("max_snapshot_age_in_ms", BIGINT))
+            .add(ColumnMetadata.builder("name", VARCHAR).build())
+            .add(ColumnMetadata.builder("type", VARCHAR).build())
+            .add(ColumnMetadata.builder("snapshot_id", BIGINT).build())
+            .add(ColumnMetadata.builder("max_reference_age_in_ms", BIGINT).build())
+            .add(ColumnMetadata.builder("min_snapshots_to_keep", BIGINT).build())
+            .add(ColumnMetadata.builder("max_snapshot_age_in_ms", BIGINT).build())
             .build();
 
     public RefsTable(SchemaTableName tableName, Table icebergTable)

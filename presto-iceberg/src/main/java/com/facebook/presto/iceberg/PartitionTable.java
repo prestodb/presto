@@ -103,7 +103,7 @@ public class PartitionTable
                 .collect(toImmutableList());
 
         ImmutableList.of("row_count", "file_count", "total_size")
-                .forEach(metric -> columnMetadataBuilder.add(new ColumnMetadata(metric, BIGINT)));
+                .forEach(metric -> columnMetadataBuilder.add(ColumnMetadata.builder(metric, BIGINT).build()));
 
         List<ColumnMetadata> columnMetricsMetadata = getColumnMetadata(nonPartitionPrimitiveColumns);
         columnMetadataBuilder.addAll(columnMetricsMetadata);
@@ -132,19 +132,17 @@ public class PartitionTable
     private List<ColumnMetadata> getPartitionColumnsMetadata(List<PartitionField> fields, Schema schema)
     {
         return fields.stream()
-                .map(field -> new ColumnMetadata(
-                        field.name(),
-                        toPrestoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
+                .map(field -> ColumnMetadata.builder(field.name(),
+                        toPrestoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)).build())
                 .collect(toImmutableList());
     }
 
     private List<ColumnMetadata> getColumnMetadata(List<Types.NestedField> columns)
     {
-        return columns.stream().map(column -> new ColumnMetadata(column.name(),
-                        RowType.from(ImmutableList.of(
+        return columns.stream().map(column -> ColumnMetadata.builder(column.name(), RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("min"), toPrestoType(column.type(), typeManager)),
                                 new RowType.Field(Optional.of("max"), toPrestoType(column.type(), typeManager)),
-                                new RowType.Field(Optional.of("null_count"), BIGINT)))))
+                                new RowType.Field(Optional.of("null_count"), BIGINT)))).build())
                 .collect(toImmutableList());
     }
 

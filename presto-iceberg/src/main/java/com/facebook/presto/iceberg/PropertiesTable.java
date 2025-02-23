@@ -44,8 +44,8 @@ public class PropertiesTable
 
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("key", VARCHAR))
-                        .add(new ColumnMetadata("value", VARCHAR))
+                        .add(ColumnMetadata.builder("key", VARCHAR).build())
+                        .add(ColumnMetadata.builder("value", VARCHAR).build())
                         .build());
     }
 

@@ -14,7 +14,6 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.predicate.NullableValue;
-import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
@@ -36,7 +35,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
+import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveMetadata.decodePreferredOrderingColumnsFromStorage;
 import static com.facebook.presto.hive.HiveMetadata.encodePreferredOrderingColumns;
 import static com.facebook.presto.hive.HiveStorageFormat.ORC;
@@ -75,7 +76,7 @@ public class TestHiveMetadata
                 Optional.empty(),
                 Optional.empty());
         HiveColumnHandle hidden = new HiveColumnHandle(
-                HiveColumnHandle.PATH_COLUMN_NAME,
+                PATH_COLUMN_NAME,
                 HiveType.HIVE_INT,
                 TypeSignature.parseTypeSignature("int"),
                 0,
@@ -106,11 +107,11 @@ public class TestHiveMetadata
                 Optional.empty());
 
         ColumnMetadata actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new HiveColumnConverter(), ImmutableList.of()).apply(hiveColumnHandle1);
-        ColumnMetadata expected = new ColumnMetadata("c1", IntegerType.INTEGER);
+        ColumnMetadata expected = ColumnMetadata.builder("c1", INTEGER).build();
         assertEquals(actual, expected);
 
         actual = HiveMetadata.columnMetadataGetter(mockTable, mockTypeManager, new TestColumnConverter(), ImmutableList.of()).apply(hidden);
-        expected = ColumnMetadata.builder().setName(HiveColumnHandle.PATH_COLUMN_NAME).setType(IntegerType.INTEGER).setHidden(true).build();
+        expected = ColumnMetadata.builder(PATH_COLUMN_NAME, INTEGER).setHidden(true).build();
         assertEquals(actual, expected);
     }
 
