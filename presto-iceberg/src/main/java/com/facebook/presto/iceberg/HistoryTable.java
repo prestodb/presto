@@ -45,10 +45,10 @@ public class HistoryTable
     private final Table icebergTable;
 
     private static final List<ColumnMetadata> COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("made_current_at", TIMESTAMP_WITH_TIME_ZONE))
-            .add(new ColumnMetadata("snapshot_id", BIGINT))
-            .add(new ColumnMetadata("parent_id", BIGINT))
-            .add(new ColumnMetadata("is_current_ancestor", BOOLEAN))
+            .add(ColumnMetadata.builder().setName("made_current_at").setType(TIMESTAMP_WITH_TIME_ZONE).build())
+            .add(ColumnMetadata.builder().setName("snapshot_id").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("parent_id").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("is_current_ancestor").setType(BOOLEAN).build())
             .build();
 
     public HistoryTable(SchemaTableName tableName, Table icebergTable)

@@ -348,7 +348,10 @@ public class DeltaMetadata
     private ColumnMetadata getColumnMetadata(ColumnHandle columnHandle)
     {
         DeltaColumnHandle deltaColumnHandle = (DeltaColumnHandle) columnHandle;
-        return new ColumnMetadata(deltaColumnHandle.getName(), typeManager.getType(deltaColumnHandle.getDataType()));
+        return ColumnMetadata.builder()
+                .setName(deltaColumnHandle.getName())
+                .setType(typeManager.getType(deltaColumnHandle.getDataType()))
+                .build();
     }
 
     private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
@@ -361,7 +364,10 @@ public class DeltaMetadata
 
     private ColumnMetadata getColumnMetadata(DeltaColumn deltaColumn)
     {
-        return new ColumnMetadata(deltaColumn.getName(), typeManager.getType(deltaColumn.getType()));
+        return ColumnMetadata.builder()
+                .setName(deltaColumn.getName())
+                .setType(typeManager.getType(deltaColumn.getType()))
+                .build();
     }
 
     private MetastoreContext metastoreContext(ConnectorSession session)

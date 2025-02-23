@@ -144,7 +144,10 @@ public class TpcdsMetadata
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (Column column : tpcdsTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getName(), getPrestoType(column.getType(), useVarcharType)));
+            columns.add(ColumnMetadata.builder()
+                    .setName(column.getName())
+                    .setType(getPrestoType(column.getType(), useVarcharType))
+                    .build());
         }
         SchemaTableName tableName = new SchemaTableName(schemaName, tpcdsTable.getName());
         return new ConnectorTableMetadata(tableName, columns.build());

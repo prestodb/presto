@@ -146,7 +146,10 @@ public class TemporaryTableUtil
         int column = 0;
         for (VariableReferenceExpression outputVariable : concat(outputVariables, constantPartitioningVariables)) {
             String columnName = format("_c%d_%s", column, outputVariable.getName());
-            result.put(outputVariable, new ColumnMetadata(columnName, outputVariable.getType()));
+            result.put(outputVariable, ColumnMetadata.builder()
+                    .setName(columnName)
+                    .setType(outputVariable.getType())
+                    .build());
             column++;
         }
         return result.build();

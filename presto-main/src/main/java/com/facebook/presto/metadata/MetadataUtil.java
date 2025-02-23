@@ -301,7 +301,10 @@ public final class MetadataUtil
 
         public TableMetadataBuilder column(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type));
+            columns.add(ColumnMetadata.builder()
+                    .setName(columnName)
+                    .setType(type)
+                    .build());
             return this;
         }
 

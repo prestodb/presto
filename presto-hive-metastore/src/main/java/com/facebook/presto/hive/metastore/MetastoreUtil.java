@@ -1062,7 +1062,7 @@ public class MetastoreUtil
         for (ColumnMetadata column : viewMetadata.getColumns()) {
             try {
                 HiveType hiveType = toHiveType(typeTranslator, column.getType());
-                columns.add(new Column(column.getName(), hiveType, Optional.ofNullable(column.getComment()), columnConverter.getTypeMetadata(hiveType, column.getType().getTypeSignature())));
+                columns.add(new Column(column.getName(), hiveType, column.getComment(), columnConverter.getTypeMetadata(hiveType, column.getType().getTypeSignature())));
             }
             catch (PrestoException e) {
                 // if a view uses any unsupported hive types, include only a dummy column value

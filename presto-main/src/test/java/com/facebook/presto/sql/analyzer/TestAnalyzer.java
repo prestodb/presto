@@ -1837,7 +1837,7 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testJoinOnPerformanceWarnings()
+    public void testJoinOnPerformatestJoinOnPerformanceWarningsnceWarnings()
     {
         assertHasWarning(analyzeWithWarnings("select * FROM t1 LEFT JOIN t2 ON t1.a = t1.b"),
                 PERFORMANCE_WARNING, "line 1:39: JOIN ON condition(s) do not reference the joined table 't2' and other tables in the same expression that can cause " +

@@ -120,7 +120,10 @@ public class AtopMetadata
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
-            columns.add(new ColumnMetadata(column.getName(), typeManager.getType(column.getType())));
+            columns.add(ColumnMetadata.builder()
+                    .setName(column.getName())
+                    .setType(typeManager.getType(column.getType()))
+                    .build());
         }
         SchemaTableName schemaTableName = new SchemaTableName(atopTableHandle.getSchema(), atopTableHandle.getTable().getName());
         return new ConnectorTableMetadata(schemaTableName, columns.build());

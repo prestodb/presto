@@ -156,132 +156,132 @@ public class AbstractAnalyzerTest
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table1, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", BIGINT),
-                        new ColumnMetadata("c", BIGINT),
-                        new ColumnMetadata("d", BIGINT))),
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("b").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("c").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("d").setType(BIGINT).build())),
                 false));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table2, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", BIGINT))),
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("b").setType(BIGINT).build())),
                 false));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table3, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", BIGINT),
-                        new ColumnMetadata("x", BIGINT, null, true))),
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("b").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("x").setType(BIGINT).setHidden(true).build())),
                 false));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
         inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG,
                 new ConnectorTableMetadata(table4, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT))),
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build())),
                 false));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table5, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", BIGINT, null, true))),
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("b").setType(BIGINT).setHidden(true).build())),
                 false));
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table6, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", VARCHAR),
-                        new ColumnMetadata("c", BIGINT),
-                        new ColumnMetadata("d", BIGINT))),
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("b").setType(VARCHAR).build(),
+                        ColumnMetadata.builder().setName("c").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("d").setType(BIGINT).build())),
                 false));
 
         // table with bigint, double, array of bigints and array of doubles column
         SchemaTableName table7 = new SchemaTableName("s1", "t7");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table7, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", DOUBLE),
-                        new ColumnMetadata("c", new ArrayType(BIGINT)),
-                        new ColumnMetadata("d", new ArrayType(DOUBLE)))),
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("b").setType(DOUBLE).build(),
+                        ColumnMetadata.builder().setName("c").setType(new ArrayType(BIGINT)).build(),
+                        ColumnMetadata.builder().setName("d").setType(new ArrayType(DOUBLE)).build())),
                 false));
 
         // table with double, array of bigints, real, and bigint
         SchemaTableName table8 = new SchemaTableName("s1", "t8");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table8, ImmutableList.of(
-                        new ColumnMetadata("a", DOUBLE),
-                        new ColumnMetadata("b", new ArrayType(BIGINT)),
-                        new ColumnMetadata("c", RealType.REAL),
-                        new ColumnMetadata("d", BIGINT))),
+                        ColumnMetadata.builder().setName("a").setType(DOUBLE).build(),
+                        ColumnMetadata.builder().setName("b").setType(new ArrayType(BIGINT)).build(),
+                        ColumnMetadata.builder().setName("c").setType(RealType.REAL).build(),
+                        ColumnMetadata.builder().setName("d").setType(BIGINT).build())),
                 false));
 
         // table with double, array of bigints, real, and bigint
         SchemaTableName table9 = new SchemaTableName("s1", "t9");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table9, ImmutableList.of(
-                        new ColumnMetadata("a", DOUBLE),
-                        new ColumnMetadata("b", new ArrayType(BIGINT)),
-                        new ColumnMetadata("c", RealType.REAL),
-                        new ColumnMetadata("d", BIGINT))),
+                        ColumnMetadata.builder().setName("a").setType(DOUBLE).build(),
+                        ColumnMetadata.builder().setName("b").setType(new ArrayType(BIGINT)).build(),
+                        ColumnMetadata.builder().setName("c").setType(RealType.REAL).build(),
+                        ColumnMetadata.builder().setName("d").setType(BIGINT).build())),
                 false));
 
         // table with nested struct
         SchemaTableName table10 = new SchemaTableName("s1", "t10");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table10, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT),
-                        new ColumnMetadata("b", RowType.from(ImmutableList.of(
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("b").setType(RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("w"), BIGINT),
                                 new RowType.Field(Optional.of("x"),
                                         RowType.from(ImmutableList.of(
                                                 new RowType.Field(Optional.of("y"), BIGINT),
-                                                new RowType.Field(Optional.of("z"), DOUBLE))))))),
-                        new ColumnMetadata("c", RowType.from(ImmutableList.of(
-                                new RowType.Field(Optional.of("d"), BIGINT)))))),
+                                                new RowType.Field(Optional.of("z"), DOUBLE))))))).build(),
+                        ColumnMetadata.builder().setName("c").setType(RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("d"), BIGINT)))).build())),
                 false));
 
         // table with nested arrays, structs
         SchemaTableName table11 = new SchemaTableName("s1", "t11");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table11, ImmutableList.of(
-                        new ColumnMetadata("a", new ArrayType(RowType.from(ImmutableList.of(
+                        ColumnMetadata.builder().setName("a").setType(new ArrayType(RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("x"), BIGINT),
-                                new RowType.Field(Optional.of("y"), BIGINT))))),
-                        new ColumnMetadata("b", RowType.from(ImmutableList.of(
+                                new RowType.Field(Optional.of("y"), BIGINT))))).build(),
+                        ColumnMetadata.builder().setName("b").setType(RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("w"), BIGINT),
                                 new RowType.Field(Optional.of("x"),
-                                        new ArrayType(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("y"), BIGINT))))))))),
-                        new ColumnMetadata("c", RowType.from(ImmutableList.of(
+                                        new ArrayType(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("y"), BIGINT))))))))).build(),
+                        ColumnMetadata.builder().setName("c").setType(RowType.from(ImmutableList.of(
                                 new RowType.Field(
                                         Optional.of("x"),
                                         new ArrayType(RowType.from(ImmutableList.of(
                                                 new RowType.Field(Optional.of("x"), BIGINT),
-                                                new RowType.Field(Optional.of("y"), BIGINT)))))))))),
+                                                new RowType.Field(Optional.of("y"), BIGINT)))))))).build())),
                 false));
 
         // table with columns containing special characters
         SchemaTableName table12 = new SchemaTableName("s1", "t12");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table12, ImmutableList.of(
-                        new ColumnMetadata("a.x", BIGINT),
-                        new ColumnMetadata("a&^[x", BIGINT))),
+                        ColumnMetadata.builder().setName("a.x").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("a&^[x").setType(BIGINT).build())),
                 false));
 
         // table with bigint, double, array of bigints and array of doubles column
         SchemaTableName table13 = new SchemaTableName("s1", "t13");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table13, ImmutableList.of(
-                        new ColumnMetadata("w", BIGINT),
-                        new ColumnMetadata("x", BIGINT),
-                        new ColumnMetadata("y", BIGINT),
-                        new ColumnMetadata("z", BIGINT))),
+                        ColumnMetadata.builder().setName("w").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("x").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("y").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("z").setType(BIGINT).build())),
                 false));
 
         // valid view referencing table in same schema
@@ -295,7 +295,7 @@ public class AbstractAnalyzerTest
                         false));
         ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v1"),
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata1, viewData1, false));
 
         // stale view (different column type)
@@ -309,7 +309,7 @@ public class AbstractAnalyzerTest
                         false));
         ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v2"),
-                ImmutableList.of(new ColumnMetadata("a", VARCHAR)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(VARCHAR).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata2, viewData2, false));
 
         // view referencing table in different schema from itself and session
@@ -323,7 +323,7 @@ public class AbstractAnalyzerTest
                         false));
         ConnectorTableMetadata viewMetadata3 = new ConnectorTableMetadata(
                 new SchemaTableName("s3", "v3"),
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         inSetupTransaction(session -> metadata.createView(session, THIRD_CATALOG, viewMetadata3, viewData3, false));
 
         // valid view with uppercase column name
@@ -337,7 +337,7 @@ public class AbstractAnalyzerTest
                         false));
         ConnectorTableMetadata viewMetadata4 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v4"),
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata4, viewData4, false));
 
         // recursive view referencing to itself
@@ -351,7 +351,7 @@ public class AbstractAnalyzerTest
                         false));
         ConnectorTableMetadata viewMetadata5 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v5"),
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata5, viewData5, false));
     }
 

@@ -129,10 +129,10 @@ public class TestIcebergFileWriter
     {
         Path path = new Path(createTempDir().getAbsolutePath() + "/test.parquet");
         Schema icebergSchema = toIcebergSchema(ImmutableList.of(
-                new ColumnMetadata("a", VARCHAR),
-                new ColumnMetadata("b", INTEGER),
-                new ColumnMetadata("c", TIMESTAMP),
-                new ColumnMetadata("d", DATE)));
+                ColumnMetadata.builder().setName("a").setType(VARCHAR).build(),
+                ColumnMetadata.builder().setName("b").setType(INTEGER).build(),
+                ColumnMetadata.builder().setName("c").setType(TIMESTAMP).build(),
+                ColumnMetadata.builder().setName("d").setType(DATE).build()));
         IcebergFileWriter icebergFileWriter = this.icebergFileWriterFactory.createFileWriter(path, icebergSchema, new JobConf(), connectorSession,
                 hdfsContext, FileFormat.PARQUET, MetricsConfig.getDefault());
 

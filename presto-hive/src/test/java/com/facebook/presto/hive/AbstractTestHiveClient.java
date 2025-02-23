@@ -370,18 +370,18 @@ public abstract class AbstractTestHiveClient
             new NamedTypeSignature(Optional.of(new RowFieldName("f_boolean", false)), BOOLEAN.getTypeSignature())));
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("id", BIGINT))
-            .add(new ColumnMetadata("t_string", createUnboundedVarcharType()))
-            .add(new ColumnMetadata("t_tinyint", TINYINT))
-            .add(new ColumnMetadata("t_smallint", SMALLINT))
-            .add(new ColumnMetadata("t_integer", INTEGER))
-            .add(new ColumnMetadata("t_bigint", BIGINT))
-            .add(new ColumnMetadata("t_float", REAL))
-            .add(new ColumnMetadata("t_double", DOUBLE))
-            .add(new ColumnMetadata("t_boolean", BOOLEAN))
-            .add(new ColumnMetadata("t_array", ARRAY_TYPE))
-            .add(new ColumnMetadata("t_map", MAP_TYPE))
-            .add(new ColumnMetadata("t_row", ROW_TYPE))
+            .add(ColumnMetadata.builder().setName("id").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("t_string").setType(createUnboundedVarcharType()).build())
+            .add(ColumnMetadata.builder().setName("t_tinyint").setType(TINYINT).build())
+            .add(ColumnMetadata.builder().setName("t_smallint").setType(SMALLINT).build())
+            .add(ColumnMetadata.builder().setName("t_integer").setType(INTEGER).build())
+            .add(ColumnMetadata.builder().setName("t_bigint").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("t_float").setType(REAL).build())
+            .add(ColumnMetadata.builder().setName("t_double").setType(DOUBLE).build())
+            .add(ColumnMetadata.builder().setName("t_boolean").setType(BOOLEAN).build())
+            .add(ColumnMetadata.builder().setName("t_array").setType(ARRAY_TYPE).build())
+            .add(ColumnMetadata.builder().setName("t_map").setType(MAP_TYPE).build())
+            .add(ColumnMetadata.builder().setName("t_row").setType(ROW_TYPE).build())
             .build();
 
     private static final MaterializedResult CREATE_TABLE_DATA =
@@ -393,7 +393,7 @@ public abstract class AbstractTestHiveClient
 
     protected static final List<ColumnMetadata> CREATE_TABLE_COLUMNS_PARTITIONED = ImmutableList.<ColumnMetadata>builder()
             .addAll(CREATE_TABLE_COLUMNS)
-            .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
+            .add(ColumnMetadata.builder().setName("ds").setType(createUnboundedVarcharType()).build())
             .build();
 
     protected static final Predicate<String> PARTITION_COLUMN_FILTER = columnName -> columnName.equals("ds") || columnName.startsWith("part_");
@@ -417,24 +417,24 @@ public abstract class AbstractTestHiveClient
                     .build();
 
     private static final List<ColumnMetadata> MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("tinyint_to_smallint", TINYINT))
-            .add(new ColumnMetadata("tinyint_to_integer", TINYINT))
-            .add(new ColumnMetadata("tinyint_to_bigint", TINYINT))
-            .add(new ColumnMetadata("smallint_to_integer", SMALLINT))
-            .add(new ColumnMetadata("smallint_to_bigint", SMALLINT))
-            .add(new ColumnMetadata("integer_to_bigint", INTEGER))
-            .add(new ColumnMetadata("integer_to_varchar", INTEGER))
-            .add(new ColumnMetadata("varchar_to_integer", createUnboundedVarcharType()))
-            .add(new ColumnMetadata("float_to_double", REAL))
-            .add(new ColumnMetadata("varchar_to_drop_in_row", createUnboundedVarcharType()))
+            .add(ColumnMetadata.builder().setName("tinyint_to_smallint").setType(TINYINT).build())
+            .add(ColumnMetadata.builder().setName("tinyint_to_integer").setType(TINYINT).build())
+            .add(ColumnMetadata.builder().setName("tinyint_to_bigint").setType(TINYINT).build())
+            .add(ColumnMetadata.builder().setName("smallint_to_integer").setType(SMALLINT).build())
+            .add(ColumnMetadata.builder().setName("smallint_to_bigint").setType(SMALLINT).build())
+            .add(ColumnMetadata.builder().setName("integer_to_bigint").setType(INTEGER).build())
+            .add(ColumnMetadata.builder().setName("integer_to_varchar").setType(INTEGER).build())
+            .add(ColumnMetadata.builder().setName("varchar_to_integer").setType(createUnboundedVarcharType()).build())
+            .add(ColumnMetadata.builder().setName("float_to_double").setType(REAL).build())
+            .add(ColumnMetadata.builder().setName("varchar_to_drop_in_row").setType(createUnboundedVarcharType()).build())
             .build();
 
     private static final List<ColumnMetadata> MISMATCH_SCHEMA_TABLE_BEFORE = ImmutableList.<ColumnMetadata>builder()
             .addAll(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE)
-            .add(new ColumnMetadata("struct_to_struct", toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE)))
-            .add(new ColumnMetadata("list_to_list", arrayType(toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE))))
-            .add(new ColumnMetadata("map_to_map", mapType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE.get(1).getType(), toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE))))
-            .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
+            .add(ColumnMetadata.builder().setName("struct_to_struct").setType(toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE)).build())
+            .add(ColumnMetadata.builder().setName("list_to_list").setType(arrayType(toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE))).build())
+            .add(ColumnMetadata.builder().setName("map_to_map").setType(mapType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE.get(1).getType(), toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_BEFORE))).build())
+            .add(ColumnMetadata.builder().setName("ds").setType(createUnboundedVarcharType()).build())
             .build();
 
     private static final DataSize DEFAULT_QUOTA_SIZE = DataSize.succinctDataSize(2, GIGABYTE);
@@ -471,31 +471,34 @@ public abstract class AbstractTestHiveClient
                     .build();
 
     private static final List<ColumnMetadata> MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("tinyint_to_smallint", SMALLINT))
-            .add(new ColumnMetadata("tinyint_to_integer", INTEGER))
-            .add(new ColumnMetadata("tinyint_to_bigint", BIGINT))
-            .add(new ColumnMetadata("smallint_to_integer", INTEGER))
-            .add(new ColumnMetadata("smallint_to_bigint", BIGINT))
-            .add(new ColumnMetadata("integer_to_bigint", BIGINT))
-            .add(new ColumnMetadata("integer_to_varchar", createUnboundedVarcharType()))
-            .add(new ColumnMetadata("varchar_to_integer", INTEGER))
-            .add(new ColumnMetadata("float_to_double", DOUBLE))
-            .add(new ColumnMetadata("varchar_to_drop_in_row", createUnboundedVarcharType()))
+            .add(ColumnMetadata.builder().setName("tinyint_to_smallint").setType(SMALLINT).build())
+            .add(ColumnMetadata.builder().setName("tinyint_to_integer").setType(INTEGER).build())
+            .add(ColumnMetadata.builder().setName("tinyint_to_bigint").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("smallint_to_integer").setType(INTEGER).build())
+            .add(ColumnMetadata.builder().setName("smallint_to_bigint").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("integer_to_bigint").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("integer_to_varchar").setType(createUnboundedVarcharType()).build())
+            .add(ColumnMetadata.builder().setName("varchar_to_integer").setType(INTEGER).build())
+            .add(ColumnMetadata.builder().setName("float_to_double").setType(DOUBLE).build())
+            .add(ColumnMetadata.builder().setName("varchar_to_drop_in_row").setType(createUnboundedVarcharType()).build())
             .build();
 
     private static final Type MISMATCH_SCHEMA_ROW_TYPE_APPEND = toRowType(ImmutableList.<ColumnMetadata>builder()
             .addAll(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER)
-            .add(new ColumnMetadata(format("%s_append", MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(0).getName()), MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(0).getType()))
+            .add(ColumnMetadata.builder()
+                    .setName(format("%s_append", MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(0).getName()))
+                    .setType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(0).getType())
+                    .build())
             .build());
     private static final Type MISMATCH_SCHEMA_ROW_TYPE_DROP = toRowType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.subList(0, MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.size() - 1));
 
     private static final List<ColumnMetadata> MISMATCH_SCHEMA_TABLE_AFTER = ImmutableList.<ColumnMetadata>builder()
             .addAll(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER)
-            .add(new ColumnMetadata("struct_to_struct", MISMATCH_SCHEMA_ROW_TYPE_APPEND))
-            .add(new ColumnMetadata("list_to_list", arrayType(MISMATCH_SCHEMA_ROW_TYPE_APPEND)))
-            .add(new ColumnMetadata("map_to_map", mapType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(1).getType(), MISMATCH_SCHEMA_ROW_TYPE_DROP)))
-            .add(new ColumnMetadata("tinyint_append", TINYINT))
-            .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
+            .add(ColumnMetadata.builder().setName("struct_to_struct").setType(MISMATCH_SCHEMA_ROW_TYPE_APPEND).build())
+            .add(ColumnMetadata.builder().setName("list_to_list").setType(arrayType(MISMATCH_SCHEMA_ROW_TYPE_APPEND)).build())
+            .add(ColumnMetadata.builder().setName("map_to_map").setType(mapType(MISMATCH_SCHEMA_PRIMITIVE_COLUMN_AFTER.get(1).getType(), MISMATCH_SCHEMA_ROW_TYPE_DROP)).build())
+            .add(ColumnMetadata.builder().setName("tinyint_append").setType(TINYINT).build())
+            .add(ColumnMetadata.builder().setName("ds").setType(createUnboundedVarcharType()).build())
             .build();
 
     private static final MaterializedResult MISMATCH_SCHEMA_PRIMITIVE_FIELDS_DATA_AFTER =
@@ -593,26 +596,26 @@ public abstract class AbstractTestHiveClient
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager());
 
     private static final List<ColumnMetadata> STATISTICS_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("t_boolean", BOOLEAN))
-            .add(new ColumnMetadata("t_bigint", BIGINT))
-            .add(new ColumnMetadata("t_integer", INTEGER))
-            .add(new ColumnMetadata("t_smallint", SMALLINT))
-            .add(new ColumnMetadata("t_tinyint", TINYINT))
-            .add(new ColumnMetadata("t_double", DOUBLE))
-            .add(new ColumnMetadata("t_float", REAL))
-            .add(new ColumnMetadata("t_string", createUnboundedVarcharType()))
-            .add(new ColumnMetadata("t_varchar", createVarcharType(100)))
-            .add(new ColumnMetadata("t_char", createCharType(5)))
-            .add(new ColumnMetadata("t_varbinary", VARBINARY))
-            .add(new ColumnMetadata("t_date", DATE))
-            .add(new ColumnMetadata("t_timestamp", TIMESTAMP))
-            .add(new ColumnMetadata("t_short_decimal", createDecimalType(5, 2)))
-            .add(new ColumnMetadata("t_long_decimal", createDecimalType(20, 3)))
+            .add(ColumnMetadata.builder().setName("t_boolean").setType(BOOLEAN).build())
+            .add(ColumnMetadata.builder().setName("t_bigint").setType(BIGINT).build())
+            .add(ColumnMetadata.builder().setName("t_integer").setType(INTEGER).build())
+            .add(ColumnMetadata.builder().setName("t_smallint").setType(SMALLINT).build())
+            .add(ColumnMetadata.builder().setName("t_tinyint").setType(TINYINT).build())
+            .add(ColumnMetadata.builder().setName("t_double").setType(DOUBLE).build())
+            .add(ColumnMetadata.builder().setName("t_float").setType(REAL).build())
+            .add(ColumnMetadata.builder().setName("t_string").setType(createUnboundedVarcharType()).build())
+            .add(ColumnMetadata.builder().setName("t_varchar").setType(createVarcharType(100)).build())
+            .add(ColumnMetadata.builder().setName("t_char").setType(createCharType(5)).build())
+            .add(ColumnMetadata.builder().setName("t_varbinary").setType(VARBINARY).build())
+            .add(ColumnMetadata.builder().setName("t_date").setType(DATE).build())
+            .add(ColumnMetadata.builder().setName("t_timestamp").setType(TIMESTAMP).build())
+            .add(ColumnMetadata.builder().setName("t_short_decimal").setType(createDecimalType(5, 2)).build())
+            .add(ColumnMetadata.builder().setName("t_long_decimal").setType(createDecimalType(20, 3)).build())
             .build();
 
     protected static final List<ColumnMetadata> STATISTICS_PARTITIONED_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .addAll(STATISTICS_TABLE_COLUMNS)
-            .add(new ColumnMetadata("ds", VARCHAR))
+            .add(ColumnMetadata.builder().setName("ds").setType(VARCHAR).build())
             .build();
 
     protected static final PartitionStatistics EMPTY_TABLE_STATISTICS = new PartitionStatistics(createZeroStatistics(), ImmutableMap.of());
@@ -700,8 +703,8 @@ public abstract class AbstractTestHiveClient
                             .build());
 
     private static final List<ColumnMetadata> TEMPORARY_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("id", VARCHAR))
-            .add(new ColumnMetadata("value", VARCHAR))
+            .add(ColumnMetadata.builder().setName("id").setType(VARCHAR).build())
+            .add(ColumnMetadata.builder().setName("value").setType(VARCHAR).build())
             .build();
     private static final int TEMPORARY_TABLE_BUCKET_COUNT = 4;
     private static final List<String> TEMPORARY_TABLE_BUCKET_COLUMNS = ImmutableList.of("id");
@@ -3074,10 +3077,10 @@ public abstract class AbstractTestHiveClient
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
                     table,
                     ImmutableList.<ColumnMetadata>builder()
-                            .add(new ColumnMetadata("id", VARCHAR))
-                            .add(new ColumnMetadata("value_asc", VARCHAR))
-                            .add(new ColumnMetadata("value_desc", BIGINT))
-                            .add(new ColumnMetadata("ds", VARCHAR))
+                            .add(ColumnMetadata.builder().setName("id").setType(VARCHAR).build())
+                            .add(ColumnMetadata.builder().setName("value_asc").setType(VARCHAR).build())
+                            .add(ColumnMetadata.builder().setName("value_desc").setType(BIGINT).build())
+                            .add(ColumnMetadata.builder().setName("ds").setType(VARCHAR).build())
                             .build(),
                     ImmutableMap.<String, Object>builder()
                             .put(STORAGE_FORMAT_PROPERTY, storageFormat)
@@ -3347,7 +3350,10 @@ public abstract class AbstractTestHiveClient
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
                 ConnectorMetadata metadata = transaction.getMetadata();
-                List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG));
+                List<ColumnMetadata> columns = ImmutableList.of(ColumnMetadata.builder()
+                        .setName("dummy")
+                        .setType(HYPER_LOG_LOG)
+                        .build());
                 ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, createTableProperties(storageFormat));
                 metadata.beginCreateTable(session, tableMetadata, Optional.empty());
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
@@ -3717,7 +3723,10 @@ public abstract class AbstractTestHiveClient
             ConnectorSession session = newSession();
             ConnectorMetadata metadata = transaction.getMetadata();
 
-            List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", createUnboundedVarcharType()));
+            List<ColumnMetadata> columns = ImmutableList.of(ColumnMetadata.builder()
+                    .setName("dummy")
+                    .setType(createUnboundedVarcharType())
+                    .build());
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE));
             ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
             metadata.finishCreateTable(session, handle, ImmutableList.of(), ImmutableList.of());
@@ -4059,7 +4068,7 @@ public abstract class AbstractTestHiveClient
         try (Transaction transaction = newTransaction()) {
             ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
                     viewName,
-                    ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                    ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
             transaction.getMetadata().createView(newSession(), viewMetadata1, viewData, replace);
             transaction.commit();
         }
@@ -4183,12 +4192,13 @@ public abstract class AbstractTestHiveClient
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
 
             List<ColumnMetadata> expectedColumns = createTableColumns.stream()
-                    .map(column -> new ColumnMetadata(
-                            column.getName(),
-                            column.getType(),
-                            column.getComment(),
-                            columnExtraInfo(partitionedBy.contains(column.getName())),
-                            false))
+                    .map(column -> ColumnMetadata.builder()
+                            .setName(column.getName())
+                            .setType(column.getType())
+                            .setComment(column.getComment().orElse(null))
+                            .setExtraInfo(columnExtraInfo(partitionedBy.contains(column.getName())))
+                            .setHidden(false)
+                            .build())
                     .collect(toList());
             assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), expectedColumns);
 
@@ -5444,7 +5454,7 @@ public abstract class AbstractTestHiveClient
         assertTrue(map.containsKey(name));
         ColumnMetadata column = map.get(name);
         assertEquals(column.getType(), type, name);
-        assertEquals(column.getExtraInfo(), columnExtraInfo(partitionKey));
+        assertEquals(column.getExtraInfo().orElse(null), columnExtraInfo(partitionKey));
     }
 
     protected static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)

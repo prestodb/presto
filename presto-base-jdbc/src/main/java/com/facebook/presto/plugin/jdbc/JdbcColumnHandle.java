@@ -94,7 +94,7 @@ public final class JdbcColumnHandle
                 .setName(columnName)
                 .setType(columnType)
                 .setNullable(nullable)
-                .setComment(comment)
+                .setComment(comment.orElse(null))
                 .build();
     }
 

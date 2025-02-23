@@ -44,7 +44,10 @@ public class LocalFileMetadata
         implements ConnectorMetadata
 {
     public static final String PRESTO_LOGS_SCHEMA = "logs";
-    public static final ColumnMetadata SERVER_ADDRESS_COLUMN = new ColumnMetadata("server_address", createUnboundedVarcharType());
+    public static final ColumnMetadata SERVER_ADDRESS_COLUMN = ColumnMetadata.builder()
+            .setName("server_address")
+            .setType(createUnboundedVarcharType())
+            .build();
     private static final List<String> SCHEMA_NAMES = ImmutableList.of(PRESTO_LOGS_SCHEMA);
 
     private final LocalFileTables localFileTables;
