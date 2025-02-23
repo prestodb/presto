@@ -188,7 +188,7 @@ public class TestMemoryMetadata
         SchemaTableName test = new SchemaTableName("test", "test_view");
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
                 test,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
         try {
             metadata.createView(SESSION, viewMetadata, "test", false);
@@ -205,7 +205,7 @@ public class TestMemoryMetadata
         SchemaTableName test = new SchemaTableName("test", "test_view");
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(
                 test,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
 
         metadata.createSchema(SESSION, "test", ImmutableMap.of());
         metadata.createView(SESSION, viewMetadata, "aaa", true);
@@ -220,11 +220,11 @@ public class TestMemoryMetadata
         SchemaTableName test1 = new SchemaTableName("test", "test_view1");
         ConnectorTableMetadata viewMetadata1 = new ConnectorTableMetadata(
                 test1,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         SchemaTableName test2 = new SchemaTableName("test", "test_view2");
         ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
                 test2,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
 
         SchemaTableName test3 = new SchemaTableName("test", "test_view3");
 
@@ -303,7 +303,7 @@ public class TestMemoryMetadata
         SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
         ConnectorTableMetadata viewMetadata2 = new ConnectorTableMetadata(
                 view2,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         try {
             metadata.createView(SESSION, viewMetadata2, "aaa", false);
             fail("Should fail because schema does not exist");
@@ -317,7 +317,7 @@ public class TestMemoryMetadata
         SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
         ConnectorTableMetadata viewMetadata3 = new ConnectorTableMetadata(
                 view3,
-                ImmutableList.of(new ColumnMetadata("a", BIGINT)));
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
 
         try {
             metadata.createView(SESSION, viewMetadata3, "bbb", true);
