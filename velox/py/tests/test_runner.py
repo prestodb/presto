@@ -145,6 +145,7 @@ class TestPyVeloxRunner(unittest.TestCase):
             iterator = runner.execute()
             output = next(iterator)
             self.assertRaises(StopIteration, next, iterator)
+            self.assertNotEqual(runner.print_plan_with_stats(), "")
 
             output_file_from_table_writer = self.extract_file(output)
             self.assertEqual(output_file, output_file_from_table_writer)

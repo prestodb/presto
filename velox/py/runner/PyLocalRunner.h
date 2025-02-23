@@ -54,6 +54,10 @@ class PyLocalRunner {
   /// Execute the task and returns an iterable to the output vectors.
   pybind11::iterator execute();
 
+  /// Prints a descriptive debug message containing plan and execution stats.
+  /// If the task hasn't finished, will print the plan with the current stats.
+  std::string printPlanWithStats() const;
+
  private:
   friend class PyTaskIterator;
 

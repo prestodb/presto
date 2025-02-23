@@ -21,6 +21,7 @@
 #include "velox/core/PlanNode.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/py/vector/PyVector.h"
 
 namespace facebook::velox::py {
@@ -109,6 +110,11 @@ py::iterator PyLocalRunner::execute() {
 
   pyIterator_ = std::make_shared<PyTaskIterator>(cursor_, outputPool_);
   return py::make_iterator(pyIterator_->begin(), pyIterator_->end());
+}
+
+std::string PyLocalRunner::printPlanWithStats() const {
+  return exec::printPlanWithStats(
+      *planNode_, cursor_->task()->taskStats(), true);
 }
 
 void drainAllTasks() {
