@@ -468,7 +468,7 @@ Property Name                                         Description
 ``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
                                                       ``iceberg.rows-for-metadata-optimization-threshold`` in the current
                                                       session.
-``iceberg.target_split_size``                         Overrides the target split size for all tables in a query in bytes.
+``iceberg.target_split_size_bytes``                   Overrides the target split size for all tables in a query in bytes.
                                                       Set to 0 to use the value in each Iceberg table's
                                                       ``read.split.target-size`` property.
 ``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or
