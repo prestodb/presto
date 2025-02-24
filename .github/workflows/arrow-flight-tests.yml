@@ -2,7 +2,7 @@ name: arrow flight tests
 
 on:
   pull_request:
-    paths-ignore:
+    paths:
       - 'presto-docs/**'
 
 env:
