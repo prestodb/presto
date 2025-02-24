@@ -18,7 +18,7 @@
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/core/Expressions.h"
 #include "velox/type/Type.h"
-#include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/JsonRegistration.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
