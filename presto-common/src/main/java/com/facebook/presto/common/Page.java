@@ -474,6 +474,18 @@ public final class Page
         return Page.wrapBlocksWithoutCopy(newBlocks.length, newBlocks);
     }
 
+    // TODO: Is this valid in presto as well?
+    public Page getColumns(int... columns)
+    {
+        requireNonNull(columns, "columns is null");
+
+        Block[] blocks = new Block[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            blocks[i] = this.blocks[columns[i]];
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
+    }
+
     private static class DictionaryBlockIndexes
     {
         private final List<DictionaryBlock> blocks = new ArrayList<>();
