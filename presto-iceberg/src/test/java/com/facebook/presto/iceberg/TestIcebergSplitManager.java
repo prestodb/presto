@@ -46,7 +46,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.AFFINITY_SCHE
 import static com.facebook.presto.hive.HiveCommonSessionProperties.NODE_SELECTION_STRATEGY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
-import static com.facebook.presto.iceberg.IcebergSessionProperties.TARGET_SPLIT_SIZE;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.TARGET_SPLIT_SIZE_BYTES;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -178,7 +178,7 @@ public class TestIcebergSplitManager
     public void testSplitSchedulingWithTablePropertyAndSession()
     {
         Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", IcebergSessionProperties.TARGET_SPLIT_SIZE, "0")
+                .setCatalogSessionProperty("iceberg", IcebergSessionProperties.TARGET_SPLIT_SIZE_BYTES, "0")
                 .build();
         assertQuerySucceeds("CREATE TABLE test_split_size as SELECT * FROM UNNEST(sequence(1, 512)) as t(i)");
         // verify that the session property hasn't propagated into the table
@@ -198,7 +198,7 @@ public class TestIcebergSplitManager
         // Set it to 1 with the session property to override the table value and verify we get the
         // same number of splits as when the table value is set to 1.
         Session minSplitSession = Session.builder(session)
-                .setCatalogSessionProperty("iceberg", TARGET_SPLIT_SIZE, "1")
+                .setCatalogSessionProperty("iceberg", TARGET_SPLIT_SIZE_BYTES, "1")
                 .build();
         assertEquals(getSplitsForSql(minSplitSession, selectQuery).size(), maxSplits);
         assertQuerySucceeds("DROP TABLE test_split_size");
@@ -209,7 +209,7 @@ public class TestIcebergSplitManager
     {
         Session maxIdentifiers = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", AFFINITY_SCHEDULING_FILE_SECTION_SIZE, "1B")
-                .setCatalogSessionProperty("iceberg", TARGET_SPLIT_SIZE, "1")
+                .setCatalogSessionProperty("iceberg", TARGET_SPLIT_SIZE_BYTES, "1")
                 .setCatalogSessionProperty("iceberg", NODE_SELECTION_STRATEGY, "SOFT_AFFINITY")
                 .build();
         assertQuerySucceeds("CREATE TABLE test_affinity_section_scheduling as SELECT * FROM UNNEST(sequence(1, 512)) as t(i)");
