@@ -594,7 +594,7 @@ if(NOT VELOX_DISABLE_GOOGLETEST)
   velox_set_source(GTest)
   velox_resolve_dependency(GTest)
   set(VELOX_GTEST_INCUDE_DIR
-      "${gtest_SOURCE_DIR}/googletest/include"
+      "${gtest_SOURCE_DIR}/include"
       PARENT_SCOPE)
 endif()
 
