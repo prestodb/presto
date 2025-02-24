@@ -1,5 +1,5 @@
 ===========
-JDBC Driver
+Java Client
 ===========
 
 Presto can be accessed from Java using the JDBC driver.
