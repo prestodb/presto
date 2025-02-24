@@ -305,6 +305,7 @@ public final class SystemSessionProperties
     public static final String REWRITE_CASE_TO_MAP_ENABLED = "rewrite_case_to_map_enabled";
     public static final String FIELD_NAMES_IN_JSON_CAST_ENABLED = "field_names_in_json_cast_enabled";
     public static final String LEGACY_JSON_CAST = "legacy_json_cast";
+    public static final String CANONICALIZED_JSON_EXTRACT = "canonicalized_json_extract";
     public static final String PULL_EXPRESSION_FROM_LAMBDA_ENABLED = "pull_expression_from_lambda_enabled";
     public static final String REWRITE_CONSTANT_ARRAY_CONTAINS_TO_IN_EXPRESSION = "rewrite_constant_array_contains_to_in_expression";
     public static final String INFER_INEQUALITY_PREDICATES = "infer_inequality_predicates";
@@ -1635,6 +1636,11 @@ public final class SystemSessionProperties
                         LEGACY_JSON_CAST,
                         "Keep the legacy json cast behavior, do not reserve the case for field names when casting to row type",
                         functionsConfig.isLegacyJsonCast(),
+                        true),
+                booleanProperty(
+                        CANONICALIZED_JSON_EXTRACT,
+                        "Extracts json data in a canonicalized manner, and raises a PrestoException when encountering invalid json structures within the input json path",
+                        functionsConfig.isCanonicalizedJsonExtract(),
                         true),
                 booleanProperty(
                         OPTIMIZE_JOIN_PROBE_FOR_EMPTY_BUILD_RUNTIME,
@@ -3173,5 +3179,10 @@ public final class SystemSessionProperties
     public static boolean isEnabledAddExchangeBelowGroupId(Session session)
     {
         return session.getSystemProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID, Boolean.class);
+    }
+
+    public static boolean isCanonicalizedJsonExtract(Session session)
+    {
+        return session.getSystemProperty(CANONICALIZED_JSON_EXTRACT, Boolean.class);
     }
 }

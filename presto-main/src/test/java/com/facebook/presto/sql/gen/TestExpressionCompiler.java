@@ -265,14 +265,14 @@ public class TestExpressionCompiler
         assertExecute("cast(null as boolean) is null", BOOLEAN, true);
 
         for (Boolean value : booleanValues) {
-            assertExecute(generateExpression("%s", value), BOOLEAN, value == null ? null : value);
+            assertExecute(generateExpression("%s", value), BOOLEAN, value);
             assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
             assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
 
         for (Integer value : intLefts) {
             Long longValue = value == null ? null : value * 10000000000L;
-            assertExecute(generateExpression("%s", value), INTEGER, value == null ? null : value);
+            assertExecute(generateExpression("%s", value), INTEGER, value);
             assertExecute(generateExpression("- (%s)", value), INTEGER, value == null ? null : -value);
             assertExecute(generateExpression("%s", longValue), BIGINT, value == null ? null : longValue);
             assertExecute(generateExpression("- (%s)", longValue), BIGINT, value == null ? null : -longValue);
@@ -281,21 +281,21 @@ public class TestExpressionCompiler
         }
 
         for (Double value : doubleLefts) {
-            assertExecute(generateExpression("%s", value), DOUBLE, value == null ? null : value);
+            assertExecute(generateExpression("%s", value), DOUBLE, value);
             assertExecute(generateExpression("- (%s)", value), DOUBLE, value == null ? null : -value);
             assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
             assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
 
         for (BigDecimal value : decimalLefts) {
-            assertExecute(generateExpression("%s", value), value == null ? null : value);
+            assertExecute(generateExpression("%s", value), value);
             assertExecute(generateExpression("- (%s)", value), value == null ? null : value.negate());
             assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
             assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
 
         for (String value : stringLefts) {
-            assertExecute(generateExpression("%s", value), varcharType(value), value == null ? null : value);
+            assertExecute(generateExpression("%s", value), varcharType(value), value);
             assertExecute(generateExpression("%s is null", value), BOOLEAN, value == null);
             assertExecute(generateExpression("%s is not null", value), BOOLEAN, value != null);
         }
@@ -646,14 +646,13 @@ public class TestExpressionCompiler
 
         // combination of types in one filter
         assertFilter(
-                ImmutableList.of(
-                                "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
-                                "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
-                                "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
-                                "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
-                                "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
-                                "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")
-                        .stream().collect(joining(" AND ")),
+                String.join(" AND ", ImmutableList.of(
+                        "bound_row.nested_column_0 = 1234", "bound_row.nested_column_7 >= 1234",
+                        "bound_row.nested_column_1 = 34", "bound_row.nested_column_8 >= 33",
+                        "bound_row.nested_column_2 = 'hello'", "bound_row.nested_column_9 >= 'hello'",
+                        "bound_row.nested_column_3 = 12.34", "bound_row.nested_column_10 >= 12.34",
+                        "bound_row.nested_column_4 = true", "NOT (bound_row.nested_column_11 = false)",
+                        "bound_row.nested_column_6.nested_nested_column = 'innerFieldValue'", "bound_row.nested_column_13.nested_nested_column LIKE 'innerFieldValue'")),
                 true);
     }
 
@@ -797,7 +796,7 @@ public class TestExpressionCompiler
             throws Exception
     {
         for (Boolean value : booleanValues) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value ? true : false));
+            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, (value));
             assertExecute(generateExpression("cast(%s as integer)", value), INTEGER, value == null ? null : (value ? 1 : 0));
             assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : (value ? 1L : 0L));
             assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : (value ? 1.0 : 0.0));
@@ -805,19 +804,19 @@ public class TestExpressionCompiler
         }
 
         for (Integer value : intLefts) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0L ? true : false));
-            assertExecute(generateExpression("cast(%s as integer)", value), INTEGER, value == null ? null : value);
+            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0L));
+            assertExecute(generateExpression("cast(%s as integer)", value), INTEGER, value);
             assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : (long) value);
             assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : value.doubleValue());
             assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
         }
 
         for (Double value : doubleLefts) {
-            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0.0 ? true : false));
+            assertExecute(generateExpression("cast(%s as boolean)", value), BOOLEAN, value == null ? null : (value != 0.0));
             if (value == null || (value >= Long.MIN_VALUE && value < Long.MAX_VALUE)) {
                 assertExecute(generateExpression("cast(%s as bigint)", value), BIGINT, value == null ? null : value.longValue());
             }
-            assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value == null ? null : value);
+            assertExecute(generateExpression("cast(%s as double)", value), DOUBLE, value);
             assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : String.valueOf(value));
         }
 
@@ -835,17 +834,17 @@ public class TestExpressionCompiler
 
         for (Integer value : intLefts) {
             if (value != null) {
-                assertExecute(generateExpression("cast(%s as integer)", String.valueOf(value)), INTEGER, value == null ? null : value);
-                assertExecute(generateExpression("cast(%s as bigint)", String.valueOf(value)), BIGINT, value == null ? null : (long) value);
+                assertExecute(generateExpression("cast(%s as integer)", String.valueOf(value)), INTEGER, value);
+                assertExecute(generateExpression("cast(%s as bigint)", String.valueOf(value)), BIGINT, (long) value);
             }
         }
         for (Double value : doubleLefts) {
             if (value != null) {
-                assertExecute(generateExpression("cast(%s as double)", String.valueOf(value)), DOUBLE, value == null ? null : value);
+                assertExecute(generateExpression("cast(%s as double)", String.valueOf(value)), DOUBLE, value);
             }
         }
         for (String value : stringLefts) {
-            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value == null ? null : value);
+            assertExecute(generateExpression("cast(%s as varchar)", value), VARCHAR, value);
         }
 
         Futures.allAsList(futures).get();
@@ -1446,17 +1445,17 @@ public class TestExpressionCompiler
             for (String pattern : jsonPatterns) {
                 assertExecute(generateExpression("json_extract(%s, %s)", value, pattern),
                         JSON,
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(utf8Slice(value), JsonPath.build(pattern)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(session.getSqlFunctionProperties(), utf8Slice(value), JsonPath.build(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s)", value, pattern),
                         value == null ? createUnboundedVarcharType() : createVarcharType(value.length()),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(utf8Slice(value), JsonPath.build(pattern)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(session.getSqlFunctionProperties(), utf8Slice(value), JsonPath.build(pattern)));
 
                 assertExecute(generateExpression("json_extract(%s, %s || '')", value, pattern),
                         JSON,
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(utf8Slice(value), JsonPath.build(pattern)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtract(session.getSqlFunctionProperties(), utf8Slice(value), JsonPath.build(pattern)));
                 assertExecute(generateExpression("json_extract_scalar(%s, %s || '')", value, pattern),
                         value == null ? createUnboundedVarcharType() : createVarcharType(value.length()),
-                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(utf8Slice(value), JsonPath.build(pattern)));
+                        value == null || pattern == null ? null : JsonFunctions.jsonExtractScalar(session.getSqlFunctionProperties(), utf8Slice(value), JsonPath.build(pattern)));
             }
         }
 
@@ -1817,7 +1816,7 @@ public class TestExpressionCompiler
     private static List<String> formatExpression(String expressionPattern, Object value, String type)
     {
         return formatExpression(expressionPattern,
-                Arrays.asList(value),
+                singletonList(value),
                 ImmutableList.of(type));
     }
 
@@ -1847,14 +1846,16 @@ public class TestExpressionCompiler
             Object value = values.get(i);
             String type = types.get(i);
             if (value != null) {
-                if (type.equals("varchar")) {
-                    value = "'" + value + "'";
-                }
-                else if (type.equals("bigint")) {
-                    value = "CAST( " + value + " AS BIGINT)";
-                }
-                else if (type.equals("double")) {
-                    value = "CAST( " + value + " AS DOUBLE)";
+                switch (type) {
+                    case "varchar":
+                        value = "'" + value + "'";
+                        break;
+                    case "bigint":
+                        value = "CAST( " + value + " AS BIGINT)";
+                        break;
+                    case "double":
+                        value = "CAST( " + value + " AS DOUBLE)";
+                        break;
                 }
                 unrolledValues.add(ImmutableSet.of(String.valueOf(value)));
             }
@@ -1868,7 +1869,7 @@ public class TestExpressionCompiler
         ImmutableList.Builder<String> expressions = ImmutableList.builder();
         Set<List<String>> valueLists = Sets.cartesianProduct(unrolledValues);
         for (List<String> valueList : valueLists) {
-            expressions.add(format(expressionPattern, valueList.toArray(new Object[valueList.size()])));
+            expressions.add(format(expressionPattern, valueList.toArray(new Object[0])));
         }
         return expressions.build();
     }
