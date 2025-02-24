@@ -20,9 +20,6 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.api.Experimental;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 
-// TODO: TableFunctionName
-import io.trino.spi.function.SchemaFunctionName;
-
 import static java.util.Objects.requireNonNull;
 
 public interface ConnectorSplitManager
@@ -37,7 +34,6 @@ public interface ConnectorSplitManager
     default ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
-            SchemaFunctionName name,
             ConnectorTableFunctionHandle function) {
         throw new UnsupportedOperationException();
     }

@@ -898,17 +898,15 @@ public class FunctionAndTypeManager
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
     {
         CatalogHandle catalogHandle = tableFunctionHandle.getCatalogHandle();
-        SchemaFunctionName functionName = tableFunctionHandle.getSchemaFunctionName();
-
         FunctionProvider provider;
         if (catalogHandle.equals(GlobalSystemConnector.CATALOG_HANDLE)) {
             provider = globalFunctionCatalog;
         }
         else {
             provider = functionProviders.getService(catalogHandle);
-            checkArgument(provider != null, "No function provider for catalog: '%s' (function '%s')", catalogHandle, functionName);
+            checkArgument(provider != null, "No function provider for catalog: '%s'", catalogHandle);
         }
 
-        return provider.getTableFunctionProcessorProvider(functionName);
+        return provider.getTableFunctionProcessorProvider(tableFunctionHandle.getFunctionHandle());
     }
 }

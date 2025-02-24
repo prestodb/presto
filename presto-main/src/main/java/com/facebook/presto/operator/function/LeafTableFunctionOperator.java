@@ -145,7 +145,8 @@ public class LeafTableFunctionOperator
 
         // Todo: This is different to Trino. Do we want to return something here?
         // Probably nothing as its mainly used alter the sources of the connector.
-        // EX, Hive/Iceberg tables.
+        // EX, Hive/Iceberg tables have an updatable page source. So for
+        // Table scan operator we have this to addSplit.
         /*
         if (source instanceof UpdatablePageSource) {
             return Optional.of((UpdatablePageSource) source);

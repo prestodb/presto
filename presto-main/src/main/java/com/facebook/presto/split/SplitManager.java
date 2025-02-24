@@ -110,7 +110,6 @@ public class SplitManager
         ConnectorSplitSource source = splitManager.getSplits(
                 function.getTransactionHandle(),
                 session.toConnectorSession(catalogHandle),
-                function.getSchemaFunctionName(),
                 function.getFunctionHandle());
 
         return new ConnectorAwareSplitSource(catalogHandle, source);
