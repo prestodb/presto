@@ -457,7 +457,7 @@ class VectorHasher {
     }
 
     bool inRange = true;
-    rows.template testSelected([&](vector_size_t row) {
+    rows.testSelected([&](vector_size_t row) {
       auto int64Value = toInt64(values[row]);
       if (int64Value > max_ || int64Value < min_) {
         inRange = false;
@@ -671,7 +671,7 @@ inline bool VectorHasher::tryMapToRange(
     const bool* values,
     const SelectivityVector& rows,
     uint64_t* result) {
-  rows.template applyToSelected([&](vector_size_t row) {
+  rows.applyToSelected([&](vector_size_t row) {
     auto hash = valueId(values[row]);
     result[row] = multiplier_ == 1 ? hash : result[row] + multiplier_ * hash;
   });
