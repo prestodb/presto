@@ -17,6 +17,11 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.api.Experimental;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
+
+// TODO: TableFunctionName
+import io.trino.spi.function.SchemaFunctionName;
 
 import static java.util.Objects.requireNonNull;
 
@@ -27,6 +32,15 @@ public interface ConnectorSplitManager
             ConnectorSession session,
             ConnectorTableLayoutHandle layout,
             SplitSchedulingContext splitSchedulingContext);
+
+    @Experimental
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            SchemaFunctionName name,
+            ConnectorTableFunctionHandle function) {
+        throw new UnsupportedOperationException();
+    }
 
     enum SplitSchedulingStrategy
     {

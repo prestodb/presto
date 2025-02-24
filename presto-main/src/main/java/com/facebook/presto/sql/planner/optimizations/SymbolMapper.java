@@ -63,7 +63,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 // TODO: Some additions here for bug fixes and comments on table function changes
-// (TableFunctionProcessorNode). Should already be added in previous PR.
+// TODO: Missing implementation for public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
+// This PR creates a new newPassThroughSpecifications without duplicate columns.
+// Based on multiple sources.
 
 public class SymbolMapper
 {

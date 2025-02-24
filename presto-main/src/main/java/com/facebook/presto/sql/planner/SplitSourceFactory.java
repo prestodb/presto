@@ -419,6 +419,21 @@ public class SplitSourceFactory
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
         }
+
+        // TODO: Missing Node implementation
+        @Override
+        public Map<PlanNodeId, SplitSource> visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            if (node.getSource().isEmpty()) {
+                // this is a source node, so produce splits
+                SplitSource splitSource = splitManager.getSplits(session, node.getHandle());
+                splitSources.add(splitSource);
+
+                return ImmutableMap.of(node.getId(), splitSource);
+            }
+
+            return node.getSource().orElseThrow().accept(this, context);
+        }
     }
 
     private static class Context

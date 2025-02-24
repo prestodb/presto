@@ -19,6 +19,7 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.TableLayoutResult;
+import com.facebook.presto.metadata.TableFunctionHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -97,6 +98,22 @@ public class SplitManager
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
         }
         return splitSource;
+    }
+
+    // TODO: We do not have a CatalogHandle/getSchemaFunctionName.
+    // Required to get splits that are connector, catalog, function, schema, and transaction aware.
+    public SplitSource getSplits(Session session, TableFunctionHandle function)
+    {
+        CatalogHandle catalogHandle = function.getCatalogHandle();
+        ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
+
+        ConnectorSplitSource source = splitManager.getSplits(
+                function.getTransactionHandle(),
+                session.toConnectorSession(catalogHandle),
+                function.getSchemaFunctionName(),
+                function.getFunctionHandle());
+
+        return new ConnectorAwareSplitSource(catalogHandle, source);
     }
 
     private ConnectorSplitManager getConnectorSplitManager(ConnectorId connectorId)

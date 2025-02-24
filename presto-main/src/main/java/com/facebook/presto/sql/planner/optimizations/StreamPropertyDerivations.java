@@ -643,6 +643,33 @@ public final class StreamPropertyDerivations
 
             return StreamProperties.fixedStreams();
         }
+
+        // TODO: Missing node implementations
+        @Override
+        public StreamProperties visitTableFunction(TableFunctionNode node, List<StreamProperties> inputProperties)
+        {
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        @Override
+        public StreamProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, List<StreamProperties> inputProperties)
+        {
+            if (node.getSource().isEmpty()) {
+                return StreamProperties.singleStream(); // TODO allow multiple; return partitioning properties
+            }
+
+            StreamProperties properties = Iterables.getOnlyElement(inputProperties);
+
+            Set<Symbol> passThroughInputs = Sets.intersection(ImmutableSet.copyOf(node.getSource().orElseThrow().getOutputSymbols()), ImmutableSet.copyOf(node.getOutputSymbols()));
+            StreamProperties translatedProperties = properties.translate(column -> {
+                if (passThroughInputs.contains(column)) {
+                    return Optional.of(column);
+                }
+                return Optional.empty();
+            });
+
+            return translatedProperties.unordered(true);
+        }
     }
 
     public static final class StreamProperties

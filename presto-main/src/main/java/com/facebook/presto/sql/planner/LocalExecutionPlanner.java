@@ -13,6 +13,20 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.operator.function.LeafTableFunctionOperator.LeafTableFunctionOperatorFactory;
+import com.facebook.presto.operator.function.RegularTableFunctionPartition.PassThroughColumnSpecification;
+import com.facebook.presto.operator.function.TableFunctionOperator.TableFunctionOperatorFactory;
+import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
+
+// TODO: Planner differences
+import io.trino.sql.planner.plan.DataOrganizationSpecification;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
+
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
@@ -1211,6 +1225,111 @@ public class LocalExecutionPlanner
                     orderingCompiler);
 
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
+        }
+
+        // TODO: We require a TableFunctionNode implementation to check.
+        @Override
+        public PhysicalOperation visitTableFunction(TableFunctionNode node, LocalExecutionPlanContext context)
+        {
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        // TODO: We need TableFunctionProcessorNode implementation. Missing Pass through specification from this as well.
+        // Michael: This is where we create the physical operation for the Table Function Operators out of the
+        // operator classes.
+        @Override
+        public PhysicalOperation visitTableFunctionProcessor(TableFunctionProcessorNode node, LocalExecutionPlanContext context)
+        {
+            // Michael: Get the processors Split/Data Processors
+            TableFunctionProcessorProvider processorProvider = plannerContext.getFunctionManager().getTableFunctionProcessorProvider(node.getHandle());
+
+            // Michael: No input arguments to this table function. Using a LeafTableFunctionOperator. No
+            // operations on anything coming in so just return.
+            if (node.getSource().isEmpty()) {
+                OperatorFactory operatorFactory = new LeafTableFunctionOperatorFactory(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        node.getHandle().catalogHandle(),
+                        processorProvider,
+                        node.getHandle().functionHandle());
+                return new PhysicalOperation(operatorFactory, makeLayout(node));
+            }
+
+            PhysicalOperation source = node.getSource().orElseThrow().accept(this, context);
+
+            int properChannelsCount = node.getProperOutputs().size();
+
+            long passThroughSourcesCount = node.getPassThroughSpecifications().stream()
+                    .filter(PassThroughSpecification::declaredAsPassThrough)
+                    .count();
+
+            List<List<Integer>> requiredChannels = node.getRequiredSymbols().stream()
+                    .map(list -> getChannelsForSymbols(list, source.getLayout()))
+                    .collect(toImmutableList());
+
+            Optional<Map<Integer, Integer>> markerChannels = node.getMarkerSymbols()
+                    .map(map -> map.entrySet().stream()
+                            .collect(toImmutableMap(entry -> source.getLayout().get(entry.getKey()), entry -> source.getLayout().get(entry.getValue()))));
+
+            int channel = properChannelsCount;
+            ImmutableList.Builder<PassThroughColumnSpecification> passThroughColumnSpecifications = ImmutableList.builder();
+            for (PassThroughSpecification specification : node.getPassThroughSpecifications()) {
+                // the table function produces one index channel for each source declared as pass-through. They are laid out after the proper channels.
+                int indexChannel = specification.declaredAsPassThrough() ? channel++ : -1;
+                for (PassThroughColumn column : specification.columns()) {
+                    passThroughColumnSpecifications.add(new PassThroughColumnSpecification(column.isPartitioningColumn(), source.getLayout().get(column.symbol()), indexChannel));
+                }
+            }
+
+            List<Integer> partitionChannels = node.getSpecification()
+                    .map(DataOrganizationSpecification::partitionBy)
+                    .map(list -> getChannelsForSymbols(list, source.getLayout()))
+                    .orElse(ImmutableList.of());
+
+            List<Integer> sortChannels = ImmutableList.of();
+            List<SortOrder> sortOrders = ImmutableList.of();
+            if (node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).isPresent()) {
+                OrderingScheme orderingScheme = node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).orElseThrow();
+                sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), source.getLayout());
+                sortOrders = orderingScheme.orderingList();
+            }
+
+            OperatorFactory operator = new TableFunctionOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    processorProvider,
+                    node.getHandle().catalogHandle(),
+                    node.getHandle().functionHandle(),
+                    properChannelsCount,
+                    toIntExact(passThroughSourcesCount),
+                    requiredChannels,
+                    markerChannels,
+                    passThroughColumnSpecifications.build(),
+                    node.isPruneWhenEmpty(),
+                    partitionChannels,
+                    getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitioned()), source.getLayout()),
+                    sortChannels,
+                    sortOrders,
+                    node.getPreSorted(),
+                    source.getTypes(),
+                    10_000,
+                    pagesIndexFactory);
+
+            ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
+            for (int i = 0; i < node.getProperOutputs().size(); i++) {
+                outputMappings.put(node.getProperOutputs().get(i), i);
+            }
+            List<Symbol> passThroughSymbols = node.getPassThroughSpecifications().stream()
+                    .map(PassThroughSpecification::columns)
+                    .flatMap(Collection::stream)
+                    .map(PassThroughColumn::symbol)
+                    .collect(toImmutableList());
+            int outputChannel = properChannelsCount;
+            for (Symbol passThroughSymbol : passThroughSymbols) {
+                outputMappings.put(passThroughSymbol, outputChannel++);
+            }
+
+            return new PhysicalOperation(operator, outputMappings.buildOrThrow(), source);
         }
 
         @Override
