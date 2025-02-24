@@ -17,7 +17,6 @@ from different data sources.
     connector/deltalake
     connector/druid
     connector/elasticsearch
-    connector/file-based-metastore
     connector/googlesheets
     connector/hana
     connector/hive
