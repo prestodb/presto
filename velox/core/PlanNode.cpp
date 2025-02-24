@@ -932,8 +932,7 @@ void ProjectNode::addSummaryDetails(
 
   for (auto i = 0; i < numFields; ++i) {
     const auto& expr = projections_[i];
-    if (auto* dereference =
-            dynamic_cast<const DereferenceTypedExpr*>(expr.get())) {
+    if (dynamic_cast<const DereferenceTypedExpr*>(expr.get())) {
       dereferences.push_back(i);
     } else {
       auto fae = dynamic_cast<const FieldAccessTypedExpr*>(expr.get());
