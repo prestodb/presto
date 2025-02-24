@@ -11,16 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.telemetry;
+package com.facebook.presto.spi.tracing;
 
 /**
- * The SPI TelemetryFactory provides different Telemetry implementations .
- *
- * @param <T> the type parameter
+ * The SPI BaseSpan implemented by TracingSpan and ScopedSpan.
  */
-public interface TelemetryFactory<T>
+public interface BaseSpan
+        extends AutoCloseable
 {
-    String getName();
+    @Override
+    default void close()
+    {
+        return;
+    }
 
-    T create();
+    default void end()
+    {
+        return;
+    }
 }

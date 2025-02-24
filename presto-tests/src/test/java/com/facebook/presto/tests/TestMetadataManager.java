@@ -19,7 +19,7 @@ import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.plugin.opentelemetry.OpenTelemetryPlugin;
+import com.facebook.presto.opentelemetry.OpenTelemetryPlugin;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.ConnectorId;

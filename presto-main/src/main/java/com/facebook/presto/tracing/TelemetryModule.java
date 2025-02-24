@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.telemetry;
+package com.facebook.presto.tracing;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;

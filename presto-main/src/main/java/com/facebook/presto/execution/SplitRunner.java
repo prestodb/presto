@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
 

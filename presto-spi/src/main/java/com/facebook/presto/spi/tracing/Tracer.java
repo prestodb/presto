@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.telemetry;
+package com.facebook.presto.spi.tracing;
 
 import com.facebook.presto.common.ErrorCode;
 
@@ -19,12 +19,12 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The SPI TelemetryTracing is implemented by the required serviceability framework.
+ * The SPI Tracer is implemented by the required serviceability framework.
  *
  * @param <T> the type parameter
  * @param <U> the type parameter
  */
-public interface TelemetryTracing<T extends BaseSpan, U extends BaseSpan>
+public interface Tracer<T extends BaseSpan, U extends BaseSpan>
 {
     /**
      * Instantiates required Telemetry instances after loading the plugin implementation.

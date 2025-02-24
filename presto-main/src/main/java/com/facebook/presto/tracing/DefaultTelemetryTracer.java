@@ -11,29 +11,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.telemetry;
+package com.facebook.presto.tracing;
 
 import com.facebook.presto.common.ErrorCode;
-import com.facebook.presto.spi.telemetry.BaseSpan;
-import com.facebook.presto.spi.telemetry.TelemetryFactory;
-import com.facebook.presto.spi.telemetry.TelemetryTracing;
+import com.facebook.presto.spi.tracing.BaseSpan;
+import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerProvider;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * Default implementation of TelemetryTracing in presto-main for fallback in case Telemetry plugin implementation not loaded.
+ * Default implementation of DefaultTelemetryTracer in presto-main for fallback in case Telemetry plugin implementation not loaded.
  */
-public class TelemetryTracingImpl
-        implements TelemetryTracing<BaseSpan, BaseSpan>
+public class DefaultTelemetryTracer
+        implements Tracer<BaseSpan, BaseSpan>
 {
     public static final String NAME = "otel";
 
-    private static final TelemetryTracingImpl INSTANCE = new TelemetryTracingImpl();
+    private static final DefaultTelemetryTracer INSTANCE = new DefaultTelemetryTracer();
 
     public static class Factory
-            implements TelemetryFactory
+            implements TracerProvider
     {
         @Override
         public String getName()
@@ -42,7 +42,7 @@ public class TelemetryTracingImpl
         }
 
         @Override
-        public TelemetryTracing create()
+        public Tracer create()
         {
             return INSTANCE;
         }

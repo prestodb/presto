@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.telemetry;
+package com.facebook.presto.tracing;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.TelemetryConfig;
-import com.facebook.presto.spi.telemetry.BaseSpan;
-import com.facebook.presto.spi.telemetry.TelemetryFactory;
-import com.facebook.presto.spi.telemetry.TelemetryTracing;
+import com.facebook.presto.spi.tracing.BaseSpan;
+import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerProvider;
 
 import java.io.File;
 import java.util.HashMap;
@@ -43,20 +43,20 @@ public class TracingManager
     private static final File OPENTELEMETRY_CONFIGURATION = new File("etc/telemetry-tracing.properties");
     private static final String TRACING_FACTORY_NAME = "tracing-factory.name";
 
-    private final Map<String, TelemetryFactory> openTelemetryFactories = new ConcurrentHashMap<>();
-    private static AtomicReference<TelemetryTracing> configuredTelemetryTracing = new AtomicReference<>(new TelemetryTracingImpl());
+    private final Map<String, TracerProvider> traceProviders = new ConcurrentHashMap<>();
+    private static AtomicReference<Tracer> configuredTelemetryTracer = new AtomicReference<>(new DefaultTelemetryTracer());
 
     /**
-     * Adds and registers all the TelemetryFactory implementations using PluginManager to support tracing.
+     * Adds and registers all the TracerProvider implementations using PluginManager to support tracing.
      *
-     * @param telemetryFactory the telemetry factory
+     * @param tracerProvider the telemetry factory
      */
-    public void addOpenTelemetryFactory(TelemetryFactory telemetryFactory)
+    public void addTraceProvider(TracerProvider tracerProvider)
     {
-        requireNonNull(telemetryFactory, "telemetryFactory is null");
+        requireNonNull(tracerProvider, "tracerProvider is null");
         log.debug("Adding telemetry factory");
-        if (openTelemetryFactories.putIfAbsent(telemetryFactory.getName(), telemetryFactory) != null) {
-            throw new IllegalArgumentException(format("Telemetry factory '%s' is already registered", telemetryFactory.getName()));
+        if (traceProviders.putIfAbsent(tracerProvider.getName(), tracerProvider) != null) {
+            throw new IllegalArgumentException(format("Telemetry factory '%s' is already registered", tracerProvider.getName()));
         }
     }
 
@@ -82,122 +82,122 @@ public class TracingManager
             }
 
             properties = new HashMap<>(properties);
-            String openTelemetryFactoryName = properties.remove(TRACING_FACTORY_NAME);
+            String telemetryFactoryName = properties.remove(TRACING_FACTORY_NAME);
 
-            checkArgument(!isNullOrEmpty(openTelemetryFactoryName), TRACING_FACTORY_NAME + " property must be present");
+            checkArgument(!isNullOrEmpty(telemetryFactoryName), TRACING_FACTORY_NAME + " property must be present");
 
-            TelemetryFactory openTelemetryFactory = openTelemetryFactories.get(openTelemetryFactoryName);
-            checkState(openTelemetryFactory != null, "Telemetry factory %s is not registered", openTelemetryFactoryName);
-            this.configuredTelemetryTracing.set((TelemetryTracing) openTelemetryFactory.create());
+            TracerProvider tracerProvider = traceProviders.get(telemetryFactoryName);
+            checkState(tracerProvider != null, "Telemetry factory %s is not registered", telemetryFactoryName);
+            this.configuredTelemetryTracer.set((Tracer) tracerProvider.create());
 
             log.debug("setting telemetry-tracing properties");
             TelemetryConfig.getTelemetryConfig().setTelemetryProperties(properties);
-            configuredTelemetryTracing.get().loadConfiguredOpenTelemetry();
+            configuredTelemetryTracer.get().loadConfiguredOpenTelemetry();
         }
     }
 
-    public static void setConfiguredTelemetryTracing(TelemetryTracing telemetryTracing)
+    public static void setConfiguredTelemetryTracer(Tracer tracer)
     {
-        TracingManager.configuredTelemetryTracing.set(telemetryTracing);
+        TracingManager.configuredTelemetryTracer.set(tracer);
     }
 
     public static Runnable getCurrentContextWrap(Runnable runnable)
     {
-        return configuredTelemetryTracing.get().getCurrentContextWrap(runnable);
+        return configuredTelemetryTracer.get().getCurrentContextWrap(runnable);
     }
 
     public static boolean isRecording()
     {
-        return configuredTelemetryTracing.get().isRecording();
+        return configuredTelemetryTracer.get().isRecording();
     }
 
     public static Map<String, String> getHeadersMap(BaseSpan span)
     {
-        return configuredTelemetryTracing.get().getHeadersMap(span);
+        return configuredTelemetryTracer.get().getHeadersMap(span);
     }
 
     public static void endSpanOnError(BaseSpan querySpan, Throwable throwable)
     {
-        configuredTelemetryTracing.get().endSpanOnError(querySpan, throwable);
+        configuredTelemetryTracer.get().endSpanOnError(querySpan, throwable);
     }
 
     public static void addEvent(BaseSpan querySpan, String eventName)
     {
-        configuredTelemetryTracing.get().addEvent(querySpan, eventName);
+        configuredTelemetryTracer.get().addEvent(querySpan, eventName);
     }
 
     public static void addEvent(BaseSpan querySpan, String eventName, String eventState)
     {
-        configuredTelemetryTracing.get().addEvent(querySpan, eventName, eventState);
+        configuredTelemetryTracer.get().addEvent(querySpan, eventName, eventState);
     }
 
     public static void setAttributes(BaseSpan span, Map<String, String> attributes)
     {
-        configuredTelemetryTracing.get().setAttributes(span, attributes);
+        configuredTelemetryTracer.get().setAttributes(span, attributes);
     }
 
     public static void recordException(BaseSpan querySpan, String message, RuntimeException runtimeException, ErrorCode errorCode)
     {
-        configuredTelemetryTracing.get().recordException(querySpan, message, runtimeException, errorCode);
+        configuredTelemetryTracer.get().recordException(querySpan, message, runtimeException, errorCode);
     }
 
     public static void setSuccess(BaseSpan querySpan)
     {
-        configuredTelemetryTracing.get().setSuccess(querySpan);
+        configuredTelemetryTracer.get().setSuccess(querySpan);
     }
 
     public static BaseSpan getInvalidSpan()
     {
-        return configuredTelemetryTracing.get().getInvalidSpan();
+        return configuredTelemetryTracer.get().getInvalidSpan();
     }
 
     public static BaseSpan getRootSpan()
     {
-        return configuredTelemetryTracing.get().getRootSpan();
+        return configuredTelemetryTracer.get().getRootSpan();
     }
 
     public static BaseSpan getSpan(String spanName)
     {
-        return configuredTelemetryTracing.get().getSpan(spanName);
+        return configuredTelemetryTracer.get().getSpan(spanName);
     }
 
     public static BaseSpan getSpan(String traceParent, String spanName)
     {
-        return configuredTelemetryTracing.get().getSpan(traceParent, spanName);
+        return configuredTelemetryTracer.get().getSpan(traceParent, spanName);
     }
 
     public static BaseSpan getSpan(BaseSpan parentSpan, String spanName, Map<String, String> attributes)
     {
-        return configuredTelemetryTracing.get().getSpan(parentSpan, spanName, attributes);
+        return configuredTelemetryTracer.get().getSpan(parentSpan, spanName, attributes);
     }
 
     public static Optional<String> spanString(BaseSpan span)
     {
-        return configuredTelemetryTracing.get().spanString(span);
+        return configuredTelemetryTracer.get().spanString(span);
     }
 
     public static BaseSpan scopedSpan(String name, Boolean... skipSpan)
     {
-        return configuredTelemetryTracing.get().scopedSpan(name, skipSpan);
+        return configuredTelemetryTracer.get().scopedSpan(name, skipSpan);
     }
 
     public static BaseSpan scopedSpan(BaseSpan span, Boolean... skipSpan)
     {
-        return configuredTelemetryTracing.get().scopedSpan(span, skipSpan);
+        return configuredTelemetryTracer.get().scopedSpan(span, skipSpan);
     }
 
     public static BaseSpan scopedSpan(BaseSpan parentSpan, String spanName, Map<String, String> attributes, Boolean... skipSpan)
     {
-        return configuredTelemetryTracing.get().scopedSpan(parentSpan, spanName, attributes, skipSpan);
+        return configuredTelemetryTracer.get().scopedSpan(parentSpan, spanName, attributes, skipSpan);
     }
 
     public static BaseSpan scopedSpan(BaseSpan parentSpan, String spanName, Boolean... skipSpan)
     {
-        return configuredTelemetryTracing.get().scopedSpan(parentSpan, spanName, skipSpan);
+        return configuredTelemetryTracer.get().scopedSpan(parentSpan, spanName, skipSpan);
     }
 
     public static BaseSpan scopedSpan(String spanName, Map<String, String> attributes, Boolean... skipSpan)
     {
-        return configuredTelemetryTracing.get().scopedSpan(spanName, attributes, skipSpan);
+        return configuredTelemetryTracer.get().scopedSpan(spanName, attributes, skipSpan);
     }
 }

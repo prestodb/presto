@@ -11,22 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.telemetry;
+package com.facebook.presto.spi.testing;
 
-/**
- * The SPI BaseSpan implemented by TracingSpan and ScopedSpan.
- */
-public interface BaseSpan
-        extends AutoCloseable
+import java.util.List;
+
+public interface TestingTracer
 {
-    @Override
-    default void close()
-    {
-        return;
-    }
+    void loadConfiguredOpenTelemetry();
 
-    default void end()
-    {
-        return;
-    }
+    List<?> getFinishedSpanItems();
+
+    boolean isSpansEmpty();
+
+    boolean spansAnyMatch(String spanName);
+
+    void clearSpanList();
+
+    //OpenTelemetry getOpenTelemetry();
 }

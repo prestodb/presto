@@ -20,7 +20,7 @@ import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
 import com.facebook.presto.spi.eventlistener.SplitFailureInfo;
 import com.facebook.presto.spi.eventlistener.SplitStatistics;
-import com.facebook.presto.spi.telemetry.BaseSpan;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 

@@ -19,7 +19,7 @@ import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.opentelemetry.tracing.ScopedSpan;
 import com.facebook.presto.opentelemetry.tracing.TracingSpan;
-import com.facebook.presto.spi.telemetry.TelemetryTracing;
+import com.facebook.presto.spi.tracing.Tracer;
 import com.google.errorprone.annotations.MustBeClosed;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.baggage.propagation.W3CBaggagePropagator;
@@ -29,7 +29,6 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.ContextPropagators;
@@ -55,12 +54,12 @@ import static com.google.common.base.Strings.nullToEmpty;
 /**
  * Open Telemetry implementation of tracing.
  */
-public class OpenTelemetryTracingImpl
-        implements TelemetryTracing<TracingSpan, ScopedSpan>
+public class OpenTelemetryTracer
+        implements Tracer<TracingSpan, ScopedSpan>
 {
-    private static final Logger log = Logger.get(OpenTelemetryTracingImpl.class);
+    private static final Logger log = Logger.get(OpenTelemetryTracer.class);
     private static OpenTelemetry configuredOpenTelemetry;
-    private static Tracer tracer = OpenTelemetry.noop().getTracer("no-op"); //default tracer
+    private static io.opentelemetry.api.trace.Tracer tracer = OpenTelemetry.noop().getTracer("no-op"); //default tracer
 
     /**
      * called from TracingManager for setting the open telemetry sdk and tracer.
@@ -136,12 +135,12 @@ public class OpenTelemetryTracingImpl
 
     public static void setOpenTelemetry(OpenTelemetry configuredOpenTelemetry)
     {
-        OpenTelemetryTracingImpl.configuredOpenTelemetry = configuredOpenTelemetry;
+        OpenTelemetryTracer.configuredOpenTelemetry = configuredOpenTelemetry;
     }
 
-    public static void setTracer(Tracer tracer)
+    public static void setTracer(io.opentelemetry.api.trace.Tracer tracer)
     {
-        OpenTelemetryTracingImpl.tracer = tracer;
+        OpenTelemetryTracer.tracer = tracer;
     }
 
     /**

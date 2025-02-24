@@ -11,21 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.testing;
+package com.facebook.presto.spi.tracing;
 
-import java.util.List;
-
-public interface TestingTelemetryTracing
+/**
+ * The SPI TracerProvider provides different Telemetry implementations .
+ *
+ * @param <T> the type parameter
+ */
+public interface TracerProvider<T>
 {
-    void loadConfiguredOpenTelemetry();
+    String getName();
 
-    List<?> getFinishedSpanItems();
-
-    boolean isSpansEmpty();
-
-    boolean spansAnyMatch(String spanName);
-
-    void clearSpanList();
-
-    //OpenTelemetry getOpenTelemetry();
+    T create();
 }

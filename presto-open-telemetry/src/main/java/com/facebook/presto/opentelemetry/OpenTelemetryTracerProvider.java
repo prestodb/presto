@@ -12,18 +12,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.opentelemetry.tracing;
+package com.facebook.presto.opentelemetry;
 
-import com.facebook.presto.opentelemetry.OpenTelemetryTracingImpl;
-import com.facebook.presto.spi.telemetry.TelemetryFactory;
-import com.facebook.presto.spi.telemetry.TelemetryTracing;
+import com.facebook.presto.opentelemetry.tracing.ScopedSpan;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
+import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerProvider;
 
-public class OpenTelemetryFactoryImpl
-        implements TelemetryFactory<TelemetryTracing<TracingSpan, ScopedSpan>>
+public class OpenTelemetryTracerProvider
+        implements TracerProvider<Tracer<TracingSpan, ScopedSpan>>
 {
     /**
-     * uniquely identify all OpenTelemetryFactory implementations. This property is checked against the one passed in
-     * telemetry-tracing.properties file during registration
+     * uniquely identify all TelemetryTracerProvider implementations.
+     * This property is checked against the one passed in telemetry-tracing.properties file during registration
      * @return String
      */
     @Override
@@ -35,11 +36,11 @@ public class OpenTelemetryFactoryImpl
     /**
      * Create OpenTelemetryImpl instance
      *
-     * @return {@link OpenTelemetryTracingImpl}
+     * @return {@link OpenTelemetryTracer}
      */
     @Override
-    public OpenTelemetryTracingImpl create()
+    public OpenTelemetryTracer create()
     {
-        return new OpenTelemetryTracingImpl();
+        return new OpenTelemetryTracer();
     }
 }

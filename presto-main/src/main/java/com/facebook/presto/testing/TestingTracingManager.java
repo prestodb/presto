@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.testing;
 
-import com.facebook.presto.spi.telemetry.TelemetryFactory;
-import com.facebook.presto.spi.telemetry.TelemetryTracing;
-import com.facebook.presto.spi.testing.TestingTelemetryTracing;
-import com.facebook.presto.telemetry.TracingManager;
+import com.facebook.presto.spi.testing.TestingTracer;
+import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerProvider;
+import com.facebook.presto.tracing.TracingManager;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,41 +28,41 @@ public class TestingTracingManager
     private static final String OTEL_TEST = "oteltest";
     private static final String OTEL = "otel";
 
-    private final Map<String, TelemetryFactory> openTelemetryFactories = new ConcurrentHashMap<>();
-    private static AtomicReference<TestingTelemetryTracing> configuredTelemetryTracing = new AtomicReference<>();
+    private final Map<String, TracerProvider> openTelemetryFactories = new ConcurrentHashMap<>();
+    private static AtomicReference<TestingTracer> configuredTracer = new AtomicReference<>();
 
     /**
-     * adds and registers all the OpenTelemetryFactory implementations to support different configurations
-     * @param telemetryFactory
+     * adds and registers all the TracerProvider implementations to support testing.
+     * @param tracerProvider
      */
-    public void addOpenTelemetryFactory(TelemetryFactory telemetryFactory)
+    public void addTraceProvider(TracerProvider tracerProvider)
     {
-        if (OTEL_TEST.equals(telemetryFactory.getName())) {
-            configuredTelemetryTracing.set((TestingTelemetryTracing) telemetryFactory.create());
+        if (OTEL_TEST.equals(tracerProvider.getName())) {
+            configuredTracer.set((TestingTracer) tracerProvider.create());
         }
 
-        if (OTEL.equals(telemetryFactory.getName())) {
-            TracingManager.setConfiguredTelemetryTracing((TelemetryTracing) telemetryFactory.create());
+        if (OTEL.equals(tracerProvider.getName())) {
+            TracingManager.setConfiguredTelemetryTracer((Tracer) tracerProvider.create());
         }
     }
 
     public void loadConfiguredOpenTelemetry()
     {
-        configuredTelemetryTracing.get().loadConfiguredOpenTelemetry();
+        configuredTracer.get().loadConfiguredOpenTelemetry();
     }
 
     public boolean isSpansEmpty()
     {
-        return configuredTelemetryTracing.get().isSpansEmpty();
+        return configuredTracer.get().isSpansEmpty();
     }
 
     public boolean spansAnyMatch(String task)
     {
-        return configuredTelemetryTracing.get().spansAnyMatch(task);
+        return configuredTracer.get().spansAnyMatch(task);
     }
 
     public void clearSpanList()
     {
-        configuredTelemetryTracing.get().clearSpanList();
+        configuredTracer.get().clearSpanList();
     }
 }
