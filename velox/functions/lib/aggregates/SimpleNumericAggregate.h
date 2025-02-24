@@ -219,7 +219,7 @@ class SimpleNumericAggregate : public exec::Aggregate {
       if (numSelected != arg->size()) {
         pushdownCustomIndices_.resize(numSelected);
         vector_size_t tgtIndex{0};
-        rows.template applyToSelected([&](vector_size_t i) {
+        rows.applyToSelected([&](vector_size_t i) {
           pushdownCustomIndices_[tgtIndex++] = indices[i];
         });
         indices = pushdownCustomIndices_.data();

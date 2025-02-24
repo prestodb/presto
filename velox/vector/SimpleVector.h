@@ -290,7 +290,7 @@ class SimpleVector : public BaseVector {
     auto rlockedAsciiComputedRows{asciiInfo.readLockedAsciiComputedRows()};
     if (rlockedAsciiComputedRows->hasSelections()) {
       if (rowMappings) {
-        bool isSubset = rows.template testSelected([&](auto row) {
+        bool isSubset = rows.testSelected([&](auto row) {
           return rlockedAsciiComputedRows->isValid(rowMappings[row]);
         });
         return isSubset ? std::optional(asciiInfo.isAllAscii()) : std::nullopt;
@@ -328,7 +328,7 @@ class SimpleVector : public BaseVector {
     }
     ensureIsAsciiCapacity();
     bool isAllAscii = true;
-    rows.template applyToSelected([&](auto row) {
+    rows.applyToSelected([&](auto row) {
       if (!isNullAt(row)) {
         auto string = valueAt(row);
         isAllAscii &=

@@ -203,7 +203,7 @@ void CastExpr::applyToSelectedNoThrowLocal(
     VectorPtr& result,
     Func&& func) {
   if (setNullInResultAtError()) {
-    rows.template applyToSelected([&](auto row) INLINE_LAMBDA {
+    rows.applyToSelected([&](auto row) INLINE_LAMBDA {
       try {
         func(row);
       } catch (const VeloxException& e) {
@@ -216,7 +216,7 @@ void CastExpr::applyToSelectedNoThrowLocal(
       }
     });
   } else {
-    rows.template applyToSelected([&](auto row) INLINE_LAMBDA {
+    rows.applyToSelected([&](auto row) INLINE_LAMBDA {
       try {
         func(row);
       } catch (const VeloxException& e) {
