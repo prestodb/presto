@@ -60,7 +60,7 @@ import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
 import org.apache.hadoop.hive.serde2.AbstractSerDe;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
@@ -847,7 +847,7 @@ public final class HiveWriteUtils
     private static class DateFieldSetter
             extends FieldSetter
     {
-        private final DateWritable value = new DateWritable();
+        private final DateWritableV2 value = new DateWritableV2();
 
         public DateFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
         {
