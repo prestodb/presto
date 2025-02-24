@@ -537,8 +537,8 @@ public class TestRowOperators
 
         // invalid cast
         assertInvalidCast("CAST(json_extract('{\"1\":[{\"key1\": \"John\", \"KEY1\":\"Johnny\"}]}', '$') AS MAP<bigint, ARRAY<ROW(key1 VARCHAR)>>)",
-                "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: KEY1\n" +
-                        "{\"1\":[{\"key1\":\"John\",\"KEY1\":\"Johnny\"}]}");
+                "Cannot cast to map(bigint,array(row(key1 varchar))). Duplicate field: key1\n" +
+                        "{\"1\":[{\"KEY1\":\"Johnny\",\"key1\":\"John\"}]}");
         assertInvalidCast("CAST(unchecked_to_json('{\"a\":1,\"b\":2,\"a\":3}') AS ROW(a BIGINT, b BIGINT))", "Cannot cast to row(a bigint,b bigint). Duplicate field: a\n{\"a\":1,\"b\":2,\"a\":3}");
         assertInvalidCast("CAST(unchecked_to_json('[{\"a\":1,\"b\":2,\"a\":3}]') AS ARRAY<ROW(a BIGINT, b BIGINT)>)", "Cannot cast to array(row(a bigint,b bigint)). Duplicate field: a\n[{\"a\":1,\"b\":2,\"a\":3}]");
     }
