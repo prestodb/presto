@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_JSON_CAST;
 import static com.facebook.presto.SystemSessionProperties.isFieldNameInJsonCastEnabled;
+import static com.facebook.presto.SystemSessionProperties.isLegacyJsonExtract;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMapSubscript;
 import static com.facebook.presto.SystemSessionProperties.isLegacyRowFieldOrdinalAccessEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
@@ -481,6 +482,7 @@ public final class Session
                 .setLegacyJsonCast(legacyJsonCast)
                 .setExtraCredentials(identity.getExtraCredentials())
                 .setWarnOnCommonNanPatterns(warnOnCommonNanPatterns(this))
+                .setLegacyJsonExtract(isLegacyJsonExtract(this))
                 .build();
     }
 
