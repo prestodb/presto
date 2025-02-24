@@ -56,7 +56,7 @@ public abstract class RemoteState
     private final java.time.Duration timeToUnhealthy;
 
     private boolean isHealthy;
-    private Instant lastHealthyResponseTime;
+    private Instant lastHealthyResponseTime = Instant.now();
 
     @Inject
     public RemoteState(HttpClient httpClient, URI remoteUri, RemoteStateConfig remoteStateConfig)
