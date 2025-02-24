@@ -109,7 +109,7 @@ public class AbstractAnalyzerTest
             .setCatalog(TPCH_CATALOG)
             .setSchema("s1")
             .setSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, "true")
-            .setSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, "true")
+            .setSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, "false")
             .build();
 
     protected static final SqlInvokedFunction SQL_FUNCTION_SQUARE = new SqlInvokedFunction(
@@ -379,21 +379,21 @@ public class AbstractAnalyzerTest
 
         String viewData7 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
-                        "select x,y,z from t13",
+                        "with cte as (select x + 1 as c1,y + 1 as c2, z + 1 as c3 from t13) select c1,c2,c3 from cte",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(
-                                new ViewDefinition.ViewColumn("x", BIGINT),
-                                new ViewDefinition.ViewColumn("y", BIGINT),
-                                new ViewDefinition.ViewColumn("z", BIGINT)),
+                                new ViewDefinition.ViewColumn("c1", BIGINT),
+                                new ViewDefinition.ViewColumn("c2", BIGINT),
+                                new ViewDefinition.ViewColumn("c3", BIGINT)),
                         Optional.empty(),
                         true));
         ConnectorTableMetadata viewMetadata7 = new ConnectorTableMetadata(
                 new SchemaTableName("s1", "v7"),
                 ImmutableList.of(
-                        new ColumnMetadata("x", BIGINT),
-                        new ColumnMetadata("y", BIGINT),
-                        new ColumnMetadata("z", BIGINT)));
+                        new ColumnMetadata("c1", BIGINT),
+                        new ColumnMetadata("c2", BIGINT),
+                        new ColumnMetadata("c3", BIGINT)));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata7, viewData7, false));
     }
 

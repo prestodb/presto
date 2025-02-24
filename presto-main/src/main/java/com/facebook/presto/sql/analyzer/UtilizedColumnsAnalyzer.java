@@ -265,7 +265,22 @@ public class UtilizedColumnsAnalyzer
 
             // FROM clause must be processed last, after all the field references from other clauses have been gathered
             if (querySpec.getFrom().isPresent()) {
-                process(querySpec.getFrom().get(), Context.newPrunableContext(context));
+//                process(querySpec.getFrom().get(), Context.newPrunableContext(context));
+
+                if (querySpec.getFrom().get() instanceof Table && analysis.getNamedQuery((Table) querySpec.getFrom().get()) != null
+                && analysis.getNamedQuery((Table) querySpec.getFrom().get()).isFromView()) {
+                    Relation newRel = new TableSubquery(analysis.getNamedQuery((Table) querySpec.getFrom().get()).getQuery());
+                    for (FieldId fid : context.getFieldIdsToExploreInRelation(querySpec.getFrom().get())){
+                        context.addFieldIdToExplore(new FieldId(RelationId.of(newRel),fid.getFieldIndex()));
+                    }
+//                    process(querySpec.getFrom().get(), Context.newPrunableContext(context));
+                    analysis.setScope(newRel, analysis.getScope(querySpec.getFrom().get()));
+                    process(newRel, Context.newPrunableContext(context));
+                }
+                else{
+                    process(querySpec.getFrom().get(), Context.newPrunableContext(context));
+                }
+
             }
 
             return null;
@@ -284,14 +299,15 @@ public class UtilizedColumnsAnalyzer
         @Override
         protected Void visitTable(Table table, Context context)
         {
-            Analysis.NamedQuery namedQuery = analysis.getNamedQuery(table);
-            if(namedQuery != null && namedQuery.isFromView()) {
-                handleRelation(table, context, namedQuery.getQuery().getQueryBody());
-                process(namedQuery.getQuery(), context);
-            }
-            else{
-                handleRelation(table, context);
-            }
+//            Analysis.NamedQuery namedQuery = analysis.getNamedQuery(table);
+//            if(namedQuery != null && namedQuery.isFromView()) {
+//                handleRelation(table, context, namedQuery.getQuery().getQueryBody());
+//                process(namedQuery.getQuery(), context);
+//            }
+//            else{
+//                handleRelation(table, context);
+//            }
+            handleRelation(table, context);
             return null;
         }
 
