@@ -6,7 +6,6 @@ Installation
     :maxdepth: 1
 
     installation/deployment
-    installation/jdbc
     installation/benchmark-driver
     installation/tableau
     installation/spark

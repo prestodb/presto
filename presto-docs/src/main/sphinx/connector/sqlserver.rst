@@ -82,14 +82,12 @@ General Configuration Properties
 Property Name                                      Description                                                          Default
 ================================================== ==================================================================== ===========
 ``user-credential-name``                           Name of the ``extraCredentials`` property whose value is the JDBC
-                                                   driver's user name. See ``extraCredentials`` in `Parameter Reference
-                                                   <https://prestodb.io/docs/current/installation/jdbc.html
-                                                   #parameter-reference>`_.
+                                                   driver's user name. See ``extraCredentials`` in
+                                                   :ref:`Parameter Reference <jdbc-parameter-reference>`.
 
 ``password-credential-name``                       Name of the ``extraCredentials`` property whose value is the JDBC
-                                                   driver's user password. See ``extraCredentials`` in `Parameter
-                                                   Reference <https://prestodb.io/docs/current/installation/jdbc.html
-                                                   #parameter-reference>`_.
+                                                   driver's user password. See ``extraCredentials`` in
+                                                   :ref:`Parameter Reference <jdbc-parameter-reference>`.
 
 ``case-insensitive-name-matching``                 Match dataset and table names case-insensitively.                    ``false``
 
