@@ -102,22 +102,6 @@ Worker Properties
 
 The configuration properties of Presto C++ workers are described here, in alphabetical order.
 
-``async-cache-persistence-interval``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* **Type:** ``string``
-* **Default value:** ``0s``
-
-  The interval for persisting in-memory cache to SSD. Setting this config
-  to a non-zero value will activate periodic cache persistence.
-
-``async-data-cache-enabled``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-* **Type:** ``boolean``
-* **Default value:** ``true``
-
-  In-memory cache.
-
 ``runtime-metrics-collection-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 * **Type:** ``boolean``
@@ -303,6 +287,133 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Default value:** ``0.25``
 
   See description for ``shared-arbitrator.memory-pool-min-free-capacity``
+
+Cache Properties
+----------------
+
+The configuration properties of AsyncDataCache and SSD cache are described here.
+
+``async-cache-persistence-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``string``
+* **Default value:** ``0s``
+
+  The interval for persisting in-memory cache to SSD. Set this
+  to a non-zero value to activate periodic cache persistence.
+
+``async-data-cache-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+  In-memory cache.
+
+``async-cache-ssd-gb``
+^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``0``
+
+  The size of the SSD. Unit is in GiB (gibibytes).
+
+``async-cache-ssd-path``
+^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``string``
+* **Default value:** ``/mnt/flash/async_cache.``
+  
+  The path of the directory that is mounted onto the SSD.
+
+``async-cache-max-ssd-write-ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``double``
+* **Default value:** ``0.7``
+  
+  The maximum ratio of the number of in-memory cache entries written to the SSD cache 
+  over the total number of cache entries. Use this to control SSD cache write rate, 
+  once the ratio exceeds this threshold then we stop writing to the SSD cache.
+
+``async-cache-ssd-savable-ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``double``
+* **Default value:** ``0.125``
+  
+  The min ratio of SSD savable (in-memory) cache space over the total cache space.
+  Once the ratio exceeds this limit, we start writing SSD savable cache entries 
+  into SSD cache.
+
+``async-cache-min-ssd-savable-bytes``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``integer``
+* **Default value:** ``16777216``
+  
+  Min SSD savable (in-memory) cache space to start writing SSD savable cache entries into SSD cache.
+
+  The default value ``16777216`` is 16 MB.
+
+  NOTE: we only write to SSD cache when both ``async-cache-max-ssd-write-ratio`` and
+  ``async-cache-ssd-savable-ratio`` conditions are satisfied.
+
+``async-cache-persistence-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``string``
+* **Default value:** ``0s``
+  
+  The interval for persisting in-memory cache to SSD. Set this configuration to a non-zero value to
+  activate periodic cache persistence.
+  
+  The following time units are supported: 
+  
+  ns, us, ms, s, m, h, d
+
+``async-cache-ssd-disable-file-cow``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``bool``
+* **Default value:** ``false``
+  
+  In file systems such as btrfs that support cow (copy on write), the SSD cache can use all of the SSD
+  space and stop working. To prevent that, use this option to disable cow for cache files.
+
+``ssd-cache-checksum-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``bool``
+* **Default value:** ``false``
+  
+  When enabled, a CRC-based checksum is calculated for each cache entry written to SSD. 
+  The checksum is stored in the next checkpoint file.
+
+``ssd-cache-read-verification-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``bool``
+* **Default value:** ``false``
+  
+  When enabled, the checksum is recalculated and verified against the stored value when 
+  cache data is loaded from the SSD.
+
+``cache.velox.ttl-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``bool``
+* **Default value:** ``false``
+  
+  Enable TTL for AsyncDataCache and SSD cache.
+
+``cache.velox.ttl-threshold``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``string``
+* **Default value:** ``2d``
+  
+  TTL duration for AsyncDataCache and SSD cache entries.
+  
+  The following time units are supported:
+  
+  ns, us, ms, s, m, h, d
+
+``cache.velox.ttl-check-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``string``
+* **Default value:** ``1h``
+  
+  The periodic duration to apply cache TTL and evict AsyncDataCache and SSD cache entries.
 
 Memory Checker Properties
 -------------------------
