@@ -112,7 +112,13 @@ public class TestHealthChecks
         prestoServers.get(0).stopResponding();
         List<URI> destinations = new ArrayList();
         for (int i = 0; i < 3; i++) {
-            destinations.add(getDestinationWrapper().orElse(URI.create("null")));
+            Optional<URI> destinationWrapper = getDestinationWrapper();
+            if (!destinationWrapper.isPresent()) {
+                destinations.add(URI.create("null"));
+            }
+            else {
+                destinations.add(destinationWrapper.get());
+            }
         }
         assertFalse(destinations.contains(prestoServers.get(0).getBaseUrl()));
     }
