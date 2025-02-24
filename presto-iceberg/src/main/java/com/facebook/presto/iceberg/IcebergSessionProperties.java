@@ -66,7 +66,7 @@ public final class IcebergSessionProperties
     public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
     public static final String ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD = "rows_for_metadata_optimization_threshold";
     public static final String STATISTICS_KLL_SKETCH_K_PARAMETER = "statistics_kll_sketch_k_parameter";
-    public static final String TARGET_SPLIT_SIZE = "target_split_size";
+    public static final String TARGET_SPLIT_SIZE_BYTES = "target_split_size_bytes";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -193,7 +193,7 @@ public final class IcebergSessionProperties
                         icebergConfig.getStatisticsKllSketchKParameter(),
                         false))
                 .add(longProperty(
-                        TARGET_SPLIT_SIZE,
+                        TARGET_SPLIT_SIZE_BYTES,
                         "The target split size. Set to 0 to use the iceberg table's read.split.target-size property",
                         0L,
                         false));
@@ -333,6 +333,6 @@ public final class IcebergSessionProperties
 
     public static Long getTargetSplitSize(ConnectorSession session)
     {
-        return session.getProperty(TARGET_SPLIT_SIZE, Long.class);
+        return session.getProperty(TARGET_SPLIT_SIZE_BYTES, Long.class);
     }
 }
