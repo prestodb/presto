@@ -30,7 +30,7 @@ ______________________
 
 JDBC Changes
 ____________
-* Add a new parameter ``timeZoneID`` which will set the time zone used for the timestamp columns. (See :doc:`/installation/jdbc` :issue:`16680`).
+* Add a new parameter ``timeZoneID`` which will set the time zone used for the timestamp columns. (See :doc:`/clients/java` and issue :issue:`16680`).
 
 MongoDB Connector Changes
 _________________________

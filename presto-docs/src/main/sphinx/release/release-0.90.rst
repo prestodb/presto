@@ -24,7 +24,7 @@ General Changes
   to bytecode. To enable this option, add ``compiler.interpreter-enabled=true``
   to the coordinator and worker config properties. Enabling this option will
   allow certain queries to run slowly rather than failing.
-* Improve :doc:`/installation/jdbc` conformance. In particular, all unimplemented
+* Improve :doc:`/clients/java` conformance. In particular, all unimplemented
   methods now throw ``SQLException`` rather than ``UnsupportedOperationException``.
 
 Functions and Language Features
