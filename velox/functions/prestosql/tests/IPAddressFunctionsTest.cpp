@@ -45,6 +45,36 @@ class IPAddressFunctionsTest : public functions::test::FunctionBaseTest {
     return evaluateOnce<std::string>(
         "cast(ip_subnet_max(cast(c0 as ipprefix)) as varchar)", input);
   }
+
+  std::optional<std::string> ipSubnetRangeMin(
+      const std::optional<std::string>& input) {
+    return evaluateOnce<std::string>(
+        "cast(ip_subnet_range(cast(c0 as ipprefix))[1] as varchar)", input);
+  }
+
+  std::optional<std::string> ipSubnetRangeMax(
+      const std::optional<std::string>& input) {
+    return evaluateOnce<std::string>(
+        "cast(ip_subnet_range(cast(c0 as ipprefix))[2] as varchar)", input);
+  }
+
+  std::optional<bool> isSubnetOfIP(
+      const std::optional<std::string>& prefix,
+      const std::optional<std::string>& ip) {
+    return evaluateOnce<bool>(
+        "is_subnet_of(cast(c0 as ipprefix), cast(c1 as ipaddress))",
+        prefix,
+        ip);
+  }
+
+  std::optional<bool> isSubnetOfIPPrefix(
+      const std::optional<std::string>& prefix,
+      const std::optional<std::string>& prefix2) {
+    return evaluateOnce<bool>(
+        "is_subnet_of(cast(c0 as ipprefix), cast(c1 as ipprefix))",
+        prefix,
+        prefix2);
+  }
 };
 
 TEST_F(IPAddressFunctionsTest, ipPrefixFromIpAddress) {
@@ -178,6 +208,88 @@ TEST_F(IPAddressFunctionsTest, ipSubnetMax) {
   ASSERT_EQ(
       ipSubnetMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/128"),
       "2001:db8:85a3:1:1:8a2e:370:7334");
+}
+
+TEST_F(IPAddressFunctionsTest, IPSubnetRange) {
+  ASSERT_EQ("192.0.0.0", ipSubnetRangeMin("192.64.1.1/9"));
+  ASSERT_EQ("192.127.255.255", ipSubnetRangeMax("192.64.1.1/9"));
+  ASSERT_EQ("0.0.0.0", ipSubnetRangeMin("192.64.1.1/0"));
+  ASSERT_EQ("255.255.255.255", ipSubnetRangeMax("192.64.1.1/0"));
+  ASSERT_EQ("128.0.0.0", ipSubnetRangeMin("192.64.1.1/1"));
+  ASSERT_EQ("255.255.255.255", ipSubnetRangeMax("192.64.1.1/1"));
+  ASSERT_EQ("192.64.1.0", ipSubnetRangeMin("192.64.1.1/31"));
+  ASSERT_EQ("192.64.1.1", ipSubnetRangeMax("192.64.1.1/31"));
+  ASSERT_EQ("192.64.1.1", ipSubnetRangeMin("192.64.1.1/32"));
+  ASSERT_EQ("192.64.1.1", ipSubnetRangeMax("192.64.1.1/32"));
+  ASSERT_EQ(
+      "2001:db8:85a3::",
+      ipSubnetRangeMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/48"));
+  ASSERT_EQ(
+      "2001:db8:85a3:ffff:ffff:ffff:ffff:ffff",
+      ipSubnetRangeMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/48"));
+  ASSERT_EQ(
+      "::", ipSubnetRangeMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/0"));
+  ASSERT_EQ(
+      "::", ipSubnetRangeMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/1"));
+  ASSERT_EQ(
+      "2001:db8:85a3:1:1:8a2e:370:7334",
+      ipSubnetRangeMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/127"));
+  ASSERT_EQ(
+      "2001:db8:85a3:1:1:8a2e:370:7334",
+      ipSubnetRangeMin("2001:0db8:85a3:0001:0001:8a2e:0370:7334/128"));
+  ASSERT_EQ(
+      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      ipSubnetRangeMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/0"));
+  ASSERT_EQ(
+      "7fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      ipSubnetRangeMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/1"));
+  ASSERT_EQ(
+      "2001:db8:85a3:1:1:8a2e:370:7335",
+      ipSubnetRangeMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/127"));
+  ASSERT_EQ(
+      "2001:db8:85a3:1:1:8a2e:370:7334",
+      ipSubnetRangeMax("2001:0db8:85a3:0001:0001:8a2e:0370:7334/128"));
+  ASSERT_EQ("1.2.3.0", ipSubnetRangeMin("1.2.3.160/24"));
+  ASSERT_EQ("1.2.3.128", ipSubnetRangeMin("1.2.3.128/31"));
+  ASSERT_EQ("10.1.6.46", ipSubnetRangeMin("10.1.6.46/32"));
+  ASSERT_EQ("0.0.0.0", ipSubnetRangeMin("10.1.6.46/0"));
+  ASSERT_EQ("64:ff9b::", ipSubnetRangeMin("64:ff9b::17/64"));
+  ASSERT_EQ("64:ff9b::5200", ipSubnetRangeMin("64:ff9b::52f4/120"));
+  ASSERT_EQ("64:ff9b::17", ipSubnetRangeMin("64:ff9b::17/128"));
+  ASSERT_EQ("1.2.3.255", ipSubnetRangeMax("1.2.3.160/24"));
+  ASSERT_EQ("1.2.3.129", ipSubnetRangeMax("1.2.3.128/31"));
+  ASSERT_EQ("10.1.6.46", ipSubnetRangeMax("10.1.6.46/32"));
+  ASSERT_EQ("255.255.255.255", ipSubnetRangeMax("10.1.6.46/0"));
+  ASSERT_EQ("64:ff9b::ffff:ffff:ffff:ffff", ipSubnetRangeMax("64:ff9b::17/64"));
+  ASSERT_EQ("64:ff9b::52ff", ipSubnetRangeMax("64:ff9b::52f4/120"));
+  ASSERT_EQ("64:ff9b::17", ipSubnetRangeMax("64:ff9b::17/128"));
+}
+
+TEST_F(IPAddressFunctionsTest, IPSubnetOfIPPrefix) {
+  EXPECT_EQ(isSubnetOfIPPrefix("192.168.3.131/26", "192.168.3.144/30"), true);
+  EXPECT_EQ(isSubnetOfIPPrefix("64:ff9b::17/64", "64:ffff::17/64"), false);
+  EXPECT_EQ(isSubnetOfIPPrefix("64:ff9b::17/32", "64:ffff::17/24"), false);
+  EXPECT_EQ(isSubnetOfIPPrefix("64:ffff::17/24", "64:ff9b::17/32"), true);
+  EXPECT_EQ(isSubnetOfIPPrefix("192.168.3.131/26", "192.168.3.131/26"), true);
+
+  EXPECT_EQ(isSubnetOfIP("1.2.3.128/26", "1.2.3.129"), true);
+  EXPECT_EQ(isSubnetOfIP("1.2.3.128/26", "1.2.5.1"), false);
+  EXPECT_EQ(isSubnetOfIP("1.2.3.128/32", "1.2.3.128"), true);
+  EXPECT_EQ(isSubnetOfIP("1.2.3.128/0", "192.168.5.1"), true);
+  EXPECT_EQ(isSubnetOfIP("64:ff9b::17/64", "64:ff9b::ffff:ff"), true);
+  EXPECT_EQ(isSubnetOfIP("64:ff9b::17/64", "64:ffff::17"), false);
+
+  EXPECT_EQ(isSubnetOfIPPrefix("192.168.3.131/26", "192.168.3.144/30"), true);
+  EXPECT_EQ(isSubnetOfIPPrefix("1.2.3.128/26", "1.2.5.1/30"), false);
+  EXPECT_EQ(isSubnetOfIPPrefix("1.2.3.128/26", "1.2.3.128/26"), true);
+  EXPECT_EQ(isSubnetOfIPPrefix("64:ff9b::17/64", "64:ff9b::ff:25/80"), true);
+  EXPECT_EQ(isSubnetOfIPPrefix("64:ff9b::17/64", "64:ffff::17/64"), false);
+  EXPECT_EQ(
+      isSubnetOfIPPrefix("2804:431:b000::/37", "2804:431:b000::/38"), true);
+  EXPECT_EQ(
+      isSubnetOfIPPrefix("2804:431:b000::/38", "2804:431:b000::/37"), false);
+  EXPECT_EQ(isSubnetOfIPPrefix("170.0.52.0/22", "170.0.52.0/24"), true);
+  EXPECT_EQ(isSubnetOfIPPrefix("170.0.52.0/24", "170.0.52.0/22"), false);
 }
 
 } // namespace facebook::velox::functions::prestosql

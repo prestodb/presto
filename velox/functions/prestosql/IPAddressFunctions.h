@@ -23,6 +23,32 @@
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 
 namespace facebook::velox::functions {
+namespace {
+
+inline bool isIPv4(int128_t ip) {
+  int128_t ipV4 = 0x0000FFFF00000000;
+  uint128_t mask = 0xFFFFFFFFFFFFFFFF;
+  constexpr int kIPV6HalfBits = 64;
+  mask = (mask << kIPV6HalfBits) | 0xFFFFFFFF00000000;
+  return (ip & mask) == ipV4;
+}
+
+inline int128_t getIPSubnetMax(int128_t ip, uint8_t prefix) {
+  uint128_t mask = 1;
+  if (isIPv4(ip)) {
+    ip |= (mask << (ipaddress::kIPV4Bits - prefix)) - 1;
+    return ip;
+  }
+
+  // Special case: Overflow to all 0 subtracting 1 does not work.
+  if (prefix == 0) {
+    return -1;
+  }
+
+  ip |= (mask << (ipaddress::kIPV6Bits - prefix)) - 1;
+  return ip;
+}
+} // namespace
 
 template <typename T>
 struct IPPrefixFunction {
@@ -99,28 +125,57 @@ struct IPSubnetMaxFunction {
     result =
         getIPSubnetMax(*ipPrefix.template at<0>(), *ipPrefix.template at<1>());
   }
+};
+
+template <typename T>
+struct IPSubnetRangeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<IPAddress>>& result,
+      const arg_type<IPPrefix>& ipPrefix) {
+    result.push_back(*ipPrefix.template at<0>());
+    result.push_back(
+        getIPSubnetMax(*ipPrefix.template at<0>(), *ipPrefix.template at<1>()));
+  }
+};
+
+template <typename T>
+struct IPSubnetOfFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<bool>& result,
+      const arg_type<IPPrefix>& ipPrefix,
+      const arg_type<IPAddress>& ip) {
+    result = isSubnetOf(ipPrefix, *ip);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<bool>& result,
+      const arg_type<IPPrefix>& ipPrefix,
+      const arg_type<IPPrefix>& ipPrefix2) {
+    result = (*ipPrefix2.template at<1>() >= *ipPrefix.template at<1>()) &&
+        isSubnetOf(ipPrefix, *ipPrefix2.template at<0>());
+  }
 
  private:
-  static int128_t getIPSubnetMax(int128_t ip, uint8_t prefix) {
-    auto tryIpv4 = ipaddress::tryIpPrefixLengthFromIPAddressType(ip);
-    // This check should never fail because we're taking a pre-existing
-    // IPPrefix.
-    VELOX_CHECK(tryIpv4.hasValue());
-
-    const bool isIpV4 = tryIpv4.value() == ipaddress::kIPV4Bits;
+  static bool isSubnetOf(const arg_type<IPPrefix>& ipPrefix, int128_t checkIP) {
     uint128_t mask = 1;
-    if (isIpV4) {
-      ip |= (mask << (ipaddress::kIPV4Bits - prefix)) - 1;
-      return ip;
+    const uint8_t prefix = *ipPrefix.template at<1>();
+    if (isIPv4(*ipPrefix.template at<0>())) {
+      checkIP &= ((mask << (ipaddress::kIPV4Bits - prefix)) - 1) ^
+          static_cast<uint128_t>(-1);
+    } else {
+      // Special case: Overflow to all 0 subtracting 1 does not work.
+      if (prefix == 0) {
+        checkIP = 0;
+      } else {
+        checkIP &= ((mask << (ipaddress::kIPV6Bits - prefix)) - 1) ^
+            static_cast<uint128_t>(-1);
+      }
     }
 
-    // Special case: Overflow to all 0 subtracting 1 does not work.
-    if (prefix == 0) {
-      return -1;
-    }
-
-    ip |= (mask << (ipaddress::kIPV6Bits - prefix)) - 1;
-    return ip;
+    return (*ipPrefix.template at<0>() == checkIP);
   }
 };
 
@@ -135,6 +190,12 @@ void registerIPAddressFunctions(const std::string& prefix) {
       {prefix + "ip_subnet_min"});
   registerFunction<IPSubnetMaxFunction, IPAddress, IPPrefix>(
       {prefix + "ip_subnet_max"});
+  registerFunction<IPSubnetRangeFunction, Array<IPAddress>, IPPrefix>(
+      {prefix + "ip_subnet_range"});
+  registerFunction<IPSubnetOfFunction, bool, IPPrefix, IPAddress>(
+      {prefix + "is_subnet_of"});
+  registerFunction<IPSubnetOfFunction, bool, IPPrefix, IPPrefix>(
+      {prefix + "is_subnet_of"});
 }
 
 } // namespace facebook::velox::functions
