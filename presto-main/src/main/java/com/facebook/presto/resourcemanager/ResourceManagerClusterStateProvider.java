@@ -249,7 +249,7 @@ public class ResourceManagerClusterStateProvider
                     else if (!info.getState().isDone() && info.getState() != WAITING_FOR_PREREQUISITES) {
                         builder.addRunningQueries(1);
                     }
-                    builder.addUserMemoryReservationBytes(info.getQueryStats().getUserMemoryReservation().toBytes());
+                    builder.addUserMemoryReservationBytes(info.getQueryStats().getUserMemoryReservation());
                     while (resourceGroupId.getParent().isPresent()) {
                         resourceGroupId = resourceGroupId.getParent().get();
                         ResourceGroupRuntimeInfo.Builder parentBuilder = resourceGroupBuilders.computeIfAbsent(resourceGroupId, ResourceGroupRuntimeInfo::builder);
@@ -342,8 +342,8 @@ public class ResourceManagerClusterStateProvider
         requireNonNull(newQuery, "newQuery must not be null");
         return existingLargeQuery
                 .map(largeQuery -> {
-                    long largestGeneralBytes = largeQuery.getBasicQueryInfo().getQueryStats().getTotalMemoryReservation().toBytes();
-                    long currentGeneralBytes = newQuery.getBasicQueryInfo().getQueryStats().getTotalMemoryReservation().toBytes();
+                    long largestGeneralBytes = largeQuery.getBasicQueryInfo().getQueryStats().getTotalMemoryReservation();
+                    long currentGeneralBytes = newQuery.getBasicQueryInfo().getQueryStats().getTotalMemoryReservation();
                     if (currentGeneralBytes > largestGeneralBytes) {
                         return newQuery;
                     }
