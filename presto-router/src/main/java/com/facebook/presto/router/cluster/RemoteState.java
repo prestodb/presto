@@ -106,7 +106,7 @@ public abstract class RemoteState
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching node state from %s returned status code %d", remoteUri, result.getStatusCode());
                             if (!isHealthy) {
-                                log.info("%s was unhealthy, and is nowhealthy", remoteUri.getHost());
+                                log.info("%s was unhealthy, and is now healthy", remoteUri.getHost());
                             }
                             isHealthy = true;
                             lastHealthyResponseTime = Instant.now();

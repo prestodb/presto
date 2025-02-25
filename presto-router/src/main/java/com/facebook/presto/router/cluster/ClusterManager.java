@@ -215,7 +215,7 @@ public class ClusterManager
                 .collect(Collectors.toList());
 
         if (healthyClusterURIs.isEmpty()) {
-            log.info("Healthy cluster not found!");
+            log.info("healthy cluster not found");
             return Optional.empty();
         }
 
