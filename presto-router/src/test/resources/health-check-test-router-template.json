@@ -2,7 +2,7 @@
   "groups": [
     {
       "name": "group1",
-      "members": ${SERVERS}
+      "members": [${SERVERS}, ${SERVERS}, ${SERVERS}]
     }
   ],
   "selectors": [

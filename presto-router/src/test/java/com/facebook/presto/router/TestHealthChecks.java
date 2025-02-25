@@ -76,7 +76,7 @@ public class TestHealthChecks
         prestoServers = builder.build();
 
         for (TestingPrestoServer s : prestoServers) {
-            configTemplate = configTemplate.replaceFirst("\\$\\{SERVERS}", String.format("[ \"%s\" ]", s.getBaseUrl().toString()));
+            configTemplate = configTemplate.replaceFirst("\\$\\{SERVERS}", String.format("\"%s\"", s.getBaseUrl().toString()));
         }
 
         FileOutputStream fileOutputStream = new FileOutputStream(configFile);
@@ -109,19 +109,19 @@ public class TestHealthChecks
 
     @Test
     public void testHealthChecks()
-            throws InterruptedException
     {
         prestoServers.get(0).stopResponding();
+        clusterManager.refreshHealthStatuses();
         List<URI> destinations = getDestinations(3);
         assertFalse(destinations.contains(prestoServers.get(0).getBaseUrl()));
 
         prestoServers.get(0).startResponding();
-        Thread.sleep(6000);
+        clusterManager.refreshHealthStatuses();
         destinations = getDestinations(3);
         assertTrue(destinations.contains(prestoServers.get(0).getBaseUrl()));
 
         prestoServers.get(0).stopResponding();
-        Thread.sleep(6000);
+        clusterManager.refreshHealthStatuses();
         destinations = getDestinations(3);
         assertFalse(destinations.contains(prestoServers.get(0).getBaseUrl()));
     }
