@@ -79,7 +79,7 @@ public class TestIcebergOrcMetricsCollection
     @Test
     public void testBasic()
     {
-        assertUpdate("CREATE TABLE orders WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.orders", 15000);
+        assertUpdate("CREATE TABLE orders WITH (\"write.format.default\" = 'ORC') AS SELECT * FROM tpch.tiny.orders", 15000);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"orders$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
@@ -133,7 +133,7 @@ public class TestIcebergOrcMetricsCollection
     @Test
     public void testWithNulls()
     {
-        assertUpdate("CREATE TABLE test_with_nulls (_integer INTEGER, _real REAL, _string VARCHAR)  WITH (format = 'ORC')");
+        assertUpdate("CREATE TABLE test_with_nulls (_integer INTEGER, _real REAL, _string VARCHAR)  WITH (\"write.format.default\" = 'ORC')");
         assertUpdate("INSERT INTO test_with_nulls VALUES (7, 3.4, 'aaa'), (3, 4.5, 'bbb'), (4, null, 'ccc'), (null, null, 'ddd')", 4);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_with_nulls$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
@@ -154,7 +154,7 @@ public class TestIcebergOrcMetricsCollection
 
         assertUpdate("DROP TABLE test_with_nulls");
 
-        assertUpdate("CREATE TABLE test_all_nulls (_integer INTEGER) WITH (format = 'ORC')");
+        assertUpdate("CREATE TABLE test_all_nulls (_integer INTEGER) WITH (\"write.format.default\" = 'ORC')");
         assertUpdate("INSERT INTO test_all_nulls VALUES null, null, null", 3);
         materializedResult = computeActual("SELECT * FROM \"test_all_nulls$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
@@ -198,7 +198,7 @@ public class TestIcebergOrcMetricsCollection
     @Test
     public void testNestedTypes()
     {
-        assertUpdate("CREATE TABLE test_nested_types (col1 INTEGER, col2 ROW (f1 INTEGER, f2 ARRAY(INTEGER), f3 DOUBLE)) WITH (format = 'ORC')");
+        assertUpdate("CREATE TABLE test_nested_types (col1 INTEGER, col2 ROW (f1 INTEGER, f2 ARRAY(INTEGER), f3 DOUBLE)) WITH (\"write.format.default\" = 'ORC')");
         assertUpdate("INSERT INTO test_nested_types VALUES " +
                 "(7, ROW(3, ARRAY[10, 11, 19], 1.9)), " +
                 "(-9, ROW(4, ARRAY[13, 16, 20], -2.9)), " +

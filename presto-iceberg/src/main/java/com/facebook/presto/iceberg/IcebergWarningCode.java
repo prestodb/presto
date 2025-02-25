@@ -11,27 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.iceberg;
 
-public enum StandardWarningCode
+import com.facebook.presto.spi.WarningCode;
+import com.facebook.presto.spi.WarningCodeSupplier;
+
+public enum IcebergWarningCode
         implements WarningCodeSupplier
 {
-    TOO_MANY_STAGES(0x0000_0001),
-    PARSER_WARNING(0x0000_0002),
-    PERFORMANCE_WARNING(0x0000_0003),
-    SEMANTIC_WARNING(0x0000_0004),
-    REDUNDANT_ORDER_BY(0x0000_0005),
-    PARTIAL_RESULT_WARNING(0x0000_0006),
-    MULTIPLE_ORDER_BY(0x0000_0007),
-    DEFAULT_SAMPLE_FUNCTION(0x0000_0008),
-    SAMPLED_FIELDS(0x0000_0009),
-    MULTIPLE_TABLE_METADATA(0x0000_0010),
-    /**/;
+    SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING(1),
+    USE_OF_DEPRECATED_TABLE_PROPERTY(2);
     private final WarningCode warningCode;
+    public static final int WARNING_CODE_MASK = 0x0200_0000;
 
-    StandardWarningCode(int code)
+    IcebergWarningCode(int code)
     {
-        warningCode = new WarningCode(code, name());
+        warningCode = new WarningCode(code + WARNING_CODE_MASK, name());
     }
 
     @Override

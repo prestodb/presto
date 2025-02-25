@@ -60,10 +60,6 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.VIEW_OWNER;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
@@ -108,9 +104,10 @@ public class IcebergNativeMetadata
             CatalogType catalogType,
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
-            StatisticsFileCache statisticsFileCache)
+            StatisticsFileCache statisticsFileCache,
+            IcebergTableProperties tableProperties)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.catalogType = requireNonNull(catalogType, "catalogType is null");
     }
@@ -314,26 +311,26 @@ public class IcebergNativeMetadata
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
 
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
-        FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
+        PartitionSpec partitionSpec = parsePartitionFields(schema, tableProperties.getPartitioning(tableMetadata.getProperties()));
+        FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
 
         try {
             TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
-            String targetPath = getTableLocation(tableMetadata.getProperties());
+            String targetPath = tableProperties.getTableLocation(tableMetadata.getProperties());
             if (!isNullOrEmpty(targetPath)) {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
                         targetPath,
-                        populateTableProperties(tableMetadata, fileFormat, session));
+                        populateTableProperties(tableMetadata, tableProperties, fileFormat, session));
             }
             else {
                 transaction = catalogFactory.getCatalog(session).newCreateTableTransaction(
                         tableIdentifier,
                         schema,
                         partitionSpec,
-                        populateTableProperties(tableMetadata, fileFormat, session));
+                        populateTableProperties(tableMetadata, tableProperties, fileFormat, session));
             }
         }
         catch (AlreadyExistsException e) {
@@ -342,7 +339,7 @@ public class IcebergNativeMetadata
 
         Table icebergTable = transaction.table();
         ReplaceSortOrder replaceSortOrder = transaction.replaceSortOrder();
-        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
+        SortOrder sortOrder = parseSortFields(schema, tableProperties.getSortOrder(tableMetadata.getProperties()));
         List<SortField> sortFields = getSupportedSortFields(icebergTable.schema(), sortOrder);
         for (SortField sortField : sortFields) {
             if (sortField.getSortOrder().isAscending()) {

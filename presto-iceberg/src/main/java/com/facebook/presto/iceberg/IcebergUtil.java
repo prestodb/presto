@@ -142,8 +142,6 @@ import static com.facebook.presto.iceberg.IcebergMetadataColumn.isMetadataColumn
 import static com.facebook.presto.iceberg.IcebergPartitionType.IDENTITY;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isMergeOnReadModeEnabled;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getCommitRetries;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getFormatVersion;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
@@ -1140,10 +1138,10 @@ public final class IcebergUtil
         }
     }
 
-    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, FileFormat fileFormat, ConnectorSession session)
+    public static Map<String, String> populateTableProperties(ConnectorTableMetadata tableMetadata, IcebergTableProperties tableProperties, FileFormat fileFormat, ConnectorSession session)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(5);
-        Integer commitRetries = getCommitRetries(tableMetadata.getProperties());
+        Integer commitRetries = tableProperties.getCommitRetries(session, tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
         propertiesBuilder.put(COMMIT_NUM_RETRIES, String.valueOf(commitRetries));
         switch (fileFormat) {
@@ -1158,7 +1156,7 @@ public final class IcebergUtil
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        String formatVersion = getFormatVersion(tableMetadata.getProperties());
+        String formatVersion = tableProperties.getFormatVersion(session, tableMetadata.getProperties());
         verify(formatVersion != null, "Format version cannot be null");
         propertiesBuilder.put(FORMAT_VERSION, formatVersion);
 
@@ -1167,19 +1165,19 @@ public final class IcebergUtil
             propertiesBuilder.put(UPDATE_MODE, RowLevelOperationMode.COPY_ON_WRITE.modeName());
         }
         else {
-            RowLevelOperationMode deleteMode = IcebergTableProperties.getDeleteMode(tableMetadata.getProperties());
+            RowLevelOperationMode deleteMode = tableProperties.getDeleteMode(session, tableMetadata.getProperties());
             propertiesBuilder.put(DELETE_MODE, deleteMode.modeName());
-            RowLevelOperationMode updateMode = IcebergTableProperties.getUpdateMode(tableMetadata.getProperties());
+            RowLevelOperationMode updateMode = tableProperties.getUpdateMode(tableMetadata.getProperties());
             propertiesBuilder.put(UPDATE_MODE, updateMode.modeName());
         }
 
-        Integer metadataPreviousVersionsMax = IcebergTableProperties.getMetadataPreviousVersionsMax(tableMetadata.getProperties());
+        Integer metadataPreviousVersionsMax = tableProperties.getMetadataPreviousVersionsMax(session, tableMetadata.getProperties());
         propertiesBuilder.put(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(metadataPreviousVersionsMax));
 
-        Boolean metadataDeleteAfterCommit = IcebergTableProperties.isMetadataDeleteAfterCommit(tableMetadata.getProperties());
+        Boolean metadataDeleteAfterCommit = tableProperties.isMetadataDeleteAfterCommit(session, tableMetadata.getProperties());
         propertiesBuilder.put(METADATA_DELETE_AFTER_COMMIT_ENABLED, String.valueOf(metadataDeleteAfterCommit));
 
-        Integer metricsMaxInferredColumn = IcebergTableProperties.getMetricsMaxInferredColumn(tableMetadata.getProperties());
+        Integer metricsMaxInferredColumn = tableProperties.getMetricsMaxInferredColumn(session, tableMetadata.getProperties());
         propertiesBuilder.put(METRICS_MAX_INFERRED_COLUMN_DEFAULTS, String.valueOf(metricsMaxInferredColumn));
 
         propertiesBuilder.put(SPLIT_SIZE, String.valueOf(IcebergTableProperties.getTargetSplitSize(tableMetadata.getProperties())));

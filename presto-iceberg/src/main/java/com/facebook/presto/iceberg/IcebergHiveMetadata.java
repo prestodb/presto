@@ -114,10 +114,6 @@ import static com.facebook.presto.iceberg.HiveTableOperations.STORAGE_FORMAT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getHiveStatisticsMergeStrategy;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getFileFormat;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
-import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
@@ -173,9 +169,10 @@ public class IcebergHiveMetadata
             NodeVersion nodeVersion,
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
-            StatisticsFileCache statisticsFileCache)
+            StatisticsFileCache statisticsFileCache,
+            IcebergTableProperties tableProperties)
     {
-        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
+        super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties);
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hiveTableOeprationsConfig = requireNonNull(hiveTableOeprationsConfig, "hiveTableOperationsConfig is null");
@@ -309,14 +306,14 @@ public class IcebergHiveMetadata
 
         Schema schema = toIcebergSchema(tableMetadata.getColumns());
 
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
+        PartitionSpec partitionSpec = parsePartitionFields(schema, tableProperties.getPartitioning(tableMetadata.getProperties()));
 
         MetastoreContext metastoreContext = getMetastoreContext(session);
         Database database = metastore.getDatabase(metastoreContext, schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
-        String targetPath = getTableLocation(tableMetadata.getProperties());
+        String targetPath = tableProperties.getTableLocation(tableMetadata.getProperties());
         if (targetPath == null) {
             Optional<String> location = database.getLocation();
             if (!location.isPresent() || location.get().isEmpty()) {
@@ -341,9 +338,9 @@ public class IcebergHiveMetadata
         if (operations.current() != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
-        SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
-        FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath, populateTableProperties(tableMetadata, fileFormat, session));
+        SortOrder sortOrder = parseSortFields(schema, tableProperties.getSortOrder(tableMetadata.getProperties()));
+        FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath, populateTableProperties(tableMetadata, tableProperties, fileFormat, session));
         transaction = createTableTransaction(tableName, operations, metadata);
 
         return new IcebergOutputTableHandle(
