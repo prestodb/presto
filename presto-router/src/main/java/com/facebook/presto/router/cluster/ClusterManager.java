@@ -40,6 +40,7 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -256,6 +257,13 @@ public class ClusterManager
                 discoveryURIs.put(members.get(i), membersDiscoveryURI.get(i));
             }
         });
+    }
+
+    public void refreshHealthStatuses()
+    {
+        List<RemoteState> remoteStates = new ArrayList<>(remoteClusterInfos.values());
+        remoteStates.addAll(remoteQueryInfos.values());
+        remoteStates.forEach(RemoteState::asyncRefresh);
     }
 
     public ConcurrentHashMap<URI, RemoteClusterInfo> getRemoteClusterInfos()
