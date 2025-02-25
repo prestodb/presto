@@ -109,7 +109,7 @@ public class AbstractAnalyzerTest
             .setCatalog(TPCH_CATALOG)
             .setSchema("s1")
             .setSystemProperty(CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY, "true")
-            .setSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, "false")
+            .setSystemProperty(CHECK_ACCESS_CONTROL_WITH_SUBFIELDS, "true")
             .build();
 
     protected static final SqlInvokedFunction SQL_FUNCTION_SQUARE = new SqlInvokedFunction(
@@ -379,7 +379,7 @@ public class AbstractAnalyzerTest
 
         String viewData7 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
-                        "with cte as (select x + 1 as c1,y + 1 as c2, z + 1 as c3 from t13) select c1,c2,c3 from cte",
+                        "with cte as (select x+1 as c1,y as c2, z as c3 from t13) select c1,c2,c3 from cte",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(

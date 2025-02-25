@@ -526,7 +526,9 @@ public class TestUtilizedColumnsAnalyzer
 //        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM (select a,b,c from t1) v6 left join (select x,y,z from t13) v7 on v7.y = v6.c";
 //        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.y = v6.c";
 //        @Language("SQL") String query = "SELECT c1, c3 FROM v7";
-        @Language("SQL") String query = "SELECT c1, c3 FROM (with cte as (select x as c1,y as c2, z as c3 from t13) select c1,c2,c3 from cte)";
+        @Language("SQL") String query = "SELECT c1, c3 FROM (with cte as (select x as c1,y as c2, z as c3 from t13) select * from cte)";
+//        @Language("SQL") String query = "SELECT c1, c3 FROM (with cte as (select x as c1,y as c2, z as c3 from t13) select * from cte)";
+//        @Language("SQL") String query = "SELECT c1, c3 FROM (select x as c1,y as c2, z+1 as c3 from t13)";
 
         transaction(transactionManager, accessControl)
                 .singleStatement()
