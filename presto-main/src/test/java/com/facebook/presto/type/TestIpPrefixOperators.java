@@ -74,13 +74,13 @@ public class TestIpPrefixOperators
         assertFunction("CAST('ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128' AS IPPREFIX)", IPPREFIX, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128");
         assertFunction("IPPREFIX '10.0.0.0/32'", IPPREFIX, "10.0.0.0/32");
         assertFunction("IPPREFIX '64:ff9b::10.0.0.0/128'", IPPREFIX, "64:ff9b::a00:0/128");
-        assertInvalidCast("CAST('facebook.com/32' AS IPPREFIX)", "Cannot cast value to IPPREFIX: facebook.com/32");
-        assertInvalidCast("CAST('localhost/32' AS IPPREFIX)", "Cannot cast value to IPPREFIX: localhost/32");
-        assertInvalidCast("CAST('2001:db8::1::1/128' AS IPPREFIX)", "Cannot cast value to IPPREFIX: 2001:db8::1::1/128");
-        assertInvalidCast("CAST('2001:zxy::1::1/128' AS IPPREFIX)", "Cannot cast value to IPPREFIX: 2001:zxy::1::1/128");
-        assertInvalidCast("CAST('789.1.1.1/32' AS IPPREFIX)", "Cannot cast value to IPPREFIX: 789.1.1.1/32");
-        assertInvalidCast("CAST('192.1.1.1' AS IPPREFIX)", "Cannot cast value to IPPREFIX: 192.1.1.1");
-        assertInvalidCast("CAST('192.1.1.1/128' AS IPPREFIX)", "Cannot cast value to IPPREFIX: 192.1.1.1/128");
+        assertInvalidCast("CAST('facebook.com/32' AS IPPREFIX)", "Cannot cast VARCHAR to IPPREFIX: facebook.com/32");
+        assertInvalidCast("CAST('localhost/32' AS IPPREFIX)", "Cannot cast VARCHAR to IPPREFIX: localhost/32");
+        assertInvalidCast("CAST('2001:db8::1::1/128' AS IPPREFIX)", "Cannot cast VARCHAR to IPPREFIX: 2001:db8::1::1/128");
+        assertInvalidCast("CAST('2001:zxy::1::1/128' AS IPPREFIX)", "Cannot cast VARCHAR to IPPREFIX: 2001:zxy::1::1/128");
+        assertInvalidCast("CAST('789.1.1.1/32' AS IPPREFIX)", "Cannot cast VARCHAR to IPPREFIX: 789.1.1.1/32");
+        assertInvalidCast("CAST('192.1.1.1' AS IPPREFIX)", "Cannot cast VARCHAR to IPPREFIX: 192.1.1.1");
+        assertInvalidCast("CAST('192.1.1.1/128' AS IPPREFIX)", "Cannot cast VARCHAR to IPPREFIX: 192.1.1.1/128");
     }
 
     @Test

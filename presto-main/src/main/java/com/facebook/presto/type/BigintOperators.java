@@ -280,7 +280,7 @@ public final class BigintOperators
             return utf8Slice(stringValue);
         }
 
-        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Value %s cannot be represented as varchar(%s)", value, x));
+        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to varchar(%s).", value, x));
     }
 
     @ScalarOperator(HASH_CODE)

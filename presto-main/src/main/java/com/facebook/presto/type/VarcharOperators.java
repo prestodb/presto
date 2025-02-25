@@ -134,7 +134,7 @@ public final class VarcharOperators
                 (toUpperCase(value.getByte(4)) == 'E')) {
             return false;
         }
-        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BOOLEAN", value.toStringUtf8()));
+        throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to BOOLEAN.", value.toStringUtf8()));
     }
 
     private static byte toUpperCase(byte b)
@@ -156,7 +156,7 @@ public final class VarcharOperators
             return Double.parseDouble(slice.toStringUtf8());
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to DOUBLE", slice.toStringUtf8()));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to DOUBLE.", slice.toStringUtf8()));
         }
     }
 
@@ -169,7 +169,7 @@ public final class VarcharOperators
             return Float.floatToIntBits(Float.parseFloat(slice.toStringUtf8()));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to REAL", slice.toStringUtf8()));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to REAL.", slice.toStringUtf8()));
         }
     }
 
@@ -182,7 +182,7 @@ public final class VarcharOperators
             return Long.parseLong(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to BIGINT", slice.toStringUtf8()));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to BIGINT.", slice.toStringUtf8()));
         }
     }
 
@@ -195,7 +195,7 @@ public final class VarcharOperators
             return Integer.parseInt(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to INT", slice.toStringUtf8()));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to INT.", slice.toStringUtf8()));
         }
     }
 
@@ -208,7 +208,7 @@ public final class VarcharOperators
             return Short.parseShort(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to SMALLINT", slice.toStringUtf8()));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to SMALLINT.", slice.toStringUtf8()));
         }
     }
 
@@ -221,7 +221,7 @@ public final class VarcharOperators
             return Byte.parseByte(slice.toStringUtf8().trim());
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to TINYINT", slice.toStringUtf8()));
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast VARCHAR '%s' to TINYINT.", slice.toStringUtf8()));
         }
     }
 

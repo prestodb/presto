@@ -47,11 +47,11 @@ public class TestIpAddressOperators
         assertFunction("CAST('2001:DB8::FF00:ABCD:12EF' AS IPADDRESS)", IPADDRESS, "2001:db8::ff00:abcd:12ef");
         assertFunction("IPADDRESS '10.0.0.0'", IPADDRESS, "10.0.0.0");
         assertFunction("IPADDRESS '64:ff9b::10.0.0.0'", IPADDRESS, "64:ff9b::a00:0");
-        assertInvalidCast("CAST('facebook.com' AS IPADDRESS)", "Cannot cast value to IPADDRESS: facebook.com");
-        assertInvalidCast("CAST('localhost' AS IPADDRESS)", "Cannot cast value to IPADDRESS: localhost");
-        assertInvalidCast("CAST('2001:db8::1::1' AS IPADDRESS)", "Cannot cast value to IPADDRESS: 2001:db8::1::1");
-        assertInvalidCast("CAST('2001:zxy::1::1' AS IPADDRESS)", "Cannot cast value to IPADDRESS: 2001:zxy::1::1");
-        assertInvalidCast("CAST('789.1.1.1' AS IPADDRESS)", "Cannot cast value to IPADDRESS: 789.1.1.1");
+        assertInvalidCast("CAST('facebook.com' AS IPADDRESS)", "Cannot cast VARCHAR to IPADDRESS: facebook.com");
+        assertInvalidCast("CAST('localhost' AS IPADDRESS)", "Cannot cast VARCHAR to IPADDRESS: localhost");
+        assertInvalidCast("CAST('2001:db8::1::1' AS IPADDRESS)", "Cannot cast VARCHAR to IPADDRESS: 2001:db8::1::1");
+        assertInvalidCast("CAST('2001:zxy::1::1' AS IPADDRESS)", "Cannot cast VARCHAR to IPADDRESS: 2001:zxy::1::1");
+        assertInvalidCast("CAST('789.1.1.1' AS IPADDRESS)", "Cannot cast VARCHAR to IPADDRESS: 789.1.1.1");
     }
 
     @Test

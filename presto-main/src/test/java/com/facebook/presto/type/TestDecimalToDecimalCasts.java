@@ -40,10 +40,10 @@ public class TestDecimalToDecimalCasts
         assertDecimalFunction("CAST(DECIMAL '-1.449' AS DECIMAL(2, 1))", decimal("-1.4"));
         assertDecimalFunction("CAST(DECIMAL '-1.459' AS DECIMAL(2, 1))", decimal("-1.5"));
 
-        assertInvalidCast("CAST(DECIMAL '12345.6' AS DECIMAL(4,0))", "Cannot cast DECIMAL '12345.6' to DECIMAL(4, 0)");
-        assertInvalidCast("CAST(DECIMAL '-12345.6' AS DECIMAL(4,0))", "Cannot cast DECIMAL '-12345.6' to DECIMAL(4, 0)");
-        assertInvalidCast("CAST(DECIMAL '12345.6' AS DECIMAL(4,2))", "Cannot cast DECIMAL '12345.6' to DECIMAL(4, 2)");
-        assertInvalidCast("CAST(DECIMAL '-12345.6' AS DECIMAL(4,2))", "Cannot cast DECIMAL '-12345.6' to DECIMAL(4, 2)");
+        assertInvalidCast("CAST(DECIMAL '12345.6' AS DECIMAL(4,0))", "Cannot cast DECIMAL '12345.6' to DECIMAL(4,0).");
+        assertInvalidCast("CAST(DECIMAL '-12345.6' AS DECIMAL(4,0))", "Cannot cast DECIMAL '-12345.6' to DECIMAL(4,0).");
+        assertInvalidCast("CAST(DECIMAL '12345.6' AS DECIMAL(4,2))", "Cannot cast DECIMAL '12345.6' to DECIMAL(4,2).");
+        assertInvalidCast("CAST(DECIMAL '-12345.6' AS DECIMAL(4,2))", "Cannot cast DECIMAL '-12345.6' to DECIMAL(4,2).");
     }
 
     @Test
@@ -81,9 +81,9 @@ public class TestDecimalToDecimalCasts
         assertDecimalFunction("CAST(DECIMAL '-1.000000000000000000004' AS DECIMAL(21, 20))", decimal("-1.00000000000000000000"));
         assertDecimalFunction("CAST(DECIMAL '-1.000000000000000000005' AS DECIMAL(21, 20))", decimal("-1.00000000000000000001"));
 
-        assertInvalidCast("CAST(DECIMAL '1234500000000000000000000.6' AS DECIMAL(20,0))", "Cannot cast DECIMAL '1234500000000000000000000.6' to DECIMAL(20, 0)");
-        assertInvalidCast("CAST(DECIMAL '-1234500000000000000000000.6' AS DECIMAL(20,0))", "Cannot cast DECIMAL '-1234500000000000000000000.6' to DECIMAL(20, 0)");
-        assertInvalidCast("CAST(DECIMAL '1234500000000000000000000.6' AS DECIMAL(22,2))", "Cannot cast DECIMAL '1234500000000000000000000.6' to DECIMAL(22, 2)");
-        assertInvalidCast("CAST(DECIMAL '-1234500000000000000000000.6' AS DECIMAL(22,2))", "Cannot cast DECIMAL '-1234500000000000000000000.6' to DECIMAL(22, 2)");
+        assertInvalidCast("CAST(DECIMAL '1234500000000000000000000.6' AS DECIMAL(20,0))", "Cannot cast DECIMAL '1234500000000000000000000.6' to DECIMAL(20,0).");
+        assertInvalidCast("CAST(DECIMAL '-1234500000000000000000000.6' AS DECIMAL(20,0))", "Cannot cast DECIMAL '-1234500000000000000000000.6' to DECIMAL(20,0).");
+        assertInvalidCast("CAST(DECIMAL '1234500000000000000000000.6' AS DECIMAL(22,2))", "Cannot cast DECIMAL '1234500000000000000000000.6' to DECIMAL(22,2).");
+        assertInvalidCast("CAST(DECIMAL '-1234500000000000000000000.6' AS DECIMAL(22,2))", "Cannot cast DECIMAL '-1234500000000000000000000.6' to DECIMAL(22,2).");
     }
 }

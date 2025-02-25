@@ -156,14 +156,14 @@ public final class DecimalToDecimalCasts
 
     private static PrestoException throwCastException(long value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
     {
-        return new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL '%s' to DECIMAL(%d, %d)",
+        return new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL '%s' to DECIMAL(%d,%d).",
                 Decimals.toString(value, (int) sourceScale),
                 resultPrecision, resultScale));
     }
 
     private static PrestoException throwCastException(BigInteger value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
     {
-        return new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL '%s' to DECIMAL(%d, %d)",
+        return new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DECIMAL '%s' to DECIMAL(%d,%d).",
                 Decimals.toString(value, (int) sourceScale),
                 resultPrecision, resultScale));
     }

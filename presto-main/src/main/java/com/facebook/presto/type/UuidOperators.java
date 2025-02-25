@@ -139,7 +139,7 @@ public final class UuidOperators
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid UUID string length: " + slice.length());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast value to UUID: " + slice.toStringUtf8());
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast VARCHAR to UUID: " + slice.toStringUtf8());
         }
     }
 

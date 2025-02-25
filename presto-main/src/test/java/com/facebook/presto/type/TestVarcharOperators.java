@@ -159,9 +159,9 @@ public class TestVarcharOperators
         assertFunction("CAST('   8  ' AS SMALLINT)", SmallintType.SMALLINT, (short) 8);
         assertFunction("CAST('    9 ' AS TINYINT)", TinyintType.TINYINT, (byte) 9);
 
-        assertInvalidFunction("CAST('6 7' AS BIGINT)", INVALID_CAST_ARGUMENT, "Cannot cast '6 7' to BIGINT");
-        assertInvalidFunction("CAST('7 8' AS INTEGER)", INVALID_CAST_ARGUMENT, "Cannot cast '7 8' to INT");
-        assertInvalidFunction("CAST('8 9' AS SMALLINT)", INVALID_CAST_ARGUMENT, "Cannot cast '8 9' to SMALLINT");
-        assertInvalidFunction("CAST('9 6' AS TINYINT)", INVALID_CAST_ARGUMENT, "Cannot cast '9 6' to TINYINT");
+        assertInvalidFunction("CAST('6 7' AS BIGINT)", INVALID_CAST_ARGUMENT, "Cannot cast VARCHAR '6 7' to BIGINT.");
+        assertInvalidFunction("CAST('7 8' AS INTEGER)", INVALID_CAST_ARGUMENT, "Cannot cast VARCHAR '7 8' to INT.");
+        assertInvalidFunction("CAST('8 9' AS SMALLINT)", INVALID_CAST_ARGUMENT, "Cannot cast VARCHAR '8 9' to SMALLINT.");
+        assertInvalidFunction("CAST('9 6' AS TINYINT)", INVALID_CAST_ARGUMENT, "Cannot cast VARCHAR '9 6' to TINYINT.");
     }
 }

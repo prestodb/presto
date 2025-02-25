@@ -71,7 +71,7 @@ public class JsonToArrayCast
         checkArgument(arity == 1, "Expected arity to be 1");
         Type type = boundVariables.getTypeVariable("T");
         ArrayType arrayType = (ArrayType) functionAndTypeManager.getParameterizedType(StandardTypes.ARRAY, ImmutableList.of(TypeSignatureParameter.of(type.getTypeSignature())));
-        checkCondition(canCastFromJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", arrayType);
+        checkCondition(canCastFromJson(arrayType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s.", arrayType);
 
         BlockBuilderAppender elementAppender = BlockBuilderAppender.createBlockBuilderAppender(arrayType.getElementType());
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType).bindTo(elementAppender);
@@ -104,10 +104,10 @@ public class JsonToArrayCast
             return blockBuilder.build();
         }
         catch (PrestoException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s%n%s", arrayType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON to %s. %s%n%s", arrayType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.%n%s", arrayType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast JSON to %s. %n%s", arrayType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }

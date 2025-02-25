@@ -52,6 +52,11 @@ public class DictionaryAwarePageProjection
         verify(projection.getInputChannels().size() == 1, "projection must have only one input");
     }
 
+    public PageProjection getProjection()
+    {
+        return this.projection;
+    }
+
     @Override
     public boolean isDeterministic()
     {

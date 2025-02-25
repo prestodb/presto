@@ -275,9 +275,9 @@ public class TestJsonOperators
         assertFunction("cast(JSON '123.456' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("123.45600"));
         assertFunction("cast(JSON 'true' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("1.00000"));
         assertFunction("cast(JSON 'false' as DECIMAL(10,5))", createDecimalType(10, 5), decimal("0.00000"));
-        assertInvalidCast("cast(JSON '1234567890123456' as DECIMAL(10,3))", "Cannot cast input json to DECIMAL(10,3)");
-        assertInvalidCast("cast(JSON '{ \"x\" : 123}' as DECIMAL(10,3))", "Cannot cast '{\"x\":123}' to DECIMAL(10,3)");
-        assertInvalidCast("cast(JSON '\"abc\"' as DECIMAL(10,3))", "Cannot cast '\"abc\"' to DECIMAL(10,3)");
+        assertInvalidCast("cast(JSON '1234567890123456' as DECIMAL(10,3))", "Cannot cast json to DECIMAL(10,3).");
+        assertInvalidCast("cast(JSON '{ \"x\" : 123}' as DECIMAL(10,3))", "Cannot cast json '{\"x\":123}' to DECIMAL(10,3).");
+        assertInvalidCast("cast(JSON '\"abc\"' as DECIMAL(10,3))", "Cannot cast json '\"abc\"' to DECIMAL(10,3).");
     }
 
     @Test
@@ -401,13 +401,13 @@ public class TestJsonOperators
     {
         // the test is to make sure ExpressionOptimizer works with cast + json_parse
         assertCastWithJsonParse("[[1,1], [2,2]]", "ARRAY<ARRAY<INTEGER>>", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1, 1), ImmutableList.of(2, 2)));
-        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", "Cannot cast to array(integer). Cannot cast 'abc' to INT\n[1, \"abc\"]");
+        assertInvalidCastWithJsonParse("[1, \"abc\"]", "ARRAY<INTEGER>", "Cannot cast JSON to array(integer). Cannot cast VARCHAR 'abc' to INT.\n[1, \"abc\"]");
 
         // Since we will not reformat the JSON string before parse and cast with the optimization,
         // these extra whitespaces in JSON string is to make sure the cast will work in such cases.
         assertCastWithJsonParse("{\"a\"\n:1,  \"b\":\t2}", "MAP<VARCHAR,INTEGER>", mapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 2));
-        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", "Cannot cast JSON to map(array(integer),array(integer))");
-        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", "Cannot cast to map(boolean,boolean).\n{true: false, false:false}");
+        assertInvalidCastWithJsonParse("{\"[1, 1]\":[2, 2]}", "MAP<ARRAY<INTEGER>,ARRAY<INTEGER>>", "Cannot cast JSON to map(array(integer),array(integer)).");
+        assertInvalidCastWithJsonParse("{true: false, false:false}", "MAP<BOOLEAN,BOOLEAN>", "Cannot cast JSON to map(boolean,boolean). \n{true: false, false:false}");
 
         assertCastWithJsonParse(
                 "{\"a\"  \n  :1,  \"b\":  \t  [2, 3]}",
@@ -424,11 +424,11 @@ public class TestJsonOperators
         assertInvalidCastWithJsonParse(
                 "{\"a\" :1,  \"b\": {} }",
                 "ROW(a INTEGER, b ARRAY<INTEGER>)",
-                "Cannot cast to row(a integer,b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
+                "Cannot cast JSON to row(a integer,b array(integer)). Expected a json array, but got {\n{\"a\" :1,  \"b\": {} }");
         assertInvalidCastWithJsonParse(
                 "[  1,  {}  ]",
                 "ROW(INTEGER, ARRAY<INTEGER>)",
-                "Cannot cast to row(integer,array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
+                "Cannot cast JSON to row(integer,array(integer)). Expected a json array, but got {\n[  1,  {}  ]");
     }
 
     @Test

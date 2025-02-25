@@ -395,17 +395,17 @@ public class TestArrayOperators
                         null));
 
         // invalid cast
-        assertInvalidCast("CAST(JSON '{\"a\": 1}' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Expected a json array, but got {\n{\"a\":1}");
-        assertInvalidCast("CAST(JSON '[1, 2, 3]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast to array(array(bigint)). Expected a json array, but got 1\n[1,2,3]");
-        assertInvalidCast("CAST(JSON '[1, {}]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Unexpected token when cast to bigint: {\n[1,{}]");
-        assertInvalidCast("CAST(JSON '[[1], {}]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast to array(array(bigint)). Expected a json array, but got {\n[[1],{}]");
+        assertInvalidCast("CAST(JSON '{\"a\": 1}' AS ARRAY<BIGINT>)", "Cannot cast JSON to array(bigint). Expected a json array, but got {\n{\"a\":1}");
+        assertInvalidCast("CAST(JSON '[1, 2, 3]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast JSON to array(array(bigint)). Expected a json array, but got 1\n[1,2,3]");
+        assertInvalidCast("CAST(JSON '[1, {}]' AS ARRAY<BIGINT>)", "Cannot cast JSON to array(bigint). Unexpected token when cast to bigint: {\n[1,{}]");
+        assertInvalidCast("CAST(JSON '[[1], {}]' AS ARRAY<ARRAY<BIGINT>>)", "Cannot cast JSON to array(array(bigint)). Expected a json array, but got {\n[[1],{}]");
 
-        assertInvalidCast("CAST(unchecked_to_json('1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint).\n1, 2, 3");
-        assertInvalidCast("CAST(unchecked_to_json('[1] 2') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Unexpected trailing token: 2\n[1] 2");
-        assertInvalidCast("CAST(unchecked_to_json('[1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast to array(bigint).\n[1, 2, 3");
+        assertInvalidCast("CAST(unchecked_to_json('1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast JSON to array(bigint). \n1, 2, 3");
+        assertInvalidCast("CAST(unchecked_to_json('[1] 2') AS ARRAY<BIGINT>)", "Cannot cast JSON to array(bigint). Unexpected trailing token: 2\n[1] 2");
+        assertInvalidCast("CAST(unchecked_to_json('[1, 2, 3') AS ARRAY<BIGINT>)", "Cannot cast JSON to array(bigint). \n[1, 2, 3");
 
-        assertInvalidCast("CAST(JSON '[\"a\", \"b\"]' AS ARRAY<BIGINT>)", "Cannot cast to array(bigint). Cannot cast 'a' to BIGINT\n[\"a\",\"b\"]");
-        assertInvalidCast("CAST(JSON '[1234567890123.456]' AS ARRAY<INTEGER>)", "Cannot cast to array(integer). Unable to cast 1.234567890123456E12 to integer\n[1.234567890123456E12]");
+        assertInvalidCast("CAST(JSON '[\"a\", \"b\"]' AS ARRAY<BIGINT>)", "Cannot cast JSON to array(bigint). Cannot cast VARCHAR 'a' to BIGINT.\n[\"a\",\"b\"]");
+        assertInvalidCast("CAST(JSON '[1234567890123.456]' AS ARRAY<INTEGER>)", "Cannot cast JSON to array(integer). Unable to cast 1.234567890123456E12 to integer\n[1.234567890123456E12]");
 
         assertFunction("CAST(JSON '[1, 2.0, 3]' AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(decimal("1.00000"), decimal("2.00000"), decimal("3.00000")));
         assertFunction("CAST(CAST(ARRAY [1, 2.0, 3] as JSON) AS ARRAY(DECIMAL(10,5)))", new ArrayType(createDecimalType(10, 5)), ImmutableList.of(decimal("1.00000"), decimal("2.00000"), decimal("3.00000")));

@@ -49,7 +49,7 @@ public class TestUuidOperators
         assertFunction("CAST('dfa7eaf8-6a26-5749-8d36-336025df74e8' AS UUID)", UUID, "dfa7eaf8-6a26-5749-8d36-336025df74e8");
         assertFunction("CAST('12151FD2-7586-11E9-8F9E-2A86E4085A59' AS UUID)", UUID, "12151fd2-7586-11e9-8f9e-2a86e4085a59");
         assertInvalidCast("CAST('1-2-3-4-1' AS UUID)", "Invalid UUID string length: 9");
-        assertInvalidCast("CAST('12151fd217586211e938f9e42a86e4085a59' AS UUID)", "Cannot cast value to UUID: 12151fd217586211e938f9e42a86e4085a59");
+        assertInvalidCast("CAST('12151fd217586211e938f9e42a86e4085a59' AS UUID)", "Cannot cast VARCHAR to UUID: 12151fd217586211e938f9e42a86e4085a59");
     }
 
     @Test

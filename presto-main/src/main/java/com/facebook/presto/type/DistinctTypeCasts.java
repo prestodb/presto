@@ -102,19 +102,19 @@ public class DistinctTypeCasts
             DistinctType toDistinctType = (DistinctType) toType;
 
             if (!hasAncestorRelationship(fromDistinctType, toDistinctType)) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast %s to %s", fromDistinctType.getName(), toDistinctType.getName()));
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast %s to %s.", fromDistinctType.getName(), toDistinctType.getName()));
             }
         }
         else if (fromType instanceof DistinctType) {
             DistinctType fromDistinctType = (DistinctType) fromType;
             if (!fromDistinctType.getBaseType().equals(toType)) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast %s to %s", fromDistinctType.getName(), toType));
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast %s to %s.", fromDistinctType.getName(), toType));
             }
         }
         else if (toType instanceof DistinctType) {
             DistinctType toDistinctType = (DistinctType) toType;
             if (!toDistinctType.getBaseType().equals(fromType)) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast %s to %s", fromType, toDistinctType.getName()));
+                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast %s to %s.", fromType, toDistinctType.getName()));
             }
         }
     }

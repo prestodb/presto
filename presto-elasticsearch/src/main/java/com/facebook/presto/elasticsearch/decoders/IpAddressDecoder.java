@@ -68,7 +68,7 @@ public class IpAddressDecoder
             address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
+            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast VARCHAR to IPADDRESS:" + slice.toStringUtf8());
         }
 
         byte[] bytes;
