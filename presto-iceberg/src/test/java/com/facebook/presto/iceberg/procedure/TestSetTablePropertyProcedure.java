@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static java.lang.String.format;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE_DEFAULT;
@@ -39,7 +40,6 @@ import static org.testng.Assert.assertEquals;
 public class TestSetTablePropertyProcedure
         extends AbstractTestQueryFramework
 {
-    public static final String ICEBERG_CATALOG = "test_hadoop";
     public static final String TEST_SCHEMA = "tpch";
 
     @Override
