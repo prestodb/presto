@@ -64,6 +64,8 @@ DEFINE_uint32(
     "Timeout in milliseconds for HTTP requests made to reference DB, "
     "such as Presto. Example: --req_timeout_ms=2000");
 
+// Any change made in the file should be reflected in
+// the FB-internal aggregation fuzzer test too:
 namespace facebook::velox::exec::test {
 namespace {
 

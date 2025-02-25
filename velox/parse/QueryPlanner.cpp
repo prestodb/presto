@@ -27,6 +27,7 @@
 #include <duckdb/planner/expression/bound_constant_expression.hpp> // @manual
 #include <duckdb/planner/expression/bound_function_expression.hpp> // @manual
 #include <duckdb/planner/expression/bound_reference_expression.hpp> // @manual
+#include <duckdb/planner/operator/logical_dummy_scan.hpp> // @manual
 
 namespace facebook::velox::core {
 
