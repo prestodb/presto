@@ -132,7 +132,10 @@ exec::ExprSet createExprSetCommon(
 
 } // namespace
 
-std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
+std::pair<
+    std::vector<fuzzer::ResultOrError>,
+    std::vector<ExpressionVerifier::VerificationState>>
+ExpressionVerifier::verify(
     const std::vector<core::TypedExprPtr>& plans,
     const std::vector<fuzzer::InputTestCase>& inputTestCases,
     VectorPtr&& resultVector,
@@ -178,6 +181,7 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
   }
 
   std::vector<fuzzer::ResultOrError> results;
+  std::vector<VerificationState> verificationStates;
   // Share ExpressionSet between consecutive iterations to simulate its usage in
   // FilterProject.
   exec::ExprSet exprSetCommon =
@@ -303,20 +307,23 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
           if (exceptionCommonPtr || exceptionReference) {
             // Throws in case only one evaluation path throws exception.
             // Otherwise, return false to signal that the expression failed.
-            if (!(defaultNull &&
-                  referenceQueryRunner_->runnerType() ==
-                      ReferenceQueryRunner::RunnerType::kPrestoQueryRunner) &&
-                !(exceptionCommonPtr && exceptionReference)) {
-              LOG(ERROR) << "Only "
-                         << (exceptionCommonPtr ? "common" : "reference")
-                         << " path threw exception:";
-              if (exceptionCommonPtr) {
-                std::rethrow_exception(exceptionCommonPtr);
-              } else {
-                auto referenceSql =
-                    referenceQueryRunner_->toSql(projectionPlan);
-                VELOX_FAIL(
-                    "Reference path throws for query: {}", *referenceSql);
+            if (exceptionCommonPtr && exceptionReference) {
+              verificationStates.push_back(VerificationState::kBothPathsThrow);
+            } else {
+              if (!(defaultNull &&
+                    referenceQueryRunner_->runnerType() ==
+                        ReferenceQueryRunner::RunnerType::kPrestoQueryRunner)) {
+                LOG(ERROR) << "Only "
+                           << (exceptionCommonPtr ? "common" : "reference")
+                           << " path threw exception:";
+                if (exceptionCommonPtr) {
+                  std::rethrow_exception(exceptionCommonPtr);
+                } else {
+                  auto referenceSql =
+                      referenceQueryRunner_->toSql(projectionPlan);
+                  VELOX_FAIL(
+                      "Reference path throws for query: {}", *referenceSql);
+                }
               }
             }
           } else {
@@ -343,6 +350,8 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
                     {commonEvalResultRow}),
                 "Velox and reference DB results don't match");
             LOG(INFO) << "Verified results against reference DB";
+            verificationStates.push_back(
+                VerificationState::kVerifiedAgainstReference);
           }
         } catch (...) {
           persistReproInfoIfNeeded(
@@ -353,6 +362,10 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
               complexConstants);
           throw;
         }
+      } else {
+        LOG(INFO) << "Reference DB doesn't support this query";
+        verificationStates.push_back(
+            VerificationState::kReferencePathUnsupported);
       }
     } else {
       VLOG(1) << "Execute with simplified expression eval path.";
@@ -423,6 +436,7 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
               {nullptr,
                exceptionCommonPtr ? exceptionCommonPtr : exceptionSimplifiedPtr,
                unsupportedInputUncatchableError});
+          verificationStates.push_back(VerificationState::kBothPathsThrow);
           continue;
         } else {
           // Throws in case output is different.
@@ -436,6 +450,8 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
                 "simplified path results",
                 rows);
           }
+          verificationStates.push_back(
+              VerificationState::kVerifiedAgainstReference);
         }
       } catch (...) {
         persistReproInfoIfNeeded(
@@ -469,7 +485,8 @@ std::vector<fuzzer::ResultOrError> ExpressionVerifier::verify(
            unsupportedInputUncatchableError});
     }
   }
-  return results;
+  VELOX_CHECK_EQ(results.size(), verificationStates.size());
+  return std::make_pair(results, verificationStates);
 }
 
 void ExpressionVerifier::persistReproInfoIfNeeded(

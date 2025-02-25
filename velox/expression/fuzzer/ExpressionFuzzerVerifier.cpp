@@ -293,11 +293,13 @@ void ExpressionFuzzerVerifier::retryWithTry(
   }
 
   std::vector<ResultOrError> tryResults;
+  std::vector<test::ExpressionVerifier::VerificationState>
+      tryVerificationStates;
 
   // The function throws if anything goes wrong except
   // UNSUPPORTED_INPUT_UNCATCHABLE errors.
   try {
-    tryResults = verifier_.verify(
+    std::tie(tryResults, tryVerificationStates) = verifier_.verify(
         tryPlans,
         inputsToRetry,
         resultVector ? BaseVector::copy(*resultVector) : nullptr,
@@ -371,7 +373,10 @@ void ExpressionFuzzerVerifier::go() {
 
   auto startTime = std::chrono::system_clock::now();
   size_t i = 0;
+  size_t totalTestCases = 0;
   size_t numFailed = 0;
+  size_t numVerified = 0;
+  size_t numReferenceUnsupported = 0;
 
   // TODO: some expression will throw exception for NaN input, eg: IN
   // predicate for floating point. remove this constraint once that are fixed
@@ -402,12 +407,14 @@ void ExpressionFuzzerVerifier::go() {
 
     auto [inputTestCases, inputRowMetadata] =
         generateInput(inputType, *vectorFuzzer_, inputGenerators);
+    totalTestCases += inputTestCases.size();
 
     auto resultVectors = generateResultVectors(plans);
     std::vector<fuzzer::ResultOrError> results;
+    std::vector<test::ExpressionVerifier::VerificationState> verificationStates;
 
     try {
-      results = verifier_.verify(
+      std::tie(results, verificationStates) = verifier_.verify(
           plans,
           inputTestCases,
           resultVectors ? BaseVector::copy(*resultVectors) : nullptr,
@@ -430,12 +437,10 @@ void ExpressionFuzzerVerifier::go() {
     // cannot throw. Expressions that throw UNSUPPORTED_INPUT_UNCATCHABLE
     // errors are not supported.
     std::vector<fuzzer::InputTestCase> inputsToRetry;
-    bool anyInputsThrew = false;
     bool anyInputsThrewButRetryable = false;
     for (int j = 0; j < results.size(); j++) {
       auto& result = results[j];
       if (result.exceptionPtr) {
-        anyInputsThrew = true;
         if (!result.unsupportedInputUncatchableError && options_.retryWithTry) {
           anyInputsThrewButRetryable = true;
           inputsToRetry.push_back(inputTestCases[j]);
@@ -446,9 +451,21 @@ void ExpressionFuzzerVerifier::go() {
         // executed.
         inputsToRetry.push_back(inputTestCases[j]);
       }
-    }
-    if (anyInputsThrew) {
-      ++numFailed;
+
+      auto& verificationState = verificationStates[j];
+      switch (verificationState) {
+        case test::ExpressionVerifier::VerificationState::
+            kVerifiedAgainstReference:
+          ++numVerified;
+          break;
+        case test::ExpressionVerifier::VerificationState::
+            kReferencePathUnsupported:
+          ++numReferenceUnsupported;
+          break;
+        case test::ExpressionVerifier::VerificationState::kBothPathsThrow:
+          ++numFailed;
+          break;
+      }
     }
     if (anyInputsThrewButRetryable) {
       LOG(INFO)
@@ -462,8 +479,13 @@ void ExpressionFuzzerVerifier::go() {
   }
   logStats();
 
-  LOG(ERROR) << "Total iterations: " << i;
-  LOG(ERROR) << "Total failed: " << numFailed;
+  LOG(ERROR) << "Total test cases: " << totalTestCases;
+  LOG(ERROR) << "Total test cases verified in the reference DB: "
+             << numVerified;
+  LOG(ERROR) << "Total test cases failed in both Velox and the reference DB: "
+             << numFailed;
+  LOG(ERROR) << "Total test cases unsupported in the reference DB: "
+             << numReferenceUnsupported;
 }
 
 } // namespace facebook::velox::fuzzer

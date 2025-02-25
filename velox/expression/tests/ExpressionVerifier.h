@@ -62,6 +62,11 @@ class ExpressionVerifier {
         options_(options),
         referenceQueryRunner_{referenceQueryRunner} {}
 
+  enum class VerificationState {
+    kVerifiedAgainstReference = 0,
+    kBothPathsThrow = 1,
+    kReferencePathUnsupported = 2,
+  };
   // Executes expressions using common path (all evaluation
   // optimizations) and compares the result with either the simplified path or a
   // reference query runner. This execution is done for each input test cases
@@ -73,9 +78,12 @@ class ExpressionVerifier {
   //  - result of evaluating the expressions if both paths succeeded and
   //  returned the exact same vectors.
   //  - exception thrown by the common path if both paths failed with compatible
-  //  exceptions.
-  //  - throws otherwise (incompatible exceptions or different results).
-  std::vector<fuzzer::ResultOrError> verify(
+  //  exceptions. Throws otherwise (incompatible exceptions or different
+  //  results).
+  //  - a verification state indicating if the result was verified against the
+  //  reference DB.
+  std::pair<std::vector<fuzzer::ResultOrError>, std::vector<VerificationState>>
+  verify(
       const std::vector<core::TypedExprPtr>& plans,
       const std::vector<fuzzer::InputTestCase>& inputTestCases,
       VectorPtr&& resultVector,
