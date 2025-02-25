@@ -1,11 +1,10 @@
-*************************
-Web Connector for Tableau
-*************************
+*******
+Tableau
+*******
 
-The Presto web connector for Tableau lets users run queries from
-Tableau against Presto. It implements the functions in the
-`Tableau web connector API
-<https://community.tableau.com/community/developers/web-data-connectors>`_.
+The Presto web connector for Tableau lets users run queries from Tableau against Presto.
+It implements the functions in the
+`Tableau web connector API <https://www.tableau.com/developer/tools/web-data-connector>`_.
 
 When creating a new web data source, Tableau will ask for the URL of the web
 connector. Use the following URL, replacing ``example.net:8080`` with the

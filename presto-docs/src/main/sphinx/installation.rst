@@ -7,7 +7,6 @@ Installation
 
     installation/deployment
     installation/benchmark-driver
-    installation/tableau
     installation/spark
     installation/deploy-docker
     installation/deploy-brew
