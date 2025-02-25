@@ -37,6 +37,7 @@ namespace facebook::velox::exec::test {
 void aggregateFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t seed,
+    const std::unordered_set<std::string>& functionsRequireSortedInput,
     const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
         orderDependentFunctions,
     const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&

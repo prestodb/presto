@@ -124,6 +124,7 @@ class AggregationFuzzerRunner {
     facebook::velox::exec::test::aggregateFuzzer(
         filteredSignatures,
         seed,
+        options.functionsRequireSortedInput,
         options.customVerificationFunctions,
         options.customInputGenerators,
         aggregationFunctionDataSpecs,

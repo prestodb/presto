@@ -29,6 +29,9 @@ struct AggregationFuzzerOptions {
   /// Set of functions to not test.
   std::unordered_set<std::string> skipFunctions;
 
+  /// Set of functions that should only be tested with sorted input.
+  std::unordered_set<std::string> functionsRequireSortedInput;
+
   /// Set of functions whose results are non-deterministic. These can be
   /// order-dependent functions whose results depend on the order of input
   /// rows, or functions that return complex-typed results containing

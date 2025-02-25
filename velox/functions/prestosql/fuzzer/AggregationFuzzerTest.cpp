@@ -133,6 +133,10 @@ int main(int argc, char** argv) {
       "any_value",
   };
 
+  static const std::unordered_set<std::string> functionsRequireSortedInput = {
+      "tdigest_agg",
+  };
+
   using facebook::velox::exec::test::ApproxDistinctResultVerifier;
   using facebook::velox::exec::test::ApproxPercentileResultVerifier;
   using facebook::velox::exec::test::ArbitraryResultVerifier;
@@ -195,6 +199,7 @@ int main(int argc, char** argv) {
   Options options;
   options.onlyFunctions = FLAGS_only;
   options.skipFunctions = skipFunctions;
+  options.functionsRequireSortedInput = functionsRequireSortedInput;
   options.customVerificationFunctions = customVerificationFunctions;
   options.customInputGenerators =
       facebook::velox::exec::test::getCustomInputGenerators();

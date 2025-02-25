@@ -48,6 +48,7 @@ class AggregationFuzzer : public AggregationFuzzerBase {
   AggregationFuzzer(
       AggregateFunctionSignatureMap signatureMap,
       size_t seed,
+      const std::unordered_set<std::string>& functionsRequireSortedInput,
       const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
           customVerificationFunctions,
       const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
@@ -183,14 +184,18 @@ class AggregationFuzzer : public AggregationFuzzerBase {
     }
   }
 
+  bool mustSortInput(const CallableSignature& signature) const;
+
   Stats stats_;
   const std::unordered_map<std::string, DataSpec> functionDataSpec_;
+  const std::unordered_set<std::string> functionsRequireSortedInput_;
 };
 } // namespace
 
 void aggregateFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t seed,
+    const std::unordered_set<std::string>& functionsRequireSortedInput,
     const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
         customVerificationFunctions,
     const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
@@ -205,6 +210,7 @@ void aggregateFuzzer(
   auto aggregationFuzzer = AggregationFuzzer(
       std::move(signatureMap),
       seed,
+      functionsRequireSortedInput,
       customVerificationFunctions,
       customInputGenerators,
       functionDataSpec,
@@ -222,6 +228,7 @@ namespace {
 AggregationFuzzer::AggregationFuzzer(
     AggregateFunctionSignatureMap signatureMap,
     size_t seed,
+    const std::unordered_set<std::string>& functionsRequireSortedInput,
     const std::unordered_map<std::string, std::shared_ptr<ResultVerifier>>&
         customVerificationFunctions,
     const std::unordered_map<std::string, std::shared_ptr<InputGenerator>>&
@@ -233,7 +240,8 @@ AggregationFuzzer::AggregationFuzzer(
     bool orderableGroupKeys,
     std::unique_ptr<ReferenceQueryRunner> referenceQueryRunner)
     : AggregationFuzzerBase{seed, customVerificationFunctions, customInputGenerators, timestampPrecision, queryConfigs, hiveConfigs, orderableGroupKeys, std::move(referenceQueryRunner)},
-      functionDataSpec_{functionDataSpec} {
+      functionDataSpec_{functionDataSpec},
+      functionsRequireSortedInput_{functionsRequireSortedInput} {
   VELOX_CHECK(!signatureMap.empty(), "No function signatures available.");
 
   if (persistAndRunOnce_ && reproPersistPath_.empty()) {
@@ -309,6 +317,11 @@ bool supportsDistinctInputs(
   return arg->isComparable();
 }
 
+bool AggregationFuzzer::mustSortInput(
+    const CallableSignature& signature) const {
+  return functionsRequireSortedInput_.count(signature.name) > 0;
+}
+
 void AggregationFuzzer::go() {
   VELOX_CHECK(
       FLAGS_steps > 0 || FLAGS_duration_sec > 0,
@@ -338,6 +351,13 @@ void AggregationFuzzer::go() {
     } else {
       // Pick a random signature.
       auto signatureWithStats = pickSignature();
+      auto signature = signatureWithStats.first;
+      if (mustSortInput(signature) &&
+          !(FLAGS_enable_sorted_aggregations && canSortInputs(signature))) {
+        continue;
+      }
+      signatureWithStats.second.numRuns++;
+      stats_.functionNames.insert(signature.name);
 
       if (functionDataSpec_.count(signatureWithStats.first.name) > 0) {
         vectorOptions.dataSpec =
@@ -347,19 +367,10 @@ void AggregationFuzzer::go() {
         vectorOptions.dataSpec = {true, true};
       }
       vectorFuzzer_.setOptions(vectorOptions);
-      signatureWithStats.second.numRuns++;
 
-      auto signature = signatureWithStats.first;
-      stats_.functionNames.insert(signature.name);
-
-      const bool customVerification =
-          customVerificationFunctions_.count(signature.name) != 0;
-
-      std::vector<TypePtr> argTypes = signature.args;
-      std::vector<std::string> argNames = makeNames(argTypes.size());
-
-      const bool sortedInputs = FLAGS_enable_sorted_aggregations &&
-          canSortInputs(signature) && vectorFuzzer_.coinToss(0.2);
+      const bool sortedInputs = mustSortInput(signature) ||
+          (FLAGS_enable_sorted_aggregations && canSortInputs(signature) &&
+           vectorFuzzer_.coinToss(0.2));
 
       // Exclude approx_xxx aggregations since their verifiers may not be able
       // to verify the results. The approx_percentile verifier would discard
@@ -372,6 +383,8 @@ void AggregationFuzzer::go() {
           supportsDistinctInputs(signature, orderableGroupKeys_) &&
           vectorFuzzer_.coinToss(0.2);
 
+      std::vector<TypePtr> argTypes = signature.args;
+      std::vector<std::string> argNames = makeNames(argTypes.size());
       auto call = makeFunctionCall(
           signature.name, argNames, sortedInputs, distinctInputs);
 
@@ -398,6 +411,8 @@ void AggregationFuzzer::go() {
 
       logVectors(input);
 
+      const bool customVerification =
+          customVerificationFunctions_.count(signature.name) != 0;
       std::shared_ptr<ResultVerifier> customVerifier;
       if (customVerification) {
         customVerifier = customVerificationFunctions_.at(signature.name);
