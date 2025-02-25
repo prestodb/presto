@@ -626,7 +626,7 @@ int64_t parseHalfDayOfDay(const char* cur, const char* end, Date& date) {
 std::string formatFractionOfSecond(
     uint16_t subseconds,
     size_t minRepresentDigits) {
-  char toAdd[minRepresentDigits > 3 ? minRepresentDigits + 1 : 4];
+  std::string toAdd(minRepresentDigits > 3 ? minRepresentDigits : 3, '0');
 
   if (subseconds < 10) {
     toAdd[0] = '0';
@@ -642,11 +642,7 @@ std::string formatFractionOfSecond(
     toAdd[0] = char((subseconds / 100) % 10 + '0');
   }
 
-  if (minRepresentDigits > 3) {
-    memset(toAdd + 3, '0', minRepresentDigits - 3);
-  }
-
-  toAdd[minRepresentDigits] = '\0';
+  toAdd.resize(minRepresentDigits);
   return toAdd;
 }
 
