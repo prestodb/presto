@@ -71,7 +71,7 @@ public class ParquetWriter
     private static final int CHUNK_MAX_BYTES = toIntExact(DataSize.valueOf("128MB").toBytes());
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
 
-    private final List<ColumnWriter> columnWriters;
+    private List<ColumnWriter> columnWriters;
     private final OutputStreamSliceOutput outputStream;
     private final List<Type> types;
     private final ParquetWriterOptions writerOption;
@@ -188,7 +188,7 @@ public class ParquetWriter
         if (bufferedBytes >= writerOption.getMaxRowGroupSize()) {
             columnWriters.forEach(ColumnWriter::close);
             flush();
-            columnWriters.forEach(ColumnWriter::reset);
+            columnWriters.forEach(ColumnWriter::resetChunk);
             rows = 0;
         }
     }
