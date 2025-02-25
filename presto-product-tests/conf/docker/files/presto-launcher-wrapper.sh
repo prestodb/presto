@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euxo pipefail
 
 CONFIG="$1"
 
@@ -13,6 +13,16 @@ if [[ ! -f "${CONFIG_PROPERTIES_LOCATION}" ]]; then
    echo "${CONFIG_PROPERTIES_LOCATION} does not exist" >&2
    exit 1
 fi
+
+# If we have an overriden JDK volume mount, use it
+# This is set to /dev/null ignore
+if [ -d /docker/volumes/overridejdk ]; then
+  export JAVA_HOME=/docker/volumes/overridejdk
+  export PATH=$JAVA_HOME/bin:$PATH
+fi
+
+echo "Starting Presto with java set to :"
+java -version
 
 /docker/volumes/presto-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \

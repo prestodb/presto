@@ -10,6 +10,7 @@ env:
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
   MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all -Dmaven.javadoc.skip=true"
   RETRY: .github/bin/retry
+  GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
   changes:
@@ -29,12 +30,16 @@ jobs:
           codechange:
             - '!presto-docs/**'
   kudu:
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ 8, 17 ]
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.codechange == 'true'
     timeout-minutes: 60
     concurrency:
-      group: ${{ github.workflow }}-kudu-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-kudu-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +48,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8
+          java-version: ${{ matrix.java }}
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs
