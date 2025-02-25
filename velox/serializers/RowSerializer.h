@@ -284,9 +284,90 @@ class RowSerializer : public IterativeVectorSerializer {
   CompressionStats stats_;
 };
 
+/*
+ * RowIterator is an iterator to read deserialize rows from an uncompressed
+ * input source. It provides the ability to iterate over the stream by
+ * retrieving a serialized buffer containing one row in each iteration.
+ *
+ * Usage:
+ * RowIterator iterator(source, endOffset);
+ * while (iterator.hasNext()) {
+ *   auto next = iterator.next();
+ *   // Process the data in next
+ * }
+ */
+class RowIterator {
+ public:
+  virtual ~RowIterator() = default;
+
+  virtual bool hasNext() const = 0;
+
+  virtual std::unique_ptr<std::string> next() = 0;
+
+ protected:
+  RowIterator(ByteInputStream* source, size_t endOffset)
+      : source_(source), endOffset_(endOffset) {}
+
+  ByteInputStream* const source_;
+  const size_t endOffset_;
+};
+
+class RowIteratorImpl : public RowIterator {
+ public:
+  RowIteratorImpl(ByteInputStream* source, size_t endOffset)
+      : RowIterator(source, endOffset) {
+    VELOX_CHECK_NOT_NULL(source, "Source cannot be null");
+  }
+
+  bool hasNext() const override {
+    return source_->tellp() < endOffset_;
+  }
+
+  std::unique_ptr<std::string> next() override {
+    const auto rowSize = readRowSize();
+    auto serializedBuffer = std::make_unique<std::string>();
+    serializedBuffer->reserve(rowSize);
+
+    const auto row = source_->nextView(rowSize);
+    serializedBuffer->append(row.data(), row.size());
+    // If we couldn't read the entire row at once, we need to concatenate it
+    // in a different buffer.
+    if (serializedBuffer->size() < rowSize) {
+      concatenatePartialRow(source_, rowSize, *serializedBuffer);
+    }
+
+    VELOX_CHECK_EQ(serializedBuffer->size(), rowSize);
+    return serializedBuffer;
+  }
+
+ private:
+  TRowSize readRowSize() {
+    return folly::Endian::big(source_->read<TRowSize>());
+  }
+
+  // Read from the stream until the full row is concatenated.
+  static void concatenatePartialRow(
+      ByteInputStream* source,
+      TRowSize rowSize,
+      std::string& rowBuffer) {
+    while (rowBuffer.size() < rowSize) {
+      const std::string_view rowFragment =
+          source->nextView(rowSize - rowBuffer.size());
+      VELOX_CHECK_GT(
+          rowFragment.size(),
+          0,
+          "Unable to read full serialized row. Needed {} but read {} bytes.",
+          rowSize - rowBuffer.size(),
+          rowFragment.size());
+      rowBuffer.append(rowFragment.data(), rowFragment.size());
+    }
+  }
+};
+
 template <typename SerializeView>
 class RowDeserializer {
  public:
+  template <typename RowIterator>
   static void deserialize(
       ByteInputStream* source,
       std::vector<SerializeView>& serializedRows,
@@ -321,48 +402,14 @@ class RowDeserializer {
         uncompressedSource = uncompressedStream.get();
       }
       const std::streampos initialSize = uncompressedSource->tellp();
-      while (uncompressedSource->tellp() - initialSize <
-             header.uncompressedSize) {
-        // First read row size in big endian order.
-        const auto rowSize =
-            folly::Endian::big(uncompressedSource->read<TRowSize>());
-
-        auto serializedBuffer = std::make_unique<std::string>();
-        serializedBuffer->reserve(rowSize);
-
-        const auto row = uncompressedSource->nextView(rowSize);
-        serializedBuffer->append(row.data(), row.size());
-        // If we couldn't read the entire row at once, we need to concatenate it
-        // in a different buffer.
-        if (serializedBuffer->size() < rowSize) {
-          concatenatePartialRow(uncompressedSource, rowSize, *serializedBuffer);
-        }
-
-        VELOX_CHECK_EQ(serializedBuffer->size(), rowSize);
-        serializedBuffers.emplace_back(std::move(serializedBuffer));
+      RowIterator rowIterator(
+          uncompressedSource, header.uncompressedSize + initialSize);
+      while (rowIterator.hasNext()) {
+        serializedBuffers.emplace_back(std::move(rowIterator.next()));
         serializedRows.push_back(std::string_view(
             serializedBuffers.back()->data(),
             serializedBuffers.back()->size()));
       }
-    }
-  }
-
- private:
-  // Read from the stream until the full row is concatenated.
-  static void concatenatePartialRow(
-      ByteInputStream* source,
-      TRowSize rowSize,
-      std::string& rowBuffer) {
-    while (rowBuffer.size() < rowSize) {
-      const std::string_view rowFragment =
-          source->nextView(rowSize - rowBuffer.size());
-      VELOX_CHECK_GT(
-          rowFragment.size(),
-          0,
-          "Unable to read full serialized row. Needed {} but read {} bytes.",
-          rowSize - rowBuffer.size(),
-          rowFragment.size());
-      rowBuffer.append(rowFragment.data(), rowFragment.size());
     }
   }
 };

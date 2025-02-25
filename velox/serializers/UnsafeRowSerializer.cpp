@@ -46,8 +46,8 @@ void UnsafeRowVectorSerde::deserialize(
     const Options* options) {
   std::vector<std::optional<std::string_view>> serializedRows;
   std::vector<std::unique_ptr<std::string>> serializedBuffers;
-  RowDeserializer<std::optional<std::string_view>>::deserialize(
-      source, serializedRows, serializedBuffers, options);
+  RowDeserializer<std::optional<std::string_view>>::deserialize<
+      RowIteratorImpl>(source, serializedRows, serializedBuffers, options);
 
   if (serializedRows.empty()) {
     *result = BaseVector::create<RowVector>(type, 0, pool);

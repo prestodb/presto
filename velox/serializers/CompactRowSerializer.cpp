@@ -90,7 +90,7 @@ void CompactRowVectorSerde::deserialize(
     const Options* options) {
   std::vector<std::string_view> serializedRows;
   std::vector<std::unique_ptr<std::string>> serializedBuffers;
-  RowDeserializer<std::string_view>::deserialize(
+  RowDeserializer<std::string_view>::deserialize<RowIteratorImpl>(
       source, serializedRows, serializedBuffers, options);
 
   if (serializedRows.empty()) {
