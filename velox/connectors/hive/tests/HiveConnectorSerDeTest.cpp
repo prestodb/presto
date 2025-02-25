@@ -128,7 +128,9 @@ TEST_F(HiveConnectorSerDeTest, hiveTableHandle) {
           .build(),
       parseExpr("c1 > c4 and c3 = true", rowType),
       "hive_table",
-      ROW({"c0", "c1"}, {BIGINT(), VARCHAR()}));
+      ROW({"c0", "c1"}, {BIGINT(), VARCHAR()}),
+      true,
+      {{dwio::common::TableParameter::kSkipHeaderLineCount, "1"}});
   testSerde(*tableHandle);
 }
 

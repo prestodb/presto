@@ -145,6 +145,20 @@ std::string HiveTableHandle::toString() const {
   if (dataColumns_) {
     out << ", data columns: " << dataColumns_->toString();
   }
+  if (!tableParameters_.empty()) {
+    std::map<std::string, std::string> orderedTableParameters{
+        tableParameters_.begin(), tableParameters_.end()};
+    out << ", table parameters: [";
+    bool firstParam = true;
+    for (const auto& param : orderedTableParameters) {
+      if (!firstParam) {
+        out << ", ";
+      }
+      out << param.first << ":" << param.second;
+      firstParam = false;
+    }
+    out << "]";
+  }
   return out.str();
 }
 
@@ -168,6 +182,11 @@ folly::dynamic HiveTableHandle::serialize() const {
   if (dataColumns_) {
     obj["dataColumns"] = dataColumns_->serialize();
   }
+  folly::dynamic tableParameters = folly::dynamic::object;
+  for (const auto& param : tableParameters_) {
+    tableParameters[param.first] = param.second;
+  }
+  obj["tableParameters"] = tableParameters;
 
   return obj;
 }
@@ -200,13 +219,21 @@ ConnectorTableHandlePtr HiveTableHandle::create(
     dataColumns = ISerializable::deserialize<RowType>(it->second, context);
   }
 
+  std::unordered_map<std::string, std::string> tableParameters{};
+  const auto& tableParametersObj = obj["tableParameters"];
+  for (const auto& key : tableParametersObj.keys()) {
+    const auto& value = tableParametersObj[key];
+    tableParameters.emplace(key.asString(), value.asString());
+  }
+
   return std::make_shared<const HiveTableHandle>(
       connectorId,
       tableName,
       filterPushdownEnabled,
       std::move(subfieldFilters),
       remainingFilter,
-      dataColumns);
+      dataColumns,
+      tableParameters);
 }
 
 void HiveTableHandle::registerSerDe() {

@@ -120,14 +120,17 @@ class HiveConnectorTestBase : public OperatorTestBase {
       const core::TypedExprPtr& remainingFilter = nullptr,
       const std::string& tableName = "hive_table",
       const RowTypePtr& dataColumns = nullptr,
-      bool filterPushdownEnabled = true) {
+      bool filterPushdownEnabled = true,
+      const std::unordered_map<std::string, std::string>& tableParameters =
+          {}) {
     return std::make_shared<connector::hive::HiveTableHandle>(
         kHiveConnectorId,
         tableName,
         filterPushdownEnabled,
         std::move(subfieldFilters),
         remainingFilter,
-        dataColumns);
+        dataColumns,
+        tableParameters);
   }
 
   /// @param name Column name.
