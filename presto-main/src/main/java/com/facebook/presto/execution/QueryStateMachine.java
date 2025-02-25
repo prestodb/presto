@@ -102,7 +102,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -388,17 +387,17 @@ public class QueryStateMachine
                 stageStats.getRunningDrivers(),
                 stageStats.getCompletedDrivers(),
 
-                stageStats.getRawInputDataSize(),
+                stageStats.getRawInputDataSizeInBytes(),
                 stageStats.getRawInputPositions(),
 
                 stageStats.getCumulativeUserMemory(),
                 stageStats.getCumulativeTotalMemory(),
-                stageStats.getUserMemoryReservation(),
-                stageStats.getTotalMemoryReservation(),
-                succinctBytes(getPeakUserMemoryInBytes()),
-                succinctBytes(getPeakTotalMemoryInBytes()),
-                succinctBytes(getPeakTaskTotalMemory()),
-                succinctBytes(getPeakNodeTotalMemory()),
+                stageStats.getUserMemoryReservationInBytes(),
+                stageStats.getTotalMemoryReservationInBytes(),
+                getPeakUserMemoryInBytes(),
+                getPeakTotalMemoryInBytes(),
+                getPeakTaskTotalMemory(),
+                getPeakNodeTotalMemory(),
 
                 stageStats.getTotalCpuTime(),
                 stageStats.getTotalScheduledTime(),
@@ -406,7 +405,7 @@ public class QueryStateMachine
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),
 
-                stageStats.getTotalAllocation(),
+                stageStats.getTotalAllocationInBytes(),
 
                 stageStats.getProgressPercentage());
 
@@ -514,11 +513,11 @@ public class QueryStateMachine
                 rootStage,
                 allStages,
                 getPeakRunningTaskCount(),
-                succinctBytes(getPeakUserMemoryInBytes()),
-                succinctBytes(getPeakTotalMemoryInBytes()),
-                succinctBytes(getPeakTaskUserMemory()),
-                succinctBytes(getPeakTaskTotalMemory()),
-                succinctBytes(getPeakNodeTotalMemory()),
+                getPeakUserMemoryInBytes(),
+                getPeakTotalMemoryInBytes(),
+                getPeakTaskUserMemory(),
+                getPeakTaskTotalMemory(),
+                getPeakNodeTotalMemory(),
                 session.getRuntimeStats());
     }
 

@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.execution;
 
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.Arrays;
@@ -42,9 +41,9 @@ public class QueryLimit<T extends Comparable<T>>
         return new QueryLimit<>(limit, source);
     }
 
-    public static QueryLimit<DataSize> createDataSizeLimit(DataSize limit, Source source)
+    public static QueryLimit<Long> createDataSizeLimit(long limitInBytes, Source source)
     {
-        return new QueryLimit<>(limit, source);
+        return new QueryLimit<>(limitInBytes, source);
     }
 
     public T getLimit()
@@ -69,8 +68,8 @@ public class QueryLimit<T extends Comparable<T>>
     public static <S extends Comparable<S>> QueryLimit<S> getMinimum(QueryLimit<S> limit, QueryLimit<S>... limits)
     {
         Optional<QueryLimit<S>> queryLimit = Stream.concat(
-                limits != null ? Arrays.stream(limits) : Stream.empty(),
-                limit != null ? Stream.of(limit) : Stream.empty())
+                        limits != null ? Arrays.stream(limits) : Stream.empty(),
+                        limit != null ? Stream.of(limit) : Stream.empty())
                 .filter(Objects::nonNull)
                 .min(Comparator.comparing(QueryLimit::getLimit));
         return queryLimit.orElseThrow(() -> new IllegalArgumentException("At least one nonnull argument is required."));
