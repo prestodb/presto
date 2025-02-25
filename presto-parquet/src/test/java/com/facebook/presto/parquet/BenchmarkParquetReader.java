@@ -309,7 +309,7 @@ public class BenchmarkParquetReader
 
             this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
 
-            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableBatchReader, enableVerification, null, null, false, Optional.empty());
+            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableBatchReader, enableVerification, null, null, false, Optional.empty(), Optional.empty());
         }
 
         protected boolean getNullability()

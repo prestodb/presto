@@ -530,7 +530,7 @@ public class ParquetTester
         assertPageSource(types, valuesByField, pageSource, Optional.empty());
     }
 
-    private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource, Optional<Long> maxReadBlockSize)
+    static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource, Optional<Long> maxReadBlockSize)
     {
         Page page;
         while ((page = pageSource.getNextPage()) != null) {
@@ -550,7 +550,7 @@ public class ParquetTester
         }
     }
 
-    private static void assertRecordCursor(List<Type> types, Iterator<?>[] valuesByField, RecordCursor cursor)
+    static void assertRecordCursor(List<Type> types, Iterator<?>[] valuesByField, RecordCursor cursor)
     {
         while (cursor.advanceNextPosition()) {
             for (int field = 0; field < types.size(); field++) {
