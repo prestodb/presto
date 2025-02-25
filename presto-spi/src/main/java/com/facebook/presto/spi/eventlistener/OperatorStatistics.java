@@ -15,13 +15,13 @@ package com.facebook.presto.spi.eventlistener;
 
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.Immutable;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -39,37 +39,37 @@ public class OperatorStatistics
     private final long addInputCalls;
     private final Duration addInputWall;
     private final Duration addInputCpu;
-    private final DataSize addInputAllocation;
-    private final DataSize rawInputDataSize;
+    private final long addInputAllocationInBytes;
+    private final long rawInputDataSizeInBytes;
     private final long rawInputPositions;
-    private final DataSize inputDataSize;
+    private final long inputDataSizeInBytes;
     private final long inputPositions;
     private final double sumSquaredInputPositions;
 
     private final long getOutputCalls;
     private final Duration getOutputWall;
     private final Duration getOutputCpu;
-    private final DataSize getOutputAllocation;
-    private final DataSize outputDataSize;
+    private final long getOutputAllocationInBytes;
+    private final long outputDataSizeInBytes;
     private final long outputPositions;
 
-    private final DataSize physicalWrittenDataSize;
+    private final long physicalWrittenDataSizeInBytes;
 
     private final Duration blockedWall;
 
     private final long finishCalls;
     private final Duration finishWall;
     private final Duration finishCpu;
-    private final DataSize finishAllocation;
+    private final long finishAllocationInBytes;
 
-    private final DataSize userMemoryReservation;
-    private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
-    private final DataSize peakUserMemoryReservation;
-    private final DataSize peakSystemMemoryReservation;
-    private final DataSize peakTotalMemoryReservation;
+    private final long userMemoryReservationInBytes;
+    private final long revocableMemoryReservationInBytes;
+    private final long systemMemoryReservationInBytes;
+    private final long peakUserMemoryReservationInBytes;
+    private final long peakSystemMemoryReservationInBytes;
+    private final long peakTotalMemoryReservationInBytes;
 
-    private final DataSize spilledDataSize;
+    private final long spilledDataSizeInBytes;
 
     private final Optional<String> info;
 
@@ -91,37 +91,37 @@ public class OperatorStatistics
             long addInputCalls,
             Duration addInputWall,
             Duration addInputCpu,
-            DataSize addInputAllocation,
-            DataSize rawInputDataSize,
+            long addInputAllocation,
+            long rawInputDataSize,
             long rawInputPositions,
-            DataSize inputDataSize,
+            long inputDataSize,
             long inputPositions,
             double sumSquaredInputPositions,
 
             long getOutputCalls,
             Duration getOutputWall,
             Duration getOutputCpu,
-            DataSize getOutputAllocation,
-            DataSize outputDataSize,
+            long getOutputAllocation,
+            long outputDataSize,
             long outputPositions,
 
-            DataSize physicalWrittenDataSize,
+            long physicalWrittenDataSize,
 
             Duration blockedWall,
 
             long finishCalls,
             Duration finishWall,
             Duration finishCpu,
-            DataSize finishAllocation,
+            long finishAllocation,
 
-            DataSize userMemoryReservation,
-            DataSize revocableMemoryReservation,
-            DataSize systemMemoryReservation,
-            DataSize peakUserMemoryReservation,
-            DataSize peakSystemMemoryReservation,
-            DataSize peakTotalMemoryReservation,
+            long userMemoryReservation,
+            long revocableMemoryReservation,
+            long systemMemoryReservation,
+            long peakUserMemoryReservation,
+            long peakSystemMemoryReservation,
+            long peakTotalMemoryReservation,
 
-            DataSize spilledDataSize,
+            long spilledDataSize,
 
             Optional<String> info,
             RuntimeStats runtimeStats,
@@ -141,39 +141,48 @@ public class OperatorStatistics
         this.addInputCalls = addInputCalls;
         this.addInputWall = requireNonNull(addInputWall, "addInputWall is null");
         this.addInputCpu = requireNonNull(addInputCpu, "addInputCpu is null");
-        this.addInputAllocation = requireNonNull(addInputAllocation, "addInputAllocation is null");
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+        checkArgument(addInputAllocation >= 0, "addInputAllocation is negative");
+        this.addInputAllocationInBytes = addInputAllocation;
+        checkArgument(rawInputDataSize >= 0, "rawInputDataSize is negative");
+        this.rawInputDataSizeInBytes = rawInputDataSize;
         this.rawInputPositions = rawInputPositions;
-        this.inputDataSize = requireNonNull(inputDataSize, "inputDataSize is null");
+        checkArgument(inputDataSize >= 0, "inputDataSize is negative");
+        this.inputDataSizeInBytes = inputDataSize;
         this.inputPositions = inputPositions;
         this.sumSquaredInputPositions = sumSquaredInputPositions;
 
         this.getOutputCalls = getOutputCalls;
         this.getOutputWall = requireNonNull(getOutputWall, "getOutputWall is null");
         this.getOutputCpu = requireNonNull(getOutputCpu, "getOutputCpu is null");
-        this.getOutputAllocation = requireNonNull(getOutputAllocation, "getOutputAllocation is null");
-        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
+        checkArgument(getOutputAllocation >= 0, "getOutputAllocation is negative");
+        this.getOutputAllocationInBytes = getOutputAllocation;
+        checkArgument(outputDataSize >= 0, "outputDataSize is negative");
+        this.outputDataSizeInBytes = outputDataSize;
         this.outputPositions = outputPositions;
 
-        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
-
+        checkArgument(physicalWrittenDataSize >= 0, "writtenDataSize is negative");
+        this.physicalWrittenDataSizeInBytes = physicalWrittenDataSize;
         this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
 
         this.finishCalls = finishCalls;
         this.finishWall = requireNonNull(finishWall, "finishWall is null");
         this.finishCpu = requireNonNull(finishCpu, "finishCpu is null");
-        this.finishAllocation = requireNonNull(finishAllocation, "finishAllocation is null");
-
-        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
-        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
-
-        this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
-        this.peakSystemMemoryReservation = requireNonNull(peakSystemMemoryReservation, "peakSystemMemoryReservation is null");
-        this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
-
-        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
-
+        checkArgument(finishAllocation >= 0, "finishAllocation is negative");
+        this.finishAllocationInBytes = finishAllocation;
+        checkArgument(userMemoryReservation >= 0, "userMemoryReservation is negative");
+        this.userMemoryReservationInBytes = userMemoryReservation;
+        checkArgument(revocableMemoryReservation >= 0, "revocableMemoryReservation is negative");
+        this.revocableMemoryReservationInBytes = revocableMemoryReservation;
+        checkArgument(systemMemoryReservation >= 0, "systemMemoryReservation is negative");
+        this.systemMemoryReservationInBytes = systemMemoryReservation;
+        checkArgument(peakUserMemoryReservation >= 0, "peakUserMemoryReservation is negative");
+        this.peakUserMemoryReservationInBytes = peakUserMemoryReservation;
+        checkArgument(peakSystemMemoryReservation >= 0, "peakSystemMemoryReservation is negative");
+        this.peakSystemMemoryReservationInBytes = peakSystemMemoryReservation;
+        checkArgument(peakTotalMemoryReservation >= 0, "peakTotalMemoryReservation is negative");
+        this.peakTotalMemoryReservationInBytes = peakTotalMemoryReservation;
+        checkArgument(spilledDataSize >= 0, "spilledDataSize is negative");
+        this.spilledDataSizeInBytes = spilledDataSize;
         this.info = requireNonNull(info, "info is null");
         this.runtimeStats = runtimeStats;
 
@@ -231,14 +240,14 @@ public class OperatorStatistics
         return addInputCpu;
     }
 
-    public DataSize getAddInputAllocation()
+    public long getAddInputAllocationInBytes()
     {
-        return addInputAllocation;
+        return addInputAllocationInBytes;
     }
 
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSizeInBytes()
     {
-        return rawInputDataSize;
+        return rawInputDataSizeInBytes;
     }
 
     public long getRawInputPositions()
@@ -246,9 +255,9 @@ public class OperatorStatistics
         return rawInputPositions;
     }
 
-    public DataSize getInputDataSize()
+    public long getInputDataSizeInBytes()
     {
-        return inputDataSize;
+        return inputDataSizeInBytes;
     }
 
     public long getInputPositions()
@@ -276,14 +285,14 @@ public class OperatorStatistics
         return getOutputCpu;
     }
 
-    public DataSize getGetOutputAllocation()
+    public long getGetOutputAllocationInBytes()
     {
-        return getOutputAllocation;
+        return getOutputAllocationInBytes;
     }
 
-    public DataSize getOutputDataSize()
+    public long getOutputDataSizeInBytes()
     {
-        return outputDataSize;
+        return outputDataSizeInBytes;
     }
 
     public long getOutputPositions()
@@ -291,9 +300,9 @@ public class OperatorStatistics
         return outputPositions;
     }
 
-    public DataSize getPhysicalWrittenDataSize()
+    public long getPhysicalWrittenDataSizeInBytes()
     {
-        return physicalWrittenDataSize;
+        return physicalWrittenDataSizeInBytes;
     }
 
     public Duration getBlockedWall()
@@ -316,44 +325,44 @@ public class OperatorStatistics
         return finishCpu;
     }
 
-    public DataSize getFinishAllocation()
+    public long getFinishAllocationInBytes()
     {
-        return finishAllocation;
+        return finishAllocationInBytes;
     }
 
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservationInBytes()
     {
-        return userMemoryReservation;
+        return userMemoryReservationInBytes;
     }
 
-    public DataSize getRevocableMemoryReservation()
+    public long getRevocableMemoryReservationInBytes()
     {
-        return revocableMemoryReservation;
+        return revocableMemoryReservationInBytes;
     }
 
-    public DataSize getSystemMemoryReservation()
+    public long getSystemMemoryReservationInBytes()
     {
-        return systemMemoryReservation;
+        return systemMemoryReservationInBytes;
     }
 
-    public DataSize getPeakUserMemoryReservation()
+    public long getPeakUserMemoryReservationInBytes()
     {
-        return peakUserMemoryReservation;
+        return peakUserMemoryReservationInBytes;
     }
 
-    public DataSize getPeakSystemMemoryReservation()
+    public long getPeakSystemMemoryReservationInBytes()
     {
-        return peakSystemMemoryReservation;
+        return peakSystemMemoryReservationInBytes;
     }
 
-    public DataSize getPeakTotalMemoryReservation()
+    public long getPeakTotalMemoryReservationInBytes()
     {
-        return peakTotalMemoryReservation;
+        return peakTotalMemoryReservationInBytes;
     }
 
-    public DataSize getSpilledDataSize()
+    public long getSpilledDataSizeInBytes()
     {
-        return spilledDataSize;
+        return spilledDataSizeInBytes;
     }
 
     public Optional<String> getInfo()

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
+import static com.facebook.presto.common.Utils.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class StageStatistics
@@ -29,9 +29,9 @@ public class StageStatistics
     private final Duration retriedCpuTime;
     private final Duration totalBlockedTime;
 
-    private final DataSize rawInputDataSize;
-    private final DataSize processedInputDataSize;
-    private final DataSize physicalWrittenDataSize;
+    private final long rawInputDataSizeInBytes;
+    private final long processedInputDataSizeInBytes;
+    private final long physicalWrittenDataSizeInBytes;
 
     private final StageGcStatistics gcStatistics;
     private final ResourceDistribution cpuDistribution;
@@ -45,9 +45,9 @@ public class StageStatistics
             Duration totalCpuTime,
             Duration retriedCpuTime,
             Duration totalBlockedTime,
-            DataSize rawInputDataSize,
-            DataSize processedInputDataSize,
-            DataSize physicalWrittenDataSize,
+            long rawInputDataSize,
+            long processedInputDataSize,
+            long physicalWrittenDataSize,
             StageGcStatistics gcStatistics,
             ResourceDistribution cpuDistribution,
             ResourceDistribution memoryDistribution)
@@ -59,9 +59,12 @@ public class StageStatistics
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.retriedCpuTime = requireNonNull(retriedCpuTime, "retriedCpuTime is null");
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawDataInputSize is null");
-        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
-        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+        checkArgument(rawInputDataSize >= 0, "rawDataInputSize is negative");
+        this.rawInputDataSizeInBytes = rawInputDataSize;
+        checkArgument(processedInputDataSize >= 0, "processedInputDataSize is negative");
+        this.processedInputDataSizeInBytes = processedInputDataSize;
+        checkArgument(physicalWrittenDataSize >= 0, "physicalWrittenDataSize is negative");
+        this.physicalWrittenDataSizeInBytes = physicalWrittenDataSize;
         this.gcStatistics = requireNonNull(gcStatistics, "gcStatistics is null");
         this.cpuDistribution = requireNonNull(cpuDistribution, "cpuDistribution is null");
         this.memoryDistribution = requireNonNull(memoryDistribution, "memoryDistribution is null");
@@ -102,19 +105,19 @@ public class StageStatistics
         return totalBlockedTime;
     }
 
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSizeInBytes()
     {
-        return rawInputDataSize;
+        return rawInputDataSizeInBytes;
     }
 
-    public DataSize getProcessedInputDataSize()
+    public long getProcessedInputDataSizeInBytes()
     {
-        return processedInputDataSize;
+        return processedInputDataSizeInBytes;
     }
 
-    public DataSize getPhysicalWrittenDataSize()
+    public long getPhysicalWrittenDataSizeInBytes()
     {
-        return physicalWrittenDataSize;
+        return physicalWrittenDataSizeInBytes;
     }
 
     public StageGcStatistics getGcStatistics()
