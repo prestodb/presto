@@ -14,10 +14,8 @@
 package com.facebook.presto.router;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
-import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
-import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.ForClusterInfoTracker;
 import com.facebook.presto.router.cluster.ForClusterManager;
 import com.facebook.presto.router.cluster.ForQueryInfoTracker;
@@ -80,7 +78,7 @@ public class RouterModule
         bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
         bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
 
-        binder.bind(ClusterStatusTracker.class).in(Scopes.SINGLETON);
+        binder.bind(ClusterManager.ClusterStatusTracker.class).in(Scopes.SINGLETON);
 
         binder.bind(PredictorManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteQueryFactory.class).in(Scopes.SINGLETON);
