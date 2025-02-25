@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupBy;
@@ -62,6 +63,11 @@ public final class QueryUtil
     public static Identifier quotedIdentifier(String name)
     {
         return new Identifier(name, true);
+    }
+
+    public static Expression nameReference(String first, String... rest)
+    {
+        return DereferenceExpression.from(QualifiedName.of(first, rest));
     }
 
     public static SelectItem unaliasedName(String name)
@@ -146,6 +152,11 @@ public final class QueryUtil
     public static Row row(Expression... values)
     {
         return new Row(ImmutableList.copyOf(values));
+    }
+
+    public static Relation aliased(Relation relation, String alias)
+    {
+        return new AliasedRelation(relation, identifier(alias), null);
     }
 
     public static Relation aliased(Relation relation, String alias, List<String> columnAliases)
