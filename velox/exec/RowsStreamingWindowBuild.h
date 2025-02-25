@@ -51,17 +51,18 @@ class RowsStreamingWindowBuild : public WindowBuild {
 
   std::shared_ptr<WindowPartition> nextPartition() override;
 
-  bool needsInput() override {
-    // No partitions are available or the currentPartition is the last available
-    // one, so can consume input rows.
-    return windowPartitions_.empty() ||
-        outputPartition_ == windowPartitions_.size() - 1;
-  }
+  bool needsInput() override;
 
  private:
   // Adds input rows to the current partition, or creates a new partition if it
   // does not exist.
   void addPartitionInputs(bool finished);
+
+  // Invoked before add input to ensure there is an open (in-complete) partition
+  // to accept new input. The function creates a new one at the tail of
+  // 'windowPartitions_' if it is empty or the last partition is already
+  // completed.
+  void ensureInputPartition();
 
   // Sets to true if this window node has range frames.
   const bool hasRangeFrame_;
@@ -72,14 +73,9 @@ class RowsStreamingWindowBuild : public WindowBuild {
   // Used to compare rows based on partitionKeys.
   char* previousRow_ = nullptr;
 
-  // Point to the current output partition if not -1.
-  vector_size_t outputPartition_ = -1;
-
-  // Current input partition that receives inputs.
-  vector_size_t inputPartition_ = 0;
-
-  // Holds all the built window partitions.
-  std::vector<std::shared_ptr<WindowPartition>> windowPartitions_;
+  /// The output gets next partition from the head of 'windowPartitions_' and
+  /// input adds to the next partition from the tail of 'windowPartitions_'.
+  std::deque<std::shared_ptr<WindowPartition>> windowPartitions_;
 };
 
 } // namespace facebook::velox::exec
