@@ -45,6 +45,7 @@ import java.util.Optional;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestHealthChecks
 {
@@ -106,12 +107,29 @@ public class TestHealthChecks
         }
     }
 
-    @Test(enabled = true)
+    @Test
     public void testHealthChecks()
+            throws InterruptedException
     {
         prestoServers.get(0).stopResponding();
-        List<URI> destinations = new ArrayList();
-        for (int i = 0; i < 3; i++) {
+        List<URI> destinations = getDestinations(3);
+        assertFalse(destinations.contains(prestoServers.get(0).getBaseUrl()));
+
+        prestoServers.get(0).startResponding();
+        Thread.sleep(6000);
+        destinations = getDestinations(3);
+        assertTrue(destinations.contains(prestoServers.get(0).getBaseUrl()));
+
+        prestoServers.get(0).stopResponding();
+        Thread.sleep(6000);
+        destinations = getDestinations(3);
+        assertFalse(destinations.contains(prestoServers.get(0).getBaseUrl()));
+    }
+
+    private List<URI> getDestinations(int requests)
+    {
+        List<URI> destinations = new ArrayList<>();
+        for (int i = 0; i < requests; i++) {
             Optional<URI> destinationWrapper = getDestinationWrapper();
             if (!destinationWrapper.isPresent()) {
                 destinations.add(URI.create("null"));
@@ -120,7 +138,7 @@ public class TestHealthChecks
                 destinations.add(destinationWrapper.get());
             }
         }
-        assertFalse(destinations.contains(prestoServers.get(0).getBaseUrl()));
+        return destinations;
     }
 
     private Optional<URI> getDestinationWrapper()
