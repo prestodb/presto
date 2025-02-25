@@ -240,11 +240,11 @@ public final class QueryResourceUtil
                 .setQueuedTimeMillis(queryStats.getQueuedTime().toMillis())
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
                 .setProcessedRows(queryStats.getRawInputPositions())
-                .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
-                .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
-                .setPeakTotalMemoryBytes(queryStats.getPeakTotalMemoryReservation().toBytes())
-                .setPeakTaskTotalMemoryBytes(queryStats.getPeakTaskTotalMemory().toBytes())
-                .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
+                .setProcessedBytes(queryStats.getRawInputDataSize())
+                .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation())
+                .setPeakTotalMemoryBytes(queryStats.getPeakTotalMemoryReservation())
+                .setPeakTaskTotalMemoryBytes(queryStats.getPeakTaskTotalMemory())
+                .setSpilledBytes(queryStats.getSpilledDataSize())
                 .setRootStage(rootStageStats)
                 .setRuntimeStats(queryStats.getRuntimeStats())
                 .build();
@@ -281,7 +281,7 @@ public final class QueryResourceUtil
                 .setCpuTimeMillis(stageExecutionStats.getTotalCpuTime().toMillis())
                 .setWallTimeMillis(stageExecutionStats.getTotalScheduledTime().toMillis())
                 .setProcessedRows(stageExecutionStats.getRawInputPositions())
-                .setProcessedBytes(stageExecutionStats.getRawInputDataSize().toBytes())
+                .setProcessedBytes(stageExecutionStats.getRawInputDataSize())
                 .setNodes(countStageAndAddGlobalUniqueNodes(currentStageExecutionInfo.getTasks(), globalUniqueNodeIds));
 
         // Recurse into child stages to create their StageStats
