@@ -7,7 +7,7 @@
   ],
   "selectors": [
     {
-      "targetGroup": "all"
+      "targetGroup": "group1"
     }
   ],
   "scheduler": "ROUND_ROBIN"
