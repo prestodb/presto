@@ -21,7 +21,6 @@ import com.facebook.presto.operator.BlockedReason;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -31,7 +30,6 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -59,24 +57,24 @@ public class BasicQueryStats
     private final int runningDrivers;
     private final int completedDrivers;
 
-    private final DataSize rawInputDataSize;
+    private final long rawInputDataSize;
     private final long rawInputPositions;
 
     private final double cumulativeUserMemory;
     private final double cumulativeTotalMemory;
-    private final DataSize userMemoryReservation;
-    private final DataSize totalMemoryReservation;
-    private final DataSize peakUserMemoryReservation;
-    private final DataSize peakTotalMemoryReservation;
-    private final DataSize peakTaskTotalMemoryReservation;
-    private final DataSize peakNodeTotalMemoryReservation;
+    private final long userMemoryReservation;
+    private final long totalMemoryReservation;
+    private final long peakUserMemoryReservation;
+    private final long peakTotalMemoryReservation;
+    private final long peakTaskTotalMemoryReservation;
+    private final long peakNodeTotalMemoryReservation;
     private final Duration totalCpuTime;
     private final Duration totalScheduledTime;
 
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
-    private final DataSize totalAllocation;
+    private final long totalAllocation;
 
     private final OptionalDouble progressPercentage;
 
@@ -95,21 +93,21 @@ public class BasicQueryStats
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawInputDataSize") long rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
-            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
-            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
-            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
-            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
-            @JsonProperty("peakTaskTotalMemoryReservation") DataSize peakTaskTotalMemoryReservation,
-            @JsonProperty("peakNodeTotalMemoryReservation") DataSize peakNodeTotalMemoryReservation,
+            @JsonProperty("userMemoryReservation") long userMemoryReservation,
+            @JsonProperty("totalMemoryReservation") long totalMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") long peakUserMemoryReservation,
+            @JsonProperty("peakTotalMemoryReservation") long peakTotalMemoryReservation,
+            @JsonProperty("peakTaskTotalMemoryReservation") long peakTaskTotalMemoryReservation,
+            @JsonProperty("peakNodeTotalMemoryReservation") long peakNodeTotalMemoryReservation,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
-            @JsonProperty("totalAllocation") DataSize totalAllocation,
+            @JsonProperty("totalAllocation") long totalAllocation,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
     {
         this.createTime = createTime;
@@ -202,21 +200,21 @@ public class BasicQueryStats
                 0,
                 0,
                 0,
-                new DataSize(0, BYTE),
+                0L,
                 0,
                 0,
                 0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
-                new DataSize(0, BYTE),
+                0L,
                 OptionalDouble.empty());
     }
 
@@ -285,7 +283,7 @@ public class BasicQueryStats
 
     @ThriftField(10)
     @JsonProperty
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSize()
     {
         return rawInputDataSize;
     }
@@ -306,14 +304,14 @@ public class BasicQueryStats
 
     @ThriftField(13)
     @JsonProperty
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservation()
     {
         return userMemoryReservation;
     }
 
     @ThriftField(14)
     @JsonProperty
-    public DataSize getTotalMemoryReservation()
+    public long getTotalMemoryReservation()
     {
         return totalMemoryReservation;
     }
@@ -326,28 +324,28 @@ public class BasicQueryStats
 
     @ThriftField(16)
     @JsonProperty
-    public DataSize getPeakUserMemoryReservation()
+    public long getPeakUserMemoryReservation()
     {
         return peakUserMemoryReservation;
     }
 
     @ThriftField(17)
     @JsonProperty
-    public DataSize getPeakTotalMemoryReservation()
+    public long getPeakTotalMemoryReservation()
     {
         return peakTotalMemoryReservation;
     }
 
     @ThriftField(18)
     @JsonProperty
-    public DataSize getPeakTaskTotalMemoryReservation()
+    public long getPeakTaskTotalMemoryReservation()
     {
         return peakTaskTotalMemoryReservation;
     }
 
     @ThriftField(value = 19, name = "peakNodeTotalMemoryReservation")
     @JsonProperty
-    public DataSize getPeakNodeTotalMemoryReservation()
+    public long getPeakNodeTotalMemoryReservation()
     {
         return peakNodeTotalMemoryReservation;
     }
@@ -382,7 +380,7 @@ public class BasicQueryStats
 
     @ThriftField(24)
     @JsonProperty
-    public DataSize getTotalAllocation()
+    public long getTotalAllocation()
     {
         return totalAllocation;
     }
