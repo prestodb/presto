@@ -424,18 +424,18 @@ public class TestMemoryTracking
             long expectedRevocableMemory,
             long expectedSystemMemory)
     {
-        assertEquals(operatorStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
-        assertEquals(driverStats.getUserMemoryReservation().toBytes(), expectedUserMemory);
+        assertEquals(operatorStats.getUserMemoryReservation(), expectedUserMemory);
+        assertEquals(driverStats.getUserMemoryReservation(), expectedUserMemory);
         assertEquals(pipelineStats.getUserMemoryReservationInBytes(), expectedUserMemory);
         assertEquals(taskStats.getUserMemoryReservationInBytes(), expectedUserMemory);
 
-        assertEquals(operatorStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
-        assertEquals(driverStats.getSystemMemoryReservation().toBytes(), expectedSystemMemory);
+        assertEquals(operatorStats.getSystemMemoryReservation(), expectedSystemMemory);
+        assertEquals(driverStats.getSystemMemoryReservation(), expectedSystemMemory);
         assertEquals(pipelineStats.getSystemMemoryReservationInBytes(), expectedSystemMemory);
         assertEquals(taskStats.getSystemMemoryReservationInBytes(), expectedSystemMemory);
 
-        assertEquals(operatorStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
-        assertEquals(driverStats.getRevocableMemoryReservation().toBytes(), expectedRevocableMemory);
+        assertEquals(operatorStats.getRevocableMemoryReservation(), expectedRevocableMemory);
+        assertEquals(driverStats.getRevocableMemoryReservation(), expectedRevocableMemory);
         assertEquals(pipelineStats.getRevocableMemoryReservationInBytes(), expectedRevocableMemory);
         assertEquals(taskStats.getRevocableMemoryReservationInBytes(), expectedRevocableMemory);
     }

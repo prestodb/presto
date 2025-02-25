@@ -199,7 +199,7 @@ public class TestPartitionedOutputOperator
                 "task-instance-id",
                 new StateMachine<>("bufferState", SCHEDULER, OPEN, TERMINAL_BUFFER_STATES),
                 buffers.withNoMoreBufferIds(),
-                new DataSize(Long.MAX_VALUE, BYTE),
+                new DataSize(Long.MAX_VALUE, BYTE).toBytes(),
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 SCHEDULER);
         buffer.registerLifespanCompletionCallback(ignore -> {});
