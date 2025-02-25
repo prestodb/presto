@@ -17,7 +17,6 @@ import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.airlift.jaxrs.JsonMapper;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.block.BlockJsonSerde;
-import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.block.BlockEncodingManager;
@@ -27,19 +26,12 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
-import com.facebook.presto.metadata.InMemoryNodeManager;
-import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.metadata.MetadataManager;
-import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.sidecar.NativeSidecarCommunicationModule;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.expressions.JsonCodecRowExpressionSerde;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.type.TypeDeserializer;
@@ -48,63 +40,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import org.testng.annotations.Test;
-
-import java.net.URI;
 
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.findRandomPortForWorker;
-import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.getNativeSidecarProcess;
-import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
-import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
 
-public class TestNativeExpressions
+public class NativeExpressionUtils
 {
-    private static final Metadata METADATA = MetadataManager.createTestMetadataManager();
-    private static final TestingRowExpressionTranslator TRANSLATOR = new TestingRowExpressionTranslator(METADATA);
-    private Process sidecar;
+    private NativeExpressionUtils() {}
 
-    @Test
-    public void testLoadPlugin()
-            throws Exception
-    {
-        try {
-            int port = findRandomPortForWorker();
-            URI sidecarUri = URI.create(format("http://127.0.0.1:%s", port));
-            sidecar = getNativeSidecarProcess(sidecarUri, port);
-            ExpressionOptimizer interpreterService = getExpressionOptimizer(METADATA, null, sidecarUri);
-
-            // Test the native row expression interpreter service with some simple expressions
-            RowExpression simpleAddition = compileExpression("1+1");
-            RowExpression unnecessaryCoalesce = compileExpression("coalesce(1, 2)");
-
-            // Assert simple optimizations are performed
-            assertEquals(interpreterService.optimize(simpleAddition, OPTIMIZED, TEST_SESSION.toConnectorSession()), toRowExpression(2L, simpleAddition.getType()));
-            assertEquals(interpreterService.optimize(unnecessaryCoalesce, OPTIMIZED, TEST_SESSION.toConnectorSession()), toRowExpression(1L, unnecessaryCoalesce.getType()));
-        }
-        finally {
-            if (sidecar != null) {
-                sidecar.destroy();
-            }
-        }
-    }
-
-    private static RowExpression compileExpression(String expression)
-    {
-        return TRANSLATOR.translate(expression, ImmutableMap.of());
-    }
-
-    protected static ExpressionOptimizer getExpressionOptimizer(Metadata metadata, HandleResolver handleResolver, URI sidecarUri)
+    public static ExpressionOptimizer getExpressionOptimizer(Metadata metadata, HandleResolver handleResolver, NodeManager nodeManager)
     {
         // Set up dependencies in main for this module
-        InMemoryNodeManager nodeManager = getNodeManagerWithSidecar(sidecarUri);
-        Injector prestoMainInjector = getPrestoMainInjector(metadata, handleResolver);
+        Injector prestoMainInjector = getPrestoMainInjector(metadata, handleResolver, nodeManager);
         RowExpressionSerde rowExpressionSerde = prestoMainInjector.getInstance(RowExpressionSerde.class);
         FunctionAndTypeManager functionMetadataManager = prestoMainInjector.getInstance(FunctionAndTypeManager.class);
 
@@ -112,24 +60,13 @@ public class TestNativeExpressions
         return createExpressionOptimizer(nodeManager, rowExpressionSerde, functionMetadataManager);
     }
 
-    private static InMemoryNodeManager getNodeManagerWithSidecar(URI sidecarUri)
+    private static ExpressionOptimizer createExpressionOptimizer(NodeManager nodeManager, RowExpressionSerde rowExpressionSerde, FunctionAndTypeManager functionMetadataManager)
     {
-        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
-        nodeManager.addNode(new ConnectorId("test"), new InternalNode("test", sidecarUri, NodeVersion.UNKNOWN, false, false, false, true));
-        return nodeManager;
-    }
-
-    private static ExpressionOptimizer createExpressionOptimizer(InternalNodeManager internalNodeManager, RowExpressionSerde rowExpressionSerde, FunctionAndTypeManager functionMetadataManager)
-    {
-        requireNonNull(internalNodeManager, "inMemoryNodeManager is null");
-        NodeManager nodeManager = new PluginNodeManager(internalNodeManager);
-        FunctionResolution functionResolution = new FunctionResolution(functionMetadataManager.getFunctionAndTypeResolver());
-
         Bootstrap app = new Bootstrap(
                 // Specially use a testing HTTP client instead of a real one
                 new NativeSidecarCommunicationModule(),
                 // Otherwise use the exact same module as the native row expression interpreter service
-                new NativeExpressionsModule(nodeManager, rowExpressionSerde, functionMetadataManager, functionResolution));
+                new NativeExpressionsModule(nodeManager, rowExpressionSerde, functionMetadataManager, new FunctionResolution(functionMetadataManager.getFunctionAndTypeResolver())));
 
         Injector injector = app
                 .noStrictConfig()
@@ -137,10 +74,10 @@ public class TestNativeExpressions
                 .setRequiredConfigurationProperties(ImmutableMap.of())
                 .quiet()
                 .initialize();
-        return injector.getInstance(NativeExpressionOptimizerProvider.class).createOptimizer();
+        return injector.getInstance(NativeExpressionOptimizer.class);
     }
 
-    private static Injector getPrestoMainInjector(Metadata metadata, HandleResolver handleResolver)
+    private static Injector getPrestoMainInjector(Metadata metadata, HandleResolver handleResolver, NodeManager nodeManager)
     {
         Module module = binder -> {
             // Installs the JSON codec
@@ -154,6 +91,7 @@ public class TestNativeExpressions
             // These dependencies are needed to serialize and deserialize types (found in expressions)
             FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
             binder.bind(FunctionAndTypeManager.class).toInstance(functionAndTypeManager);
+            binder.bind(NodeManager.class).toInstance(nodeManager);
             binder.bind(TypeManager.class).toInstance(functionAndTypeManager);
             jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
             newSetBinder(binder, Type.class);
