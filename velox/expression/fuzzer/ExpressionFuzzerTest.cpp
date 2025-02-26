@@ -198,6 +198,8 @@ int main(int argc, char** argv) {
         "current_date", // Non-deterministic
         "xxhash64_internal",
         "combine_hash_internal",
+        "map_keys_by_top_n_values", // requires
+                                    // https://github.com/prestodb/presto/pull/24570
     });
 
     referenceQueryRunner = std::make_shared<PrestoQueryRunner>(
