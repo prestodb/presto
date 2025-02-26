@@ -106,6 +106,7 @@
         <dep.log4j.version>2.24.3</dep.log4j.version>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <presto.hard-link-includes>**/*.jar</presto.hard-link-includes>
     </properties>
 
     <modules>
