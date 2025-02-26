@@ -196,7 +196,14 @@ TEST_F(TpchConnectorTest, lineitemTinyRowCount) {
                   .singleAggregation({}, {"count(1)"})
                   .planNode();
 
-  auto output = getResults(plan, {makeTpchSplit()});
+  std::vector<exec::Split> splits;
+  const size_t numParts = 4;
+
+  for (size_t i = 0; i < numParts; ++i) {
+    splits.push_back(makeTpchSplit(numParts, i));
+  }
+
+  auto output = getResults(plan, std::move(splits));
   EXPECT_EQ(60'175, output->childAt(0)->asFlatVector<int64_t>()->valueAt(0));
 }
 

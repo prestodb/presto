@@ -103,6 +103,8 @@ class TpchDataSource : public DataSource {
   }
 
  private:
+  bool isLineItem() const;
+
   RowVectorPtr projectOutputColumns(RowVectorPtr vector);
 
   velox::tpch::Table tpchTable_;

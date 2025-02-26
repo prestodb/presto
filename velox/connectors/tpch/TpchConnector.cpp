@@ -129,8 +129,14 @@ void TpchDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   currentSplit_ = std::dynamic_pointer_cast<TpchConnectorSplit>(split);
   VELOX_CHECK(currentSplit_, "Wrong type of split for TpchDataSource.");
 
+  // Lineitems is generated based on the row ids of the orders table, so
+  // splitOffset_ and splitEnd_ will refer to orders.
+  size_t effectiveRowCount = isLineItem()
+      ? getRowCount(Table::TBL_ORDERS, scaleFactor_)
+      : tpchTableRowCount_;
+
   size_t partSize = std::ceil(
-      static_cast<double>(tpchTableRowCount_) /
+      static_cast<double>(effectiveRowCount) /
       static_cast<double>(currentSplit_->totalParts));
 
   splitOffset_ = partSize * currentSplit_->partNumber;
@@ -142,6 +148,15 @@ std::optional<RowVectorPtr> TpchDataSource::next(
     velox::ContinueFuture& /*future*/) {
   VELOX_CHECK_NOT_NULL(
       currentSplit_, "No split to process. Call addSplit() first.");
+
+  // LineItems generates records based on orders, so it will generate on
+  // average 4 times more records than what is requested. Dividing by 4 so it
+  // generates about the right amount of records. Note that the exact amount of
+  // lineitems for an order is random (from 1 to 7), so this function may
+  // generate slightly more or fewer records than `size`.
+  if (isLineItem()) {
+    size /= 4;
+  }
 
   size_t maxRows = std::min(size, (splitEnd_ - splitOffset_));
   auto outputVector =
@@ -161,6 +176,10 @@ std::optional<RowVectorPtr> TpchDataSource::next(
   completedBytes_ += outputVector->retainedSize();
 
   return projectOutputColumns(outputVector);
+}
+
+bool TpchDataSource::isLineItem() const {
+  return tpchTable_ == Table::TBL_LINEITEM;
 }
 
 } // namespace facebook::velox::connector::tpch
