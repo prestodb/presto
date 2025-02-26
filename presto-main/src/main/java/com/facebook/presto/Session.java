@@ -35,7 +35,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
-import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
@@ -66,6 +66,8 @@ import static com.facebook.presto.SystemSessionProperties.warnOnCommonNanPattern
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.tracing.TracingManager.getInvalidSpan;
+import static com.facebook.presto.tracing.TracingManager.spanString;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,6 +77,8 @@ import static java.util.Objects.requireNonNull;
 public final class Session
 {
     private final QueryId queryId;
+    private final BaseSpan querySpan;
+    private final BaseSpan rootSpan;
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Identity identity;
@@ -86,7 +90,6 @@ public final class Session
     private final Optional<String> remoteUserAddress;
     private final Optional<String> userAgent;
     private final Optional<String> clientInfo;
-    private final Optional<String> traceToken;
     private final Set<String> clientTags;
     private final ResourceEstimates resourceEstimates;
     private final long startTime;
@@ -97,7 +100,6 @@ public final class Session
     private final Map<String, String> preparedStatements;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final AccessControlContext context;
-    private final Optional<Tracer> tracer;
     private final WarningCollector warningCollector;
     private final RuntimeStats runtimeStats;
     private final Optional<QueryType> queryType;
@@ -110,13 +112,14 @@ public final class Session
 
     public Session(
             QueryId queryId,
+            BaseSpan querySpan,
+            BaseSpan rootSpan,
             Optional<TransactionId> transactionId,
             boolean clientTransactionSupport,
             Identity identity,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
-            Optional<String> traceToken,
             TimeZoneKey timeZoneKey,
             Locale locale,
             Optional<String> remoteUserAddress,
@@ -131,19 +134,19 @@ public final class Session
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
-            Optional<Tracer> tracer,
             WarningCollector warningCollector,
             RuntimeStats runtimeStats,
             Optional<QueryType> queryType)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.querySpan = querySpan;
+        this.rootSpan = rootSpan;
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-        this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.locale = requireNonNull(locale, "locale is null");
         this.remoteUserAddress = requireNonNull(remoteUserAddress, "remoteUserAddress is null");
@@ -172,7 +175,6 @@ public final class Session
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
-        this.tracer = requireNonNull(tracer, "tracer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
@@ -182,6 +184,16 @@ public final class Session
     public QueryId getQueryId()
     {
         return queryId;
+    }
+
+    public BaseSpan getQuerySpan()
+    {
+        return querySpan;
+    }
+
+    public BaseSpan getRootSpan()
+    {
+        return rootSpan;
     }
 
     public String getUser()
@@ -237,11 +249,6 @@ public final class Session
     public Set<String> getClientTags()
     {
         return clientTags;
-    }
-
-    public Optional<String> getTraceToken()
-    {
-        return traceToken;
     }
 
     public ResourceEstimates getResourceEstimates()
@@ -320,11 +327,6 @@ public final class Session
     public RuntimeStats getRuntimeStats()
     {
         return runtimeStats;
-    }
-
-    public Optional<Tracer> getTracer()
-    {
-        return tracer;
     }
 
     public WarningCollector getWarningCollector()
@@ -426,6 +428,8 @@ public final class Session
 
         return new Session(
                 queryId,
+                querySpan,
+                rootSpan,
                 Optional.of(transactionId),
                 clientTransactionSupport,
                 new Identity(
@@ -439,7 +443,6 @@ public final class Session
                 source,
                 catalog,
                 schema,
-                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -454,7 +457,6 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
-                tracer,
                 warningCollector,
                 runtimeStats,
                 queryType);
@@ -508,7 +510,6 @@ public final class Session
                 source,
                 catalog,
                 schema,
-                traceToken,
                 timeZoneKey,
                 locale,
                 remoteUserAddress,
@@ -530,13 +531,14 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
+                .add("querySpan", spanString(querySpan).orElse(null))
+                .add("rootSpan", rootSpan.toString())
                 .add("transactionId", transactionId)
                 .add("user", getUser())
                 .add("principal", getIdentity().getPrincipal().orElse(null))
                 .add("source", source.orElse(null))
                 .add("catalog", catalog.orElse(null))
                 .add("schema", schema.orElse(null))
-                .add("traceToken", traceToken.orElse(null))
                 .add("timeZoneKey", timeZoneKey)
                 .add("locale", locale)
                 .add("remoteUserAddress", remoteUserAddress.orElse(null))
@@ -562,13 +564,14 @@ public final class Session
     public static class SessionBuilder
     {
         private QueryId queryId;
+        private BaseSpan querySpan = getInvalidSpan(); //do not initialize with null
+        private BaseSpan rootSpan = getInvalidSpan();  //do not initialize with null
         private TransactionId transactionId;
         private boolean clientTransactionSupport;
         private Identity identity;
         private String source;
         private String catalog;
         private String schema;
-        private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey = TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID());
         private Locale locale = Locale.getDefault();
         private String remoteUserAddress;
@@ -576,7 +579,6 @@ public final class Session
         private String clientInfo;
         private Set<String> clientTags = ImmutableSet.of();
         private ResourceEstimates resourceEstimates;
-        private Optional<Tracer> tracer = Optional.empty();
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<ConnectorId, Map<String, String>> connectorProperties = new HashMap<>();
@@ -605,7 +607,6 @@ public final class Session
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.schema = session.schema.orElse(null);
-            this.traceToken = requireNonNull(session.traceToken, "traceToken is null");
             this.timeZoneKey = session.timeZoneKey;
             this.locale = session.locale;
             this.remoteUserAddress = session.remoteUserAddress.orElse(null);
@@ -617,7 +618,6 @@ public final class Session
             session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.sessionFunctions.putAll(session.sessionFunctions);
-            this.tracer = requireNonNull(session.tracer, "tracer is null");
             this.warningCollector = requireNonNull(session.warningCollector, "warningCollector is null");
             this.runtimeStats = requireNonNull(session.runtimeStats, "runtimeStats is null");
             this.queryType = requireNonNull(session.queryType, "queryType is null");
@@ -633,12 +633,6 @@ public final class Session
         {
             checkArgument(catalogSessionProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
             this.transactionId = transactionId;
-            return this;
-        }
-
-        public SessionBuilder setTracer(Optional<Tracer> tracer)
-        {
-            this.tracer = requireNonNull(tracer, "tracer is null");
             return this;
         }
 
@@ -675,12 +669,6 @@ public final class Session
         public SessionBuilder setSource(String source)
         {
             this.source = source;
-            return this;
-        }
-
-        public SessionBuilder setTraceToken(Optional<String> traceToken)
-        {
-            this.traceToken = requireNonNull(traceToken, "traceToken is null");
             return this;
         }
 
@@ -739,6 +727,18 @@ public final class Session
         public SessionBuilder setConnectionProperty(ConnectorId connectorId, String propertyName, String propertyValue)
         {
             connectorProperties.computeIfAbsent(connectorId, id -> new HashMap<>()).put(propertyName, propertyValue);
+            return this;
+        }
+
+        public SessionBuilder setQuerySpan(BaseSpan querySpan)
+        {
+            this.querySpan = querySpan;
+            return this;
+        }
+
+        public SessionBuilder setRootSpan(BaseSpan rootSpan)
+        {
+            this.rootSpan = rootSpan;
             return this;
         }
 
@@ -837,13 +837,14 @@ public final class Session
         {
             return new Session(
                     queryId,
+                    querySpan,
+                    rootSpan,
                     Optional.ofNullable(transactionId),
                     clientTransactionSupport,
                     identity,
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
-                    traceToken,
                     timeZoneKey,
                     locale,
                     Optional.ofNullable(remoteUserAddress),
@@ -859,7 +860,6 @@ public final class Session
                     sessionPropertyManager,
                     preparedStatements,
                     sessionFunctions,
-                    tracer,
                     warningCollector,
                     runtimeStats,
                     queryType);

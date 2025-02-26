@@ -11,23 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.tracing;
+package com.facebook.presto.spi.testing;
 
-import com.facebook.presto.spi.tracing.TracerHandle;
+import java.util.List;
 
-public class NoopTracerHandle
-        implements TracerHandle
+public interface TestingTracer
 {
-    private final String traceToken;
+    void loadConfiguredOpenTelemetry();
 
-    public NoopTracerHandle()
-    {
-        this.traceToken = "noop_dummy_id";
-    }
+    List<?> getFinishedSpanItems();
 
-    @Override
-    public String getTraceToken()
-    {
-        return traceToken;
-    }
+    boolean isSpansEmpty();
+
+    boolean spansAnyMatch(String spanName);
+
+    void clearSpanList();
+
+    //OpenTelemetry getOpenTelemetry();
 }

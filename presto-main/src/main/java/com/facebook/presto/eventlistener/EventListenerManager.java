@@ -14,6 +14,7 @@
 package com.facebook.presto.eventlistener;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -22,6 +23,7 @@ import com.facebook.presto.spi.eventlistener.QueryCreatedEvent;
 import com.facebook.presto.spi.eventlistener.QueryProgressEvent;
 import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.SplitCompletedEvent;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 
@@ -32,6 +34,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.presto.tracing.TracingManager.scopedSpan;
 import static com.facebook.presto.util.PropertiesUtil.loadProperties;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -122,9 +125,11 @@ public class EventListenerManager
                 .ifPresent(eventListener -> eventListener.publishQueryProgress(queryProgressEvent));
     }
 
-    public void splitCompleted(SplitCompletedEvent splitCompletedEvent)
+    public void splitCompleted(SplitCompletedEvent splitCompletedEvent, BaseSpan pipelineSpan)
     {
-        configuredEventListener.get()
-                .ifPresent(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
+        try (BaseSpan ignored = scopedSpan(pipelineSpan, TracingEnum.SPLIT.getName(), ImmutableMap.of("QUERY_ID", splitCompletedEvent.getQueryId(), "STAGE_ID", splitCompletedEvent.getStageId(), "TASK_ID", splitCompletedEvent.getTaskId(), "START_TIME", splitCompletedEvent.getStartTime().map(String::valueOf).orElse(""), "END_TIME", splitCompletedEvent.getEndTime().map(String::valueOf).orElse(""), "PAYLOAD", splitCompletedEvent.getPayload(), "FAILURE_INFO", splitCompletedEvent.getFailureInfo().map(String::valueOf).orElse("")))) {
+            configuredEventListener.get()
+                    .ifPresent(eventListener -> eventListener.splitCompleted(splitCompletedEvent));
+        }
     }
 }

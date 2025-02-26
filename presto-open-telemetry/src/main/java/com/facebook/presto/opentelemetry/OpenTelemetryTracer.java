@@ -13,190 +13,462 @@
  */
 package com.facebook.presto.opentelemetry;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.TelemetryConfig;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
+import com.facebook.presto.opentelemetry.tracing.ScopedSpan;
+import com.facebook.presto.opentelemetry.tracing.TracingSpan;
 import com.facebook.presto.spi.tracing.Tracer;
+import com.google.errorprone.annotations.MustBeClosed;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.baggage.Baggage;
 import io.opentelemetry.api.baggage.propagation.W3CBaggagePropagator;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.Context;
-import io.opentelemetry.context.Scope;
-import io.opentelemetry.context.propagation.TextMapGetter;
+import io.opentelemetry.context.propagation.ContextPropagators;
+import io.opentelemetry.context.propagation.TextMapPropagator;
+import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.resources.Resource;
+import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.SpanProcessor;
+import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
+import io.opentelemetry.sdk.trace.samplers.Sampler;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.DISTRIBUTED_TRACING_ERROR;
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Strings.nullToEmpty;
 
+/**
+ * Open Telemetry implementation of tracing.
+ */
 public class OpenTelemetryTracer
-        implements Tracer
+        implements Tracer<TracingSpan, ScopedSpan>
 {
-    private static String currentContextPropagator = OpenTelemetryContextPropagator.B3_SINGLE_HEADER;
-    private static OpenTelemetry openTelemetry = OpenTelemetryBuilder.build(currentContextPropagator);
-    private final io.opentelemetry.api.trace.Tracer openTelemetryTracer;
-    private final String traceToken;
-    private final Span parentSpan;
-    private final Context parentContext;
+    private static final Logger log = Logger.get(OpenTelemetryTracer.class);
+    private static OpenTelemetry configuredOpenTelemetry;
+    private static io.opentelemetry.api.trace.Tracer tracer = OpenTelemetry.noop().getTracer("no-op"); //default tracer
 
-    public final Map<String, Span> spanMap = new ConcurrentHashMap<>();
-    public final Map<String, Span> recorderSpanMap = new LinkedHashMap<>();
-
-    public OpenTelemetryTracer(String traceToken, String contextPropagator, String propagatedContext, String baggage)
+    /**
+     * called from TracingManager for setting the open telemetry sdk and tracer.
+     */
+    @Override
+    public void loadConfiguredOpenTelemetry()
     {
-        // Trivial getter method to return carrier
-        // Carrier will be equal to the data to be fetched
-        TextMapGetter<String> trivialGetter = new TextMapGetter<String>()
-        {
-            @Override
-            public String get(String carrier, String key)
-            {
-                return carrier;
-            }
+        log.debug("creating opentelemetry instance");
+        configuredOpenTelemetry = createOpenTelemetry();
 
-            @Override
-            public Iterable<String> keys(String carrier)
-            {
-                return Arrays.asList(get(carrier, null));
-            }
-        };
+        log.debug("creating telemetry tracer");
+        createTracer();
+    }
 
-        // Rebuild OPEN_TELEMETRY instance if necessary (to use different context propagator)
-        // Will only occur once at max, if contextPropagator is different from B3_SINGLE_HEADER
-        if (contextPropagator != null && !contextPropagator.equals(currentContextPropagator)) {
-            this.openTelemetry = OpenTelemetryBuilder.build(contextPropagator);
-            this.currentContextPropagator = contextPropagator;
+    /**
+     * creates and updates sdk tracer instance if tracing is enabled. Else uses a default no-op instance.
+     */
+    public void createTracer()
+    {
+        if (TelemetryConfig.getTracingEnabled()) {
+            tracer = configuredOpenTelemetry.getTracer("Presto");
         }
+    }
 
-        this.openTelemetryTracer = openTelemetry.getTracer(tracerName);
-        this.traceToken = traceToken;
+    /**
+     * Create and set the opentelemetry instance.
+     *
+     * @return {@link OpenTelemetry}
+     */
+    public OpenTelemetry createOpenTelemetry()
+    {
+        TelemetryConfig telemetryConfig = TelemetryConfig.getTelemetryConfig();
+        OpenTelemetry openTelemetry = OpenTelemetry.noop(); //default instance for tracing disabled case
 
-        if (propagatedContext != null) {
-            // Only process baggage headers if context propagation is successful
-            Context extractedContext = openTelemetry.getPropagators().getTextMapPropagator()
-                    .extract(Context.current(), propagatedContext, trivialGetter);
-            Context contextWithBaggage = W3CBaggagePropagator.getInstance().extract(
-                    extractedContext, baggage, trivialGetter);
-            try (Scope ignored = contextWithBaggage.makeCurrent()) {
-                this.parentSpan = createParentSpan();
-            }
-            this.parentContext = contextWithBaggage;
+        if (TelemetryConfig.getTracingEnabled()) {
+            log.debug("telemetry tracing is enabled");
+            Resource resource = Resource.create(Attributes.of(AttributeKey.stringKey("service.name"), "Presto"));
+
+            SpanExporter spanExporter = OtlpGrpcSpanExporter.builder()
+                    .setEndpoint(telemetryConfig.getTracingBackendUrl())
+                    .setTimeout(10, TimeUnit.SECONDS)
+                    .build();
+            log.debug("telemetry span exporter configured");
+
+            SpanProcessor spanProcessor = BatchSpanProcessor.builder(spanExporter)
+                    .setMaxExportBatchSize(telemetryConfig.getMaxExporterBatchSize())
+                    .setMaxQueueSize(telemetryConfig.getMaxQueueSize())
+                    .setScheduleDelay(telemetryConfig.getScheduleDelay(), TimeUnit.MILLISECONDS)
+                    .setExporterTimeout(telemetryConfig.getExporterTimeout(), TimeUnit.MILLISECONDS)
+                    .build();
+            log.debug("telemetry span processor configured");
+
+            SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
+                    .setSampler(Sampler.traceIdRatioBased(telemetryConfig.getSamplingRatio()))
+                    .addSpanProcessor(spanProcessor)
+                    .setResource(resource)
+                    .build();
+            log.debug("telemetry tracer provider set");
+
+            openTelemetry = OpenTelemetrySdk.builder()
+                    .setTracerProvider(tracerProvider)
+                    .setPropagators(ContextPropagators.create(
+                            TextMapPropagator.composite(W3CTraceContextPropagator.getInstance(), W3CBaggagePropagator.getInstance())))
+                    .build();
+            log.debug("opentelemetry instance created");
         }
         else {
-            this.parentSpan = createParentSpan();
-            this.parentContext = Context.current();
+            log.debug("telemetry tracing is disabled");
         }
-        addBaggageToSpanAttributes(this.parentSpan);
 
-        synchronized (recorderSpanMap) {
-            recorderSpanMap.put("Trace start", this.parentSpan);
-        }
+        return openTelemetry;
+    }
+
+    public static void setOpenTelemetry(OpenTelemetry configuredOpenTelemetry)
+    {
+        OpenTelemetryTracer.configuredOpenTelemetry = configuredOpenTelemetry;
+    }
+
+    public static void setTracer(io.opentelemetry.api.trace.Tracer tracer)
+    {
+        OpenTelemetryTracer.tracer = tracer;
     }
 
     /**
-     * Take parent context baggage and set as span attributes.
-     * Call during each span and nested span creation to properly propagate tags.
-     */
-    private void addBaggageToSpanAttributes(Span span)
-    {
-        Baggage baggage = Baggage.fromContext(parentContext);
-        baggage.forEach((s, baggageEntry) -> span.setAttribute(s, baggageEntry.getValue()));
-    }
-
-    private Span createParentSpan()
-    {
-        Span parentSpan = openTelemetryTracer.spanBuilder("Trace start").startSpan();
-        parentSpan.setAttribute("trace_id", traceToken);
-        return parentSpan;
-    }
-
-    private void endUnendedBlocks()
-    {
-        List<String> blocks = new ArrayList<>(spanMap.keySet());
-        for (String currBlock : blocks) {
-            endBlock(currBlock, "");
-        }
-    }
-
-    /**
-     * Add annotation as event to parent span
-     * @param annotation event to add
+     * get current context wrapped .
+     *
+     * @param runnable runnable
+     * @return Runnable
      */
     @Override
-    public void addPoint(String annotation)
+    public Runnable getCurrentContextWrap(Runnable runnable)
     {
-        parentSpan.addEvent(annotation);
+        return Context.current().wrap(runnable);
+    }
+
+    private static Context getCurrentContext()
+    {
+        return Context.current();
+    }
+
+    private static Context getCurrentContextWith(TracingSpan tracingSpan)
+    {
+        return Context.current().with(tracingSpan.getSpan());
+    }
+
+    private static Context getContext(TracingSpan span)
+    {
+        return span != null ? getCurrentContextWith(span) : getCurrentContext();
+    }
+
+    private static Context getContext(String traceParent)
+    {
+        TextMapPropagator propagator = configuredOpenTelemetry.getPropagators().getTextMapPropagator();
+        return propagator.extract(Context.current(), traceParent, new TextMapGetterImpl());
     }
 
     /**
-     * Create new span with Open Telemetry tracer
-     * @param blockName name of span
-     * @param annotation event to add to span
+     * returns true if the span records tracing events.
+     *
+     * @return boolean
      */
-
     @Override
-    public void startBlock(String blockName, String annotation)
+    public boolean isRecording()
     {
-        if (spanMap.containsKey(blockName)) {
-            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Duplicated block inserted: " + blockName);
+        return Span.fromContext(getCurrentContext()).isRecording();
+    }
+
+    /**
+     * Returns headers map from the input span.
+     *
+     * @param span span
+     * @return Map<String, String>
+     */
+    @Override
+    public Map<String, String> getHeadersMap(TracingSpan span)
+    {
+        TextMapPropagator propagator = configuredOpenTelemetry.getPropagators().getTextMapPropagator();
+        Map<String, String> headersMap = new HashMap<>();
+        Context context = (span != null) ? Context.current().with(span.getSpan()) : Context.current();
+        Context currentContext = (TelemetryConfig.getTracingEnabled()) ? context : null;
+        propagator.inject(currentContext, headersMap, Map::put);
+        return headersMap;
+    }
+
+    /**
+     * Ends span by updating the status to error and record input exception.
+     *
+     * @param span querySpan
+     * @param throwable throwable
+     * @return Map<String, String>
+     */
+    @Override
+    public void endSpanOnError(TracingSpan span, Throwable throwable)
+    {
+        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(span)) {
+            span.getSpan().setStatus(StatusCode.ERROR, throwable.getMessage())
+                    .recordException(throwable)
+                    .end();
         }
-        Span span = openTelemetryTracer.spanBuilder(blockName)
-                .setParent(Context.current().with(parentSpan))
+    }
+
+    /**
+     * Add the input event to the input span.
+     *
+     * @param span span
+     * @param eventName eventName
+     */
+    @Override
+    public void addEvent(TracingSpan span, String eventName)
+    {
+        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(span)) {
+            span.getSpan().addEvent(eventName);
+        }
+    }
+
+    /**
+     * Add the input event to the input span.
+     *
+     * @param span span
+     * @param eventName eventName
+     * @param eventState eventState
+     */
+    @Override
+    public void addEvent(TracingSpan span, String eventName, String eventState)
+    {
+        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(span)) {
+            span.getSpan().addEvent(eventName, Attributes.of(AttributeKey.stringKey("EVENT_STATE"), eventState));
+        }
+    }
+
+    /**
+     * Sets the attributes map to the input span.
+     *
+     * @param span span
+     * @param attributes attributes
+     */
+    @Override
+    public void setAttributes(TracingSpan span, Map<String, String> attributes)
+    {
+        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(span)) {
+            attributes.forEach(span::setAttribute);
+        }
+    }
+
+    /**
+     * Records exception to the input span with error code and message.
+     *
+     * @param span span
+     * @param message message
+     * @param runtimeException runtimeException
+     * @param errorCode errorCode
+     */
+    @Override
+    public void recordException(TracingSpan span, String message, RuntimeException runtimeException, ErrorCode errorCode)
+    {
+        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(span)) {
+            span.getSpan().setStatus(StatusCode.ERROR, nullToEmpty(message))
+                    .recordException(runtimeException)
+                    .setAttribute("ERROR_CODE", errorCode.getCode())
+                    .setAttribute("ERROR_NAME", errorCode.getName())
+                    .setAttribute("ERROR_TYPE", errorCode.getType().toString());
+        }
+    }
+
+    /**
+     * Sets the status of the input span to success.
+     *
+     * @param span span
+     */
+    @Override
+    public void setSuccess(TracingSpan span)
+    {
+        if (TelemetryConfig.getTracingEnabled() && Objects.nonNull(span)) {
+            span.getSpan().setStatus(StatusCode.OK);
+        }
+    }
+
+    //Tracing spans
+    /**
+     * Returns an invalid Span. An invalid Span is used when tracing is disabled.
+     * @return TracingSpan
+     */
+    @Override
+    public TracingSpan getInvalidSpan()
+    {
+        return new TracingSpan(Span.getInvalid());
+    }
+
+    /**
+     * Creates and returns the root span.
+     * @return TracingSpan
+     */
+    @Override
+    public TracingSpan getRootSpan()
+    {
+        return !TelemetryConfig.getTracingEnabled() ? new TracingSpan(Span.getInvalid()) : new TracingSpan(tracer.spanBuilder(TracingEnum.ROOT.getName()).setSpanKind(SpanKind.SERVER)
+                .startSpan());
+    }
+
+    /**
+     * Creates and returns the span with input name.
+     * @param spanName name of span to be created
+     * @return TracingSpan
+     */
+    @Override
+    public TracingSpan getSpan(String spanName)
+    {
+        return !TelemetryConfig.getTracingEnabled() ? new TracingSpan(Span.getInvalid()) : new TracingSpan(tracer.spanBuilder(spanName)
+                .startSpan());
+    }
+
+    /**
+     * Creates and returns the span with input name and parent context from input.
+     * @param traceParent trace parent string.
+     * @param spanName name of the span to be created.
+     * @return TracingSpan
+     */
+    @Override
+    public TracingSpan getSpan(String traceParent, String spanName)
+    {
+        return !TelemetryConfig.getTracingEnabled() || traceParent == null ? new TracingSpan(Span.getInvalid()) : new TracingSpan(tracer.spanBuilder(spanName)
+                .setParent(getContext(traceParent))
+                .startSpan());
+    }
+
+    /**
+     * Creates and returns the span with input name, attributes and parent span as the input span.
+     * @param parentSpan parent span.
+     * @param spanName name of the span to be created.
+     * @param attributes input attributes to set in span.
+     * @return TracingSpan
+     */
+    @Override
+    public TracingSpan getSpan(TracingSpan parentSpan, String spanName, Map<String, String> attributes)
+    {
+        return !TelemetryConfig.getTracingEnabled() ? new TracingSpan(Span.getInvalid()) : new TracingSpan(setAttributes(tracer.spanBuilder(spanName), attributes)
+                .setParent(getContext(parentSpan))
+                .startSpan());
+    }
+
+    private static SpanBuilder setAttributes(SpanBuilder spanBuilder, Map<String, String> attributes)
+    {
+        attributes.forEach(spanBuilder::setAttribute);
+        return spanBuilder;
+    }
+
+    /**
+     * Returns the span info as string.
+     * @param span input span.
+     * @return Optional<String>
+     */
+    @Override
+    public Optional<String> spanString(TracingSpan span)
+    {
+        return Optional.ofNullable(span)
+                .filter(s -> span.getSpan().getSpanContext().isValid())
+                .map(s -> toStringHelper("Span")
+                        .add("spanId", span.getSpan().getSpanContext().getSpanId())
+                        .add("traceId", span.getSpan().getSpanContext().getTraceId())
+                        .toString());
+    }
+
+    //Scoped Spans
+    /**
+     * Creates and returns the ScopedSpan with input name.
+     * @param spanName name of span to be created
+     * @param skipSpan optional parameter to implement span sampling by skipping the current span export
+     * @return ScopedSpan
+     */
+    @MustBeClosed
+    @Override
+    public ScopedSpan scopedSpan(String spanName, Boolean... skipSpan)
+    {
+        if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
+            return null;
+        }
+        return scopedSpan(new TracingSpan(tracer.spanBuilder(spanName).startSpan()));
+    }
+
+    /**
+     * Creates and returns the ScopedSpan with parent span as input span.
+     * @param parentSpan parent span
+     * @param skipSpan optional parameter to implement span sampling by skipping the current span export
+     * @return ScopedSpan
+     */
+    @MustBeClosed
+    @Override
+    public ScopedSpan scopedSpan(TracingSpan parentSpan, Boolean... skipSpan)
+    {
+        if ((!TelemetryConfig.getTracingEnabled() || Objects.isNull(parentSpan)) || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
+            return null;
+        }
+        return new ScopedSpan(parentSpan.getSpan());
+    }
+
+    /**
+     * Creates and returns the ScopedSpan with input name, attributes and parent span as the input span.
+     * @param parentSpan parent span
+     * @param skipSpan optional parameter to implement span sampling by skipping the current span export
+     * @return ScopedSpan
+     */
+    @MustBeClosed
+    @Override
+    public ScopedSpan scopedSpan(TracingSpan parentSpan, String spanName, Map<String, String> attributes, Boolean... skipSpan)
+    {
+        if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
+            return null;
+        }
+        SpanBuilder spanBuilder = tracer.spanBuilder(spanName);
+        Span span = setAttributes(spanBuilder, attributes)
+                .setParent(getContext(parentSpan))
                 .startSpan();
-        span.addEvent(annotation);
-        addBaggageToSpanAttributes(span);
-
-        spanMap.put(blockName, span);
-        synchronized (recorderSpanMap) {
-            recorderSpanMap.put(blockName, span);
-        }
-    }
-
-    @Override
-    public void addPointToBlock(String blockName, String annotation)
-    {
-        if (!spanMap.containsKey(blockName)) {
-            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Adding point to non-existing block: " + blockName);
-        }
-        spanMap.get(blockName).addEvent(annotation);
+        return new ScopedSpan(span);
     }
 
     /**
-     * End Open Telemetry span
-     * @param blockName name of span
-     * @param annotation event to add to span
+     * Creates and returns the ScopedSpan with input name and the parent span as input span.
+     * @param parentSpan parent span
+     * @param skipSpan optional parameter to implement span sampling by skipping the current span export
+     * @return ScopedSpan
      */
+    @MustBeClosed
     @Override
-    public void endBlock(String blockName, String annotation)
+    public ScopedSpan scopedSpan(TracingSpan parentSpan, String spanName, Boolean... skipSpan)
     {
-        if (!spanMap.containsKey(blockName)) {
-            throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Trying to end a non-existing block: " + blockName);
+        if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
+            return null;
         }
-        spanMap.remove(blockName);
-        synchronized (recorderSpanMap) {
-            Span span = recorderSpanMap.get(blockName);
-            span.addEvent(annotation);
-            span.end();
-        }
+        Span span = tracer.spanBuilder(spanName)
+                .setParent(getContext(parentSpan))
+                .startSpan();
+        return new ScopedSpan(span);
     }
 
+    /**
+     * Creates and returns the ScopedSpan with input name and attributes.
+     * @param spanName span name
+     * @param skipSpan optional parameter to implement span sampling by skipping the current span export
+     * @return ScopedSpan
+     */
+    @MustBeClosed
     @Override
-    public void endTrace(String annotation)
+    public ScopedSpan scopedSpan(String spanName, Map<String, String> attributes, Boolean... skipSpan)
     {
-        parentSpan.addEvent(annotation);
-        endUnendedBlocks();
-        parentSpan.end();
-    }
-
-    @Override
-    public String getTracerId()
-    {
-        if (traceToken != null) {
-            return traceToken;
+        if (!TelemetryConfig.getTracingEnabled() || (skipSpan.length > 0 && TelemetryConfig.getSpanSampling())) {
+            return null;
         }
-        return tracerName;
+        SpanBuilder spanBuilder = tracer.spanBuilder(spanName);
+        Span span = setAttributes(spanBuilder, attributes).startSpan();
+        return new ScopedSpan(span);
     }
 }
