@@ -53,6 +53,14 @@ Other HTTP endpoints include:
 
 The request/response flow of Presto C++ is identical to Java workers. The tasks or new splits are registered via `TaskUpdateRequest`. Resource utilization and query progress are sent to the coordinator via task endpoints.
 
+* GET: /v1/operation/server/clearCache?type=memory: It clears the memory cache on worker node. Here is an example:
+
+  .. sourcecode:: http
+
+   curl -X GET "http://localhost:7777/v1/operation/server/clearCache?type=memory"
+
+   Cleared memory cache
+
 Remote Function Execution
 -------------------------
 
