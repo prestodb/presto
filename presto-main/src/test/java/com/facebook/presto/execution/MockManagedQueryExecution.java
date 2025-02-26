@@ -131,6 +131,7 @@ public class MockManagedQueryExecution
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
+                        new Duration(1, NANOSECONDS),
                         5,
                         5,
                         6,
