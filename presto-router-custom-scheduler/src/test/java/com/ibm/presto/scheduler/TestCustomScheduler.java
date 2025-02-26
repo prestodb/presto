@@ -68,20 +68,20 @@ public class TestCustomScheduler
         clusterInfos.put(uri3, new MockRemoteClusterInfo(30, 30));
         scheduler.setClusterInfos(clusterInfos);
         URI target = scheduler.getDestination("test", null).orElse(new URI("invalid"));
-        assertEquals(target.getPath(), "192.168.0.1");
+        assertEquals(target, uri1);
 
         clusterInfos.put(uri1, new MockRemoteClusterInfo(20, 20));
         clusterInfos.put(uri2, new MockRemoteClusterInfo(10, 10));
         clusterInfos.put(uri3, new MockRemoteClusterInfo(30, 30));
         scheduler.setClusterInfos(clusterInfos);
         target = scheduler.getDestination("test", null).orElse(new URI("invalid"));
-        assertEquals(target.getPath(), "192.168.0.2");
+        assertEquals(target, uri2);
 
         clusterInfos.put(uri1, new MockRemoteClusterInfo(20, 20));
         clusterInfos.put(uri2, new MockRemoteClusterInfo(30, 30));
         clusterInfos.put(uri3, new MockRemoteClusterInfo(10, 10));
         scheduler.setClusterInfos(clusterInfos);
         target = scheduler.getDestination("test", null).orElse(new URI("invalid"));
-        assertEquals(target.getPath(), "192.168.0.3");
+        assertEquals(target, uri3);
     }
 }

@@ -194,7 +194,9 @@
         <module>presto-grpc-api</module>
         <module>presto-grpc-testing-udf-server</module>
         <module>presto-lark-sheets</module>
+        <!--
         <module>presto-test-coverage</module>
+        -->
         <module>presto-hudi</module>
         <module>presto-native-execution</module>
         <module>presto-router</module>

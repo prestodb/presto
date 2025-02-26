@@ -24,7 +24,7 @@ import java.util.Optional;
 public class CustomPluginScheduler
         implements Scheduler
 {
-    private SchedulerManager schedulerManager;
+    private final SchedulerManager schedulerManager;
 
     private static final Logger log = Logger.get(CustomPluginScheduler.class);
 
