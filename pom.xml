@@ -67,7 +67,7 @@
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
-        <dep.kafka.version>2.3.1</dep.kafka.version>
+        <dep.kafka.version>3.7.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
@@ -215,6 +215,13 @@
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
     </modules>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -1373,7 +1380,7 @@
             <dependency>
                 <groupId>org.pcollections</groupId>
                 <artifactId>pcollections</artifactId>
-                <version>2.1.2</version>
+                <version>4.0.1</version>
             </dependency>
 
             <dependency>
@@ -2010,6 +2017,10 @@
                         <groupId>org.apache.zookeeper</groupId>
                         <artifactId>zookeeper</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2200,9 +2211,9 @@
             </dependency>
 
             <dependency>
-                <groupId>io.prestodb.tempto</groupId>
+                <groupId>com.github.adkharat.tempto</groupId>
                 <artifactId>tempto-kafka</artifactId>
-                <version>${dep.tempto.version}</version>
+                <version>upgrade_kafka_client_version_cve_2022_34917-SNAPSHOT</version>
                 <exclusions>
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
