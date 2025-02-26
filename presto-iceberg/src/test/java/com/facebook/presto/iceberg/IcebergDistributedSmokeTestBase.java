@@ -23,13 +23,14 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.nio.file.Path;
+import java.io.IOException;
 import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,6 +48,7 @@ import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -150,6 +152,91 @@ public abstract class IcebergDistributedSmokeTestBase
                         "   \"read.split.target-size\" = 134217728,\n" +
                         "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
+    }
+
+    @Test
+    public void testTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate(format("create table %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
+            assertUpdate(format("delete from %s where a > 2", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        }
+        finally {
+            try {
+                getQueryRunner().execute("drop table if exists " + tableName);
+            }
+            catch (Exception e) {
+                // ignored for hive catalog compatibility
+            }
+        }
+    }
+
+    @Test
+    public void testPartitionedTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_partitioned_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory(tableName).toAbsolutePath().toString();
+        try {
+            assertUpdate(format("create table %s(a int, b varchar) with (partitioning = ARRAY['a'], \"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            assertUpdate(format("insert into %s values(1, '1001'), (2, '1002'), (3, '1003')", tableName), 3);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002'), (3, '1003')");
+            assertUpdate(format("delete from %s where a > 2", tableName), 1);
+            assertQuery("select * from " + tableName, "values(1, '1001'), (2, '1002')");
+        }
+        finally {
+            try {
+                getQueryRunner().execute("drop table if exists " + tableName);
+            }
+            catch (Exception e) {
+                // ignored for hive catalog compatibility
+            }
+        }
+    }
+
+    @Test
+    public void testShowCreateTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_show_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory("test1").toAbsolutePath().toString();
+        try {
+            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            String schemaName = getSession().getSchema().get();
+            String location = getLocation(schemaName, tableName);
+            String createTableSql = "CREATE TABLE iceberg.%s.%s (\n" +
+                    "   \"a\" integer,\n" +
+                    "   \"b\" varchar\n" +
+                    ")\n" +
+                    "WITH (\n" +
+                    "   delete_mode = 'merge-on-read',\n" +
+                    "   format = 'PARQUET',\n" +
+                    "   format_version = '2',\n" +
+                    "   location = '%s',\n" +
+                    "   metadata_delete_after_commit = false,\n" +
+                    "   metadata_previous_versions_max = 100,\n" +
+                    "   metrics_max_inferred_column = 100,\n" +
+                    "   \"read.split.target-size\" = 134217728,\n" +
+                    "   \"write.data.path\" = '%s',\n" +
+                    "   \"write.update.mode\" = 'merge-on-read'\n" +
+                    ")";
+            assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                    .isEqualTo(format(createTableSql, schemaName, tableName, location, dataWriteLocation));
+        }
+        finally {
+            try {
+                getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
+            }
+            catch (Exception e) {
+                // ignored for hive catalog compatibility
+            }
+        }
     }
 
     @Test
@@ -714,7 +801,7 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
-    private void testCreateTableLike()
+    protected void testCreateTableLike()
     {
         Session session = getSession();
         String schemaName = session.getSchema().get();
@@ -883,7 +970,7 @@ public abstract class IcebergDistributedSmokeTestBase
         test.accept("2", "merge-on-read");
     }
 
-    private String getTablePropertiesString(String tableName)
+    protected String getTablePropertiesString(String tableName)
     {
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
         String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
@@ -1216,8 +1303,8 @@ public abstract class IcebergDistributedSmokeTestBase
 
     protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
-        return getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false);
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        return new Path(getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile().toURI());
     }
 
     protected Table getIcebergTable(ConnectorSession session, String namespace, String tableName)
@@ -1538,7 +1625,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
-        String metadataLocation = getLocation(schemaName, tableName).replace("//", "/") + "_invalid";
+        String metadataLocation = getLocation(schemaName, tableName).replace("//", "") + "_invalid";
 
         @Language("RegExp") String errorMessage = format("Unable to find metadata at location %s/%s", metadataLocation, METADATA_FOLDER_NAME);
         assertQueryFails("CALL system.register_table ('" + schemaName + "', '" + tableName + "', '" + metadataLocation + "')", errorMessage);

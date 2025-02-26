@@ -68,7 +68,7 @@ public class TestIcebergSmokeHive
     protected ExtendedHiveMetastore getFileHiveMetastore()
     {
         IcebergFileHiveMetastore fileHiveMetastore = new IcebergFileHiveMetastore(getHdfsEnvironment(),
-                getCatalogDirectory().toFile().getPath(),
+                getCatalogDirectory().toString(),
                 "test");
         return memoizeMetastore(fileHiveMetastore, false, 1000, 0);
     }

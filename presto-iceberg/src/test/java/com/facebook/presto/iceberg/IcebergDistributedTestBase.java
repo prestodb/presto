@@ -32,6 +32,9 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.s3.HiveS3Config;
+import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
+import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.Metadata;
@@ -63,6 +66,7 @@ import org.apache.commons.math3.distribution.NormalDistribution;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.FileScanTask;
@@ -102,7 +106,6 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -156,8 +159,8 @@ import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.facebook.presto.type.DecimalParametricType.DECIMAL;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.io.Files.createTempDir;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.function.Function.identity;
@@ -613,9 +616,10 @@ public abstract class IcebergDistributedTestBase
 
     @Test
     public void testCreateTableWithCustomLocation()
+            throws IOException
     {
         String tableName = "test_table_with_custom_location";
-        URI tableTargetURI = createTempDir().toURI();
+        URI tableTargetURI = createTempDirectory(tableName).toUri();
         try {
             assertQuerySucceeds(format("create table %s (a int, b varchar)" +
                     " with (location = '%s')", tableName, tableTargetURI.toString()));
@@ -1495,12 +1499,13 @@ public abstract class IcebergDistributedTestBase
     public boolean isFileSorted(String path, String sortColumnName, String sortOrder)
             throws IOException
     {
-        Configuration configuration = new Configuration();
-        try (ParquetReader<Group> reader = ParquetReader.builder(new GroupReadSupport(), new org.apache.hadoop.fs.Path(path))
+        Path filePath = new Path(path);
+        Configuration configuration = getHdfsEnvironment().getConfiguration(new HdfsContext(SESSION), filePath);
+        try (ParquetReader<Group> reader = ParquetReader.builder(new GroupReadSupport(), new Path(path))
                 .withConf(configuration)
                 .build()) {
             Group record;
-            ParquetMetadata readFooter = ParquetFileReader.readFooter(configuration, new org.apache.hadoop.fs.Path(path));
+            ParquetMetadata readFooter = ParquetFileReader.readFooter(configuration, filePath);
             MessageType schema = readFooter.getFileMetaData().getSchema();
             Double previousValue = null;
             while ((record = reader.read()) != null) {
@@ -1758,14 +1763,14 @@ public abstract class IcebergDistributedTestBase
             // Table `test_table_with_default_setting_properties`'s current metadata record all 5 previous metadata files
             assertEquals(defaultTableMetadata.previousFiles().size(), 5);
 
-            FileSystem fileSystem = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), new org.apache.hadoop.fs.Path(settingTable.location()));
+            FileSystem fileSystem = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), new Path(settingTable.location()));
 
             // Table `test_table_with_setting_properties`'s all existing metadata files count is 2
-            FileStatus[] settingTableFiles = fileSystem.listStatus(new org.apache.hadoop.fs.Path(settingTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            FileStatus[] settingTableFiles = fileSystem.listStatus(new Path(settingTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
             assertEquals(settingTableFiles.length, 2);
 
             // Table `test_table_with_default_setting_properties`'s all existing metadata files count is 6
-            FileStatus[] defaultTableFiles = fileSystem.listStatus(new org.apache.hadoop.fs.Path(defaultTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
+            FileStatus[] defaultTableFiles = fileSystem.listStatus(new Path(defaultTable.location(), "metadata"), name -> name.getName().contains(METADATA_FILE_EXTENSION));
             assertEquals(defaultTableFiles.length, 6);
         }
         finally {
@@ -2431,12 +2436,12 @@ public abstract class IcebergDistributedTestBase
     private void writePositionDeleteToNationTable(Table icebergTable, String dataFilePath, long deletePos)
             throws IOException
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
         File metastoreDir = getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile();
-        org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metastoreDir.toURI());
+        Path metadataDir = new Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + randomUUID();
         FileSystem fs = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), metadataDir);
-        org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(metadataDir, deleteFileName);
+        Path path = new Path(metadataDir, deleteFileName);
         PositionDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(path, fs))
                 .createWriterFunc(GenericParquetWriter::buildWriter)
                 .forTable(icebergTable)
@@ -2463,13 +2468,13 @@ public abstract class IcebergDistributedTestBase
     private void writeEqualityDeleteToNationTable(Table icebergTable, Map<String, Object> overwriteValues, Map<String, Object> partitionValues)
             throws Exception
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
         File metastoreDir = getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile();
-        org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metastoreDir.toURI());
+        Path metadataDir = new Path(metastoreDir.toURI());
         String deleteFileName = "delete_file_" + randomUUID();
         FileSystem fs = getHdfsEnvironment().getFileSystem(new HdfsContext(SESSION), metadataDir);
         Schema deleteRowSchema = icebergTable.schema().select(overwriteValues.keySet());
-        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(HadoopOutputFile.fromPath(new org.apache.hadoop.fs.Path(metadataDir, deleteFileName), fs))
+        Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(HadoopOutputFile.fromPath(new Path(metadataDir, deleteFileName), fs))
                 .forTable(icebergTable)
                 .rowSchema(deleteRowSchema)
                 .createWriterFunc(GenericParquetWriter::buildWriter)
@@ -2490,13 +2495,19 @@ public abstract class IcebergDistributedTestBase
         icebergTable.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
     }
 
-    public static HdfsEnvironment getHdfsEnvironment()
+    protected HdfsEnvironment getHdfsEnvironment()
     {
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
-        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig),
-                ImmutableSet.of(),
-                hiveClientConfig);
+        HiveS3Config hiveS3Config = new HiveS3Config();
+        return getHdfsEnvironment(hiveClientConfig, metastoreClientConfig, hiveS3Config);
+    }
+
+    public static HdfsEnvironment getHdfsEnvironment(HiveClientConfig hiveClientConfig, MetastoreClientConfig metastoreClientConfig, HiveS3Config hiveS3Config)
+    {
+        S3ConfigurationUpdater s3ConfigurationUpdater = new PrestoS3ConfigurationUpdater(hiveS3Config);
+        HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig, s3ConfigurationUpdater, ignored -> {}),
+                ImmutableSet.of(), hiveClientConfig);
         return new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
     }
 
@@ -2518,18 +2529,18 @@ public abstract class IcebergDistributedTestBase
 
     protected Map<String, String> getProperties()
     {
-        File metastoreDir = getCatalogDirectory();
+        Path metastoreDir = getCatalogDirectory();
         return ImmutableMap.of("warehouse", metastoreDir.toString());
     }
 
-    protected File getCatalogDirectory()
+    protected Path getCatalogDirectory()
     {
-        Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
+        java.nio.file.Path dataDirectory = getDistributedQueryRunner().getCoordinator().getDataDirectory();
         switch (catalogType) {
             case HIVE:
             case HADOOP:
             case NESSIE:
-                return getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile();
+                return new Path(getIcebergDataDirectoryPath(dataDirectory, catalogType.name(), new IcebergConfig().getFileFormat(), false).toFile().toURI());
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported Presto Iceberg catalog type " + catalogType);
