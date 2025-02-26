@@ -13,14 +13,17 @@
  */
 package com.facebook.presto.router.cluster;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
+import com.facebook.presto.router.scheduler.SchedulerManager;
 import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.router.ClusterInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -31,33 +34,61 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
+import static com.facebook.presto.router.scheduler.SchedulerType.CUSTOM_PLUGIN_SCHEDULER;
 import static com.facebook.presto.router.scheduler.SchedulerType.WEIGHTED_RANDOM_CHOICE;
 import static com.facebook.presto.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
 public class ClusterManager
 {
-    private final Map<String, GroupSpec> groups;
-    private final List<SelectorRuleSpec> groupSelectors;
-    private final SchedulerType schedulerType;
-    private final Scheduler scheduler;
-    private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final RouterConfig routerConfig;
+    private Map<String, GroupSpec> groups;
+    private List<SelectorRuleSpec> groupSelectors;
+    private SchedulerType schedulerType;
+    private Scheduler scheduler;
+    private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private final AtomicLong lastConfigUpdate = new AtomicLong();
+    private final RemoteInfoFactory remoteInfoFactory;
+    private final SchedulerManager schedulerManager;
+    private final Logger log = Logger.get(ClusterManager.class);
+
+    // Cluster status
+    private final ConcurrentHashMap<URI, RemoteClusterInfo> remoteClusterInfos = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
 
     @Inject
-    public ClusterManager(RouterConfig config)
+    public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory,
+                          SchedulerManager schedulerManager)
     {
-        RouterSpec routerSpec = parseRouterConfig(config)
-                .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
+        this.routerConfig = config;
+        this.schedulerManager = schedulerManager;
+        this.remoteInfoFactory = requireNonNull(remoteInfoFactory, "remoteInfoFactory is null");
+        initializeRouterConfigSpec(this.routerConfig);
+        List<URI> allClusters = getAllClusters();
+        allClusters.forEach(uri -> {
+            log.info("Attaching cluster %s to the router", uri.getHost());
+            remoteClusterInfos.put(uri, remoteInfoFactory.createRemoteClusterInfo(uri));
+            remoteQueryInfos.put(uri, remoteInfoFactory.createRemoteQueryInfo(uri));
+            log.info("Successfully attached cluster %s to the router.", uri.getHost());
+        });
+    }
 
+    private void initializeRouterConfigSpec(RouterConfig routerConfig)
+    {
+        RouterSpec routerSpec = parseRouterConfig(routerConfig)
+                        .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
         this.schedulerType = routerSpec.getSchedulerType();
-        this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
-
+        this.scheduler = new SchedulerFactory(schedulerType, schedulerManager).create();
         this.initializeServerWeights();
     }
 
@@ -77,11 +108,25 @@ public class ClusterManager
 
         checkArgument(groups.containsKey(target.get()));
         GroupSpec groupSpec = groups.get(target.get());
+
         scheduler.setCandidates(groupSpec.getMembers());
         if (schedulerType == WEIGHTED_RANDOM_CHOICE) {
             scheduler.setWeights(serverWeights.get(groupSpec.getName()));
         }
+        else if (schedulerType == CUSTOM_PLUGIN_SCHEDULER) {
+            try {
+                //Set remote cluster infos in the custom plugin scheduler
+                Map<URI, ClusterInfo> healthyRemoteClusterInfos = remoteClusterInfos.entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                scheduler.setClusterInfos(healthyRemoteClusterInfos);
 
+                return scheduler.getDestination(requestInfo.getUser(), requestInfo.getQuery());
+            }
+            catch (Exception e) {
+                log.error("Custom Plugin Scheduler failed to schedule the query!");
+                return Optional.empty();
+            }
+        }
         return scheduler.getDestination(requestInfo.getUser());
     }
 
@@ -104,5 +149,15 @@ public class ClusterManager
                 serverWeights.get(name).put(members.get(i), weights.get(i));
             }
         });
+    }
+
+    public ConcurrentHashMap<URI, RemoteClusterInfo> getRemoteClusterInfos()
+    {
+        return remoteClusterInfos;
+    }
+
+    public ConcurrentHashMap<URI, RemoteQueryInfo> getRemoteQueryInfos()
+    {
+        return remoteQueryInfos;
     }
 }
