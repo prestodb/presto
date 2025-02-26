@@ -232,15 +232,14 @@ public final class IcebergQueryRunner
 
             Path icebergDataDirectory = getIcebergDataDirectoryPath(queryRunner.getCoordinator().getDataDirectory(), catalogType.name(), format, addStorageFormatToPath);
 
-            Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
-                    .put("iceberg.file-format", format.name())
-                    .put("iceberg.catalog.type", catalogType.name())
-                    .putAll(getConnectorProperties(catalogType, icebergDataDirectory))
-                    .putAll(extraConnectorProperties)
-                    .build();
+            Map<String, String> icebergProperties = new HashMap<>();
+            icebergProperties.put("iceberg.file-format", format.name());
+            icebergProperties.put("iceberg.catalog.type", catalogType.name());
+            icebergProperties.putAll(getConnectorProperties(catalogType, icebergDataDirectory));
+            icebergProperties.putAll(extraConnectorProperties);
 
-            queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
-            icebergCatalogs.put(ICEBERG_CATALOG, icebergProperties);
+            queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", ImmutableMap.copyOf(icebergProperties));
+            icebergCatalogs.put(ICEBERG_CATALOG, ImmutableMap.copyOf(icebergProperties));
 
             if (addJmxPlugin) {
                 queryRunner.createCatalog("jmx", "jmx");

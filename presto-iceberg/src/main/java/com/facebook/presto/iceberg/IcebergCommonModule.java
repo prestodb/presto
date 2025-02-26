@@ -99,6 +99,8 @@ import java.util.concurrent.ExecutorService;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.orc.StripeMetadataSource.CacheableRowGroupIndices;
 import static com.facebook.presto.orc.StripeMetadataSource.CacheableSlice;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -141,6 +143,9 @@ public class IcebergCommonModule
         binder.bind(IcebergCatalogName.class).toInstance(new IcebergCatalogName(connectorId));
 
         configBinder(binder).bindConfig(IcebergConfig.class);
+
+        IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
+        checkArgument(icebergConfig.getCatalogType().equals(HADOOP) || icebergConfig.getCatalogWarehouseDataDir() == null, "'iceberg.catalog.hadoop.warehouse.datadir' can only be specified in Hadoop catalog");
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IcebergNessieConfig.class);  // bind optional Nessie config to IcebergSessionProperties
