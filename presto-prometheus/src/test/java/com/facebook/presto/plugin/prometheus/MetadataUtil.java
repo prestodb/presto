@@ -31,7 +31,7 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.plugin.prometheus.TestPrometheusTable.TYPE_MANAGER;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Locale.ENGLISH;
 
 public class MetadataUtil
@@ -64,7 +64,7 @@ public class MetadataUtil
         protected Type _deserialize(String value, DeserializationContext context)
         {
             Type type = types.get(value.toLowerCase(ENGLISH));
-            checkArgument(type != null, "Unknown type %s", value);
+            checkNotNull(type, "Unknown type %s", value);
             return type;
         }
     }

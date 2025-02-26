@@ -24,7 +24,7 @@ import io.airlift.slice.Slice;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.String.format;
 
 public final class TwoNullableValueStateMapping
@@ -67,7 +67,7 @@ public final class TwoNullableValueStateMapping
     {
         List<Class<?>> key = ImmutableList.of(first, second);
         Class<? extends AccumulatorState> state = STATE_MAPPINGS.get(key);
-        checkArgument(state != null, "Unsupported state type combination: (%s, %s)", first.getName(), second.getName());
+        checkNotNull(state, "Unsupported state type combination: (%s, %s)", first.getName(), second.getName());
         return state;
     }
 

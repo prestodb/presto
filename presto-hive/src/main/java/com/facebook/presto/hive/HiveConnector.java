@@ -49,7 +49,7 @@ import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_R
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.UNIQUE_CONSTRAINT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class HiveConnector
@@ -122,7 +122,7 @@ public class HiveConnector
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
         ConnectorMetadata metadata = transactionManager.get(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         return new ClassLoaderSafeConnectorMetadata(metadata, classLoader);
     }
 
@@ -225,7 +225,7 @@ public class HiveConnector
     public ConnectorCommitHandle commit(ConnectorTransactionHandle transaction)
     {
         TransactionalMetadata metadata = transactionManager.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return metadata.commit();
         }
@@ -235,7 +235,7 @@ public class HiveConnector
     public void rollback(ConnectorTransactionHandle transaction)
     {
         TransactionalMetadata metadata = transactionManager.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
+        checkNotNull(metadata, "no such transaction: %s", transaction);
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             metadata.rollback();
         }

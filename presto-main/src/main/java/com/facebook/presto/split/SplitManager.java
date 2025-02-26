@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -102,7 +102,7 @@ public class SplitManager
     private ConnectorSplitManager getConnectorSplitManager(ConnectorId connectorId)
     {
         ConnectorSplitManager result = splitManagers.get(connectorId);
-        checkArgument(result != null, "No split manager for connector '%s'", connectorId);
+        checkNotNull(result, "No split manager for connector '%s'", connectorId);
         return result;
     }
 }

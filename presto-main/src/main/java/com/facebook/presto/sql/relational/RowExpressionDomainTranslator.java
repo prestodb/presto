@@ -82,7 +82,6 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.OR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static com.facebook.presto.sql.planner.LiteralEncoder.toRowExpression;
 import static com.facebook.presto.sql.relational.Expressions.call;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -588,7 +587,7 @@ public final class RowExpressionDomainTranslator
 
         private static Domain extractOrderableDomain(OperatorType comparisonOperator, Type type, Object value, boolean complement)
         {
-            checkArgument(value != null);
+            requireNonNull(value);
             switch (comparisonOperator) {
                 case EQUAL:
                     return Domain.create(complementIfNecessary(ValueSet.ofRanges(Range.equal(type, value)), complement), false);
@@ -612,7 +611,7 @@ public final class RowExpressionDomainTranslator
 
         private static Domain extractEquatableDomain(OperatorType comparisonOperator, Type type, Object value, boolean complement)
         {
-            checkArgument(value != null);
+            requireNonNull(value);
             switch (comparisonOperator) {
                 case EQUAL:
                     return Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);

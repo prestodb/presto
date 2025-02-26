@@ -92,7 +92,7 @@ public abstract class AbstractTestHiveFunctions
 
     public void assertQuery(@Language("SQL") String sql, Column... cols)
     {
-        checkArgument(cols != null && cols.length > 0);
+        checkArgument(cols.length > 0);
         int numColumns = cols.length;
         int numRows = cols[0].values.length;
         checkArgument(Stream.of(cols).allMatch(c -> c != null && c.values.length == numRows));

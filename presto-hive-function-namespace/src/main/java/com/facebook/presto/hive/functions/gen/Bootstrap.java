@@ -23,6 +23,7 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public final class Bootstrap
 {
@@ -48,7 +49,7 @@ public final class Bootstrap
 
         DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
         MethodHandle target = dynamicClassLoader.getCallSiteBindings().get(bindingId);
-        checkArgument(target != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
+        checkNotNull(target, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());
 
         return new ConstantCallSite(target);
     }

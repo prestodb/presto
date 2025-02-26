@@ -27,7 +27,6 @@ import java.util.List;
 
 import static com.facebook.presto.hive.pagefile.PageFileWriterFactory.createPagesSerdeForPageFile;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class PageFilePageSource
@@ -150,7 +149,7 @@ public class PageFilePageSource
             long lastStripeEnd,
             List<Long> stripeOffsets)
     {
-        checkArgument(stripeOffsets != null, "stripeOffsets is null, failed to read page file footer.");
+        requireNonNull(stripeOffsets, "stripeOffsets is null, failed to read page file footer.");
         if (stripeOffsets.isEmpty()) {
             return new OffsetAndLength(0, 0);
         }

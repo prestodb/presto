@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class PartitioningProviderManager
@@ -29,7 +30,7 @@ public class PartitioningProviderManager
     public ConnectorNodePartitioningProvider getPartitioningProvider(ConnectorId connectorId)
     {
         ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(connectorId);
-        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", connectorId);
+        checkNotNull(partitioningProvider, "No partitioning provider for connector %s", connectorId);
         return partitioningProvider;
     }
 

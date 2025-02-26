@@ -22,6 +22,7 @@ import java.util.Map;
 
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Arrays.stream;
@@ -88,7 +89,7 @@ public enum KafkaInternalFieldDescription
     public static KafkaInternalFieldDescription forColumnName(String columnName)
     {
         KafkaInternalFieldDescription description = BY_COLUMN_NAME.get(columnName);
-        checkArgument(description != null, "Unknown internal column name %s", columnName);
+        checkNotNull(description, "Unknown internal column name %s", columnName);
         return description;
     }
 

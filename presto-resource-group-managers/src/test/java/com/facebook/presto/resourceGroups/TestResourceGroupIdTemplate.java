@@ -105,7 +105,7 @@ public class TestResourceGroupIdTemplate
         selector.match(context);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "unresolved variable 'pipeline' in resource group '\\$\\{pipeline\\}', available.*")
+    @Test(expectedExceptions = NullPointerException.class, expectedExceptionsMessageRegExp = "unresolved variable 'pipeline' in resource group '\\$\\{pipeline\\}', available.*")
     public void testUnresolvedVariableRunTime()
     {
         ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.pipeline.${pipeline}.${USER}");

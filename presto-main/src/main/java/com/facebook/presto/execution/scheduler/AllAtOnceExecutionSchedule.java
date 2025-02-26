@@ -41,7 +41,7 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.StageExecutionState.RUNNING;
 import static com.facebook.presto.execution.StageExecutionState.SCHEDULED;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -126,7 +126,7 @@ public class AllAtOnceExecutionSchedule
         public void processFragment(PlanFragmentId planFragmentId)
         {
             PlanFragment planFragment = fragments.get(planFragmentId);
-            checkArgument(planFragment != null, "Fragment not found: %s", planFragmentId);
+            checkNotNull(planFragment, "Fragment not found: %s", planFragmentId);
 
             planFragment.getRoot().accept(this, null);
             schedulerOrder.add(planFragmentId);

@@ -54,6 +54,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HAS
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -185,7 +186,7 @@ public class LocalExchange
                 partitioningChannelTypes,
                 bucketCount);
 
-        checkArgument(bucketFunction != null, "No bucket function for partitioning: %s", partitioning);
+        checkNotNull(bucketFunction, "No bucket function for partitioning: %s", partitioning);
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 

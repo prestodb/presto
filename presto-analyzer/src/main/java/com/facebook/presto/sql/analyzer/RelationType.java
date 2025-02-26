@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +72,7 @@ public class RelationType
     {
         requireNonNull(field, "field cannot be null");
         Integer index = fieldIndexes.get(field);
-        checkArgument(index != null, "Field %s not found", field);
+        checkNotNull(index, "Field %s not found", field);
         return index;
     }
 

@@ -37,7 +37,7 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -105,7 +105,7 @@ public class PinotModule
         protected Type _deserialize(String value, DeserializationContext context)
         {
             Type type = typeManager.getType(parseTypeSignature(value));
-            checkArgument(type != null, "Unknown type %s", value);
+            checkNotNull(type, "Unknown type %s", value);
             return type;
         }
     }

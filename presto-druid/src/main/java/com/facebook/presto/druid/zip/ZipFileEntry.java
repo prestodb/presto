@@ -17,7 +17,7 @@ import javax.annotation.Nullable;
 
 import java.util.EnumSet;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 /**
  * A full representation of a ZIP file entry.
@@ -170,7 +170,7 @@ public class ZipFileEntry
 
     public void setName(String name)
     {
-        checkArgument(name != null, "Zip file name could not be null");
+        requireNonNull(name, "Zip file name could not be null");
         this.name = name;
     }
 
@@ -242,7 +242,7 @@ public class ZipFileEntry
 
     public void setMethod(Compression method)
     {
-        checkArgument(method != null, "Zip file compression could not be null");
+        requireNonNull(method, "Zip file compression could not be null");
         if (this.method != null) {
             featureSet.remove(this.method.getFeature());
         }
@@ -341,7 +341,7 @@ public class ZipFileEntry
 
     public void setExtra(ExtraDataList extra)
     {
-        checkArgument(extra != null, "Zip file data could not be null");
+        requireNonNull(extra, "Zip file data must not be null");
         if (extra.getLength() > 0xffff) {
             throw new IllegalArgumentException("invalid extra field length");
         }

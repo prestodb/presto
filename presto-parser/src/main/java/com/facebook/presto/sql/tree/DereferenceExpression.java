@@ -21,7 +21,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class DereferenceExpression
         extends Expression
@@ -42,8 +42,8 @@ public class DereferenceExpression
     private DereferenceExpression(Optional<NodeLocation> location, Expression base, Identifier field)
     {
         super(location);
-        checkArgument(base != null, "base is null");
-        checkArgument(field != null, "fieldName is null");
+        requireNonNull(base, "base is null");
+        requireNonNull(field, "fieldName is null");
         this.base = base;
         this.field = field;
     }

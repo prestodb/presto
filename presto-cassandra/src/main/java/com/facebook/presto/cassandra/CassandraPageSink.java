@@ -51,7 +51,7 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.primitives.Shorts.checkedCast;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -98,7 +98,7 @@ public class CassandraPageSink
         }
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
-            checkArgument(columnName != null, "columnName is null at position: %d", i);
+            checkNotNull(columnName, "columnName is null at position: %d", i);
             insert.value(columnName, bindMarker());
         }
         this.insert = cassandraSession.prepare(insert);

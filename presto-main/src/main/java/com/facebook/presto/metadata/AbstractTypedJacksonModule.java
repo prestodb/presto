@@ -41,7 +41,7 @@ import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static java.util.Objects.requireNonNull;
 
@@ -156,7 +156,7 @@ public abstract class AbstractTypedJacksonModule<T>
         {
             requireNonNull(value, "value is null");
             String type = nameResolver.apply((T) value);
-            checkArgument(type != null, "Unknown class: %s", suggestedType.getSimpleName());
+            checkNotNull(type, "Unknown class: %s", suggestedType.getSimpleName());
             return type;
         }
 
@@ -165,7 +165,7 @@ public abstract class AbstractTypedJacksonModule<T>
         {
             requireNonNull(id, "id is null");
             Class<?> typeClass = classResolver.apply(id);
-            checkArgument(typeClass != null, "Unknown type ID: %s", id);
+            checkNotNull(typeClass, "Unknown type ID: %s", id);
             return context.getTypeFactory().constructType(typeClass);
         }
 
