@@ -2126,7 +2126,7 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.4.14</version>
+                <version>3.9.3</version>
                 <exclusions>
                     <exclusion>
                         <artifactId>jline</artifactId>
@@ -2139,6 +2139,10 @@
                     <exclusion>
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-io</groupId>
+                        <artifactId>commons-io</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
