@@ -183,6 +183,7 @@ public class TestNodeScheduler
                     defaultDuration,
                     defaultDuration,
                     executionTime,
+                    defaultDuration,
                     0,
                     0,
                     0,

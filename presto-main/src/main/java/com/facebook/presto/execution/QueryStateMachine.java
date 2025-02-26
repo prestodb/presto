@@ -379,6 +379,7 @@ public class QueryStateMachine
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getExecutionTime(),
+                queryStateTimer.getAnalysisTime(),
 
                 getCurrentRunningTaskCount(),
                 getPeakRunningTaskCount(),
