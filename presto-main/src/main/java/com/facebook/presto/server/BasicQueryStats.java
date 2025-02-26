@@ -50,6 +50,7 @@ public class BasicQueryStats
     private final Duration queuedTime;
     private final Duration elapsedTime;
     private final Duration executionTime;
+    private final Duration analysisTime;
 
     private final int runningTasks;
     private final int peakRunningTasks;
@@ -89,6 +90,7 @@ public class BasicQueryStats
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
             @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("analysisTime") Duration analysisTime,
             @JsonProperty("runningTasks") int runningTasks,
             @JsonProperty("peakRunningTasks") int peakRunningTasks,
             @JsonProperty("totalDrivers") int totalDrivers,
@@ -119,7 +121,7 @@ public class BasicQueryStats
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
-
+        this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.runningTasks = runningTasks;
         this.peakRunningTasks = peakRunningTasks;
 
@@ -162,6 +164,7 @@ public class BasicQueryStats
                 queryStats.getQueuedTime(),
                 queryStats.getElapsedTime(),
                 queryStats.getExecutionTime(),
+                queryStats.getAnalysisTime(),
                 queryStats.getRunningTasks(),
                 queryStats.getPeakRunningTasks(),
                 queryStats.getTotalDrivers(),
@@ -192,6 +195,7 @@ public class BasicQueryStats
         return new BasicQueryStats(
                 now,
                 now,
+                new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -413,5 +417,12 @@ public class BasicQueryStats
     public int getRunningTasks()
     {
         return runningTasks;
+    }
+
+    @ThriftField(29)
+    @JsonProperty
+    public Duration getAnalysisTime()
+    {
+        return analysisTime;
     }
 }
