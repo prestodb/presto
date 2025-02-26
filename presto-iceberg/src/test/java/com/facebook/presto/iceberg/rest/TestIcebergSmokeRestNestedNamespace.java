@@ -170,14 +170,14 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   \"comment\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   delete_mode = 'merge-on-read',\n" +
-                        "   format = 'PARQUET',\n" +
-                        "   format_version = '2',\n" +
+                        "   \"format-version\" = '2',\n" +
                         "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
                         "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                        "   \"write.format.default\" = 'PARQUET',\n" +
+                        "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                        "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                        "   \"write.metadata.previous-versions-max\" = 100,\n" +
                         "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
     }
@@ -195,8 +195,8 @@ public class TestIcebergSmokeRestNestedNamespace
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2'\n" +
+                "   \"write.format.default\" = 'ORC',\n" +
+                "   \"format-version\" = '2'\n" +
                 ")";
 
         assertUpdate(format(createTable, schemaName, "test table comment"));
@@ -207,14 +207,14 @@ public class TestIcebergSmokeRestNestedNamespace
                 ")\n" +
                 "COMMENT '%s'\n" +
                 "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2',\n" +
+                "   \"format-version\" = '2',\n" +
                 "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
                 "   \"read.split.target-size\" = 134217728,\n" +
+                "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                "   \"write.format.default\" = 'ORC',\n" +
+                "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                "   \"write.metadata.previous-versions-max\" = 100,\n" +
                 "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
@@ -232,7 +232,7 @@ public class TestIcebergSmokeRestNestedNamespace
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_partitioned_table_as_%s " +
                 "WITH (" +
-                "format = '%s', " +
+                "\"write.format.default\" = '%s', " +
                 "partitioning = ARRAY['ORDER_STATUS', 'Ship_Priority', 'Bucket(order_key,9)']" +
                 ") " +
                 "AS " +
@@ -248,22 +248,22 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   \"order_status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   delete_mode = 'merge-on-read',\n" +
-                        "   format = '%s',\n" +
-                        "   format_version = '2',\n" +
+                        "   \"format-version\" = '2',\n" +
                         "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
                         "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.delete.mode\" = 'merge-on-read',\n" +
+                        "   \"write.format.default\" = '%s',\n" +
+                        "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                        "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                        "   \"write.metadata.previous-versions-max\" = 100,\n" +
                         "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_create_partitioned_table_as_" + fileFormatString,
-                fileFormat,
-                getLocation(getSession().getSchema().get(), "test_create_partitioned_table_as_" + fileFormatString));
+                getLocation(getSession().getSchema().get(), "test_create_partitioned_table_as_" + fileFormatString),
+                fileFormat);
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_partitioned_table_as_" + fileFormatString);
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
@@ -293,8 +293,8 @@ public class TestIcebergSmokeRestNestedNamespace
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_create_table_with_format_version_%s " +
                 "WITH (" +
-                "format = 'PARQUET', " +
-                "format_version = '%s'" +
+                "\"write.format.default\" = 'PARQUET', " +
+                "\"format-version\" = '%s'" +
                 ") " +
                 "AS " +
                 "SELECT orderkey AS order_key, shippriority AS ship_priority, orderstatus AS order_status " +
@@ -311,22 +311,22 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   \"order_status\" varchar\n" +
                         ")\n" +
                         "WITH (\n" +
-                        "   delete_mode = '%s',\n" +
-                        "   format = 'PARQUET',\n" +
-                        "   format_version = '%s',\n" +
+                        "   \"format-version\" = '%s',\n" +
                         "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
                         "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.delete.mode\" = '%s',\n" +
+                        "   \"write.format.default\" = 'PARQUET',\n" +
+                        "   \"write.metadata.delete-after-commit.enabled\" = false,\n" +
+                        "   \"write.metadata.metrics.max-inferred-column-defaults\" = 100,\n" +
+                        "   \"write.metadata.previous-versions-max\" = 100,\n" +
                         "   \"write.update.mode\" = '%s'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_create_table_with_format_version_" + formatVersion,
-                defaultDeleteMode,
                 formatVersion,
                 getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion),
+                defaultDeleteMode,
                 defaultDeleteMode);
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version_" + formatVersion);
