@@ -28,6 +28,7 @@ target_link_libraries(
   velox_exec
   velox_function_registry
   velox_exec_test_lib
+  velox_presto_types
   GTest::gtest
   GTest::gtest_main)
 

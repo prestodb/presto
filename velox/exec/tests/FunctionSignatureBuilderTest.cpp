@@ -115,7 +115,7 @@ TEST_F(FunctionSignatureBuilderTest, typeParamTests) {
           .returnType("integer")
           .argumentType("Any(T)")
           .build(),
-      "Failed to parse type signature [Any(T)]: syntax error, unexpected LPAREN, expecting YYEOF");
+      "Type 'Any' cannot have parameters");
 
   // Variable Arity in argument fails.
   VELOX_ASSERT_THROW(
@@ -134,7 +134,7 @@ TEST_F(FunctionSignatureBuilderTest, typeParamTests) {
           .returnType("integer")
           .argumentType("T(M)")
           .build(),
-      "Failed to parse type signature [T(M)]: syntax error, unexpected LPAREN, expecting YYEOF");
+      "Named type cannot have parameters: 'T(M)'");
 }
 
 TEST_F(FunctionSignatureBuilderTest, anyInReturn) {

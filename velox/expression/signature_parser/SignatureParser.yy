@@ -45,6 +45,7 @@ type_spec : type                 { scanner->setTypeSignature($1); }
 
 type : special_type   { $$ = $1; }
      | WORD           { $$ = std::make_shared<exec::TypeSignature>(exec::TypeSignature($1, {})); }
+     | WORD LPAREN type_list RPAREN { $$ = std::make_shared<exec::TypeSignature>(exec::TypeSignature($1, std::move($3))); }
      ;
 
 special_type : array_type                  { $$ = $1; }

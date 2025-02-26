@@ -85,14 +85,16 @@ std::string toSuffixString(const TypeSignature& type) {
         toSuffixString(type.parameters()[1]);
   }
   if (upperName == "ROW") {
-    std::string result = "row";
-    for (const auto& child : type.parameters()) {
-      result = result + "_" + toSuffixString(child);
-    }
-    result += "_endrow";
-    return result;
+    name = "row";
   }
-  VELOX_UNREACHABLE("Unknown type: {}.", type.toString());
+  std::string result = name;
+  for (const auto& child : type.parameters()) {
+    result += '_';
+    result += toSuffixString(child);
+  }
+  result += "_end";
+  result += name;
+  return result;
 }
 
 std::vector<AggregateFunctionSignaturePtr>

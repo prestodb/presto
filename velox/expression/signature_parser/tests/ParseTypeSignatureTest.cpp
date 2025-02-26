@@ -232,6 +232,15 @@ TEST_F(ParseTypeSignatureTest, row) {
   }
 }
 
+TEST_F(ParseTypeSignatureTest, tdigest) {
+  auto signature = parseTypeSignature("tdigest(double)");
+  ASSERT_EQ(signature.baseName(), "tdigest");
+  ASSERT_EQ(signature.parameters().size(), 1);
+  auto& parameter = signature.parameters()[0];
+  ASSERT_EQ(parameter.baseName(), "double");
+  ASSERT_TRUE(parameter.parameters().empty());
+}
+
 TEST_F(ParseTypeSignatureTest, roundTrip) {
   ASSERT_EQ(roundTrip("bigint"), "bigint");
 

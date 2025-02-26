@@ -19,11 +19,11 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/tests/DummyAggregateFunction.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/functions/prestosql/types/TDigestRegistration.h"
 
 using namespace facebook::velox::exec;
 
 namespace facebook::velox::exec::test {
-
 namespace {
 
 struct TestCompanionSignatureEntry {
@@ -40,6 +40,10 @@ struct TestCompanionSignatureMap {
 
 class AggregateCompanionSignaturesTest : public testing::Test {
  public:
+  static void SetUpTestCase() {
+    registerTDigestType();
+  }
+
   AggregateCompanionSignaturesTest() {
     exec::aggregateFunctions().withWLock([&](auto& functionsMap) {
       functionsMap.clear();
@@ -186,6 +190,46 @@ TEST_F(AggregateCompanionSignaturesTest, templateSignature) {
   assertEqual(*companionSignatures, expected);
 }
 
-} // namespace
+TEST_F(AggregateCompanionSignaturesTest, customType) {
+  std::vector<AggregateFunctionSignaturePtr> signatures = {
+      AggregateFunctionSignatureBuilder()
+          .returnType("tdigest(double)")
+          .intermediateType("tdigest(double)")
+          .argumentType("double")
+          .build(),
+      AggregateFunctionSignatureBuilder()
+          .returnType("double")
+          .intermediateType("tdigest(double)")
+          .argumentType("bigint")
+          .build(),
+  };
+  registerDummyAggregateFunction("aggregateFunc1", signatures);
+  auto companionSignatures = getCompanionFunctionSignatures("aggregateFunc1");
+  EXPECT_TRUE(companionSignatures.has_value());
+  TestCompanionSignatureMap expected;
+  expected.partial = {
+      {"aggregateFunc1_partial",
+       {
+           "(double) -> tdigest(double) -> tdigest(double)",
+           "(bigint) -> tdigest(double) -> tdigest(double)",
+       }}};
+  expected.merge = {
+      {"aggregateFunc1_merge",
+       {
+           "(tdigest(double)) -> tdigest(double) -> tdigest(double)",
+           "(double) -> double -> double",
+       }}};
+  expected.mergeExtract = {
+      {"aggregateFunc1_merge_extract_double",
+       {"(tdigest(double)) -> tdigest(double) -> double"}},
+      {"aggregateFunc1_merge_extract_tdigest_double_endtdigest",
+       {"(tdigest(double)) -> tdigest(double) -> tdigest(double)"}}};
+  expected.extract = {
+      {"aggregateFunc1_extract_double", {"(tdigest(double)) -> double"}},
+      {"aggregateFunc1_extract_tdigest_double_endtdigest",
+       {"(tdigest(double)) -> tdigest(double)"}}};
+  assertEqual(*companionSignatures, expected);
+}
 
+} // namespace
 } // namespace facebook::velox::exec::test
