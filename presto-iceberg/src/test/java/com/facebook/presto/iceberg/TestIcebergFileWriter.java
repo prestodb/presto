@@ -25,10 +25,13 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
+import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.OrcFileWriterConfig;
+import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.parquet.FileParquetDataSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
@@ -61,6 +64,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.toIcebergSchema;
+import static com.facebook.presto.iceberg.IcebergDistributedTestBase.getHdfsEnvironment;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.dataSizeSessionProperty;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
@@ -114,7 +118,7 @@ public class TestIcebergFileWriter
         this.connectorSession = session.toConnectorSession(connectorId);
         TypeManager typeManager = new TestingTypeManager();
         this.hdfsContext = new HdfsContext(connectorSession);
-        HdfsEnvironment hdfsEnvironment = IcebergDistributedTestBase.getHdfsEnvironment();
+        HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(new HiveClientConfig(), new MetastoreClientConfig(), new HiveS3Config());
         this.icebergFileWriterFactory = new IcebergFileWriterFactory(hdfsEnvironment, typeManager,
                 new FileFormatDataSourceStats(), new NodeVersion("test"), new OrcFileWriterConfig(), HiveDwrfEncryptionProvider.NO_ENCRYPTION);
     }

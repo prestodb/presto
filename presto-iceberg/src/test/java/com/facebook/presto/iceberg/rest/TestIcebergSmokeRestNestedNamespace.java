@@ -27,8 +27,8 @@ import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.assertj.core.util.Files;
@@ -38,6 +38,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
@@ -46,14 +47,13 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 @Test
 public class TestIcebergSmokeRestNestedNamespace
@@ -157,29 +157,55 @@ public class TestIcebergSmokeRestNestedNamespace
     public void testShowCreateTable()
     {
         String schemaName = getSession().getSchema().get();
-        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo(format("CREATE TABLE iceberg.\"%s\".orders (\n" +
-                        "   \"orderkey\" bigint,\n" +
-                        "   \"custkey\" bigint,\n" +
-                        "   \"orderstatus\" varchar,\n" +
-                        "   \"totalprice\" double,\n" +
-                        "   \"orderdate\" date,\n" +
-                        "   \"orderpriority\" varchar,\n" +
-                        "   \"clerk\" varchar,\n" +
-                        "   \"shippriority\" integer,\n" +
-                        "   \"comment\" varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   delete_mode = 'merge-on-read',\n" +
-                        "   format = 'PARQUET',\n" +
-                        "   format_version = '2',\n" +
-                        "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
-                        "   \"read.split.target-size\" = 134217728,\n" +
-                        "   \"write.update.mode\" = 'merge-on-read'\n" +
-                        ")", schemaName, getLocation(schemaName, "orders")));
+
+        validateShowCreateTable("iceberg", "\"" + schemaName + "\"", "orders",
+                ImmutableList.of(
+                        "orderkey bigint",
+                        "custkey bigint",
+                        "orderstatus varchar",
+                        "totalprice double",
+                        "orderdate date",
+                        "orderpriority varchar",
+                        "clerk varchar",
+                        "shippriority integer",
+                        "comment varchar"),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "location", "'" + getLocation(schemaName, "orders") + "'")));
+    }
+
+    @Test
+    public void testShowCreateTableWithSpecifiedWriteDataLocation()
+            throws IOException
+    {
+        String tableName = "test_table_with_specified_write_data_location";
+        String dataWriteLocation = createTempDirectory("test1").toAbsolutePath().toString();
+        try {
+            assertUpdate(format("CREATE TABLE %s(a int, b varchar) with (\"write.data.path\" = '%s')", tableName, dataWriteLocation));
+            String schemaName = getSession().getSchema().get();
+            String location = getLocation(schemaName, tableName);
+            String createTableSql = "CREATE TABLE iceberg.\"%s\".%s (\n" +
+                    "   \"a\" integer,\n" +
+                    "   \"b\" varchar\n" +
+                    ")\n" +
+                    "WITH (\n" +
+                    "   delete_mode = 'merge-on-read',\n" +
+                    "   format = 'PARQUET',\n" +
+                    "   format_version = '2',\n" +
+                    "   location = '%s',\n" +
+                    "   metadata_delete_after_commit = false,\n" +
+                    "   metadata_previous_versions_max = 100,\n" +
+                    "   metrics_max_inferred_column = 100,\n" +
+                    "   \"read.split.target-size\" = 134217728,\n" +
+                    "   \"write.data.path\" = '%s',\n" +
+                    "   \"write.update.mode\" = 'merge-on-read'\n" +
+                    ")";
+            assertThat(computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                    .isEqualTo(format(createTableSql, schemaName, tableName, location, dataWriteLocation));
+        }
+        finally {
+            assertUpdate(("DROP TABLE IF EXISTS " + tableName));
+        }
     }
 
     @Test
@@ -201,26 +227,12 @@ public class TestIcebergSmokeRestNestedNamespace
 
         assertUpdate(format(createTable, schemaName, "test table comment"));
 
-        String createTableTemplate = "" +
-                "CREATE TABLE iceberg.\"%s\".test_table_comments (\n" +
-                "   \"_x\" bigint\n" +
-                ")\n" +
-                "COMMENT '%s'\n" +
-                "WITH (\n" +
-                "   delete_mode = 'merge-on-read',\n" +
-                "   format = 'ORC',\n" +
-                "   format_version = '2',\n" +
-                "   location = '%s',\n" +
-                "   metadata_delete_after_commit = false,\n" +
-                "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100,\n" +
-                "   \"read.split.target-size\" = 134217728,\n" +
-                "   \"write.update.mode\" = 'merge-on-read'\n" +
-                ")";
-        String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
-
-        MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
-        assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
+        validateShowCreateTable("iceberg", "\"" + schemaName + "\"", "test_table_comments",
+                ImmutableList.of("_x bigint"),
+                "test table comment",
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "format", "'ORC'",
+                        "location", "'" + getLocation(schemaName, "test_table_comments") + "'")));
 
         dropTable(session, "test_table_comments");
     }
@@ -241,32 +253,18 @@ public class TestIcebergSmokeRestNestedNamespace
 
         assertUpdate(session, format(createTable, fileFormatString, fileFormat), "SELECT count(*) from orders");
 
-        String createTableSql = format("" +
-                        "CREATE TABLE %s.\"%s\".%s (\n" +
-                        "   \"order_key\" bigint,\n" +
-                        "   \"ship_priority\" integer,\n" +
-                        "   \"order_status\" varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   delete_mode = 'merge-on-read',\n" +
-                        "   format = '%s',\n" +
-                        "   format_version = '2',\n" +
-                        "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
-                        "   \"read.split.target-size\" = 134217728,\n" +
-                        "   \"write.update.mode\" = 'merge-on-read'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
-                "test_create_partitioned_table_as_" + fileFormatString,
-                fileFormat,
-                getLocation(getSession().getSchema().get(), "test_create_partitioned_table_as_" + fileFormatString));
-
-        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_partitioned_table_as_" + fileFormatString);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        validateShowCreateTable(getSession().getCatalog().get(),
+                        format("\"%s\"", getSession().getSchema().get()),
+                        "test_create_partitioned_table_as_" + fileFormatString,
+                ImmutableList.of(
+                        "order_key bigint",
+                        "ship_priority integer",
+                        "order_status varchar"),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "format", "'" + fileFormat + "'",
+                        "location", "'" + getLocation(getSession().getSchema().get(), "test_create_partitioned_table_as_" + fileFormatString) + "'",
+                        "partitioning", "ARRAY['order_status','ship_priority','bucket(order_key, 9)']")));
 
         assertQuery(session, "SELECT * from test_create_partitioned_table_as_" + fileFormatString,
                 "SELECT orderkey, shippriority, orderstatus FROM orders");
@@ -304,33 +302,19 @@ public class TestIcebergSmokeRestNestedNamespace
 
         assertUpdate(session, format(createTable, formatVersion, formatVersion), "SELECT count(*) from orders");
 
-        String createTableSql = format("" +
-                        "CREATE TABLE %s.\"%s\".%s (\n" +
-                        "   \"order_key\" bigint,\n" +
-                        "   \"ship_priority\" integer,\n" +
-                        "   \"order_status\" varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   delete_mode = '%s',\n" +
-                        "   format = 'PARQUET',\n" +
-                        "   format_version = '%s',\n" +
-                        "   location = '%s',\n" +
-                        "   metadata_delete_after_commit = false,\n" +
-                        "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100,\n" +
-                        "   \"read.split.target-size\" = 134217728,\n" +
-                        "   \"write.update.mode\" = '%s'\n" +
-                        ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+        validateShowCreateTable(getSession().getCatalog().get(),
+                "\"" + getSession().getSchema().get() + "\"",
                 "test_create_table_with_format_version_" + formatVersion,
-                defaultDeleteMode,
-                formatVersion,
-                getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion),
-                defaultDeleteMode);
-
-        MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version_" + formatVersion);
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+                ImmutableList.of(
+                        "order_key bigint",
+                        "ship_priority integer",
+                        "order_status varchar"),
+                null,
+                getCustomizedTableProperties(ImmutableMap.of(
+                        "delete_mode", "'" + defaultDeleteMode + "'",
+                        "format_version", "'" + formatVersion + "'",
+                        "location", "'" + getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion) + "'",
+                        "\"write.update.mode\"", "'" + defaultDeleteMode + "'")));
 
         dropTable(session, "test_create_table_with_format_version_" + formatVersion);
     }
