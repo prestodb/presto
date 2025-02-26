@@ -134,7 +134,7 @@ public final class HiveSessionProperties
     public static final String SKIP_EMPTY_FILES = "skip_empty_files";
     public static final String LEGACY_TIMESTAMP_BUCKETING = "legacy_timestamp_bucketing";
 
-    public static final String STATS_BASED_FILTER_REORDER_DISABLED = "stats_based_filter_reorder_disabled";
+    public static final String NATIVE_STATS_BASED_FILTER_REORDER_DISABLED = "native_stats_based_filter_reorder_disabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -651,7 +651,7 @@ public final class HiveSessionProperties
                         hiveClientConfig.isLegacyTimestampBucketing(),
                         false),
                 booleanProperty(
-                        STATS_BASED_FILTER_REORDER_DISABLED,
+                        NATIVE_STATS_BASED_FILTER_REORDER_DISABLED,
                         "Native Execution only. Disable stats based filter reordering.",
                         false,
                         true));
