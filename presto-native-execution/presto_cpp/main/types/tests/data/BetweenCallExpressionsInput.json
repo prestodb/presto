@@ -1,0 +1,191 @@
+[
+  {
+    "@type": "call",
+    "arguments": [
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAwAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAABAAAAA=="
+      }
+    ],
+    "displayName": "BETWEEN",
+    "functionHandle": {
+      "@type": "$static",
+      "signature": {
+        "argumentTypes": [
+          "integer",
+          "integer",
+          "integer"
+        ],
+        "kind": "SCALAR",
+        "longVariableConstraints": [],
+        "name": "presto.default.$operator$between",
+        "returnType": "boolean",
+        "typeVariableConstraints": [],
+        "variableArity": false
+      }
+    },
+    "returnType": "boolean"
+  },
+  {
+    "@type": "call",
+    "arguments": [
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "sourceLocation": {
+              "column": 1,
+              "line": 1
+            },
+            "type": "unknown",
+            "valueBlock": "AwAAAFJMRQEAAAAKAAAAQllURV9BUlJBWQEAAAABgA=="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "unknown"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "integer",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "integer",
+        "sourceLocation": {
+          "column": 1,
+          "line": 1
+        }
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAAAgAAAA=="
+      },
+      {
+        "@type": "constant",
+        "type": "integer",
+        "valueBlock": "CQAAAElOVF9BUlJBWQEAAAAABAAAAA=="
+      }
+    ],
+    "displayName": "BETWEEN",
+    "functionHandle": {
+      "@type": "$static",
+      "signature": {
+        "argumentTypes": [
+          "integer",
+          "integer",
+          "integer"
+        ],
+        "kind": "SCALAR",
+        "longVariableConstraints": [],
+        "name": "presto.default.$operator$between",
+        "returnType": "boolean",
+        "typeVariableConstraints": [],
+        "variableArity": false
+      }
+    },
+    "returnType": "boolean",
+    "sourceLocation": {
+      "column": 1,
+      "line": 1
+    }
+  },
+  {
+    "@type": "call",
+    "arguments": [
+      {
+        "@type": "constant",
+        "type": "varchar(2)",
+        "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAIAAAAAAgAAAGNj"
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "varchar(1)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAAGI="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "varchar(1)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar(2)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "varchar(2)"
+      },
+      {
+        "@type": "call",
+        "arguments": [
+          {
+            "@type": "constant",
+            "type": "varchar(1)",
+            "valueBlock": "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAAGQ="
+          }
+        ],
+        "displayName": "CAST",
+        "functionHandle": {
+          "@type": "$static",
+          "signature": {
+            "argumentTypes": [
+              "varchar(1)"
+            ],
+            "kind": "SCALAR",
+            "longVariableConstraints": [],
+            "name": "presto.default.$operator$cast",
+            "returnType": "varchar(2)",
+            "typeVariableConstraints": [],
+            "variableArity": false
+          }
+        },
+        "returnType": "varchar(2)"
+      }
+    ],
+    "displayName": "BETWEEN",
+    "functionHandle": {
+      "@type": "$static",
+      "signature": {
+        "argumentTypes": [
+          "varchar(2)",
+          "varchar(2)",
+          "varchar(2)"
+        ],
+        "kind": "SCALAR",
+        "longVariableConstraints": [],
+        "name": "presto.default.$operator$between",
+        "returnType": "boolean",
+        "typeVariableConstraints": [],
+        "variableArity": false
+      }
+    },
+    "returnType": "boolean"
+  }
+]
