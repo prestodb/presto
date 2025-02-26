@@ -166,6 +166,7 @@ public final class GlueToPrestoConverter
             }
 
             Partition.Builder partitionBuilder = Partition.builder()
+                    .setCatalogName(Optional.of("hive"))
                     .setDatabaseName(databaseName)
                     .setTableName(tableName)
                     .setValues(gluePartition.getValues()) // No memoization benefit
