@@ -254,7 +254,7 @@ public class TestPostgreSqlTypeMapping
         verify(someZone.getRules().getValidOffsets(dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1)).size() == 2);
 
         DataTypeTest testCases = DataTypeTest.create()
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
+                .addRoundTrip(dateDataType(), LocalDate.of(1937, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
                 .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1)) // summer on northern hemisphere (possible DST)
