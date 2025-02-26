@@ -33,6 +33,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/types/TypeParser.h"
+#include "presto_cpp/main/common/Utils.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
