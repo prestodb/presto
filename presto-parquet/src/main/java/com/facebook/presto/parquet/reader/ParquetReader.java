@@ -79,6 +79,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.parquet.ParquetValidationUtils.validateParquet;
 import static com.facebook.presto.parquet.reader.ListColumnReader.calculateCollectionOffsets;
@@ -581,17 +582,22 @@ public class ParquetReader
                 newBlock = rewriteIntegerArrayBlock((IntArrayBlock) columnChunk.getBlock(), outputType);
             }
             else if (columnChunk.getBlock() instanceof LongArrayBlock) {
-                newBlock = rewriteLongArrayBlock((LongArrayBlock) columnChunk.getBlock(), outputType);
+                newBlock = rewriteLongArrayBlock((LongArrayBlock) columnChunk.getBlock(), outputType, 0);
             }
         }
         else if (INTEGER.equals(outputType) && physicalDataType == PrimitiveTypeName.INT64) {
             if (columnChunk.getBlock() instanceof LongArrayBlock) {
-                newBlock = rewriteLongArrayBlock((LongArrayBlock) columnChunk.getBlock(), outputType);
+                newBlock = rewriteLongArrayBlock((LongArrayBlock) columnChunk.getBlock(), outputType, 0);
             }
         }
         else if (BIGINT.equals(outputType) && physicalDataType == PrimitiveTypeName.INT32) {
             if (columnChunk.getBlock() instanceof IntArrayBlock) {
                 newBlock = rewriteIntegerArrayBlock((IntArrayBlock) columnChunk.getBlock(), outputType);
+            }
+        }
+        else if (TIMESTAMP_WITH_TIME_ZONE.equals(outputType) && physicalDataType == PrimitiveTypeName.INT96) {
+            if (columnChunk.getBlock() instanceof LongArrayBlock) {
+                newBlock = rewriteLongArrayBlock((LongArrayBlock) columnChunk.getBlock(), outputType, 12);
             }
         }
 
@@ -618,7 +624,7 @@ public class ParquetReader
         return newBlockBuilder.build();
     }
 
-    private static Block rewriteLongArrayBlock(LongArrayBlock longArrayBlock, Type targetType)
+    private static Block rewriteLongArrayBlock(LongArrayBlock longArrayBlock, Type targetType, int offset)
     {
         int positionCount = longArrayBlock.getPositionCount();
         BlockBuilder newBlockBuilder = targetType.createBlockBuilder(null, positionCount);
@@ -627,7 +633,14 @@ public class ParquetReader
                 newBlockBuilder.appendNull();
             }
             else {
-                targetType.writeLong(newBlockBuilder, longArrayBlock.getLong(position, 0));
+                // If the first 12 bits of a timestamp with timezone are all 0, then only the unix timestamp is encoded
+                // in the long & we can set the last 12 bits as 0 to default to UTC.
+                if ((longArrayBlock.getLong(position) & 0xFFFF000000000000L) == 0) {
+                    targetType.writeLong(newBlockBuilder, longArrayBlock.getLong(position) << offset);
+                }
+                else {
+                    targetType.writeLong(newBlockBuilder, longArrayBlock.getLong(position));
+                }
             }
         }
 
