@@ -273,7 +273,8 @@ public class QueryMonitor
                 ImmutableSet.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
-                ImmutableMap.of()));
+                ImmutableMap.of(),
+                Optional.empty()));
 
         logQueryTimeline(queryInfo);
     }
@@ -315,7 +316,8 @@ public class QueryMonitor
                         queryInfo.getAggregateFunctions(),
                         queryInfo.getWindowFunctions(),
                         queryInfo.getPrestoSparkExecutionContext(),
-                        getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId()))));
+                        getPlanHash(queryInfo.getPlanCanonicalInfo(), historyBasedPlanStatisticsTracker.getStatsEquivalentPlanRootNode(queryInfo.getQueryId())),
+                        Optional.of(queryInfo.getPlanIdNodeMap())));
 
         logQueryTimeline(queryInfo);
     }
