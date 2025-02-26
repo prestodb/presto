@@ -220,7 +220,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowTables(ShowTables showTables, Void context)
         {
-            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
+            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema(), metadata);
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
@@ -258,24 +258,24 @@ final class ShowQueriesRewrite
 
             Optional<QualifiedName> tableName = showGrants.getTableName();
             if (tableName.isPresent()) {
-                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get(), metadata);
 
                 if (!metadataResolver.getView(qualifiedTableName).isPresent() &&
                         !metadataResolver.getTableHandle(qualifiedTableName).isPresent()) {
                     throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
                 }
 
-                catalogName = qualifiedTableName.getCatalogName();
+                catalogName = qualifiedTableName.getLegacyCatalogName();
 
                 accessControl.checkCanShowTablesMetadata(
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
                         session.getAccessControlContext(),
-                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
+                        new CatalogSchemaName(catalogName, qualifiedTableName.getLegacySchemaName()));
 
                 predicate = Optional.of(combineConjuncts(
                         equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
-                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
+                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getLegacyObjectName()))));
             }
             else {
                 if (catalogName == null) {
@@ -398,7 +398,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable(), metadata);
 
             if (!metadataResolver.getView(tableName).isPresent() &&
                     !metadataResolver.getTableHandle(tableName).isPresent()) {
@@ -411,10 +411,10 @@ final class ShowQueriesRewrite
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
-                    from(tableName.getCatalogName(), TABLE_COLUMNS),
+                    from(tableName.getLegacyCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
-                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
-                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
+                            equal(identifier("table_schema"), new StringLiteral(tableName.getLegacySchemaName())),
+                            equal(identifier("table_name"), new StringLiteral(tableName.getLegacyObjectName()))),
                     ordering(ascending("ordinal_position")));
         }
 
@@ -456,7 +456,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
-            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName(), metadata);
             Optional<ViewDefinition> viewDefinition = metadataResolver.getView(objectName);
             Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(objectName);
 
@@ -538,7 +538,7 @@ final class ShowQueriesRewrite
                                     column.getType().getDisplayName(),
                                     column.isNullable() && !notNullColumns.contains(column.getName()),
                                     propertyNodes,
-                                    Optional.ofNullable(column.getComment()));
+                                    Optional.ofNullable(column.getComment().orElse(null)));
                         })
                         .collect(toList());
 
