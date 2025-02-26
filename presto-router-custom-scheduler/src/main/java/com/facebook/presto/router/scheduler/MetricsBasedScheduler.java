@@ -18,10 +18,10 @@ import com.facebook.presto.spi.router.ClusterInfo;
 import com.facebook.presto.spi.router.Scheduler;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.PriorityQueue;
 import java.util.stream.Collectors;
 
 //Metrics based scheduler uses coordinator and/or worker metrics for scheduling decisions
@@ -31,8 +31,8 @@ public class MetricsBasedScheduler
     private static final Logger log = Logger.get(MetricsBasedScheduler.class);
     Map<URI, ClusterInfo> clusterInfos;
 
-    //Min heap based priority queue. Cluster with lowest number of queries will be on top of the queue
-    PriorityQueue<ClusterQueryInfo> clusterQueue = new PriorityQueue<ClusterQueryInfo>((x, y) -> (int) (x.totalQueries - y.totalQueries));
+    //Cluster with lowest number of queries will be on top of the queue
+    List<ClusterQueryInfo> clusterQueue = new ArrayList<>();
 
     private List<URI> candidates;
 
@@ -57,12 +57,13 @@ public class MetricsBasedScheduler
     public Optional<URI> getDestination(String user, String query)
     {
         try {
-            if (clusterInfos != null && clusterInfos.size() > 0) {
+            if (clusterInfos != null && !clusterInfos.isEmpty()) {
                 clusterQueue.clear();
                 clusterQueue.addAll(clusterInfos.keySet().stream()
                         .map(uri -> new ClusterQueryInfo(uri, clusterInfos.get(uri).getRunningQueries(), clusterInfos.get(uri).getQueuedQueries()))
                         .collect(Collectors.toList()));
-                return Optional.of(clusterQueue.poll().clusterUri);
+                clusterQueue.sort((x, y) -> (int) (x.totalQueries - y.totalQueries));
+                return Optional.of(clusterQueue.get(0).clusterUri);
             }
             return Optional.empty();
         }

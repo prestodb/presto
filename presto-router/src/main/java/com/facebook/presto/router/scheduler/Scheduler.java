@@ -34,6 +34,7 @@ public interface Scheduler
     {
         return Optional.empty();
     };
+
     /**
      * Schedules a request from a user with specific query string to a concrete candidate. Returns the
      * URI of this candidate.
@@ -42,6 +43,7 @@ public interface Scheduler
     {
         return Optional.empty();
     };
+
     /**
      * Sets the candidates with the list of URIs for scheduling.
      */
