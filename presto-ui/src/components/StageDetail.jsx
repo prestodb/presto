@@ -14,9 +14,11 @@
 
 import React from "react";
 import ReactDOM from "react-dom";
+import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
-import * as dagreD3 from "dagre-d3";
+import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
+import { clsx } from 'clsx';
 
 import {
     formatCount,
@@ -46,7 +48,7 @@ class OperatorSummary extends React.Component {
         const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
         return (
-            <div>
+            <div className="header-data">
                 <div className="highlight-row">
                     <div className="header-row">
                         {operator.operatorType}
@@ -110,97 +112,86 @@ const BAR_CHART_PROPERTIES = {
     height: '80px',
     barColor: '#747F96',
     zeroColor: '#8997B3',
+    chartRangeMin: 0,
     tooltipClassname: 'sparkline-tooltip',
     tooltipFormat: 'Task {{offset:offset}} - {{value}}',
     disableHiddenCheck: true,
 };
 
-class OperatorStatistic extends React.Component {
-    componentDidMount() {
-        const operators = this.props.operators;
-        const statistic = operators.map(this.props.supplier);
+function OperatorStatistic({ id, name, operators, supplier, renderer }) {
+
+    React.useEffect(() => {
+        const statistic = operators.map(supplier);
         const numTasks = operators.length;
 
-        const tooltipValueLookups = {'offset': {}};
+        const tooltipValueLookups = { 'offset': {} };
         for (let i = 0; i < numTasks; i++) {
             tooltipValueLookups['offset'][i] = "" + i;
         }
 
-        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups});
-        $('#' + this.props.id).sparkline(statistic, $.extend({}, stageBarChartProperties, {numberFormatter: this.props.renderer}));
-    }
+        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, { barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups });
+        $('#operator-statics-' + id).sparkline(statistic, $.extend({}, stageBarChartProperties, { numberFormatter: renderer }));
 
-    render() {
-        return (
-            <div className="row operator-statistic">
-                <div className="col-xs-2 italic-uppercase operator-statistic-title">
-                    {this.props.name}
-                </div>
-                <div className="col-xs-10">
-                    <span className="bar-chart" id={this.props.id}/>
-                </div>
+    }, [operators, supplier, renderer]);
+
+    return (
+        <div className="row operator-statistic">
+            <div className="col-2 italic-uppercase operator-statistic-title">
+                {name}
             </div>
-        );
-    }
+            <div className="col-10">
+                <span className="bar-chart" id={`operator-statics-${id}`} />
+            </div>
+        </div>
+    );
 }
 
-class OperatorDetail extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = {
-            selectedStatistics: this.getInitialStatistics()
-        };
-    }
+function OperatorDetail({ index, operator, tasks }) {
+    const selectedStatistics = [
+        {
+            name: "Total Wall Time",
+            id: "totalWallTime",
+            supplier: getTotalWallTime,
+            renderer: formatDuration
+        },
+        {
+            name: "Input Rows",
+            id: "inputPositions",
+            supplier: operator => operator.inputPositions,
+            renderer: formatCount
+        },
+        {
+            name: "Input Data Size",
+            id: "inputDataSize",
+            supplier: operator => parseDataSize(operator.inputDataSize),
+            renderer: formatDataSize
+        },
+        {
+            name: "Output Rows",
+            id: "outputPositions",
+            supplier: operator => operator.outputPositions,
+            renderer: formatCount
+        },
+        {
+            name: "Output Data Size",
+            id: "outputDataSize",
+            supplier: operator => parseDataSize(operator.outputDataSize),
+            renderer: formatDataSize
+        },
+    ];
 
-    getInitialStatistics() {
-        return [
-            {
-                name: "Total Wall Time",
-                id: "totalWallTime",
-                supplier: getTotalWallTime,
-                renderer: formatDuration
-            },
-            {
-                name: "Input Rows",
-                id: "inputPositions",
-                supplier: operator => operator.inputPositions,
-                renderer: formatCount
-            },
-            {
-                name: "Input Data Size",
-                id: "inputDataSize",
-                supplier: operator => parseDataSize(operator.inputDataSize),
-                renderer: formatDataSize
-            },
-            {
-                name: "Output Rows",
-                id: "outputPositions",
-                supplier: operator => operator.outputPositions,
-                renderer: formatCount
-            },
-            {
-                name: "Output Data Size",
-                id: "outputDataSize",
-                supplier: operator => parseDataSize(operator.outputDataSize),
-                renderer: formatDataSize
-            },
-        ];
-    }
-
-    getOperatorTasks() {
+    const getOperatorTasks = () => {
         // sort the x-axis
-        const tasks = this.props.tasks.sort(function (taskA, taskB) {
+        const tasksSorted = tasks.sort(function (taskA, taskB) {
             return getTaskNumber(taskA.taskId) - getTaskNumber(taskB.taskId);
         });
 
-        const operatorSummary = this.props.operator;
-
         const operatorTasks = [];
-        tasks.forEach(task => {
+        tasksSorted.forEach(task => {
             task.stats.pipelines.forEach(pipeline => {
-                if (pipeline.pipelineId === operatorSummary.pipelineId) {
+                if (pipeline.pipelineId === operator.pipelineId) {
                     pipeline.operatorSummaries.forEach(operator => {
-                        if (operatorSummary.operatorId === operator.operatorId) {
+                        if (operator.operatorId === operator.operatorId) {
                             operatorTasks.push(operator);
                         }
                     });
@@ -211,30 +202,29 @@ class OperatorDetail extends React.Component {
         return operatorTasks;
     }
 
-    render() {
-        const operator = this.props.operator;
-        const operatorTasks = this.getOperatorTasks();
-        const totalWallTime = getTotalWallTime(operator);
+    const operatorTasks = getOperatorTasks();
+    const totalWallTime = getTotalWallTime(operator);
 
-        const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / totalWallTime;
-        const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
+    const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / totalWallTime;
+    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
-        const rowOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputPositions) / totalWallTime;
-        const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.outputDataSize)) / (totalWallTime / 1000.0);
+    const rowOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputPositions) / totalWallTime;
+    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.outputDataSize)) / (totalWallTime / 1000.0);
 
-        return (
-            <div className="row">
-                <div className="col-xs-12">
-                    <div className="modal-header">
-                        <button type="button" className="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-                        <h3>
-                            <small>Pipeline {operator.pipelineId}</small>
-                            <br/>
-                            {operator.operatorType}
-                        </h3>
-                    </div>
+    return (
+        <div className="col-12 container mx-2">
+            <div className="modal-header">
+                <h3 className="modal-title fs-5">
+                    <small>Pipeline {operator.pipelineId}</small>
+                    <br />
+                    {operator.operatorType}
+                </h3>
+                <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="row modal-body">
+                <div className="col-12">
                     <div className="row">
-                        <div className="col-xs-6">
+                        <div className="col-6">
                             <table className="table">
                                 <tbody>
                                 <tr>
@@ -272,7 +262,7 @@ class OperatorDetail extends React.Component {
                                 </tbody>
                             </table>
                         </div>
-                        <div className="col-xs-6">
+                        <div className="col-6">
                             <table className="table">
                                 <tbody>
                                 <tr>
@@ -312,19 +302,19 @@ class OperatorDetail extends React.Component {
                         </div>
                     </div>
                     <div className="row font-white">
-                        <div className="col-xs-2 italic-uppercase">
+                        <div className="col-2 italic-uppercase">
                             <strong>
                                 Statistic
                             </strong>
                         </div>
-                        <div className="col-xs-10 italic-uppercase">
+                        <div className="col-10 italic-uppercase">
                             <strong>
                                 Tasks
                             </strong>
                         </div>
                     </div>
                     {
-                        this.state.selectedStatistics.map(function (statistic) {
+                        selectedStatistics.map(function (statistic) {
                             return (
                                 <OperatorStatistic
                                     key={statistic.id}
@@ -334,14 +324,14 @@ class OperatorDetail extends React.Component {
                                     renderer={statistic.renderer}
                                     operators={operatorTasks}/>
                             );
-                        }.bind(this))
+                        })
                     }
                     <p/>
                     <p/>
                 </div>
             </div>
-        );
-    }
+        </div>
+    );
 }
 
 class StageOperatorGraph extends React.Component {
@@ -353,22 +343,27 @@ class StageOperatorGraph extends React.Component {
         this.updateD3Graph();
     }
 
-    handleOperatorClick(operatorCssId) {
-        $('#operator-detail-modal').modal();
+    handleOperatorClick(event) {
+        if (event.target.hasOwnProperty("__data__") && event.target.__data__ !== undefined) {
+            $('#operator-detail-modal').modal("show")
 
-        const pipelineId = parseInt(operatorCssId.split('-')[1]);
-        const operatorId = parseInt(operatorCssId.split('-')[2]);
-        const stage = this.props.stage;
+            const pipelineId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[1] || '0') : 0;
+            const operatorId = (event?.target?.__data__ || "").split('-').length > 0 ? parseInt((event?.target?.__data__ || '').split('-')[2] || '0') : 0;
+            const stage = this.props.stage;
 
-        let operatorStageSummary = null;
-        const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
-        for (let i = 0; i < operatorSummaries.length; i++) {
-            if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
-                operatorStageSummary = operatorSummaries[i];
+            let operatorStageSummary = null;
+            const operatorSummaries = stage.latestAttemptExecutionInfo.stats.operatorSummaries;
+            for (let i = 0; i < operatorSummaries.length; i++) {
+                if (operatorSummaries[i].pipelineId === pipelineId && operatorSummaries[i].operatorId === operatorId) {
+                    operatorStageSummary = operatorSummaries[i];
+                }
             }
+            const container = document.getElementById('operator-detail');
+            const root = createRoot(container);
+            root.render(<OperatorDetail key={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
+        } else {
+            return;
         }
-        ReactDOM.render(<OperatorDetail key={operatorCssId} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>,
-            document.getElementById('operator-detail'));
     }
 
     computeOperatorGraphs() {
@@ -455,7 +450,7 @@ class StageOperatorGraph extends React.Component {
         if (!stage.hasOwnProperty('plan')) {
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>Stage does not have a plan</h4></div>
+                    <div className="col-12"><h4>Stage does not have a plan</h4></div>
                 </div>
             );
         }
@@ -464,7 +459,7 @@ class StageOperatorGraph extends React.Component {
         if (!latestAttemptExecutionInfo.hasOwnProperty('stats') || !latestAttemptExecutionInfo.stats.hasOwnProperty("operatorSummaries") || latestAttemptExecutionInfo.stats.operatorSummaries.length === 0) {
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <h4>Operator data not available for {stage.stageId}</h4>
                     </div>
                 </div>
@@ -499,12 +494,18 @@ export class StageDetail extends React.Component {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     }
+     static getQueryURL(id) {
+        if (!id || typeof id !== 'string' || id.length === 0) {
+            return "/v1/query/undefined";
+        }
+        const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
+        return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
+     }
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
         const queryString = getFirstParameter(window.location.search).split('.');
-        const queryId = queryString[0];
-
+        const rawQueryId = queryString.length > 0 ? queryString[0] : "";
         let selectedStageId = this.state.selectedStageId;
         if (selectedStageId === null) {
             selectedStageId = 0;
@@ -513,7 +514,8 @@ export class StageDetail extends React.Component {
             }
         }
 
-        $.get('/v1/query/' + queryId, query => {
+       
+        $.get(StageDetail.getQueryURL(rawQueryId), query => {
             this.setState({
                 initialized: true,
                 ended: query.finalQueryInfo,
@@ -522,12 +524,7 @@ export class StageDetail extends React.Component {
                 query: query,
             });
             this.resetTimer();
-        }).error(() => {
-            this.setState({
-                initialized: true,
-            });
-            this.resetTimer();
-        });
+        })
     }
 
     componentDidMount() {
@@ -568,7 +565,7 @@ export class StageDetail extends React.Component {
             }
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{label}</h4></div>
+                    <div className="col-12"><h4>{label}</h4></div>
                 </div>
             );
         }
@@ -576,7 +573,7 @@ export class StageDetail extends React.Component {
         if (!this.state.query.outputStage) {
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>Query does not have an output stage</h4></div>
+                    <div className="col-12 res-heading"><h4>Query does not have an output stage</h4></div>
                 </div>
             );
         }
@@ -589,7 +586,7 @@ export class StageDetail extends React.Component {
         if (stage === null) {
             return (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>Stage not found</h4></div>
+                    <div className="col-12"><h4>Stage not found</h4></div>
                 </div>
             );
         }
@@ -598,7 +595,7 @@ export class StageDetail extends React.Component {
         if (!isQueryEnded(query.state)) {
             stageOperatorGraph = (
                 <div className="row error-message">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         <h4>Operator graph will appear automatically when query completes.</h4>
                         <div className="loader">Loading...</div>
                     </div>
@@ -613,20 +610,29 @@ export class StageDetail extends React.Component {
             <div>
                 <QueryHeader query={query}/>
                 <div className="row">
-                    <div className="col-xs-12">
-                        <div className="row">
-                            <div className="col-xs-2">
+                    <div className="col-12">
+                        <div className="row justify-content-between">
+                            <div className="col-2 align-self-end">
                                 <h3>Stage {stage.plan.id}</h3>
                             </div>
-                            <div className="col-xs-8"/>
-                            <div className="col-xs-2 stage-dropdown">
-                                <div className="input-group-btn">
-                                    <button type="button" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        Select Stage <span className="caret"/>
-                                    </button>
-                                    <ul className="dropdown-menu">
-                                        {allStages.map(stageId => (<li key={stageId}><a onClick={() => this.setState({selectedStageId: stageId})}>{stageId}</a></li>))}
-                                    </ul>
+                            <div className="col-2 align-self-end">
+                                <div className="stage-dropdown" role="group">
+                                    <div className="btn-group">
+                                        <button type="button" className="btn bg-white btn-secondary text-dark dropdown-toggle"
+                                            data-bs-toggle="dropdown" aria-haspopup="true"
+                                            aria-expanded="false">Select Stage<span className="caret"/>
+                                        </button>
+                                        <ul className="dropdown-menu bg-white">
+                                            {
+                                                allStages.map(stageId => (
+                                                    <li key={stageId}>
+                                                        <a className={clsx('dropdown-item text-dark', stage.plan.id === stageId && 'selected')}
+                                                            onClick={() => this.setState({selectedStageId: stageId})}>{stageId}</a>
+                                                    </li>
+                                                ))
+                                            }
+                                        </ul>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -634,7 +640,7 @@ export class StageDetail extends React.Component {
                 </div>
                 <hr className="h3-hr"/>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         {stageOperatorGraph}
                     </div>
                 </div>

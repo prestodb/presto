@@ -25,6 +25,7 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.iceberg.FileFormat;
+import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -55,11 +56,11 @@ import static com.facebook.presto.hive.HiveQueryRunner.createDatabaseMetastoreOb
 import static com.facebook.presto.hive.HiveQueryRunner.getFileHiveMetastore;
 import static com.facebook.presto.hive.HiveTestUtils.getProperty;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
-import static com.facebook.presto.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeSidecarProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerHiveProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerIcebergProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
+import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerTpcdsProperties;
 import static com.facebook.presto.nativeworker.SymlinkManifestGeneratorUtils.createSymlinkManifest;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -86,6 +87,7 @@ public class PrestoNativeQueryRunnerUtils
             ParquetHiveSerDe.class.getName(),
             SymlinkTextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName());
+
     private PrestoNativeQueryRunnerUtils() {}
 
     public static QueryRunner createQueryRunner(boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled)
@@ -175,7 +177,8 @@ public class PrestoNativeQueryRunnerUtils
                                 "offset-clause-enabled", "true"),
                         security,
                         hivePropertiesBuilder.build(),
-                        dataDirectory);
+                        dataDirectory,
+                        getNativeWorkerTpcdsProperties());
         return queryRunner;
     }
 
@@ -225,21 +228,19 @@ public class PrestoNativeQueryRunnerUtils
         ImmutableMap.Builder<String, String> icebergPropertiesBuilder = new ImmutableMap.Builder<>();
         icebergPropertiesBuilder.put("hive.parquet.writer.version", "PARQUET_1_0");
 
-        DistributedQueryRunner queryRunner = createIcebergQueryRunner(
-                ImmutableMap.of(
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.of(
                         "regex-library", "RE2J",
                         "offset-clause-enabled", "true",
-                        "query.max-stage-count", "110"),
-                icebergPropertiesBuilder.build(),
-                FileFormat.valueOf(storageFormat),
-                false,
-                false,
-                OptionalInt.empty(),
-                Optional.empty(),
-                baseDataDirectory,
-                addStorageFormatToPath);
-
-        return queryRunner;
+                        "query.max-stage-count", "110"))
+                .setExtraConnectorProperties(icebergPropertiesBuilder.build())
+                .setAddJmxPlugin(false)
+                .setCreateTpchTables(false)
+                .setDataDirectory(baseDataDirectory)
+                .setAddStorageFormatToPath(addStorageFormatToPath)
+                .setFormat(FileFormat.valueOf(storageFormat))
+                .setTpcdsProperties(getNativeWorkerTpcdsProperties())
+                .build().getQueryRunner();
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift)
@@ -298,21 +299,22 @@ public class PrestoNativeQueryRunnerUtils
                 .build();
 
         // Make query runner with external workers for tests
-        return createIcebergQueryRunner(
-                ImmutableMap.<String, String>builder()
+        return IcebergQueryRunner.builder()
+                .setExtraProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.http.port", "8080")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .put("query.max-stage-count", "110")
                         .putAll(getNativeWorkerSystemProperties())
-                        .build(),
-                icebergProperties,
-                FileFormat.valueOf(storageFormat),
-                false,
-                false,
-                OptionalInt.of(workerCount.orElse(4)),
-                getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, false),
-                dataDirectory,
-                addStorageFormatToPath);
+                        .build())
+                .setFormat(FileFormat.valueOf(storageFormat))
+                .setCreateTpchTables(false)
+                .setAddJmxPlugin(false)
+                .setNodeCount(OptionalInt.of(workerCount.orElse(4)))
+                .setExternalWorkerLauncher(getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, false))
+                .setAddStorageFormatToPath(addStorageFormatToPath)
+                .setDataDirectory(dataDirectory)
+                .setTpcdsProperties(getNativeWorkerTpcdsProperties())
+                .build().getQueryRunner();
     }
 
     public static QueryRunner createNativeQueryRunner(
@@ -356,7 +358,8 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled));
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled),
+                getNativeWorkerTpcdsProperties());
     }
 
     public static QueryRunner createNativeCteQueryRunner(boolean useThrift, String storageFormat)
@@ -399,7 +402,8 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), false, false));
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), false, false),
+                getNativeWorkerTpcdsProperties());
     }
 
     public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds)
@@ -475,10 +479,10 @@ public class PrestoNativeQueryRunnerUtils
     public static NativeQueryRunnerParameters getNativeQueryRunnerParameters()
     {
         Path prestoServerPath = Paths.get(getProperty("PRESTO_SERVER")
-                .orElse("_build/debug/presto_cpp/main/presto_server"))
+                        .orElse("_build/debug/presto_cpp/main/presto_server"))
                 .toAbsolutePath();
         Path dataDirectory = Paths.get(getProperty("DATA_DIR")
-                .orElse("target/velox_data"))
+                        .orElse("target/velox_data"))
                 .toAbsolutePath();
         Optional<Integer> workerCount = getProperty("WORKER_COUNT").map(Integer::parseInt);
 
@@ -513,7 +517,8 @@ public class PrestoNativeQueryRunnerUtils
 
                         if (isCoordinatorSidecarEnabled) {
                             configProperties = format("%s%n" +
-                                    "native-sidecar=true%n", configProperties);
+                                    "native-sidecar=true%n" +
+                                    "presto.default-namespace=native.default%n", configProperties);
                         }
 
                         if (remoteFunctionServerUds.isPresent()) {

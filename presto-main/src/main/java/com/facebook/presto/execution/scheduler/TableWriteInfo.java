@@ -106,6 +106,10 @@ public class TableWriteInfo
                 TableWriterNode.RefreshMaterializedViewReference refresh = (TableWriterNode.RefreshMaterializedViewReference) target;
                 return Optional.of(new ExecutionWriterTarget.RefreshMaterializedViewHandle(metadata.beginRefreshMaterializedView(session, refresh.getHandle()), refresh.getSchemaTableName()));
             }
+            if (target instanceof TableWriterNode.UpdateTarget) {
+                TableWriterNode.UpdateTarget update = (TableWriterNode.UpdateTarget) target;
+                return Optional.of(new ExecutionWriterTarget.UpdateHandle(update.getHandle(), update.getSchemaTableName()));
+            }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
@@ -141,7 +145,7 @@ public class TableWriteInfo
     {
         if (writerTarget.isPresent() && writerTarget.get() instanceof ExecutionWriterTarget.DeleteHandle) {
             DeleteNode delete = getOnlyElement(findPlanNodes(plan, DeleteNode.class));
-            return createDeleteScanInfo(delete, writerTarget, metadata, session);
+            return createDeleteScanInfo(delete, metadata, session);
         }
         return Optional.empty();
     }
@@ -150,19 +154,18 @@ public class TableWriteInfo
     {
         if (writerTarget.isPresent() && writerTarget.get() instanceof ExecutionWriterTarget.DeleteHandle) {
             DeleteNode delete = findSinglePlanNode(planNode, DeleteNode.class).get();
-            return createDeleteScanInfo(delete, writerTarget, metadata, session);
+            return createDeleteScanInfo(delete, metadata, session);
         }
         return Optional.empty();
     }
 
-    private static Optional<DeleteScanInfo> createDeleteScanInfo(DeleteNode delete, Optional<ExecutionWriterTarget> writerTarget, Metadata metadata, Session session)
+    private static Optional<DeleteScanInfo> createDeleteScanInfo(DeleteNode delete, Metadata metadata, Session session)
     {
-        TableHandle tableHandle = ((ExecutionWriterTarget.DeleteHandle) writerTarget.get()).getHandle();
         TableScanNode tableScan = getDeleteTableScan(delete);
         TupleDomain<ColumnHandle> originalEnforcedConstraint = tableScan.getEnforcedConstraint();
         TableLayoutResult layoutResult = metadata.getLayout(
                 session,
-                tableHandle,
+                tableScan.getTable(),
                 new Constraint<>(originalEnforcedConstraint),
                 Optional.of(ImmutableSet.copyOf(tableScan.getAssignments().values())));
 

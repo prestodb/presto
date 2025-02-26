@@ -13,6 +13,7 @@
  */
 
 import React from "react";
+import { clsx } from 'clsx';
 
 import {getHumanReadableState, getProgressBarPercentage, getProgressBarTitle, getQueryStateColor, isQueryEnded} from "../utils";
 
@@ -83,51 +84,49 @@ export class QueryHeader extends React.Component {
         );
     }
 
-    renderTab(path, name) {
-        const queryId = this.props.query.queryId;
+    isActive(path) {
         if (window.location.pathname.includes(path)) {
-            return  <a href={path + '?' + queryId} className="btn btn-info navbar-btn nav-disabled">{name}</a>;
+            return  true;
         }
 
-        return <a href={path + '?' + queryId} className="btn btn-info navbar-btn">{name}</a>;
+        return false;
     }
 
     render() {
         const query = this.props.query;
+        const queryId = this.props.query.queryId;
+        const tabs = [
+            {path: 'query.html', label: 'Overview'},
+            {path: 'plan.html', label: 'Live Plan'},
+            {path: 'stage.html', label: 'Stage Performance'},
+            {path: 'timeline.html', label: 'Splits'},
+        ];
         return (
             <div>
-                <div className="row">
-                    <div className="col-xs-6">
+                <div className="row mt-4">
+                    <div className="col-6">
                         <h3 className="query-id">
                             <span id="query-id">{query.queryId}</span>
-                            <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                                <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                            <a className="btn copy-button" data-clipboard-target="#query-id" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
+                                <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                             </a>
                         </h3>
                     </div>
-                    <div className="col-xs-6">
-                        <table className="header-inline-links">
-                            <tbody>
-                            <tr>
-                                <td>
-                                    {this.renderTab("query.html", "Overview")}
+                    <div className="col-6 d-flex justify-content-end">
+                        <nav className="nav nav-tabs">
+                            {tabs.map((page, _) => (
+                                <>
+                                    <a className={clsx('nav-link', 'navbar-btn', this.isActive(page.path) && 'active')} href={page.path + '?' + queryId} >{page.label}</a>
                                     &nbsp;
-                                    {this.renderTab("plan.html", "Live Plan")}
-                                    &nbsp;
-                                    {this.renderTab("stage.html", "Stage Performance")}
-                                    &nbsp;
-                                    {this.renderTab("timeline.html", "Splits")}
-                                    &nbsp;
-                                    <a href={"/v1/query/" + query.queryId + "?pretty"} className="btn btn-info navbar-btn" target="_blank">JSON</a>
-                                </td>
-                            </tr>
-                            </tbody>
-                        </table>
+                                </>
+                            ))}
+                            <a className="nav-link navbar-btn" href={"/v1/query/" + query.queryId + "?pretty"} target="_blank">JSON</a>
+                        </nav>
                     </div>
                 </div>
                 <hr className="h2-hr"/>
                 <div className="row">
-                    <div className="col-xs-12">
+                    <div className="col-12">
                         {this.renderProgressBar()}
                     </div>
                 </div>

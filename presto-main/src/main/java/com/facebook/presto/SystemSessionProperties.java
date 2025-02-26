@@ -234,7 +234,7 @@ public final class SystemSessionProperties
     public static final String QUERY_RETRY_MAX_EXECUTION_TIME = "query_retry_max_execution_time";
     public static final String PARTIAL_RESULTS_ENABLED = "partial_results_enabled";
     public static final String PARTIAL_RESULTS_COMPLETION_RATIO_THRESHOLD = "partial_results_completion_ratio_threshold";
-    public static final String ENHANCED_CTE_SCHEDULING_ENABLED = "enhanced-cte-scheduling-enabled";
+    public static final String ENHANCED_CTE_SCHEDULING_ENABLED = "enhanced_cte_scheduling_enabled";
     public static final String PARTIAL_RESULTS_MAX_EXECUTION_TIME_MULTIPLIER = "partial_results_max_execution_time_multiplier";
     public static final String OFFSET_CLAUSE_ENABLED = "offset_clause_enabled";
     public static final String VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED = "verbose_exceeded_memory_limit_errors_enabled";
@@ -327,6 +327,8 @@ public final class SystemSessionProperties
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
+    public static final String EXPRESSION_OPTIMIZER_NAME = "expression_optimizer_name";
+    public static final String ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID = "add_exchange_below_partial_aggregation_over_group_id";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_AGGREGATION_SPILL_ALL = "native_aggregation_spill_all";
@@ -1852,7 +1854,16 @@ public final class SystemSessionProperties
                 booleanProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED,
                         "Enable automatic scaling of writer threads",
                         featuresConfig.isNativeExecutionScaleWritersThreadsEnabled(),
-                        !featuresConfig.isNativeExecutionEnabled()));
+                        !featuresConfig.isNativeExecutionEnabled()),
+                stringProperty(
+                        EXPRESSION_OPTIMIZER_NAME,
+                        "Configure which expression optimizer to use",
+                        featuresConfig.getExpressionOptimizerName(),
+                        false),
+                booleanProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID,
+                        "Enable adding an exchange below partial aggregation over a GroupId node to improve partial aggregation performance",
+                        featuresConfig.getAddExchangeBelowPartialAggregationOverGroupId(),
+                        false));
     }
 
     public static boolean isSpoolingOutputBufferEnabled(Session session)
@@ -3152,5 +3163,15 @@ public final class SystemSessionProperties
     public static boolean isNativeExecutionScaleWritersThreadsEnabled(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_SCALE_WRITER_THREADS_ENABLED, Boolean.class);
+    }
+
+    public static String getExpressionOptimizerName(Session session)
+    {
+        return session.getSystemProperty(EXPRESSION_OPTIMIZER_NAME, String.class);
+    }
+
+    public static boolean isEnabledAddExchangeBelowGroupId(Session session)
+    {
+        return session.getSystemProperty(ADD_EXCHANGE_BELOW_PARTIAL_AGGREGATION_OVER_GROUP_ID, Boolean.class);
     }
 }

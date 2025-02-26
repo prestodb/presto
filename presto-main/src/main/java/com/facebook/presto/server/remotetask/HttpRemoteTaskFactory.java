@@ -13,11 +13,12 @@
  */
 package com.facebook.presto.server.remotetask;
 
+import com.facebook.airlift.concurrent.BoundedExecutor;
+import com.facebook.airlift.concurrent.ThreadPoolExecutorMBean;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
-import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.DecayCounter;
 import com.facebook.airlift.stats.ExponentialDecay;
 import com.facebook.drift.codec.ThriftCodec;
@@ -48,27 +49,28 @@ import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.airlift.units.Duration;
-import io.netty.channel.DefaultEventLoop;
-import io.netty.channel.DefaultEventLoopGroup;
-import io.netty.channel.EventLoop;
-import io.netty.channel.EventLoopGroup;
 import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
+import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.wrapThriftCodec;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 public class HttpRemoteTaskFactory
         implements RemoteTaskFactory
 {
-    private static final Logger log = Logger.get(HttpRemoteTaskFactory.class);
     private final HttpClient httpClient;
     private final LocationFactory locationFactory;
     private final Codec<TaskStatus> taskStatusCodec;
@@ -85,6 +87,11 @@ public class HttpRemoteTaskFactory
     private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
 
     private final Duration taskInfoUpdateInterval;
+    private final ExecutorService coreExecutor;
+    private final Executor executor;
+    private final ThreadPoolExecutorMBean executorMBean;
+    private final ScheduledExecutorService updateScheduledExecutor;
+    private final ScheduledExecutorService errorScheduledExecutor;
     private final RemoteTaskStats stats;
     private final boolean binaryTransportEnabled;
     private final boolean thriftTransportEnabled;
@@ -94,15 +101,7 @@ public class HttpRemoteTaskFactory
     private final MetadataManager metadataManager;
     private final QueryManager queryManager;
     private final DecayCounter taskUpdateRequestSize;
-    private final EventLoopGroup eventLoopGroup = new DefaultEventLoopGroup(Runtime.getRuntime().availableProcessors(),
-            new ThreadFactoryBuilder().setNameFormat("task-event-loop-%s").setDaemon(true).build())
-    {
-        @Override
-        protected EventLoop newChild(Executor executor, Object... args)
-        {
-            return new SafeEventLoop(this, executor);
-        }
-    };
+    private final boolean taskUpdateSizeTrackingEnabled;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -137,6 +136,10 @@ public class HttpRemoteTaskFactory
         this.taskInfoRefreshMaxWait = taskConfig.getInfoRefreshMaxWait();
         this.handleResolver = handleResolver;
         this.connectorTypeSerdeManager = connectorTypeSerdeManager;
+
+        this.coreExecutor = newCachedThreadPool(daemonThreadsNamed("remote-task-callback-%s"));
+        this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
+        this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(communicationConfig, "communicationConfig is null");
         binaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
@@ -179,7 +182,17 @@ public class HttpRemoteTaskFactory
         this.metadataManager = metadataManager;
         this.queryManager = queryManager;
 
+        this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
+        this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
         this.taskUpdateRequestSize = new DecayCounter(ExponentialDecay.oneMinute());
+        this.taskUpdateSizeTrackingEnabled = taskConfig.isTaskUpdateSizeTrackingEnabled();
+    }
+
+    @Managed
+    @Nested
+    public ThreadPoolExecutorMBean getExecutor()
+    {
+        return executorMBean;
     }
 
     @Managed
@@ -191,7 +204,9 @@ public class HttpRemoteTaskFactory
     @PreDestroy
     public void stop()
     {
-        eventLoopGroup.shutdownGracefully();
+        coreExecutor.shutdownNow();
+        updateScheduledExecutor.shutdownNow();
+        errorScheduledExecutor.shutdownNow();
     }
 
     @Override
@@ -207,7 +222,7 @@ public class HttpRemoteTaskFactory
             TableWriteInfo tableWriteInfo,
             SchedulerStatsTracker schedulerStatsTracker)
     {
-        return HttpRemoteTask.createHttpRemoteTask(
+        return new HttpRemoteTask(
                 session,
                 taskId,
                 node.getNodeIdentifier(),
@@ -217,6 +232,9 @@ public class HttpRemoteTaskFactory
                 initialSplits,
                 outputBuffers,
                 httpClient,
+                executor,
+                updateScheduledExecutor,
+                errorScheduledExecutor,
                 maxErrorDuration,
                 taskStatusRefreshMaxWait,
                 taskInfoRefreshMaxWait,
@@ -239,40 +257,9 @@ public class HttpRemoteTaskFactory
                 metadataManager,
                 queryManager,
                 taskUpdateRequestSize,
+                taskUpdateSizeTrackingEnabled,
                 handleResolver,
                 connectorTypeSerdeManager,
-                schedulerStatsTracker,
-                (SafeEventLoop) eventLoopGroup.next());
-    }
-
-    /***
-     *  One observation about event loop is if submitted task fails, it could kill the thread but the event loop group will not create a new one.
-     *  Here, we wrap it as safe event loop so that if any submitted job fails, we chose to log the error and fail the entire task.
-     */
-    static class SafeEventLoop
-            extends DefaultEventLoop
-    {
-        public SafeEventLoop(EventLoopGroup parent, Executor executor)
-        {
-            super(parent, executor);
-        }
-
-        @Override
-        protected void run()
-        {
-            do {
-                Runnable task = takeTask();
-                if (task != null) {
-                    try {
-                        runTask(task);
-                    }
-                    catch (Throwable t) {
-                        log.error("Error executing task on event loop", t);
-                    }
-                    updateLastExecutionTime();
-                }
-            }
-            while (!this.confirmShutdown());
-        }
+                schedulerStatsTracker);
     }
 }

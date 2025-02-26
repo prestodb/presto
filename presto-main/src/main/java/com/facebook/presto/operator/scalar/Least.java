@@ -16,7 +16,7 @@ package com.facebook.presto.operator.scalar;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.function.OperatorType;
 
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 
 public final class Least
         extends AbstractGreatestLeast
@@ -25,7 +25,7 @@ public final class Least
 
     public Least()
     {
-        super(QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "least"), OperatorType.LESS_THAN);
+        super(QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "least"), OperatorType.LESS_THAN);
     }
 
     @Override

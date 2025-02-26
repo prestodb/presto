@@ -124,7 +124,7 @@ export class QueryListItem extends React.Component {
         const query = this.props.query;
         if (query.warningCodes && query.warningCodes.length) {
             return (
-                <span className="glyphicon glyphicon-warning-sign query-warning" data-toggle="tooltip" title={query.warningCodes.join(', ')}/>
+                <span className="bi bi-exclamation-triangle" data-bs-toggle="tooltip" title={query.warningCodes.join(', ')}/>
             );
         }
     }
@@ -143,49 +143,49 @@ export class QueryListItem extends React.Component {
         const progressBarTitle = getProgressBarTitle(query.progress.progressPercentage, query.queryState, humanReadableState);
 
         const splitDetails = (
-            <div className="col-xs-12 tinystat-row">
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Completed splits">
-                    <span className="glyphicon glyphicon-ok" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+            <div className="col-12 tinystat-row">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Completed splits">
+                    <span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatCount(query.progress.completedDrivers)}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Running splits">
-                    <span className="glyphicon glyphicon-play" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Running splits">
+                    <span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.runningDrivers}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Queued splits">
-                    <span className="glyphicon glyphicon-pause" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Queued splits">
+                    <span className="bi bi-pause-btn-fill" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {(query.queryState === "FINISHED" || query.queryState === "FAILED") ? 0 : query.progress.queuedDrivers}
                     </span>
             </div>);
 
         const timingDetails = (
-            <div className="col-xs-12 tinystat-row">
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Wall time spent executing the query (not including queued time)">
-                    <span className="glyphicon glyphicon-hourglass" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+            <div className="col-12 tinystat-row">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Wall time spent executing the query (not including queued time)">
+                    <span className="bi bi-hourglass-split" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDuration(query.progress.executionTimeMillis)}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Total query wall time">
-                    <span className="glyphicon glyphicon-time" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Total query wall time">
+                    <span className="bi bi-clock" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDuration(query.progress.elapsedTimeMillis)}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="CPU time spent by this query">
-                    <span className="glyphicon glyphicon-dashboard" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="CPU time spent by this query">
+                    <span className="bi bi-speedometer2" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDuration(query.progress.cpuTimeMillis)}
                 </span>
             </div>);
 
         const memoryDetails = (
-            <div className="col-xs-12 tinystat-row">
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Current reserved memory">
-                    <span className="glyphicon glyphicon-scale" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+            <div className="col-12 tinystat-row">
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Current reserved memory">
+                    <span className="bi bi-calendar2-event" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDataSize(query.progress.currentMemoryBytes)}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Peak memory">
-                    <span className="glyphicon glyphicon-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Peak memory">
+                    <span className="bi bi-fire" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDataSize(query.progress.peakMemoryBytes)}
                 </span>
-                <span className="tinystat" data-toggle="tooltip" data-placement="top" title="Cumulative user memory">
-                    <span className="glyphicon glyphicon-equalizer" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
+                <span className="tinystat" data-bs-toggle="tooltip" data-bs-placement="top" title="Cumulative user memory">
+                    <span className="bi bi-reception-3" style={GLYPHICON_HIGHLIGHT}/>&nbsp;&nbsp;
                     {formatDataSizeBytes(query.progress.cumulativeUserMemory / 1000.0)}
                 </span>
             </div>);
@@ -193,43 +193,43 @@ export class QueryListItem extends React.Component {
         let user = (<span>{truncateString(query.user, 35)}</span>);
         if (query.authenticated) {
             user = (
-                <span>{truncateString(query.user, 35)}<span className="glyphicon glyphicon-lock-inverse" style={GLYPHICON_DEFAULT}/></span>
+                <span>{truncateString(query.user, 35)}</span>
             );
         }
 
         return (
             <div className="query">
                 <div className="row">
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="row stat-row query-header query-header-queryid">
-                            <div className="col-xs-9" data-placement="bottom">
-                                <a href={"query.html?" + query.queryId} target="_blank" data-toggle="tooltip" data-trigger="hover" title="Query ID">{query.queryId}</a>
+                            <div className="col-9" data-bs-placement="bottom">
+                                <a href={"query.html?" + query.queryId} target="_blank" data-bs-toggle="tooltip" data-trigger="hover" title="Query ID">{query.queryId}</a>
                                 {this.renderWarning()}
                             </div>
-                            <div className="col-xs-3 query-header-timestamp" data-toggle="tooltip" data-placement="bottom" title="Submit time">
+                            <div className="col-3 query-header-timestamp" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Submit time">
                                 <span>{formatShortTime(new Date(Date.parse(query.createTime)))}</span>
                             </div>
                         </div>
                         <div className="row stat-row">
-                            <div className="col-xs-12">
-                                <span data-toggle="tooltip" data-placement="right" title="User">
-                                    <span className="glyphicon glyphicon-user" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                            <div className="col-12">
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="User">
+                                    <span className="bi bi-person-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
                                     <span>{user}</span>
                                 </span>
                             </div>
                         </div>
                         <div className="row stat-row">
-                            <div className="col-xs-12">
-                                <span data-toggle="tooltip" data-placement="right" title="Source">
-                                    <span className="glyphicon glyphicon-log-in" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                            <div className="col-12">
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Source">
+                                    <span className="bi bi-arrow-right-square-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
                                     <span>{truncateString(query.source, 35)}</span>
                                 </span>
                             </div>
                         </div>
                         <div className="row stat-row">
-                            <div className="col-xs-12">
-                                <span data-toggle="tooltip" data-placement="right" title="Resource Group">
-                                    <span className="glyphicon glyphicon-road" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
+                            <div className="col-12">
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Resource Group">
+                                    <span className="bi bi-sign-merge-left-fill" style={GLYPHICON_DEFAULT}/>&nbsp;&nbsp;
                                     <span>
                                         <ResourceGroupLinks groupId={query.resourceGroupId} length="35"/>
                                     </span>
@@ -246,10 +246,10 @@ export class QueryListItem extends React.Component {
                             {memoryDetails}
                         </div>
                     </div>
-                    <div className="col-xs-8">
+                    <div className="col-8">
                         <div className="row query-header">
-                            <div className="col-xs-12 query-progress-container">
-                                <div className="progress">
+                            <div className="col-12 query-progress-container">
+                                <div className="progress rounded-0">
                                     <div className="progress-bar progress-bar-info" role="progressbar" aria-valuenow={progressPercentage} aria-valuemin="0"
                                          aria-valuemax="100" style={progressBarStyle}>
                                         {progressBarTitle}
@@ -258,7 +258,7 @@ export class QueryListItem extends React.Component {
                             </div>
                         </div>
                         <div className="row query-row-bottom">
-                            <div className="col-xs-12">
+                            <div className="col-12">
                                 <pre className="query-snippet"><code className="sql">{QueryListItem.stripQueryTextWhitespace(query.query, query.queryTruncated)}</code></pre>
                             </div>
                         </div>
@@ -458,7 +458,7 @@ export class QueryList extends React.Component {
             });
             this.resetTimer();
         }.bind(this))
-            .error(function () {
+        .fail(function () {
                 this.setState({
                     initialized: true,
                 });
@@ -494,7 +494,7 @@ export class QueryList extends React.Component {
 
     renderMaxQueriesListItem(maxQueries, maxQueriesText) {
         return (
-            <li><a href="#" className={this.state.maxQueries === maxQueries ? "selected" : ""} onClick={this.handleMaxQueriesClick.bind(this, maxQueries)}>{maxQueriesText}</a>
+            <li><a href="#" className={`dropdown-item text-dark ${this.state.maxQueries === maxQueries ? "active bg-info text-white" : "text-dark"}`} onClick={this.handleMaxQueriesClick.bind(this, maxQueries)}>{maxQueriesText}</a>
             </li>
         );
     }
@@ -511,7 +511,7 @@ export class QueryList extends React.Component {
 
     renderReorderListItem(interval, intervalText) {
         return (
-            <li><a href="#" className={this.state.reorderInterval === interval ? "selected" : ""} onClick={this.handleReorderClick.bind(this, interval)}>{intervalText}</a></li>
+            <li><a href="#" className={`dropdown-item text-dark ${this.state.reorderInterval === interval ? "active bg-info text-white" : "text-dark"}`} onClick={this.handleReorderClick.bind(this, interval)}>{intervalText}</a></li>
         );
     }
 
@@ -525,11 +525,11 @@ export class QueryList extends React.Component {
 
     renderSortListItem(sortType, sortText) {
         if (this.state.currentSortType === sortType) {
-            const directionArrow = this.state.currentSortOrder === SORT_ORDER.ASCENDING ? <span className="glyphicon glyphicon-triangle-top"/> :
-                <span className="glyphicon glyphicon-triangle-bottom"/>;
+            const directionArrow = this.state.currentSortOrder === SORT_ORDER.ASCENDING ? <span className="bi bi-caret-up-fill"/> :
+                <span className="bi bi-caret-down-fill"/>;
             return (
                 <li>
-                    <a href="#" className="selected" onClick={this.handleSortClick.bind(this, sortType)}>
+                    <a href="#" className="dropdown-item active bg-info text-white" onClick={this.handleSortClick.bind(this, sortType)}>
                         {sortText} {directionArrow}
                     </a>
                 </li>);
@@ -537,7 +537,7 @@ export class QueryList extends React.Component {
         else {
             return (
                 <li>
-                    <a href="#" onClick={this.handleSortClick.bind(this, sortType)}>
+                    <a href="#" className="dropdown-item text-dark" onClick={this.handleSortClick.bind(this, sortType)}>
                         {sortText}
                     </a>
                 </li>);
@@ -564,15 +564,15 @@ export class QueryList extends React.Component {
 
     renderFilterButton(filterType, filterText) {
         let checkmarkStyle = {color: '#57aac7'};
-        let classNames = "btn btn-sm btn-info style-check";
+        let classNames = "btn btn-sm btn-info style-check rounded-0";
         if (this.state.stateFilters.indexOf(filterType) > -1) {
             classNames += " active";
             checkmarkStyle = {color: '#ffffff'};
         }
 
         return (
-            <button type="button" className={classNames} onClick={this.handleStateFilterClick.bind(this, filterType)}>
-                <span className="glyphicon glyphicon-ok" style={checkmarkStyle}/>&nbsp;{filterText}
+            <button type="button" className={classNames} onClick={this.handleStateFilterClick.bind(this, filterType)} style={{height: "30px", fontSize:"12px", color:"white"}}>
+                <span className="bi bi-check-lg" style={checkmarkStyle}/>&nbsp;{filterText}
             </button>
         );
     }
@@ -598,12 +598,12 @@ export class QueryList extends React.Component {
     renderErrorTypeListItem(errorType, errorTypeText) {
         let checkmarkStyle = {color: '#ffffff'};
         if (this.state.errorTypeFilters.indexOf(errorType) > -1) {
-            checkmarkStyle = GLYPHICON_HIGHLIGHT;
+            checkmarkStyle = {color: 'black'};
         }
         return (
             <li>
-                <a href="#" onClick={this.handleErrorTypeFilterClick.bind(this, errorType)}>
-                    <span className="glyphicon glyphicon-ok" style={checkmarkStyle}/>
+                <a className="dropdown-item text-dark" href="#" onClick={this.handleErrorTypeFilterClick.bind(this, errorType)}>
+                    <span className="bi bi-check-lg" style={checkmarkStyle}/>
                     &nbsp;{errorTypeText}
                 </a>
             </li>);
@@ -641,7 +641,7 @@ export class QueryList extends React.Component {
             }
             queryList = (
                 <div className="row error-message">
-                    <div className="col-xs-12"><h4>{label}</h4></div>
+                    <div className="col-12"><h4>{label}</h4></div>
                 </div>
             );
         }
@@ -649,31 +649,34 @@ export class QueryList extends React.Component {
         return (
             <div>
                 <div className="row toolbar-row">
-                    <div className="col-xs-12 toolbar-col">
-                        <div className="input-group input-group-sm">
-                            <input type="text" className="form-control form-control-small search-bar" placeholder="User, source, query ID, resource group, or query text"
-                                   onChange={this.handleSearchStringChange} value={this.state.searchString}/>
-                            <span className="input-group-addon filter-addon">State:</span>
-                            <div className="input-group-btn">
+                    <div className="col-12 input-group gap-1 toolbar-col d-flex">
+                        <div className="input-group-prepend flex-grow-1">
+                            <input type="text" className="form-control search-bar rounded-0" placeholder="User, source, query ID, resource group, or query text"
+                                onChange={this.handleSearchStringChange} value={this.state.searchString} style={{backgroundColor: "white" ,color: 'black', fontSize: '12px', borderColor:"#CCCCCC"}} />
+                        </div>
+
+                            <div className="input-group-btn d-flex align-items-center ms-auto">
+                                 <span className="input-group-text input-group-prepend rounded-0" style={{backgroundColor: "white", color: 'black', height:"2rem", fontSize:'12px', borderColor:"#454A58" }}>State:</span>
                                 {this.renderFilterButton(FILTER_TYPE.RUNNING, "Running")}
                                 {this.renderFilterButton(FILTER_TYPE.QUEUED, "Queued")}
                                 {this.renderFilterButton(FILTER_TYPE.FINISHED, "Finished")}
-                                <button type="button" id="error-type-dropdown" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <button type="button" id="error-type-dropdown" className="btn btn-info dropdown-toggle rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{height: '30px'}}>
                                     Failed <span className="caret"/>
                                 </button>
-                                <ul className="dropdown-menu error-type-dropdown-menu">
+                                <ul className="dropdown-menu bg-white text-dark error-type-dropdown-menu">
                                     {this.renderErrorTypeListItem(ERROR_TYPE.INTERNAL_ERROR, "Internal Error")}
                                     {this.renderErrorTypeListItem(ERROR_TYPE.EXTERNAL, "External Error")}
                                     {this.renderErrorTypeListItem(ERROR_TYPE.INSUFFICIENT_RESOURCES, "Resources Error")}
                                     {this.renderErrorTypeListItem(ERROR_TYPE.USER_ERROR, "User Error")}
                                 </ul>
+
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
-                                <button type="button" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-btn-default .query-detail-buttons rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
                                     Sort <span className="caret"/>
                                 </button>
-                                <ul className="dropdown-menu">
+                                <ul className="dropdown-menu bg-white text-dark rounded-0">
                                     {this.renderSortListItem(SORT_TYPE.CREATED, "Creation Time")}
                                     {this.renderSortListItem(SORT_TYPE.ELAPSED, "Elapsed Time")}
                                     {this.renderSortListItem(SORT_TYPE.CPU, "CPU Time")}
@@ -684,34 +687,34 @@ export class QueryList extends React.Component {
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
-                                <button type="button" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-btn-default rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
                                     Reorder Interval <span className="caret"/>
                                 </button>
-                                <ul className="dropdown-menu">
+                                <ul className="dropdown-menu bg-white text-dark rounded-0">
                                     {this.renderReorderListItem(1000, "1s")}
                                     {this.renderReorderListItem(5000, "5s")}
                                     {this.renderReorderListItem(10000, "10s")}
                                     {this.renderReorderListItem(30000, "30s")}
-                                    <li role="separator" className="divider"/>
+                                    <hr className="mt-1 mb-1"/>
                                     {this.renderReorderListItem(0, "Off")}
                                 </ul>
                             </div>
                             &nbsp;
                             <div className="input-group-btn">
-                                <button type="button" className="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <button type="button" className="btn btn-dark btn-sm dropdown-toggle bg-white text-btn-default rounded-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style={{fontSize:'12px', height: '31px'}}>
                                     Show <span className="caret"/>
                                 </button>
-                                <ul className="dropdown-menu">
+                                <ul className="dropdown-menu bg-white text-dark rounded-0">
                                     {this.renderMaxQueriesListItem(20, "20 queries")}
                                     {this.renderMaxQueriesListItem(50, "50 queries")}
                                     {this.renderMaxQueriesListItem(100, "100 queries")}
-                                    <li role="separator" className="divider"/>
+                                    <hr className="mt-1 mb-1" />
                                     {this.renderMaxQueriesListItem(0, "All queries")}
                                 </ul>
                             </div>
                         </div>
                     </div>
-                </div>
+
                 {queryList}
             </div>
         );

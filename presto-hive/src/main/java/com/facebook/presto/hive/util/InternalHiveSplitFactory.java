@@ -27,12 +27,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -123,7 +121,7 @@ public class InternalHiveSplitFactory
         FileStatus file = fileSystem.getFileStatus(split.getPath());
         Map<String, String> customSplitInfo = extractCustomSplitInfo(split);
         return createInternalHiveSplit(
-                split.getPath(),
+                split.getPath().toUri().toString(),
                 fromHiveBlockLocations(fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength())).toArray(new BlockLocation[0]),
                 split.getStart(),
                 split.getLength(),
@@ -137,7 +135,7 @@ public class InternalHiveSplitFactory
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
-            Path path,
+            String path,
             BlockLocation[] blockLocations,
             long start,
             long length,
@@ -149,9 +147,7 @@ public class InternalHiveSplitFactory
             Optional<byte[]> extraFileInfo,
             Map<String, String> customSplitInfo)
     {
-        String pathString = path.toString();
-
-        if (!infoColumnsMatchPredicates(infoColumnConstraints, pathString, fileSize, fileModificationTime)) {
+        if (!infoColumnsMatchPredicates(infoColumnConstraints, path, fileSize, fileModificationTime)) {
             return Optional.empty();
         }
 
@@ -197,9 +193,15 @@ public class InternalHiveSplitFactory
             blocks = ImmutableList.of(new InternalHiveBlock(start + length, addresses));
         }
 
-        URI relativePath = partitionInfo.getPath().relativize(path.toUri());
+        String relativePath = path;
+        boolean isRelative = false;
+        if (path.startsWith(partitionInfo.getPath())) {
+            relativePath = path.substring(partitionInfo.getPath().length());
+            isRelative = true;
+        }
         return Optional.of(new InternalHiveSplit(
-                relativePath.toString(),
+                relativePath,
+                isRelative,
                 start,
                 start + length,
                 fileSize,
@@ -249,9 +251,9 @@ public class InternalHiveSplitFactory
     }
 
     private static boolean infoColumnsMatchPredicates(Map<Integer, Domain> constraints,
-                                                      String path,
-                                                      long fileSize,
-                                                      long fileModificationTime)
+            String path,
+            long fileSize,
+            long fileModificationTime)
     {
         if (constraints.isEmpty()) {
             return true;

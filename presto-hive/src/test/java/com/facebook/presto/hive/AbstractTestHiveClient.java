@@ -524,7 +524,7 @@ public abstract class AbstractTestHiveClient
                             }).collect(toList()))
                     .build();
 
-    private static final SubfieldExtractor SUBFIELD_EXTRACTOR = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(), SESSION);
+    private static final SubfieldExtractor SUBFIELD_EXTRACTOR = new SubfieldExtractor(FUNCTION_RESOLUTION, ROW_EXPRESSION_SERVICE.getExpressionOptimizer(SESSION), SESSION);
 
     private static final TypeProvider TYPE_PROVIDER_AFTER = TypeProvider.copyOf(MISMATCH_SCHEMA_TABLE_AFTER.stream()
             .collect(toImmutableMap(ColumnMetadata::getName, ColumnMetadata::getType)));
@@ -1073,6 +1073,7 @@ public abstract class AbstractTestHiveClient
                 FUNCTION_AND_TYPE_MANAGER,
                 getHiveClientConfig(),
                 getMetastoreClientConfig(),
+                getSortingFileWriterConfig(),
                 locationService,
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
@@ -1099,10 +1100,15 @@ public abstract class AbstractTestHiveClient
     protected HiveClientConfig getHiveClientConfig()
     {
         return new HiveClientConfig()
-                .setMaxOpenSortFiles(10)
-                .setWriterSortBufferSize(new DataSize(100, KILOBYTE))
                 .setTemporaryTableSchema(database)
                 .setCreateEmptyBucketFilesForTemporaryTable(false);
+    }
+
+    protected SortingFileWriterConfig getSortingFileWriterConfig()
+    {
+        return new SortingFileWriterConfig()
+                .setMaxOpenSortFiles(10)
+                .setWriterSortBufferSize(new DataSize(100, KILOBYTE));
     }
 
     protected HiveCommonClientConfig getHiveCommonClientConfig()
@@ -1228,6 +1234,12 @@ public abstract class AbstractTestHiveClient
             public RuntimeStats getRuntimeStats()
             {
                 return session.getRuntimeStats();
+            }
+
+            @Override
+            public ConnectorSession forConnectorId(ConnectorId connectorId)
+            {
+                return this;
             }
         };
     }
@@ -3109,7 +3121,7 @@ public abstract class AbstractTestHiveClient
                     true);
             assertThat(listAllDataFiles(context, path))
                     .filteredOn(file -> file.contains(".tmp-sort"))
-                    .size().isGreaterThan(bucketCount * getHiveClientConfig().getMaxOpenSortFiles() * 2);
+                    .size().isGreaterThan(bucketCount * getSortingFileWriterConfig().getMaxOpenSortFiles() * 2);
 
             // finish the write
             Collection<Slice> fragments = getFutureValue(sink.finish());

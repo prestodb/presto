@@ -45,6 +45,7 @@ import com.facebook.presto.spi.plan.WindowNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
+import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -65,7 +66,6 @@ import com.facebook.presto.sql.relational.Expressions;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.relational.RowExpressionDeterminismEvaluator;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
-import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
@@ -132,13 +132,15 @@ public class PredicatePushDown
     private final SqlParser sqlParser;
     private final RowExpressionDomainTranslator rowExpressionDomainTranslator;
     private final boolean nativeExecution;
+    private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
-    public PredicatePushDown(Metadata metadata, SqlParser sqlParser, boolean nativeExecution)
+    public PredicatePushDown(Metadata metadata, SqlParser sqlParser, ExpressionOptimizerProvider expressionOptimizerProvider, boolean nativeExecution)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         rowExpressionDomainTranslator = new RowExpressionDomainTranslator(metadata);
         this.effectivePredicateExtractor = new EffectivePredicateExtractor(rowExpressionDomainTranslator, metadata.getFunctionAndTypeManager());
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
+        this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
         this.nativeExecution = nativeExecution;
     }
 
@@ -150,7 +152,7 @@ public class PredicatePushDown
         requireNonNull(types, "types is null");
         requireNonNull(idAllocator, "idAllocator is null");
 
-        Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, metadata, effectivePredicateExtractor, rowExpressionDomainTranslator, sqlParser, session, nativeExecution);
+        Rewriter rewriter = new Rewriter(variableAllocator, idAllocator, metadata, effectivePredicateExtractor, rowExpressionDomainTranslator, expressionOptimizerProvider, sqlParser, session, nativeExecution);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, TRUE_CONSTANT);
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
@@ -184,6 +186,7 @@ public class PredicatePushDown
         private final Metadata metadata;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
         private final RowExpressionDomainTranslator rowExpressionDomainTranslator;
+        private final ExpressionOptimizerProvider expressionOptimizerProvider;
         private final Session session;
         private final boolean nativeExecution;
         private final ExpressionEquivalence expressionEquivalence;
@@ -199,6 +202,7 @@ public class PredicatePushDown
                 Metadata metadata,
                 EffectivePredicateExtractor effectivePredicateExtractor,
                 RowExpressionDomainTranslator rowExpressionDomainTranslator,
+                ExpressionOptimizerProvider expressionOptimizerProvider,
                 SqlParser sqlParser,
                 Session session,
                 boolean nativeExecution)
@@ -208,6 +212,7 @@ public class PredicatePushDown
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.effectivePredicateExtractor = requireNonNull(effectivePredicateExtractor, "effectivePredicateExtractor is null");
             this.rowExpressionDomainTranslator = rowExpressionDomainTranslator;
+            this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
             this.session = requireNonNull(session, "session is null");
             this.nativeExecution = nativeExecution;
             this.expressionEquivalence = new ExpressionEquivalence(metadata, sqlParser);
@@ -1159,7 +1164,8 @@ public class PredicatePushDown
             }
         }
 
-        private InnerJoinPushDownResult processInnerJoin(RowExpression inheritedPredicate,
+        private InnerJoinPushDownResult processInnerJoin(
+                RowExpression inheritedPredicate,
                 RowExpression leftEffectivePredicate,
                 RowExpression rightEffectivePredicate,
                 RowExpression joinPredicate,
@@ -1283,6 +1289,7 @@ public class PredicatePushDown
             joinConjuncts.addAll(allInference.generateEqualitiesPartitionedBy(in(leftVariables)::apply).getScopeStraddlingEqualities()); // scope straddling equalities get dropped in as part of the join predicate
 
             return new Rewriter.InnerJoinPushDownResult(
+                    expressionOptimizerProvider,
                     logicalRowExpressions.combineConjuncts(leftPushDownConjuncts.build()),
                     logicalRowExpressions.combineConjuncts(rightPushDownConjuncts.build()),
                     logicalRowExpressions.combineConjuncts(joinConjuncts.build()), TRUE_CONSTANT);
@@ -1294,13 +1301,20 @@ public class PredicatePushDown
             private final RowExpression rightPredicate;
             private final RowExpression joinPredicate;
             private final RowExpression postJoinPredicate;
+            private final ExpressionOptimizerProvider expressionOptimizerProvider;
 
-            private InnerJoinPushDownResult(RowExpression leftPredicate, RowExpression rightPredicate, RowExpression joinPredicate, RowExpression postJoinPredicate)
+            private InnerJoinPushDownResult(
+                    ExpressionOptimizerProvider expressionOptimizerProvider,
+                    RowExpression leftPredicate,
+                    RowExpression rightPredicate,
+                    RowExpression joinPredicate,
+                    RowExpression postJoinPredicate)
             {
-                this.leftPredicate = leftPredicate;
-                this.rightPredicate = rightPredicate;
-                this.joinPredicate = joinPredicate;
-                this.postJoinPredicate = postJoinPredicate;
+                this.expressionOptimizerProvider = requireNonNull(expressionOptimizerProvider, "expressionOptimizerProvider is null");
+                this.leftPredicate = requireNonNull(leftPredicate, "leftPredicate is null");
+                this.rightPredicate = requireNonNull(rightPredicate, "rightPredicate is null");
+                this.joinPredicate = requireNonNull(joinPredicate, "joinPredicate is null");
+                this.postJoinPredicate = requireNonNull(postJoinPredicate, "postJoinPredicate is null");
             }
 
             private RowExpression getLeftPredicate()
@@ -1425,7 +1439,7 @@ public class PredicatePushDown
         // Temporary implementation for joins because the SimplifyExpressions optimizers can not run properly on join clauses
         private RowExpression simplifyExpression(RowExpression expression)
         {
-            return new RowExpressionOptimizer(metadata).optimize(expression, ExpressionOptimizer.Level.SERIALIZABLE, session.toConnectorSession());
+            return expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession()).optimize(expression, ExpressionOptimizer.Level.SERIALIZABLE, session.toConnectorSession());
         }
 
         private boolean areExpressionsEquivalent(RowExpression leftExpression, RowExpression rightExpression)
@@ -1440,7 +1454,7 @@ public class PredicatePushDown
         {
             expression = RowExpressionNodeInliner.replaceExpression(expression, nullSymbols.stream()
                     .collect(Collectors.toMap(identity(), variable -> constantNull(variable.getSourceLocation(), variable.getType()))));
-            return new RowExpressionOptimizer(metadata).optimize(expression, ExpressionOptimizer.Level.OPTIMIZED, session.toConnectorSession());
+            return expressionOptimizerProvider.getExpressionOptimizer(session.toConnectorSession()).optimize(expression, ExpressionOptimizer.Level.OPTIMIZED, session.toConnectorSession());
         }
 
         private Predicate<RowExpression> joinEqualityExpression(final Collection<VariableReferenceExpression> leftVariables)

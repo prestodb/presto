@@ -411,13 +411,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public TableHandle beginDelete(Session session, TableHandle tableHandle)
+    public DeleteTableHandle beginDelete(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments)
+    public void finishDelete(Session session, DeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new UnsupportedOperationException();
     }

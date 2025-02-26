@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
@@ -493,6 +494,16 @@ public class TestApproximatePercentileAggregation
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createLongsBlock(4L, 2L, 1L),
                 createRLEBlock(ImmutableList.of(0.5, 0.8), 3));
+    }
+
+    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Percentile argument must be constant for all input rows: 0.3 vs. 0.1")
+    public void testNonConstantPercentile()
+    {
+        assertAggregation(
+                DOUBLE_APPROXIMATE_PERCENTILE_AGGREGATION,
+                null,
+                createDoublesBlock(1.0, 2.0, 3.0),
+                createDoublesBlock(0.1, 0.3, 0.5));
     }
 
     private static JavaAggregationFunctionImplementation getAggregation(Type... arguments)

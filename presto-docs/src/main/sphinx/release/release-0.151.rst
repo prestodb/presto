@@ -14,7 +14,7 @@ General Changes
   behavior (ignore ``NULL`` input). This flag will be removed in a future release.
 * Add support for uncorrelated ``EXISTS`` clause.
 * Add :func:`!cosine_similarity` function.
-* Allow :doc:`/installation/tableau` to use catalogs other than ``hive``.
+* Allow :doc:`/clients/tableau` to use catalogs other than ``hive``.
 
 Verifier Changes
 ----------------

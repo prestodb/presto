@@ -50,6 +50,9 @@ public class RuntimeMetricName
     public static final String SCAN_STAGE_SCHEDULER_CPU_TIME_NANOS = "scanStageSchedulerCpuTimeNanos";
     public static final String SCAN_STAGE_SCHEDULER_WALL_TIME_NANOS = "scanStageSchedulerWallTimeNanos";
     public static final String SCAN_STAGE_SCHEDULER_BLOCKED_TIME_NANOS = "scanStageSchedulerBlockedTimeNanos";
+    public static final String ANALYZE_TIME_NANOS = "analyzeTimeNanos";
+    public static final String PLAN_AND_OPTIMIZE_TIME_NANOS = "planAndOptimizeTimeNanos";
+    public static final String CREATE_SCHEDULER_TIME_NANOS = "createSchedulerTimeNanos";
     public static final String LOGICAL_PLANNER_TIME_NANOS = "logicalPlannerTimeNanos";
     public static final String OPTIMIZER_TIME_NANOS = "optimizerTimeNanos";
     public static final String GET_CANONICAL_INFO_TIME_NANOS = "getCanonicalInfoTimeNanos";

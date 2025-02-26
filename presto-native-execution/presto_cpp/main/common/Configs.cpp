@@ -239,6 +239,8 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
+          STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
+          STR_PROP(kPoolType, "DEFAULT"),
       };
 }
 
@@ -287,6 +289,17 @@ folly::Optional<std::string> SystemConfig::httpsClientCertAndKeyPath() const {
 
 std::string SystemConfig::prestoVersion() const {
   return requiredProperty(std::string(kPrestoVersion));
+}
+
+std::string SystemConfig::poolType() const {
+    static const std::unordered_set<std::string> kPoolTypes = {"LEAF", "INTERMEDIATE", "DEFAULT"};
+    static constexpr std::string_view kPoolTypeDefault = "DEFAULT";
+    auto value = optionalProperty<std::string>(kPoolType).value_or(std::string(kPoolTypeDefault));
+    VELOX_USER_CHECK(
+        kPoolTypes.count(value),
+        "{} must be one of 'LEAF', 'INTERMEDIATE', or 'DEFAULT'",
+        kPoolType);
+    return value;
 }
 
 bool SystemConfig::mutableConfig() const {
@@ -756,6 +769,10 @@ int32_t SystemConfig::largestSizeClassPages() const {
 
 bool SystemConfig::enableRuntimeMetricsCollection() const {
   return optionalProperty<bool>(kEnableRuntimeMetricsCollection).value();
+}
+
+std::string SystemConfig::prestoDefaultNamespacePrefix() const {
+  return optionalProperty(kPrestoDefaultNamespacePrefix).value().append(".");
 }
 
 NodeConfig::NodeConfig() {

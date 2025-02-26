@@ -96,6 +96,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
     protected final String runningMode;
     protected final boolean saveSnapshot;
     protected final boolean isExplain;
+    protected final boolean isRunDeterminismAnalysisOnTest;
     private final boolean concurrentControlAndTest;
     protected final SnapshotQueryConsumer snapshotQueryConsumer;
     protected final Map<String, SnapshotQuery> snapshotQueries;
@@ -131,6 +132,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
         this.runningMode = verifierConfig.getRunningMode();
         this.saveSnapshot = verifierConfig.isSaveSnapshot();
         this.isExplain = verifierConfig.isExplain();
+        this.isRunDeterminismAnalysisOnTest = verifierConfig.isRunDeterminismAnalysisOnTest();
     }
 
     protected abstract B getQueryRewrite(ClusterType clusterType);
@@ -143,7 +145,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             ChecksumQueryContext controlChecksumQueryContext,
             ChecksumQueryContext testChecksumQueryContext);
 
-    protected abstract DeterminismAnalysisDetails analyzeDeterminism(B control, R matchResult);
+    protected abstract DeterminismAnalysisDetails analyzeDeterminism(B controlObject, B testObject, R matchResult);
 
     protected abstract Optional<String> resolveFailure(
             Optional<B> control,
@@ -164,6 +166,16 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
     protected PrestoAction getHelperAction()
     {
         return queryActions.getHelperAction();
+    }
+
+    protected QueryAction getTestAction()
+    {
+        return queryActions.getTestAction();
+    }
+
+    protected QueryAction getControlAction()
+    {
+        return queryActions.getControlAction();
     }
 
     protected boolean isControlEnabled()
@@ -291,7 +303,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
                         return new VerificationResult(this, true, Optional.empty());
                     }
                     else if (matchResult.get().isMismatchPossiblyCausedByNonDeterminism()) {
-                        determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.get(), matchResult.get()));
+                        determinismAnalysisDetails = Optional.of(analyzeDeterminism(control.get(), test.get(), matchResult.get()));
                     }
                 }
             }

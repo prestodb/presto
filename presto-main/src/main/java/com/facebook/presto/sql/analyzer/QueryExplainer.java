@@ -47,6 +47,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isVerboseOptimizerInfoEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.ANALYZE_TIME_NANOS;
+import static com.facebook.presto.common.RuntimeMetricName.FRAGMENT_PLAN_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -200,7 +202,8 @@ public class QueryExplainer
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanNodeIdAllocator idAllocator)
     {
         // analyze statement
-        Analysis analysis = analyze(session, statement, parameters, warningCollector);
+        Analysis analysis = session.getRuntimeStats()
+                .recordWallAndCpuTime(ANALYZE_TIME_NANOS, () -> analyze(session, statement, parameters, warningCollector));
 
         final VariableAllocator planVariableAllocator = new VariableAllocator();
         LogicalPlanner logicalPlanner = new LogicalPlanner(
@@ -210,7 +213,7 @@ public class QueryExplainer
                 planVariableAllocator,
                 sqlParser);
 
-        PlanNode planNode = session.getRuntimeStats().profileNanos(
+        PlanNode planNode = session.getRuntimeStats().recordWallAndCpuTime(
                 LOGICAL_PLANNER_TIME_NANOS,
                 () -> logicalPlanner.plan(analysis));
 
@@ -226,7 +229,7 @@ public class QueryExplainer
                 costCalculator,
                 true);
 
-        return session.getRuntimeStats().profileNanos(
+        return session.getRuntimeStats().recordWallAndCpuTime(
                 OPTIMIZER_TIME_NANOS,
                 () -> optimizer.validateAndOptimizePlan(planNode, OPTIMIZED_AND_VALIDATED));
     }
@@ -235,6 +238,7 @@ public class QueryExplainer
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
         Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, idAllocator);
-        return planFragmenter.createSubPlans(session, plan, false, idAllocator, warningCollector);
+        return session.getRuntimeStats()
+                .recordWallAndCpuTime(FRAGMENT_PLAN_TIME_NANOS, () -> planFragmenter.createSubPlans(session, plan, false, idAllocator, warningCollector));
     }
 }

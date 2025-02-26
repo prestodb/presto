@@ -11,9 +11,11 @@ jobs:
   prestocpp-linux-build-engine:
     runs-on: ubuntu-22.04
     container:
-      image: prestodb/presto-native-dependency:0.291-20250108164449-87d82ed
+      image: prestodb/presto-native-dependency:0.292-20250204112033-cf8ba84
     env:
       CCACHE_DIR: "${{ github.workspace }}/ccache"
+      CC: /usr/bin/clang-15
+      CXX: /usr/bin/clang++-15
     steps:
       - uses: actions/checkout@v4
 
@@ -51,7 +53,6 @@ jobs:
 
       - name: Build engine
         run: |
-          source /opt/rh/gcc-toolset-12/enable
           cd presto-native-execution
           cmake \
             -B _build/debug \

@@ -290,7 +290,9 @@ class PrestoServer {
   std::string nodeId_;
   std::string address_;
   std::string nodeLocation_;
+  std::string nodePoolType_;
   folly::SSLContextPtr sslContext_;
+  std::string prestoBuiltinFunctionPrefix_;
 };
 
 } // namespace facebook::presto

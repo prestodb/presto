@@ -126,7 +126,7 @@ export default function SplitView({ data, show }): void {
     }, [data, show]);
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div id="legend" className="row">
                 <div>
                     <div className="red bar"></div>

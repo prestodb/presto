@@ -20,7 +20,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
-import com.facebook.presto.metadata.BuiltInFunctionHandle;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
@@ -111,8 +110,7 @@ public class CombineApproxPercentileFunctions
         // approx_percentile(x, percentage, accuracy) -> arguments.size() == 3 && arguments.get(1) is Double
         // approx_percentile(x, w, percentage) -> arguments.size() == 3 && arguments.get(1) is BigInt
         // approx_percentile(x, w, percentage, accuracy) -> arguments.size() == 4
-        checkState(functionHandle instanceof BuiltInFunctionHandle);
-        List<TypeSignature> argumentTypes = ((BuiltInFunctionHandle) functionHandle).getSignature().getArgumentTypes();
+        List<TypeSignature> argumentTypes = functionHandle.getArgumentTypes();
         if (argumentTypes.size() == 2 || (argumentTypes.size() == 3 && argumentTypes.get(1).getBase().equals(StandardTypes.DOUBLE))) {
             return 1;
         }

@@ -40,6 +40,7 @@ import static com.facebook.presto.iceberg.util.StatisticsUtil.decodeMergeFlags;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.longProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 
 public final class IcebergSessionProperties
@@ -65,6 +66,7 @@ public final class IcebergSessionProperties
     public static final String STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT = "statistic_snapshot_record_difference_weight";
     public static final String ROWS_FOR_METADATA_OPTIMIZATION_THRESHOLD = "rows_for_metadata_optimization_threshold";
     public static final String STATISTICS_KLL_SKETCH_K_PARAMETER = "statistics_kll_sketch_k_parameter";
+    public static final String TARGET_SPLIT_SIZE = "target_split_size";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -189,6 +191,11 @@ public final class IcebergSessionProperties
                 .add(integerProperty(STATISTICS_KLL_SKETCH_K_PARAMETER,
                         "The K parameter for the Apache DataSketches KLL sketch when computing histogram statistics",
                         icebergConfig.getStatisticsKllSketchKParameter(),
+                        false))
+                .add(longProperty(
+                        TARGET_SPLIT_SIZE,
+                        "The target split size. Set to 0 to use the iceberg table's read.split.target-size property",
+                        0L,
                         false));
 
         nessieConfig.ifPresent((config) -> propertiesBuilder
@@ -322,5 +329,10 @@ public final class IcebergSessionProperties
     public static int getStatisticsKllSketchKParameter(ConnectorSession session)
     {
         return session.getProperty(STATISTICS_KLL_SKETCH_K_PARAMETER, Integer.class);
+    }
+
+    public static Long getTargetSplitSize(ConnectorSession session)
+    {
+        return session.getProperty(TARGET_SPLIT_SIZE, Long.class);
     }
 }

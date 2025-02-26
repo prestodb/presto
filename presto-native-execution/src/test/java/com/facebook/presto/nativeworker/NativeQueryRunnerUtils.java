@@ -59,6 +59,15 @@ public class NativeQueryRunnerUtils
     {
         return ImmutableMap.<String, String>builder()
                 .put("coordinator-sidecar-enabled", "true")
+                .put("exclude-invalid-worker-session-properties", "true")
+                .put("presto.default-namespace", "native.default")
+                .build();
+    }
+
+    public static Map<String, String> getNativeWorkerTpcdsProperties()
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("tpcds.use-varchar-type", "true")
                 .build();
     }
 
@@ -191,6 +200,9 @@ public class NativeQueryRunnerUtils
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
             queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         }
+        if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation")) {
+            queryRunner.execute("CREATE TABLE nation WITH (FORMAT = 'ORC') AS SELECT * FROM tpch.tiny.nation");
+        }
         if (!queryRunner.tableExists(queryRunner.getDefaultSession(), "nation_json")) {
             queryRunner.execute("CREATE TABLE nation_json WITH (FORMAT = 'JSON') AS SELECT * FROM tpch.tiny.nation");
         }
@@ -212,7 +224,7 @@ public class NativeQueryRunnerUtils
         }
 
         if (storageFormat.equals("ORC") && !queryRunner.tableExists(session, "nation")) {
-            queryRunner.execute(session, "CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
+            queryRunner.execute(session, "CREATE TABLE nation WITH (FORMAT = 'ORC') AS SELECT * FROM tpch.tiny.nation");
         }
 
         if (storageFormat.equals("JSON") && !queryRunner.tableExists(session, "nation_json")) {
@@ -431,7 +443,8 @@ public class NativeQueryRunnerUtils
             try {
                 TimeUnit.SECONDS.sleep(2);
             }
-            catch (InterruptedException e) { }
+            catch (InterruptedException e) {
+            }
             queryRunner.execute("INSERT INTO test_hidden_columns SELECT * FROM region where regionkey = 1");
         }
     }

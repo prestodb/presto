@@ -23,8 +23,8 @@ public class IcebergLibUtils
 
     /**
      * Call the method in Iceberg lib's protected class to set explicitly
-     *  whether to use incremental cleanup when expiring snapshots
-     * */
+     * whether to use incremental cleanup when expiring snapshots
+     */
     public static ExpireSnapshots withIncrementalCleanup(ExpireSnapshots expireSnapshots, boolean incrementalCleanup)
     {
         requireNonNull(expireSnapshots, "expireSnapshots is null");

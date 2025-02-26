@@ -105,7 +105,7 @@ export class ClusterHUD extends React.Component {
             });
             this.resetTimer();
         }.bind(this))
-            .error(function () {
+        .fail(function () {
                 this.resetTimer();
             }.bind(this));
     }
@@ -135,37 +135,37 @@ export class ClusterHUD extends React.Component {
             });
         }
 
-        $('[data-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="tooltip"]')?.tooltip();
     }
 
     render() {
         return (<div className="row">
-            <div className="col-xs-12">
+            <div className="col-12">
                 <div className="row">
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Total number of queries currently running">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of queries currently running">
                                 Running queries
                             </span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Total number of active worker nodes">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of active worker nodes">
                                 Active workers
                             </span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Moving average of input rows processed per second">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Moving average of input rows processed per second">
                                 Rows/sec
                             </span>
                         </div>
                     </div>
                 </div>
                 <div className="row stat-line-end">
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {this.state.runningQueries[this.state.runningQueries.length - 1]}
@@ -173,7 +173,7 @@ export class ClusterHUD extends React.Component {
                             <span className="sparkline" id="running-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {this.state.activeWorkers[this.state.activeWorkers.length - 1]}
@@ -181,7 +181,7 @@ export class ClusterHUD extends React.Component {
                             <span className="sparkline" id="active-workers-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {formatCount(this.state.rowInputRate[this.state.rowInputRate.length - 1])}
@@ -191,30 +191,30 @@ export class ClusterHUD extends React.Component {
                     </div>
                 </div>
                 <div className="row">
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Total number of queries currently queued and awaiting execution">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of queries currently queued and awaiting execution">
                                 Queued queries
                             </span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Moving average of total running drivers">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Moving average of total running drivers">
                                 Runnable drivers
                             </span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Moving average of input bytes processed per second">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Moving average of input bytes processed per second">
                                 Bytes/sec
                             </span>
                         </div>
                     </div>
                 </div>
                 <div className="row stat-line-end">
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {this.state.queuedQueries[this.state.queuedQueries.length - 1]}
@@ -222,7 +222,7 @@ export class ClusterHUD extends React.Component {
                             <span className="sparkline" id="queued-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {formatCount(this.state.runningDrivers[this.state.runningDrivers.length - 1])}
@@ -230,7 +230,7 @@ export class ClusterHUD extends React.Component {
                             <span className="sparkline" id="running-drivers-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {formatDataSizeBytes(this.state.byteInputRate[this.state.byteInputRate.length - 1])}
@@ -240,30 +240,30 @@ export class ClusterHUD extends React.Component {
                     </div>
                 </div>
                 <div className="row">
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Total number of queries currently blocked and unable to make progress">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total number of queries currently blocked and unable to make progress">
                                 Blocked Queries
                             </span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Total amount of memory reserved by all running queries">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Total amount of memory reserved by all running queries">
                                 Reserved Memory (B)
                             </span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat-title">
-                            <span className="text" data-toggle="tooltip" data-placement="right" title="Moving average of CPU time utilized per second per worker">
+                            <span className="text" data-bs-toggle="tooltip" data-placement="right" title="Moving average of CPU time utilized per second per worker">
                                 Worker Parallelism
                             </span>
                         </div>
                     </div>
                 </div>
                 <div className="row stat-line-end">
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {this.state.blockedQueries[this.state.blockedQueries.length - 1]}
@@ -271,7 +271,7 @@ export class ClusterHUD extends React.Component {
                             <span className="sparkline" id="blocked-queries-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {formatDataSizeBytes(this.state.reservedMemory[this.state.reservedMemory.length - 1])}
@@ -279,7 +279,7 @@ export class ClusterHUD extends React.Component {
                             <span className="sparkline" id="reserved-memory-sparkline"><div className="loader">Loading ...</div></span>
                         </div>
                     </div>
-                    <div className="col-xs-4">
+                    <div className="col-4">
                         <div className="stat stat-large">
                             <span className="stat-text">
                                 {formatCount(this.state.perWorkerCpuTimeRate[this.state.perWorkerCpuTimeRate.length - 1])}

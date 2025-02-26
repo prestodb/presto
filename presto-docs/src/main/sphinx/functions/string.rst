@@ -28,6 +28,10 @@ String Functions
     some languages. Specifically, this will return incorrect results for
     Lithuanian, Turkish and Azeri.
 
+.. function:: bit_length(string) -> boolean
+
+    Returns the count of bits for the given ``string``.
+
 .. function:: chr(n) -> varchar
 
     Returns the Unicode code point ``n`` as a single character string.

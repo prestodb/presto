@@ -86,6 +86,12 @@ import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.TableScanUtil;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.example.GroupReadSupport;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.MessageType;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -113,6 +119,7 @@ import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -186,7 +193,10 @@ public abstract class IcebergDistributedTestBase
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), catalogType, extraConnectorProperties);
+        return IcebergQueryRunner.builder()
+                .setCatalogType(catalogType)
+                .setExtraConnectorProperties(extraConnectorProperties)
+                .build().getQueryRunner();
     }
 
     @Test
@@ -1447,6 +1457,75 @@ public abstract class IcebergDistributedTestBase
     }
 
     @Test
+    public void testWithSortOrder()
+            throws IOException
+    {
+        String tableName = "test_create_sorted_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar) WITH (sorted_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'EEEE'), (3, 'CCCC'), (1, 'AAAA'), (2, 'BBBB'), (4,'DDDD')", 5);
+        for (Object filePath : computeActual("SELECT file_path from \"" + tableName + "$files\"").getOnlyColumnAsSet()) {
+            assertTrue(isFileSorted(String.valueOf(filePath), "id", "ASC"));
+        }
+    }
+
+    @Test
+    public void testWithDescSortOrder()
+            throws IOException
+    {
+        String tableName = "test_create_sorted_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar) WITH (sorted_by = ARRAY['id DESC'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'EEEE'), (3, 'CCCC'), (1, 'AAAA'), (2, 'BBBB'), (4,'DDDD')", 5);
+        for (Object filePath : computeActual("SELECT file_path from \"" + tableName + "$files\"").getOnlyColumnAsSet()) {
+            assertTrue(isFileSorted(String.valueOf(filePath), "id", "DESC"));
+        }
+    }
+
+    @Test
+    public void testWithoutSortOrder()
+            throws IOException
+    {
+        String tableName = "test_create_unsorted_table_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, emp_name varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'EEEE'), (3, 'CCCC'), (5, 'AAAA'), (2, 'BBBB'), (4,'DDDD')", 5);
+        for (Object filePath : computeActual("SELECT file_path from \"" + tableName + "$files\"").getOnlyColumnAsSet()) {
+            assertFalse(isFileSorted(String.valueOf(filePath), "id", ""));
+        }
+    }
+
+    public boolean isFileSorted(String path, String sortColumnName, String sortOrder)
+            throws IOException
+    {
+        Configuration configuration = new Configuration();
+        try (ParquetReader<Group> reader = ParquetReader.builder(new GroupReadSupport(), new org.apache.hadoop.fs.Path(path))
+                .withConf(configuration)
+                .build()) {
+            Group record;
+            ParquetMetadata readFooter = ParquetFileReader.readFooter(configuration, new org.apache.hadoop.fs.Path(path));
+            MessageType schema = readFooter.getFileMetaData().getSchema();
+            Double previousValue = null;
+            while ((record = reader.read()) != null) {
+                for (int i = 0; i < record.getType().getFieldCount(); i++) {
+                    String columnName = schema.getFieldName(i);
+                    if (columnName.equals(sortColumnName)) {
+                        Double currentValue = Double.parseDouble(record.getValueToString(i, i));
+                        if (previousValue != null) {
+                            boolean valueNotSorted = ("ASC".equals(sortOrder) || "".equals(sortOrder))
+                                    ? currentValue.compareTo(previousValue) < 0
+                                    : currentValue.compareTo(previousValue) > 0;
+
+                            if (valueNotSorted) {
+                                return false;
+                            }
+                        }
+                        previousValue = currentValue;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    @Test
     public void testMetadataDeleteOnUnPartitionedTableWithDeleteFiles()
     {
         String tableName = "test_v2_row_delete_" + randomTableSuffix();
@@ -2241,6 +2320,97 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP SCHEMA ICEBERG.TEST_SCHEMA2");
     }
 
+    @Test
+    public void testUpdateWithPredicates()
+    {
+        String tableName = "test_update_predicates_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id int, full_name varchar(20))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'aaaa'), (2, 'bbbb'), (3, 'cccc')", 3);
+        // update single row on id
+        assertUpdate("UPDATE " + tableName + " SET full_name = 'aaaa AAAA' WHERE id = 1", 1);
+        assertQuery("SELECT id, full_name FROM " + tableName, "VALUES (1, 'aaaa AAAA'), (2, 'bbbb'), (3, 'cccc')");
+
+        // update single row with compound predicate
+        assertUpdate("UPDATE " + tableName + " SET full_name = 'aaaa' WHERE id = 1 and full_name='aaaa AAAA'", 1);
+        assertQuery("SELECT id, full_name FROM " + tableName, "VALUES (1, 'aaaa'), (2, 'bbbb'), (3, 'cccc')");
+
+        // update multiple rows at once
+        assertUpdate("UPDATE " + tableName + " SET full_name = 'ssss' WHERE id != 1 ", 2);
+        assertQuery("SELECT id, full_name FROM " + tableName, "VALUES (1, 'aaaa'), (2, 'ssss'), (3, 'ssss')");
+
+        // update with filter matching no rows
+        assertUpdate("UPDATE " + tableName + " SET full_name = 'ssss' WHERE id > 4 ", 0);
+        assertQuery("SELECT id, full_name FROM " + tableName, "VALUES (1, 'aaaa'), (2, 'ssss'), (3, 'ssss')");
+
+        // add column and update null values
+        assertUpdate("ALTER TABLE  " + tableName + " ADD  column email varchar");
+        assertQuery("SELECT id, full_name, email FROM " + tableName, "VALUES (1, 'aaaa', NULL), (2, 'ssss', NULL), (3, 'ssss', NULL)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'dddd', 'ddd@gmail.com')", 1);
+        assertUpdate("UPDATE " + tableName + " SET email = 'abc@gmail.com' WHERE id in(1, 2, 3)", 3);
+        assertQuery("SELECT id, full_name, email FROM " + tableName, "VALUES (1, 'aaaa', 'abc@gmail.com'), (2, 'ssss', 'abc@gmail.com'), (3, 'ssss', 'abc@gmail.com'), (4, 'dddd', 'ddd@gmail.com') ");
+
+        // set all values to null
+        assertUpdate("UPDATE " + tableName + " SET email = NULL", 4);
+        assertQuery("SELECT email FROM " + tableName + " WHERE email is NULL", "VALUES NULL, NULL, NULL, NULL");
+
+        // update nulls to non-null
+        assertUpdate("UPDATE " + tableName + " SET email = 'test@gmail.com' WHERE email is NULL", 4);
+        assertQuery("SELECT count(*) FROM " + tableName + " WHERE email is not NULL", "VALUES 4");
+    }
+
+    @Test
+    public void testUpdateAllValues()
+    {
+        String tableName = "test_update_all_values_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a int, b int, c int)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (11, 12, 13), (21, 22, 23)", 3);
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1, b = b - 1, c = c * 2", 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, 1, 6), (12, 11, 26), (22, 21, 46)");
+
+        // update multiple columns with predicate
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1, b = b - 1, c = c * 2 WHERE a = 2 AND b = 1", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (3, 0, 12), (12, 11, 26), (22, 21, 46)");
+    }
+
+    @Test
+    public void testUpdateRowType()
+    {
+        String tableName = "test_update_row_type" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(int_t INT, row_t ROW(f1 INT, f2 INT))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(2, 3)), (11, ROW(12, 13)), (21, ROW(22, 23))", 3);
+        assertUpdate("UPDATE " + tableName + " SET int_t = int_t - 1 WHERE row_t.f2 = 3", 1);
+        assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 13), (21, 22, 23)");
+        assertUpdate("UPDATE " + tableName + " SET row_t = ROW(row_t.f1, row_t.f2 + 1) WHERE int_t = 11", 1);
+        assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 22, 23)");
+        assertUpdate("UPDATE " + tableName + " SET row_t = ROW(row_t.f1 * 2, row_t.f2) WHERE row_t.f1 = 22", 1);
+        assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
+    }
+
+    public void testUpdateOnPartitionTable()
+    {
+        String tableName = "test_update_partition_column_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(a int, b varchar(10))" + "with(partitioning=ARRAY['a'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first'), (1, 'second'), (2, 'third')", 3);
+        // update all rows on partition column
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1", 3);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (2,'first'), (2,'second'), (3,'third')");
+
+        assertUpdate("UPDATE " + tableName + " SET a = a + (CASE b WHEN 'first' THEN 1 ELSE 0 END)", 3);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (2,'second'), (3,'third')");
+
+        // update on partition column with predicate
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1 WHERE b = 'second'", 1);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (3,'second'), (3,'third')");
+
+        // update non-partition column on a partitioned table without a predicate
+        assertUpdate("UPDATE " + tableName + " SET a = a + 1 WHERE b = 'second'", 1);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (4,'second'), (3,'third')");
+
+        // update non-partition column on a partitioned table with a predicate
+        assertUpdate("UPDATE " + tableName + " SET b = CONCAT(CAST(a as varchar), CASE a WHEN 1 THEN 'st' WHEN 2 THEN 'nd' WHEN 3 THEN 'rd' ELSE 'th' END) WHERE b = 'second'", 1);
+        assertQuery("SELECT a, b FROM " + tableName, "VALUES (3,'first'), (4,'4th'), (3,'third')");
+    }
+
     private void testCheckDeleteFiles(Table icebergTable, int expectedSize, List<FileContent> expectedFileContent)
     {
         // check delete file list
@@ -2393,5 +2563,190 @@ public abstract class IcebergDistributedTestBase
         Map<String, String> map = snapshot.summary();
         int totalDeleteFiles = Integer.valueOf(map.get(TOTAL_DELETE_FILES_PROP));
         assertEquals(totalDeleteFiles, deleteFilesCount);
+    }
+
+    @Test
+    public void testSortByAllTypes()
+    {
+        String tableName = "test_sort_by_all_types_" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  a_boolean boolean, " +
+                "  an_integer integer, " +
+                "  a_bigint bigint, " +
+                "  a_real real, " +
+                "  a_double double, " +
+                "  a_short_decimal decimal(5,2), " +
+                "  a_long_decimal decimal(38,20), " +
+                "  a_varchar varchar, " +
+                "  a_varbinary varbinary, " +
+                "  a_date date, " +
+                "  a_timestamp timestamp, " +
+                "  an_array array(varchar), " +
+                "  a_map map(integer, varchar) " +
+                ") " +
+                "WITH (" +
+                "sorted_by = ARRAY[" +
+                "  'a_boolean', " +
+                "  'an_integer', " +
+                "  'a_bigint', " +
+                "  'a_real', " +
+                "  'a_double', " +
+                "  'a_short_decimal', " +
+                "  'a_long_decimal', " +
+                "  'a_varchar', " +
+                "  'a_varbinary', " +
+                "  'a_date', " +
+                "  'a_timestamp' " +
+                "  ]" +
+                ")");
+        String values = "(" +
+                "true, " +
+                "1, " +
+                "BIGINT '2', " +
+                "REAL '3.0', " +
+                "DOUBLE '4.0', " +
+                "DECIMAL '5.00', " +
+                "CAST(DECIMAL '6.00' AS decimal(38,20)), " +
+                "VARCHAR 'seven', " +
+                "X'88888888', " +
+                "DATE '2022-09-09', " +
+                "TIMESTAMP '2022-11-11 11:11:11.000000', " +
+                "ARRAY[VARCHAR 'four', 'teen'], " +
+                "MAP(ARRAY[15], ARRAY[VARCHAR 'fifteen']))";
+        String highValues = "(" +
+                "true, " +
+                "999999999, " +
+                "BIGINT '999999999', " +
+                "REAL '999.999', " +
+                "DOUBLE '999.999', " +
+                "DECIMAL '999.99', " +
+                "DECIMAL '6.00', " +
+                "'zzzzzzzzzzzzzz', " +
+                "X'FFFFFFFF', " +
+                "DATE '2099-12-31', " +
+                "TIMESTAMP '2099-12-31 23:59:59.000000', " +
+                "ARRAY['zzzz', 'zzzz'], " +
+                "MAP(ARRAY[999], ARRAY['zzzz']))";
+        String lowValues = "(" +
+                "false, " +
+                "0, " +
+                "BIGINT '0', " +
+                "REAL '0', " +
+                "DOUBLE '0', " +
+                "DECIMAL '0', " +
+                "DECIMAL '0', " +
+                "'', " +
+                "X'00000000', " +
+                "DATE '2000-01-01', " +
+                "TIMESTAMP '2000-01-01 00:00:00.000000', " +
+                "ARRAY['', ''], " +
+                "MAP(ARRAY[0], ARRAY['']))";
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + values + ", " + highValues + ", " + lowValues, 3);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testEmptySortedByList()
+    {
+        String tableName = "test_empty_sorted_by_list_" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (a_boolean boolean, an_integer integer) " +
+                "  WITH (partitioning = ARRAY['an_integer'], sorted_by = ARRAY[])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (false, 3), (true, 1), (true, 5), (false, 6), (false, 2)", 5);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test(dataProvider = "sortedTableWithQuotedIdentifierCasing")
+    public void testCreateSortedTableWithQuotedIdentifierCasing(String columnName, String sortField)
+    {
+        String tableName = "test_create_sorted_table_with_quotes_" + randomTableSuffix();
+        assertUpdate(format("CREATE TABLE %s (%s bigint) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField));
+        assertUpdate(format("INSERT INTO " + tableName + " VALUES (1),(3),(2),(5),(4)"), 5);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testSortedByAscNullFirstOrder()
+    {
+        String tableName = "test_empty_sorted_by_asc_null_first_" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (id int, name varchar(20))" +
+                "  WITH ( sorted_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'ddd'), (20, 'ccc'), (null, 'vvv'), (3, 'aaa'), (5, 'eeee')", 5);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testSortedByAscNullLastOrder()
+    {
+        String tableName = "test_empty_sorted_by_asc_null_last_" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (id int, name varchar(20))" +
+                "  WITH ( sorted_by = ARRAY['id ASC NULLS LAST'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'ddd'), (20, 'ccc'), (null, 'vvv'), (3, 'aaa'), (5, 'eeee')", 5);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testSortedByDescNullFirstOrder()
+    {
+        String tableName = "test_empty_sorted_by_desc_null_first_" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (id int, name varchar(20))" +
+                "  WITH ( sorted_by = ARRAY['id DESC NULLS FIRST'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'ddd'), (20, 'ccc'), (null, 'vvv'), (3, 'aaa'), (5, 'eeee')", 5);
+        dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testSortedByDescNullLastOrder()
+    {
+        String tableName = "test_empty_sorted_by_desc_null_last" + randomTableSuffix();
+        assertUpdate("" +
+                "CREATE TABLE " + tableName + " (id int, name varchar(20))" +
+                "  WITH ( sorted_by = ARRAY['id DESC NULLS LAST'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'ddd'), (20, 'ccc'), (null, 'vvv'), (3, 'aaa'), (5, 'eeee')", 5);
+        dropTable(getSession(), tableName);
+    }
+
+    @DataProvider(name = "sortedTableWithQuotedIdentifierCasing")
+    public static Object[][] sortedTableWithQuotedIdentifierCasing()
+    {
+        return new Object[][] {
+                {"col", "col"},
+                {"\"col\"", "col"},
+                {"col", "\"col\""},
+                {"\"col\"", "\"col\""},
+        };
+    }
+
+    @Test(dataProvider = "sortedTableWithSortTransform")
+    public void testCreateSortedTableWithSortTransform(String columnName, String sortField)
+    {
+        String tableName = "test_sort_with_transform_" + randomTableSuffix();
+        String query = format("CREATE TABLE %s (%s TIMESTAMP) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField);
+        assertQueryFails(query, Pattern.quote(format("Unable to parse sort field: [%s]", sortField)));
+    }
+
+    @DataProvider(name = "sortedTableWithSortTransform")
+    public static Object[][] sortedTableWithSortTransform()
+    {
+        return new Object[][] {
+                {"col", "bucket(col, 3)"},
+                {"col", "bucket(\"col\", 3)"},
+                {"col", "truncate(col, 3)"},
+                {"col", "year(col)"},
+                {"col", "month(col)"},
+                {"col", "date(col)"},
+                {"col", "hour(col)"},
+        };
+    }
+
+    protected void dropTable(Session session, String table)
+    {
+        assertUpdate(session, "DROP TABLE " + table);
+        assertFalse(getQueryRunner().tableExists(session, table));
     }
 }

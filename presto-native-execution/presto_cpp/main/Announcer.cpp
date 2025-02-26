@@ -30,6 +30,7 @@ std::string announcementBody(
     const std::string& nodeVersion,
     const std::string& environment,
     const std::string& nodeLocation,
+    const std::string& nodePoolType,
     const bool sidecar,
     const std::vector<std::string>& connectorIds) {
   std::string id =
@@ -49,6 +50,7 @@ std::string announcementBody(
            {"coordinator", false},
            {"sidecar", sidecar},
            {"connectorIds", folly::join(',', connectorIds)},
+           {"pool_type", nodePoolType},
            {uriScheme,
             fmt::format("{}://{}:{}", uriScheme, address, port)}}}}}}};
   return body.dump();
@@ -81,6 +83,7 @@ Announcer::Announcer(
     const std::string& environment,
     const std::string& nodeId,
     const std::string& nodeLocation,
+    const std::string& nodePoolType,
     const bool sidecar,
     const std::vector<std::string>& connectorIds,
     const uint64_t maxFrequencyMs,
@@ -99,6 +102,7 @@ Announcer::Announcer(
           nodeVersion,
           environment,
           nodeLocation,
+          nodePoolType,
           sidecar,
           connectorIds)),
       announcementRequest_(

@@ -11,19 +11,8 @@ module.exports = (env) => {
     const apiHost = env.apiHost || 'localhost';
     const apiPort = env.apiPort || '8080';
     const outputDir = 'target/webapp';
-    return {
+    const baseConfig = {
         entry: {
-            'index': './index.jsx',
-            'query': './query.jsx',
-            'plan': './plan.jsx',
-            'query_viewer': {import: './query_viewer.jsx', filename: path.join(outputDir, 'dev', '[name].js')},
-            'embedded_plan': './embedded_plan.jsx',
-            'stage': './stage.jsx',
-            'worker': './worker.jsx',
-            'timeline': './timeline.jsx',
-            'res_groups': './res_groups.jsx',
-            'sql_client': './sql_client.jsx',
-            'bootstrap_css': path.join(__dirname, 'static', 'vendor', 'bootstrap', 'css', 'bootstrap.min.external-fonts.css'),
             'css_loader': path.join(__dirname, 'static', 'vendor', 'css-loaders', 'loader.css'),
             'css_presto': path.join(__dirname, 'static', 'assets', 'presto.css'),
         },
@@ -31,30 +20,13 @@ module.exports = (env) => {
             // substitutes `require('vis-timeline/standalone')` to `global.vis`
             'vis-timeline/standalone': 'vis',
         },
-                plugins: [
-                    new CopyPlugin({
-                        patterns: [
-                            {from: "static", to: path.join(__dirname, "..", outputDir)},
-                        ]
-                    }),
-                    new HtmlWebpackPlugin({
-                        inject: 'body',
-                        filename: path.join(__dirname, '..', outputDir, 'dev', 'query_viewer_spa.html'),
-                        template: 'templates/query_viewer.html',
-                        chunks: [
-                            'query_viewer',
-                            'bootstrap_css',
-                            'css_loader',
-                            'css_presto',
-                        ]
-                    }),
-                    new HtmlInlineScriptPlugin({
-                        htmlMatchPattern: [/query_viewer_spa.html$/],
-                        assetPreservePattern: [
-                            /.*.js$/,
-                        ]
-                    }),
-                ],
+        plugins: [
+            new CopyPlugin({
+                patterns: [
+                    {from: "static", to: path.join(__dirname, "..", outputDir)},
+                ]
+            }),
+        ],
         mode,
         module: {
             rules: [
@@ -99,6 +71,25 @@ module.exports = (env) => {
                     extractComments: false,
                 }),
                 '...'],
+        },
+    };
+
+    const mainConfig = {
+        ...baseConfig,
+        entry: {
+            'index': './index.jsx',
+            'query': './query.jsx',
+            'plan': './plan.jsx',
+            'embedded_plan': './embedded_plan.jsx',
+            'stage': './stage.jsx',
+            'worker': './worker.jsx',
+            'timeline': './timeline.jsx',
+            'res_groups': './res_groups.jsx',
+            'sql_client': './sql_client.jsx',
+            ...baseConfig.entry,
+        },
+        optimization: {
+            ...baseConfig.optimization,
             splitChunks: {
                 chunks: 'async',
                 maxSize: 244000,
@@ -109,6 +100,7 @@ module.exports = (env) => {
                         test: /[\\/]node_modules[\\/]/,
                         priority: -10,
                         reuseExistingChunk: true,
+                        filename: '[name].vendor.js',
                     },
                     default: {
                         minChunks: 2,
@@ -122,9 +114,47 @@ module.exports = (env) => {
             static: {
                 directory: path.join(__dirname, '..', outputDir),
             },
-            proxy: {
-                '/v1': `http://${apiHost}:${apiPort}`,
-            },
+            proxy: [
+                {
+                    context: ['/v1'],
+                    target: `http://${apiHost}:${apiPort}`,
+                    // secure: false, // when using http
+                    // changeOrigin: true, // Modify the Origin header to match the target
+                },
+            ],
         },
     };
+
+    const spaConfig = {
+        ...baseConfig,
+        plugins: [
+            ...baseConfig.plugins,
+            new HtmlWebpackPlugin({
+                inject: 'body',
+                filename: path.join('dev', 'query_viewer_spa.html'),
+                template: 'templates/query_viewer.html',
+                chunks: [
+                    'query_viewer',
+                    'bootstrap_css',
+                    'css_loader',
+                    'css_presto',
+                ]
+            }),
+            new HtmlInlineScriptPlugin({
+                htmlMatchPattern: [/query_viewer_spa.html$/],
+                assetPreservePattern: [
+                    /.*.js$/,
+                ]
+            }),
+        ],
+        entry: {
+            'query_viewer': {import: './query_viewer.jsx', filename: path.join('dev', '[name].js')},
+            ...baseConfig.entry,
+        },
+        optimization: {
+            ...baseConfig.optimization,
+            splitChunks: false,
+        }
+    };
+    return [mainConfig, spaConfig]
 };

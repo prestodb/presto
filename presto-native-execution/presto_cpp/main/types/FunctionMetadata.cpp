@@ -57,36 +57,12 @@ const std::vector<std::string> getFunctionNameParts(
   return parts;
 }
 
-// TODO: Remove this function later and retrieve companion function information
-//  from velox. Approaches for this under discussion here:
-// https://github.com/facebookincubator/velox/discussions/11011.
-// A function name is a companion function's if the name is an existing
-// aggregation function name followed by specific suffixes.
-bool isCompanionFunctionName(
-    const std::string& name,
-    const std::unordered_map<std::string, exec::AggregateFunctionEntry>&
-        aggregateFunctions) {
-  auto suffixOffset = name.rfind("_partial");
-  if (suffixOffset == std::string::npos) {
-    suffixOffset = name.rfind("_merge_extract");
-  }
-  if (suffixOffset == std::string::npos) {
-    suffixOffset = name.rfind("_merge");
-  }
-  if (suffixOffset == std::string::npos) {
-    suffixOffset = name.rfind("_extract");
-  }
-  if (suffixOffset == std::string::npos) {
-    return false;
-  }
-  return aggregateFunctions.count(name.substr(0, suffixOffset)) > 0;
-}
-
 const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
     const std::string& name,
     const AggregateFunctionSignature& signature) {
   protocol::AggregationFunctionMetadata metadata;
-  metadata.intermediateType = signature.intermediateType().toString();
+  metadata.intermediateType =
+      boost::algorithm::to_lower_copy(signature.intermediateType().toString());
   metadata.isOrderSensitive =
       getAggregateFunctionEntry(name)->metadata.orderSensitive;
   return metadata;
@@ -140,6 +116,24 @@ const protocol::RoutineCharacteristics getRoutineCharacteristics(
   return routineCharacteristics;
 }
 
+const std::vector<protocol::TypeVariableConstraint> getTypeVariableConstraints(
+    const FunctionSignature& functionSignature) {
+  std::vector<protocol::TypeVariableConstraint> typeVariableConstraints;
+  const auto functionVariables = functionSignature.variables();
+  for (const auto& [name, signature] : functionVariables) {
+    if (signature.isTypeParameter()) {
+      protocol::TypeVariableConstraint typeVariableConstraint;
+      typeVariableConstraint.name =
+          boost::algorithm::to_lower_copy(signature.name());
+      typeVariableConstraint.orderableRequired = signature.orderableTypesOnly();
+      typeVariableConstraint.comparableRequired =
+          signature.comparableTypesOnly();
+      typeVariableConstraints.emplace_back(typeVariableConstraint);
+    }
+  }
+  return typeVariableConstraints;
+}
+
 std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
     const std::string& name,
     const std::string& schema,
@@ -152,7 +146,8 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
   if (!isValidPrestoType(signature.returnType())) {
     return std::nullopt;
   }
-  metadata.outputType = signature.returnType().toString();
+  metadata.outputType =
+      boost::algorithm::to_lower_copy(signature.returnType().toString());
 
   const auto& argumentTypes = signature.argumentTypes();
   std::vector<std::string> paramTypes(argumentTypes.size());
@@ -160,11 +155,16 @@ std::optional<protocol::JsonBasedUdfFunctionMetadata> buildFunctionMetadata(
     if (!isValidPrestoType(argumentTypes.at(i))) {
       return std::nullopt;
     }
-    paramTypes[i] = argumentTypes.at(i).toString();
+    paramTypes[i] =
+        boost::algorithm::to_lower_copy(argumentTypes.at(i).toString());
   }
   metadata.paramTypes = paramTypes;
   metadata.schema = schema;
+  metadata.variableArity = signature.variableArity();
   metadata.routineCharacteristics = getRoutineCharacteristics(name, kind);
+  metadata.typeVariableConstraints =
+      std::make_shared<std::vector<protocol::TypeVariableConstraint>>(
+          getTypeVariableConstraints(signature));
 
   if (aggregateSignature) {
     metadata.aggregateMetadata =
@@ -199,8 +199,22 @@ json buildAggregateMetadata(
       getWindowFunctionSignatures(name).has_value(),
       "Aggregate function {} not registered as a window function",
       name);
+
+  // The functions returned by this endpoint are stored as SqlInvokedFunction
+  // objects, with SqlFunctionId serving as the primary key. SqlFunctionId is
+  // derived from both the functionName and argumentTypes parameters. Returning
+  // the same function twice—once as an aggregate function and once as a window
+  // function introduces ambiguity, as functionKind is not a component of
+  // SqlFunctionId. For any aggregate function utilized as a window function,
+  // the function’s metadata can be obtained from the associated aggregate
+  // function implementation for further processing. For additional information,
+  // refer to the following: 	•
+  // https://github.com/prestodb/presto/blob/master/presto-spi/src/main/java/com/facebook/presto/spi/function/SqlFunctionId.java
+  //  •
+  //  https://github.com/prestodb/presto/blob/master/presto-spi/src/main/java/com/facebook/presto/spi/function/SqlInvokedFunction.java
+
   const std::vector<protocol::FunctionKind> kinds = {
-      protocol::FunctionKind::AGGREGATE, protocol::FunctionKind::WINDOW};
+      protocol::FunctionKind::AGGREGATE};
   json j = json::array();
   json tj;
   for (const auto& kind : kinds) {
@@ -248,7 +262,7 @@ json getFunctionsMetadata() {
     // Skip internal functions. They don't have any prefix.
     if (kBlockList.count(name) != 0 ||
         name.find("$internal$") != std::string::npos ||
-        isCompanionFunctionName(name, aggregateFunctions)) {
+        getScalarMetadata(name).companionFunction) {
       continue;
     }
 
@@ -260,7 +274,7 @@ json getFunctionsMetadata() {
 
   // Get metadata for all registered aggregate functions in velox.
   for (const auto& entry : aggregateFunctions) {
-    if (!isCompanionFunctionName(entry.first, aggregateFunctions)) {
+    if (!aggregateFunctions.at(entry.first).metadata.companionFunction) {
       const auto name = entry.first;
       const auto parts = getFunctionNameParts(name);
       const auto schema = parts[1];

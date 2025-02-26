@@ -18,7 +18,7 @@ import { clsx } from 'clsx';
 import type { StageNodeInfo } from './LivePlan';
 import { StageStatistics, PlanNode } from './LivePlan';
 import ReactDOMServer from "react-dom/server";
-import * as dagreD3 from "dagre-d3";
+import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 import { formatRows, getStageStateColor } from "../utils";
 import { initializeGraph } from "../d3utils";
@@ -33,12 +33,12 @@ export default function PlanView({show, data}) {
         const stageRootNodeId = "stage-" + stage.id + "-root";
         const color = getStageStateColor(stage);
 
-        graph.setNode(clusterId, { style: 'fill: ' + color, labelStyle: 'fill: #fff' });
+        graph.setNode(clusterId, { style: 'fill: ' + color, labelStyle: 'fill: #fff', class: 'text-center' });
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
         const html = ReactDOMServer.renderToString(<StageStatistics key={stage.id} stage={stage} />);
 
-        graph.setNode(stageRootNodeId, { class: "stage-stats", label: html, labelType: "html" });
+        graph.setNode(stageRootNodeId, { class: "stage-stats text-center", label: html, labelType: "html" });
         graph.setParent(stageRootNodeId, clusterId);
         graph.setEdge("node-" + stage.root, stageRootNodeId, { style: "visibility: hidden" });
 
@@ -46,7 +46,7 @@ export default function PlanView({show, data}) {
             const nodeId = "node-" + node.id;
             const nodeHtml = ReactDOMServer.renderToString(<PlanNode {...node} />);
 
-            graph.setNode(nodeId, { label: nodeHtml, style: 'fill: #fff', labelType: "html" });
+            graph.setNode(nodeId, { label: nodeHtml, style: 'fill: #fff', labelType: "html", class: 'text-center' });
             graph.setParent(nodeId, clusterId);
 
             node.sources.forEach(source => {
@@ -54,7 +54,7 @@ export default function PlanView({show, data}) {
             });
 
             if (node.remoteSources.length > 0) {
-                graph.setNode(nodeId, { label: '', shape: "circle" });
+                graph.setNode(nodeId, { label: '', shape: "circle", class: 'text-center' });
 
                 node.remoteSources.forEach(sourceId => {
                     const source = allStages.get(sourceId);
@@ -99,8 +99,8 @@ export default function PlanView({show, data}) {
 
         // Zoom doesn't deal well with DOM changes
         const initialScale = Math.min(width / graphWidth, height / graphHeight);
-        const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom", function () {
-            inner.attr("transform", d3.event.transform);
+        const zoom = d3.zoom().scaleExtent([initialScale, 1]).on("zoom",(event) => {
+            inner.attr("transform", event.transform);
         });
 
         svg.call(zoom);
@@ -114,13 +114,13 @@ export default function PlanView({show, data}) {
             widgets.current.svg = d3.select("#plan-canvas");
         }
         updateD3Graph();
-        $('[data-toggle="tooltip"]').tooltip()
+        $('[data-bs-toggle="tooltip"]')?.tooltip?.()
     }, [data, show]);
 
     return (
-        <div className={clsx(!show && 'hide')}>
+        <div className={clsx(!show && 'visually-hidden')}>
             <div className="row">
-            <div className="col-xs-12">
+            <div className="col-12">
                 <div id="plan-viewer" className="graph-container">
                     {data && <div className="pull-right">
                         {data.finalQueryInfo ? "Scroll to zoom." : "Zoom disabled while query is running."} Click stage to view additional statistics

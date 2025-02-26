@@ -12,6 +12,10 @@ For information on catalog configuration properties, see :doc:`Connectors </conn
 
 For information on Presto C++ session properties, see :doc:`properties-session`.
 
+NOTE: While some of the configuration properties below with "-gb" in their names 
+show gigabytes (gB; 1 gB equals 1000000000 B), it is actually 
+gibibytes (GiB; 1 GiB equals 1073741824 B).
+
 .. contents::
     :local:
     :backlinks: none
@@ -84,6 +88,14 @@ alphabetical order.
   ``VARBINARY``.
   This property provides function signatures for built-in aggregation
   functions which are compatible with Velox.
+
+``presto.default-namespace``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``presto.default``
+
+  Specifies the namespace prefix for native C++ functions.
 
 Worker Properties
 -----------------

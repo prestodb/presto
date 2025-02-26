@@ -113,8 +113,7 @@ public class ClickHouseConnector
                 clickHouseClient,
                 functionManager,
                 functionResolution,
-                rowExpressionService.getDeterminismEvaluator(),
-                rowExpressionService.getExpressionOptimizer(),
+                rowExpressionService,
                 clickhouseQueryGenerator);
     }
 

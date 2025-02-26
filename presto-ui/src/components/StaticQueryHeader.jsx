@@ -13,6 +13,7 @@
  */
 
 import React from 'react';
+import { clsx } from 'clsx';
 
 import {
     getHumanReadableState,
@@ -26,18 +27,10 @@ function QueryHeaderTabs({ tabs, current, clickHandler }) {
     return (
         <>
             {tabs.map((tab, index) => (
-                <td key={index}>
-                    {tab.name === current.name ? (
-                        <span className='btn btn-info navbar-btn nav-disabled'>{tab.label}</span>
-                    ) : (
-                        <a
-                            href='#'
-                            onClick={() => clickHandler(tab)}
-                            className={'btn btn-info navbar-btn'}
-                        > {tab.label}</a>
-                    )}
+                <>
+                    <a className={clsx('nav-link', 'navbar-btn', tab.name === current.name && 'active')} href="#" onClick={() => clickHandler(tab)}>{tab.label}</a>
                     &nbsp;
-                </td>
+                </>
             ))}
         </>
     );
@@ -120,27 +113,23 @@ export default function StaticQueryHeader({ query, tabs, switchTab, tabIndex = 0
     return (
         <div>
             <div className="row">
-                <div className="col-xs-6">
+                <div className="col-6">
                     <h3 className="query-id">
                         <span id="query-id">{query.queryId}</span>
-                        <a className="btn copy-button" data-clipboard-target="#query-id" data-toggle="tooltip" data-placement="right" title="Copy to clipboard">
-                            <span className="glyphicon glyphicon-copy" aria-hidden="true" alt="Copy to clipboard" />
+                        <a className="btn copy-button" data-clipboard-target="#query-id" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
+                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard" />
                         </a>
                     </h3>
                 </div>
-                <div className="col-xs-6">
-                    <table className="header-inline-links">
-                        <tbody>
-                            <tr>
-                                <QueryHeaderTabs tabs={tabs} current={state.tab} clickHandler={clickHandler} />
-                            </tr>
-                        </tbody>
-                    </table>
+                <div className="col-6 d-flex justify-content-end">
+                    <nav className="nav nav-tabs">
+                        <QueryHeaderTabs tabs={tabs} current={state.tab} clickHandler={clickHandler} />
+                    </nav>
                 </div>
             </div>
             <hr className="h2-hr" />
             <div className="row">
-                <div className="col-xs-12">
+                <div className="col-12">
                     {renderProgressBar()}
                 </div>
             </div>

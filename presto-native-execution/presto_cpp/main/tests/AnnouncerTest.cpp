@@ -173,6 +173,7 @@ TEST_P(AnnouncerTestSuite, basic) {
       "testing",
       "test-node",
       "test-node-location",
+      "DEFAULT",
       true,
       {"hive", "tpch"},
       500 /*milliseconds*/,

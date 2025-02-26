@@ -69,6 +69,7 @@ public abstract class AbstractVerificationTest
     protected static final ParsingOptions PARSING_OPTIONS = ParsingOptions.builder().setDecimalLiteralTreatment(AS_DOUBLE).build();
     protected static final String CONTROL_TABLE_PREFIX = "tmp_verifier_c";
     protected static final String TEST_TABLE_PREFIX = "tmp_verifier_t";
+    protected static final int DETERMINISM_ANALYSIS_RUNS = 3;
 
     protected static VerificationSettings concurrentControlAndTestSettings;
     protected static VerificationSettings skipControlSettings;
@@ -83,7 +84,7 @@ public abstract class AbstractVerificationTest
     private final SqlParser sqlParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(COLON, AT_SIGN));
     private final BlockEncodingSerde blockEncodingSerde = new BlockEncodingManager();
     private final PrestoExceptionClassifier exceptionClassifier = PrestoExceptionClassifier.defaultBuilder().build();
-    private final DeterminismAnalyzerConfig determinismAnalyzerConfig = new DeterminismAnalyzerConfig().setMaxAnalysisRuns(3).setRunTeardown(true);
+    private final DeterminismAnalyzerConfig determinismAnalyzerConfig = new DeterminismAnalyzerConfig().setMaxAnalysisRuns(DETERMINISM_ANALYSIS_RUNS).setRunTeardown(true);
     private final FailureResolverManagerFactory failureResolverManagerFactory;
 
     public AbstractVerificationTest()
@@ -218,6 +219,7 @@ public abstract class AbstractVerificationTest
             settings.runningMode.ifPresent(verifierConfig::setRunningMode);
             settings.saveSnapshot.ifPresent(verifierConfig::setSaveSnapshot);
             settings.functionSubstitutes.ifPresent(verifierConfig::setFunctionSubstitutes);
+            settings.runDeterminismAnalysisOnTest.ifPresent(verifierConfig::setRunDeterminismAnalysisOnTest);
         });
         QueryRewriteConfig controlRewriteConfig = new QueryRewriteConfig().setTablePrefix(CONTROL_TABLE_PREFIX);
         QueryRewriteConfig testRewriteConfig = new QueryRewriteConfig().setTablePrefix(TEST_TABLE_PREFIX);
@@ -261,6 +263,7 @@ public abstract class AbstractVerificationTest
             saveSnapshot = Optional.empty();
             functionSubstitutes = Optional.empty();
             reuseTable = Optional.empty();
+            runDeterminismAnalysisOnTest = Optional.empty();
         }
 
         Optional<Boolean> concurrentControlAndTest;
@@ -269,6 +272,7 @@ public abstract class AbstractVerificationTest
         Optional<Boolean> saveSnapshot;
         Optional<String> functionSubstitutes;
         Optional<Boolean> reuseTable;
+        Optional<Boolean> runDeterminismAnalysisOnTest;
     }
 
     public static class MockSnapshotSupplierAndConsumer

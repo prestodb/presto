@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -308,7 +308,7 @@ public final class FunctionSignatureMatcher
 
     private static String toConciseFunctionName(QualifiedObjectName functionName)
     {
-        if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE)) {
+        if (functionName.getCatalogSchemaName().equals(JAVA_BUILTIN_NAMESPACE)) {
             return functionName.getObjectName();
         }
         return functionName.toString();

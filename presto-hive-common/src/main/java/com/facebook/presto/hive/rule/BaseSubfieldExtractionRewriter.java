@@ -217,7 +217,7 @@ public abstract class BaseSubfieldExtractionRewriter
         ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
                 .fromPredicate(session, filter, new SubfieldExtractor(
                         functionResolution,
-                        rowExpressionService.getExpressionOptimizer(),
+                        rowExpressionService.getExpressionOptimizer(session),
                         session).toColumnExtractor());
 
         if (currentLayoutHandle.isPresent()) {
@@ -231,7 +231,7 @@ public abstract class BaseSubfieldExtractionRewriter
             return new ConnectorPushdownFilterResult(EMPTY_TABLE_LAYOUT, FALSE_CONSTANT);
         }
 
-        RowExpression optimizedRemainingExpression = rowExpressionService.getExpressionOptimizer()
+        RowExpression optimizedRemainingExpression = rowExpressionService.getExpressionOptimizer(session)
                 .optimize(decomposedFilter.getRemainingExpression(), OPTIMIZED, session);
         if (optimizedRemainingExpression instanceof ConstantExpression) {
             ConstantExpression constantExpression = (ConstantExpression) optimizedRemainingExpression;
@@ -439,7 +439,7 @@ public abstract class BaseSubfieldExtractionRewriter
             // spurious query failures for partitions that would otherwise be filtered out.
             RowExpression optimized;
             try {
-                optimized = evaluator.getExpressionOptimizer().optimize(expression, OPTIMIZED, session, variableResolver);
+                optimized = evaluator.getExpressionOptimizer(session).optimize(expression, OPTIMIZED, session, variableResolver);
             }
             catch (PrestoException e) {
                 propagateIfUnhandled(e);

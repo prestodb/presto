@@ -1,0 +1,53 @@
+name: arrow flight tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'presto-docs/**'
+
+env:
+  CONTINUOUS_INTEGRATION: true
+  MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
+  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
+  MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
+  MAVEN_TEST: "-B -Dair.check.skip-all -Dmaven.javadoc.skip=true -DLogTestDurationListener.enabled=true --no-transfer-progress --fail-at-end"
+  RETRY: .github/bin/retry
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        modules:
+          - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
+
+    timeout-minutes: 80
+    concurrency:
+      group: ${{ github.workflow }}-test-${{ matrix.modules }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      # Checkout the code only if there are changes in the relevant files
+      - uses: actions/checkout@v4
+        with:
+          show-progress: false
+
+      # Set up Java and dependencies for the build environment
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 8
+          cache: 'maven'
+      - name: Download nodejs to maven cache
+        run: .github/bin/download_nodejs
+
+      # Install dependencies for the target module
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl ${{ matrix.modules }}
+
+      # Run Maven tests for the target module
+      - name: Maven Tests
+        run: ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }}

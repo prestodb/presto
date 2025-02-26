@@ -122,7 +122,7 @@ public class ExplainVerification
     }
 
     @Override
-    protected DeterminismAnalysisDetails analyzeDeterminism(QueryBundle control, ExplainMatchResult matchResult)
+    protected DeterminismAnalysisDetails analyzeDeterminism(QueryBundle controlObject, QueryBundle testObject, ExplainMatchResult matchResult)
     {
         throw new UnsupportedOperationException("analyzeDeterminism is not supported for ExplainVerification");
     }

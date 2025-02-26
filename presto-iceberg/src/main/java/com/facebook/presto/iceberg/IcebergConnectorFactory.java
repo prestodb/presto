@@ -18,6 +18,8 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 
+import javax.management.MBeanServer;
+
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +29,13 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 public class IcebergConnectorFactory
         implements ConnectorFactory
 {
+    private final MBeanServer mBeanServer;
+
+    public IcebergConnectorFactory(MBeanServer mBeanServer)
+    {
+        this.mBeanServer = mBeanServer;
+    }
+
     @Override
     public String getName()
     {
@@ -45,8 +54,8 @@ public class IcebergConnectorFactory
         ClassLoader classLoader = IcebergConnectorFactory.class.getClassLoader();
         try {
             return (Connector) classLoader.loadClass(InternalIcebergConnectorFactory.class.getName())
-                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class)
-                    .invoke(null, catalogName, config, context, Optional.empty());
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, MBeanServer.class)
+                    .invoke(null, catalogName, config, context, Optional.empty(), mBeanServer);
         }
         catch (InvocationTargetException e) {
             Throwable targetException = e.getTargetException();

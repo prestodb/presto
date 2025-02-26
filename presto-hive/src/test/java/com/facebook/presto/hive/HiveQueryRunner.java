@@ -98,6 +98,12 @@ public final class HiveQueryRunner
         return createQueryRunner(tables, ImmutableMap.of(), Optional.empty());
     }
 
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, Map<String, String> extraProperties, Map<String, String> tpcdsProperties)
+            throws Exception
+    {
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), Optional.empty(), Optional.empty(), tpcdsProperties);
+    }
+
     public static DistributedQueryRunner createQueryRunner(
             Iterable<TpchTable<?>> tpchTables,
             Map<String, String> extraProperties,
@@ -105,19 +111,19 @@ public final class HiveQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty(), ImmutableMap.of());
     }
 
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty(), ImmutableMap.of());
     }
 
     public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, List<String> tpcdsTableNames, Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty(), ImmutableMap.of());
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -128,22 +134,19 @@ public final class HiveQueryRunner
             Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), dataDirectory, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), dataDirectory, Optional.empty(), ImmutableMap.of());
     }
 
     public static DistributedQueryRunner createQueryRunner(
             Iterable<TpchTable<?>> tpchTables,
-            Iterable<String> tpcdsTableNames,
             Map<String, String> extraProperties,
-            Map<String, String> extraCoordinatorProperties,
             String security,
             Map<String, String> extraHiveProperties,
-            Optional<Integer> workerCount,
             Optional<Path> dataDirectory,
-            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
+            Map<String, String> tpcdsProperties)
             throws Exception
     {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, extraCoordinatorProperties, security, extraHiveProperties, workerCount, dataDirectory, externalWorkerLauncher, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), dataDirectory, Optional.empty(), tpcdsProperties);
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -156,21 +159,10 @@ public final class HiveQueryRunner
             Optional<Integer> workerCount,
             Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
-            Optional<ExtendedHiveMetastore> externalMetastore)
+            Map<String, String> tpcdsProperties)
             throws Exception
     {
-        return createQueryRunner(
-                tpchTables,
-                tpcdsTableNames,
-                extraProperties,
-                extraCoordinatorProperties,
-                security,
-                extraHiveProperties,
-                workerCount,
-                dataDirectory,
-                externalWorkerLauncher,
-                externalMetastore,
-                false);
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, extraCoordinatorProperties, security, extraHiveProperties, workerCount, dataDirectory, externalWorkerLauncher, Optional.empty(), tpcdsProperties);
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -184,7 +176,37 @@ public final class HiveQueryRunner
             Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
             Optional<ExtendedHiveMetastore> externalMetastore,
-            boolean addJmxPlugin)
+            Map<String, String> tpcdsProperties)
+            throws Exception
+    {
+        return createQueryRunner(
+                tpchTables,
+                tpcdsTableNames,
+                extraProperties,
+                extraCoordinatorProperties,
+                security,
+                extraHiveProperties,
+                workerCount,
+                dataDirectory,
+                externalWorkerLauncher,
+                externalMetastore,
+                false,
+                tpcdsProperties);
+    }
+
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tpchTables,
+            Iterable<String> tpcdsTableNames,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties,
+            String security,
+            Map<String, String> extraHiveProperties,
+            Optional<Integer> workerCount,
+            Optional<Path> dataDirectory,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<ExtendedHiveMetastore> externalMetastore,
+            boolean addJmxPlugin,
+            Map<String, String> tpcdsProperties)
             throws Exception
     {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
@@ -211,7 +233,7 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new TpcdsPlugin());
             queryRunner.installPlugin(new TestingHiveEventListenerPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            queryRunner.createCatalog("tpcds", "tpcds");
+            queryRunner.createCatalog("tpcds", "tpcds", tpcdsProperties);
             Map<String, String> tpchProperties = ImmutableMap.<String, String>builder()
                     .put("tpch.column-naming", "standard")
                     .build();
@@ -326,7 +348,8 @@ public final class HiveQueryRunner
                         "grouped-execution-enabled", "true"),
                 "sql-standard",
                 ImmutableMap.of("hive.create-empty-bucket-files-for-temporary-table", "false"),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableMap.of());
     }
 
     public static DistributedQueryRunner createMaterializingAndSpillingQueryRunner(Iterable<TpchTable<?>> tables)

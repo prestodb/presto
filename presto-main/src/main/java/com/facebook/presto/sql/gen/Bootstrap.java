@@ -44,8 +44,12 @@ public final class Bootstrap
     public static CallSite bootstrap(MethodHandles.Lookup callerLookup, String name, MethodType type, long bindingId)
     {
         ClassLoader classLoader = callerLookup.lookupClass().getClassLoader();
-        checkArgument(classLoader instanceof DynamicClassLoader, "Expected %s's classloader to be of type %s", callerLookup.lookupClass().getName(), DynamicClassLoader.class.getName());
-
+        checkArgument(
+                classLoader instanceof DynamicClassLoader,
+                "Expected %s's classloader to be of type %s, but is %s",
+                callerLookup.lookupClass().getName(),
+                DynamicClassLoader.class.getName(),
+                classLoader.getClass().getName());
         DynamicClassLoader dynamicClassLoader = (DynamicClassLoader) classLoader;
         MethodHandle target = dynamicClassLoader.getCallSiteBindings().get(bindingId);
         checkArgument(target != null, "Binding %s for function %s%s not found", bindingId, name, type.parameterList());

@@ -18,14 +18,17 @@ import com.facebook.presto.cost.CostCalculator.EstimatedExchanges;
 import com.facebook.presto.cost.CostComparator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.TaskCountEstimator;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
+import com.facebook.presto.sql.planner.iterative.rule.AddExchangesBelowPartialAggregationOverGroupIdRuleSet;
 import com.facebook.presto.sql.planner.iterative.rule.AddIntermediateAggregations;
 import com.facebook.presto.sql.planner.iterative.rule.AddNotNullFiltersToJoinNode;
 import com.facebook.presto.sql.planner.iterative.rule.CombineApproxPercentileFunctions;
@@ -77,6 +80,7 @@ import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneSemiJoinFilteringSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTableScanColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneTopNColumns;
+import com.facebook.presto.sql.planner.iterative.rule.PruneUpdateSourceColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneValuesColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PruneWindowColumns;
 import com.facebook.presto.sql.planner.iterative.rule.PullConstantsAboveGroupBy;
@@ -220,7 +224,9 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ExpressionOptimizerManager expressionOptimizerManager,
+            TaskManagerConfig taskManagerConfig)
     {
         this(metadata,
                 sqlParser,
@@ -235,7 +241,9 @@ public class PlanOptimizers
                 costComparator,
                 taskCountEstimator,
                 partitioningProviderManager,
-                featuresConfig);
+                featuresConfig,
+                expressionOptimizerManager,
+                taskManagerConfig);
     }
 
     @PostConstruct
@@ -266,7 +274,9 @@ public class PlanOptimizers
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
             PartitioningProviderManager partitioningProviderManager,
-            FeaturesConfig featuresConfig)
+            FeaturesConfig featuresConfig,
+            ExpressionOptimizerManager expressionOptimizerManager,
+            TaskManagerConfig taskManagerConfig)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -283,6 +293,7 @@ public class PlanOptimizers
                 new PruneIndexSourceColumns(),
                 new PruneJoinChildrenColumns(),
                 new PruneJoinColumns(),
+                new PruneUpdateSourceColumns(),
                 new PruneMarkDistinctColumns(),
                 new PruneOutputColumns(),
                 new PruneProjectColumns(),
@@ -321,7 +332,7 @@ public class PlanOptimizers
                 statsCalculator,
                 estimatedExchangesCostCalculator,
                 ImmutableSet.<Rule<?>>builder()
-                        .addAll(new SimplifyRowExpressions(metadata).rules())
+                        .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
                         .add(new PruneRedundantProjectionAssignments())
                         .build());
 
@@ -346,7 +357,7 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 new RewriteConstantArrayContainsToInExpression(metadata.getFunctionAndTypeManager()).rules());
 
-        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, featuresConfig.isNativeExecutionEnabled()));
+        PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser, expressionOptimizerManager, featuresConfig.isNativeExecutionEnabled()));
         PlanOptimizer prefilterForLimitingAggregation = new StatsRecordingPlanOptimizer(optimizerStats, new PrefilterForLimitingAggregation(metadata, statsCalculator));
 
         builder.add(
@@ -487,7 +498,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new InlineProjectionsOnValues(metadata.getFunctionAndTypeManager()))
-                                .addAll(new SimplifyRowExpressions(metadata).rules())
+                                .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
                                 .build()),
                 new IterativeOptimizer(
                         metadata,
@@ -727,7 +738,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())),
-                new PushdownSubfields(metadata));
+                new PushdownSubfields(metadata, expressionOptimizerManager));
 
         builder.add(predicatePushDown); // Run predicate push down one more time in case we can leverage new information from layouts' effective predicate
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
@@ -816,6 +827,7 @@ public class PlanOptimizers
 
         if (!noExchange) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
+
             builder.add(new IterativeOptimizer(
                     metadata,
                     ruleStats,
@@ -826,6 +838,7 @@ public class PlanOptimizers
                             // Must run before AddExchanges and after ReplicateSemiJoinInDelete
                             // to avoid temporarily having an invalid plan
                             new DetermineSemiJoinDistributionType(costComparator, taskCountEstimator))));
+
             builder.add(new RandomizeNullKeyInOuterJoin(metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs(),
                     new IterativeOptimizer(
@@ -837,6 +850,7 @@ public class PlanOptimizers
                                     new PruneRedundantProjectionAssignments(),
                                     new InlineProjections(metadata.getFunctionAndTypeManager()),
                                     new RemoveRedundantIdentityProjections())));
+
             builder.add(new ShardJoins(metadata, metadata.getFunctionAndTypeManager(), statsCalculator),
                     new PruneUnreferencedOutputs());
             builder.add(
@@ -846,7 +860,7 @@ public class PlanOptimizers
                             statsCalculator,
                             estimatedExchangesCostCalculator,
                             ImmutableSet.of(new PushTableWriteThroughUnion()))); // Must run before AddExchanges
-            builder.add(new CteProjectionAndPredicatePushDown(metadata)); // must run before PhysicalCteOptimizer
+            builder.add(new CteProjectionAndPredicatePushDown(metadata, expressionOptimizerManager)); // must run before PhysicalCteOptimizer
             builder.add(new PhysicalCteOptimizer(metadata)); // Must run before AddExchanges
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchanges(metadata, partitioningProviderManager, featuresConfig.isNativeExecutionEnabled())));
             builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new AddExchangesForSingleNodeExecution(metadata)));
@@ -885,7 +899,7 @@ public class PlanOptimizers
         // MergeJoinForSortedInputOptimizer can avoid the local exchange for a join operation
         // Should be placed after AddExchanges, but before AddLocalExchange
         // To replace the JoinNode to MergeJoin ahead of AddLocalExchange to avoid adding extra local exchange
-        builder.add(new MergeJoinForSortedInputOptimizer(metadata));
+        builder.add(new MergeJoinForSortedInputOptimizer(metadata, featuresConfig.isNativeExecutionEnabled()));
 
         // Optimizers above this don't understand local exchanges, so be careful moving this.
         builder.add(new AddLocalExchanges(metadata, featuresConfig.isNativeExecutionEnabled()));
@@ -909,6 +923,13 @@ public class PlanOptimizers
                         costCalculator,
                         ImmutableSet.of(
                                 new PruneJoinColumns())));
+
+        builder.add(new IterativeOptimizer(
+                metadata,
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                new AddExchangesBelowPartialAggregationOverGroupIdRuleSet(taskCountEstimator, taskManagerConfig, metadata, featuresConfig.isNativeExecutionEnabled()).rules()));
 
         builder.add(new IterativeOptimizer(
                 metadata,
@@ -954,7 +975,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableList.of(),
-                ImmutableSet.of(new RuntimeReorderJoinSides(metadata))));
+                ImmutableSet.of(new RuntimeReorderJoinSides(metadata, featuresConfig.isNativeExecutionEnabled()))));
         this.runtimeOptimizers = runtimeBuilder.build();
     }
 

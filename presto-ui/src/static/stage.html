@@ -10,7 +10,10 @@
     <link rel="icon" href="assets/favicon.ico">
 
     <!-- Bootstrap core -->
-    <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet">
+    <link href="vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Link for icons checkmark-->
+    <link rel="stylesheet" href="vendor/bootstrap/css/bootstrap-icons.min.css">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!--[if lt IE 9]>
@@ -19,10 +22,10 @@
     <![endif]-->
 
     <!-- jQuery -->
-    <script type="text/javascript" src="vendor/jquery/jquery-2.2.3.min.js"></script>
+    <script type="text/javascript" src="vendor/jquery/jquery-3.7.1.min.js"></script>
 
     <!-- Bootstrap JS -->
-    <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
+    <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 
     <!-- Sparkline -->
     <script type="text/javascript" src="vendor/jquery.sparkline/jquery.sparkline.min.js"></script>
@@ -38,7 +41,7 @@
     <link href="assets/presto.css" rel="stylesheet">
 </head>
 
-<body>
+<body data-bs-theme="dark">
 
 <div class="container">
     <div id="title"></div>
@@ -49,12 +52,9 @@
     <div class="graph-container">
         <svg id="operator-canvas"></svg>
     </div>
-
-    <div id="operator-detail-modal" class="modal" tabindex="-1" role="dialog">
+    <div id="operator-detail-modal" class="modal fade" tabIndex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog modal-lg" role="document">
-            <div class="modal-content">
-                <div id="operator-detail" class="container"></div>
-            </div>
+            <div id="operator-detail" class="row modal-content"></div>
         </div>
     </div>
 </div> <!-- /container -->

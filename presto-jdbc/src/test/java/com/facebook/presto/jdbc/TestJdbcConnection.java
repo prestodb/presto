@@ -188,6 +188,41 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testTableType()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            assertThat(connection.getCatalog()).isEqualTo("hive");
+            assertThat(connection.getSchema()).isEqualTo("default");
+
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE test_table_type (x bigint)");
+                statement.execute("CREATE VIEW table_type_view AS SELECT * FROM test_table_type");
+                ResultSet rs = statement.executeQuery("SELECT TABLE_NAME, TABLE_TYPE FROM system.jdbc.tables WHERE TABLE_SCHEM = 'default' AND TABLE_NAME = 'table_type_view'");
+                int rowCount = 0;
+                while (rs.next()) {
+                    assertEquals(rs.getString("TABLE_NAME"), "table_type_view");
+                    assertEquals(rs.getString("TABLE_TYPE"), "VIEW");
+                    rowCount++;
+                }
+                assertEquals(rowCount, 1);
+
+                rowCount = 0;
+                rs = statement.executeQuery("SELECT TABLE_NAME, TABLE_TYPE FROM system.jdbc.tables WHERE TABLE_SCHEM = 'default' AND TABLE_NAME = 'test_table_type'");
+                while (rs.next()) {
+                    assertEquals(rs.getString("TABLE_NAME"), "test_table_type");
+                    assertEquals(rs.getString("TABLE_TYPE"), "TABLE");
+                    rowCount++;
+                }
+                assertEquals(rowCount, 1);
+
+                statement.execute("DROP TABLE test_table_type");
+                statement.execute("DROP VIEW table_type_view");
+            }
+        }
+    }
+
+    @Test
     public void testRollback()
             throws SQLException
     {

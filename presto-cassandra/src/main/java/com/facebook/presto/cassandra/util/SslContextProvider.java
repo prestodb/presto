@@ -111,7 +111,7 @@ public class SslContextProvider
 
             X509TrustManager trustManager = (X509TrustManager) trustManagers[0];
             // create SSLContext
-            SSLContext result = SSLContext.getInstance("SSL");
+            SSLContext result = SSLContext.getInstance("TLS");
             result.init(keyManagers, new TrustManager[] {trustManager}, null);
             return Optional.of(result);
         }

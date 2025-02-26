@@ -42,6 +42,8 @@ class TaskManager {
 
   bool emptyBaseSpillDirectory() const;
 
+  std::string getBaseSpillDirectory() const;
+
   /// Sets the time (ms) that a task is considered to be old for cleanup since
   /// its completion.
   void setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs);

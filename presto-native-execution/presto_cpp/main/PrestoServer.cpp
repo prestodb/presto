@@ -57,6 +57,7 @@
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
+#include "velox/dwio/orc/reader/OrcReader.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/RegisterParquetWriter.h"
 #include "velox/exec/OutputBufferManager.h"
@@ -109,11 +110,14 @@ void enableChecksum() {
       });
 }
 
-std::string stringifyConnectorConfig(
+// Log only the catalog keys that are configured to avoid leaking
+// secret information. Some values represent secrets used to access
+// storage backends.
+std::string logConnectorConfigPropertyKeys(
     const std::unordered_map<std::string, std::string>& configs) {
   std::stringstream out;
   for (auto const& [key, value] : configs) {
-    out << "  " << key << "=" << value << "\n";
+    out << "  " << key << "\n";
   }
   return out.str();
 }
@@ -238,6 +242,8 @@ void PrestoServer::run() {
       address_ = fmt::format("[{}]", address_);
     }
     nodeLocation_ = nodeConfig->nodeLocation();
+    nodePoolType_ = systemConfig->poolType();
+    prestoBuiltinFunctionPrefix_ = systemConfig->prestoDefaultNamespacePrefix();
   } catch (const velox::VeloxUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
@@ -572,6 +578,7 @@ void PrestoServer::run() {
           environment_,
           nodeId_,
           nodeLocation_,
+          nodePoolType_,
           systemConfig->prestoNativeSidecar(),
           catalogNames,
           systemConfig->announcementMaxFrequencyMs(),
@@ -1220,8 +1227,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
 
       auto connectorConf = util::readConfig(entry.path());
       PRESTO_STARTUP_LOG(INFO)
-          << "Registered properties from " << entry.path() << ":\n"
-          << stringifyConnectorConfig(connectorConf);
+          << "Registered catalog property keys from " << entry.path() << ":\n"
+          << logConnectorConfigPropertyKeys(connectorConf);
 
       std::shared_ptr<const velox::config::ConfigBase> properties =
           std::make_shared<const velox::config::ConfigBase>(
@@ -1305,11 +1312,12 @@ void PrestoServer::registerCustomOperators() {
 }
 
 void PrestoServer::registerFunctions() {
-  static const std::string kPrestoDefaultPrefix{"presto.default."};
-  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  velox::functions::prestosql::registerAllScalarFunctions(
+      prestoBuiltinFunctionPrefix_);
   velox::aggregate::prestosql::registerAllAggregateFunctions(
-      kPrestoDefaultPrefix);
-  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+      prestoBuiltinFunctionPrefix_);
+  velox::window::prestosql::registerAllWindowFunctions(
+      prestoBuiltinFunctionPrefix_);
   if (SystemConfig::instance()->registerTestFunctions()) {
     velox::functions::prestosql::registerAllScalarFunctions(
         "json.test_schema.");
@@ -1386,6 +1394,7 @@ void PrestoServer::registerMemoryArbitrators() {
 void PrestoServer::registerFileReadersAndWriters() {
   velox::dwrf::registerDwrfReaderFactory();
   velox::dwrf::registerDwrfWriterFactory();
+  velox::orc::registerOrcReaderFactory();
   velox::parquet::registerParquetReaderFactory();
   velox::parquet::registerParquetWriterFactory();
 }

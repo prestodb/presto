@@ -42,7 +42,7 @@ to specify your AWS Access Key ID and Secret Access Key:
 Miscellaneous
 -------------
 
-* Allow specifying catalog and schema in the :doc:`/installation/jdbc` URL.
+* Allow specifying catalog and schema in the :doc:`JDBC </clients/java>` URL.
 
 * Implement more functionality in the JDBC driver.
 

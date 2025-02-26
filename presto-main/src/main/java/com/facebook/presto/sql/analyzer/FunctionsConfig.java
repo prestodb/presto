@@ -21,6 +21,7 @@ import com.facebook.presto.operator.aggregation.multimapagg.MultimapAggGroupImpl
 
 import javax.validation.constraints.Min;
 
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
 public class FunctionsConfig
@@ -46,6 +47,7 @@ public class FunctionsConfig
     private boolean warnOnPossibleNans;
     private boolean legacyCharToVarcharCoercion;
     private boolean legacyJsonCast = true;
+    private String defaultNamespacePrefix = JAVA_BUILTIN_NAMESPACE.toString();
 
     @Config("deprecated.legacy-array-agg")
     public FunctionsConfig setLegacyArrayAgg(boolean legacyArrayAgg)
@@ -53,6 +55,7 @@ public class FunctionsConfig
         this.legacyArrayAgg = legacyArrayAgg;
         return this;
     }
+
     public boolean isLegacyArrayAgg()
     {
         return legacyArrayAgg;
@@ -303,5 +306,18 @@ public class FunctionsConfig
     public boolean isLegacyJsonCast()
     {
         return legacyJsonCast;
+    }
+
+    @Config("presto.default-namespace")
+    @ConfigDescription("Specifies the default function namespace prefix")
+    public FunctionsConfig setDefaultNamespacePrefix(String defaultNamespacePrefix)
+    {
+        this.defaultNamespacePrefix = defaultNamespacePrefix;
+        return this;
+    }
+
+    public String getDefaultNamespacePrefix()
+    {
+        return defaultNamespacePrefix;
     }
 }

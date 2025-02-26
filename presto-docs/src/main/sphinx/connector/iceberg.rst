@@ -259,7 +259,7 @@ Property Name                                           Description             
 
                                                         Example: ``hdfs://nn:8020/warehouse/path``
                                                         This property is required if the ``iceberg.catalog.type`` is
-                                                        ``hadoop``.
+                                                        ``hadoop``. Otherwise, it will be ignored.
 
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
@@ -358,9 +358,9 @@ connector using a WITH clause:
 
 The following table properties are available, which are specific to the Presto Iceberg connector:
 
-=======================================   ===============================================================   ============
+=======================================   ===============================================================   =========================
 Property Name                             Description                                                       Default
-=======================================   ===============================================================   ============
+=======================================   ===============================================================   =========================
 ``format``                                 Optionally specifies the format of table data files,             ``PARQUET``
                                            either ``PARQUET`` or ``ORC``.
 
@@ -389,7 +389,11 @@ Property Name                             Description                           
 
 ``metrics_max_inferred_column``            Optionally specifies the maximum number of columns for which     ``100``
                                            metrics are collected.
-=======================================   ===============================================================   ============
+
+``read.split.target-size``                 The target size for an individual split when generating splits     ``134217728`` (128MB)
+                                           for a table scan. Generated splits may still be larger or
+                                           smaller than this value. Must be specified in bytes.
+=======================================   ===============================================================   =========================
 
 The table definition below specifies format ``ORC``, partitioning by columns ``c1`` and ``c2``,
 and a file system location of ``s3://test_bucket/test_schema/test_table``:
@@ -422,6 +426,17 @@ Property Name                                         Description
 ``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
                                                       ``iceberg.rows-for-metadata-optimization-threshold`` in the current
                                                       session.
+``iceberg.target_split_size``                         Overrides the target split size for all tables in a query in bytes.
+                                                      Set to 0 to use the value in each Iceberg table's
+                                                      ``read.split.target-size`` property.
+``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or
+                                                      ``hive.node-selection-strategy`` property is set to ``SOFT_AFFINITY``,
+                                                      this configuration property will change the size of a file chunk that
+                                                      is hashed to a particular node when determining the which worker to
+                                                      assign a split to. Splits which read data from the same file within
+                                                      the same chunk will hash to the same node. A smaller chunk size will
+                                                      result in a higher probability splits being distributed evenly across
+                                                      the cluster, but reduce locality.
 ===================================================== ======================================================================
 
 Caching Support
@@ -1415,6 +1430,30 @@ For example, ``DESCRIBE`` from the partitioned Iceberg table ``customer``:
      comment   | varchar |       |
      (3 rows)
 
+UPDATE
+^^^^^^
+
+The Iceberg connector supports :doc:`../sql/update` operations on Iceberg
+tables. Only some tables support updates. These tables must be at minimum format
+version 2, and the ``write.update.mode`` must be set to `merge-on-read`.
+
+.. code-block:: sql
+
+    UPDATE region SET name = 'EU', comment = 'Europe' WHERE regionkey = 1;
+
+.. code-block:: text
+
+    UPDATE: 1 row
+
+    Query 20250204_010341_00021_ymwi5, FINISHED, 2 nodes
+
+The query returns an error if the table does not meet the requirements for
+updates.
+
+.. code-block:: text
+
+    Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require at least format version 2 and update mode must be merge-on-read
+
 Schema Evolution
 ----------------
 
@@ -1776,6 +1815,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP``
+  * - ``TIMESTAMP``
+    - ``TIMESTAMP_WITH_TIMEZONE``
   * - ``UUID``
     - ``UUID``
   * - ``LIST``
@@ -1834,3 +1875,78 @@ Map of PrestoDB types to the relevant Iceberg types:
 
 
 No other types are supported.
+
+
+Sorted Tables
+^^^^^^^^^^^^^
+
+The Iceberg connector supports the creation of sorted tables.
+Data in the Iceberg table is sorted as each file is written.
+
+Sorted Iceberg tables can decrease query execution time in many cases; but query times can also depend on the query shape and cluster configuration.
+Sorting is particularly beneficial when the sorted columns have a
+high cardinality and are used as a filter for selective reads.
+
+Configure sort order with the ``sorted_by`` table property to specify an array of
+one or more columns to use for sorting.
+The following example creates the table with the ``sorted_by`` property, and sorts the file based
+on the field ``join_date``. The default sort direction is ASC, with null values ordered as NULLS FIRST.
+
+.. code-block:: text
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        sorted_by = ARRAY['join_date']
+    )
+
+Explicitly configure sort directions or null ordering using the following example::
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        sorted_by = ARRAY['join_date DESC NULLS FIRST', 'emp_id ASC NULLS LAST']
+    )
+
+Sorting can be combined with partitioning on the same column. For example::
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        partitioning = ARRAY['month(join_date)'],
+        sorted_by = ARRAY['join_date']
+    )
+
+The Iceberg connector does not support sort order transforms. The following sort order transformations are not supported:
+
+.. code-block:: text
+
+    bucket(n, column)
+    truncate(column, n)
+    year(column)
+    month(column)
+    day(column)
+    hour(column)
+
+For example::
+
+    CREATE TABLE emp.employees.employee (
+        emp_id BIGINT,
+        emp_name VARCHAR,
+        join_date DATE,
+        country VARCHAR)
+    WITH (
+        sorted_by = ARRAY['month(join_date)']
+    )
+
+If a user creates a table externally with non-identity sort columns and then inserts data, the following warning message will be shown.
+``Iceberg table sort order has sort fields of <X>, <Y>, ... which are not currently supported by Presto``

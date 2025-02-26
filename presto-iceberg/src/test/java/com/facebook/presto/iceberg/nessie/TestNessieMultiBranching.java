@@ -19,7 +19,6 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.containers.NessieContainer;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.google.common.collect.ImmutableMap;
 import org.projectnessie.client.api.NessieApiV1;
 import org.projectnessie.client.http.HttpClientBuilder;
 import org.projectnessie.error.NessieConflictException;
@@ -35,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
+import static com.facebook.presto.iceberg.CatalogType.NESSIE;
 import static com.facebook.presto.iceberg.nessie.NessieTestUtil.nessieConnectorProperties;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
@@ -70,7 +70,8 @@ public class TestNessieMultiBranching
     }
 
     @AfterMethod
-    public void resetData() throws NessieNotFoundException, NessieConflictException
+    public void resetData()
+            throws NessieNotFoundException, NessieConflictException
     {
         Branch defaultBranch = nessieApiV1.getDefaultBranch();
         for (Reference r : nessieApiV1.getAllReferences().get().getReferences()) {
@@ -87,7 +88,10 @@ public class TestNessieMultiBranching
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), nessieConnectorProperties(nessieContainer.getRestApiUri()));
+        return IcebergQueryRunner.builder()
+                .setCatalogType(NESSIE)
+                .setExtraConnectorProperties(nessieConnectorProperties(nessieContainer.getRestApiUri()))
+                .build().getQueryRunner();
     }
 
     @Test

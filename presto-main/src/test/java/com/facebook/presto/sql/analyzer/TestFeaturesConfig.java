@@ -251,7 +251,10 @@ public class TestFeaturesConfig
                 .setPrestoSparkExecutionEnvironment(false)
                 .setSingleNodeExecutionEnabled(false)
                 .setNativeExecutionScaleWritersThreadsEnabled(false)
-                .setEnhancedCTESchedulingEnabled(true));
+                .setEnhancedCTESchedulingEnabled(true)
+                .setExpressionOptimizerName("default")
+                .setExcludeInvalidWorkerSessionProperties(false)
+                .setAddExchangeBelowPartialAggregationOverGroupId(false));
     }
 
     @Test
@@ -452,6 +455,9 @@ public class TestFeaturesConfig
                 .put("single-node-execution-enabled", "true")
                 .put("native-execution-scale-writer-threads-enabled", "true")
                 .put("enhanced-cte-scheduling-enabled", "false")
+                .put("expression-optimizer-name", "custom")
+                .put("exclude-invalid-worker-session-properties", "true")
+                .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -649,7 +655,10 @@ public class TestFeaturesConfig
                 .setPrestoSparkExecutionEnvironment(true)
                 .setSingleNodeExecutionEnabled(true)
                 .setNativeExecutionScaleWritersThreadsEnabled(true)
-                .setEnhancedCTESchedulingEnabled(false);
+                .setEnhancedCTESchedulingEnabled(false)
+                .setExpressionOptimizerName("custom")
+                .setExcludeInvalidWorkerSessionProperties(true)
+                .setAddExchangeBelowPartialAggregationOverGroupId(true);
         assertFullMapping(properties, expected);
     }
 

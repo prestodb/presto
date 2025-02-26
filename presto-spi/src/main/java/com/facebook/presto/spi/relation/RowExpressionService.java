@@ -19,10 +19,11 @@ import com.facebook.presto.spi.ConnectorSession;
  * A set of services/utilities that are helpful for connectors to operate on row expressions
  */
 public interface RowExpressionService
+        extends ExpressionOptimizerProvider
 {
     DomainTranslator getDomainTranslator();
 
-    ExpressionOptimizer getExpressionOptimizer();
+    ExpressionOptimizer getExpressionOptimizer(ConnectorSession session);
 
     PredicateCompiler getPredicateCompiler();
 

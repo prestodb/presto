@@ -40,6 +40,7 @@ import java.util.List;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinNotNullInferenceStrategy.NONE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.TaskSpillingStrategy.ORDER_BY_CREATE_TIME;
+import static com.facebook.presto.sql.expressions.ExpressionOptimizerManager.DEFAULT_EXPRESSION_OPTIMIZER_NAME;
 import static com.facebook.presto.sql.tree.CreateView.Security.DEFINER;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
@@ -288,11 +289,15 @@ public class FeaturesConfig
     private boolean includeValuesNodeInConnectorOptimizer = true;
 
     private boolean eagerPlanValidationEnabled;
+
+    private boolean setExcludeInvalidWorkerSessionProperties;
     private int eagerPlanValidationThreadPoolSize = 20;
 
     private boolean prestoSparkExecutionEnvironment;
     private boolean singleNodeExecutionEnabled;
     private boolean nativeExecutionScaleWritersThreadsEnabled;
+    private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
+    private boolean addExchangeBelowPartialAggregationOverGroupId;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2914,5 +2919,44 @@ public class FeaturesConfig
     {
         this.nativeExecutionScaleWritersThreadsEnabled = nativeExecutionScaleWritersThreadsEnabled;
         return this;
+    }
+
+    public String getExpressionOptimizerName()
+    {
+        return expressionOptimizerName;
+    }
+
+    @Config("expression-optimizer-name")
+    @ConfigDescription("Set the expression optimizer name for parsing and analyzing.")
+    public FeaturesConfig setExpressionOptimizerName(String expressionOptimizerName)
+    {
+        this.expressionOptimizerName = expressionOptimizerName;
+        return this;
+    }
+
+    @Config("exclude-invalid-worker-session-properties")
+    @ConfigDescription("Exclude worker session properties from invalid clusters")
+    public FeaturesConfig setExcludeInvalidWorkerSessionProperties(boolean setExcludeInvalidWorkerSessionProperties)
+    {
+        this.setExcludeInvalidWorkerSessionProperties = setExcludeInvalidWorkerSessionProperties;
+        return this;
+    }
+
+    public boolean isExcludeInvalidWorkerSessionProperties()
+    {
+        return this.setExcludeInvalidWorkerSessionProperties;
+    }
+
+    @Config("optimizer.add-exchange-below-partial-aggregation-over-group-id")
+    @ConfigDescription("Enable adding an exchange below partial aggregation over a GroupId node to improve partial aggregation performance")
+    public FeaturesConfig setAddExchangeBelowPartialAggregationOverGroupId(boolean addExchangeBelowPartialAggregationOverGroupId)
+    {
+        this.addExchangeBelowPartialAggregationOverGroupId = addExchangeBelowPartialAggregationOverGroupId;
+        return this;
+    }
+
+    public boolean getAddExchangeBelowPartialAggregationOverGroupId()
+    {
+        return addExchangeBelowPartialAggregationOverGroupId;
     }
 }

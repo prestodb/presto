@@ -51,6 +51,8 @@ public class IcebergSplit
     private final List<DeleteFile> deletes;
     private final Optional<ChangelogSplitInfo> changelogSplitInfo;
     private final long dataSequenceNumber;
+    private final long affinitySchedulingFileSectionSize;
+    private final long affinitySchedulingFileSectionIndex;
 
     @JsonCreator
     public IcebergSplit(
@@ -66,7 +68,8 @@ public class IcebergSplit
             @JsonProperty("splitWeight") SplitWeight splitWeight,
             @JsonProperty("deletes") List<DeleteFile> deletes,
             @JsonProperty("changelogSplitInfo") Optional<ChangelogSplitInfo> changelogSplitInfo,
-            @JsonProperty("dataSequenceNumber") long dataSequenceNumber)
+            @JsonProperty("dataSequenceNumber") long dataSequenceNumber,
+            @JsonProperty("affinitySchedulingSectionSize") long affinitySchedulingFileSectionSize)
     {
         requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.path = requireNonNull(path, "path is null");
@@ -82,6 +85,8 @@ public class IcebergSplit
         this.deletes = ImmutableList.copyOf(requireNonNull(deletes, "deletes is null"));
         this.changelogSplitInfo = requireNonNull(changelogSplitInfo, "changelogSplitInfo is null");
         this.dataSequenceNumber = dataSequenceNumber;
+        this.affinitySchedulingFileSectionSize = affinitySchedulingFileSectionSize;
+        this.affinitySchedulingFileSectionIndex = start / affinitySchedulingFileSectionSize;
     }
 
     @JsonProperty
@@ -143,7 +148,7 @@ public class IcebergSplit
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
         if (getNodeSelectionStrategy() == SOFT_AFFINITY) {
-            return nodeProvider.get(path);
+            return nodeProvider.get(path + "#" + affinitySchedulingFileSectionIndex);
         }
         return addresses;
     }
@@ -171,6 +176,12 @@ public class IcebergSplit
     public long getDataSequenceNumber()
     {
         return dataSequenceNumber;
+    }
+
+    @JsonProperty
+    public long getAffinitySchedulingFileSectionSize()
+    {
+        return affinitySchedulingFileSectionSize;
     }
 
     @Override

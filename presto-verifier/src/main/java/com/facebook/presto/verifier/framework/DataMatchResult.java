@@ -53,6 +53,7 @@ public class DataMatchResult
     private final DataType dataType;
     private final MatchType matchType;
     private final Optional<ChecksumResult> controlChecksum;
+    private final Optional<ChecksumResult> testChecksum;
     private final OptionalLong controlRowCount;
     private final OptionalLong testRowCount;
     private final List<ColumnMatchResult<?>> mismatchedColumns;
@@ -61,6 +62,7 @@ public class DataMatchResult
             DataType dataType,
             MatchType matchType,
             Optional<ChecksumResult> controlChecksum,
+            Optional<ChecksumResult> testChecksum,
             OptionalLong controlRowCount,
             OptionalLong testRowCount,
             List<ColumnMatchResult<?>> mismatchedColumns)
@@ -68,6 +70,7 @@ public class DataMatchResult
         this.dataType = requireNonNull(dataType, "data type is null");
         this.matchType = requireNonNull(matchType, "match type is null");
         this.controlChecksum = requireNonNull(controlChecksum, "controlChecksum is null");
+        this.testChecksum = requireNonNull(testChecksum, "testChecksum is null");
         this.controlRowCount = requireNonNull(controlRowCount, "controlRowCount is null");
         this.testRowCount = requireNonNull(testRowCount, "testRowCount is null");
         this.mismatchedColumns = ImmutableList.copyOf(mismatchedColumns);
@@ -112,6 +115,12 @@ public class DataMatchResult
     {
         checkState(controlChecksum.isPresent(), "controlChecksum is missing");
         return controlChecksum.get();
+    }
+
+    public ChecksumResult getTestChecksum()
+    {
+        checkState(testChecksum.isPresent(), "testChecksum is missing");
+        return testChecksum.get();
     }
 
     public List<ColumnMatchResult<?>> getMismatchedColumns()

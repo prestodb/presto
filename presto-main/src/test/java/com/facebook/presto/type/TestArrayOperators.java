@@ -710,13 +710,13 @@ public class TestArrayOperators
     @Test
     public void testArrayMinWithNullInFirstArrayIsCompared()
     {
-        assertInvalidFunction("ARRAY_MIN(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_MIN(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]])", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testArrayMinWithNullInSecondArrayIsCompared()
     {
-        assertInvalidFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[1, NULL]])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_MIN(ARRAY [ARRAY[1, 2], ARRAY[1, NULL]])", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -764,13 +764,13 @@ public class TestArrayOperators
     @Test
     public void testArrayMaxWithNullInFirstArrayIsCompared()
     {
-        assertInvalidFunction("ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_MAX(ARRAY [ARRAY[1, NULL], ARRAY[1, 2]])", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testArrayMaxWithNullInSecondArrayIsCompared()
     {
-        assertInvalidFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[1, NULL]])", NOT_SUPPORTED);
+        assertInvalidFunction("ARRAY_MAX(ARRAY [ARRAY[1, 2], ARRAY[1, NULL]])", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
@@ -1145,7 +1145,7 @@ public class TestArrayOperators
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[ARRAY[1], ARRAY[null]])",
                 INVALID_FUNCTION_ARGUMENT,
-                "Array contains elements not supported for comparison");
+                "ARRAY comparison not supported for arrays with null elements");
         assertInvalidFunction(
                 "ARRAY_SORT(ARRAY[ROW(1), ROW(null)])",
                 INVALID_FUNCTION_ARGUMENT,

@@ -24,6 +24,7 @@ import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.sql.analyzer.RegexLibrary.JONI;
 
 public class TestFunctionsConfig
@@ -52,7 +53,8 @@ public class TestFunctionsConfig
                 .setFieldNamesInJsonCastEnabled(false)
                 .setWarnOnCommonNanPatterns(false)
                 .setLegacyCharToVarcharCoercion(false)
-                .setLegacyJsonCast(true));
+                .setLegacyJsonCast(true)
+                .setDefaultNamespacePrefix(JAVA_BUILTIN_NAMESPACE.toString()));
     }
 
     @Test
@@ -80,6 +82,7 @@ public class TestFunctionsConfig
                 .put("warn-on-common-nan-patterns", "true")
                 .put("deprecated.legacy-char-to-varchar-coercion", "true")
                 .put("legacy-json-cast", "false")
+                .put("presto.default-namespace", "native.default")
                 .build();
 
         FunctionsConfig expected = new FunctionsConfig()
@@ -103,7 +106,8 @@ public class TestFunctionsConfig
                 .setFieldNamesInJsonCastEnabled(true)
                 .setWarnOnCommonNanPatterns(true)
                 .setLegacyCharToVarcharCoercion(true)
-                .setLegacyJsonCast(false);
+                .setLegacyJsonCast(false)
+                .setDefaultNamespacePrefix("native.default");
         assertFullMapping(properties, expected);
     }
 }

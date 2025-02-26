@@ -29,7 +29,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
-import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
 import org.assertj.core.util.Files;
@@ -41,10 +40,8 @@ import org.testng.annotations.Test;
 import java.io.File;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
@@ -110,26 +107,25 @@ public class TestIcebergSmokeRestNestedNamespace
             throws Exception
     {
         Map<String, String> restConnectorProperties = restConnectorProperties(serverUri);
-        DistributedQueryRunner icebergQueryRunner = IcebergQueryRunner.createIcebergQueryRunner(
-                ImmutableMap.of(),
-                restConnectorProperties,
-                PARQUET,
-                true,
-                false,
-                OptionalInt.empty(),
-                Optional.empty(),
-                Optional.of(warehouseLocation.toPath()),
-                false,
-                Optional.of("ns1.ns2"));
+        IcebergQueryRunner icebergQueryRunner = IcebergQueryRunner.builder()
+                .setCatalogType(REST)
+                .setExtraConnectorProperties(ImmutableMap.<String, String>builder()
+                        .putAll(restConnectorProperties(serverUri))
+                        .put("iceberg.rest.nested.namespace.enabled", "true")
+                        .build())
+                .setDataDirectory(Optional.of(warehouseLocation.toPath()))
+                .setSchemaName("ns1.ns2")
+                .build();
 
         // additional catalog for testing nested namespace disabled
-        icebergQueryRunner.createCatalog(ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG, "iceberg",
+        icebergQueryRunner.addCatalog(ICEBERG_NESTED_NAMESPACE_DISABLED_CATALOG,
                 new ImmutableMap.Builder<String, String>()
-                .putAll(restConnectorProperties)
-                .put("iceberg.rest.nested.namespace.enabled", "false")
-                .build());
+                        .putAll(restConnectorProperties)
+                        .put("iceberg.catalog.type", REST.name())
+                        .put("iceberg.rest.nested.namespace.enabled", "false")
+                        .build());
 
-        return icebergQueryRunner;
+        return icebergQueryRunner.getQueryRunner();
     }
 
     protected IcebergNativeCatalogFactory getCatalogFactory(IcebergRestConfig restConfig)
@@ -180,7 +176,9 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   location = '%s',\n" +
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100\n" +
+                        "   metrics_max_inferred_column = 100,\n" +
+                        "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")", schemaName, getLocation(schemaName, "orders")));
     }
 
@@ -215,7 +213,9 @@ public class TestIcebergSmokeRestNestedNamespace
                 "   location = '%s',\n" +
                 "   metadata_delete_after_commit = false,\n" +
                 "   metadata_previous_versions_max = 100,\n" +
-                "   metrics_max_inferred_column = 100\n" +
+                "   metrics_max_inferred_column = 100,\n" +
+                "   \"read.split.target-size\" = 134217728,\n" +
+                "   \"write.update.mode\" = 'merge-on-read'\n" +
                 ")";
         String createTableSql = format(createTableTemplate, schemaName, "test table comment", getLocation(schemaName, "test_table_comments"));
 
@@ -255,7 +255,9 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
                         "   metrics_max_inferred_column = 100,\n" +
-                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
+                        "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)'],\n" +
+                        "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.update.mode\" = 'merge-on-read'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -315,14 +317,17 @@ public class TestIcebergSmokeRestNestedNamespace
                         "   location = '%s',\n" +
                         "   metadata_delete_after_commit = false,\n" +
                         "   metadata_previous_versions_max = 100,\n" +
-                        "   metrics_max_inferred_column = 100\n" +
+                        "   metrics_max_inferred_column = 100,\n" +
+                        "   \"read.split.target-size\" = 134217728,\n" +
+                        "   \"write.update.mode\" = '%s'\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 "test_create_table_with_format_version_" + formatVersion,
                 defaultDeleteMode,
                 formatVersion,
-                getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion));
+                getLocation(getSession().getSchema().get(), "test_create_table_with_format_version_" + formatVersion),
+                defaultDeleteMode);
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_create_table_with_format_version_" + formatVersion);
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);

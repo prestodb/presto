@@ -41,7 +41,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
@@ -155,7 +155,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         protected FunctionWithProvidedBlockReturnPlaceConvention1()
         {
             super(new Signature(
-                    QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "identity1"),
+                    QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "identity1"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),
@@ -275,7 +275,7 @@ public class TestProvidedBlockBuilderReturnPlaceConvention
         protected FunctionWithProvidedBlockReturnPlaceConvention2()
         {
             super(new Signature(
-                    QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, "identity2"),
+                    QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "identity2"),
                     FunctionKind.SCALAR,
                     ImmutableList.of(typeVariable("T")),
                     ImmutableList.of(),

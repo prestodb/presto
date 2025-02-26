@@ -35,7 +35,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
 import static com.facebook.presto.operator.aggregation.AggregationUtils.generateAggregationName;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.Signature.comparableTypeParameter;
@@ -68,7 +68,7 @@ public abstract class MergeStatisticalDigestFunction
     MergeStatisticalDigestFunction(String name, String type, StatisticalDigestStateFactory factory, SqlFunctionVisibility visibility)
     {
         super(new Signature(
-                        QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
+                        QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, name),
                         AGGREGATE,
                         ImmutableList.of(comparableTypeParameter("T")),
                         ImmutableList.of(),

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.common.type;
 
-import com.facebook.presto.common.NotSupportedException;
+import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import io.airlift.slice.Slice;
@@ -189,7 +189,7 @@ public final class TypeUtils
     static void checkElementNotNull(boolean isNull, String errorMsg)
     {
         if (isNull) {
-            throw new NotSupportedException(errorMsg);
+            throw new InvalidFunctionArgumentException(errorMsg);
         }
     }
 

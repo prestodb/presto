@@ -189,15 +189,16 @@ public class HiveTableOperations
     {
         if (commitLockCache == null) {
             commitLockCache = CacheBuilder.newBuilder()
-                .expireAfterAccess(evictionTimeout, TimeUnit.MILLISECONDS)
-                .build(
-                    new CacheLoader<String, ReentrantLock>() {
-                        @Override
-                        public ReentrantLock load(String fullName)
-                        {
-                            return new ReentrantLock();
-                        }
-                    });
+                    .expireAfterAccess(evictionTimeout, TimeUnit.MILLISECONDS)
+                    .build(
+                            new CacheLoader<String, ReentrantLock>()
+                            {
+                                @Override
+                                public ReentrantLock load(String fullName)
+                                {
+                                    return new ReentrantLock();
+                                }
+                            });
         }
     }
 
@@ -314,11 +315,11 @@ public class HiveTableOperations
             PrestoPrincipal owner = new PrestoPrincipal(USER, table.getOwner());
             PrincipalPrivileges privileges = new PrincipalPrivileges(
                     ImmutableMultimap.<String, HivePrivilegeInfo>builder()
-                        .put(table.getOwner(), new HivePrivilegeInfo(SELECT, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(INSERT, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(UPDATE, true, owner, owner))
-                        .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
-                        .build(),
+                            .put(table.getOwner(), new HivePrivilegeInfo(SELECT, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(INSERT, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(UPDATE, true, owner, owner))
+                            .put(table.getOwner(), new HivePrivilegeInfo(DELETE, true, owner, owner))
+                            .build(),
                     ImmutableMultimap.of());
             if (base == null) {
                 metastore.createTable(metastoreContext, table, privileges, emptyList());

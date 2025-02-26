@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.getAffinitySchedulingFileSectionSize;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.fromIcebergFileContent;
@@ -52,6 +53,7 @@ public class EqualityDeletesSplitSource
 {
     private final ConnectorSession session;
     private final Map<Integer, PartitionSpec> specById;
+    private final long affinitySchedulingSectionSize;
     private CloseableIterator<DeleteFile> deleteFiles;
 
     public EqualityDeletesSplitSource(
@@ -64,6 +66,7 @@ public class EqualityDeletesSplitSource
         requireNonNull(deleteFiles, "deleteFiles is null");
         this.specById = table.specs();
         this.deleteFiles = CloseableIterable.filter(deleteFiles, deleteFile -> fromIcebergFileContent(deleteFile.content()) == EQUALITY_DELETES).iterator();
+        this.affinitySchedulingSectionSize = getAffinitySchedulingFileSectionSize(session).toBytes();
     }
 
     @Override
@@ -121,6 +124,7 @@ public class EqualityDeletesSplitSource
                 SplitWeight.standard(),
                 ImmutableList.of(),
                 Optional.empty(),
-                IcebergUtil.getDataSequenceNumber(deleteFile));
+                IcebergUtil.getDataSequenceNumber(deleteFile),
+                affinitySchedulingSectionSize);
     }
 }
