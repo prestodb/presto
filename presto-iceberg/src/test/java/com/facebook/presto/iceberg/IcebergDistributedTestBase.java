@@ -103,8 +103,11 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -135,6 +138,7 @@ import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.PARQUET_BATCH_READ_OPTIMIZATION_ENABLED;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileContent.EQUALITY_DELETES;
 import static com.facebook.presto.iceberg.FileContent.POSITION_DELETES;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
@@ -165,6 +169,7 @@ import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -1860,6 +1865,77 @@ public abstract class IcebergDistributedTestBase
         // Currently Presto returns current table schema for any previous snapshot access https://github.com/prestodb/presto/issues/23553
         // otherwise querying a tag uses the snapshot's schema https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
         assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, NULL)");
+    }
+
+    @Test
+    public void testMetadataLogTable()
+    {
+        try {
+            assertUpdate("CREATE TABLE test_table_metadatalog (id1 BIGINT, id2 BIGINT)");
+            assertQuery("SELECT count(*) FROM \"test_table_metadatalog$metadata_log_entries\"", "VALUES 1");
+            //metadata file created at table creation
+            assertQuery("SELECT latest_snapshot_id FROM \"test_table_metadatalog$metadata_log_entries\"", "VALUES NULL");
+
+            assertUpdate("INSERT INTO test_table_metadatalog VALUES (0, 00), (1, 10), (2, 20)", 3);
+            Table icebergTable = loadTable("test_table_metadatalog");
+            Snapshot latestSnapshot = icebergTable.currentSnapshot();
+            assertQuery("SELECT count(*) FROM \"test_table_metadatalog$metadata_log_entries\"", "VALUES 2");
+            assertQuery("SELECT latest_snapshot_id FROM \"test_table_metadatalog$metadata_log_entries\" order by timestamp DESC limit 1", "values " + latestSnapshot.snapshotId());
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_table_metadatalog");
+        }
+    }
+
+    @DataProvider(name = "timezoneId")
+    public Object[][] getTimezonesId()
+    {
+        return new Object[][]{{"UTC"}, {"America/Los_Angeles"}, {"Asia/Shanghai"}, {"Asia/Kolkata"}, {"America/Bahia_Banderas"}, {"Europe/Brussels"}};
+    }
+
+    @Test(dataProvider = "timezoneId")
+    public void testMetadataLogTableWithTimeZoneId(String zoneId)
+    {
+        try {
+            Session sessionForTimeZone = Session.builder(getSession())
+                        .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(zoneId)).build();
+
+            assertUpdate(sessionForTimeZone, "CREATE TABLE test_table_metadatalog_tz_id (id1 BIGINT, id2 BIGINT)");
+            assertQuery(sessionForTimeZone, "SELECT count(*) FROM \"test_table_metadatalog_tz_id$metadata_log_entries\"", "VALUES 1");
+            //metadata file created at table creation
+            assertQuery(sessionForTimeZone, "SELECT latest_snapshot_id FROM \"test_table_metadatalog_tz_id$metadata_log_entries\"", "VALUES NULL");
+            Table icebergTable = loadTable("test_table_metadatalog_tz_id");
+            TableMetadata tableMetadata = ((BaseTable) icebergTable).operations().current();
+            ZonedDateTime zonedDateTime1 = Instant.ofEpochMilli(tableMetadata.lastUpdatedMillis())
+                    .atZone(ZoneId.of(zoneId));
+            String metadataFileLocation1 = catalogType.equals(HADOOP)
+                    ? "file:" + tableMetadata.metadataFileLocation()
+                    : tableMetadata.metadataFileLocation();
+
+            assertUpdate("INSERT INTO test_table_metadatalog_tz_id VALUES (0, 00), (1, 10), (2, 20)", 3);
+            icebergTable = loadTable("test_table_metadatalog_tz_id");
+            tableMetadata = ((BaseTable) icebergTable).operations().current();
+            ZonedDateTime zonedDateTime2 = Instant.ofEpochMilli(tableMetadata.lastUpdatedMillis())
+                    .atZone(ZoneId.of(zoneId));
+            String metadataFileLocation2 = catalogType.equals(HADOOP)
+                    ? "file:" + tableMetadata.metadataFileLocation()
+                    : tableMetadata.metadataFileLocation();
+
+            Snapshot latestSnapshot = icebergTable.currentSnapshot();
+            assertQuery("SELECT count(*) FROM \"test_table_metadatalog_tz_id$metadata_log_entries\"", "VALUES 2");
+            assertQuery("SELECT latest_snapshot_id FROM \"test_table_metadatalog_tz_id$metadata_log_entries\" order by timestamp DESC limit 1", "values " + latestSnapshot.snapshotId());
+
+            MaterializedResult result = getQueryRunner().execute(sessionForTimeZone, "SELECT * FROM \"test_table_metadatalog_tz_id$metadata_log_entries\"");
+            assertThat(result).hasSize(2);
+            assertThat(result)
+                    .anySatisfy(row -> assertThat(row)
+                            .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, zonedDateTime1.toInstant().atZone(ZoneId.of("UTC")), metadataFileLocation1, null, null, null)))
+                    .anySatisfy(row -> assertThat(row)
+                            .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, zonedDateTime2.toInstant().atZone(ZoneId.of(zoneId)), metadataFileLocation2, latestSnapshot.snapshotId(), latestSnapshot.schemaId(), latestSnapshot.sequenceNumber())));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_table_metadatalog_tz_id");
+        }
     }
 
     @Test
