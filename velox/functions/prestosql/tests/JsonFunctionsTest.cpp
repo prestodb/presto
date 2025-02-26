@@ -231,6 +231,7 @@ TEST_F(JsonFunctionsTest, jsonParse) {
   EXPECT_EQ(jsonParse(R"(["k1", "v1"])"), R"(["k1","v1"])");
   testJsonParse(R"({ "abc" : "\/"})", R"({"abc":"/"})");
   testJsonParse(R"({ "abc" : "\\/"})", R"({"abc":"\\/"})");
+  testJsonParse("{\"\\\\\":null, \"\\\\\":null}", R"({"\\":null,"\\":null})");
   testJsonParse(R"({ "abc" : [1, 2, 3, 4    ]})", R"({"abc":[1,2,3,4]})");
   // Test out with unicodes and empty keys.
   testJsonParse(
