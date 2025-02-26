@@ -103,8 +103,6 @@
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
         <grpc.version>1.68.0</grpc.version>
-        <dep.log4j.version>2.24.3</dep.log4j.version>
-
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
 
@@ -232,20 +230,6 @@
                 <version>${dep.netty.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-api</artifactId>
-                <version>${dep.log4j.version}</version>
-                <scope>runtime</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-core</artifactId>
-                <version>${dep.log4j.version}</version>
-                <scope>runtime</scope>
             </dependency>
 
             <dependency>
