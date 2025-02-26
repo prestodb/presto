@@ -961,12 +961,6 @@ g .operator-stats:hover {
     color:rgb(92, 184, 92);
     font-size:14px
 }
-.dropdown-menu-items{
-    background-color:rgb(255, 255, 255);
-    color:rgb(51, 51, 51);
-    border-color:rgb(204, 204, 204);
-    }
-
-   .data-text{
+.dropdown-text {
     font-size: 14px;
-   } 
+}
