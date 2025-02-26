@@ -11,34 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.iceberg.statistics;
+package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.stats.DistributionStat;
 import com.facebook.presto.iceberg.cache.CaffeineCacheStatsMBean;
 import com.facebook.presto.iceberg.cache.SimpleForwardingCache;
-import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.github.benmanes.caffeine.cache.Cache;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-public class StatisticsFileCache
-        extends SimpleForwardingCache<StatisticsFileCacheKey, ColumnStatistics>
+public class ManifestFileCache
+        extends SimpleForwardingCache<ManifestFileCacheKey, ManifestFileCachedContent>
 {
     private final DistributionStat fileSizes = new DistributionStat();
-    private final DistributionStat columnCounts = new DistributionStat();
-    private final CaffeineCacheStatsMBean cacheStats;
+    private final long maxFileLength;
+    private final boolean enabled;
+    private final long bufferChunkSize;
+    private final CaffeineCacheStatsMBean statsMBean;
 
-    public StatisticsFileCache(Cache<StatisticsFileCacheKey, ColumnStatistics> delegate)
+    public ManifestFileCache(Cache<ManifestFileCacheKey, ManifestFileCachedContent> delegate, boolean enabled, long maxFileLength, long bufferChunkSize)
     {
         super(delegate);
-        cacheStats = new CaffeineCacheStatsMBean(delegate);
+        this.maxFileLength = maxFileLength;
+        this.enabled = enabled;
+        this.bufferChunkSize = bufferChunkSize;
+        this.statsMBean = new CaffeineCacheStatsMBean(delegate);
     }
 
     @Managed
     @Nested
     public CaffeineCacheStatsMBean getCacheStats()
     {
-        return cacheStats;
+        return statsMBean;
     }
 
     @Managed
@@ -53,15 +57,18 @@ public class StatisticsFileCache
         fileSizes.add(size);
     }
 
-    @Managed
-    @Nested
-    public DistributionStat getColumnCountDistribution()
+    public long getMaxFileLength()
     {
-        return columnCounts;
+        return maxFileLength;
     }
 
-    public void recordColumnCount(long count)
+    public long getBufferChunkSize()
     {
-        columnCounts.add(count);
+        return bufferChunkSize;
+    }
+
+    public boolean isEnabled()
+    {
+        return enabled;
     }
 }
