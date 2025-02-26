@@ -222,7 +222,6 @@ public class PartitionMetadata
     public Partition toPartition(String databaseName, String tableName, List<String> values, String location)
     {
         return new Partition(
-                Optional.empty(),
                 databaseName,
                 tableName,
                 values,

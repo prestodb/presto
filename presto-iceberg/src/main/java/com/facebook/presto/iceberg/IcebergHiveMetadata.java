@@ -259,7 +259,7 @@ public class IcebergHiveMetadata
                     .collect(toImmutableList());
         }
         // If schema name is not present, list tables from all schemas
-        List<String> schemaNames = Optional.of(schemaName.get())
+        List<String> schemaNames = schemaName
                 .map(ImmutableList::of)
                 .orElseGet(() -> ImmutableList.copyOf(listSchemaNames(session)));
         return schemaNames.stream()
@@ -443,7 +443,7 @@ public class IcebergHiveMetadata
     {
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        for (String schema : listSchemas(session, Optional.ofNullable(schemaName.get()).orElse(null))) {
+        for (String schema : listSchemas(session, schemaName.orElse(null))) {
             for (String tableName : metastore.getAllViews(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schema)).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schema, tableName));
             }

@@ -169,6 +169,7 @@ import static org.apache.hadoop.hive.metastore.api.LockState.ACQUIRED;
 import static org.apache.hadoop.hive.metastore.api.LockState.WAITING;
 import static org.apache.hadoop.hive.metastore.api.LockType.EXCLUSIVE;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.parseDbName;
 
 @ThreadSafe
 public class ThriftHiveMetastore
@@ -259,7 +260,7 @@ public class ThriftHiveMetastore
     public List<UniqueConstraint<String>> getUniqueConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
     {
         try {
-            String[] parseDbName = MetaStoreUtils.parseDbName(dbName, null);
+            String[] parseDbName = parseDbName(dbName, null);
             Optional<UniqueConstraintsResponse> uniqueConstraintsResponse = retry()
                     .stopOnIllegalExceptions()
                     .run("getUniqueConstraints", stats.getGetUniqueConstraints().wrap(() ->
@@ -297,7 +298,7 @@ public class ThriftHiveMetastore
     public List<NotNullConstraint<String>> getNotNullConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
     {
         try {
-            String[] parseDbName = MetaStoreUtils.parseDbName(dbName, null);
+            String[] parseDbName = parseDbName(dbName, null);
             Optional<NotNullConstraintsResponse> notNullConstraintsResponse = retry()
                     .stopOnIllegalExceptions()
                     .run("getNotNullConstraints", stats.getGetNotNullConstraints().wrap(() ->

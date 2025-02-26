@@ -51,7 +51,6 @@ public class Partition
 
     @JsonCreator
     public Partition(
-            @JsonProperty("catalogName") Optional<String> catalogName,
             @JsonProperty("databaseName") String databaseName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("values") List<String> values,
@@ -64,6 +63,36 @@ public class Partition
             @JsonProperty("createTime") int createTime,
             @JsonProperty("lastDataCommitTime") long lastDataCommitTime,
             @JsonProperty("rowIdPartitionComponent") Optional<byte[]> rowIdPartitionComponent)
+    {
+        this(
+                Optional.empty(),
+                databaseName,
+                tableName,
+                values,
+                storage,
+                columns,
+                parameters,
+                partitionVersion,
+                eligibleToIgnore,
+                sealedPartition,
+                createTime,
+                lastDataCommitTime,
+                rowIdPartitionComponent);
+    }
+    public Partition(
+            Optional<String> catalogName,
+            String databaseName,
+            String tableName,
+            List<String> values,
+            Storage storage,
+            List<Column> columns,
+            Map<String, String> parameters,
+            Optional<Long> partitionVersion,
+            boolean eligibleToIgnore,
+            boolean sealedPartition,
+            int createTime,
+            long lastDataCommitTime,
+            Optional<byte[]> rowIdPartitionComponent)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.databaseName = requireNonNull(databaseName, "databaseName is null");

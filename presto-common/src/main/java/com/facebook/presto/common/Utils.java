@@ -138,7 +138,7 @@ public final class Utils
      * @param schemaName the original schema name
      * @return the formatted schema name (Example - @catalog_name#schema_name)
      */
-    public static String constructSchemaName(Optional<String> catalogName, String schemaName)
+    public static String constructSchemaName(Optional<String> catalogName, @Nullable String schemaName)
     {
         if (catalogName.isPresent() && schemaName != null && !schemaName.equals(DEFAULT_DATABASE) && !schemaName.contains(CATALOG_DB_SEPARATOR)) {
             return String.format(
