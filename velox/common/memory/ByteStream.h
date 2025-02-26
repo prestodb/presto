@@ -191,18 +191,9 @@ class ByteInputStream {
       current_->position += sizeof(T);
       return folly::loadUnaligned<T>(source);
     }
-    // The number straddles two buffers. We read byte by byte and make a
-    // little-endian uint64_t. The bytes can be cast to any integer or floating
-    // point type since the wire format has the machine byte order.
-    static_assert(sizeof(T) <= sizeof(uint64_t));
-    union {
-      uint64_t bits;
-      T typed;
-    } value{};
-    for (int32_t i = 0; i < sizeof(T); ++i) {
-      value.bits |= static_cast<uint64_t>(readByte()) << (i * 8);
-    }
-    return value.typed;
+    T value;
+    readBytes(&value, sizeof(T));
+    return value;
   }
 
   template <typename Char>
@@ -222,7 +213,6 @@ class ByteInputStream {
  protected:
   // Points to the current buffered byte range.
   ByteRange* current_{nullptr};
-  std::vector<ByteRange> ranges_;
 };
 
 /// Read-only input stream backed by a set of buffers.
@@ -268,6 +258,8 @@ class BufferInputStream : public ByteInputStream {
   const std::vector<ByteRange>& ranges() const {
     return ranges_;
   }
+
+  std::vector<ByteRange> ranges_;
 };
 
 template <>

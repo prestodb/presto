@@ -165,31 +165,6 @@ void HashStringAllocator::freeToPool(void* ptr, size_t size) {
   pool()->free(ptr, size);
 }
 
-// static
-std::unique_ptr<ByteInputStream> HashStringAllocator::prepareRead(
-    const Header* begin,
-    size_t maxBytes) {
-  std::vector<ByteRange> ranges;
-  auto* header = const_cast<Header*>(begin);
-
-  size_t totalBytes{0};
-  for (;;) {
-    ranges.push_back(ByteRange{
-        reinterpret_cast<uint8_t*>(header->begin()), header->usableSize(), 0});
-    totalBytes += ranges.back().size;
-    if (!header->isContinued()) {
-      break;
-    }
-
-    if (totalBytes >= maxBytes) {
-      break;
-    }
-
-    header = header->nextContinued();
-  }
-  return std::make_unique<BufferInputStream>(std::move(ranges));
-}
-
 HashStringAllocator::Position HashStringAllocator::newWrite(
     ByteOutputStream& stream,
     int32_t preferredSize) {
@@ -363,9 +338,9 @@ StringView HashStringAllocator::contiguousString(
     return view;
   }
 
-  auto stream = prepareRead(headerOf(view.data()));
+  InputStream stream(headerOf(view.data()));
   storage.resize(view.size());
-  stream->readBytes(storage.data(), view.size());
+  stream.ByteInputStream::readBytes(storage.data(), view.size());
   return StringView(storage);
 }
 

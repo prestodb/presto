@@ -52,7 +52,6 @@ FileInputStream::~FileInputStream() {
 
 void FileInputStream::readNextRange() {
   VELOX_CHECK(current_ == nullptr || current_->availableBytes() == 0);
-  ranges_.clear();
   current_ = nullptr;
 
   int32_t readBytes{0};
@@ -77,9 +76,8 @@ void FileInputStream::readNextRange() {
     }
   }
 
-  ranges_.resize(1);
-  ranges_[0] = {buffer()->asMutable<uint8_t>(), readBytes, 0};
-  current_ = ranges_.data();
+  range_ = {buffer()->asMutable<uint8_t>(), readBytes, 0};
+  current_ = &range_;
   fileOffset_ += readBytes;
 
   updateStats(readBytes, readTimeNs);

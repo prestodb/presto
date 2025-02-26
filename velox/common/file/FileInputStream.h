@@ -123,6 +123,8 @@ class FileInputStream : public ByteInputStream {
   folly::SemiFuture<uint64_t> readAheadWait_{
       folly::SemiFuture<uint64_t>::makeEmpty()};
 
+  ByteRange range_;
+
   Stats stats_;
 };
 } // namespace facebook::velox::common

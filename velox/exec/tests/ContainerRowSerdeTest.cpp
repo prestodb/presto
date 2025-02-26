@@ -81,9 +81,9 @@ class ContainerRowSerdeTest : public testing::Test,
       data->setNull(i, true);
     }
 
-    auto in = HashStringAllocator::prepareRead(position.header);
+    HashStringAllocator::InputStream in(position.header);
     for (auto i = 0; i < numRows; ++i) {
-      ContainerRowSerde::deserialize(*in, i, data.get());
+      ContainerRowSerde::deserialize(in, i, data.get());
     }
     return data;
   }
@@ -112,19 +112,19 @@ class ContainerRowSerdeTest : public testing::Test,
         mode};
 
     for (auto i = 0; i < expected.size(); ++i) {
-      auto stream = HashStringAllocator::prepareRead(positions.at(i).header);
+      HashStringAllocator::InputStream stream(positions.at(i).header);
       if (expected.at(i) == kIndeterminate &&
           mode == CompareFlags::NullHandlingMode::kNullAsIndeterminate &&
           !equalsOnly) {
         VELOX_ASSERT_THROW(
             ContainerRowSerde::compareWithNulls(
-                *stream, decodedVector, i, compareFlags),
+                stream, decodedVector, i, compareFlags),
             "Ordering nulls is not supported");
       } else {
         ASSERT_EQ(
             expected.at(i),
             ContainerRowSerde::compareWithNulls(
-                *stream, decodedVector, i, compareFlags));
+                stream, decodedVector, i, compareFlags));
       }
     }
   }
@@ -146,22 +146,20 @@ class ContainerRowSerdeTest : public testing::Test,
         mode};
 
     for (auto i = 0; i < expected.size(); ++i) {
-      auto leftStream =
-          HashStringAllocator::prepareRead(leftPositions.at(i).header);
-      auto rightStream =
-          HashStringAllocator::prepareRead(rightPositions.at(i).header);
+      HashStringAllocator::InputStream leftStream(leftPositions.at(i).header);
+      HashStringAllocator::InputStream rightStream(rightPositions.at(i).header);
       if (expected.at(i) == kIndeterminate &&
           mode == CompareFlags::NullHandlingMode::kNullAsIndeterminate &&
           !equalsOnly) {
         VELOX_ASSERT_THROW(
             ContainerRowSerde::compareWithNulls(
-                *leftStream, *rightStream, type.get(), compareFlags),
+                leftStream, rightStream, type.get(), compareFlags),
             "Ordering nulls is not supported");
       } else {
         ASSERT_EQ(
             expected.at(i),
             ContainerRowSerde::compareWithNulls(
-                *leftStream, *rightStream, type.get(), compareFlags));
+                leftStream, rightStream, type.get(), compareFlags));
       }
     }
   }
@@ -181,37 +179,34 @@ class ContainerRowSerdeTest : public testing::Test,
 
     for (auto i = 0; i < positionsActual.size(); ++i) {
       // Test comparing reading from a ByteInputStream and a DecodedVector.
-      auto actualStream =
-          HashStringAllocator::prepareRead(positionsActual.at(i).header);
+      HashStringAllocator::InputStream actualStream(
+          positionsActual.at(i).header);
       ASSERT_EQ(
           0,
           ContainerRowSerde::compare(
-              *actualStream, decodedVector, i, compareFlags))
+              actualStream, decodedVector, i, compareFlags))
           << "at " << i << ": " << actual->toString(i) << " "
           << expected->toString(i);
 
       // Test comparing reading from two ByteInputStreams.
       actualStream =
-          HashStringAllocator::prepareRead(positionsActual.at(i).header);
-      auto expectedStream =
-          HashStringAllocator::prepareRead(positionsExpected.at(i).header);
+          HashStringAllocator::InputStream(positionsActual.at(i).header);
+      HashStringAllocator::InputStream expectedStream(
+          positionsExpected.at(i).header);
       ASSERT_EQ(
           0,
           ContainerRowSerde::compare(
-              *actualStream,
-              *expectedStream,
-              actual->type().get(),
-              compareFlags))
+              actualStream, expectedStream, actual->type().get(), compareFlags))
           << "at " << i << ": " << actual->toString(i) << " "
           << expected->toString(i);
 
       // Test comparing hashes.
       actualStream =
-          HashStringAllocator::prepareRead(positionsActual.at(i).header);
+          HashStringAllocator::InputStream(positionsActual.at(i).header);
 
       ASSERT_EQ(
           expected->hashValueAt(i),
-          ContainerRowSerde::hash(*actualStream, actual->type().get()))
+          ContainerRowSerde::hash(actualStream, actual->type().get()))
           << "at " << i << ": " << actual->toString(i) << " "
           << expected->toString(i);
     }

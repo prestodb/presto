@@ -106,20 +106,20 @@ ValueListReader::ValueListReader(ValueList& values)
     : size_{values.size()},
       lastNullsStart_{size_ % 64 == 0 ? size_ - 64 : size_ - size_ % 64},
       lastNulls_{values.lastNulls()},
-      dataStream_{HashStringAllocator::prepareRead(values.dataBegin())},
-      nullsStream_{HashStringAllocator::prepareRead(values.nullsBegin())} {}
+      dataStream_{values.dataBegin()},
+      nullsStream_{values.nullsBegin()} {}
 
 bool ValueListReader::next(BaseVector& output, vector_size_t outputIndex) {
   if (pos_ == lastNullsStart_) {
     nulls_ = lastNulls_;
   } else if (pos_ % 64 == 0) {
-    nulls_ = nullsStream_->read<uint64_t>();
+    nulls_ = nullsStream_.read<uint64_t>();
   }
 
   if (nulls_ & (1UL << (pos_ % 64))) {
     output.setNull(outputIndex, true);
   } else {
-    exec::ContainerRowSerde::deserialize(*dataStream_, outputIndex, &output);
+    exec::ContainerRowSerde::deserialize(dataStream_, outputIndex, &output);
   }
 
   pos_++;

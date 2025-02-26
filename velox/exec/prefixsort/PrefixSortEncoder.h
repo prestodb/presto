@@ -294,9 +294,9 @@ FOLLY_ALWAYS_INLINE void PrefixSortEncoder::encodeNoNulls(
   } else {
     // 'data' is stored in non-contiguous allocation pieces in the row
     // container, we only read prefix size data out.
-    auto stream = HashStringAllocator::prepareRead(
+    HashStringAllocator::InputStream stream(
         HashStringAllocator::headerOf(value.data()));
-    stream->readBytes(dest, copySize);
+    stream.ByteInputStream::readBytes(dest, copySize);
   }
 
   if (value.size() < encodeSize) {

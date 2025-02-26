@@ -254,15 +254,15 @@ TEST_F(HashStringAllocatorTest, finishWrite) {
       replaceStart.offset() + 4);
 
   // Read back long and short strings.
-  auto inputStream = HSA::prepareRead(longStart.header);
+  HSA::InputStream inputStream(longStart.header);
 
   std::string copy;
   copy.resize(longString.size());
-  inputStream->readBytes(copy.data(), copy.size());
+  inputStream.ByteInputStream::readBytes(copy.data(), copy.size());
   ASSERT_EQ(copy, longString);
 
   copy.resize(4);
-  inputStream->readBytes(copy.data(), 4);
+  inputStream.ByteInputStream::readBytes(copy.data(), 4);
   ASSERT_EQ(copy, "abcd");
 
   auto allocatedBytes = allocator_->checkConsistency();
@@ -277,10 +277,10 @@ TEST_F(HashStringAllocatorTest, finishWrite) {
     stream.appendStringView(largeString);
     allocator_->finishWrite(stream, 0);
 
-    auto inStream = HSA::prepareRead(start.header);
+    HSA::InputStream inStream(start.header);
     std::string copy;
     copy.resize(largeString.size());
-    inStream->readBytes(copy.data(), copy.size());
+    inStream.ByteInputStream::readBytes(copy.data(), copy.size());
     ASSERT_EQ(copy, largeString);
     allocatedBytes = allocator_->checkConsistency();
     ASSERT_EQ(allocatedBytes, allocator_->currentBytes());
@@ -396,10 +396,10 @@ TEST_F(HashStringAllocatorTest, rewrite) {
     stream.appendOne(67890LL);
     position = allocator_->finishWrite(stream, 0).second;
     EXPECT_EQ(3 * sizeof(int64_t), HSA::offset(header, position));
-    auto inStream = HSA::prepareRead(header);
-    EXPECT_EQ(123456789012345LL, inStream->read<int64_t>());
-    EXPECT_EQ(12345LL, inStream->read<int64_t>());
-    EXPECT_EQ(67890LL, inStream->read<int64_t>());
+    HSA::InputStream inStream(header);
+    EXPECT_EQ(123456789012345LL, inStream.read<int64_t>());
+    EXPECT_EQ(12345LL, inStream.read<int64_t>());
+    EXPECT_EQ(67890LL, inStream.read<int64_t>());
   }
   // The stream contains 3 int64_t's.
   auto end = HSA::seek(header, 3 * sizeof(int64_t));
@@ -765,5 +765,55 @@ TEST_F(HashStringAllocatorTest, freezeAndExecute) {
   // mutable.
   allocator_->freezeAndExecute([&]() { allocator_->currentBytes(); });
 }
+
+TEST_F(HashStringAllocatorTest, inputStream) {
+  std::string expected;
+  ByteOutputStream out(allocator_.get());
+  auto start = allocator_->newWrite(out, 1);
+  out.appendStringView(std::string_view("a"));
+  expected += "a";
+  auto last = allocator_->finishWrite(out, 0).second;
+  for (int i = 1; i < 10; ++i) {
+    allocator_->extendWrite(last, out);
+    std::string data(i + 1, 'a' + i);
+    out.appendStringView(data);
+    expected += data;
+    last = allocator_->finishWrite(out, 0).second;
+  }
+  ASSERT_TRUE(start.header->isContinued());
+  HSA::InputStream in(start.header);
+  ASSERT_GE(in.size(), out.size());
+  ASSERT_EQ(in.tellp(), 0);
+  ASSERT_FALSE(in.atEnd());
+  for (int i = 10, j = 0; i >= 1; --i) {
+    if (i % 2 == 0) {
+      char actual[10];
+      in.ByteInputStream::readBytes(actual, i);
+      ASSERT_LE(j + i, expected.size());
+      ASSERT_EQ(
+          std::string_view(actual, i),
+          std::string_view(expected.data() + j, i));
+    } else {
+      in.skip(i);
+    }
+    j += i;
+  }
+  ASSERT_EQ(in.tellp(), 55);
+  ASSERT_EQ(in.size(), 55 + in.remainingSize());
+  in.seekp(5);
+  ASSERT_EQ(in.tellp(), 5);
+  ASSERT_FALSE(in.atEnd());
+  for (int j = 5; j < expected.size();) {
+    auto actual = in.nextView(5);
+    auto size = std::min(actual.size(), expected.size() - j);
+    ASSERT_EQ(
+        actual.substr(0, size), std::string_view(expected.data() + j, size));
+    j += size;
+  }
+  in.skip(in.remainingSize());
+  ASSERT_TRUE(in.atEnd());
+  ASSERT_EQ(in.tellp(), in.size());
+}
+
 } // namespace
 } // namespace facebook::velox

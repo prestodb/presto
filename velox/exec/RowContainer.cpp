@@ -629,13 +629,13 @@ void RowContainer::store(
   }
 }
 
-std::unique_ptr<ByteInputStream> RowContainer::prepareRead(
+HashStringAllocator::InputStream RowContainer::prepareRead(
     const char* row,
     int32_t offset) {
   const auto& view = reinterpret_cast<const std::string_view*>(row + offset);
   // We set 'stream' to range over the ranges that start at the Header
   // immediately below the first character in the std::string_view.
-  return HashStringAllocator::prepareRead(
+  return HashStringAllocator::InputStream(
       HashStringAllocator::headerOf(view->data()));
 }
 
@@ -684,9 +684,9 @@ int32_t RowContainer::extractVariableSizeAt(
                 .size() >= value.size()) {
       ::memcpy(output + 4, value.data(), size);
     } else {
-      auto stream = HashStringAllocator::prepareRead(
+      HashStringAllocator::InputStream stream(
           HashStringAllocator::headerOf(value.data()));
-      stream->readBytes(output + 4, size);
+      stream.ByteInputStream::readBytes(output + 4, size);
     }
     return 4 + size;
   }
@@ -697,7 +697,7 @@ int32_t RowContainer::extractVariableSizeAt(
   auto stream = prepareRead(row, rowColumn.offset());
 
   ::memcpy(output, &size, 4);
-  stream->readBytes(output + 4, size);
+  stream.ByteInputStream::readBytes(output + 4, size);
 
   return 4 + size;
 }
@@ -844,9 +844,9 @@ void RowContainer::extractString(
     return;
   }
   auto rawBuffer = values->getRawStringBufferWithSpace(value.size());
-  auto stream = HashStringAllocator::prepareRead(
+  HashStringAllocator::InputStream stream(
       HashStringAllocator::headerOf(value.data()));
-  stream->readBytes(rawBuffer, value.size());
+  stream.ByteInputStream::readBytes(rawBuffer, value.size());
   values->setNoCopy(index, StringView(rawBuffer, value.size()));
 }
 
@@ -896,7 +896,7 @@ int RowContainer::compareComplexType(
   VELOX_DCHECK(flags.nullAsValue(), "not supported null handling mode");
 
   auto stream = prepareRead(row, offset);
-  return ContainerRowSerde::compare(*stream, decoded, index, flags);
+  return ContainerRowSerde::compare(stream, decoded, index, flags);
 }
 
 int32_t RowContainer::compareStringAsc(StringView left, StringView right) {
@@ -917,7 +917,7 @@ int32_t RowContainer::compareComplexType(
 
   auto leftStream = prepareRead(left, leftOffset);
   auto rightStream = prepareRead(right, rightOffset);
-  return ContainerRowSerde::compare(*leftStream, *rightStream, type, flags);
+  return ContainerRowSerde::compare(leftStream, rightStream, type, flags);
 }
 
 int32_t RowContainer::compareComplexType(
@@ -958,7 +958,7 @@ void RowContainer::hashTyped(
           Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
           Kind == TypeKind::MAP) {
         auto in = prepareRead(row, offset);
-        hash = ContainerRowSerde::hash(*in, type);
+        hash = ContainerRowSerde::hash(in, type);
       } else if constexpr (typeProvidesCustomComparison) {
         hash = static_cast<const CanProvideCustomComparisonType<Kind>*>(type)
                    ->hash(valueAt<T>(row, offset));

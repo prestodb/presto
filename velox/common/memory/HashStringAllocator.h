@@ -233,13 +233,7 @@ class HashStringAllocator : public StreamArena {
     return header->size() + kHeaderSize;
   }
 
-  /// Returns ByteInputStream over the data in the range of 'header' and
-  /// possible continuation ranges.
-  /// @param maxBytes If provided, the returned stream will cover at most that
-  /// many bytes.
-  static std::unique_ptr<ByteInputStream> prepareRead(
-      const Header* header,
-      size_t maxBytes = std::numeric_limits<size_t>::max());
+  class InputStream;
 
   /// Returns the number of payload bytes between 'header->begin()' and
   /// 'position'.
@@ -514,6 +508,145 @@ class HashStringAllocator : public StreamArena {
   // This should be the only field in HashStringAllocator, any additional fields
   // should be added as private members of State exposed through accessors.
   State state_;
+};
+
+/// A ByteInputStream over the data in the range of begin and possible
+/// continuation ranges.
+class HashStringAllocator::InputStream : public ByteInputStream {
+ public:
+  explicit InputStream(const Header* begin)
+      : begin_(const_cast<Header*>(begin)) {
+    setHeader(begin_);
+    current_ = &range_;
+  }
+
+  InputStream(const InputStream& other) {
+    *this = other;
+  }
+
+  InputStream& operator=(const InputStream& other) {
+    begin_ = other.begin_;
+    header_ = other.header_;
+    range_ = other.range_;
+    current_ = &range_;
+    return *this;
+  }
+
+  size_t size() const final {
+    auto* header = begin_;
+    size_t total = 0;
+    for (;;) {
+      total += header->usableSize();
+      if (!header->isContinued()) {
+        break;
+      }
+      header = header->nextContinued();
+    }
+    return total;
+  }
+
+  bool atEnd() const final {
+    return range_.position == range_.size && !header_->isContinued();
+  }
+
+  std::streampos tellp() const final {
+    auto* header = begin_;
+    int64_t pos = 0;
+    while (header != header_) {
+      pos += header->usableSize();
+      header = header->nextContinued();
+    }
+    return pos + range_.position;
+  }
+
+  void seekp(std::streampos pos) final {
+    setHeader(begin_);
+    skipImpl(pos);
+  }
+
+  void skip(int32_t size) final {
+    nextHeaderIfNeed();
+    skipImpl(size);
+  }
+
+  size_t remainingSize() const final {
+    return size() - tellp();
+  }
+
+  uint8_t readByte() final {
+    uint8_t byte;
+    readBytes(&byte, 1);
+    return byte;
+  }
+
+  void readBytes(uint8_t* bytes, int32_t size) final {
+    nextHeaderIfNeed();
+    for (;;) {
+      auto available = range_.size - range_.position;
+      if (size <= available) {
+        std::memcpy(bytes, range_.buffer + range_.position, size);
+        range_.position += size;
+        return;
+      }
+      std::memcpy(bytes, range_.buffer + range_.position, available);
+      bytes += available;
+      size -= available;
+      VELOX_CHECK(header_->isContinued(), "Reading past end of stream");
+      setHeader(header_->nextContinued());
+    }
+  }
+
+  std::string_view nextView(int32_t size) final {
+    if (atEnd()) {
+      return {};
+    }
+    nextHeaderIfNeed();
+    size = std::min(size, range_.size - range_.position);
+    std::string_view result(
+        reinterpret_cast<char*>(range_.buffer) + range_.position, size);
+    range_.position += size;
+    return result;
+  }
+
+  std::string toString() const final {
+    return fmt::format(
+        "HashStringAllocator::InputStream: begin_={} header_={} range_={}",
+        begin_->toString(),
+        header_->toString(),
+        range_.toString());
+  }
+
+ private:
+  void setHeader(Header* header) {
+    VELOX_DCHECK_GT(header->usableSize(), 0);
+    header_ = header;
+    range_.buffer = reinterpret_cast<uint8_t*>(header_->begin());
+    range_.size = header_->usableSize();
+    range_.position = 0;
+  }
+
+  void nextHeaderIfNeed() {
+    if (range_.position == range_.size && header_->isContinued()) {
+      setHeader(header_->nextContinued());
+    }
+  }
+
+  void skipImpl(int64_t size) {
+    for (;;) {
+      auto available = range_.size - range_.position;
+      if (size <= available) {
+        range_.position += size;
+        return;
+      }
+      size -= available;
+      VELOX_CHECK(header_->isContinued(), "Seeking past end of stream");
+      setHeader(header_->nextContinued());
+    }
+  }
+
+  Header* begin_;
+  Header* header_;
+  ByteRange range_;
 };
 
 /// Utility for keeping track of allocation between two points in time. A

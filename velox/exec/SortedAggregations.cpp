@@ -51,10 +51,10 @@ struct RowPointers {
   }
 
   void read(folly::Range<char**> rows) {
-    auto stream = HashStringAllocator::prepareRead(firstBlock);
+    HashStringAllocator::InputStream stream(firstBlock);
 
     for (auto i = 0; i < size; ++i) {
-      rows[i] = reinterpret_cast<char*>(stream->read<uintptr_t>());
+      rows[i] = reinterpret_cast<char*>(stream.read<uintptr_t>());
     }
   }
 };

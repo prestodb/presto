@@ -110,9 +110,9 @@ class SerializeBenchmark {
 
     auto copy = BaseVector::create(rowType, data->size(), pool());
 
-    auto in = HashStringAllocator::prepareRead(position.header);
+    HashStringAllocator::InputStream in(position.header);
     for (auto i = 0; i < data->size(); ++i) {
-      exec::ContainerRowSerde::deserialize(*in, i, copy.get());
+      exec::ContainerRowSerde::deserialize(in, i, copy.get());
     }
 
     VELOX_CHECK_EQ(copy->size(), data->size());

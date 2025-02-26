@@ -1168,7 +1168,7 @@ class RowContainer {
     }
   }
 
-  static std::unique_ptr<ByteInputStream> prepareRead(
+  static HashStringAllocator::InputStream prepareRead(
       const char* row,
       int32_t offset);
 
@@ -1399,7 +1399,7 @@ class RowContainer {
         result->setNull(resultIndex, true);
       } else {
         auto stream = prepareRead(row, offset);
-        ContainerRowSerde::deserialize(*stream, resultIndex, result.get());
+        ContainerRowSerde::deserialize(stream, resultIndex, result.get());
       }
     }
   }
