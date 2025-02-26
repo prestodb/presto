@@ -312,6 +312,15 @@ public class UtilizedColumnsAnalyzer
         {
             handleRelation(table, context);
 
+            Analysis.NamedQuery namedQuery = analysis.getNamedQuery(table);
+            if (namedQuery != null && namedQuery.isFromView()) {
+                handleRelation(table, context, namedQuery.getQuery().getQueryBody());
+                process(namedQuery.getQuery(), context);
+            }
+            else {
+                handleRelation(table, context);
+            }
+
             return null;
         }
 
