@@ -83,13 +83,13 @@ public class TestBasicQueryInfo
                                 19,
                                 20.0,
                                 43.0,
-                                DataSize.valueOf("21GB"),
-                                DataSize.valueOf("22GB"),
-                                DataSize.valueOf("23GB"),
-                                DataSize.valueOf("24GB"),
-                                DataSize.valueOf("25GB"),
-                                DataSize.valueOf("26GB"),
-                                DataSize.valueOf("42GB"),
+                                DataSize.valueOf("21GB").toBytes(),
+                                DataSize.valueOf("22GB").toBytes(),
+                                DataSize.valueOf("23GB").toBytes(),
+                                DataSize.valueOf("24GB").toBytes(),
+                                DataSize.valueOf("25GB").toBytes(),
+                                DataSize.valueOf("26GB").toBytes(),
+                                DataSize.valueOf("42GB").toBytes(),
                                 true,
                                 Duration.valueOf("23m"),
                                 Duration.valueOf("24m"),
@@ -97,19 +97,19 @@ public class TestBasicQueryInfo
                                 Duration.valueOf("26m"),
                                 true,
                                 ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY),
-                                DataSize.valueOf("123MB"),
-                                DataSize.valueOf("27GB"),
+                                DataSize.valueOf("123MB").toBytes(),
+                                DataSize.valueOf("27GB").toBytes(),
                                 28,
-                                DataSize.valueOf("29GB"),
+                                DataSize.valueOf("29GB").toBytes(),
                                 30,
-                                DataSize.valueOf("31GB"),
+                                DataSize.valueOf("31GB").toBytes(),
                                 32,
-                                DataSize.valueOf("32GB"),
+                                DataSize.valueOf("32GB").toBytes(),
                                 40,
                                 33,
-                                DataSize.valueOf("34GB"),
-                                DataSize.valueOf("35GB"),
-                                DataSize.valueOf("36GB"),
+                                DataSize.valueOf("34GB").toBytes(),
+                                DataSize.valueOf("35GB").toBytes(),
+                                DataSize.valueOf("36GB").toBytes(),
                                 ImmutableList.of(new StageGcStatistics(
                                         101,
                                         1002,
@@ -174,18 +174,18 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getCompletedDrivers(), 19);
 
         assertEquals(basicInfo.getQueryStats().getCumulativeUserMemory(), 20.0);
-        assertEquals(basicInfo.getQueryStats().getUserMemoryReservation(), DataSize.valueOf("21GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("23GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakTotalMemoryReservation(), DataSize.valueOf("24GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakTaskTotalMemoryReservation(), DataSize.valueOf("26GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakNodeTotalMemoryReservation(), DataSize.valueOf("42GB"));
+        assertEquals(basicInfo.getQueryStats().getUserMemoryReservation(), DataSize.valueOf("21GB").toBytes());
+        assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("23GB").toBytes());
+        assertEquals(basicInfo.getQueryStats().getPeakTotalMemoryReservation(), DataSize.valueOf("24GB").toBytes());
+        assertEquals(basicInfo.getQueryStats().getPeakTaskTotalMemoryReservation(), DataSize.valueOf("26GB").toBytes());
+        assertEquals(basicInfo.getQueryStats().getPeakNodeTotalMemoryReservation(), DataSize.valueOf("42GB").toBytes());
 
         assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), Duration.valueOf("24m"));
 
         assertEquals(basicInfo.getQueryStats().isFullyBlocked(), true);
         assertEquals(basicInfo.getQueryStats().getBlockedReasons(), ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY));
 
-        assertEquals(basicInfo.getQueryStats().getTotalAllocation(), DataSize.valueOf("123MB"));
+        assertEquals(basicInfo.getQueryStats().getTotalAllocation(), DataSize.valueOf("123MB").toBytes());
 
         assertEquals(basicInfo.getQueryStats().getProgressPercentage(), OptionalDouble.of(100));
 

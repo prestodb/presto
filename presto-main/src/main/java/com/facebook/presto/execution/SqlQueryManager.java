@@ -75,6 +75,7 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_OUTPUT_POSITION
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -423,10 +424,10 @@ public class SqlQueryManager
     private void enforceScanLimits()
     {
         for (QueryExecution query : queryTracker.getAllQueries()) {
-            DataSize rawInputSize = query.getRawInputDataSize();
+            long rawInputSize = query.getRawInputDataSizeInBytes();
             DataSize sessionlimit = getQueryMaxScanRawInputBytes(query.getSession());
             DataSize limit = Ordering.natural().min(maxQueryScanPhysicalBytes, sessionlimit);
-            if (rawInputSize.compareTo(limit) >= 0) {
+            if (Double.compare(rawInputSize, limit.getValue(BYTE)) >= 0) {
                 query.fail(new ExceededScanLimitException(limit));
             }
         }
@@ -442,10 +443,10 @@ public class SqlQueryManager
                 // No Ctes Materialized
                 continue;
             }
-            DataSize writtenIntermediateDataSize = query.getWrittenIntermediateDataSize();
+            long writtenIntermediateDataSize = query.getWrittenIntermediateDataSizeInBytes();
             DataSize sessionlimit = getQueryMaxWrittenIntermediateBytesLimit(query.getSession());
             DataSize limit = Ordering.natural().min(maxWrittenIntermediatePhysicalBytes, sessionlimit);
-            if (writtenIntermediateDataSize.compareTo(limit) >= 0) {
+            if (Double.compare(writtenIntermediateDataSize, limit.getValue(BYTE)) >= 0) {
                 query.fail(new ExceededIntermediateWrittenBytesException(limit));
             }
         }
@@ -472,10 +473,10 @@ public class SqlQueryManager
     private void enforceOutputSizeLimits()
     {
         for (QueryExecution query : queryTracker.getAllQueries()) {
-            DataSize outputSize = query.getOutputDataSize();
+            long outputSize = query.getOutputDataSizeInBytes();
             DataSize sessionlimit = getQueryMaxOutputSize(query.getSession());
             DataSize limit = Ordering.natural().min(maxQueryOutputSize, sessionlimit);
-            if (outputSize.compareTo(limit) >= 0) {
+            if (Double.compare(outputSize, limit.getValue(BYTE)) >= 0) {
                 query.fail(new ExceededOutputSizeLimitException(limit));
             }
         }

@@ -361,11 +361,9 @@ void updatePipelineStats(
     prestoOp.inputPositions = veloxOp.inputPositions;
     prestoOp.sumSquaredInputPositions =
         ((double)veloxOp.inputPositions) * veloxOp.inputPositions;
-    prestoOp.inputDataSize =
-        protocol::DataSize(veloxOp.inputBytes, protocol::DataUnit::BYTE);
+    prestoOp.inputDataSize = veloxOp.inputBytes;
     prestoOp.rawInputPositions = veloxOp.rawInputPositions;
-    prestoOp.rawInputDataSize =
-        protocol::DataSize(veloxOp.rawInputBytes, protocol::DataUnit::BYTE);
+    prestoOp.rawInputDataSize = veloxOp.rawInputBytes;
 
     // Report raw input statistics on the Project node following TableScan, if
     // exists.
@@ -373,13 +371,11 @@ void updatePipelineStats(
         veloxPipelineStats.operatorStats[0].operatorType == "TableScan") {
       const auto& scanOp = veloxPipelineStats.operatorStats[0];
       prestoOp.rawInputPositions = scanOp.rawInputPositions;
-      prestoOp.rawInputDataSize =
-          protocol::DataSize(scanOp.rawInputBytes, protocol::DataUnit::BYTE);
+      prestoOp.rawInputDataSize = scanOp.rawInputBytes;
     }
 
     prestoOp.outputPositions = veloxOp.outputPositions;
-    prestoOp.outputDataSize =
-        protocol::DataSize(veloxOp.outputBytes, protocol::DataUnit::BYTE);
+    prestoOp.outputDataSize = veloxOp.outputBytes;
 
     setTiming(
         veloxOp.isBlockedTiming,
@@ -408,25 +404,14 @@ void updatePipelineStats(
     prestoOp.blockedWall = protocol::Duration(
         veloxOp.blockedWallNanos, protocol::TimeUnit::NANOSECONDS);
 
-    prestoOp.userMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.userMemoryReservation, protocol::DataUnit::BYTE);
-    prestoOp.revocableMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.revocableMemoryReservation,
-        protocol::DataUnit::BYTE);
-    prestoOp.systemMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.systemMemoryReservation, protocol::DataUnit::BYTE);
-    prestoOp.peakUserMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.peakUserMemoryReservation,
-        protocol::DataUnit::BYTE);
-    prestoOp.peakSystemMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.peakSystemMemoryReservation,
-        protocol::DataUnit::BYTE);
-    prestoOp.peakTotalMemoryReservation = protocol::DataSize(
-        veloxOp.memoryStats.peakTotalMemoryReservation,
-        protocol::DataUnit::BYTE);
+    prestoOp.userMemoryReservation = veloxOp.memoryStats.userMemoryReservation;
+    prestoOp.revocableMemoryReservation = veloxOp.memoryStats.revocableMemoryReservation;
+    prestoOp.systemMemoryReservation = veloxOp.memoryStats.systemMemoryReservation;
+    prestoOp.peakUserMemoryReservation = veloxOp.memoryStats.peakUserMemoryReservation;
+    prestoOp.peakSystemMemoryReservation = veloxOp.memoryStats.peakSystemMemoryReservation;
+    prestoOp.peakTotalMemoryReservation = veloxOp.memoryStats.peakTotalMemoryReservation;
 
-    prestoOp.spilledDataSize =
-        protocol::DataSize(veloxOp.spilledBytes, protocol::DataUnit::BYTE);
+    prestoOp.spilledDataSize = veloxOp.spilledBytes;
 
     if (veloxOp.operatorType == "HashBuild") {
       prestoOp.joinBuildKeyCount = veloxOp.inputPositions;

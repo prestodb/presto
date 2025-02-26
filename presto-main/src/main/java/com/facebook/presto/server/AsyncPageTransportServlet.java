@@ -212,7 +212,7 @@ public class AsyncPageTransportServlet
             }
         });
 
-        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize);
+        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSize.toBytes());
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
                 () -> BufferResult.emptyResults(

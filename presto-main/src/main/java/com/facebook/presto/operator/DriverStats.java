@@ -19,10 +19,8 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.execution.Lifespan;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -32,7 +30,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Set;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -49,9 +47,9 @@ public class DriverStats
     private final Duration queuedTime;
     private final Duration elapsedTime;
 
-    private final DataSize userMemoryReservation;
-    private final DataSize revocableMemoryReservation;
-    private final DataSize systemMemoryReservation;
+    private final long userMemoryReservation;
+    private final long revocableMemoryReservation;
+    private final long systemMemoryReservation;
 
     private final Duration totalScheduledTime;
     private final Duration totalCpuTime;
@@ -59,19 +57,19 @@ public class DriverStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
-    private final DataSize totalAllocation;
+    private final long totalAllocation;
 
-    private final DataSize rawInputDataSize;
+    private final long rawInputDataSize;
     private final long rawInputPositions;
     private final Duration rawInputReadTime;
 
-    private final DataSize processedInputDataSize;
+    private final long processedInputDataSize;
     private final long processedInputPositions;
 
-    private final DataSize outputDataSize;
+    private final long outputDataSize;
     private final long outputPositions;
 
-    private final DataSize physicalWrittenDataSize;
+    private final long physicalWrittenDataSize;
 
     private final List<OperatorStats> operatorStats;
 
@@ -85,9 +83,9 @@ public class DriverStats
         this.queuedTime = new Duration(0, MILLISECONDS);
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
-        this.userMemoryReservation = new DataSize(0, BYTE);
-        this.revocableMemoryReservation = new DataSize(0, BYTE);
-        this.systemMemoryReservation = new DataSize(0, BYTE);
+        this.userMemoryReservation = 0L;
+        this.revocableMemoryReservation = 0L;
+        this.systemMemoryReservation = 0L;
 
         this.totalScheduledTime = new Duration(0, MILLISECONDS);
         this.totalCpuTime = new Duration(0, MILLISECONDS);
@@ -95,19 +93,19 @@ public class DriverStats
         this.fullyBlocked = false;
         this.blockedReasons = ImmutableSet.of();
 
-        this.totalAllocation = new DataSize(0, BYTE);
+        this.totalAllocation = 0L;
 
-        this.rawInputDataSize = new DataSize(0, BYTE);
+        this.rawInputDataSize = 0L;
         this.rawInputPositions = 0;
         this.rawInputReadTime = new Duration(0, MILLISECONDS);
 
-        this.processedInputDataSize = new DataSize(0, BYTE);
+        this.processedInputDataSize = 0L;
         this.processedInputPositions = 0;
 
-        this.outputDataSize = new DataSize(0, BYTE);
+        this.outputDataSize = 0L;
         this.outputPositions = 0;
 
-        this.physicalWrittenDataSize = new DataSize(0, BYTE);
+        this.physicalWrittenDataSize = 0L;
 
         this.operatorStats = ImmutableList.of();
     }
@@ -123,9 +121,9 @@ public class DriverStats
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
-            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
-            @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
-            @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
+            @JsonProperty("userMemoryReservation") long userMemoryReservation,
+            @JsonProperty("revocableMemoryReservation") long revocableMemoryReservation,
+            @JsonProperty("systemMemoryReservation") long systemMemoryReservation,
 
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
             @JsonProperty("totalCpuTime") Duration totalCpuTime,
@@ -133,19 +131,19 @@ public class DriverStats
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
-            @JsonProperty("totalAllocation") DataSize totalAllocation,
+            @JsonProperty("totalAllocation") long totalAllocation,
 
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawInputDataSize") long rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("rawInputReadTime") Duration rawInputReadTime,
 
-            @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
+            @JsonProperty("processedInputDataSize") long processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
-            @JsonProperty("outputDataSize") DataSize outputDataSize,
+            @JsonProperty("outputDataSize") long outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
-            @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+            @JsonProperty("physicalWrittenDataSize") long physicalWrittenDataSize,
 
             @JsonProperty("operatorStats") List<OperatorStats> operatorStats)
     {
@@ -157,9 +155,12 @@ public class DriverStats
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
 
-        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
-        this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
-        this.systemMemoryReservation = requireNonNull(systemMemoryReservation, "systemMemoryReservation is null");
+        checkArgument(userMemoryReservation >= 0, "userMemoryReservation is negative");
+        this.userMemoryReservation = userMemoryReservation;
+        checkArgument(revocableMemoryReservation >= 0, "revocableMemoryReservation is negative");
+        this.revocableMemoryReservation = revocableMemoryReservation;
+        checkArgument(systemMemoryReservation >= 0, "systemMemoryReservation is negative");
+        this.systemMemoryReservation = systemMemoryReservation;
 
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -167,22 +168,30 @@ public class DriverStats
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
+        checkArgument(totalAllocation >= 0, "totalAllocation is negative");
+        this.totalAllocation = totalAllocation;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        Preconditions.checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
+        checkArgument(rawInputDataSize >= 0, "rawInputDataSize is negative");
+        this.rawInputDataSize = rawInputDataSize;
+
+        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
         this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
 
-        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
-        Preconditions.checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
+        checkArgument(processedInputDataSize >= 0, "processedInputDataSize is negative");
+        this.processedInputDataSize = processedInputDataSize;
+
+        checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
-        Preconditions.checkArgument(outputPositions >= 0, "outputPositions is negative");
+        checkArgument(outputDataSize >= 0, "outputDataSize is negative");
+        this.outputDataSize = outputDataSize;
+
+        checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+        checkArgument(physicalWrittenDataSize >= 0, "writtenDataSize is negative");
+        this.physicalWrittenDataSize = physicalWrittenDataSize;
 
         this.operatorStats = ImmutableList.copyOf(requireNonNull(operatorStats, "operatorStats is null"));
     }
@@ -233,21 +242,21 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(7)
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservation()
     {
         return userMemoryReservation;
     }
 
     @JsonProperty
     @ThriftField(8)
-    public DataSize getRevocableMemoryReservation()
+    public long getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
     }
 
     @JsonProperty
     @ThriftField(9)
-    public DataSize getSystemMemoryReservation()
+    public long getSystemMemoryReservation()
     {
         return systemMemoryReservation;
     }
@@ -289,14 +298,14 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(15)
-    public DataSize getTotalAllocation()
+    public long getTotalAllocation()
     {
         return totalAllocation;
     }
 
     @JsonProperty
     @ThriftField(16)
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSize()
     {
         return rawInputDataSize;
     }
@@ -317,7 +326,7 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(19)
-    public DataSize getProcessedInputDataSize()
+    public long getProcessedInputDataSize()
     {
         return processedInputDataSize;
     }
@@ -331,7 +340,7 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(21)
-    public DataSize getOutputDataSize()
+    public long getOutputDataSize()
     {
         return outputDataSize;
     }
@@ -345,7 +354,7 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(23)
-    public DataSize getPhysicalWrittenDataSize()
+    public long getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
     }

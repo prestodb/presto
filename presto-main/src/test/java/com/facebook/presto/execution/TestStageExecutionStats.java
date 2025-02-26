@@ -20,12 +20,10 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 
@@ -51,10 +49,10 @@ public class TestStageExecutionStats
 
             12.0,
             27.0,
-            new DataSize(13, BYTE),
-            new DataSize(14, BYTE),
-            new DataSize(15, BYTE),
-            new DataSize(42, BYTE),
+            13L,
+            14L,
+            15L,
+            42L,
 
             new Duration(15, NANOSECONDS),
             new Duration(16, NANOSECONDS),
@@ -63,19 +61,19 @@ public class TestStageExecutionStats
             false,
             ImmutableSet.of(),
 
-            new DataSize(123, BYTE),
+            123L,
 
-            new DataSize(19, BYTE),
+            19L,
             20,
 
-            new DataSize(21, BYTE),
+            21L,
             22,
 
-            new DataSize(23, BYTE),
-            new DataSize(24, BYTE),
+            23L,
+            24L,
             25,
 
-            new DataSize(26, BYTE),
+            26L,
 
             new StageGcStatistics(
                     101,
@@ -121,29 +119,29 @@ public class TestStageExecutionStats
         assertEquals(actual.getCompletedDrivers(), 11);
 
         assertEquals(actual.getCumulativeUserMemory(), 12.0);
-        assertEquals(actual.getUserMemoryReservation(), new DataSize(13, BYTE));
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(14, BYTE));
-        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(15, BYTE));
-        assertEquals(actual.getPeakNodeTotalMemoryReservation(), new DataSize(42, BYTE));
+        assertEquals(actual.getUserMemoryReservation(), 13L);
+        assertEquals(actual.getTotalMemoryReservation(), 14L);
+        assertEquals(actual.getPeakUserMemoryReservation(), 15L);
+        assertEquals(actual.getPeakNodeTotalMemoryReservation(), 42L);
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
         assertEquals(actual.getRetriedCpuTime(), new Duration(17, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
 
-        assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
+        assertEquals(actual.getTotalAllocation(), 123L);
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));
+        assertEquals(actual.getRawInputDataSize(), 19L);
         assertEquals(actual.getRawInputPositions(), 20);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(21, BYTE));
+        assertEquals(actual.getProcessedInputDataSize(), 21L);
         assertEquals(actual.getProcessedInputPositions(), 22);
 
-        assertEquals(actual.getBufferedDataSize(), new DataSize(23, BYTE));
-        assertEquals(actual.getOutputDataSize(), new DataSize(24, BYTE));
+        assertEquals(actual.getBufferedDataSize(), 23L);
+        assertEquals(actual.getOutputDataSize(), 24L);
         assertEquals(actual.getOutputPositions(), 25);
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(26, BYTE));
+        assertEquals(actual.getPhysicalWrittenDataSize(), 26L);
 
         assertEquals(actual.getGcInfo().getStageId(), 101);
         assertEquals(actual.getGcInfo().getStageExecutionId(), 1001);

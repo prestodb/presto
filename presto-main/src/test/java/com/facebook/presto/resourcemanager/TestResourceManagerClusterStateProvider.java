@@ -121,6 +121,7 @@ public class TestResourceManagerClusterStateProvider
 
         assertQueryInfos(provider.getClusterQueries(), 0, 0);
     }
+
     @Test(timeOut = 15_000)
     public void testOutOfOrderUpdatesIgnored()
             throws Exception
@@ -426,12 +427,12 @@ public class TestResourceManagerClusterStateProvider
         assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 5, 3, 2, Optional.empty());
 
         // Add a larger query and verify that the largest query is updated
-        provider.registerQueryHeartbeat("nodeId2", createQueryInfo("2", RUNNING, "rg4", GENERAL_POOL, DataSize.valueOf("25GB")), query2Sequence++);
+        provider.registerQueryHeartbeat("nodeId2", createQueryInfo("2", RUNNING, "rg4", GENERAL_POOL, DataSize.valueOf("25GB").toBytes()), query2Sequence++);
         assertMemoryPoolMap(provider, 2, GENERAL_POOL, 2, 1, 1101, 24, 14, Optional.of("2"));
         assertMemoryPoolMap(provider, 2, RESERVED_POOL, 0, 0, 5, 3, 2, Optional.empty());
 
         // Adding a larger reserved pool query does not affect largest query in general pool
-        provider.registerQueryHeartbeat("nodeId1", createQueryInfo("3", RUNNING, "rg4", RESERVED_POOL, DataSize.valueOf("50GB")), query3Sequence++);
+        provider.registerQueryHeartbeat("nodeId1", createQueryInfo("3", RUNNING, "rg4", RESERVED_POOL, DataSize.valueOf("50GB").toBytes()), query3Sequence++);
         assertMemoryPoolMap(provider, 2, GENERAL_POOL, 2, 1, 1101, 24, 14, Optional.of("2"));
         assertMemoryPoolMap(provider, 2, RESERVED_POOL, 1, 0, 5, 3, 2, Optional.empty());
 
@@ -729,10 +730,10 @@ public class TestResourceManagerClusterStateProvider
 
     private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupId, MemoryPoolId memoryPool)
     {
-        return createQueryInfo(queryId, state, resourceGroupId, memoryPool, DataSize.valueOf("24GB"));
+        return createQueryInfo(queryId, state, resourceGroupId, memoryPool, DataSize.valueOf("24GB").toBytes());
     }
 
-    private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupIdString, MemoryPoolId memoryPool, DataSize totalMemoryReservation)
+    private static BasicQueryInfo createQueryInfo(String queryId, QueryState state, String resourceGroupIdString, MemoryPoolId memoryPool, long totalMemoryReservation)
     {
         ResourceGroupId resourceGroupId = new ResourceGroupId(Arrays.asList(resourceGroupIdString.split("\\.")));
         return new BasicQueryInfo(
@@ -757,21 +758,21 @@ public class TestResourceManagerClusterStateProvider
                         14,
                         15,
                         100,
-                        DataSize.valueOf("21GB"),
+                        DataSize.valueOf("21GB").toBytes(),
                         22,
                         23,
                         24,
-                        DataSize.valueOf("1MB"),
+                        DataSize.valueOf("1MB").toBytes(),
                         totalMemoryReservation,
-                        DataSize.valueOf("25GB"),
-                        DataSize.valueOf("26GB"),
-                        DataSize.valueOf("27GB"),
-                        DataSize.valueOf("28GB"),
+                        DataSize.valueOf("25GB").toBytes(),
+                        DataSize.valueOf("26GB").toBytes(),
+                        DataSize.valueOf("27GB").toBytes(),
+                        DataSize.valueOf("28GB").toBytes(),
                         Duration.valueOf("23m"),
                         Duration.valueOf("24m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
-                        DataSize.valueOf("123MB"),
+                        DataSize.valueOf("123MB").toBytes(),
                         OptionalDouble.of(20)),
                 null,
                 Optional.empty(),

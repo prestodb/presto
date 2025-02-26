@@ -150,11 +150,11 @@ public class ClusterStatsResource
             }
 
             if (!query.getState().isDone()) {
-                totalInputBytes += query.getQueryStats().getRawInputDataSize().toBytes();
+                totalInputBytes += query.getQueryStats().getRawInputDataSize();
                 totalInputRows += query.getQueryStats().getRawInputPositions();
                 totalCpuTimeSecs += query.getQueryStats().getTotalCpuTime().getValue(SECONDS);
 
-                memoryReservation += query.getQueryStats().getUserMemoryReservation().toBytes();
+                memoryReservation += query.getQueryStats().getUserMemoryReservation();
                 runningDrivers += query.getQueryStats().getRunningDrivers();
                 runningTasks += query.getQueryStats().getRunningTasks();
             }

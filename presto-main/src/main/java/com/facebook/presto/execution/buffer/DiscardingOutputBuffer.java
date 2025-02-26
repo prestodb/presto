@@ -18,7 +18,6 @@ import com.facebook.presto.execution.StateMachine;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -104,7 +103,7 @@ public class DiscardingOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, long maxSizeInBytes)
     {
         throw new UnsupportedOperationException("DiscardingOutputBuffer must not have any active readers");
     }

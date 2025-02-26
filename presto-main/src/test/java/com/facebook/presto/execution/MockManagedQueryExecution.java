@@ -24,7 +24,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -41,8 +40,6 @@ import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -50,7 +47,7 @@ public class MockManagedQueryExecution
         implements ManagedQueryExecution
 {
     private final List<StateChangeListener<QueryState>> listeners = new ArrayList<>();
-    private final DataSize memoryUsage;
+    private final long memoryUsage;
     private final Duration cpuUsage;
     private final Session session;
     private QueryState state = WAITING_FOR_PREREQUISITES;
@@ -75,7 +72,7 @@ public class MockManagedQueryExecution
 
     public MockManagedQueryExecution(long memoryUsage, String queryId, int priority, Duration cpuUsage, ResourceGroupId resourceGroupId)
     {
-        this.memoryUsage = succinctBytes(memoryUsage);
+        this.memoryUsage = memoryUsage;
         this.cpuUsage = cpuUsage;
         this.session = testSessionBuilder()
                 .setSystemProperty(QUERY_PRIORITY, String.valueOf(priority))
@@ -137,21 +134,21 @@ public class MockManagedQueryExecution
                         7,
                         8,
                         9,
-                        new DataSize(14, BYTE),
+                        14,
                         15,
                         16.0,
                         25.0,
-                        new DataSize(17, BYTE),
-                        new DataSize(18, BYTE),
-                        new DataSize(19, BYTE),
-                        new DataSize(20, BYTE),
-                        new DataSize(21, BYTE),
-                        new DataSize(42, BYTE),
+                        17,
+                        18,
+                        19,
+                        20,
+                        21,
+                        42,
                         new Duration(22, NANOSECONDS),
                         new Duration(23, NANOSECONDS),
                         false,
                         ImmutableSet.of(),
-                        new DataSize(24, BYTE),
+                        24,
                         OptionalDouble.empty()),
                 null,
                 Optional.empty(),
@@ -160,13 +157,13 @@ public class MockManagedQueryExecution
     }
 
     @Override
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservationInBytes()
     {
         return memoryUsage;
     }
 
     @Override
-    public DataSize getTotalMemoryReservation()
+    public long getTotalMemoryReservationInBytes()
     {
         return memoryUsage;
     }
