@@ -14,7 +14,6 @@
 set -e
 set -x
 
-export nproc=$(getconf _NPROCESSORS_ONLN)
 export CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 
@@ -41,7 +40,7 @@ function install_gperf {
   tar ${TAR_OPTIONS} -xzf gperf-3.1.tar.gz &&
   cd gperf-3.1 &&
   ./configure --prefix=/usr/local/gperf/3_1 &&
-  make "-j$(nproc)" &&
+  make "-j${NPROC}" &&
   make install
   if [ -f /usr/local/bin/gperf ]; then
     echo "Did not create '/usr/local/bin/gperf' symlink as file already exists."
