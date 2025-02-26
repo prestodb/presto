@@ -49,7 +49,7 @@ public class TestHiveCommonClientConfig
                 .setParquetBatchReaderVerificationEnabled(false)
                 .setParquetBatchReadOptimizationEnabled(false)
                 .setReadNullMaskedParquetEncryptedValue(false)
-                .setCatalogName(null));
+                .setCatalogName(null)
                 .setAffinitySchedulingFileSectionSize(new DataSize(256, MEGABYTE)));
     }
 
@@ -98,7 +98,7 @@ public class TestHiveCommonClientConfig
                 .setParquetBatchReaderVerificationEnabled(true)
                 .setParquetBatchReadOptimizationEnabled(true)
                 .setReadNullMaskedParquetEncryptedValue(true)
-                .setCatalogName("catalogName");
+                .setCatalogName("catalogName")
                 .setAffinitySchedulingFileSectionSize(new DataSize(512, MEGABYTE));
 
         ConfigAssertions.assertFullMapping(properties, expected);

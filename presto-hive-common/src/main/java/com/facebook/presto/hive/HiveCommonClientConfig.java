@@ -286,7 +286,7 @@ public class HiveCommonClientConfig
         this.zstdJniDecompressionEnabled = zstdJniDecompressionEnabled;
         return this;
     }
-  
+
     public String getCatalogName()
     {
         return catalogName;
@@ -297,8 +297,9 @@ public class HiveCommonClientConfig
     public HiveCommonClientConfig setCatalogName(String catalogName)
     {
         this.catalogName = catalogName;
+        return this;
     }
-  
+
     @NotNull
     public DataSize getAffinitySchedulingFileSectionSize()
     {
