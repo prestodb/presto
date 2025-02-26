@@ -28,6 +28,7 @@ public class TestIntervalYearMonth
         extends AbstractTestFunctions
 {
     private static final int MAX_SHORT = Short.MAX_VALUE;
+    private static final long MAX_INT_PLUS_1 = Integer.MAX_VALUE + 1L;
 
     @Test
     public void testObject()
@@ -74,6 +75,7 @@ public class TestIntervalYearMonth
         assertInvalidFunction("INTERVAL '124-X' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: 124-X");
         assertInvalidFunction("INTERVAL '124--30' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: 124--30");
         assertInvalidFunction("INTERVAL '--124--30' YEAR TO MONTH", "Invalid INTERVAL YEAR TO MONTH value: --124--30");
+        assertInvalidFunction(format("INTERVAL '%s' MONTH", MAX_INT_PLUS_1), "Invalid INTERVAL MONTH value: " + MAX_INT_PLUS_1);
     }
 
     @Test
@@ -82,6 +84,7 @@ public class TestIntervalYearMonth
         assertFunction("INTERVAL '3' MONTH + INTERVAL '3' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(6));
         assertFunction("INTERVAL '6' YEAR + INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12 * 12));
         assertFunction("INTERVAL '3' MONTH + INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((6 * 12) + (3)));
+        assertNumericOverflow(format("INTERVAL '%s' MONTH + INTERVAL '1' MONTH", Integer.MAX_VALUE), format("Overflow adding interval year-month values: %s + 1", Integer.MAX_VALUE));
     }
 
     @Test
@@ -90,6 +93,7 @@ public class TestIntervalYearMonth
         assertFunction("INTERVAL '6' MONTH - INTERVAL '3' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(3));
         assertFunction("INTERVAL '9' YEAR - INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(3 * 12));
         assertFunction("INTERVAL '3' MONTH - INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((3) - (6 * 12)));
+        assertNumericOverflow(format("-INTERVAL '%s' MONTH - INTERVAL '2' MONTH", Integer.MAX_VALUE), format("Overflow subtracting interval year-month values: -%s - 2", Integer.MAX_VALUE));
     }
 
     @Test
@@ -104,6 +108,13 @@ public class TestIntervalYearMonth
         assertFunction("2 * INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12 * 12));
         assertFunction("INTERVAL '1' YEAR * 2.5", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((int) (2.5 * 12)));
         assertFunction("2.5 * INTERVAL '1' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((int) (2.5 * 12)));
+
+        assertNumericOverflow(format("INTERVAL '%s' MONTH * 2", Integer.MAX_VALUE), format("Overflow multiplying interval year-month value by integer: %s * 2", Integer.MAX_VALUE));
+        assertNumericOverflow(format("2 * INTERVAL '%s' MONTH", Integer.MAX_VALUE), format("Overflow multiplying integer by interval year-month value: 2 * %s", Integer.MAX_VALUE));
+        assertNumericOverflow(format("INTERVAL '%s' MONTH * 2.0", Integer.MAX_VALUE), format("Overflow multiplying interval year-month value by double: %s * 2.0", Integer.MAX_VALUE));
+        assertNumericOverflow(format("DOUBLE '2' * INTERVAL '%s' MONTH", Integer.MAX_VALUE), format("Overflow multiplying double by interval year-month value: 2.0 * %s", Integer.MAX_VALUE));
+        assertNumericOverflow(format("INTERVAL '2' YEAR * %s", (long) Integer.MAX_VALUE + 1), format("Overflow multiplying interval year-month value by double: 24 * %s", (double) ((long) Integer.MAX_VALUE + 1)));
+        assertNumericOverflow(format("%s * INTERVAL '2' YEAR", (long) Integer.MAX_VALUE + 1), format("Overflow multiplying double by interval year-month value: %s * 24", (double) ((long) Integer.MAX_VALUE + 1)));
     }
 
     @Test
@@ -114,6 +125,8 @@ public class TestIntervalYearMonth
 
         assertFunction("INTERVAL '3' YEAR / 2", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(18));
         assertFunction("INTERVAL '4' YEAR / 4.8", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(10));
+
+        assertNumericOverflow(format("INTERVAL '%s' MONTH / 0.5", Integer.MAX_VALUE), format("Overflow dividing interval year-month value by double: %s / 0.5", Integer.MAX_VALUE));
     }
 
     @Test
