@@ -22,14 +22,8 @@ int32_t compare(
     const SingleValueAccumulator* accumulator,
     const DecodedVector& decoded,
     vector_size_t index,
-    CompareFlags::NullHandlingMode nullHandlingMode) {
-  static const CompareFlags kCompareFlags{
-      true, // nullsFirst
-      true, // ascending
-      false, // equalsOnly
-      nullHandlingMode};
-
-  auto result = accumulator->compare(decoded, index, kCompareFlags);
+    CompareFlags compareFlags) {
+  auto result = accumulator->compare(decoded, index, compareFlags);
   VELOX_USER_CHECK(
       result.has_value(),
       fmt::format(

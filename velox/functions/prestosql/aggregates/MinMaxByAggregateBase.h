@@ -68,20 +68,19 @@ struct Comparator {
       bool /* isFirstValue */) {
     // SingleValueAccumulator::compare has the semantics of accumulator value
     // is less than vector value.
+    static const CompareFlags kCompareFlags{
+        true, // nullsFirst
+        true, // ascending
+        false, // equalsOnly
+        CompareFlags::NullHandlingMode::kNullAsIndeterminate};
     if constexpr (greaterThan) {
       return !accumulator->hasValue() ||
           functions::aggregate::compare(
-              accumulator,
-              newComparisons,
-              index,
-              CompareFlags::NullHandlingMode::kNullAsIndeterminate) < 0;
+              accumulator, newComparisons, index, kCompareFlags) < 0;
     } else {
       return !accumulator->hasValue() ||
           functions::aggregate::compare(
-              accumulator,
-              newComparisons,
-              index,
-              CompareFlags::NullHandlingMode::kNullAsIndeterminate) > 0;
+              accumulator, newComparisons, index, kCompareFlags) > 0;
     }
   }
 };

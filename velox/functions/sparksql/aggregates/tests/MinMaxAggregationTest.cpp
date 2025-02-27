@@ -195,17 +195,17 @@ TEST_F(MinMaxAggregationTest, array) {
   auto data = makeRowVector({
       makeNullableArrayVector<int64_t>({
           {1, 2, 3},
-          {2, std::nullopt},
-          {6, 7, 8},
+          {1, std::nullopt},
+          {1, 7, 8},
       }),
   });
 
   auto expected = makeRowVector({
-      makeArrayVector<int64_t>({
-          {1, 2, 3},
+      makeNullableArrayVector<int64_t>({
+          {1, std::nullopt},
       }),
       makeArrayVector<int64_t>({
-          {6, 7, 8},
+          {1, 7, 8},
       }),
   });
 
@@ -214,8 +214,16 @@ TEST_F(MinMaxAggregationTest, array) {
   data = makeRowVector({
       makeNullableArrayVector<int64_t>({
           {1, 2, 3},
-          {3, 2},
-          {6, 7, 8},
+          {2, 3},
+          {3, 7, 8},
+      }),
+  });
+  expected = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3},
+      }),
+      makeArrayVector<int64_t>({
+          {3, 7, 8},
       }),
   });
   testAggregations({data}, {}, {min("c0"), max("c0")}, {expected});

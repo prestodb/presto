@@ -36,5 +36,5 @@ int32_t compare(
     const velox::functions::aggregate::SingleValueAccumulator* accumulator,
     const DecodedVector& decoded,
     vector_size_t index,
-    CompareFlags::NullHandlingMode nullHandlingMode);
+    CompareFlags compareFlags);
 } // namespace facebook::velox::functions::aggregate
