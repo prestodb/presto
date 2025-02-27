@@ -50,7 +50,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHealthChecks
 {
-    private List<TestingPrestoServer> prestoServers;
+    private List<TestingPrestoServerRouter> prestoServers;
     private ClusterManager clusterManager;
 
     @BeforeClass
@@ -65,9 +65,9 @@ public class TestHealthChecks
         Logging.initialize();
 
         // set up server
-        ImmutableList.Builder<TestingPrestoServer> builder = ImmutableList.builder();
+        ImmutableList.Builder<TestingPrestoServerRouter> builder = ImmutableList.builder();
         for (int i = 0; i < 3; ++i) {
-            TestingPrestoServer server = new TestingPrestoServerRouter();
+            TestingPrestoServerRouter server = new TestingPrestoServerRouter();
             server.installPlugin(new TpchPlugin());
             server.createCatalog("tpch", "tpch");
             server.refreshNodes();
@@ -76,7 +76,7 @@ public class TestHealthChecks
 
         prestoServers = builder.build();
 
-        for (TestingPrestoServer s : prestoServers) {
+        for (TestingPrestoServerRouter s : prestoServers) {
             configTemplate = configTemplate.replaceFirst("\\$\\{SERVERS}", String.format("\"%s\"", s.getBaseUrl().toString()));
         }
 
@@ -103,7 +103,7 @@ public class TestHealthChecks
     public void tearDownServer()
             throws Exception
     {
-        for (TestingPrestoServer prestoServer : prestoServers) {
+        for (TestingPrestoServerRouter prestoServer : prestoServers) {
             prestoServer.close();
         }
     }
@@ -117,7 +117,6 @@ public class TestHealthChecks
         assertTrue(destinations.contains(prestoServers.get(0).getBaseUrl()));
 
         prestoServers.get(0).stopResponding();
-        //so stop responding is causing all destinations to be null forever... could be a problem with round robin???
         Thread.sleep(4000);
         clusterManager.refreshHealthStatuses();
         destinations = getDestinations(3);
