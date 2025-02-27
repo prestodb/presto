@@ -81,6 +81,8 @@ struct Timestamp {
  public:
   static constexpr int64_t kMillisecondsInSecond = 1'000;
   static constexpr int64_t kMicrosecondsInMillisecond = 1'000;
+  static constexpr int64_t kMicrosecondsInSecond =
+      kMicrosecondsInMillisecond * kMillisecondsInSecond;
   static constexpr int64_t kNanosecondsInMicrosecond = 1'000;
   static constexpr int64_t kNanosecondsInMillisecond = 1'000'000;
   static constexpr int64_t kNanosInSecond =

@@ -34,6 +34,11 @@ class SparkCastHooks : public exec::CastHooks {
   /// number of seconds since the epoch (1970-01-01 00:00:00 UTC).
   Expected<Timestamp> castIntToTimestamp(int64_t seconds) const override;
 
+  /// When casting double as timestamp, the input is treated as
+  /// the number of seconds since the epoch (1970-01-01 00:00:00 UTC).
+  Expected<std::optional<Timestamp>> castDoubleToTimestamp(
+      double value) const override;
+
   /// 1) Removes all leading and trailing UTF8 white-spaces before cast. 2) Uses
   /// non-standard cast mode to cast from string to date.
   Expected<int32_t> castStringToDate(
@@ -63,6 +68,12 @@ class SparkCastHooks : public exec::CastHooks {
   exec::PolicyType getPolicy() const override;
 
  private:
+  // Casts a number to a timestamp. The number is treated as the number of
+  // seconds since the epoch (1970-01-01 00:00:00 UTC).
+  // Supports integer and floating-point types.
+  template <typename T>
+  Expected<Timestamp> castNumberToTimestamp(T seconds) const;
+
   const core::QueryConfig& config_;
 
   /// 1) Does not follow 'isLegacyCast'. 2) The conversion precision is

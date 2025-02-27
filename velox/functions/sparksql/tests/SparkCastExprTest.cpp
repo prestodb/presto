@@ -291,6 +291,62 @@ TEST_F(SparkCastExprTest, intToTimestamp) {
   testIntegralToTimestampCast<int32_t>();
 }
 
+TEST_F(SparkCastExprTest, doubleToTimestamp) {
+  testCast(
+      makeFlatVector<double>({
+          0.0,
+          1727181032.0,
+          -1727181032.0,
+          9223372036855.999,
+          -9223372036856.999,
+          1.79769e+308,
+          std::numeric_limits<double>::max(),
+          -std::numeric_limits<double>::max(),
+          std::numeric_limits<double>::min(),
+          kInf,
+          kNan,
+          -kInf,
+      }),
+      makeNullableFlatVector<Timestamp>({
+          Timestamp(0, 0),
+          Timestamp(1727181032, 0),
+          Timestamp(-1727181032, 0),
+          Timestamp(9223372036854, 775'807'000),
+          Timestamp(-9223372036855, 224'192'000),
+          Timestamp(9223372036854, 775'807'000),
+          Timestamp(9223372036854, 775'807'000),
+          Timestamp(-9223372036855, 224'192'000),
+          Timestamp(0, 0),
+          std::nullopt,
+          std::nullopt,
+          std::nullopt,
+      }));
+}
+
+TEST_F(SparkCastExprTest, floatToTimestamp) {
+  testCast(
+      makeFlatVector<float>({
+          0.0,
+          1727181032.0,
+          -1727181032.0,
+          std::numeric_limits<float>::max(),
+          std::numeric_limits<float>::min(),
+          kInf,
+          kNan,
+          -kInf,
+      }),
+      makeNullableFlatVector<Timestamp>({
+          Timestamp(0, 0),
+          Timestamp(1727181056, 0),
+          Timestamp(-1727181056, 0),
+          Timestamp(9223372036854, 775'807'000),
+          Timestamp(0, 0),
+          std::nullopt,
+          std::nullopt,
+          std::nullopt,
+      }));
+}
+
 TEST_F(SparkCastExprTest, primitiveInvalidCornerCases) {
   // To integer.
   {
