@@ -64,6 +64,15 @@ JSON Functions
         SELECT get_json_object('{"a"-3}'', '$.a'); -- NULL (malformed JSON string)
         SELECT get_json_object('{"a":3}'', '.a'); -- NULL (malformed JSON path)
 
+.. spark:function:: json_array_length(jsonString) -> integer
+
+    Returns the number of elements in the outermost JSON array from ``jsonString``.
+    If ``jsonString`` is not a valid JSON array or NULL, the function returns NULL. ::
+
+        SELECT json_array_length('[1,2,3,4]'); -- 4
+        SELECT json_array_length('[1,2,3,{"f1":1,"f2":[5,6]},4]'); -- 5
+        SELECT json_array_length('[1,2'); -- NULL
+
 .. spark:function:: json_object_keys(jsonString) -> array(string)
 
     Returns all the keys of the outermost JSON object as an array if a valid JSON object is given.

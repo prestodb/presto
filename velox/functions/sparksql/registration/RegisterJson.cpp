@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "velox/functions/lib/JsonArrayLength.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/sparksql/GetJsonObject.h"
 #include "velox/functions/sparksql/JsonObjectKeys.h"
@@ -24,6 +26,8 @@ void registerJsonFunctions(const std::string& prefix) {
       {prefix + "get_json_object"});
   registerFunction<JsonObjectKeysFunction, Array<Varchar>, Varchar>(
       {prefix + "json_object_keys"});
+  registerFunction<JsonArrayLengthFunction, int32_t, Varchar>(
+      {prefix + "json_array_length"});
 }
 
 } // namespace facebook::velox::functions::sparksql

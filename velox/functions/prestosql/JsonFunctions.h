@@ -124,35 +124,6 @@ struct JsonArrayContainsFunction {
   }
 };
 
-template <typename T>
-struct JsonArrayLengthFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-
-  FOLLY_ALWAYS_INLINE bool call(int64_t& len, const arg_type<Json>& json) {
-    simdjson::ondemand::document jsonDoc;
-
-    simdjson::padded_string paddedJson(json.data(), json.size());
-    if (simdjsonParse(paddedJson).get(jsonDoc)) {
-      return false;
-    }
-    if (jsonDoc.type().error()) {
-      return false;
-    }
-
-    if (jsonDoc.type() != simdjson::ondemand::json_type::array) {
-      return false;
-    }
-
-    size_t numElements;
-    if (jsonDoc.count_elements().get(numElements)) {
-      return false;
-    }
-
-    len = numElements;
-    return true;
-  }
-};
-
 template <typename TExec>
 struct JsonArrayGetFunction {
   VELOX_DEFINE_FUNCTION_TYPES(TExec);
