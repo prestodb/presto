@@ -300,7 +300,8 @@ Property Name                                Description
 
 ``hive.s3.aws-secret-key``                   Default AWS secret key to use.
 
-``hive.s3.iam-role``                         IAM role to assume.
+``hive.s3.iam-role``                         IAM role to assume.Required for Web Identity authentication
+                                             when ``hive.s3.web.identity.auth.enabled=true``
 
 ``hive.s3.endpoint``                         The S3 storage endpoint server. This can be used to
                                              connect to an S3-compatible storage system instead
@@ -355,6 +356,11 @@ Property Name                                Description
 ``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
                                              will skip data that may be expected to be part of the table
                                              or partition. Defaults to ``false``.
+
+``hive.s3.web-identity-token-file``          Specifies the file path of the Web Identity token used for
+                                             assuming an IAM role.
+
+``hive.s3.web.identity.auth.enabled``              Enables Web Identity authentication for S3 access.
 ============================================ =================================================================
 
 S3 Credentials
