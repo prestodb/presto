@@ -128,6 +128,7 @@ public abstract class RemoteState
                 }
             }, directExecutor());
         }
+        System.out.println(String.format("%s:%d is currently ", remoteUri.getHost(), remoteUri.getPort()) + isHealthy);
     }
 
     public boolean isHealthy()
