@@ -434,6 +434,13 @@ class SpillState {
   SpillPartitionNumSet testingNonEmptySpilledPartitionSet() const;
 
  private:
+  // Ensures that the bytes to spill is within the limit of
+  // maxSpillBytesPerWrite_ for a given spill write/appendToPartition call.
+  // NOTE: the Presto serializer used for spill serialization can't handle more
+  // than 2GB data size. Hence we can't spill a vector which exceeds
+  // 2GB serialized buffer.
+  void validateSpillBytesSize(uint64_t bytes);
+
   void updateSpilledInputBytes(uint64_t bytes);
 
   SpillWriter* partitionWriter(uint32_t partition) const;

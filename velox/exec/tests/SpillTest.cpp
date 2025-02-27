@@ -844,6 +844,42 @@ TEST_P(SpillTest, nonExistSpillFileOnDeletion) {
   state_.reset();
 }
 
+TEST_P(SpillTest, validatePerSpillWriteSize) {
+  struct TestRowVector : RowVector {
+    explicit TestRowVector(std::shared_ptr<const Type> type)
+        : RowVector(nullptr, type, nullptr, 0, {}) {}
+
+    uint64_t estimateFlatSize() const override {
+      // Return 10GB
+      constexpr uint64_t tenGB = 10 * static_cast<uint64_t>(1024 * 1024 * 1024);
+      return tenGB;
+    }
+  };
+
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  SpillState state(
+      [&]() -> const std::string& { return tempDirectory->getPath(); },
+      updateSpilledBytesCb_,
+      "test",
+      1,
+      1,
+      {},
+      1024,
+      0,
+      compressionKind_,
+      std::nullopt,
+      pool(),
+      &spillStats_,
+      "");
+  int partitionIndex = 0;
+  state.setPartitionSpilled(partitionIndex);
+  ASSERT_TRUE(state.isPartitionSpilled(partitionIndex));
+  VELOX_ASSERT_THROW(
+      state.appendToPartition(
+          partitionIndex, std::make_shared<TestRowVector>(HUGEINT())),
+      "Spill bytes will overflow");
+}
+
 namespace {
 SpillFiles makeFakeSpillFiles(int32_t numFiles) {
   auto tempDir = exec::test::TempDirectoryPath::create();

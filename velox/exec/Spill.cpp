@@ -129,6 +129,13 @@ void SpillState::setPartitionSpilled(uint32_t partition) {
   common::incrementGlobalSpilledPartitionStats();
 }
 
+/*static*/
+void SpillState::validateSpillBytesSize(uint64_t bytes) {
+  static constexpr uint64_t kMaxSpillBytesPerWrite =
+      std::numeric_limits<int32_t>::max();
+  VELOX_CHECK_LT(bytes, kMaxSpillBytesPerWrite, "Spill bytes will overflow.");
+}
+
 void SpillState::updateSpilledInputBytes(uint64_t bytes) {
   auto statsLocked = stats_->wlock();
   statsLocked->spilledInputBytes += bytes;
@@ -164,7 +171,9 @@ uint64_t SpillState::appendToPartition(
         stats_);
   }
 
-  updateSpilledInputBytes(rows->estimateFlatSize());
+  const uint64_t bytes = rows->estimateFlatSize();
+  validateSpillBytesSize(bytes);
+  updateSpilledInputBytes(bytes);
 
   IndexRange range{0, rows->size()};
   return partitionWriters_[partition]->write(
