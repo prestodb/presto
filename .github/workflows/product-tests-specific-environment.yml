@@ -10,7 +10,6 @@ env:
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
   MAVEN_FAST_INSTALL: "-B -V --quiet -T 1C -DskipTests -Dair.check.skip-all --no-transfer-progress -Dmaven.javadoc.skip=true"
   RETRY: .github/bin/retry
-  GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
   changes:

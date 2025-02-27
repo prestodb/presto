@@ -9,7 +9,6 @@ env:
   MAVEN_OPTS: "-Xmx1024M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError"
   RETRY: .github/bin/retry
-  GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
   maven-checks:
