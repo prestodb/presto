@@ -519,6 +519,33 @@ public class TestUtilizedColumnsAnalyzer
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
     }
 
+    @Test
+    public void testCteWithExpressionInSelect()
+    {
+        assertUtilizedTableColumns(
+                "with cte as (select  x as c1, y as c2, z + 1 as c3 from t13) select c1, c3 from (select * from cte)",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x", "z")));
+    }
+
+    @Test
+    public void testMultipleCtes()
+    {
+        assertUtilizedTableColumns(
+                "with cte1 as (select  x as c1, y as c2, z + 1 as c3 from t13), cte2 as (select c1 + 1 as a, c3 as b from cte1) select a, b from (select * from cte2)",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x", "z")));
+        assertUtilizedTableColumns(
+                "with cte1 as (select  x as c1, z + 1 as c2, y from t13), cte2 as (select c1 + 1 c3, c2 +1 as c4 from cte1) select c3 from cte2",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x")));
+    }
+
+    @Test
+    public void testMultipleCtesWithSameNameFallsBackToAllColumns()
+    {
+        assertUtilizedTableColumns(
+                "with cte1 as (select  x + 1 as c1, y as c2, z + 1 as c3 from t13), cte2 as (with cte1 AS (select y +1 as c1 from t13) select * from cte1) SELECT cte1.c1, cte2.c1 from cte1 join cte2 on cte1.c1=cte2.c1",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x", "y", "z")));
+    }
+
     private void assertUtilizedTableColumns(@Language("SQL") String query, Map<QualifiedObjectName, Set<String>> expected)
     {
         transaction(transactionManager, accessControl)

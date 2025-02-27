@@ -115,7 +115,7 @@ public class Analyzer
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
-        analyzeForUtilizedColumns(analysis, analysis.getStatement());
+        analyzeForUtilizedColumns(analysis, analysis.getStatement(), warningCollector);
         analysis.populateTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session));
         return analysis;
     }

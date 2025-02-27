@@ -53,6 +53,10 @@ public class RelationId
         return sourceNode == null;
     }
 
+    public Node getSourceNode()
+    {
+        return sourceNode;
+    }
     @Override
     public boolean equals(Object o)
     {
