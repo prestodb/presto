@@ -24,6 +24,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.InstanceProfileCredentialsProvider;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
+import com.amazonaws.auth.WebIdentityTokenCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.event.ProgressEventType;
@@ -136,6 +137,7 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_STORAGE_CLAS
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_PREFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
+import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_WEB_IDENTITY_ENABLED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -196,6 +198,7 @@ public class PrestoS3FileSystem
     private PrestoS3AclType s3AclType;
     private boolean skipGlacierObjects;
     private PrestoS3StorageClass s3StorageClass;
+    private boolean webIdentityEnabled;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -237,7 +240,8 @@ public class PrestoS3FileSystem
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
-
+        this.webIdentityEnabled = conf.getBoolean(S3_WEB_IDENTITY_ENABLED, false);
+        checkArgument(!(webIdentityEnabled && isNullOrEmpty(s3IamRole)), "Invalid configuration: hive.s3.iam-role must be provided when hive.s3.web.identity.auth.enabled is set to true");
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
                 .withProtocol(sslEnabled ? Protocol.HTTPS : Protocol.HTTP)
@@ -854,8 +858,17 @@ public class PrestoS3FileSystem
             return InstanceProfileCredentialsProvider.getInstance();
         }
 
-        if (s3IamRole != null) {
-            return new STSAssumeRoleSessionCredentialsProvider.Builder(s3IamRole, s3IamRoleSessionName).build();
+        if (!isNullOrEmpty(s3IamRole)) {
+            if (webIdentityEnabled) {
+                log.debug("Using Web Identity Token Credentials Provider.");
+                WebIdentityTokenCredentialsProvider.Builder providerBuilder = WebIdentityTokenCredentialsProvider.builder()
+                        .roleArn(s3IamRole)
+                        .roleSessionName(s3IamRoleSessionName);
+                return providerBuilder.build();
+            }
+            log.debug("Using STS Assume Role Session Credentials Provider.");
+            return new STSAssumeRoleSessionCredentialsProvider.Builder(s3IamRole, s3IamRoleSessionName)
+                    .build();
         }
 
         String providerClass = conf.get(S3_CREDENTIALS_PROVIDER);
