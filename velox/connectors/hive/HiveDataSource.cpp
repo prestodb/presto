@@ -204,6 +204,7 @@ HiveDataSource::HiveDataSource(
   }
 
   ioStats_ = std::make_shared<io::IoStatistics>();
+  fsStats_ = std::make_shared<filesystems::File::IoStats>();
 }
 
 std::unique_ptr<SplitReader> HiveDataSource::createSplitReader() {
@@ -215,6 +216,7 @@ std::unique_ptr<SplitReader> HiveDataSource::createSplitReader() {
       hiveConfig_,
       readerOutputType_,
       ioStats_,
+      fsStats_,
       fileHandleFactory_,
       executor_,
       scanSpec_);
@@ -519,7 +521,9 @@ std::unordered_map<std::string, RuntimeCounter> HiveDataSource::runtimeStats() {
   if (numBucketConversion_ > 0) {
     res.insert({"numBucketConversion", RuntimeCounter(numBucketConversion_)});
   }
-  for (const auto& storageStats : ioStats_->storageStats()) {
+
+  const auto fsStats = fsStats_->stats();
+  for (const auto& storageStats : fsStats) {
     res.emplace(
         storageStats.first,
         RuntimeCounter(storageStats.second.sum, storageStats.second.unit));
@@ -544,6 +548,9 @@ void HiveDataSource::setFromDataSource(
   // balance to that.
   source->ioStats_->merge(*ioStats_);
   ioStats_ = std::move(source->ioStats_);
+  source->fsStats_->merge(*fsStats_);
+  fsStats_ = std::move(source->fsStats_);
+
   numBucketConversion_ += source->numBucketConversion_;
   partitionFunction_ = std::move(source->partitionFunction_);
 }

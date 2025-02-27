@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/common/base/RandomUtil.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/FileHandle.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Reader.h"
@@ -62,6 +63,7 @@ class SplitReader {
       const std::shared_ptr<const HiveConfig>& hiveConfig,
       const RowTypePtr& readerOutputType,
       const std::shared_ptr<io::IoStatistics>& ioStats,
+      const std::shared_ptr<filesystems::File::IoStats>& fsStats,
       FileHandleFactory* fileHandleFactory,
       folly::Executor* executor,
       const std::shared_ptr<common::ScanSpec>& scanSpec);
@@ -111,6 +113,7 @@ class SplitReader {
       const std::shared_ptr<const HiveConfig>& hiveConfig,
       const RowTypePtr& readerOutputType,
       const std::shared_ptr<io::IoStatistics>& ioStats,
+      const std::shared_ptr<filesystems::File::IoStats>& fsStats,
       FileHandleFactory* fileHandleFactory,
       folly::Executor* executor,
       const std::shared_ptr<common::ScanSpec>& scanSpec);
@@ -165,6 +168,7 @@ class SplitReader {
 
   RowTypePtr readerOutputType_;
   const std::shared_ptr<io::IoStatistics> ioStats_;
+  const std::shared_ptr<filesystems::File::IoStats> fsStats_;
   FileHandleFactory* const fileHandleFactory_;
   folly::Executor* const executor_;
   memory::MemoryPool* const pool_;

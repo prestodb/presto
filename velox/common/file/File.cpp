@@ -60,7 +60,7 @@ T getAttribute(
 std::string ReadFile::pread(
     uint64_t offset,
     uint64_t length,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   std::string buf;
   buf.resize(length);
   auto res = pread(offset, length, buf.data(), stats);
@@ -71,7 +71,7 @@ std::string ReadFile::pread(
 uint64_t ReadFile::preadv(
     uint64_t offset,
     const std::vector<folly::Range<char*>>& buffers,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   auto fileSize = size();
   uint64_t numRead = 0;
   if (offset >= fileSize) {
@@ -92,7 +92,7 @@ uint64_t ReadFile::preadv(
 uint64_t ReadFile::preadv(
     folly::Range<const common::Region*> regions,
     folly::Range<folly::IOBuf*> iobufs,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   VELOX_CHECK_EQ(regions.size(), iobufs.size());
   uint64_t length = 0;
   for (size_t i = 0; i < regions.size(); ++i) {
@@ -111,7 +111,7 @@ std::string_view InMemoryReadFile::pread(
     uint64_t offset,
     uint64_t length,
     void* buf,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   bytesRead_ += length;
   memcpy(buf, file_.data() + offset, length);
   return {static_cast<char*>(buf), length};
@@ -120,7 +120,7 @@ std::string_view InMemoryReadFile::pread(
 std::string InMemoryReadFile::pread(
     uint64_t offset,
     uint64_t length,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   bytesRead_ += length;
   return std::string(file_.data() + offset, length);
 }
@@ -202,7 +202,7 @@ std::string_view LocalReadFile::pread(
     uint64_t offset,
     uint64_t length,
     void* buf,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   preadInternal(offset, length, static_cast<char*>(buf));
   return {static_cast<char*>(buf), length};
 }
@@ -210,7 +210,7 @@ std::string_view LocalReadFile::pread(
 uint64_t LocalReadFile::preadv(
     uint64_t offset,
     const std::vector<folly::Range<char*>>& buffers,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   // Dropped bytes sized so that a typical dropped range of 50K is not
   // too many iovecs.
   static thread_local std::vector<char> droppedBytes(16 * 1024);
@@ -267,7 +267,7 @@ uint64_t LocalReadFile::preadv(
 folly::SemiFuture<uint64_t> LocalReadFile::preadvAsync(
     uint64_t offset,
     const std::vector<folly::Range<char*>>& buffers,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   if (!executor_) {
     return ReadFile::preadvAsync(offset, buffers, stats);
   }

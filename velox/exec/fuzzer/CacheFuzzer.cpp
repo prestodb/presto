@@ -375,6 +375,7 @@ void CacheFuzzer::initializeInputs() {
   auto tracker = std::make_shared<ScanTracker>(
       "testTracker", nullptr, 256 << 10 /*256KB*/);
   auto ioStats = std::make_shared<IoStatistics>();
+  auto fsStats = std::make_shared<filesystems::File::IoStats>();
   inputs_.reserve(FLAGS_num_source_files);
   for (auto i = 0; i < FLAGS_num_source_files; ++i) {
     // Initialize buffered input.
@@ -388,6 +389,7 @@ void CacheFuzzer::initializeInputs() {
         tracker,
         fileIds_[i].id(), // NOLINT
         ioStats,
+        fsStats,
         withExecutor ? executor_.get() : nullptr,
         readOptions));
 

@@ -63,8 +63,9 @@ folly::SemiFuture<uint64_t> InputStream::readAsync(
 ReadFileInputStream::ReadFileInputStream(
     std::shared_ptr<velox::ReadFile> readFile,
     const MetricsLogPtr& metricsLog,
-    IoStatistics* stats)
-    : InputStream(readFile->getName(), metricsLog, stats),
+    IoStatistics* stats,
+    filesystems::File::IoStats* fsStats)
+    : InputStream(readFile->getName(), metricsLog, stats, fsStats),
       readFile_(std::move(readFile)) {}
 
 void ReadFileInputStream::read(
@@ -78,7 +79,7 @@ void ReadFileInputStream::read(
   std::string_view readData;
   {
     MicrosecondTimer timer(&readTimeUs);
-    readData = readFile_->pread(offset, length, buf, stats_);
+    readData = readFile_->pread(offset, length, buf, fsStats_);
   }
   if (stats_) {
     stats_->incRawBytesRead(length);
@@ -101,7 +102,7 @@ void ReadFileInputStream::read(
     LogType logType) {
   const int64_t bufferSize = totalBufferSize(buffers);
   logRead(offset, bufferSize, logType);
-  const auto size = readFile_->preadv(offset, buffers, stats_);
+  const auto size = readFile_->preadv(offset, buffers, fsStats_);
   VELOX_CHECK_EQ(
       size,
       bufferSize,
@@ -118,7 +119,7 @@ folly::SemiFuture<uint64_t> ReadFileInputStream::readAsync(
     LogType logType) {
   const int64_t bufferSize = totalBufferSize(buffers);
   logRead(offset, bufferSize, logType);
-  return readFile_->preadvAsync(offset, buffers, stats_);
+  return readFile_->preadvAsync(offset, buffers, fsStats_);
 }
 
 bool ReadFileInputStream::hasReadAsync() const {
@@ -137,7 +138,7 @@ void ReadFileInputStream::vread(
       [&](size_t acc, const auto& r) { return acc + r.length; });
   logRead(regions[0].offset, length, purpose);
   auto readStartMicros = getCurrentTimeMicro();
-  readFile_->preadv(regions, iobufs, stats_);
+  readFile_->preadv(regions, iobufs, fsStats_);
   if (stats_) {
     stats_->incRawBytesRead(length);
     stats_->incTotalScanTime((getCurrentTimeMicro() - readStartMicros) * 1000);

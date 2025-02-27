@@ -745,6 +745,7 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
     const dwio::common::ReaderOptions& readerOpts,
     const ConnectorQueryCtx* connectorQueryCtx,
     std::shared_ptr<io::IoStatistics> ioStats,
+    std::shared_ptr<filesystems::File::IoStats> fsStats,
     folly::Executor* executor) {
   if (connectorQueryCtx->cache()) {
     return std::make_unique<dwio::common::CachedBufferedInput>(
@@ -756,6 +757,7 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
             connectorQueryCtx->scanId(), readerOpts.loadQuantum()),
         fileHandle.groupId.id(),
         ioStats,
+        std::move(fsStats),
         executor,
         readerOpts);
   }
@@ -767,6 +769,7 @@ std::unique_ptr<dwio::common::BufferedInput> createBufferedInput(
           connectorQueryCtx->scanId(), readerOpts.loadQuantum()),
       fileHandle.groupId.id(),
       std::move(ioStats),
+      std::move(fsStats),
       executor,
       readerOpts);
 }

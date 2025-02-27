@@ -15,7 +15,3 @@
 velox_add_library(velox_common_io IoStatistics.cpp)
 
 velox_link_libraries(velox_common_io Folly::folly glog::glog)
-
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()

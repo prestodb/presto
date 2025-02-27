@@ -33,6 +33,7 @@ IcebergSplitReader::IcebergSplitReader(
     const std::shared_ptr<const HiveConfig>& hiveConfig,
     const RowTypePtr& readerOutputType,
     const std::shared_ptr<io::IoStatistics>& ioStats,
+    const std::shared_ptr<filesystems::File::IoStats>& fsStats,
     FileHandleFactory* const fileHandleFactory,
     folly::Executor* executor,
     const std::shared_ptr<common::ScanSpec>& scanSpec)
@@ -44,6 +45,7 @@ IcebergSplitReader::IcebergSplitReader(
           hiveConfig,
           readerOutputType,
           ioStats,
+          fsStats,
           fileHandleFactory,
           executor,
           scanSpec),
@@ -87,6 +89,7 @@ void IcebergSplitReader::prepareSplit(
                 executor_,
                 hiveConfig_,
                 ioStats_,
+                fsStats_,
                 runtimeStats,
                 splitOffset_,
                 hiveSplit_->connectorId));

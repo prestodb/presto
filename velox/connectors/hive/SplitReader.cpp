@@ -84,6 +84,7 @@ std::unique_ptr<SplitReader> SplitReader::create(
     const std::shared_ptr<const HiveConfig>& hiveConfig,
     const RowTypePtr& readerOutputType,
     const std::shared_ptr<io::IoStatistics>& ioStats,
+    const std::shared_ptr<filesystems::File::IoStats>& fsStats,
     FileHandleFactory* fileHandleFactory,
     folly::Executor* executor,
     const std::shared_ptr<common::ScanSpec>& scanSpec) {
@@ -98,6 +99,7 @@ std::unique_ptr<SplitReader> SplitReader::create(
         hiveConfig,
         readerOutputType,
         ioStats,
+        fsStats,
         fileHandleFactory,
         executor,
         scanSpec);
@@ -110,6 +112,7 @@ std::unique_ptr<SplitReader> SplitReader::create(
         hiveConfig,
         readerOutputType,
         ioStats,
+        fsStats,
         fileHandleFactory,
         executor,
         scanSpec));
@@ -125,6 +128,7 @@ SplitReader::SplitReader(
     const std::shared_ptr<const HiveConfig>& hiveConfig,
     const RowTypePtr& readerOutputType,
     const std::shared_ptr<io::IoStatistics>& ioStats,
+    const std::shared_ptr<filesystems::File::IoStats>& fsStats,
     FileHandleFactory* fileHandleFactory,
     folly::Executor* executor,
     const std::shared_ptr<common::ScanSpec>& scanSpec)
@@ -135,6 +139,7 @@ SplitReader::SplitReader(
       hiveConfig_(hiveConfig),
       readerOutputType_(readerOutputType),
       ioStats_(ioStats),
+      fsStats_(fsStats),
       fileHandleFactory_(fileHandleFactory),
       executor_(executor),
       pool_(connectorQueryCtx->memoryPool()),
@@ -269,6 +274,7 @@ void SplitReader::createReader() {
       baseReaderOpts_,
       connectorQueryCtx_,
       ioStats_,
+      fsStats_,
       executor_);
 
   baseReader_ = dwio::common::getReaderFactory(baseReaderOpts_.fileFormat())

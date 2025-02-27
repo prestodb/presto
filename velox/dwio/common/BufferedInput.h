@@ -35,13 +35,15 @@ class BufferedInput {
       memory::MemoryPool& pool,
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
       IoStatistics* stats = nullptr,
+      filesystems::File::IoStats* fsStats = nullptr,
       uint64_t maxMergeDistance = kMaxMergeDistance,
       std::optional<bool> wsVRLoad = std::nullopt)
       : BufferedInput(
             std::make_shared<ReadFileInputStream>(
                 std::move(readFile),
                 metricsLog,
-                stats),
+                stats,
+                fsStats),
             pool,
             maxMergeDistance,
             wsVRLoad) {}

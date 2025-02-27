@@ -163,14 +163,14 @@ std::string_view HdfsReadFile::pread(
     uint64_t offset,
     uint64_t length,
     void* buf,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   return pImpl->pread(offset, length, buf);
 }
 
 std::string HdfsReadFile::pread(
     uint64_t offset,
     uint64_t length,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   return pImpl->pread(offset, length);
 }
 

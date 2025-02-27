@@ -34,7 +34,7 @@ std::string_view FaultyReadFile::pread(
     uint64_t offset,
     uint64_t length,
     void* buf,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   if (injectionHook_ != nullptr) {
     FaultFileReadOperation op(path_, offset, length, buf);
     injectionHook_(&op);
@@ -48,7 +48,7 @@ std::string_view FaultyReadFile::pread(
 uint64_t FaultyReadFile::preadv(
     uint64_t offset,
     const std::vector<folly::Range<char*>>& buffers,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   if (injectionHook_ != nullptr) {
     FaultFileReadvOperation op(path_, offset, buffers);
     injectionHook_(&op);
@@ -62,7 +62,7 @@ uint64_t FaultyReadFile::preadv(
 folly::SemiFuture<uint64_t> FaultyReadFile::preadvAsync(
     uint64_t offset,
     const std::vector<folly::Range<char*>>& buffers,
-    io::IoStatistics* stats) const {
+    filesystems::File::IoStats* stats) const {
   // TODO: add fault injection for async read later.
   if (delegatedFile_->hasPreadvAsync() || executor_ == nullptr) {
     return delegatedFile_->preadvAsync(offset, buffers, stats);
