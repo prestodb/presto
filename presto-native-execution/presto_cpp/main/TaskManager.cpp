@@ -591,6 +591,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     execTask->start(maxDrivers, concurrentLifespans);
 
     prestoTask->taskStarted = true;
+    prestoTask->info.stats.queuedTimeInNanos =
+        velox::getCurrentTimeMs() - prestoTask->createTimeMs;
     resultRequests = std::move(prestoTask->resultRequests);
     statusRequest = prestoTask->statusRequest;
     infoRequest = prestoTask->infoRequest;
