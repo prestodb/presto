@@ -55,7 +55,7 @@ public abstract class RemoteState
     private final AtomicLong lastWarningLogged = new AtomicLong();
     private final java.time.Duration timeToUnhealthy;
 
-    private boolean isHealthy;
+    private boolean isHealthy = true;
     private Instant lastHealthyResponseTime = Instant.now();
 
     @Inject
@@ -75,7 +75,10 @@ public abstract class RemoteState
         if (nanosSince(lastWarningLogged.get()).toMillis() > 1_000 &&
                 sinceUpdate.toMillis() > 10_000 &&
                 future.get() != null) {
-            log.warn("Coordinator update request to %s has not returned in %s", remoteUri.getHost(), sinceUpdate.toString(SECONDS));
+            log.warn(
+                    "Coordinator update request to %s has not returned in %s",
+                    String.format("%s:%d", remoteUri.getHost(), remoteUri.getPort()),
+                    sinceUpdate.toString(SECONDS));
             lastWarningLogged.set(System.nanoTime());
         }
 
@@ -105,8 +108,10 @@ public abstract class RemoteState
                         }
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching node state from %s returned status code %d", remoteUri, result.getStatusCode());
+                        }
+                        else {
                             if (!isHealthy) {
-                                log.info("%s was unhealthy, and is now healthy", remoteUri.getHost());
+                                log.info("%s:%d was unhealthy, and is now healthy", remoteUri.getHost(), remoteUri.getPort());
                             }
                             isHealthy = true;
                             lastHealthyResponseTime = Instant.now();
