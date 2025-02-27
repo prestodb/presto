@@ -526,8 +526,7 @@ public class TestUtilizedColumnsAnalyzer
         assertUtilizedTableColumns(query, ImmutableSet.of(
                 ImmutableMap.of(
                         QualifiedObjectName.valueOf("tpch.s1.v6"), ImmutableSet.of("a", "c"),
-                        QualifiedObjectName.valueOf("tpch.s1.v7"), ImmutableSet.of("y")
-                ),
+                        QualifiedObjectName.valueOf("tpch.s1.v7"), ImmutableSet.of("y")),
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "c")),
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("y"))));
     }
@@ -539,8 +538,7 @@ public class TestUtilizedColumnsAnalyzer
         assertUtilizedTableColumns(query, ImmutableSet.of(
                 ImmutableMap.of(
                         QualifiedObjectName.valueOf("tpch.s1.v8"), ImmutableSet.of("a", "c"),
-                        QualifiedObjectName.valueOf("tpch.s1.v9"), ImmutableSet.of("y")
-                ),
+                        QualifiedObjectName.valueOf("tpch.s1.v9"), ImmutableSet.of("y")),
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "c")),
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("y"))));
     }
