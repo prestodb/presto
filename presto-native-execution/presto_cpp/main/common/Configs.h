@@ -42,13 +42,6 @@ class ConfigBase {
     config_ = std::move(config);
   }
 
-  /// Registers an extra property in the config.
-  /// Returns true if succeeded, false if failed (due to the property already
-  /// registered).
-  bool registerProperty(
-      const std::string& propertyName,
-      const folly::Optional<std::string>& defaultValue = {});
-
   /// Adds or replaces value at the given key. Can be used by debugging or
   /// testing code.
   /// Returns previous value if there was any.
