@@ -15,107 +15,27 @@
  */
 
 #include "velox/exec/fuzzer/RowNumberFuzzer.h"
-#include <boost/random/uniform_int_distribution.hpp>
+
 #include <utility>
 #include "velox/common/file/FileSystems.h"
-#include "velox/connectors/hive/HiveConnector.h"
-#include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/exec/fuzzer/FuzzerUtil.h"
-#include "velox/exec/fuzzer/ReferenceQueryRunner.h"
-#include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/exec/fuzzer/RowNumberFuzzerBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/serializers/CompactRowSerializer.h"
-#include "velox/serializers/PrestoSerializer.h"
-#include "velox/serializers/UnsafeRowSerializer.h"
-#include "velox/vector/fuzzer/VectorFuzzer.h"
-
-DEFINE_int32(steps, 10, "Number of plans to generate and test.");
-
-DEFINE_int32(
-    duration_sec,
-    0,
-    "For how long it should run (in seconds). If zero, "
-    "it executes exactly --steps iterations and exits.");
-
-DEFINE_int32(
-    batch_size,
-    100,
-    "The number of elements on each generated vector.");
-
-DEFINE_int32(num_batches, 10, "The number of generated vectors.");
-
-DEFINE_double(
-    null_ratio,
-    0.1,
-    "Chance of adding a null value in a vector "
-    "(expressed as double from 0 to 1).");
-
-DEFINE_bool(enable_spill, true, "Whether to test plans with spilling enabled.");
-
-DEFINE_int32(
-    max_spill_level,
-    -1,
-    "Max spill level, -1 means random [0, 7], otherwise the actual level.");
-
-DEFINE_bool(
-    enable_oom_injection,
-    false,
-    "When enabled OOMs will randomly be triggered while executing query "
-    "plans. The goal of this mode is to ensure unexpected exceptions "
-    "aren't thrown and the process isn't killed in the process of cleaning "
-    "up after failures. Therefore, results are not compared when this is "
-    "enabled. Note that this option only works in debug builds.");
 
 namespace facebook::velox::exec {
 namespace {
 
-class RowNumberFuzzer {
+class RowNumberFuzzer : public RowNumberFuzzerBase {
  public:
   explicit RowNumberFuzzer(
       size_t initialSeed,
       std::unique_ptr<test::ReferenceQueryRunner>);
 
-  void go();
-
-  struct PlanWithSplits {
-    core::PlanNodePtr plan;
-    std::vector<Split> splits;
-
-    explicit PlanWithSplits(
-        core::PlanNodePtr _plan,
-        const std::vector<Split>& _splits = {})
-        : plan(std::move(_plan)), splits(_splits) {}
-  };
-
  private:
-  static VectorFuzzer::Options getFuzzerOptions() {
-    VectorFuzzer::Options opts;
-    opts.vectorSize = FLAGS_batch_size;
-    opts.stringVariableLength = true;
-    opts.stringLength = 100;
-    opts.nullRatio = FLAGS_null_ratio;
-    return opts;
-  }
-
-  void seed(size_t seed) {
-    currentSeed_ = seed;
-    vectorFuzzer_.reSeed(seed);
-    rng_.seed(currentSeed_);
-  }
-
-  void reSeed() {
-    seed(rng_());
-  }
-
   // Runs one test iteration from query plans generations, executions and result
   // verifications.
-  void verify();
-
-  int32_t randInt(int32_t min, int32_t max) {
-    return boost::random::uniform_int_distribution<int32_t>(min, max)(rng_);
-  }
+  void runSingleIteration() override;
 
   std::pair<std::vector<std::string>, std::vector<TypePtr>>
   generatePartitionKeys();
@@ -123,12 +43,6 @@ class RowNumberFuzzer {
   std::vector<RowVectorPtr> generateInput(
       const std::vector<std::string>& keyNames,
       const std::vector<TypePtr>& keyTypes);
-
-  std::optional<test::MaterializedRowMultiset> computeReferenceResults(
-      core::PlanNodePtr& plan,
-      const std::vector<RowVectorPtr>& input);
-
-  RowVectorPtr execute(const PlanWithSplits& plan, bool injectSpill);
 
   void addPlansWithTableScan(
       const std::string& tableDir,
@@ -149,69 +63,12 @@ class RowNumberFuzzer {
       const RowTypePtr& type,
       const std::vector<std::string>& partitionKeys,
       const std::vector<Split>& splits);
-
-  FuzzerGenerator rng_;
-  size_t currentSeed_{0};
-
-  std::shared_ptr<memory::MemoryPool> rootPool_{
-      memory::memoryManager()->addRootPool(
-          "rowNumberFuzzer",
-          memory::kMaxMemory,
-          memory::MemoryReclaimer::create())};
-  std::shared_ptr<memory::MemoryPool> pool_{rootPool_->addLeafChild(
-      "rowNumberFuzzerLeaf",
-      true,
-      exec::MemoryReclaimer::create())};
-  std::shared_ptr<memory::MemoryPool> writerPool_{rootPool_->addAggregateChild(
-      "rowNumberFuzzerWriter",
-      exec::MemoryReclaimer::create())};
-  VectorFuzzer vectorFuzzer_;
-  std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner_;
 };
 
 RowNumberFuzzer::RowNumberFuzzer(
     size_t initialSeed,
     std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner)
-    : vectorFuzzer_{getFuzzerOptions(), pool_.get()},
-      referenceQueryRunner_{std::move(referenceQueryRunner)} {
-  filesystems::registerLocalFileSystem();
-  dwrf::registerDwrfReaderFactory();
-
-  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kPresto)) {
-    serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
-  }
-  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kCompactRow)) {
-    serializer::CompactRowVectorSerde::registerNamedVectorSerde();
-  }
-  if (!isRegisteredNamedVectorSerde(VectorSerde::Kind::kUnsafeRow)) {
-    serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
-  }
-
-  // Make sure not to run out of open file descriptors.
-  std::unordered_map<std::string, std::string> hiveConfig = {
-      {connector::hive::HiveConfig::kNumCacheFileHandles, "1000"}};
-  connector::registerConnectorFactory(
-      std::make_shared<connector::hive::HiveConnectorFactory>());
-  auto hiveConnector =
-      connector::getConnectorFactory(
-          connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(
-              test::kHiveConnectorId,
-              std::make_shared<config::ConfigBase>(std::move(hiveConfig)));
-  connector::registerConnector(hiveConnector);
-
-  seed(initialSeed);
-}
-
-template <typename T>
-bool isDone(size_t i, T startTime) {
-  if (FLAGS_duration_sec > 0) {
-    std::chrono::duration<double> elapsed =
-        std::chrono::system_clock::now() - startTime;
-    return elapsed.count() >= FLAGS_duration_sec;
-  }
-  return i >= FLAGS_steps;
-}
+    : RowNumberFuzzerBase(initialSeed, std::move(referenceQueryRunner)) {}
 
 std::pair<std::vector<std::string>, std::vector<TypePtr>>
 RowNumberFuzzer::generatePartitionKeys() {
@@ -247,7 +104,7 @@ std::vector<RowVectorPtr> RowNumberFuzzer::generateInput(
   return input;
 }
 
-RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makeDefaultPlan(
+RowNumberFuzzerBase::PlanWithSplits RowNumberFuzzer::makeDefaultPlan(
     const std::vector<std::string>& partitionKeys,
     const std::vector<RowVectorPtr>& input) {
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
@@ -261,76 +118,7 @@ RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makeDefaultPlan(
   return PlanWithSplits{std::move(plan)};
 }
 
-std::optional<test::MaterializedRowMultiset>
-RowNumberFuzzer::computeReferenceResults(
-    core::PlanNodePtr& plan,
-    const std::vector<RowVectorPtr>& input) {
-  if (test::containsUnsupportedTypes(input[0]->type())) {
-    return std::nullopt;
-  }
-  return referenceQueryRunner_->execute(plan).first;
-}
-
-RowVectorPtr RowNumberFuzzer::execute(
-    const PlanWithSplits& plan,
-    bool injectSpill) {
-  LOG(INFO) << "Executing query plan: " << plan.plan->toString(true, true);
-
-  test::AssertQueryBuilder builder(plan.plan);
-  if (!plan.splits.empty()) {
-    builder.splits(plan.splits);
-  }
-
-  std::shared_ptr<test::TempDirectoryPath> spillDirectory;
-  int32_t spillPct{0};
-  if (injectSpill) {
-    spillDirectory = exec::test::TempDirectoryPath::create();
-    const auto maxSpillLevel =
-        FLAGS_max_spill_level == -1 ? randInt(0, 7) : FLAGS_max_spill_level;
-    builder.config(core::QueryConfig::kSpillEnabled, true)
-        .config(core::QueryConfig::kMaxSpillLevel, maxSpillLevel)
-        .config(core::QueryConfig::kRowNumberSpillEnabled, true)
-        .spillDirectory(spillDirectory->getPath());
-    spillPct = 10;
-  }
-
-  test::ScopedOOMInjector oomInjector(
-      []() -> bool { return folly::Random::oneIn(10); },
-      10); // Check the condition every 10 ms.
-  if (FLAGS_enable_oom_injection) {
-    oomInjector.enable();
-  }
-
-  // Wait for the task to be destroyed before start next query execution to
-  // avoid the potential interference of the background activities across query
-  // executions.
-  auto stopGuard =
-      folly::makeGuard([&]() { test::waitForAllTasksToBeDeleted(); });
-
-  TestScopedSpillInjection scopedSpillInjection(spillPct);
-  RowVectorPtr result;
-  try {
-    result = builder.copyResults(pool_.get());
-  } catch (VeloxRuntimeError& e) {
-    if (FLAGS_enable_oom_injection &&
-        e.errorCode() == facebook::velox::error_code::kMemCapExceeded &&
-        e.message() == test::ScopedOOMInjector::kErrorMessage) {
-      // If we enabled OOM injection we expect the exception thrown by the
-      // ScopedOOMInjector.
-      return nullptr;
-    }
-
-    throw e;
-  }
-
-  if (VLOG_IS_ON(1)) {
-    VLOG(1) << std::endl << result->toString(0, result->size());
-  }
-
-  return result;
-}
-
-RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makePlanWithTableScan(
+RowNumberFuzzerBase::PlanWithSplits RowNumberFuzzer::makePlanWithTableScan(
     const RowTypePtr& type,
     const std::vector<std::string>& partitionKeys,
     const std::vector<Split>& splits) {
@@ -345,31 +133,6 @@ RowNumberFuzzer::PlanWithSplits RowNumberFuzzer::makePlanWithTableScan(
                   .project(projectFields)
                   .planNode();
   return PlanWithSplits{plan, splits};
-}
-
-bool isTableScanSupported(const TypePtr& type) {
-  if (type->kind() == TypeKind::ROW && type->size() == 0) {
-    return false;
-  }
-  if (type->kind() == TypeKind::UNKNOWN) {
-    return false;
-  }
-  if (type->kind() == TypeKind::HUGEINT) {
-    return false;
-  }
-  // Disable testing with TableScan when input contains TIMESTAMP type, due to
-  // the issue #8127.
-  if (type->kind() == TypeKind::TIMESTAMP) {
-    return false;
-  }
-
-  for (auto i = 0; i < type->size(); ++i) {
-    if (!isTableScanSupported(type->childAt(i))) {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 void RowNumberFuzzer::addPlansWithTableScan(
@@ -389,24 +152,18 @@ void RowNumberFuzzer::addPlansWithTableScan(
       asRowType(input[0]->type()), partitionKeys, inputSplits));
 }
 
-void RowNumberFuzzer::verify() {
+void RowNumberFuzzer::runSingleIteration() {
   const auto [keyNames, keyTypes] = generatePartitionKeys();
+
   const auto input = generateInput(keyNames, keyTypes);
   test::logVectors(input);
 
   auto defaultPlan = makeDefaultPlan(keyNames, input);
-  const auto expected = execute(defaultPlan, /*injectSpill=*/false);
+  const auto expected =
+      execute(defaultPlan, pool_, /*injectSpill=*/false, false);
 
   if (expected != nullptr) {
-    if (const auto referenceResult =
-            computeReferenceResults(defaultPlan.plan, input)) {
-      VELOX_CHECK(
-          test::assertEqualResults(
-              referenceResult.value(),
-              defaultPlan.plan->outputType(),
-              {expected}),
-          "Velox and Reference results don't match");
-    }
+    validateExpectedResults(defaultPlan.plan, input, expected);
   }
 
   std::vector<PlanWithSplits> altPlans;
@@ -416,64 +173,16 @@ void RowNumberFuzzer::verify() {
   addPlansWithTableScan(tableScanDir->getPath(), keyNames, input, altPlans);
 
   for (auto i = 0; i < altPlans.size(); ++i) {
-    LOG(INFO) << "Testing plan #" << i;
-    auto actual = execute(altPlans[i], /*injectSpill=*/false);
-    if (actual != nullptr && expected != nullptr) {
-      VELOX_CHECK(
-          test::assertEqualResults({expected}, {actual}),
-          "Logically equivalent plans produced different results");
-    } else {
-      VELOX_CHECK(
-          FLAGS_enable_oom_injection, "Got unexpected nullptr for results");
-    }
-
-    if (FLAGS_enable_spill) {
-      LOG(INFO) << "Testing plan #" << i << " with spilling";
-      actual = execute(altPlans[i], /*=injectSpill=*/true);
-      if (actual != nullptr && expected != nullptr) {
-        try {
-          VELOX_CHECK(
-              test::assertEqualResults({expected}, {actual}),
-              "Logically equivalent plans produced different results");
-        } catch (const VeloxException&) {
-          LOG(ERROR) << "Expected\n"
-                     << expected->toString(0, expected->size()) << "\nActual\n"
-                     << actual->toString(0, actual->size());
-          throw;
-        }
-      } else {
-        VELOX_CHECK(
-            FLAGS_enable_oom_injection, "Got unexpected nullptr for results");
-      }
-    }
+    testPlan(
+        altPlans[i], i, expected, "core::QueryConfig::kRowNumberSpillEnabled");
   }
 }
 
-void RowNumberFuzzer::go() {
-  VELOX_USER_CHECK(
-      FLAGS_steps > 0 || FLAGS_duration_sec > 0,
-      "Either --steps or --duration_sec needs to be greater than zero.");
-  VELOX_USER_CHECK_GE(FLAGS_batch_size, 10, "Batch size must be at least 10.");
-
-  const auto startTime = std::chrono::system_clock::now();
-  size_t iteration = 0;
-
-  while (!isDone(iteration, startTime)) {
-    LOG(INFO) << "==============================> Started iteration "
-              << iteration << " (seed: " << currentSeed_ << ")";
-    verify();
-    LOG(INFO) << "==============================> Done with iteration "
-              << iteration;
-
-    reSeed();
-    ++iteration;
-  }
-}
 } // namespace
 
 void rowNumberFuzzer(
     size_t seed,
     std::unique_ptr<test::ReferenceQueryRunner> referenceQueryRunner) {
-  RowNumberFuzzer(seed, std::move(referenceQueryRunner)).go();
+  RowNumberFuzzer(seed, std::move(referenceQueryRunner)).run();
 }
 } // namespace facebook::velox::exec

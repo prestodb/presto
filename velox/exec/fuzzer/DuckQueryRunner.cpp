@@ -166,6 +166,11 @@ std::optional<std::string> DuckQueryRunner::toSql(
     return toSql(rowNumberNode);
   }
 
+  if (const auto topNRowNumberNode =
+          std::dynamic_pointer_cast<const core::TopNRowNumberNode>(plan)) {
+    return toSql(topNRowNumberNode);
+  }
+
   if (const auto joinNode =
           std::dynamic_pointer_cast<const core::HashJoinNode>(plan)) {
     return toSql(joinNode);
@@ -377,4 +382,55 @@ std::optional<std::string> DuckQueryRunner::toSql(
 
   return sql.str();
 }
+
+std::optional<std::string> DuckQueryRunner::toSql(
+    const std::shared_ptr<const core::TopNRowNumberNode>& topNRowNumberNode) {
+  std::stringstream sql;
+  sql << "SELECT * FROM (SELECT ";
+
+  const auto& inputType = topNRowNumberNode->sources()[0]->outputType();
+  for (auto i = 0; i < inputType->size(); ++i) {
+    appendComma(i, sql);
+    sql << inputType->nameOf(i);
+  }
+
+  sql << ", row_number() OVER (";
+
+  const auto& partitionKeys = topNRowNumberNode->partitionKeys();
+  if (!partitionKeys.empty()) {
+    sql << "partition by ";
+    for (auto i = 0; i < partitionKeys.size(); ++i) {
+      appendComma(i, sql);
+      sql << partitionKeys[i]->name();
+    }
+  }
+
+  const auto& sortingKeys = topNRowNumberNode->sortingKeys();
+  const auto& sortingOrders = topNRowNumberNode->sortingOrders();
+
+  if (!sortingKeys.empty()) {
+    sql << " ORDER BY ";
+    for (auto j = 0; j < sortingKeys.size(); ++j) {
+      appendComma(j, sql);
+      sql << sortingKeys[j]->name() << " " << sortingOrders[j].toString();
+    }
+  }
+
+  std::string rowNumberColumnName = topNRowNumberNode->generateRowNumber()
+      ? topNRowNumberNode->outputType()->nameOf(
+            topNRowNumberNode->outputType()->children().size() - 1)
+      : "row_number";
+
+  // TopNRowNumberNode should have a single source.
+  std::optional<std::string> source = toSql(topNRowNumberNode->sources()[0]);
+  if (!source) {
+    return std::nullopt;
+  }
+  sql << ") as " << rowNumberColumnName << " FROM " << *source << ") ";
+  sql << " where " << rowNumberColumnName
+      << " <= " << topNRowNumberNode->limit();
+
+  return sql.str();
+}
+
 } // namespace facebook::velox::exec::test

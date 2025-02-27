@@ -33,7 +33,6 @@ target_link_libraries(
   velox_type_parser
   Folly::folly
   velox_hive_connector
-  velox_dwio_dwrf_reader
   velox_dwio_dwrf_writer
   velox_dwio_catalog_fbhive
   velox_dwio_faulty_file_sink)
@@ -79,7 +78,20 @@ target_link_libraries(
   velox_aggregation_fuzzer_base
   velox_temp_path)
 
+add_library(velox_row_number_fuzzer_base_lib RowNumberFuzzerBase.cpp)
+
+target_link_libraries(
+  velox_row_number_fuzzer_base_lib
+  velox_dwio_dwrf_reader
+  velox_fuzzer_util
+  velox_vector_fuzzer
+  velox_exec_test_lib)
+
 add_library(velox_row_number_fuzzer_lib RowNumberFuzzer.cpp)
+
+target_link_libraries(
+  velox_row_number_fuzzer_lib velox_row_number_fuzzer_base_lib velox_type
+  velox_expression_test_utility)
 
 # RowNumber Fuzzer.
 add_executable(velox_row_number_fuzzer RowNumberFuzzerRunner.cpp)
@@ -87,13 +99,17 @@ add_executable(velox_row_number_fuzzer RowNumberFuzzerRunner.cpp)
 target_link_libraries(
   velox_row_number_fuzzer velox_row_number_fuzzer_lib)
 
+add_library(velox_topn_row_number_fuzzer_lib TopNRowNumberFuzzer.cpp)
+
 target_link_libraries(
-  velox_row_number_fuzzer_lib
-  velox_fuzzer_util
-  velox_type
-  velox_vector_fuzzer
-  velox_exec_test_lib
+  velox_topn_row_number_fuzzer_lib velox_row_number_fuzzer_base_lib velox_type
   velox_expression_test_utility)
+
+# TopNRowNumber Fuzzer.
+add_executable(velox_topn_row_number_fuzzer TopNRowNumberFuzzerRunner.cpp)
+
+target_link_libraries(
+  velox_topn_row_number_fuzzer velox_topn_row_number_fuzzer_lib)
 
 add_library(velox_join_fuzzer JoinFuzzer.cpp)
 

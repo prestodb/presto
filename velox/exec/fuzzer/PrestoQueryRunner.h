@@ -121,6 +121,9 @@ class PrestoQueryRunner : public velox::exec::test::ReferenceQueryRunner {
       const std::shared_ptr<const velox::core::RowNumberNode>& rowNumberNode);
 
   std::optional<std::string> toSql(
+      const std::shared_ptr<const core::TopNRowNumberNode>& rowNumberNode);
+
+  std::optional<std::string> toSql(
       const std::shared_ptr<const core::TableWriteNode>& tableWriteNode);
 
   std::string startQuery(
