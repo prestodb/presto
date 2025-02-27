@@ -2175,7 +2175,6 @@ void TableWriteNode::addDetails(std::stringstream& stream) const {
 
 folly::dynamic TableWriteNode::serialize() const {
   auto obj = PlanNode::serialize();
-  obj["sources"] = sources_.front()->serialize();
   obj["columns"] = columns_->serialize();
   obj["columnNames"] = ISerializable::serialize(columnNames_);
   if (aggregationNode_ != nullptr) {
@@ -2211,7 +2210,6 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
   auto outputType = deserializeRowType(obj["outputType"]);
   auto commitStrategy =
       connector::stringToCommitStrategy(obj["commitStrategy"].asString());
-  auto source = ISerializable::deserialize<PlanNode>(obj["sources"], context);
   return std::make_shared<TableWriteNode>(
       id,
       columns,
@@ -2222,7 +2220,7 @@ PlanNodePtr TableWriteNode::create(const folly::dynamic& obj, void* context) {
       hasPartitioningScheme,
       outputType,
       commitStrategy,
-      source);
+      deserializeSingleSource(obj, context));
 }
 
 void TableWriteMergeNode::addDetails(std::stringstream& /* stream */) const {}
@@ -2231,7 +2229,6 @@ folly::dynamic TableWriteMergeNode::serialize() const {
   auto obj = PlanNode::serialize();
   VELOX_CHECK_EQ(
       sources_.size(), 1, "TableWriteMergeNode can only have one source");
-  obj["sources"] = sources_.front()->serialize();
   if (aggregationNode_ != nullptr) {
     obj["aggregationNode"] = aggregationNode_->serialize();
   }
@@ -2250,9 +2247,8 @@ PlanNodePtr TableWriteMergeNode::create(
     aggregationNode = std::const_pointer_cast<AggregationNode>(
         ISerializable::deserialize<AggregationNode>(obj["aggregationNode"]));
   }
-  auto source = ISerializable::deserialize<PlanNode>(obj["sources"], context);
   return std::make_shared<TableWriteMergeNode>(
-      id, outputType, aggregationNode, source);
+      id, outputType, aggregationNode, deserializeSingleSource(obj, context));
 }
 
 MergeExchangeNode::MergeExchangeNode(
