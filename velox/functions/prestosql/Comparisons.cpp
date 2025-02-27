@@ -90,7 +90,7 @@ struct SimdComparator {
       exec::LocalDecodedVector lhsDecoded(context, lhs, rows);
       exec::LocalDecodedVector rhsDecoded(context, rhs, rows);
 
-      context.template applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         auto l = lhsDecoded->template valueAt<T>(row);
         auto r = rhsDecoded->template valueAt<T>(row);
         auto filtered = compare(l, r);
