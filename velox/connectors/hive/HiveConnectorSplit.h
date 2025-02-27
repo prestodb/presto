@@ -58,7 +58,10 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   std::optional<HiveBucketConversion> bucketConversion;
   std::unordered_map<std::string, std::string> customSplitInfo;
   std::shared_ptr<std::string> extraFileInfo;
+  // Parameters that are provided as the serialization options.
   std::unordered_map<std::string, std::string> serdeParameters;
+  // Parameters that are provided as the physical storage properties.
+  std::unordered_map<std::string, std::string> storageParameters;
 
   /// These represent columns like $file_size, $file_modified_time that are
   /// associated with the HiveSplit.
@@ -69,6 +72,40 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   std::optional<FileProperties> properties;
 
   std::optional<RowIdProperties> rowIdProperties;
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  HiveConnectorSplit(
+      const std::string& connectorId,
+      const std::string& _filePath,
+      dwio::common::FileFormat _fileFormat,
+      uint64_t _start,
+      uint64_t _length,
+      const std::unordered_map<std::string, std::optional<std::string>>&
+          _partitionKeys,
+      std::optional<int32_t> _tableBucketNumber,
+      const std::unordered_map<std::string, std::string>& _customSplitInfo,
+      const std::shared_ptr<std::string>& _extraFileInfo,
+      const std::unordered_map<std::string, std::string>& _serdeParameters,
+      int64_t splitWeight,
+      bool cacheable = true,
+      const std::unordered_map<std::string, std::string>& _infoColumns = {},
+      std::optional<FileProperties> _properties = std::nullopt,
+      std::optional<RowIdProperties> _rowIdProperties = std::nullopt)
+      : ConnectorSplit(connectorId, splitWeight, cacheable),
+        filePath(_filePath),
+        fileFormat(_fileFormat),
+        start(_start),
+        length(_length),
+        partitionKeys(_partitionKeys),
+        tableBucketNumber(_tableBucketNumber),
+        customSplitInfo(_customSplitInfo),
+        extraFileInfo(_extraFileInfo),
+        serdeParameters(_serdeParameters),
+        storageParameters({}),
+        infoColumns(_infoColumns),
+        properties(_properties),
+        rowIdProperties(_rowIdProperties) {}
+#endif
 
   HiveConnectorSplit(
       const std::string& connectorId,
@@ -82,6 +119,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
       const std::unordered_map<std::string, std::string>& _customSplitInfo = {},
       const std::shared_ptr<std::string>& _extraFileInfo = {},
       const std::unordered_map<std::string, std::string>& _serdeParameters = {},
+      const std::unordered_map<std::string, std::string>& _storageParameters =
+          {},
       int64_t splitWeight = 0,
       bool cacheable = true,
       const std::unordered_map<std::string, std::string>& _infoColumns = {},
@@ -97,6 +136,7 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
         customSplitInfo(_customSplitInfo),
         extraFileInfo(_extraFileInfo),
         serdeParameters(_serdeParameters),
+        storageParameters(_storageParameters),
         infoColumns(_infoColumns),
         properties(_properties),
         rowIdProperties(_rowIdProperties) {}
@@ -182,6 +222,12 @@ class HiveConnectorSplitBuilder {
     return *this;
   }
 
+  HiveConnectorSplitBuilder& storageParameters(
+      const std::unordered_map<std::string, std::string>& storageParameters) {
+    storageParameters_ = storageParameters;
+    return *this;
+  }
+
   HiveConnectorSplitBuilder& connectorId(const std::string& connectorId) {
     connectorId_ = connectorId;
     return *this;
@@ -204,6 +250,7 @@ class HiveConnectorSplitBuilder {
         customSplitInfo_,
         extraFileInfo_,
         serdeParameters_,
+        storageParameters_,
         splitWeight_,
         cacheable_,
         infoColumns_,
@@ -220,6 +267,7 @@ class HiveConnectorSplitBuilder {
   std::unordered_map<std::string, std::string> customSplitInfo_ = {};
   std::shared_ptr<std::string> extraFileInfo_ = {};
   std::unordered_map<std::string, std::string> serdeParameters_ = {};
+  std::unordered_map<std::string, std::string> storageParameters_ = {};
   std::unordered_map<std::string, std::string> infoColumns_ = {};
   std::string connectorId_;
   int64_t splitWeight_{0};

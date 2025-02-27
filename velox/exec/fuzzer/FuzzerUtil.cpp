@@ -148,6 +148,7 @@ std::shared_ptr<connector::ConnectorSplit> makeConnectorSplit(
       /*customSplitInfo=*/std::unordered_map<std::string, std::string>{},
       /*extraFileInfo=*/nullptr,
       /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+      /*storageParameters=*/std::unordered_map<std::string, std::string>{},
       /*splitWeight=*/0,
       /*cacheable=*/true,
       infoColumns);

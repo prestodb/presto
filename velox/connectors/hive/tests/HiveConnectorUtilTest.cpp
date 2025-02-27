@@ -321,6 +321,7 @@ TEST_F(HiveConnectorUtilTest, cacheRetention) {
         std::unordered_map<std::string, std::string>{},
         std::shared_ptr<std::string>{},
         std::unordered_map<std::string, std::string>{},
+        std::unordered_map<std::string, std::string>{},
         0,
         testData.splitCacheable);
 
