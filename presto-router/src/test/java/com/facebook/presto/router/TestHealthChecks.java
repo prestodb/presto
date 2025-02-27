@@ -110,21 +110,31 @@ public class TestHealthChecks
     public void testHealthChecks()
             throws InterruptedException
     {
+        TestingPrestoServerRouter server0 = prestoServers.get(0);
+        TestingPrestoServerRouter server1 = prestoServers.get(1);
+        TestingPrestoServerRouter server2 = prestoServers.get(2);
+
         clusterManager.refreshHealthStatuses();
         List<URI> destinations = getDestinations(3);
-        assertTrue(destinations.contains(prestoServers.get(0).getBaseUrl()));
+        assertTrue(destinations.contains(server0.getBaseUrl()));
+        assertTrue(destinations.contains(server1.getBaseUrl()));
+        assertTrue(destinations.contains(server2.getBaseUrl()));
 
-        TestingPrestoServerRouter server0 = prestoServers.get(0);
         server0.stopResponding();
-        Thread.sleep(4000);
+        Thread.sleep(6000);
         clusterManager.refreshHealthStatuses();
         destinations = getDestinations(3);
         assertFalse(destinations.contains(server0.getBaseUrl()));
+        assertTrue(destinations.contains(server1.getBaseUrl()));
+        assertTrue(destinations.contains(server2.getBaseUrl()));
 
         server0.startResponding();
+        Thread.sleep(6000);
         clusterManager.refreshHealthStatuses();
         destinations = getDestinations(3);
         assertTrue(destinations.contains(server0.getBaseUrl()));
+        assertTrue(destinations.contains(server1.getBaseUrl()));
+        assertTrue(destinations.contains(server2.getBaseUrl()));
     }
 
     private List<URI> getDestinations(int requests)
