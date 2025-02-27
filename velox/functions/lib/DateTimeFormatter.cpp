@@ -60,6 +60,7 @@ struct Date {
   bool isYearOfEra = false; // Year of era cannot be zero or negative.
   bool hasYear = false; // Whether year was explicitly specified.
   bool hasDayOfWeek = false; // Whether dayOfWeek was explicitly specified.
+  bool hasWeek = false; // Whether week was explicitly specified.
 
   int32_t hour = 0;
   int32_t minute = 0;
@@ -870,9 +871,7 @@ int32_t parseFromPattern(
       return -1;
     }
     cur += size;
-    if (!date.weekOfMonthDateFormat) {
-      date.weekDateFormat = true;
-    }
+    date.hasDayOfWeek = true;
     date.dayOfYearFormat = false;
     if (!date.hasYear) {
       date.hasYear = true;
@@ -1095,6 +1094,7 @@ int32_t parseFromPattern(
           return -1;
         }
         date.year = number;
+        date.hasWeek = true;
         date.weekDateFormat = true;
         date.dayOfYearFormat = false;
         date.centuryFormat = false;
@@ -1107,6 +1107,7 @@ int32_t parseFromPattern(
           return -1;
         }
         date.week = number;
+        date.hasWeek = true;
         date.weekDateFormat = true;
         date.dayOfYearFormat = false;
         date.weekOfMonthDateFormat = false;
@@ -1637,6 +1638,10 @@ Expected<DateTimeResult> DateTimeFormatter::parse(
 
   // Convert the parsed date/time into a timestamp.
   Expected<int64_t> daysSinceEpoch;
+
+  // Ensure you use week date format only when you have year and at least week.
+  date.weekDateFormat = date.hasYear && date.hasWeek;
+
   if (date.weekDateFormat) {
     daysSinceEpoch =
         util::daysSinceEpochFromWeekDate(date.year, date.week, date.dayOfWeek);

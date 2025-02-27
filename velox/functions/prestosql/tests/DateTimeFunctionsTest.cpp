@@ -4530,6 +4530,12 @@ TEST_F(DateTimeFunctionsTest, dateParse) {
   EXPECT_EQ(
       Timestamp(-66600, 0), dateParse("1969-12-31+11:00", "%Y-%m-%d+%H:%i"));
 
+  setQueryTimeZone("America/Los_Angeles");
+  // Tests if it uses weekdateformat if %v not present but %a is present.
+  EXPECT_EQ(
+      Timestamp(1730707200, 0),
+      dateParse("04-Nov-2024 (Mon)", "%d-%b-%Y (%a)"));
+
   VELOX_ASSERT_THROW(dateParse("", "%y+"), "Invalid date format: ''");
   VELOX_ASSERT_THROW(dateParse("1", "%y+"), "Invalid date format: '1'");
   VELOX_ASSERT_THROW(dateParse("116", "%y+"), "Invalid date format: '116'");
