@@ -61,6 +61,34 @@ public class HiveS3Config
     private String s3UserAgentPrefix = "";
     private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
+    private String s3WebIdentityTokenFile;
+    private boolean s3WebIdentityEnabled;
+
+    public boolean isS3WebIdentityEnabled()
+    {
+        return s3WebIdentityEnabled;
+    }
+
+    @Config("hive.s3.web.identity.auth.enabled")
+    @ConfigDescription("Enable web identity token authentication for assuming an AWS IAM role")
+    public HiveS3Config setS3WebIdentityEnabled(boolean s3WebIdentityEnabled)
+    {
+        this.s3WebIdentityEnabled = s3WebIdentityEnabled;
+        return this;
+    }
+
+    public String getS3WebIdentityTokenFile()
+    {
+        return s3WebIdentityTokenFile;
+    }
+
+    @Config("hive.s3.web-identity-token-file")
+    @ConfigDescription("Path to the web identity token file for assuming an AWS IAM role")
+    public HiveS3Config setS3WebIdentityTokenFile(String s3WebIdentityTokenFile)
+    {
+        this.s3WebIdentityTokenFile = s3WebIdentityTokenFile;
+        return this;
+    }
 
     public String getS3AwsAccessKey()
     {
