@@ -519,6 +519,29 @@ public class TestUtilizedColumnsAnalyzer
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
     }
 
+    public void testInvokerView()
+    {
+//        @Language("SQL") String query = "SELECT v6.a, v6.c FROM v6";
+//        @Language("SQL") String query = "SELECT v6.a, v6.c FROM (select a,b,c from t1) v6";
+//        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM (select a,b,c from t1) v6 left join (select x,y,z from t13) v7 on v7.y = v6.c";
+//        @Language("SQL") String query = "SELECT v6.a, v6.c, v7.y FROM v6 left join v7 on v7.y = v6.c";
+//        @Language("SQL") String query = "SELECT c1, c3 FROM v7";
+        @Language("SQL") String query = "SELECT c1, c3 FROM (with cte as (select x as c1,y as c2, z as c3 from t13) select * from cte)";
+//        @Language("SQL") String query = "SELECT c1, c3 FROM (with cte as (select x as c1,y as c2, z as c3 from t13) select * from cte)";
+//        @Language("SQL") String query = "SELECT c1, c3 FROM (select x as c1,y as c2, z+1 as c3 from t13)";
+
+        transaction(transactionManager, accessControl)
+                .singleStatement()
+                .readUncommitted()
+                .readOnly()
+                .execute(CLIENT_SESSION, session -> {
+                    Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP);
+                    Statement statement = SQL_PARSER.createStatement(query);
+                    Analysis analysis = analyzer.analyze(statement);
+                    assertEquals(analysis.getAccessControlReferences().getTableColumnAndSubfieldReferencesForAccessControl().values().toString(), "[{tpch.s1.v6=[a, c], tpch.s1.v7=[y]}, {tpch.s1.t1=[]}, {tpch.s1.t13=[]}]");
+                });
+    }
+
     private void assertUtilizedTableColumns(@Language("SQL") String query, Map<QualifiedObjectName, Set<String>> expected)
     {
         transaction(transactionManager, accessControl)
