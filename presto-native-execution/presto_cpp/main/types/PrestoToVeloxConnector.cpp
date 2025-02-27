@@ -24,6 +24,7 @@
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/connectors/hive/iceberg/IcebergDeleteFile.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/connectors/tpch/TpchConnectorSplit.h"
 #include "velox/type/Filter.h"
@@ -1128,6 +1129,9 @@ HivePrestoToVeloxConnector::toVeloxSplit(
   for (const auto& [key, value] : hiveSplit->storage.serdeParameters) {
     serdeParameters[key] = value;
   }
+
+  std::unordered_map<std::string, std::string> storageParameters;
+
   std::unordered_map<std::string, std::string> infoColumns = {
       {"$path", hiveSplit->fileSplit.path},
       {"$file_size", std::to_string(hiveSplit->fileSplit.fileSize)},
@@ -1151,6 +1155,7 @@ HivePrestoToVeloxConnector::toVeloxSplit(
           customSplitInfo,
           extraFileInfo,
           serdeParameters,
+          storageParameters,
           hiveSplit->splitWeight,
           splitContext->cacheable,
           infoColumns);
@@ -1486,6 +1491,150 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       {},
       exprConverter,
       typeParser);
+}
+
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::CreateHandle* createHandle,
+    const TypeParser& typeParser) const {
+  auto icebergOutputTableHandle =
+      std::dynamic_pointer_cast<protocol::iceberg::IcebergOutputTableHandle>(
+          createHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergOutputTableHandle,
+      "Unexpected output table handle type {}",
+      createHandle->handle.connectorHandle->_type);
+
+  bool isPartitioned{false};
+  const auto inputColumns = toHiveColumns(
+      icebergOutputTableHandle->inputColumns, typeParser, isPartitioned);
+
+  return std::make_unique<velox::connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<connector::hive::LocationHandle>(
+          icebergOutputTableHandle->outputPath,
+          icebergOutputTableHandle->outputPath,
+          connector::hive::LocationHandle::TableType::kNew),
+      toVeloxIcebergSchema(icebergOutputTableHandle->schema, typeParser),
+      toVeloxIcebergPartitionSpec(icebergOutputTableHandle->partitionSpec, typeParser),
+      toVeloxFileFormat(icebergOutputTableHandle->fileFormat),
+      nullptr,
+      std::optional(
+          toFileCompressionKind(icebergOutputTableHandle->compressionCodec)));
+}
+
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::InsertHandle* insertHandle,
+    const TypeParser& typeParser) const {
+  auto icebergInsertTableHandle =
+      std::dynamic_pointer_cast<protocol::iceberg::IcebergInsertTableHandle>(
+          insertHandle->handle.connectorHandle);
+
+  VELOX_CHECK_NOT_NULL(
+      icebergInsertTableHandle,
+      "Unexpected insert table handle type {}",
+      insertHandle->handle.connectorHandle->_type);
+
+  bool isPartitioned{false};
+  const auto inputColumns = toHiveColumns(
+      icebergInsertTableHandle->inputColumns, typeParser, isPartitioned);
+
+  return std::make_unique<connector::hive::iceberg::IcebergInsertTableHandle>(
+      inputColumns,
+      std::make_shared<connector::hive::LocationHandle>(
+          icebergInsertTableHandle->outputPath,
+          icebergInsertTableHandle->outputPath,
+          connector::hive::LocationHandle::TableType::kExisting),
+      toVeloxIcebergSchema(icebergInsertTableHandle->schema, typeParser),
+      toVeloxIcebergPartitionSpec(icebergInsertTableHandle->partitionSpec, typeParser),
+      toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
+      nullptr,
+      std::optional(
+          toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
+}
+
+std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
+IcebergPrestoToVeloxConnector::toHiveColumns(
+    const protocol::List<protocol::iceberg::IcebergColumnHandle>& inputColumns,
+    const TypeParser& typeParser,
+    bool& hasPartitionColumn) const {
+  hasPartitionColumn = false;
+  std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
+      hiveColumns;
+  hiveColumns.reserve(inputColumns.size());
+  for (const auto& columnHandle : inputColumns) {
+    hasPartitionColumn |=
+        columnHandle.columnType == protocol::hive::ColumnType::PARTITION_KEY;
+    hiveColumns.emplace_back(
+        std::dynamic_pointer_cast<connector::hive::HiveColumnHandle>(
+            std::shared_ptr(toVeloxColumnHandle(&columnHandle, typeParser))));
+  }
+  return hiveColumns;
+}
+
+std::vector<std::shared_ptr<const connector::hive::iceberg::VeloxIcebergNestedField>>
+IcebergPrestoToVeloxConnector::toVeloxIcebergNestedFields(
+    const protocol::List<protocol::iceberg::PrestoIcebergNestedField>& columns,
+    const facebook::presto::TypeParser& typeParser) const {
+  std::vector<std::shared_ptr<const connector::hive::iceberg::VeloxIcebergNestedField>>
+      icebergColumns;
+  icebergColumns.reserve(columns.size());
+  for(const auto& column : columns) {
+    icebergColumns.emplace_back(
+        std::shared_ptr(toVeloxIcebergNestedField(&column, typeParser)));
+  }
+  return icebergColumns;
+}
+
+std::unique_ptr<connector::hive::iceberg::VeloxIcebergNestedField>
+IcebergPrestoToVeloxConnector::toVeloxIcebergNestedField(
+    const protocol::iceberg::PrestoIcebergNestedField* column,
+    const facebook::presto::TypeParser& typeParser) const {
+  std::shared_ptr<std::string> doc;
+  if (column->doc) {
+    doc = std::make_shared<std::string>(*column->doc);
+  }
+
+  return std::make_unique<connector::hive::iceberg::VeloxIcebergNestedField>(
+      column->optional,
+      column->id,
+      column->name,
+      stringToType(column->prestoType, typeParser),
+      doc);
+}
+
+std::unique_ptr<velox::connector::hive::iceberg::VeloxIcebergSchema>
+IcebergPrestoToVeloxConnector::toVeloxIcebergSchema(
+    const protocol::iceberg::PrestoIcebergSchema& schema,
+    const facebook::presto::TypeParser& typeParser) const {
+  std::unordered_map<std::string, std::int32_t> columnNameToIdMapping;
+  for (const auto& [key, value] : schema.columnNameToIdMapping) {
+    columnNameToIdMapping[key] = value;
+  }
+
+  std::unordered_map<std::string, std::int32_t> aliases;
+  for (const auto& [key, value] : schema.aliases) {
+    aliases[key] = value;
+  }
+
+  return std::make_unique<connector::hive::iceberg::VeloxIcebergSchema>(
+      schema.schemaId,
+      toVeloxIcebergNestedFields(schema.columns, typeParser),
+      columnNameToIdMapping,
+      aliases,
+      std::vector(schema.identifierFieldIds));
+}
+
+std::unique_ptr<velox::connector::hive::iceberg::VeloxIcebergPartitionSpec>
+IcebergPrestoToVeloxConnector::toVeloxIcebergPartitionSpec(
+    const protocol::iceberg::PrestoIcebergPartitionSpec& spec,
+    const facebook::presto::TypeParser& typeParser) const {
+  return std::make_unique<connector::hive::iceberg::VeloxIcebergPartitionSpec>(
+      spec.specId,
+      toVeloxIcebergSchema(spec.schema, typeParser),
+      std::vector(spec.fields));
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
