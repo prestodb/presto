@@ -15,6 +15,7 @@
  */
 
 #include "velox/serializers/PrestoIterativeVectorSerializer.h"
+#include "velox/serializers/PrestoSerializerSerializationUtils.h"
 
 namespace facebook::velox::serializer::presto::detail {
 PrestoIterativeVectorSerializer::PrestoIterativeVectorSerializer(
@@ -24,7 +25,8 @@ PrestoIterativeVectorSerializer::PrestoIterativeVectorSerializer(
     const PrestoVectorSerde::PrestoOptions& opts)
     : opts_(opts),
       streamArena_(streamArena),
-      codec_(common::compressionKindToCodec(opts.compressionKind)) {
+      codec_(common::compressionKindToCodec(opts.compressionKind)),
+      streams_(memory::StlAllocator<VectorStream>(*streamArena->pool())) {
   const auto types = rowType->children();
   const auto numTypes = types.size();
   streams_.reserve(numTypes);

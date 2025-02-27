@@ -16,7 +16,10 @@
 
 #include "velox/serializers/VectorStream.h"
 
+#include "velox/functions/prestosql/types/IPAddressType.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/UuidType.h"
+#include "velox/serializers/PrestoSerializerSerializationUtils.h"
 
 namespace facebook::velox::serializer::presto::detail {
 namespace {
@@ -73,7 +76,8 @@ VectorStream::VectorStream(
       encoding_(getEncoding(encoding, vector)),
       nulls_(streamArena, true, true),
       lengths_(streamArena),
-      values_(streamArena) {
+      values_(streamArena),
+      children_(memory::StlAllocator<VectorStream>(*streamArena->pool())) {
   if (initialNumRows == 0) {
     initializeHeader(typeToEncodingName(type), *streamArena);
     if (type_->size() > 0 && !isIpPrefix_) {

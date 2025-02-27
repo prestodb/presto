@@ -56,7 +56,7 @@ class PrestoIterativeVectorSerializer : public IterativeVectorSerializer {
   const std::unique_ptr<folly::compression::Codec> codec_;
 
   int32_t numRows_{0};
-  std::vector<VectorStream> streams_;
+  std::vector<VectorStream, memory::StlAllocator<VectorStream>> streams_;
 
   // Count of forthcoming compressions to skip.
   int32_t numCompressionToSkip_{0};

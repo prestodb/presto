@@ -501,6 +501,7 @@ class ByteOutputStream {
   bool isNegated_ = false;
 
   std::vector<ByteRange> ranges_;
+
   // The total number of bytes allocated from 'arena_' in 'ranges_'.
   int64_t allocatedBytes_{0};
 

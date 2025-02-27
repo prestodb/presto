@@ -17,7 +17,6 @@
 
 #include "velox/common/memory/StreamArena.h"
 #include "velox/serializers/PrestoSerializer.h"
-#include "velox/serializers/PrestoSerializerSerializationUtils.h"
 #include "velox/vector/BaseVector.h"
 
 namespace facebook::velox::serializer::presto::detail {
@@ -216,7 +215,7 @@ class VectorStream {
   ByteOutputStream nulls_;
   ByteOutputStream lengths_;
   ByteOutputStream values_;
-  std::vector<VectorStream> children_;
+  std::vector<VectorStream, memory::StlAllocator<VectorStream>> children_;
   bool isDictionaryStream_{false};
   bool isConstantStream_{false};
 };
