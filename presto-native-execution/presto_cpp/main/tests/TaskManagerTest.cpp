@@ -730,6 +730,7 @@ TEST_P(TaskManagerTest, tableScanAllSplitsAtOnce) {
       makeSource("0", filePaths, true, splitSequenceId));
   auto taskInfo = createOrUpdateTask(taskId, updateRequest, planFragment);
 
+  ASSERT_GT(taskInfo->stats.queuedTimeInNanos, 0);
   assertResults(taskId, rowType_, "SELECT * FROM tmp WHERE c0 % 5 = 0");
 }
 
