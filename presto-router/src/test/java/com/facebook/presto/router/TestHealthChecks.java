@@ -115,16 +115,17 @@ public class TestHealthChecks
         List<URI> destinations = getDestinations(3);
         assertTrue(destinations.contains(prestoServers.get(0).getBaseUrl()));
 
-        prestoServers.get(0).stopResponding();
+        TestingPrestoServerRouter server0 = prestoServers.get(0);
+        server0.stopResponding();
         Thread.sleep(4000);
         clusterManager.refreshHealthStatuses();
         destinations = getDestinations(3);
-        assertFalse(destinations.contains(prestoServers.get(0).getBaseUrl()));
+        assertFalse(destinations.contains(server0.getBaseUrl()));
 
-        prestoServers.get(0).startResponding();
+        server0.startResponding();
         clusterManager.refreshHealthStatuses();
         destinations = getDestinations(3);
-        assertTrue(destinations.contains(prestoServers.get(0).getBaseUrl()));
+        assertTrue(destinations.contains(server0.getBaseUrl()));
     }
 
     private List<URI> getDestinations(int requests)
