@@ -173,6 +173,8 @@ __global__ void addOneSwitchKernel(
   }
 }
 
+#ifndef VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
+
 #define BTCASE(nn, m)                              \
   asm volatile("BLK" nn ":");                      \
   temp = m + testFunc(temp, counter, flag, ptr).n; \
@@ -245,6 +247,8 @@ __global__ void addOneBranchKernel(
     numbers[index] = temp;
   }
 }
+
+#endif // !VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
 
 __global__ void addOneFuncStoreKernel(
     int32_t* numbers,
@@ -352,6 +356,8 @@ void TestStream::addOneFuncStore(
   CUDA_CHECK(cudaGetLastError());
 }
 
+#ifndef VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
+
 void TestStream::addOneBranch(
     int32_t* numbers,
     int32_t size,
@@ -370,6 +376,8 @@ void TestStream::addOneBranch(
       numbers, size, stride, repeats);
   CUDA_CHECK(cudaGetLastError());
 }
+
+#endif // !VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
 
 void TestStream::addOneSwitch(
     int32_t* numbers,
@@ -779,6 +787,8 @@ __global__ void addOne4x64RegKernel(
   }
 }
 
+#ifndef VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
+
 #define BTCASE4(nn, m)                            \
   asm volatile("BLK" nn ":");                     \
   params = testFunc4(params, index + m, nullptr); \
@@ -843,6 +853,8 @@ void __global__ __launch_bounds__(1024) addOne4x64BranchKernel(
     __syncthreads();
   }
 }
+
+#endif // !VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
 
 __global__ void addOne4x64FuncKernel(
     int64_t* numbers,
@@ -948,10 +960,13 @@ void TestStream::addOne4x64(
       addOne4x64RegKernel<<<numBlocks, kBlockSize, smem, stream_->stream>>>(
           numbers, size, stride, repeats);
       break;
+
+#ifndef VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
     case Add64Mode::k4Branch:
       addOne4x64BranchKernel<<<numBlocks, kBlockSize, smem, stream_->stream>>>(
           numbers, size, stride, repeats);
       break;
+#endif // !VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
 
     case Add64Mode::k4Func:
       addOne4x64FuncKernel<<<numBlocks, kBlockSize, smem, stream_->stream>>>(
@@ -984,7 +999,9 @@ REGISTER_KERNEL("addOne", addOneKernel);
 REGISTER_KERNEL("addOneFunc", addOneFuncKernel);
 REGISTER_KERNEL("addOneWide", addOneWideKernel);
 REGISTER_KERNEL("addOneRandom", addOneRandomKernel);
+#ifndef VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
 REGISTER_KERNEL("add4x64branch", addOne4x64BranchKernel);
+#endif // !VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
 REGISTER_KERNEL("add4x64func", addOne4x64FuncKernel);
 REGISTER_KERNEL("add4x64smemfunc", addOne4x64SMemFuncKernel);
 

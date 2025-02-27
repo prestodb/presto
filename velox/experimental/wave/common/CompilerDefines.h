@@ -20,7 +20,7 @@
 // that is not compiled with nvcc
 #if defined(__CUDACC_RTC__)
 #define WAVE_DEVICE_HOST __device__
-#elif defined(__NVCC__)
+#elif defined(__CUDACC__)
 #define WAVE_DEVICE_HOST __device__ __host__
 #else
 #define WAVE_DEVICE_HOST

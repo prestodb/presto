@@ -70,9 +70,7 @@ deviceScale32(unsigned int n, unsigned int scale) {
 }
 
 __device__ __forceinline__ unsigned int LaneId() {
-  unsigned int ret;
-  asm("mov.u32 %0, %%laneid;" : "=r"(ret));
-  return ret;
+  return threadIdx.x % kWarpThreads;
 }
 
 /* Log2 included from cub */

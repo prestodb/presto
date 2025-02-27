@@ -741,6 +741,7 @@ class RoundtripThread {
             stats.numAdds += op.param1 * op.param2 * 256;
             break;
 
+#ifndef VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
           case OpCode::kAddBranch:
             VELOX_CHECK_LE(op.param1, kNumKB);
             if (stats.isCpu) {
@@ -754,6 +755,7 @@ class RoundtripThread {
             }
             stats.numAdds += op.param1 * op.param2 * 256;
             break;
+#endif // !VELOX_SKIP_WAVE_BRANCH_KERNEL_TEST
 
           case OpCode::kAdd4x64:
             VELOX_CHECK_LE(op.param1, kNumKB);
