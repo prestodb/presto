@@ -129,9 +129,10 @@ The configuration properties of Presto C++ workers are described here, in alphab
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
-* **Default value:** ``number of hardware CPUs``
+* **Default value:** ``number of concurrent threads supported by the host``
 
-  Number of drivers to use per task. Defaults to hardware CPUs.
+  Number of drivers to use per task. Defaults to the number of concurrent
+  threads supported by the host.
 
 ``query.max-memory-per-node``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
