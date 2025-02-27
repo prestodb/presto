@@ -1,7 +1,6 @@
 package com.facebook.presto.router;
 
 import com.facebook.presto.server.testing.TestingPrestoServer;
-import org.graalvm.compiler.java.GraphBuilderPhase;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -12,13 +11,11 @@ import javax.servlet.ServletResponse;
 import java.io.IOException;
 
 public class TestingPrestoServerRouter
-    extends TestingPrestoServer
+        extends TestingPrestoServer
 {
     private final InstanceRequestBlocker blocker = new InstanceRequestBlocker();
 
-    public TestingPrestoServerRouter()
-            throws Exception
-    {
+    public TestingPrestoServerRouter() throws Exception {
         super();
     }
 
@@ -30,14 +27,12 @@ public class TestingPrestoServerRouter
 
         @Override
         public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
-                throws IOException, ServletException
-        {
+                throws IOException, ServletException {
             synchronized (monitor) {
                 while (blocked) {
                     try {
                         monitor.wait();
-                    }
-                    catch (InterruptedException e) {
+                    } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(e);
                     }
@@ -46,15 +41,13 @@ public class TestingPrestoServerRouter
             chain.doFilter(request, response);
         }
 
-        public void block()
-        {
+        public void block() {
             synchronized (monitor) {
                 blocked = true;
             }
         }
 
-        public void unblock()
-        {
+        public void unblock() {
             synchronized (monitor) {
                 blocked = false;
                 monitor.notifyAll();
@@ -69,14 +62,12 @@ public class TestingPrestoServerRouter
     }
 
     @Override
-    public void stopResponding()
-    {
+    public void stopResponding() {
         blocker.block();
     }
 
     @Override
-    public void startResponding()
-    {
+    public void startResponding() {
         blocker.unblock();
     }
 }
