@@ -253,4 +253,18 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>java17</id>
+            <activation>
+                <jdk>17</jdk>
+            </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>
+                    --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
+                </air.test.jvm.additional-arguments>
+            </properties>
+        </profile>
+    </profiles>
 </project>
