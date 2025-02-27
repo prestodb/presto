@@ -69,7 +69,6 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY;
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
-
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
