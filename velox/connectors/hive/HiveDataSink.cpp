@@ -1098,10 +1098,11 @@ std::string HiveInsertTableHandle::toString() const {
 
 std::string LocationHandle::toString() const {
   return fmt::format(
-      "LocationHandle [targetPath: {}, writePath: {}, tableType: {},",
+      "LocationHandle [targetPath: {}, writePath: {}, tableType: {}, tableFileName: {}]",
       targetPath_,
       writePath_,
-      tableTypeName(tableType_));
+      tableTypeName(tableType_),
+      targetFileName_);
 }
 
 void LocationHandle::registerSerDe() {
@@ -1115,6 +1116,7 @@ folly::dynamic LocationHandle::serialize() const {
   obj["targetPath"] = targetPath_;
   obj["writePath"] = writePath_;
   obj["tableType"] = tableTypeName(tableType_);
+  obj["targetFileName"] = targetFileName_;
   return obj;
 }
 
@@ -1122,7 +1124,9 @@ LocationHandlePtr LocationHandle::create(const folly::dynamic& obj) {
   auto targetPath = obj["targetPath"].asString();
   auto writePath = obj["writePath"].asString();
   auto tableType = tableTypeFromName(obj["tableType"].asString());
-  return std::make_shared<LocationHandle>(targetPath, writePath, tableType);
+  auto targetFileName = obj["targetFileName"].asString();
+  return std::make_shared<LocationHandle>(
+      targetPath, writePath, tableType, targetFileName);
 }
 
 std::unique_ptr<memory::MemoryReclaimer> HiveDataSink::WriterReclaimer::create(
