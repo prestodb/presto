@@ -22,7 +22,6 @@ import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.RequestInfo;
 import com.facebook.presto.server.security.ServerSecurityModule;
-import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
