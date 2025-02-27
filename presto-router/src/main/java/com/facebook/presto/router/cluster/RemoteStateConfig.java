@@ -32,10 +32,9 @@ public class RemoteStateConfig
         return this;
     }
 
-    public RemoteStateConfig setTimeToUnhealthy(Duration timeToUnhealthy)
+    public void setTimeToUnhealthy(Duration timeToUnhealthy)
     {
         this.timeToUnhealthy = timeToUnhealthy;
-        return this;
     }
 
     @NotNull
