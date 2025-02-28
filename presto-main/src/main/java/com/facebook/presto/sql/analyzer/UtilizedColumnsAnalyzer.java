@@ -102,7 +102,9 @@ public class UtilizedColumnsAnalyzer
             analyzer.analyze(node);
         }
         catch (Exception e) {
-            warningCollector.add(new PrestoWarning(UTILIZED_COLUMN_ANALYSIS_FAILED, "Error in analyzing utilized columns for access control, falling back to checking access on all columns."));
+            warningCollector.add(new PrestoWarning(
+                    UTILIZED_COLUMN_ANALYSIS_FAILED,
+                    "Error in analyzing utilized columns for access control, falling back to checking access on all columns: " + e.getMessage()));
             analysis.getTableColumnReferences().forEach(analysis::addUtilizedTableColumnReferences);
         }
     }
