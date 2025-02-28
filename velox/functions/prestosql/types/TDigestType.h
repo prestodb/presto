@@ -74,11 +74,16 @@ inline std::shared_ptr<const TDigestType> TDIGEST(const TypePtr& dataType) {
 
 // Type to use for inputs and outputs of simple functions, e.g.
 // arg_type<TDigest> and out_type<TDigest>.
-struct TDigestT {
+template <typename T>
+struct SimpleTDigestT;
+
+template <>
+struct SimpleTDigestT<double> {
   using type = Varbinary;
-  static constexpr const char* typeName = "tdigest";
+  static constexpr const char* typeName = "tdigest(double)";
 };
 
-using TDigest = CustomType<TDigestT>;
+template <typename T>
+using SimpleTDigest = CustomType<SimpleTDigestT<T>>;
 
 } // namespace facebook::velox
