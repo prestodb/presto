@@ -72,11 +72,8 @@ TEST_F(ArrowFlightConnectorDataTypeTest, integerTypes) {
            makeNumericArray<arrow::Int64Type>(bigData)}));
 
   auto tinyintVec = makeFlatVector<int8_t>(tinyData);
-
   auto smallintVec = makeFlatVector<int16_t>(smallData);
-
   auto integerVec = makeFlatVector<int32_t>(intData);
-
   auto bigintVec = makeFlatVector<int64_t>(bigData);
 
   core::PlanNodePtr plan;
@@ -314,6 +311,42 @@ TEST_F(ArrowFlightConnectorDataTypeTest, decimalType) {
   AssertQueryBuilder(plan)
       .splits(makeSplits({"sample-data"}))
       .assertResults(makeRowVector({decimalVecBigInt}));
+}
+
+TEST_F(ArrowFlightConnectorDataTypeTest, arrayType) {
+  std::vector<std::optional<std::vector<std::optional<int32_t>>>> data = {
+      std::nullopt, {{1, 2}}, {{3, std::nullopt, 4}}, {{5, 6, 7, 8, 9}}};
+
+  auto intBuilder = std::make_shared<arrow::NumericBuilder<arrow::Int32Type>>();
+  arrow::ListBuilder listBuilder(arrow::default_memory_pool(), intBuilder);
+
+  for (const auto& array : data) {
+    AFC_RAISE_NOT_OK(listBuilder.Append(array.has_value()));
+    if (array.has_value()) {
+      const auto& elements = array.value();
+      for (const auto& element : elements) {
+        if (element.has_value()) {
+          AFC_RAISE_NOT_OK(intBuilder->Append(element.value()));
+        } else {
+          AFC_RAISE_NOT_OK(intBuilder->AppendNull());
+        }
+      }
+    }
+  }
+  AFC_ASSIGN_OR_RAISE(auto listArray, listBuilder.Finish());
+
+  updateTable("sample-data", makeArrowTable({"int_array_col"}, {listArray}));
+
+  core::PlanNodePtr plan;
+  plan = ArrowFlightPlanBuilder()
+             .flightTableScan(velox::ROW(
+                 {"int_array_col"}, {velox::ARRAY(velox::INTEGER())}))
+             .planNode();
+
+  auto expectedData = makeNullableArrayVector(data);
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .assertResults(makeRowVector({expectedData}));
 }
 
 TEST_F(ArrowFlightConnectorDataTypeTest, allTypes) {
