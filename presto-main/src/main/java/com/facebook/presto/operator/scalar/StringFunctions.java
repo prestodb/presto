@@ -53,7 +53,6 @@ import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
-import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -777,6 +776,67 @@ public final class StringFunctions
         }
 
         return Slices.wrappedBuffer(left.getBytes(0, byteIndex));
+    }
+
+    @Description("computes Jaro-Winkler similarity between two strings")
+    @ScalarFunction("jarowinkler_similarity")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.DOUBLE)
+    public static long jaroWinklerSimilarity(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    {
+        int[] leftCodePoints = castToCodePoints(left);
+        int[] rightCodePoints = castToCodePoints(right);
+        int leftLength = leftCodePoints.length;
+        int rightLength = rightCodePoints.length;
+
+        if (left == right) {
+            return 1.0;
+        }
+
+        int max_dist = Math.max(leftLength, rightLength) / 2 - 1;
+        int match = 0;
+        int leftHash[] = new int[leftLength];
+        int rightHash[] = new int[rightLength];
+
+        for (int i = 0; i < leftLength; i++) {
+            for (int j = Math.max(0, i - max_dist); j < Math.min(rightLength, i + max_dist + 1); j++) {
+                if (leftCodePoints[i] == rightCodePoints[j] && rightHash[j] == 0) {
+                    leftHash[i] = 1;
+                    rightHash[j] = 1;
+                    match++;
+                    break;
+                }
+            }
+        }
+
+        if (match == 0) {
+            return 0;
+        }
+
+        double t = 0;
+        int point = 0;
+
+        for (int i = 0; i < leftLength; i++) {
+            if (leftHash[i] == 1) {
+                while (rightHash[point] == 0) {
+                    point++;
+                }
+
+                if (leftCodePoints[i] != rightCodePoints[point])  {
+                    t++;
+                }
+
+                point++;
+            }
+        }
+
+        t /= 2;
+
+        return (long) ((((double)match) / ((double)leftLength)
+                    + ((double)match) / ((double)rightLength)
+                    + ((double)match - t) / ((double)match))
+                    / 3.0);
+
     }
 
     @Description("computes Levenshtein distance between two strings")

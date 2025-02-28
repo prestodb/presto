@@ -35,6 +35,7 @@ import static com.facebook.presto.common.type.CharType.createCharType;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -186,6 +187,12 @@ public class TestStringFunctions
         // Test for invalid-utf8 characters
         assertInvalidFunction("LONGEST_COMMON_PREFIX('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
         assertInvalidFunction("LONGEST_COMMON_PREFIX('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+    }
+
+    @Test
+    public void testJaroWinklerSimilarity()
+    {
+        assertFunction("JAROWINKLER_SIMILARITY('', '')", DOUBLE, 0.0);
     }
 
     @Test
