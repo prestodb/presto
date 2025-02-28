@@ -2997,7 +2997,7 @@ TEST_F(TableScanTest, bucketConversion) {
   auto makeSplits = [&] {
     std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
     for (int bucket : selectedBuckets) {
-      std::vector<std::unique_ptr<HiveColumnHandle>> handles;
+      std::vector<std::shared_ptr<HiveColumnHandle>> handles;
       handles.push_back(makeColumnHandle("c0", INTEGER(), {}));
       auto split = makeHiveConnectorSplit(file->getPath());
       split->tableBucketNumber = bucket;
@@ -3079,7 +3079,7 @@ TEST_F(TableScanTest, bucketConversionWithSubfieldPruning) {
   const int selectedBuckets[] = {3, 5, 11};
   std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
   for (int bucket : selectedBuckets) {
-    std::vector<std::unique_ptr<HiveColumnHandle>> handles;
+    std::vector<std::shared_ptr<HiveColumnHandle>> handles;
     handles.push_back(makeColumnHandle("c0", key->type(), {}));
     auto split = makeHiveConnectorSplit(file->getPath());
     split->tableBucketNumber = bucket;

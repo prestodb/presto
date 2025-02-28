@@ -33,7 +33,7 @@ namespace facebook::velox::connector::hive {
 struct HiveBucketConversion {
   int32_t tableBucketCount;
   int32_t partitionBucketCount;
-  std::vector<std::unique_ptr<HiveColumnHandle>> bucketColumnHandles;
+  std::vector<std::shared_ptr<HiveColumnHandle>> bucketColumnHandles;
 };
 
 struct RowIdProperties {
@@ -55,7 +55,6 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   const std::unordered_map<std::string, std::optional<std::string>>
       partitionKeys;
   std::optional<int32_t> tableBucketNumber;
-  std::optional<HiveBucketConversion> bucketConversion;
   std::unordered_map<std::string, std::string> customSplitInfo;
   std::shared_ptr<std::string> extraFileInfo;
   // Parameters that are provided as the serialization options.
@@ -72,6 +71,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
   std::optional<FileProperties> properties;
 
   std::optional<RowIdProperties> rowIdProperties;
+
+  std::optional<HiveBucketConversion> bucketConversion;
 
 #ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
   HiveConnectorSplit(
@@ -125,7 +126,9 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
       bool cacheable = true,
       const std::unordered_map<std::string, std::string>& _infoColumns = {},
       std::optional<FileProperties> _properties = std::nullopt,
-      std::optional<RowIdProperties> _rowIdProperties = std::nullopt)
+      std::optional<RowIdProperties> _rowIdProperties = std::nullopt,
+      const std::optional<HiveBucketConversion>& _bucketConversion =
+          std::nullopt)
       : ConnectorSplit(connectorId, splitWeight, cacheable),
         filePath(_filePath),
         fileFormat(_fileFormat),
@@ -139,7 +142,8 @@ struct HiveConnectorSplit : public connector::ConnectorSplit {
         storageParameters(_storageParameters),
         infoColumns(_infoColumns),
         properties(_properties),
-        rowIdProperties(_rowIdProperties) {}
+        rowIdProperties(_rowIdProperties),
+        bucketConversion(_bucketConversion) {}
 
   std::string toString() const override;
 
@@ -204,6 +208,12 @@ class HiveConnectorSplitBuilder {
     return *this;
   }
 
+  HiveConnectorSplitBuilder& bucketConversion(
+      const HiveBucketConversion& bucketConversion) {
+    bucketConversion_ = bucketConversion;
+    return *this;
+  }
+
   HiveConnectorSplitBuilder& customSplitInfo(
       const std::unordered_map<std::string, std::string>& customSplitInfo) {
     customSplitInfo_ = customSplitInfo;
@@ -238,6 +248,12 @@ class HiveConnectorSplitBuilder {
     return *this;
   }
 
+  HiveConnectorSplitBuilder& rowIdProperties(
+      const RowIdProperties& rowIdProperties) {
+    rowIdProperties_ = rowIdProperties;
+    return *this;
+  }
+
   std::shared_ptr<connector::hive::HiveConnectorSplit> build() const {
     return std::make_shared<connector::hive::HiveConnectorSplit>(
         connectorId_,
@@ -254,7 +270,9 @@ class HiveConnectorSplitBuilder {
         splitWeight_,
         cacheable_,
         infoColumns_,
-        fileProperties_);
+        fileProperties_,
+        rowIdProperties_,
+        bucketConversion_);
   }
 
  private:
@@ -264,6 +282,7 @@ class HiveConnectorSplitBuilder {
   uint64_t length_{std::numeric_limits<uint64_t>::max()};
   std::unordered_map<std::string, std::optional<std::string>> partitionKeys_;
   std::optional<int32_t> tableBucketNumber_;
+  std::optional<HiveBucketConversion> bucketConversion_;
   std::unordered_map<std::string, std::string> customSplitInfo_ = {};
   std::shared_ptr<std::string> extraFileInfo_ = {};
   std::unordered_map<std::string, std::string> serdeParameters_ = {};
@@ -273,6 +292,7 @@ class HiveConnectorSplitBuilder {
   int64_t splitWeight_{0};
   bool cacheable_{true};
   std::optional<FileProperties> fileProperties_;
+  std::optional<RowIdProperties> rowIdProperties_ = std::nullopt;
 };
 
 } // namespace facebook::velox::connector::hive

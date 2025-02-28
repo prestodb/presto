@@ -49,7 +49,9 @@ HiveIcebergSplit::HiveIcebergSplit(
           /*splitWeight=*/0,
           cacheable,
           infoColumns,
-          properties) {
+          properties,
+          std::nullopt,
+          std::nullopt) {
   // TODO: Deserialize _extraFileInfo to get deleteFiles;
 }
 
@@ -84,6 +86,8 @@ HiveIcebergSplit::HiveIcebergSplit(
           0,
           cacheable,
           infoColumns,
-          properties),
+          properties,
+          std::nullopt,
+          std::nullopt),
       deleteFiles(std::move(deletes)) {}
 } // namespace facebook::velox::connector::hive::iceberg

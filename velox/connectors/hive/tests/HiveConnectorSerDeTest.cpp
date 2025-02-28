@@ -76,6 +76,15 @@ class HiveConnectorSerDeTest : public exec::test::HiveConnectorTestBase {
     }
 
     ASSERT_EQ(split.tableBucketNumber, clone->tableBucketNumber);
+    if (split.bucketConversion.has_value()) {
+      ASSERT_TRUE(clone->bucketConversion.has_value());
+      ASSERT_EQ(
+          clone->bucketConversion.value().tableBucketCount,
+          split.bucketConversion.value().tableBucketCount);
+      ASSERT_EQ(
+          clone->bucketConversion.value().partitionBucketCount,
+          split.bucketConversion.value().partitionBucketCount);
+    }
     ASSERT_EQ(split.customSplitInfo.size(), clone->customSplitInfo.size());
     for (const auto& [key, value] : split.customSplitInfo) {
       ASSERT_EQ(value, clone->customSplitInfo.at(key));
@@ -263,8 +272,8 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
       infoColumns,
       properties,
       rowIdProperties);
-  testSerde(split1);
   ASSERT_EQ(split1.cacheable, cacheable);
+  testSerde(split1);
 
   const auto split2 = HiveConnectorSplit(
       connectorId,
@@ -285,6 +294,12 @@ TEST_F(HiveConnectorSerDeTest, hiveConnectorSplit) {
       std::nullopt);
   ASSERT_EQ(split2.cacheable, !cacheable);
   testSerde(split2);
+
+  auto split3 = HiveConnectorSplit(connectorId, filePath, fileFormat);
+  std::vector<std::shared_ptr<HiveColumnHandle>> handles;
+  handles.push_back(makeColumnHandle("c0", INTEGER(), {}));
+  split3.bucketConversion = {16, 2, std::move(handles)};
+  testSerde(split3);
 }
 
 } // namespace
