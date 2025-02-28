@@ -177,10 +177,10 @@ public class TestStringFunctions
         assertFunction("LONGEST_COMMON_PREFIX('hel wold', 'hello world')", VARCHAR, "hel");
 
         // Test for non-ASCII
-        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '')", VARCHAR,"");
-        assertFunction("LONGEST_COMMON_PREFIX('', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR,"");
-        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR,"\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
-        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7221,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR,"\u4FE1\u5FF5,");
+        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '')", VARCHAR, "");
+        assertFunction("LONGEST_COMMON_PREFIX('', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "");
+        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
+        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7221,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,");
         assertFunction("LONGEST_COMMON_PREFIX('hello na\u00EFve world', 'hello na\u00EFve')", VARCHAR, "hello na\u00EFve");
 
         // Test for invalid-utf8 characters
