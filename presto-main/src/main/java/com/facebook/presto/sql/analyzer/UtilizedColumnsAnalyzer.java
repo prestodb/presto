@@ -528,15 +528,13 @@ public class UtilizedColumnsAnalyzer
             List<RelationId> relationIds = fieldsToExplore.keySet().stream()
                     .filter(key -> key.getSourceNode() instanceof Table && ((Table) key.getSourceNode()).getName().equals(name))
                     .collect(toImmutableList());
-            if (relationIds.isEmpty()) {
-                return;
+            // if a cte is used more than once, it will be listed multiple times in the fieldIds to explore
+            // if multiple ctes have the same name, this will also be captured here. These will fail later if the columns used don't exist in the tables
+            for (RelationId relationId : relationIds) {
+                fieldsToExplore.putAll(
+                        RelationId.of(withQuery.getQuery().getQueryBody()),
+                        fieldsToExplore.get(relationId)));
             }
-            else if (relationIds.size() > 1) {
-                throw new UnsupportedOperationException("Multiple relations with the same name are not supported by UtilizedColumnAnalyzer");
-            }
-            fieldsToExplore.putAll(
-                    RelationId.of(withQuery.getQuery().getQueryBody()),
-                    fieldsToExplore.get(relationIds.get(0)));
         }
     }
 }
