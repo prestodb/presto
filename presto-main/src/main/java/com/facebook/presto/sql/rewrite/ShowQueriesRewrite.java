@@ -413,8 +413,8 @@ final class ShowQueriesRewrite
                             aliasedNullToEmpty("comment", "Comment")),
                     from(tableName.getLegacyCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
-                            equal(identifier("table_schema"), new StringLiteral(tableName.getLegacySchemaName())),
-                            equal(identifier("table_name"), new StringLiteral(tableName.getLegacyObjectName()))),
+                            equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
+                            equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
                     ordering(ascending("ordinal_position")));
         }
 
