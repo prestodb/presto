@@ -53,6 +53,7 @@ import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
+import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -756,6 +757,27 @@ public final class StringFunctions
         return pad(text, targetLength, padString, text.length());
     }
 
+    @Description("returns the longest common prefix shared by two strings")
+    @ScalarFunction("longest_common_prefix")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice longestCommonPrefix(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    {
+        int i = 0;
+        int byteIndex = 0;
+        int[] leftCodePoints = castToCodePoints(left);
+        int[] rightCodePoints = castToCodePoints(right);
+        int leftLength = leftCodePoints.length;
+        int rightLength = rightCodePoints.length;
+
+        while (i < leftLength && i < rightLength && leftCodePoints[i] == rightCodePoints[i]) {
+            i++;
+            byteIndex += SliceUtf8.lengthOfCodePointSafe(left, byteIndex);
+        }
+
+        return Slices.wrappedBuffer(left.getBytes(0, byteIndex));
+    }
+
     @Description("computes Levenshtein distance between two strings")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
@@ -767,6 +789,7 @@ public final class StringFunctions
 
         if (leftCodePoints.length < rightCodePoints.length) {
             int[] tempCodePoints = leftCodePoints;
+
             leftCodePoints = rightCodePoints;
             rightCodePoints = tempCodePoints;
         }
