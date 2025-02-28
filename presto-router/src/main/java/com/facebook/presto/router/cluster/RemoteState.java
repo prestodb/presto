@@ -84,7 +84,7 @@ public abstract class RemoteState
 
         if (java.time.Duration.between(lastHealthyResponseTime, Instant.now()).compareTo(timeToUnhealthy) >= 0 && isHealthy) {
             isHealthy = false;
-            log.warn("%s marked as unhealthy", remoteUri.getHost());
+            log.warn("%s:%d marked as unhealthy", remoteUri.getHost(), remoteUri.getPort());
         }
 
         if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
@@ -128,7 +128,8 @@ public abstract class RemoteState
                 }
             }, directExecutor());
         }
-        System.out.println(String.format("%s:%d is currently ", remoteUri.getHost(), remoteUri.getPort()) + isHealthy);
+        String health = isHealthy ? "healthy" : "unhealthy";
+        System.out.println(String.format("%s:%d is currently ", remoteUri.getHost(), remoteUri.getPort()) + health);
     }
 
     public boolean isHealthy()
