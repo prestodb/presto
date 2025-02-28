@@ -6918,6 +6918,114 @@ DEBUG_ONLY_TEST_F(HashJoinTest, joinBuildSpillError) {
   waitForAllTasksToBeDeleted();
 }
 
+DEBUG_ONLY_TEST_F(HashJoinTest, probeSpillOnWaitForPeers) {
+  // This test creates a scenario when tester probe thread finishes processing
+  // input, entering kWaitForPeers state, and the other thread is still
+  // processing, spill is triggered properly performed.
+
+  folly::EventCount startWait;
+  folly::Synchronized<std::string> testerOpName;
+  std::atomic_bool injectedSpillOnce{false};
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::getOutput",
+      std::function<void(Operator*)>([&](Operator* op) {
+        if (!isHashProbeMemoryPool(*op->pool())) {
+          return;
+        }
+        testerOpName.withWLock([&](std::string& opName) {
+          if (opName.empty()) {
+            opName = op->pool()->name();
+          }
+        });
+        if (op->pool()->name() == *testerOpName.rlock()) {
+          // Do not block tester thread.
+          return;
+        }
+        startWait.await([&]() { return injectedSpillOnce.load(); });
+      }));
+
+  // tester probe operator is guaranteed to be in kWaitForPeers state the next
+  // isBlocked() is called after noMoreInput() is called.
+  std::atomic_bool noMoreInputCalled{false};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::noMoreInput",
+      std::function<void(Operator*)>([&](Operator* op) {
+        if (!isHashProbeMemoryPool(*op->pool())) {
+          return;
+        }
+        noMoreInputCalled = true;
+      }));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Driver::runInternal::isBlocked",
+      std::function<void(Operator*)>([&](Operator* op) {
+        if (!isHashProbeMemoryPool(*op->pool())) {
+          return;
+        }
+        if (injectedSpillOnce || !noMoreInputCalled) {
+          return;
+        }
+        injectedSpillOnce = true;
+        EXPECT_EQ(
+            dynamic_cast<HashProbe*>(op)->testingState(),
+            ProbeOperatorState::kWaitForPeers);
+        testingRunArbitration(op->pool());
+      }));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::requestPauseLocked",
+      std::function<void(Task*)>([&](Task* task) { startWait.notifyAll(); }));
+
+  const uint64_t numDrivers{2};
+  std::shared_ptr<core::QueryCtx> joinQueryCtx =
+      newQueryCtx(memory::memoryManager(), executor_.get(), kMemoryCapacity);
+  auto rowType = ROW({{"c0", INTEGER()}, {"c1", INTEGER()}});
+  fuzzerOpts_.vectorSize = 20;
+  std::vector<RowVectorPtr> vectors = createVectors(6, rowType, fuzzerOpts_);
+  std::vector<RowVectorPtr> totalVectors;
+  for (auto i = 0; i < numDrivers; ++i) {
+    totalVectors.insert(totalVectors.end(), vectors.begin(), vectors.end());
+  }
+  createDuckDbTable(totalVectors);
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(vectors, true)
+                  .project({"c0 AS t0", "c1 AS t1"})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(vectors, true)
+                          .project({"c0 AS u0", "c1 AS u1"})
+                          .planNode(),
+                      "",
+                      {"t1"},
+                      core::JoinType::kInner)
+                  .planNode();
+
+  {
+    auto task =
+        AssertQueryBuilder(duckDbQueryRunner_)
+            .plan(plan)
+            .queryCtx(joinQueryCtx)
+            .spillDirectory(spillDirectory->getPath())
+            .config(core::QueryConfig::kSpillEnabled, true)
+            .maxDrivers(numDrivers)
+            .assertResults("SELECT a.c1 from tmp a join tmp b on a.c0 = b.c0");
+
+    auto opStats = toOperatorStats(task->taskStats());
+    ASSERT_GT(opStats.at("HashProbe").spilledBytes, 0);
+    ASSERT_EQ(opStats.at("HashBuild").spilledBytes, 0);
+
+    const auto* arbitrator = memory::memoryManager()->arbitrator();
+    ASSERT_GT(arbitrator->stats().numRequests, 0);
+    ASSERT_GT(arbitrator->stats().reclaimedUsedBytes, 0);
+  }
+  waitForAllTasksToBeDeleted();
+}
+
 DEBUG_ONLY_TEST_F(HashJoinTest, taskWaitTimeout) {
   const int queryMemoryCapacity = 128 << 20;
   // Creates a large number of vectors based on the query capacity to trigger
@@ -7283,7 +7391,7 @@ DEBUG_ONLY_TEST_F(HashJoinTest, hashProbeSpillWhenOneOfProbeFinish) {
         .verifier([&](const std::shared_ptr<Task>& task, bool /*unused*/) {
           auto opStats = toOperatorStats(task->taskStats());
           ASSERT_EQ(opStats.at("HashBuild").spilledBytes, 0);
-          ASSERT_EQ(opStats.at("HashProbe").spilledBytes, 0);
+          ASSERT_GT(opStats.at("HashProbe").spilledBytes, 0);
         })
         .run();
   });

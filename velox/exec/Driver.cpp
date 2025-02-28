@@ -560,6 +560,8 @@ StopReason Driver::runInternal(
         }
 
         withDeltaCpuWallTimer(op, &OperatorStats::isBlockedTiming, [&]() {
+          TestValue::adjust(
+              "facebook::velox::exec::Driver::runInternal::isBlocked", op);
           CALL_OPERATOR(
               blockingReason_ = op->isBlocked(&future),
               op,

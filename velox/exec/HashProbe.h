@@ -80,6 +80,10 @@ class HashProbe : public Operator {
     return input_ != nullptr;
   }
 
+  ProbeOperatorState testingState() const {
+    return state_;
+  }
+
  private:
   // Indicates if the join type includes misses from the left side in the
   // output.
@@ -94,6 +98,7 @@ class HashProbe : public Operator {
   void setRunning();
   void checkRunning() const;
   bool isRunning() const;
+  bool isWaitingForPeers() const;
 
   // Invoked to wait for the hash table to be built by the hash build operators
   // asynchronously. The function also sets up the internal state for

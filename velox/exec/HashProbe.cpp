@@ -992,7 +992,9 @@ RowVectorPtr HashProbe::getOutputInternal(bool toSpillOutput) {
   if (isFinished()) {
     return nullptr;
   }
-  checkRunning();
+  VELOX_CHECK(
+      isRunning() || isWaitingForPeers(),
+      fmt::format("Invalid state {}", state_));
 
   if (!toSpillOutput) {
     // Avoid memory reservation if it is triggered by memory arbitration to
@@ -1745,6 +1747,10 @@ bool HashProbe::isRunning() const {
   return state_ == ProbeOperatorState::kRunning;
 }
 
+bool HashProbe::isWaitingForPeers() const {
+  return state_ == ProbeOperatorState::kWaitForPeers;
+}
+
 void HashProbe::checkRunning() const {
   VELOX_CHECK(isRunning(), probeOperatorStateName(state_));
 }
@@ -1754,9 +1760,10 @@ void HashProbe::setRunning() {
 }
 
 bool HashProbe::nonReclaimableState() const {
-  return (state_ != ProbeOperatorState::kRunning) || nonReclaimableSection_ ||
-      (inputSpiller_ != nullptr) || (table_ == nullptr) ||
-      (table_->numDistinct() == 0);
+  return (state_ != ProbeOperatorState::kRunning &&
+          state_ != ProbeOperatorState::kWaitForPeers) ||
+      nonReclaimableSection_ || (inputSpiller_ != nullptr) ||
+      (table_ == nullptr) || (table_->numDistinct() == 0);
 }
 
 void HashProbe::ensureOutputFits() {
