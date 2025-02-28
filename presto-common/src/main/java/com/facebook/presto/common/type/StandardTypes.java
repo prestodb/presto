@@ -58,6 +58,7 @@ public final class StandardTypes
     public static final String VARCHAR_ENUM = "VarcharEnum";
     public static final String DISTINCT_TYPE = "DistinctType";
     public static final String UUID = "uuid";
+    public static final String UNKNOWN = "unknown";
 
     private StandardTypes() {}
 
