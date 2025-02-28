@@ -379,4 +379,49 @@ struct JsonSizeFunction {
   }
 };
 
+/// json_array_length(jsonString) -> length
+///
+/// Returns the number of elements in the outermost JSON array from jsonString.
+/// If jsonString is not a valid JSON array or NULL, the function returns null.
+/// Presto:
+/// https://prestodb.io/docs/current/functions/json.html#json_array_length-json-bigint
+/// SparkSQL:
+/// https://spark.apache.org/docs/latest/api/sql/index.html#json_array_length
+template <typename T>
+struct JsonArrayLengthFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TOutput>
+  FOLLY_ALWAYS_INLINE bool call(TOutput& len, const arg_type<Json>& json) {
+    simdjson::ondemand::document jsonDoc;
+
+    simdjson::padded_string paddedJson(json.data(), json.size());
+    if (simdjsonParse(paddedJson).get(jsonDoc)) {
+      return false;
+    }
+    if (jsonDoc.type().error()) {
+      return false;
+    }
+
+    if (jsonDoc.type() != simdjson::ondemand::json_type::array) {
+      return false;
+    }
+
+    size_t numElements;
+    if (jsonDoc.count_elements().get(numElements)) {
+      return false;
+    }
+
+    VELOX_USER_CHECK_LE(
+        numElements,
+        std::numeric_limits<TOutput>::max(),
+        "The json array length {} is bigger than the max value of output type {}.",
+        numElements,
+        std::numeric_limits<TOutput>::max());
+
+    len = numElements;
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions

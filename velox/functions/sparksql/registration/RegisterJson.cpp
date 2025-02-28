@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include "velox/functions/lib/JsonArrayLength.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
+#include "velox/functions/prestosql/JsonFunctions.h"
 #include "velox/functions/sparksql/GetJsonObject.h"
 #include "velox/functions/sparksql/JsonObjectKeys.h"
 
