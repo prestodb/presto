@@ -756,6 +756,87 @@ public final class StringFunctions
         return pad(text, targetLength, padString, text.length());
     }
 
+    @Description("computes Jaro-Winkler similarity between two strings")
+    @ScalarFunction("jarowinkler_similarity")
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.DOUBLE)
+    public static double jaroWinklerSimilarity(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    {
+        int[] leftCodePoints = castToCodePoints(left);
+        int[] rightCodePoints = castToCodePoints(right);
+        int leftLength = leftCodePoints.length;
+        int rightLength = rightCodePoints.length;
+
+        checkCondition(
+                (leftLength * (rightLength - 1)) <= 1_000_000,
+                INVALID_FUNCTION_ARGUMENT,
+                "The combined inputs for Jaro-Winkler similarity are too large");
+
+        if (left == right) {
+            return 1.0;
+        }
+
+        int max_dist = Math.max(leftLength, rightLength) / 2 - 1;
+        int match = 0;
+        int leftHash[] = new int[leftLength];
+        int rightHash[] = new int[rightLength];
+
+        for (int i = 0; i < leftLength; i++) {
+            for (int j = Math.max(0, i - max_dist); j < Math.min(rightLength, i + max_dist + 1); j++) {
+                if (leftCodePoints[i] == rightCodePoints[j] && rightHash[j] == 0) {
+                    leftHash[i] = 1;
+                    rightHash[j] = 1;
+                    match++;
+                    break;
+                }
+            }
+        }
+
+        if (match == 0) {
+            return 0;
+        }
+
+        double t = 0;
+        int point = 0;
+
+        for (int i = 0; i < leftLength; i++) {
+            if (leftHash[i] == 1) {
+                while (rightHash[point] == 0) {
+                    point++;
+                }
+
+                if (leftCodePoints[i] != rightCodePoints[point++])  {
+                    t++;
+                }
+            }
+        }
+
+        t /= 2;
+
+        double jaro_distance = ((((double)match) / ((double)leftLength)
+                    + ((double)match) / ((double)rightLength)
+                    + ((double)match - t) / ((double)match))
+                    / 3.0);
+
+        if (jaro_distance > 0.7) {
+            int prefix = 0;
+
+            for (int i = 0; i < Math.min(leftLength, rightLength); i++) {
+                if (leftCodePoints[i] == rightCodePoints[i]) {
+                    prefix++;
+                } else {
+                    break;
+                }
+            }
+
+            prefix = Math.min(4, prefix);
+
+            jaro_distance += 0.1 * prefix * (1 - jaro_distance);
+        }
+
+        return (double)Math.round(jaro_distance * 100d) / 100d;
+    }
+
     @Description("computes Levenshtein distance between two strings")
     @ScalarFunction
     @LiteralParameters({"x", "y"})
