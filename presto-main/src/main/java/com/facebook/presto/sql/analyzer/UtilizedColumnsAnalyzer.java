@@ -526,7 +526,10 @@ public class UtilizedColumnsAnalyzer
             List<RelationId> relationIds = fieldsToExplore.keySet().stream()
                     .filter(key -> key.getSourceNode() instanceof Table && ((Table) key.getSourceNode()).getName().equals(name))
                     .collect(toImmutableList());
-            if (relationIds.size() != 1) {
+            if (relationIds.isEmpty()) {
+                return;
+            }
+            else if (relationIds.size() > 1) {
                 throw new UnsupportedOperationException("Multiple relations with the same name are not supported by UtilizedColumnAnalyzer");
             }
             fieldsToExplore.putAll(
