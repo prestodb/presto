@@ -533,7 +533,7 @@ public class UtilizedColumnsAnalyzer
             for (RelationId relationId : relationIds) {
                 fieldsToExplore.putAll(
                         RelationId.of(withQuery.getQuery().getQueryBody()),
-                        fieldsToExplore.get(relationId)));
+                        fieldsToExplore.get(relationId));
             }
         }
     }
