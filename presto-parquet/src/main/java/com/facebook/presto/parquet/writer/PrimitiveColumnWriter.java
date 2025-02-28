@@ -215,6 +215,21 @@ public abstract class PrimitiveColumnWriter
         getDataStreamsCalled = false;
     }
 
+    public void resetChunk()
+    {
+        pageBuffer.clear();
+        primitiveValueWriter.resetChunk();
+        closed = false;
+
+        totalCompressedSize = 0;
+        totalUnCompressedSize = 0;
+        totalValues = 0;
+        encodings.clear();
+        this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
+
+        getDataStreamsCalled = false;
+    }
+
     protected abstract void writeDefinitionAndRepetitionLevels(ColumnChunk current)
             throws IOException;
 

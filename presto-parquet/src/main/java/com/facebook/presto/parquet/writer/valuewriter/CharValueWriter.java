@@ -20,6 +20,8 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public class CharValueWriter
@@ -27,9 +29,9 @@ public class CharValueWriter
 {
     private final Type type;
 
-    public CharValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public CharValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
+        super(parquetType, valuesWriterSupplier);
         this.type = requireNonNull(type, "type is null");
     }
 
