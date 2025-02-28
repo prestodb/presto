@@ -22,6 +22,12 @@ replacing the properties as appropriate:
     connector.name=delta
     hive.metastore.uri=hostname:port
 
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+
 Configuration Properties
 ------------------------
 

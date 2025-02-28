@@ -32,6 +32,12 @@ as a Hive connector.
     hive.metastore.uri=hostname:port
     iceberg.catalog.type=hive
 
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+
 Glue catalog
 ^^^^^^^^^^^^
 
