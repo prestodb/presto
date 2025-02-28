@@ -29,11 +29,6 @@
 
 namespace facebook::velox {
 
-using column_index_t = uint32_t;
-
-constexpr column_index_t kConstantChannel =
-    std::numeric_limits<column_index_t>::max();
-
 class RowVector : public BaseVector {
  public:
   RowVector(const RowVector&) = delete;

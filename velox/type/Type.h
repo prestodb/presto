@@ -44,6 +44,11 @@ namespace facebook::velox {
 
 using int128_t = __int128_t;
 
+using column_index_t = uint32_t;
+
+constexpr column_index_t kConstantChannel =
+    std::numeric_limits<column_index_t>::max();
+
 /// Velox type system supports a small set of SQL-compatible composeable types:
 /// BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, HUGEINT, REAL, DOUBLE, VARCHAR,
 /// VARBINARY, TIMESTAMP, ARRAY, MAP, ROW
