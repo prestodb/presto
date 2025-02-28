@@ -26,6 +26,7 @@ import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.Path;
 
 import javax.inject.Inject;
@@ -35,7 +36,6 @@ import java.net.URI;
 import java.util.function.BiFunction;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class HiveCachingHdfsConfiguration
@@ -71,7 +71,9 @@ public class HiveCachingHdfsConfiguration
                     currentConfig = hiveHdfsConfiguration.getConfiguration(context, factoryUri);
                 }
                 FileSystem fileSystem = (new Path(factoryUri)).getFileSystem(currentConfig);
-                checkState(fileSystem instanceof ExtendedFileSystem);
+                if (!(fileSystem instanceof ExtendedFileSystem)) {
+                    fileSystem = new HadoopExtendedFileSystem(fileSystem);
+                }
                 return cacheFactory.createCachingFileSystem(
                         factoryConfig,
                         factoryUri,
