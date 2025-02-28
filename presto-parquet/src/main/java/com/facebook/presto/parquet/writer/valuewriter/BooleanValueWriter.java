@@ -18,17 +18,13 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
-import static java.util.Objects.requireNonNull;
 
 public class BooleanValueWriter
         extends PrimitiveValueWriter
 {
-    private final ValuesWriter valuesWriter;
-
     public BooleanValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
     }
 
     @Override
@@ -37,7 +33,7 @@ public class BooleanValueWriter
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
                 boolean value = BOOLEAN.getBoolean(block, i);
-                valuesWriter.writeBoolean(value);
+                getValueWriter().writeBoolean(value);
                 getStatistics().updateStats(value);
             }
         }

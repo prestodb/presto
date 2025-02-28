@@ -18,17 +18,13 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static com.facebook.presto.common.type.DateType.DATE;
-import static java.util.Objects.requireNonNull;
 
 public class DateValueWriter
         extends PrimitiveValueWriter
 {
-    private final ValuesWriter valuesWriter;
-
     public DateValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
     }
 
     @Override
@@ -37,7 +33,7 @@ public class DateValueWriter
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
                 int value = (int) DATE.getLong(block, position);
-                valuesWriter.writeInteger(value);
+                getValueWriter().writeInteger(value);
                 getStatistics().updateStats(value);
             }
         }
