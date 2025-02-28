@@ -53,6 +53,7 @@ import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
+import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -769,6 +770,7 @@ public final class StringFunctions
         int leftLength = leftCodePoints.length;
         int rightLength = rightCodePoints.length;
 
+
         while (i < leftLength && i < rightLength && leftCodePoints[i] == rightCodePoints[i]) {
             i++;
             byteIndex += SliceUtf8.lengthOfCodePointSafe(left, byteIndex);
@@ -788,6 +790,7 @@ public final class StringFunctions
 
         if (leftCodePoints.length < rightCodePoints.length) {
             int[] tempCodePoints = leftCodePoints;
+
             leftCodePoints = rightCodePoints;
             rightCodePoints = tempCodePoints;
         }
