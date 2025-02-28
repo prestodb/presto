@@ -53,7 +53,6 @@ import static io.airlift.slice.SliceUtf8.tryGetCodePointAt;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
-import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 
 /**
