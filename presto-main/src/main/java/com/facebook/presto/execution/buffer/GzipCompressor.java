@@ -22,7 +22,8 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.zip.GZIPOutputStream;
 
-public class GzipCompressor implements Compressor
+public class GzipCompressor
+        implements Compressor
 {
     private static final int EXTRA_COMPRESSION_SPACE = 16;
 
@@ -37,7 +38,7 @@ public class GzipCompressor implements Compressor
     public int compress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
     {
         try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
+                GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
             gzipOutputStream.write(input, inputOffset, inputLength);
             gzipOutputStream.finish();
             byte[] compressed = byteArrayOutputStream.toByteArray();
@@ -46,7 +47,8 @@ public class GzipCompressor implements Compressor
             }
             System.arraycopy(compressed, 0, output, outputOffset, compressed.length);
             return compressed.length;
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }

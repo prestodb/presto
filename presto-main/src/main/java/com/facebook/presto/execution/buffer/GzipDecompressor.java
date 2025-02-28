@@ -23,13 +23,14 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.zip.GZIPInputStream;
 
-public class GzipDecompressor implements Decompressor
+public class GzipDecompressor
+        implements Decompressor
 {
     @Override
     public int decompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength) throws MalformedInputException
     {
         try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(input, inputOffset, inputLength);
-             GZIPInputStream gzipInputStream = new GZIPInputStream(byteArrayInputStream)) {
+                GZIPInputStream gzipInputStream = new GZIPInputStream(byteArrayInputStream)) {
             int totalRead = 0;
             int bytesRead;
             while (totalRead < maxOutputLength) {
@@ -43,7 +44,8 @@ public class GzipDecompressor implements Decompressor
                 throw new IllegalArgumentException("maxOutputLength is incorrect, there is more data to be decompressed");
             }
             return totalRead;
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }

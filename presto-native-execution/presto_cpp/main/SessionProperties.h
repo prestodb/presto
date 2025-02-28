@@ -283,7 +283,7 @@ class SessionProperties {
   static constexpr const char* kPrefixSortMinRows =
       "native_prefixsort_min_rows";
 
-  ///The compression algorithm type to compress the shuffle.
+  /// The compression algorithm type to compress the shuffle.
   static constexpr const char* kShuffleCompressionCodec =
       "exchange_compression_codec";
 

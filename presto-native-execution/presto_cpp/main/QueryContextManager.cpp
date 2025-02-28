@@ -199,9 +199,10 @@ QueryContextManager::toVeloxConfigs(
           compression.end(),
           compression.begin(),
           ::tolower);
-      velox::common::CompressionKind compressionKind = common::stringToCompressionKind(compression);
+      velox::common::CompressionKind compressionKind =
+          common::stringToCompressionKind(compression);
       configs[core::QueryConfig::kShuffleCompressionKind] =
-            velox::common::compressionKindToString(compressionKind);
+          velox::common::compressionKindToString(compressionKind);
     } else {
       configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
       sessionProperties_.updateVeloxConfig(it.first, it.second);
