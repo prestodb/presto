@@ -776,13 +776,13 @@ public final class StringFunctions
             return 1.0;
         }
 
-        int max_dist = Math.max(leftLength, rightLength) / 2 - 1;
+        int maxDist = Math.max(leftLength, rightLength) / 2 - 1;
         int match = 0;
-        int leftHash[] = new int[leftLength];
-        int rightHash[] = new int[rightLength];
+        int[] leftHash = new int[leftLength];
+        int[] rightHash = new int[rightLength];
 
         for (int i = 0; i < leftLength; i++) {
-            for (int j = Math.max(0, i - max_dist); j < Math.min(rightLength, i + max_dist + 1); j++) {
+            for (int j = Math.max(0, i - maxDist); j < Math.min(rightLength, i + maxDist + 1); j++) {
                 if (leftCodePoints[i] == rightCodePoints[j] && rightHash[j] == 0) {
                     leftHash[i] = 1;
                     rightHash[j] = 1;
@@ -805,7 +805,7 @@ public final class StringFunctions
                     point++;
                 }
 
-                if (leftCodePoints[i] != rightCodePoints[point++])  {
+                if (leftCodePoints[i] != rightCodePoints[point++]) {
                     t++;
                 }
             }
@@ -813,28 +813,29 @@ public final class StringFunctions
 
         t /= 2;
 
-        double jaro_distance = ((((double)match) / ((double)leftLength)
-                    + ((double)match) / ((double)rightLength)
-                    + ((double)match - t) / ((double)match))
+        double jaroDist = ((((double) match) / ((double) leftLength)
+                    + ((double) match) / ((double) rightLength)
+                    + ((double) match - t) / ((double) match))
                     / 3.0);
 
-        if (jaro_distance > 0.7) {
+        if (jaroDist > 0.7) {
             int prefix = 0;
 
             for (int i = 0; i < Math.min(leftLength, rightLength); i++) {
                 if (leftCodePoints[i] == rightCodePoints[i]) {
                     prefix++;
-                } else {
+                }
+                else {
                     break;
                 }
             }
 
             prefix = Math.min(4, prefix);
 
-            jaro_distance += 0.1 * prefix * (1 - jaro_distance);
+            jaroDist += 0.1 * prefix * (1 - jaroDist);
         }
 
-        return (double)Math.round(jaro_distance * 100d) / 100d;
+        return (double) Math.round(jaroDist * 100d) / 100d;
     }
 
     @Description("computes Levenshtein distance between two strings")
