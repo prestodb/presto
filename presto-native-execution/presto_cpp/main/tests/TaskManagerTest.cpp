@@ -45,9 +45,6 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/type/Type.h"
 
-DECLARE_int32(old_task_ms);
-DECLARE_bool(velox_memory_leak_check_enabled);
-
 static const std::string kHiveConnectorId = "test-hive";
 
 using namespace facebook::velox;

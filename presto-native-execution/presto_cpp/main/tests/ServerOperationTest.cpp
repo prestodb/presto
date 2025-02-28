@@ -15,12 +15,11 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoServerOperations.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-
-DECLARE_bool(velox_memory_leak_check_enabled);
 
 using namespace facebook::velox;
 
@@ -28,7 +27,7 @@ namespace facebook::presto {
 
 class ServerOperationTest : public exec::test::OperatorTestBase {
   void SetUp() override {
-    FLAGS_velox_memory_leak_check_enabled = true;
+    facebook::velox::config::globalConfig().memoryLeakCheckEnabled = true;
     exec::test::OperatorTestBase::SetUp();
   }
 

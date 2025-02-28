@@ -17,8 +17,7 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
-
-DECLARE_bool(velox_memory_leak_check_enabled);
+#include "velox/common/config/GlobalConfig.h"
 
 namespace fs = boost::filesystem;
 using namespace facebook::presto;
@@ -100,7 +99,7 @@ std::unique_ptr<facebook::presto::test::HttpServerWrapper> makeDiscoveryServer(
 
 class AnnouncerTestSuite : public ::testing::TestWithParam<bool> {
   void SetUp() override {
-    FLAGS_velox_memory_leak_check_enabled = true;
+    facebook::velox::config::globalConfig().memoryLeakCheckEnabled = true;
 
     std::string keyPath = getCertsPath("client_ca.pem");
     std::string ciphers = "ECDHE-ECDSA-AES256-GCM-SHA384,AES256-GCM-SHA384";

@@ -14,9 +14,8 @@
 #include "presto_cpp/main/PrestoTask.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/time/Timer.h"
-
-DECLARE_bool(velox_memory_leak_check_enabled);
 
 using namespace facebook::velox;
 using namespace facebook::presto;
@@ -25,7 +24,7 @@ using facebook::presto::PrestoTaskId;
 
 class PrestoTaskTest : public testing::Test {
   void SetUp() override {
-    FLAGS_velox_memory_leak_check_enabled = true;
+    facebook::velox::config::globalConfig().memoryLeakCheckEnabled = true;
   }
 };
 

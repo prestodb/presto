@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <gtest/gtest.h>
 #include "presto_cpp/main/QueryContextManager.h"
-
-DECLARE_bool(velox_memory_leak_check_enabled);
+#include "velox/common/config/GlobalConfig.h"
 
 namespace facebook::presto {
 
@@ -41,7 +41,7 @@ class QueryContextCacheTest : public testing::Test {
   }
 
   void SetUp() override {
-    FLAGS_velox_memory_leak_check_enabled = true;
+    facebook::velox::config::globalConfig().memoryLeakCheckEnabled = true;
   }
 };
 

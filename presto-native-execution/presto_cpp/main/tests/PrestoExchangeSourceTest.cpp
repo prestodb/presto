@@ -23,13 +23,12 @@
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/ExchangeQueue.h"
-
-DECLARE_bool(velox_memory_leak_check_enabled);
 
 namespace fs = boost::filesystem;
 using namespace facebook::presto;
@@ -1290,6 +1289,6 @@ INSTANTIATE_TEST_CASE_P(
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv};
-  FLAGS_velox_memory_leak_check_enabled = true;
+  facebook::velox::config::globalConfig().memoryLeakCheckEnabled = true;
   return RUN_ALL_TESTS();
 }

@@ -18,6 +18,7 @@
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/StatsReporter.h"
+#include "velox/flag_definitions/flags.h"
 
 DEFINE_string(etc_dir, ".", "etc directory for presto configuration");
 
@@ -26,6 +27,7 @@ int main(int argc, char* argv[]) {
   folly::Init init{&argc, &argv};
 
   PRESTO_STARTUP_LOG(INFO) << "Entering main()";
+  facebook::velox::translateFlagsToGlobalConfig();
   facebook::presto::PrestoServer presto(FLAGS_etc_dir);
   presto.run();
   PRESTO_SHUTDOWN_LOG(INFO) << "Exiting main()";

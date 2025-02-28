@@ -64,6 +64,7 @@ target_link_libraries(
   velox_dwio_parquet_writer
   velox_encode
   velox_exec
+  velox_flag_definitions
   velox_file
   velox_functions_lib
   velox_functions_prestosql
