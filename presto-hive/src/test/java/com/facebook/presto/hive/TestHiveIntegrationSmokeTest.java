@@ -212,7 +212,7 @@ public class TestHiveIntegrationSmokeTest
 
     private List<?> getPartitions(HiveTableLayoutHandle tableLayoutHandle)
     {
-        return tableLayoutHandle.getPartitions().get();
+        return tableLayoutHandle.getPartitions().get().getFullyLoadedPartitions();
     }
 
     @Test
