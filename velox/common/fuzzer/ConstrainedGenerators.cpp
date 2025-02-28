@@ -77,7 +77,7 @@ variant JsonInputGenerator::generate() {
 
   const auto object = objectGenerator_->generate();
   const folly::dynamic jsonObject = convertVariantToDynamic(object);
-  const auto jsonString = folly::json::serialize(jsonObject, opts_);
+  auto jsonString = folly::json::serialize(jsonObject, opts_);
   if (makeRandomVariation_ && coinToss(rng_, 0.5)) {
     makeRandomVariation(jsonString);
   }
@@ -154,17 +154,26 @@ std::vector<std::string> getControlCharacters() {
   return controlCharacters;
 };
 
-void JsonInputGenerator::makeRandomVariation(std::string json) {
-  if (coinToss(rng_, 0.1)) {
+namespace {
+void makeRandomVariationImpl(std::string& input, FuzzerGenerator& rng) {
+  if (coinToss(rng, 0.1)) {
     const auto controlCharacters = getControlCharacters();
-    const auto index = rand<uint32_t>(rng_, 0, controlCharacters.size() - 1);
+    const auto index = rand<uint32_t>(rng, 0, controlCharacters.size() - 1);
     const auto& controlCharacter = controlCharacters[index];
-    const auto indexToInsert = rand<uint32_t>(rng_, 0, json.size());
-    json.insert(indexToInsert, controlCharacter);
-  } else if (coinToss(rng_, 0.1)) {
-    const auto size = rand<uint32_t>(rng_, 0, json.size());
-    json.resize(size);
+    const auto indexToInsert = rand<uint32_t>(rng, 0, input.size());
+    input.insert(indexToInsert, controlCharacter);
+  } else if (coinToss(rng, 0.1)) {
+    const auto size = rand<uint32_t>(rng, 0, input.size());
+    input.resize(size);
+  } else if (!input.empty() && coinToss(rng, 0.1)) {
+    const auto start = rand<uint32_t>(rng, 0, input.size() - 1);
+    input = input.substr(start);
   }
+}
+} // namespace
+
+void JsonInputGenerator::makeRandomVariation(std::string& json) {
+  return makeRandomVariationImpl(json, rng_);
 }
 
 // Utility functions

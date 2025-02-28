@@ -351,7 +351,7 @@ class JsonInputGenerator : public AbstractInputGenerator {
 
   folly::dynamic convertVariantToDynamic(const variant& object);
 
-  void makeRandomVariation(std::string json);
+  void makeRandomVariation(std::string& json);
 
   std::unique_ptr<AbstractInputGenerator> objectGenerator_;
 
