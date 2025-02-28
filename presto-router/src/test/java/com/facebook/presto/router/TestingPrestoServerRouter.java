@@ -27,12 +27,13 @@ import java.io.IOException;
 public class TestingPrestoServerRouter
         extends TestingPrestoServer
 {
-    private final InstanceRequestBlocker blocker = new InstanceRequestBlocker();
+    private final InstanceRequestBlocker blocker;
 
     public TestingPrestoServerRouter()
             throws Exception
     {
         super();
+        this.blocker = new InstanceRequestBlocker(this.getBaseUrl().getPort());
     }
 
     private static class InstanceRequestBlocker
@@ -40,22 +41,31 @@ public class TestingPrestoServerRouter
     {
         private final Object monitor = new Object();
         private volatile boolean blocked;
+        private final int port;
+
+        public InstanceRequestBlocker(int port)
+        {
+            this.port = port;
+        }
 
         @Override
         public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
                 throws IOException, ServletException
         {
-            synchronized (monitor) {
-                while (blocked) {
-                    try {
-                        monitor.wait();
-                    }
-                    catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new RuntimeException(e);
+            if (request.getServerPort() == port) {
+                System.out.println(String.format("BLOCKED %d, request port %d", port, request.getServerPort()));
+                synchronized (monitor) {
+                    while (blocked) {
+                        try {
+                            monitor.wait();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException(e);
+                        }
                     }
                 }
             }
+            System.out.println(String.format("UNBLOCKED %d, request port %d", port, request.getServerPort()));
             chain.doFilter(request, response);
         }
 
@@ -89,11 +99,13 @@ public class TestingPrestoServerRouter
     public void stopResponding()
     {
         blocker.block();
+        System.out.println(String.format("STOP RESPONDING %s", this.getBaseUrl().toString()));
     }
 
     @Override
     public void startResponding()
     {
         blocker.unblock();
+        System.out.println(String.format("START RESPONDING %s", this.getBaseUrl().toString()));
     }
 }
