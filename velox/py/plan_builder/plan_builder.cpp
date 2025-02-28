@@ -208,6 +208,19 @@ PYBIND11_MODULE(plan_builder, m) {
           filter: Optional join filter expression.
       )"))
       .def(
+          "sorted_merge",
+          &velox::py::PyPlanBuilder::sortedMerge,
+          py::arg("keys"),
+          py::arg("sources"),
+          py::doc(R"(
+        Takes N sorted `source` subtrees and merges them into a sorted output.
+        Assumes that all sources are sorted on `keys`.
+
+        Args:
+          keys: The sorting keys.
+          sources: The list of sources to merge.
+      )"))
+      .def(
           "tpch_gen",
           &velox::py::PyPlanBuilder::tpchGen,
           py::arg("table_name"),

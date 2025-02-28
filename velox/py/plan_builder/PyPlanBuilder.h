@@ -213,6 +213,15 @@ class PyPlanBuilder {
       const std::string& filter,
       core::JoinType joinType);
 
+  /// Takes N sorted `source` subtrees and merges them into a sorted output.
+  /// Assumes that all sources are sorted on `keys`.
+  ///
+  /// @param keys The sorting keys.
+  /// @param sources The list of sources to merge.
+  PyPlanBuilder& sortedMerge(
+      const std::vector<std::string>& keys,
+      const std::vector<std::optional<PyPlanNode>>& sources);
+
   /// Generates TPC-H data on the fly using dbgen. Note that generating data on
   /// the fly is not terribly efficient, so for performance evaluation one
   /// should generate data using this node, write it to output storage files,

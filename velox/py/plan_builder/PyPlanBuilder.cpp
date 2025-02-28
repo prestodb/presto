@@ -282,6 +282,22 @@ PyPlanBuilder& PyPlanBuilder::mergeJoin(
   return *this;
 }
 
+PyPlanBuilder& PyPlanBuilder::sortedMerge(
+    const std::vector<std::string>& keys,
+    const std::vector<std::optional<PyPlanNode>>& pySources) {
+  std::vector<core::PlanNodePtr> sources;
+  sources.reserve(pySources.size());
+
+  for (const auto& pySource : pySources) {
+    if (pySource.has_value()) {
+      sources.push_back(pySource->planNode());
+    }
+  }
+
+  planBuilder_.localMerge(keys, std::move(sources));
+  return *this;
+}
+
 PyPlanBuilder& PyPlanBuilder::tpchGen(
     const std::string& tableName,
     const std::vector<std::string>& columns,
