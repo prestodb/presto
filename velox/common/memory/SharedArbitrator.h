@@ -194,7 +194,7 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     /// memory pools.
     static constexpr std::string_view kGlobalArbitrationEnabled{
         "global-arbitration-enabled"};
-    static constexpr bool kDefaultGlobalArbitrationEnabled{false};
+    static constexpr bool kDefaultGlobalArbitrationEnabled{true};
     static bool globalArbitrationEnabled(
         const std::unordered_map<std::string, std::string>& configs);
 
