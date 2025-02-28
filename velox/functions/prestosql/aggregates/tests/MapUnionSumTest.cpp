@@ -501,4 +501,54 @@ TEST_F(MapUnionSumTest, nanKeys) {
 }
 
 } // namespace
+
+TEST_F(MapUnionSumTest, complexType) {
+  // Verify that NaNs with different binary representations are considered equal
+  // and deduplicated when used as keys in the output map.
+  static const auto kNaN = std::numeric_limits<double>::quiet_NaN();
+  static const auto kSNaN = std::numeric_limits<double>::signaling_NaN();
+
+  // Global Aggregation, Complex type(Row)
+  // The complex input values are:
+  // [{"key":[1,1],"value":1},{"key":["NaN",2],"value":2},{"key":[2,4],"value":3},{"key":[3,5],"value":4},
+  // {"key":["NaN",2],"value":5}, {"key":["NaN",2],"value":6}]
+  auto data = makeRowVector(
+      {makeMapVector(
+           {0, 1, 2, 3, 4, 5},
+           makeRowVector(
+               {makeFlatVector<double>({1, kSNaN, 2, 3, kNaN, kSNaN}),
+                makeFlatVector<int32_t>({1, 2, 4, 5, 2, 2})}),
+           makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6})),
+       makeFlatVector<int32_t>({1, 1, 1, 2, 2, 2})});
+
+  // The expected result is
+  // [{"key":[1,1],"value":1},{"key":[2,4],"value":3},{"key":[3,5],"value":4},
+  // {"key":["NaN",2],"value":12}]
+  auto expectedResult = makeRowVector({makeMapVector(
+      {0},
+      makeRowVector(
+          {makeFlatVector<double>({1, 2, 3, kNaN}),
+           makeFlatVector<int32_t>({1, 4, 5, 2})}),
+      makeFlatVector<int32_t>({1, 3, 4, 13}))});
+
+  testAggregations({data}, {}, {"map_union_sum(c0)"}, {expectedResult});
+
+  // Group by Aggregation, Complex type(Row)
+  // The expected result is
+  // [{"key":[1,1],"value":1},{"key":[2,4],"value":3},
+  //  {"key":["NaN",2],"value":2}] | 1
+  // [{"key":[3,5],"value":4},{"key":["NaN",2],"value":11}] | 2
+  expectedResult = makeRowVector(
+      {makeMapVector(
+           {0, 3},
+           makeRowVector(
+               {makeFlatVector<double>({1, 2, kNaN, 3, kNaN}),
+                makeFlatVector<int32_t>({1, 4, 2, 5, 2})}),
+           makeFlatVector<int32_t>({1, 3, 2, 4, 11})),
+       makeFlatVector<int32_t>({1, 2})});
+
+  testAggregations(
+      {data}, {"c1"}, {"map_union_sum(c0)"}, {"a0", "c1"}, {expectedResult});
+}
+
 } // namespace facebook::velox::aggregate::test
