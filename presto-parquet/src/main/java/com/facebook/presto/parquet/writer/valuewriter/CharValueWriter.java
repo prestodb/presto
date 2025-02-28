@@ -25,13 +25,11 @@ import static java.util.Objects.requireNonNull;
 public class CharValueWriter
         extends PrimitiveValueWriter
 {
-    private final ValuesWriter valuesWriter;
     private final Type type;
 
     public CharValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
         this.type = requireNonNull(type, "type is null");
     }
 
@@ -42,7 +40,7 @@ public class CharValueWriter
             if (!block.isNull(i)) {
                 Slice slice = type.getSlice(block, i);
                 Binary binary = Binary.fromConstantByteBuffer(slice.toByteBuffer());
-                valuesWriter.writeBytes(binary);
+                getValueWriter().writeBytes(binary);
                 getStatistics().updateStats(binary);
             }
         }
