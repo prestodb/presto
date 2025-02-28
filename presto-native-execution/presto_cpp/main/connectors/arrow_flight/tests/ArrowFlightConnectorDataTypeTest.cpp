@@ -349,6 +349,38 @@ TEST_F(ArrowFlightConnectorDataTypeTest, arrayType) {
       .assertResults(makeRowVector({expectedData}));
 }
 
+TEST_F(ArrowFlightConnectorDataTypeTest, rowType) {
+  std::vector<int32_t> intData = {0, 1, 2, 3, 4};
+  std::vector<std::string> varcharData = {"a", "bb", "ccc", "dddd", "eeeee"};
+  std::vector<double> doubleData = {0.0, 1.1, 2.2, 3.3, 4.4};
+
+  auto recordBatch = makeRecordBatch(
+      {"int_col", "varchar_col", "double_col"},
+      {makeNumericArray<arrow::Int32Type>(intData),
+       makeStringArray(varcharData),
+       makeNumericArray<arrow::DoubleType>(doubleData)});
+  AFC_ASSIGN_OR_RAISE(auto structArray, recordBatch->ToStructArray());
+
+  updateTable("sample-data", makeArrowTable({"row_col"}, {structArray}));
+
+  core::PlanNodePtr plan;
+  plan = ArrowFlightPlanBuilder()
+             .flightTableScan(velox::ROW(
+                 {"row_col"},
+                 {velox::ROW(
+                     {"int_col", "varchar_col", "double_col"},
+                     {velox::INTEGER(), velox::VARCHAR(), velox::DOUBLE()})}))
+             .planNode();
+
+  auto expectedData = makeRowVector(
+      {makeFlatVector(intData),
+       makeFlatVector(varcharData),
+       makeFlatVector(doubleData)});
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .assertResults(makeRowVector({expectedData}));
+}
+
 TEST_F(ArrowFlightConnectorDataTypeTest, allTypes) {
   auto timestampValues =
       std::vector<int64_t>{1622550000, 1622553600, 1622557200};
