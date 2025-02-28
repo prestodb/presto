@@ -157,7 +157,7 @@ class TestIndexSource : public connector::IndexSource,
     void initBuffer(vector_size_t size, BufferPtr& buffer, T*& rawBuffer) {
       if (!buffer || !buffer->unique() ||
           buffer->capacity() < sizeof(T) * size) {
-        buffer = allocateIndices(size, source_->pool_.get());
+        buffer = AlignedBuffer::allocate<T>(size, source_->pool_.get(), T());
       }
       rawBuffer = buffer->asMutable<T>();
     }
@@ -209,6 +209,8 @@ class TestIndexSource : public connector::IndexSource,
  private:
   // Initialize the output projections for lookup result processing.
   void initOutputProjections();
+  // Invoked to check if this source has already encountered async lookup error.
+  void checkNotFailed();
 
   const std::shared_ptr<TestIndexTableHandle> tableHandle_;
   const RowTypePtr inputType_;
@@ -220,6 +222,8 @@ class TestIndexSource : public connector::IndexSource,
   folly::Executor* const executor_;
 
   std::vector<IdentityProjection> lookupOutputProjections_;
+  // If not empty, set to the first encountered async error.
+  std::string error_;
 };
 
 class TestIndexConnector : public connector::Connector {

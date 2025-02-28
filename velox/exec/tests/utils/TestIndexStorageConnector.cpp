@@ -16,6 +16,9 @@
 
 #include "velox/exec/tests/utils/TestIndexStorageConnector.h"
 
+#include "velox/common/testutil/TestValue.h"
+
+using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::exec::test {
 
 TestIndexSource::TestIndexSource(
@@ -34,12 +37,7 @@ TestIndexSource::TestIndexSource(
       executor_(executor) {
   VELOX_CHECK_NOT_NULL(executor_);
   VELOX_CHECK(inputType_->equivalent(*keyType_));
-  VELOX_CHECK_LE(outputType_->size(), valueType_->size());
-  // As for now, we only support to read data columns.
-  for (int i = 0; i < outputType_->size(); ++i) {
-    VELOX_CHECK(outputType_->childAt(i)->equivalent(
-        *valueType_->findChild(outputType_->nameOf(i))));
-  }
+  VELOX_CHECK_LE(outputType_->size(), valueType_->size() + keyType_->size());
   // As for now we require the all the index columns to be specified in lookup
   // input.
   for (int i = 0; i < keyType_->size(); ++i) {
@@ -48,8 +46,15 @@ TestIndexSource::TestIndexSource(
   initOutputProjections();
 }
 
+void TestIndexSource::checkNotFailed() {
+  if (!error_.empty()) {
+    VELOX_FAIL("TestIndexSource failed: {}", error_);
+  }
+}
+
 std::shared_ptr<connector::IndexSource::LookupResultIterator>
 TestIndexSource::lookup(const LookupRequest& request) {
+  checkNotFailed();
   const auto numInputRows = request.input->size();
   auto& hashTable = tableHandle_->indexTable()->table;
   auto lookup = std::make_unique<HashLookup>(hashTable->hashers());
@@ -79,11 +84,16 @@ void TestIndexSource::initOutputProjections() {
   lookupOutputProjections_.reserve(outputType_->size());
   for (auto outputChannel = 0; outputChannel < outputType_->size();
        ++outputChannel) {
-    auto tableValueChannel =
-        valueType_->getChildIdx(outputType_->nameOf(outputChannel));
-    // The hash table layout is: index columns, value columns.
-    lookupOutputProjections_.emplace_back(
-        keyType_->size() + tableValueChannel, outputChannel);
+    const auto outputName = outputType_->nameOf(outputChannel);
+    if (valueType_->containsChild(outputName)) {
+      const auto tableValueChannel = valueType_->getChildIdx(outputName);
+      // The hash table layout is: index columns, value columns.
+      lookupOutputProjections_.emplace_back(
+          keyType_->size() + tableValueChannel, outputChannel);
+      continue;
+    }
+    const auto tableKeyChannel = keyType_->getChildIdx(outputName);
+    lookupOutputProjections_.emplace_back(tableKeyChannel, outputChannel);
   }
   VELOX_CHECK_EQ(lookupOutputProjections_.size(), outputType_->size());
 }
@@ -107,6 +117,8 @@ std::optional<std::unique_ptr<connector::IndexSource::LookupResult>>
 TestIndexSource::ResultIterator::next(
     vector_size_t size,
     ContinueFuture& future) {
+  source_->checkNotFailed();
+
   if (hasPendingRequest_.exchange(true)) {
     VELOX_FAIL("Only one pending request is allowed at a time");
   }
@@ -121,7 +133,9 @@ TestIndexSource::ResultIterator::next(
   };
   if (asyncResult_.has_value()) {
     VELOX_CHECK_NOT_NULL(executor_);
-    return std::move(asyncResult_.value());
+    auto result = std::move(asyncResult_.value());
+    asyncResult_.reset();
+    return result;
   }
   return syncLookup(size);
 }
@@ -177,48 +191,59 @@ TestIndexSource::ResultIterator::syncLookup(vector_size_t size) {
     return nullptr;
   }
 
-  initBuffer<char*>(size, outputRowMapping_, rawOutputRowMapping_);
-  initBuffer<vector_size_t>(size, inputRowMapping_, rawInputRowMapping_);
+  try {
+    TestValue::adjust(
+        "facebook::velox::exec::test::TestIndexSource::ResultIterator::syncLookup",
+        this);
 
-  const auto numOut = source_->indexTable()->table->listJoinResults(
-      *lookupResultIter_,
-      /*includeMisses=*/true,
-      folly::Range(rawInputRowMapping_, size),
-      folly::Range(rawOutputRowMapping_, size),
-      // TODO: support max bytes output later.
-      /*maxBytes=*/std::numeric_limits<uint64_t>::max());
-  outputRowMapping_->setSize(numOut * sizeof(char*));
-  inputRowMapping_->setSize(numOut * sizeof(vector_size_t));
+    initBuffer<char*>(size, outputRowMapping_, rawOutputRowMapping_);
+    initBuffer<vector_size_t>(size, inputRowMapping_, rawInputRowMapping_);
 
-  if (numOut == 0) {
-    VELOX_CHECK(lookupResultIter_->atEnd());
+    const auto numOut = source_->indexTable()->table->listJoinResults(
+        *lookupResultIter_,
+        /*includeMisses=*/true,
+        folly::Range(rawInputRowMapping_, size),
+        folly::Range(rawOutputRowMapping_, size),
+        // TODO: support max bytes output later.
+        /*maxBytes=*/std::numeric_limits<uint64_t>::max());
+    outputRowMapping_->setSize(numOut * sizeof(char*));
+    inputRowMapping_->setSize(numOut * sizeof(vector_size_t));
+
+    if (numOut == 0) {
+      VELOX_CHECK(lookupResultIter_->atEnd());
+      return nullptr;
+    }
+
+    initBuffer<vector_size_t>(numOut, inputHitIndices_, rawInputHitIndices_);
+    auto numHits{0};
+    for (auto i = 0; i < numOut; ++i) {
+      if (rawOutputRowMapping_[i] == nullptr) {
+        continue;
+      }
+      VELOX_CHECK_LE(numHits, i);
+      rawOutputRowMapping_[numHits] = rawOutputRowMapping_[i];
+      rawInputHitIndices_[numHits] = rawInputRowMapping_[i];
+      if (numHits > 0) {
+        // Make sure the input hit indices are in ascending order.
+        VELOX_CHECK_GE(
+            rawInputHitIndices_[numHits], rawInputHitIndices_[numHits - 1]);
+      }
+      ++numHits;
+    }
+    outputRowMapping_->setSize(numHits * sizeof(char*));
+    inputHitIndices_->setSize(numHits * sizeof(vector_size_t));
+
+    extractLookupColumns(
+        folly::Range<char* const*>(rawOutputRowMapping_, numHits),
+        lookupOutput_);
+    VELOX_CHECK_EQ(lookupOutput_->size(), numHits);
+    VELOX_CHECK_EQ(inputHitIndices_->size() / sizeof(vector_size_t), numHits);
+    return std::make_unique<LookupResult>(inputHitIndices_, lookupOutput_);
+  } catch (const std::exception& e) {
+    VELOX_CHECK(source_->error_.empty());
+    source_->error_ = e.what();
     return nullptr;
   }
-
-  initBuffer<vector_size_t>(numOut, inputHitIndices_, rawInputHitIndices_);
-  auto numHits{0};
-  for (auto i = 0; i < numOut; ++i) {
-    if (rawOutputRowMapping_[i] == nullptr) {
-      continue;
-    }
-    VELOX_CHECK_LE(numHits, i);
-    rawOutputRowMapping_[numHits] = rawOutputRowMapping_[i];
-    rawInputHitIndices_[numHits] = rawInputRowMapping_[i];
-    if (numHits > 0) {
-      // Make sure the input hit indices are in ascending order.
-      VELOX_CHECK_GE(
-          rawInputHitIndices_[numHits], rawInputHitIndices_[numHits - 1]);
-    }
-    ++numHits;
-  }
-  outputRowMapping_->setSize(numHits * sizeof(char*));
-  inputHitIndices_->setSize(numHits * sizeof(vector_size_t));
-
-  extractLookupColumns(
-      folly::Range<char* const*>(rawOutputRowMapping_, numHits), lookupOutput_);
-  VELOX_CHECK_EQ(lookupOutput_->size(), numHits);
-  VELOX_CHECK_EQ(inputHitIndices_->size() / sizeof(vector_size_t), numHits);
-  return std::make_unique<LookupResult>(inputHitIndices_, lookupOutput_);
 }
 
 TestIndexConnector::TestIndexConnector(
