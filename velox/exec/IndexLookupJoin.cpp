@@ -31,7 +31,102 @@ void duplicateJoinKeyCheck(
   }
   VELOX_USER_CHECK_EQ(lookupKeyNames.size(), keys.size());
 }
+
+std::string getColumnName(const core::TypedExprPtr& typeExpr) {
+  const auto field = core::TypedExprs::asFieldAccess(typeExpr);
+  VELOX_USER_CHECK(field->isInputColumn());
+  return field->name();
+}
+
+// Adds a probe input column to lookup input channels and type if the probe
+// column is used in a join condition, The lookup input is projected from the
+// probe input and feeds into index source for lookup.
+void addLookupInputColumn(
+    const std::string& columnName,
+    const TypePtr& columnType,
+    column_index_t columnChannel,
+    std::vector<std::string>& lookupInputNames,
+    std::vector<TypePtr>& lookupInputTypes,
+    std::vector<column_index_t>& lookupInputChannels,
+    folly::F14FastSet<std::string>& lookupInputNameSet) {
+  if (lookupInputNameSet.count(columnName) != 0) {
+    return;
+  }
+  lookupInputNames.emplace_back(columnName);
+  lookupInputTypes.emplace_back(columnType);
+  lookupInputChannels.emplace_back(columnChannel);
+  lookupInputNameSet.insert(columnName);
+}
+
+// Validates one of between bound, and update the lookup input channels and type
+// to include the corresponding probe input column if the bound is not constant.
+bool addBetweenConditionBound(
+    const core::TypedExprPtr& typeExpr,
+    const RowTypePtr& inputType,
+    const TypePtr& indexKeyType,
+    std::vector<std::string>& lookupInputNames,
+    std::vector<TypePtr>& lookupInputTypes,
+    std::vector<column_index_t>& lookupInputChannels,
+    folly::F14FastSet<std::string>& lookupInputNameSet) {
+  const bool isConstant = core::TypedExprs::isConstant(typeExpr);
+  if (!isConstant) {
+    const auto conditionColumnName = getColumnName(typeExpr);
+    const auto conditionColumnChannel =
+        inputType->getChildIdx(conditionColumnName);
+    const auto conditionColumnType = inputType->childAt(conditionColumnChannel);
+    VELOX_USER_CHECK(conditionColumnType->equivalent(*indexKeyType));
+    addLookupInputColumn(
+        conditionColumnName,
+        conditionColumnType,
+        conditionColumnChannel,
+        lookupInputNames,
+        lookupInputTypes,
+        lookupInputChannels,
+        lookupInputNameSet);
+  } else {
+    VELOX_USER_CHECK(core::TypedExprs::asConstant(typeExpr)->type()->equivalent(
+        *indexKeyType));
+  }
+  return isConstant;
+}
+
+// Process a between join condition by validating the lower and upper bound
+// types, and updating the lookup input channels and type to include the probe
+// input columns which contain the between condition bounds.
+void addBetweenCondition(
+    const core::BetweenIndexJoinConditionPtr& betweenCondition,
+    const RowTypePtr& inputType,
+    const TypePtr& indexKeyType,
+    std::vector<std::string>& lookupInputNames,
+    std::vector<TypePtr>& lookupInputTypes,
+    std::vector<column_index_t>& lookupInputChannels,
+    folly::F14FastSet<std::string>& lookupInputNameSet) {
+  size_t numConstants{0};
+  numConstants += !!addBetweenConditionBound(
+      betweenCondition->lower,
+      inputType,
+      indexKeyType,
+      lookupInputNames,
+      lookupInputTypes,
+      lookupInputChannels,
+      lookupInputNameSet);
+  numConstants += !!addBetweenConditionBound(
+      betweenCondition->upper,
+      inputType,
+      indexKeyType,
+      lookupInputNames,
+      lookupInputTypes,
+      lookupInputChannels,
+      lookupInputNameSet);
+
+  VELOX_USER_CHECK_LT(
+      numConstants,
+      2,
+      "At least one of the between condition bounds needs to be not constant: {}",
+      betweenCondition->toString());
+}
 } // namespace
+
 IndexLookupJoin::IndexLookupJoin(
     int32_t operatorId,
     DriverCtx* driverCtx,
@@ -50,6 +145,7 @@ IndexLookupJoin::IndexLookupJoin(
       probeType_{joinNode->sources()[0]->outputType()},
       lookupType_{joinNode->lookupSource()->outputType()},
       lookupTableHandle_{joinNode->lookupSource()->tableHandle()},
+      lookupConditions_{joinNode->joinConditions()},
       lookupColumnHandles_(joinNode->lookupSource()->assignments()),
       connectorQueryCtx_{operatorCtx_->createConnectorQueryCtx(
           lookupTableHandle_->connectorId(),
@@ -61,7 +157,6 @@ IndexLookupJoin::IndexLookupJoin(
               operatorType(),
               lookupTableHandle_->connectorId()),
           spillConfig_.has_value() ? &(spillConfig_.value()) : nullptr)},
-      expressionEvaluator_(connectorQueryCtx_->expressionEvaluator()),
       connector_(connector::getConnector(lookupTableHandle_->connectorId())),
       joinNode_{joinNode} {
   duplicateJoinKeyCheck(joinNode_->leftKeys());
@@ -107,76 +202,74 @@ void IndexLookupJoin::initLookupInput() {
     VELOX_CHECK_EQ(lookupInputNames.size(), lookupInputChannels_.size());
     lookupInputType_ =
         ROW(std::move(lookupInputNames), std::move(lookupInputTypes));
+    VELOX_CHECK_EQ(lookupInputType_->size(), lookupInputChannels_.size());
   };
 
-  // List probe key columns used in join-equi caluse first.
-  folly::F14FastSet<std::string> probeKeyColumnNames;
+  folly::F14FastSet<std::string> lookupInputColumnSet;
+  folly::F14FastSet<std::string> lookupIndexColumnSet;
+  // List probe columns used in join-equi caluse first.
   for (auto keyIdx = 0; keyIdx < numKeys_; ++keyIdx) {
-    lookupInputNames.emplace_back(joinNode_->leftKeys()[keyIdx]->name());
-    const auto probeKeyChannel =
-        probeType_->getChildIdx(lookupInputNames.back());
-    lookupInputChannels_.emplace_back(probeKeyChannel);
-    lookupInputTypes.emplace_back(probeType_->childAt(probeKeyChannel));
-    VELOX_CHECK_EQ(probeKeyColumnNames.count(lookupInputNames.back()), 0);
-    probeKeyColumnNames.insert(lookupInputNames.back());
+    const auto probeKeyName = joinNode_->leftKeys()[keyIdx]->name();
+    const auto indexKeyName = joinNode_->rightKeys()[keyIdx]->name();
+    VELOX_USER_CHECK_EQ(lookupIndexColumnSet.count(indexKeyName), 0);
+    lookupIndexColumnSet.insert(indexKeyName);
+    const auto probeKeyChannel = probeType_->getChildIdx(probeKeyName);
+    const auto probeKeyType = probeType_->childAt(probeKeyChannel);
+    VELOX_USER_CHECK(
+        lookupType_->findChild(indexKeyName)->equivalent(*probeKeyType));
+    addLookupInputColumn(
+        indexKeyName,
+        probeKeyType,
+        probeKeyChannel,
+        lookupInputNames,
+        lookupInputTypes,
+        lookupInputChannels_,
+        lookupInputColumnSet);
   }
 
   if (lookupConditions_.empty()) {
     return;
   }
 
-  folly::F14FastSet<std::string> probeConditionColumnNames;
-  folly::F14FastSet<std::string> lookupConditionColumnNames;
   for (const auto& lookupCondition : lookupConditions_) {
-    const auto lookupConditionExprSet =
-        expressionEvaluator_->compile(lookupCondition);
-    const auto& lookupConditionExpr = lookupConditionExprSet->expr(0);
+    const auto indexKeyName = getColumnName(lookupCondition->key);
+    VELOX_USER_CHECK_EQ(lookupIndexColumnSet.count(indexKeyName), 0);
+    lookupIndexColumnSet.insert(indexKeyName);
+    const auto indexKeyType = lookupType_->findChild(indexKeyName);
 
-    int numProbeColumns{0};
-    int numLookupColumns{0};
-    for (auto& input : lookupConditionExpr->distinctFields()) {
-      const auto& columnName = input->field();
-      auto probeIndexOpt = probeType_->getChildIdxIfExists(columnName);
-      if (probeIndexOpt.has_value()) {
-        ++numProbeColumns;
-        // There is no overlap between probe key columns and probe condition
-        // columns.
-        VELOX_CHECK_EQ(probeKeyColumnNames.count(columnName), 0);
-        // We allow the probe column used in more than one lookup conditions.
-        if (probeConditionColumnNames.count(columnName) == 0) {
-          probeConditionColumnNames.insert(columnName);
-          lookupInputChannels_.push_back(probeIndexOpt.value());
-          lookupInputNames.push_back(columnName);
-          lookupInputTypes.push_back(input->type());
-        }
-        continue;
-      }
-
-      ++numLookupColumns;
-      auto lookupIndexOpt = lookupType_->getChildIdxIfExists(columnName);
-      VELOX_CHECK(
-          lookupIndexOpt.has_value(),
-          "Lookup condition column {} is not found",
-          columnName);
-      // A lookup column can only be used in one lookup condition.
-      VELOX_CHECK_EQ(
-          lookupConditionColumnNames.count(columnName),
-          0,
-          "Lookup condition column {} from lookup table used in more than one lookup conditions",
-          input->field());
-      lookupConditionColumnNames.insert(input->field());
+    if (const auto inCondition =
+            std::dynamic_pointer_cast<const core::InIndexJoinCondition>(
+                lookupCondition)) {
+      const auto conditionInputName = getColumnName(inCondition->list);
+      const auto conditionInputChannel =
+          probeType_->getChildIdx(conditionInputName);
+      const auto conditionInputType =
+          probeType_->childAt(conditionInputChannel);
+      const auto expectedConditionInputType = ARRAY(indexKeyType);
+      VELOX_USER_CHECK(
+          conditionInputType->equivalent(*expectedConditionInputType));
+      addLookupInputColumn(
+          conditionInputName,
+          conditionInputType,
+          conditionInputChannel,
+          lookupInputNames,
+          lookupInputTypes,
+          lookupInputChannels_,
+          lookupInputColumnSet);
     }
 
-    VELOX_CHECK_EQ(
-        numLookupColumns,
-        1,
-        "Unexpected number of lookup columns in lookup condition {}",
-        lookupConditionExpr->toString());
-    VELOX_CHECK_GT(
-        numProbeColumns,
-        0,
-        "No probe columns found in lookup condition {}",
-        lookupConditionExpr->toString());
+    if (const auto betweenCondition =
+            std::dynamic_pointer_cast<core::BetweenIndexJoinCondition>(
+                lookupCondition)) {
+      addBetweenCondition(
+          betweenCondition,
+          probeType_,
+          indexKeyType,
+          lookupInputNames,
+          lookupInputTypes,
+          lookupInputChannels_,
+          lookupInputColumnSet);
+    }
   }
 }
 

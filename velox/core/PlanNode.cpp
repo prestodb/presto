@@ -40,15 +40,35 @@ std::vector<PlanNodePtr> deserializeSources(
   return {};
 }
 
-std::vector<TypedExprPtr> deserializeJoinConditions(
+namespace {
+IndexJoinConditionPtr createIndexJoinCondition(
+    const folly::dynamic& obj,
+    void* context) {
+  VELOX_USER_CHECK_EQ(obj.count("type"), 1);
+  if (obj["type"] == "in") {
+    return InIndexJoinCondition::create(obj, context);
+  }
+  if (obj["type"] == "between") {
+    return BetweenIndexJoinCondition::create(obj, context);
+  }
+  VELOX_USER_FAIL(
+      "Unknown index join condition type {}", obj["type"].asString());
+}
+} // namespace
+
+std::vector<IndexJoinConditionPtr> deserializeJoinConditions(
     const folly::dynamic& obj,
     void* context) {
   if (obj.count("joinConditions") == 0) {
     return {};
   }
 
-  return ISerializable::deserialize<std::vector<ITypedExpr>>(
-      obj["joinConditions"], context);
+  std::vector<IndexJoinConditionPtr> joinConditions;
+  joinConditions.reserve(obj.count("joinConditions"));
+  for (const auto& joinCondition : obj["joinConditions"]) {
+    joinConditions.push_back(createIndexJoinCondition(joinCondition, context));
+  }
+  return joinConditions;
 }
 
 PlanNodePtr deserializeSingleSource(const folly::dynamic& obj, void* context) {
@@ -1447,8 +1467,7 @@ PlanNodePtr IndexLookupJoinNode::create(
 folly::dynamic IndexLookupJoinNode::serialize() const {
   auto obj = serializeBase();
   if (!joinConditions_.empty()) {
-    folly::dynamic serializedJoins = folly::dynamic::array;
-    serializedJoins.reserve(joinConditions_.size());
+    folly::dynamic serializedJoins = folly::dynamic::array();
     for (const auto& joinCondition : joinConditions_) {
       serializedJoins.push_back(joinCondition->serialize());
     }
@@ -2881,4 +2900,53 @@ PlanNodePtr FilterNode::create(const folly::dynamic& obj, void* context) {
       deserializePlanNodeId(obj), filter, std::move(source));
 }
 
+folly::dynamic IndexJoinCondition::serialize() const {
+  folly::dynamic obj = folly::dynamic::object;
+  obj["key"] = key->serialize();
+  return obj;
+}
+
+folly::dynamic InIndexJoinCondition::serialize() const {
+  folly::dynamic obj = IndexJoinCondition::serialize();
+  obj["type"] = "in";
+  obj["in"] = list->serialize();
+  return obj;
+}
+
+std::string InIndexJoinCondition::toString() const {
+  return fmt::format("{} IN {}", key->toString(), list->toString());
+}
+
+IndexJoinConditionPtr InIndexJoinCondition::create(
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<InIndexJoinCondition>(
+      ISerializable::deserialize<FieldAccessTypedExpr>(obj["key"], context),
+      ISerializable::deserialize<FieldAccessTypedExpr>(obj["in"], context));
+}
+
+folly::dynamic BetweenIndexJoinCondition::serialize() const {
+  folly::dynamic obj = IndexJoinCondition::serialize();
+  obj["type"] = "between";
+  obj["lower"] = lower->serialize();
+  obj["upper"] = upper->serialize();
+  return obj;
+}
+
+std::string BetweenIndexJoinCondition::toString() const {
+  return fmt::format(
+      "{} BETWEEN {} AND {}",
+      key->toString(),
+      lower->toString(),
+      upper->toString());
+}
+
+IndexJoinConditionPtr BetweenIndexJoinCondition::create(
+    const folly::dynamic& obj,
+    void* context) {
+  return std::make_shared<BetweenIndexJoinCondition>(
+      ISerializable::deserialize<FieldAccessTypedExpr>(obj["key"], context),
+      ISerializable::deserialize<ITypedExpr>(obj["lower"], context),
+      ISerializable::deserialize<ITypedExpr>(obj["upper"], context));
+}
 } // namespace facebook::velox::core

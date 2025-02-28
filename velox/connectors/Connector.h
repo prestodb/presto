@@ -47,6 +47,10 @@ namespace facebook::velox::core {
 class ITypedExpr;
 }
 
+namespace facebook::velox::core {
+struct IndexJoinCondition;
+}
+
 namespace facebook::velox::connector {
 
 class DataSource;
@@ -584,8 +588,8 @@ class Connector {
   /// Here,
   /// - 'inputType' is ROW{t.sid, t.event_list}
   /// - 'numJoinKeys' is 1 since only t.sid is used in join equi-clauses.
-  /// - 'joinConditions' is list of one expression: contains(t.event_list,
-  ///    u.event_type)
+  /// - 'joinConditions' specifies the join condition: contains(t.event_list,
+  ///   u.event_type)
   /// - 'outputType' is ROW{u.event_value}
   /// - 'tableHandle' specifies the metadata of the index table.
   /// - 'columnHandles' is a map from 'u.event_type' (in 'joinConditions') and
@@ -596,7 +600,7 @@ class Connector {
   virtual std::shared_ptr<IndexSource> createIndexSource(
       const RowTypePtr& inputType,
       size_t numJoinKeys,
-      const std::vector<std::shared_ptr<const core::ITypedExpr>>&
+      const std::vector<std::shared_ptr<core::IndexJoinCondition>>&
           joinConditions,
       const RowTypePtr& outputType,
       const std::shared_ptr<ConnectorTableHandle>& tableHandle,

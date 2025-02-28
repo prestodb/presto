@@ -249,8 +249,7 @@ class TestIndexConnector : public connector::Connector {
   std::shared_ptr<connector::IndexSource> createIndexSource(
       const RowTypePtr& inputType,
       size_t numJoinKeys,
-      const std::vector<std::shared_ptr<const core::ITypedExpr>>&
-          joinConditions,
+      const std::vector<core::IndexJoinConditionPtr>& joinConditions,
       const RowTypePtr& outputType,
       const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
       const std::unordered_map<

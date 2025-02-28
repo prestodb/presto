@@ -369,16 +369,24 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
       kTestIndexConnectorName, nullptr, true);
 
   auto left = makeRowVector(
-      {"t0", "t1", "t2"},
-      {makeFlatVector<int32_t>({1, 2, 3}),
+      {"t0", "t1", "t2", "t3", "t4"},
+      {makeFlatVector<int64_t>({1, 2, 3}),
        makeFlatVector<int64_t>({10, 20, 30}),
-       makeFlatVector<int32_t>({10, 30, 20})});
+       makeFlatVector<int64_t>({10, 30, 20}),
+       makeArrayVector<int64_t>(
+           3,
+           [](auto row) { return row; },
+           [](auto /*unused*/, auto index) { return index; }),
+       makeArrayVector<int64_t>(
+           3,
+           [](auto row) { return row; },
+           [](auto /*unused*/, auto index) { return index; })});
 
   auto right = makeRowVector(
       {"u0", "u1", "u2"},
-      {makeFlatVector<int32_t>({1, 2, 3}),
+      {makeFlatVector<int64_t>({1, 2, 3}),
        makeFlatVector<int64_t>({10, 20, 30}),
-       makeFlatVector<int32_t>({10, 30, 20})});
+       makeFlatVector<int64_t>({10, 30, 20})});
 
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
@@ -418,21 +426,65 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
     testSerde(plan);
   }
 
-  // with join conditions.
+  // with in join conditions.
   for (const auto joinType : {core::JoinType::kLeft, core::JoinType::kInner}) {
-    auto plan = PlanBuilder(planNodeIdGenerator)
+    auto plan = PlanBuilder(planNodeIdGenerator, pool_.get())
                     .values({left})
                     .indexLookupJoin(
                         {"t0"},
                         {"u0"},
                         indexTableScan,
-                        {"u1 > t2"},
+                        {"contains(t3, u0)", "contains(t4, u1)"},
                         {"t0", "u1", "t2", "t1"},
                         joinType)
                     .planNode();
     auto indexLookupJoinNode =
         std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
-    ASSERT_EQ(indexLookupJoinNode->joinConditions().size(), 1);
+    ASSERT_EQ(indexLookupJoinNode->joinConditions().size(), 2);
+    ASSERT_EQ(
+        indexLookupJoinNode->lookupSource()->tableHandle()->connectorId(),
+        kTestIndexConnectorName);
+    testSerde(plan);
+  }
+
+  // with between join conditions.
+  for (const auto joinType : {core::JoinType::kLeft, core::JoinType::kInner}) {
+    auto plan = PlanBuilder(planNodeIdGenerator, pool_.get())
+                    .values({left})
+                    .indexLookupJoin(
+                        {"t0"},
+                        {"u0"},
+                        indexTableScan,
+                        {"u0 between t0 AND t1",
+                         "u1 between t1 AND 10",
+                         "u1 between 10 AND t1"},
+                        {"t0", "u1", "t2", "t1"},
+                        joinType)
+                    .planNode();
+    auto indexLookupJoinNode =
+        std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
+    ASSERT_EQ(indexLookupJoinNode->joinConditions().size(), 3);
+    ASSERT_EQ(
+        indexLookupJoinNode->lookupSource()->tableHandle()->connectorId(),
+        kTestIndexConnectorName);
+    testSerde(plan);
+  }
+
+  // with mix join conditions.
+  for (const auto joinType : {core::JoinType::kLeft, core::JoinType::kInner}) {
+    auto plan = PlanBuilder(planNodeIdGenerator, pool_.get())
+                    .values({left})
+                    .indexLookupJoin(
+                        {"t0"},
+                        {"u0"},
+                        indexTableScan,
+                        {"contains(t3, u0)", "u1 between 10 AND t1"},
+                        {"t0", "u1", "t2", "t1"},
+                        joinType)
+                    .planNode();
+    auto indexLookupJoinNode =
+        std::dynamic_pointer_cast<const core::IndexLookupJoinNode>(plan);
+    ASSERT_EQ(indexLookupJoinNode->joinConditions().size(), 2);
     ASSERT_EQ(
         indexLookupJoinNode->lookupSource()->tableHandle()->connectorId(),
         kTestIndexConnectorName);
@@ -475,7 +527,7 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
                 {"t0", "t1"},
                 {"u0"},
                 indexTableScan,
-                {"u1 > t2"},
+                {"contains(t4, u0)"},
                 {"t0", "u1", "t2", "t1"})
             .planNode(),
         "JoinNode requires same number of join keys on left and right sides");
@@ -487,7 +539,11 @@ TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
         PlanBuilder(planNodeIdGenerator)
             .values({left})
             .indexLookupJoin(
-                {}, {}, indexTableScan, {"u1 > t2"}, {"t0", "u1", "t2", "t1"})
+                {},
+                {},
+                indexTableScan,
+                {"contains(t4, u0)"},
+                {"t0", "u1", "t2", "t1"})
             .planNode(),
         "JoinNode requires at least one join key");
   }

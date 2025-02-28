@@ -1122,7 +1122,15 @@ class PlanBuilder {
   /// @param right The right input source with index lookup support.
   /// @param joinCondition SQL expressions as the join conditions. Each join
   /// condition must use columns from both sides. For the right side, it can
-  /// only use one index column.
+  /// only use one index column. Currently we support "in" and "between" join
+  /// conditions:
+  /// "in" condition is written as SQL expression as "contains(a, b)" where "b"
+  /// is the index column from right side and "a" is the condition column from
+  /// left side. "b" has type T and "a" has type ARRAT(T).
+  /// "between" condition is written as SQL expression as "a between b and c"
+  /// where "a" is the index column from right side and "b", "c" are either
+  /// condition column from left side or a constant but at least one of them
+  /// must not be constant. They all have the same type.
   /// @param joinType Type of the join supported: inner, left.
   ///
   /// See hashJoin method for the description of the other parameters.

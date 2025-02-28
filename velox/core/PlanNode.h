@@ -1768,6 +1768,65 @@ class MergeJoinNode : public AbstractJoinNode {
   static PlanNodePtr create(const folly::dynamic& obj, void* context);
 };
 
+struct IndexJoinCondition : public ISerializable {
+  /// References to an index table column.
+  FieldAccessTypedExprPtr key;
+
+  IndexJoinCondition(FieldAccessTypedExprPtr _key) : key(std::move(_key)) {}
+
+  folly::dynamic serialize() const override;
+
+  virtual std::string toString() const = 0;
+};
+using IndexJoinConditionPtr = std::shared_ptr<IndexJoinCondition>;
+
+/// Represents IN-LIST index join condition: contains('in', 'key'). 'list' has
+/// type of ARRAY(typeof('key')).
+struct InIndexJoinCondition : public IndexJoinCondition {
+  /// References to the probe input column which is ARRAY with element type of
+  /// the corresponding 'lookupKey' column from index table.
+  FieldAccessTypedExprPtr list;
+
+  InIndexJoinCondition(
+      FieldAccessTypedExprPtr _key,
+      FieldAccessTypedExprPtr _list)
+      : IndexJoinCondition(std::move(_key)), list(std::move(_list)) {}
+
+  folly::dynamic serialize() const override;
+
+  std::string toString() const override;
+
+  static IndexJoinConditionPtr create(const folly::dynamic& obj, void* context);
+};
+using InIndexJoinConditionPtr = std::shared_ptr<InIndexJoinCondition>;
+
+/// Represents BETWEEN index join condition: 'key' between 'lower' and 'upper'.
+/// 'lower' and 'upper' have the same type of 'key'.
+struct BetweenIndexJoinCondition : public IndexJoinCondition {
+  /// The between bound either reference to a probe input column or a constant
+  /// value.
+  ///
+  /// NOTE: the bound is inclusive, and at least one of the bound references to
+  /// a probe input column.
+  TypedExprPtr lower;
+  TypedExprPtr upper;
+
+  BetweenIndexJoinCondition(
+      FieldAccessTypedExprPtr _key,
+      TypedExprPtr _lower,
+      TypedExprPtr _upper)
+      : IndexJoinCondition(std::move(_key)),
+        lower(std::move(_lower)),
+        upper(std::move(_upper)) {}
+
+  folly::dynamic serialize() const override;
+
+  std::string toString() const override;
+
+  static IndexJoinConditionPtr create(const folly::dynamic& obj, void* context);
+};
+using BetweenIndexJoinConditionPtr = std::shared_ptr<BetweenIndexJoinCondition>;
+
 /// Represents index lookup join. Translates to an exec::IndexLookupJoin
 /// operator. Assumes the right input is a table scan source node that provides
 /// indexed table lookup for the left input with the specified join keys and
@@ -1796,8 +1855,8 @@ class MergeJoinNode : public AbstractJoinNode {
 ///    maybe some more)
 /// - 'leftKeys' is a list of one key 't.sid'
 /// - 'rightKeys' is a list of one key 'u.sid'
-/// - 'joinConditions' is a list of one expression: contains(t.event_list,
-///    u.event_type)
+/// - 'joinConditions' specifies one condition: contains(t.event_list,
+///   u.event_type)
 /// - 'outputType' contains 3 columns : t.sid, t.day_ts, u.event_type
 ///
 class IndexLookupJoinNode : public AbstractJoinNode {
@@ -1809,7 +1868,7 @@ class IndexLookupJoinNode : public AbstractJoinNode {
       JoinType joinType,
       const std::vector<FieldAccessTypedExprPtr>& leftKeys,
       const std::vector<FieldAccessTypedExprPtr>& rightKeys,
-      const std::vector<TypedExprPtr>& joinConditions,
+      const std::vector<IndexJoinConditionPtr>& joinConditions,
       PlanNodePtr left,
       TableScanNodePtr right,
       RowTypePtr outputType)
@@ -1849,7 +1908,7 @@ class IndexLookupJoinNode : public AbstractJoinNode {
     return lookupSourceNode_;
   }
 
-  const std::vector<TypedExprPtr>& joinConditions() const {
+  const std::vector<IndexJoinConditionPtr>& joinConditions() const {
     return joinConditions_;
   }
 
@@ -1869,7 +1928,7 @@ class IndexLookupJoinNode : public AbstractJoinNode {
 
   const TableScanNodePtr lookupSourceNode_;
 
-  const std::vector<TypedExprPtr> joinConditions_;
+  const std::vector<IndexJoinConditionPtr> joinConditions_;
 };
 
 /// Represents inner/outer nested loop joins. Translates to an
