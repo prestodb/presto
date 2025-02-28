@@ -13,10 +13,9 @@
  */
 package com.facebook.presto.router.cluster;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
-import com.facebook.presto.router.RouterModule;
 import com.facebook.presto.router.scheduler.Scheduler;
+import com.facebook.presto.router.scheduler.SchedulerFactory;
 import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
@@ -32,8 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.router.RouterUtil.parseRouterConfig;
 import static com.facebook.presto.router.scheduler.SchedulerType.ROUND_ROBIN;
@@ -51,13 +48,7 @@ public class ClusterManager
     private List<SelectorRuleSpec> groupSelectors;
     private SchedulerType schedulerType;
     private Scheduler scheduler;
-    private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
-    private final AtomicLong lastConfigUpdate = new AtomicLong();
-    private final Logger log = Logger.get(RouterModule.class);
-
-    // Cluster status
-    private final ConcurrentHashMap<URI, RemoteClusterInfo> remoteClusterInfos = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
+    private Map<String, Map<URI, Integer>> serverWeights = new HashMap<>();
 
     @Inject
     public ClusterManager(RouterConfig config)
@@ -73,6 +64,7 @@ public class ClusterManager
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
         this.schedulerType = routerSpec.getSchedulerType();
+        this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
         this.initializeServerWeights();
     }
 
@@ -95,7 +87,7 @@ public class ClusterManager
         synchronized (scheduler) {
             scheduler.setCandidates(groupSpec.getMembers());
             if (schedulerType == WEIGHTED_RANDOM_CHOICE || schedulerType == WEIGHTED_ROUND_ROBIN) {
-                scheduler.setWeights(serverWeights.get(groupSpec.getName()));
+                scheduler.setWeights((HashMap<URI, Integer>) serverWeights.get(groupSpec.getName()));
             }
 
             if (schedulerType == ROUND_ROBIN || schedulerType == WEIGHTED_ROUND_ROBIN) {
