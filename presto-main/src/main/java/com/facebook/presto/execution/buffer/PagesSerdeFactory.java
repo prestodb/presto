@@ -45,7 +45,7 @@ public class PagesSerdeFactory
     public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec, boolean checksumEnabled)
     {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
-        this.compressionCodec = compressionCodec;
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.checksumEnabled = checksumEnabled;
     }
 
@@ -83,6 +83,10 @@ public class PagesSerdeFactory
                         Optional.of(new AirliftDecompressorAdapter(new ZstdDecompressor())),
                         spillCipher, checksumEnabled);
             case GZIP:
+                return new PagesSerde(blockEncodingSerde,
+                        Optional.of(new AirliftCompressorAdapter(new GzipCompressor())),
+                        Optional.of(new AirliftDecompressorAdapter(new GzipDecompressor())),
+                        spillCipher, checksumEnabled);
             case ZLIB:
                 return new PagesSerde(blockEncodingSerde,
                         Optional.of(new AirliftCompressorAdapter(new DeflateCompressor(OptionalInt.empty()))),

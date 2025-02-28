@@ -15,27 +15,16 @@ package com.facebook.presto.execution.buffer;
 
 import io.airlift.compress.Compressor;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.util.OptionalInt;
-import java.util.zip.Deflater;
+import java.util.zip.GZIPOutputStream;
 
-import static java.util.Objects.requireNonNull;
-import static java.util.zip.Deflater.FULL_FLUSH;
-
-public class DeflateCompressor
-        implements Compressor
+public class GzipCompressor implements Compressor
 {
     private static final int EXTRA_COMPRESSION_SPACE = 16;
-    private static final int DEFAULT_COMPRESSION_LEVEL = 4;
-
-    private final int compressionLevel;
-
-    public DeflateCompressor(OptionalInt compressionLevel)
-    {
-        requireNonNull(compressionLevel, "compressionLevel is null");
-        this.compressionLevel = compressionLevel.orElse(DEFAULT_COMPRESSION_LEVEL);
-    }
 
     @Override
     public int maxCompressedLength(int uncompressedSize)
@@ -47,24 +36,18 @@ public class DeflateCompressor
     @Override
     public int compress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
     {
-        int maxCompressedLength = maxCompressedLength(inputLength);
-        if (maxOutputLength < maxCompressedLength) {
-            throw new IllegalArgumentException("Output buffer must be at least " + maxCompressedLength + " bytes");
-        }
-
-        Deflater deflater = new Deflater(compressionLevel, false);
-        try {
-            deflater.setInput(input, inputOffset, inputLength);
-            deflater.finish();
-
-            int compressedDataLength = deflater.deflate(output, outputOffset, maxOutputLength, FULL_FLUSH);
-            if (!deflater.finished()) {
-                throw new IllegalArgumentException("maxCompressedLength formula is incorrect, because deflate produced more data");
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
+            gzipOutputStream.write(input, inputOffset, inputLength);
+            gzipOutputStream.finish();
+            byte[] compressed = byteArrayOutputStream.toByteArray();
+            if (compressed.length > maxOutputLength) {
+                throw new IllegalArgumentException("maxCompressedLength formula is incorrect, because gzip produced more data");
             }
-            return compressedDataLength;
-        }
-        finally {
-            deflater.end();
+            System.arraycopy(compressed, 0, output, outputOffset, compressed.length);
+            return compressed.length;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 

@@ -16,46 +16,43 @@ package com.facebook.presto.execution.buffer;
 import io.airlift.compress.Decompressor;
 import io.airlift.compress.MalformedInputException;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
-import java.util.zip.DataFormatException;
-import java.util.zip.Inflater;
+import java.util.zip.GZIPInputStream;
 
-public class InflateDecompressor
-        implements Decompressor
+public class GzipDecompressor implements Decompressor
 {
     @Override
-    public int decompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength)
-            throws MalformedInputException
+    public int decompress(byte[] input, int inputOffset, int inputLength, byte[] output, int outputOffset, int maxOutputLength) throws MalformedInputException
     {
-        Inflater inflater = new Inflater(false);
-        inflater.setInput(input, inputOffset, inputLength);
-        int uncompressedLength = 0;
-        try {
-            uncompressedLength = inflater.inflate(output, outputOffset, maxOutputLength);
-            if (!inflater.finished()) {
+        try (ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(input, inputOffset, inputLength);
+             GZIPInputStream gzipInputStream = new GZIPInputStream(byteArrayInputStream)) {
+            int totalRead = 0;
+            int bytesRead;
+            while (totalRead < maxOutputLength) {
+                bytesRead = gzipInputStream.read(output, outputOffset + totalRead, maxOutputLength - totalRead);
+                if (bytesRead == -1) {
+                    break;
+                }
+                totalRead += bytesRead;
+            }
+            if (totalRead >= maxOutputLength && gzipInputStream.read() != -1) {
                 throw new IllegalArgumentException("maxOutputLength is incorrect, there is more data to be decompressed");
             }
+            return totalRead;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
-        catch (DataFormatException e) {
-            throw new MalformedInputException(inputOffset, e.getMessage());
-        }
-        finally {
-            inflater.end();
-        }
-        return uncompressedLength;
     }
 
     @Override
-    public void decompress(ByteBuffer input, ByteBuffer output)
-            throws MalformedInputException
+    public void decompress(ByteBuffer input, ByteBuffer output) throws MalformedInputException
     {
-        if (input.isDirect() || output.isDirect() || !input.hasArray() || !output.hasArray()) {
-            throw new IllegalArgumentException("Non-direct byte buffer backed by byte array required");
-        }
         int inputOffset = input.arrayOffset() + input.position();
         int outputOffset = output.arrayOffset() + output.position();
-
         int written = decompress(input.array(), inputOffset, input.remaining(), output.array(), outputOffset, output.remaining());
         ((Buffer) output).position(output.position() + written);
     }
