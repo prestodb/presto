@@ -16,6 +16,7 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 
+#include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
@@ -265,6 +266,7 @@ class FilterProjectBenchmark : public VectorTestBase {
 
 int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
+  memory::initializeMemoryManager({});
   functions::prestosql::registerAllScalarFunctions();
   aggregate::prestosql::registerAllAggregateFunctions();
   parse::registerTypeResolver();

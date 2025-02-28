@@ -215,7 +215,7 @@ RowVectorPtr OrderByBenchmarkUtil::fuzzRows(
       {.vectorSize = static_cast<size_t>(numRows),
        .nullRatio = FLAGS_data_null_ratio},
       pool);
-  return std::dynamic_pointer_cast<RowVector>(fuzzer.fuzz(rowType));
+  return fuzzer.fuzzRow(rowType);
 }
 
 void OrderByBenchmarkUtil::addBenchmarks(
