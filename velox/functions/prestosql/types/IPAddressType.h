@@ -20,9 +20,6 @@
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 
-// TODO: Remove this once Presto is updated.
-#include "velox/functions/prestosql/types/IPAddressRegistration.h"
-
 namespace facebook::velox {
 
 namespace ipaddress {
