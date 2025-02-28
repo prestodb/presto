@@ -166,33 +166,28 @@ public class TestStringFunctions
     }
 
     @Test
-    public void testLongestCommonPrefix()
-    {
-        assertFunction("LONGEST_COMMON_PREFIX('', '')", VARCHAR, "");
-        assertFunction("LONGEST_COMMON_PREFIX('', 'hello')", VARCHAR, "");
-        assertFunction("LONGEST_COMMON_PREFIX('hello', '')", VARCHAR, "");
-        assertFunction("LONGEST_COMMON_PREFIX('hello', 'hello')", VARCHAR, "hello");
-        assertFunction("LONGEST_COMMON_PREFIX('hello world', 'hello')", VARCHAR, "hello");
-        assertFunction("LONGEST_COMMON_PREFIX('hello', 'hello world')", VARCHAR, "hello");
-        assertFunction("LONGEST_COMMON_PREFIX('hello world', 'hel wold')", VARCHAR, "hel");
-        assertFunction("LONGEST_COMMON_PREFIX('hel wold', 'hello world')", VARCHAR, "hel");
-
-        // Test for non-ASCII
-        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '')", VARCHAR, "");
-        assertFunction("LONGEST_COMMON_PREFIX('', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "");
-        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7231,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,\u7231,\u5E0C\u671B");
-        assertFunction("LONGEST_COMMON_PREFIX('\u4FE1\u5FF5,\u7221,\u5E0C\u671B', '\u4FE1\u5FF5,\u7231,\u5E0C\u671B')", VARCHAR, "\u4FE1\u5FF5,");
-        assertFunction("LONGEST_COMMON_PREFIX('hello na\u00EFve world', 'hello na\u00EFve')", VARCHAR, "hello na\u00EFve");
-
-        // Test for invalid-utf8 characters
-        assertInvalidFunction("LONGEST_COMMON_PREFIX('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
-        assertInvalidFunction("LONGEST_COMMON_PREFIX('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
-    }
-
-    @Test
     public void testJaroWinklerSimilarity()
     {
-        assertFunction("JAROWINKLER_SIMILARITY('', '')", DOUBLE, 0.0);
+        assertFunction("JAROWINKLER_SIMILARITY('', '')", DOUBLE, 1.0);
+        assertFunction("JAROWINKLER_SIMILARITY('TRACE', 'TRACE')", DOUBLE, 1.0);
+        assertFunction("JAROWINKLER_SIMILARITY('TRATE', 'TRACE')", DOUBLE, 0.91);
+        assertFunction("JAROWINKLER_SIMILARITY('TRACE', 'TRATE')", DOUBLE, 0.91);
+        assertFunction("JAROWINKLER_SIMILARITY('arnab', 'aranb')", DOUBLE, 0.95);
+        assertFunction("JAROWINKLER_SIMILARITY('DwAyNE', 'DuANE')", DOUBLE, 0.84);
+
+        // Test for non-ASCII
+        assertFunction("JAROWINKLER_SIMILARITY('TRA\u00EFE', 'TRACE')", DOUBLE, 0.91);
+        assertFunction("JAROWINKLER_SIMILARITY('\u4FE1\u5FF5\u7231\u00EF\u671B', '\u4FE1\u5FF5\u7231\u5E0C\u671B')", DOUBLE, 0.91);
+        assertFunction("JAROWINKLER_SIMILARITY('\u4FE1\u00EF\u7231y\u5E0C\u671B', '\u4FE1\u5FF5\u7231\u5E0C\u671B')", DOUBLE, 0.84);
+
+        // Test for invalid utf-8 characters
+        assertInvalidFunction("JAROWINKLER_SIMILARITY('hello world', utf8(from_hex('81')))", "Invalid UTF-8 encoding in characters: �");
+        assertInvalidFunction("JAROWINKLER_SIMILARITY('hello world', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
+
+        // Test for maximum length
+        assertInvalidFunction(format("JAROWINKLER_SIMILARITY('%s', '%s')", repeat("x", 1001), repeat("x", 1001)), "The combined inputs for Jaro-Winkler similarity are too large");
+        assertInvalidFunction(format("JAROWINKLER_SIMILARITY('hello', '%s')", repeat("x", 500_000)), "The combined inputs for Jaro-Winkler similarity are too large");
+        assertInvalidFunction(format("JAROWINKLER_SIMILARITY('%s', 'hello')", repeat("x", 500_000)), "The combined inputs for Jaro-Winkler similarity are too large");
     }
 
     @Test

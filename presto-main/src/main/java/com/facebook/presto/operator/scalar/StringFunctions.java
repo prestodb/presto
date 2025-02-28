@@ -756,38 +756,21 @@ public final class StringFunctions
         return pad(text, targetLength, padString, text.length());
     }
 
-    @Description("returns the longest common prefix shared by two strings")
-    @ScalarFunction("longest_common_prefix")
-    @LiteralParameters({"x", "y"})
-    @SqlType(StandardTypes.VARCHAR)
-    public static Slice longestCommonPrefix(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
-    {
-        int i = 0;
-        int byteIndex = 0;
-        int[] leftCodePoints = castToCodePoints(left);
-        int[] rightCodePoints = castToCodePoints(right);
-        int leftLength = leftCodePoints.length;
-        int rightLength = rightCodePoints.length;
-
-
-        while (i < leftLength && i < rightLength && leftCodePoints[i] == rightCodePoints[i]) {
-            i++;
-            byteIndex += SliceUtf8.lengthOfCodePointSafe(left, byteIndex);
-        }
-
-        return Slices.wrappedBuffer(left.getBytes(0, byteIndex));
-    }
-
     @Description("computes Jaro-Winkler similarity between two strings")
     @ScalarFunction("jarowinkler_similarity")
     @LiteralParameters({"x", "y"})
     @SqlType(StandardTypes.DOUBLE)
-    public static long jaroWinklerSimilarity(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
+    public static double jaroWinklerSimilarity(@SqlType("varchar(x)") Slice left, @SqlType("varchar(y)") Slice right)
     {
         int[] leftCodePoints = castToCodePoints(left);
         int[] rightCodePoints = castToCodePoints(right);
         int leftLength = leftCodePoints.length;
         int rightLength = rightCodePoints.length;
+
+        checkCondition(
+                (leftLength * (rightLength - 1)) <= 1_000_000,
+                INVALID_FUNCTION_ARGUMENT,
+                "The combined inputs for Jaro-Winkler similarity are too large");
 
         if (left == right) {
             return 1.0;
@@ -822,21 +805,36 @@ public final class StringFunctions
                     point++;
                 }
 
-                if (leftCodePoints[i] != rightCodePoints[point])  {
+                if (leftCodePoints[i] != rightCodePoints[point++])  {
                     t++;
                 }
-
-                point++;
             }
         }
 
         t /= 2;
 
-        return (long) ((((double)match) / ((double)leftLength)
+        double jaro_distance = ((((double)match) / ((double)leftLength)
                     + ((double)match) / ((double)rightLength)
                     + ((double)match - t) / ((double)match))
                     / 3.0);
 
+        if (jaro_distance > 0.7) {
+            int prefix = 0;
+
+            for (int i = 0; i < Math.min(leftLength, rightLength); i++) {
+                if (leftCodePoints[i] == rightCodePoints[i]) {
+                    prefix++;
+                } else {
+                    break;
+                }
+            }
+
+            prefix = Math.min(4, prefix);
+
+            jaro_distance += 0.1 * prefix * (1 - jaro_distance);
+        }
+
+        return (double)Math.round(jaro_distance * 100d) / 100d;
     }
 
     @Description("computes Levenshtein distance between two strings")
