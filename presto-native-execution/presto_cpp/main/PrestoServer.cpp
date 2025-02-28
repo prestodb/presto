@@ -1556,6 +1556,13 @@ void PrestoServer::registerSidecarEndpoints() {
         http::sendOkResponse(downstream, getFunctionsMetadata());
       });
   httpServer_->registerPost(
+      "/v1/expressions",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        optimizeExpressions(*message, body, downstream);
+      });
+  httpServer_->registerPost(
       "/v1/velox/plan",
       [server = this](
           proxygen::HTTPMessage* message,
@@ -1601,6 +1608,27 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
       nonHeapUsed};
 
   return nodeStatus;
+}
+
+void PrestoServer::optimizeExpressions(
+    const proxygen::HTTPMessage& message,
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream) {
+  json::array_t inputRowExpressions =
+      json::parse(util::extractMessageBody(body));
+  auto rowExpressionOptimizer =
+      std::make_unique<expression::RowExpressionOptimizer>(
+          nativeWorkerPool_.get());
+  auto result = rowExpressionOptimizer->optimize(
+      message.getHeaders(), inputRowExpressions);
+  if (result.second) {
+    VELOX_CHECK(
+        result.first.is_array(),
+        "The output json is not an array of RowExpressions");
+    http::sendOkResponse(downstream, result.first);
+  } else {
+    http::sendErrorResponse(downstream, result.first);
+  }
 }
 
 } // namespace facebook::presto
