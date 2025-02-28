@@ -10,7 +10,7 @@ Synopsis
     CREATE [ OR REPLACE ] [TEMPORARY] FUNCTION
     qualified_function_name (
       parameter_name parameter_type
-      [, ...]
+      [, ...] [,]
     )
     RETURNS return_type
     [ COMMENT function_description ]
