@@ -3098,6 +3098,24 @@ TEST_F(VectorTest, rowCopyRanges) {
   test::assertEqualVectors(expected, rowVectorDest);
 }
 
+TEST_F(VectorTest, rowCopyRangesWithGap) {
+  // Hold an extra reference to c0 so it becomes immutable.
+  auto targetC0 = makeFlatVector<int64_t>({1, 2, 3});
+  auto target = makeRowVector({targetC0});
+  auto source = makeRowVector({makeFlatVector<int64_t>({4, 5})});
+  BaseVector::CopyRange ranges[2];
+  ranges[0].targetIndex = 0;
+  ranges[0].sourceIndex = 1;
+  ranges[0].count = 1;
+  ranges[1].targetIndex = 2;
+  ranges[1].sourceIndex = 0;
+  ranges[1].count = 1;
+  target->copyRanges(
+      source.get(), folly::Range(std::begin(ranges), std::end(ranges)));
+  auto expected = makeRowVector({makeFlatVector<int64_t>({5, 2, 4})});
+  test::assertEqualVectors(expected, target);
+}
+
 TEST_F(VectorTest, containsNullAtIntegers) {
   VectorPtr data = makeFlatVector<int32_t>({1, 2, 3});
   for (auto i = 0; i < data->size(); ++i) {

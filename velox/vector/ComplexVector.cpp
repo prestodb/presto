@@ -321,15 +321,16 @@ void RowVector::copyRanges(
     return;
   }
 
-  auto minTargetIndex = std::numeric_limits<vector_size_t>::max();
   auto maxTargetIndex = std::numeric_limits<vector_size_t>::min();
-  applyToEachRange(ranges, [&](auto targetIndex, auto sourceIndex, auto count) {
-    minTargetIndex = std::min(minTargetIndex, targetIndex);
-    maxTargetIndex = std::max(maxTargetIndex, targetIndex + count);
-  });
-
-  SelectivityVector rows(maxTargetIndex);
-  rows.setValidRange(0, minTargetIndex, false);
+  applyToEachRange(
+      ranges, [&](auto targetIndex, auto /*sourceIndex*/, auto count) {
+        maxTargetIndex = std::max(maxTargetIndex, targetIndex + count);
+      });
+  SelectivityVector rows(maxTargetIndex, false);
+  applyToEachRange(
+      ranges, [&](auto targetIndex, auto /*sourceIndex*/, auto count) {
+        rows.setValidRange(targetIndex, targetIndex + count, true);
+      });
   rows.updateBounds();
   for (auto i = 0; i < children_.size(); ++i) {
     BaseVector::ensureWritable(
