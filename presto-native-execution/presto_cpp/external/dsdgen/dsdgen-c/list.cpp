@@ -11,8 +11,8 @@
 
 #include "list.h"
 #include <assert.h>
-#include <cstdint>
 #include <stdio.h>
+#include <cstdint>
 #include "config.h"
 #include "error_msg.h"
 #include "porting.h"

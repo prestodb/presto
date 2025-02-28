@@ -57,3 +57,5 @@ Only specific connectors are supported in the Presto C++ evaluation engine.
 * Supports reading and writing of DWRF and PARQUET file formats, supports reading ORC file format.
 
 * TPCH connector, with ``tpch.naming=standard`` catalog property.
+
+* TPCDS connector.

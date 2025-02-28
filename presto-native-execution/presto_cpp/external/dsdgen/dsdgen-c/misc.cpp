@@ -10,11 +10,11 @@
  */
 
 #include <ctype.h>
-#include <cstdint>
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <time.h>
+#include <cstdint>
 #include "config.h"
 #include "porting.h"
 #ifndef USE_STDLIB_H
