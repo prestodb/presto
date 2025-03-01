@@ -20,8 +20,8 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 
 public class TestRealSumIfAggregation
@@ -34,7 +34,7 @@ public class TestRealSumIfAggregation
         BlockBuilder values = REAL.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
             BOOLEAN.writeBoolean(conditions, i % 2 == 0);
-            REAL.writeLong(values,  floatToRawIntBits((float) i));
+            REAL.writeLong(values, floatToRawIntBits((float) i));
         }
         return new Block[] {conditions.build(), values.build()};
     }
@@ -62,5 +62,4 @@ public class TestRealSumIfAggregation
     {
         return ImmutableList.of(StandardTypes.BOOLEAN, StandardTypes.REAL);
     }
-
 }

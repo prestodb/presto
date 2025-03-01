@@ -28,8 +28,8 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
 @AggregationFunction(value = "sum_if", isCalledOnNullInput = true)
-public class RealSumIfAggregation {
-
+public class RealSumIfAggregation
+{
     private RealSumIfAggregation() {}
 
     @InputFunction
