@@ -87,6 +87,7 @@ import com.facebook.presto.operator.aggregation.RealGeometricMeanAggregations;
 import com.facebook.presto.operator.aggregation.RealHistogramAggregation;
 import com.facebook.presto.operator.aggregation.RealRegressionAggregation;
 import com.facebook.presto.operator.aggregation.RealSumAggregation;
+import com.facebook.presto.operator.aggregation.RealSumIfAggregation;
 import com.facebook.presto.operator.aggregation.ReduceAggregationFunction;
 import com.facebook.presto.operator.aggregation.SumDataSizeForStats;
 import com.facebook.presto.operator.aggregation.VarianceAggregation;
@@ -719,6 +720,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(DoubleSumAggregation.class)
                 .aggregates(DoubleSumIfAggregation.class)
                 .aggregates(RealSumAggregation.class)
+                .aggregates(RealSumIfAggregation.class)
                 .aggregates(LongSumAggregation.class)
                 .aggregates(LongSumIfAggregation.class)
                 .aggregates(IntervalDayToSecondSumAggregation.class)
