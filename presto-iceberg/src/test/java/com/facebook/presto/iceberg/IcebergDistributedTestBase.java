@@ -55,9 +55,9 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
-import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -178,8 +178,9 @@ public abstract class IcebergDistributedTestBase
         extends AbstractTestQueryFramework
 {
     private static final String METADATA_FILE_EXTENSION = ".metadata.json";
-    private final CatalogType catalogType;
-    private final Map<String, String> extraConnectorProperties;
+    protected final CatalogType catalogType;
+    protected final Map<String, String> extraConnectorProperties;
+    protected IcebergQueryRunner icebergQueryRunner;
 
     protected IcebergDistributedTestBase(CatalogType catalogType, Map<String, String> extraConnectorProperties)
     {
@@ -196,10 +197,11 @@ public abstract class IcebergDistributedTestBase
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder()
+        this.icebergQueryRunner = IcebergQueryRunner.builder()
                 .setCatalogType(catalogType)
                 .setExtraConnectorProperties(extraConnectorProperties)
-                .build().getQueryRunner();
+                .build();
+        return icebergQueryRunner.getQueryRunner();
     }
 
     @Test
