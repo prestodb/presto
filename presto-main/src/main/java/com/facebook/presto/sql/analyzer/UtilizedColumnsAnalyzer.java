@@ -15,6 +15,8 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AccessControlInfo;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cube;
@@ -37,6 +39,7 @@ import com.facebook.presto.sql.tree.LambdaExpression;
 import com.facebook.presto.sql.tree.Lateral;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Relation;
@@ -48,7 +51,10 @@ import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
+import com.facebook.presto.sql.tree.With;
+import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.HashMap;
@@ -57,28 +63,29 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import static com.facebook.presto.spi.StandardWarningCode.UTILIZED_COLUMN_ANALYSIS_FAILED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.intersection;
-import static java.lang.String.format;
 
 /**
  * Finds all utilized columns in the query. Utilized columns are those that would have an "impact" on the query's results.
- *
+ * <p>
  * For example, in the query:
- *     SELECT nationkey FROM (SELECT * FROM nation WHERE name = 'USA')
+ * SELECT nationkey FROM (SELECT * FROM nation WHERE name = 'USA')
  * Even though all the columns in table nation are referenced by the query (in the SELECT * part), only the columns
  * "name" and "nationkey" have an "impact" on the query's results.
- *
+ * <p>
  * The high-level algorithm works as follows:
  * 1. Find all fields referenced in all clauses of the outermost SELECT query, and add them to an explore list.
  * 2. For each field reference F in the explore list, find its referenced relation R.
  * 3. If R is a SELECT query:
- *    a. Find the SELECT item expression that F references. Add all fields referenced by that expression to the explore list.
- *    b. Add all fields referenced by every other clause of the SELECT query to the explore list.
+ * a. Find the SELECT item expression that F references. Add all fields referenced by that expression to the explore list.
+ * b. Add all fields referenced by every other clause of the SELECT query to the explore list.
  * 4. Otherwise,
- *    a. Add F's referenced field to a referenced fields list.
- *    b. For each child of R, find the corresponding child of F, and add it to the explore list.
+ * a. Add F's referenced field to a referenced fields list.
+ * b. For each child of R, find the corresponding child of F, and add it to the explore list.
  * 5. Repeat from step 2 for all fields in the explore list, until all have been resolved to a base table relation.
- *
+ * <p>
  * The referenced fields list at the end of this algorithm will contain all the columns referenced by the query, that impact the output.
  * Step 3a is where fields that do not impact the output are pruned.
  */
@@ -88,14 +95,16 @@ public class UtilizedColumnsAnalyzer
 
     private final Analysis analysis;
 
-    public static void analyzeForUtilizedColumns(Analysis analysis, Node node)
+    public static void analyzeForUtilizedColumns(Analysis analysis, Node node, WarningCollector warningCollector)
     {
         UtilizedColumnsAnalyzer analyzer = new UtilizedColumnsAnalyzer(analysis);
         try {
             analyzer.analyze(node);
         }
         catch (Exception e) {
-            LOG.debug(e, format("Error in analyzing utilized columns, falling back to access control on all columns: %s", analysis.getStatement()));
+            warningCollector.add(new PrestoWarning(
+                    UTILIZED_COLUMN_ANALYSIS_FAILED,
+                    "Error in analyzing utilized columns for access control, falling back to checking access on all columns: " + e.getMessage()));
             analysis.getTableColumnReferences().forEach(analysis::addUtilizedTableColumnReferences);
         }
     }
@@ -267,6 +276,23 @@ public class UtilizedColumnsAnalyzer
             if (querySpec.getFrom().isPresent()) {
                 process(querySpec.getFrom().get(), Context.newPrunableContext(context));
             }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitWith(With node, Context context)
+        {
+            ImmutableList.copyOf(node.getQueries()).reverse().forEach(query -> process(query, context));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitWithQuery(WithQuery withQuery, Context context)
+        {
+            context.copyFieldIdsToExploreForWithQuery(withQuery);
+            process(withQuery.getQuery(), context);
 
             return null;
         }
@@ -492,6 +518,23 @@ public class UtilizedColumnsAnalyzer
         private void addFieldIdToExplore(FieldId fieldId)
         {
             fieldsToExplore.put(fieldId.getRelationId(), fieldId);
+        }
+
+        // Associate the relation from the with clause with the fieldIdsToExplore that we collected for it
+        // when processing the main part of the query
+        public void copyFieldIdsToExploreForWithQuery(WithQuery withQuery)
+        {
+            QualifiedName name = QualifiedName.of(withQuery.getName().getValue());
+            List<RelationId> relationIds = fieldsToExplore.keySet().stream()
+                    .filter(key -> key.getSourceNode() instanceof Table && ((Table) key.getSourceNode()).getName().equals(name))
+                    .collect(toImmutableList());
+            // if a cte is used more than once, it will be listed multiple times in the fieldIds to explore
+            // if multiple ctes have the same name, this will also be captured here. These will fail later if the columns used don't exist in the tables
+            for (RelationId relationId : relationIds) {
+                fieldsToExplore.putAll(
+                        RelationId.of(withQuery.getQuery().getQueryBody()),
+                        fieldsToExplore.get(relationId));
+            }
         }
     }
 }
