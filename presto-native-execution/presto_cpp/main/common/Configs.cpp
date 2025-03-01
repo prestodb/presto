@@ -85,6 +85,21 @@ std::string ConfigBase::capacityPropertyAsBytesString(
       velox::config::CapacityUnit::BYTE));
 }
 
+bool ConfigBase::registerProperty(
+    const std::string& propertyName,
+    const folly::Optional<std::string>& defaultValue) {
+  if (registeredProps_.count(propertyName) != 0) {
+    PRESTO_STARTUP_LOG(WARNING)
+        << "Property '" << propertyName
+        << "' is already registered with default value '"
+        << registeredProps_[propertyName].value_or("<none>") << "'.";
+    return false;
+  }
+
+  registeredProps_[propertyName] = defaultValue;
+  return true;
+}
+
 folly::Optional<std::string> ConfigBase::setValue(
     const std::string& propertyName,
     const std::string& value) {
