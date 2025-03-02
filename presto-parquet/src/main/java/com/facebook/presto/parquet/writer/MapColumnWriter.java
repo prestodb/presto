@@ -94,4 +94,11 @@ public class MapColumnWriter
         keyWriter.reset();
         valueWriter.reset();
     }
+
+    @Override
+    public void resetChunk()
+    {
+        keyWriter.resetChunk();
+        valueWriter.resetChunk();
+    }
 }

@@ -19,6 +19,8 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -28,9 +30,9 @@ public class TimeValueWriter
     private final Type type;
     private final boolean writeMicroseconds;
 
-    public TimeValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public TimeValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
+        super(parquetType, valuesWriterSupplier);
         this.type = requireNonNull(type, "type is null");
         this.writeMicroseconds = parquetType.isPrimitive() && parquetType.getOriginalType() == OriginalType.TIME_MICROS;
     }

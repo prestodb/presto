@@ -103,4 +103,10 @@ public class StructColumnWriter
     {
         columnWriters.forEach(ColumnWriter::reset);
     }
+
+    @Override
+    public void resetChunk()
+    {
+        columnWriters.forEach(ColumnWriter::resetChunk);
+    }
 }
