@@ -21,6 +21,7 @@
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -318,6 +319,22 @@ TEST_F(FunctionResolutionTest, resolveCustomTypeTimestampWithTimeZone) {
   auto type =
       exec::simpleFunctions().resolveFunction("f_timestampzone", {})->type();
   EXPECT_EQ(type->toString(), TIMESTAMP_WITH_TIME_ZONE()->toString());
+}
+
+template <typename T>
+struct FuncBingTile {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  bool call(out_type<BingTile>&) {
+    return false;
+  }
+};
+
+TEST_F(FunctionResolutionTest, resolveCustomTypeBingTile) {
+  registerFunction<FuncBingTile, BingTile>({"f_bing_tile"});
+
+  auto type =
+      exec::simpleFunctions().resolveFunction("f_bing_tile", {})->type();
+  EXPECT_EQ(type->toString(), BINGTILE()->toString());
 }
 
 // A function that takes TInput and returns int, TInput determined at

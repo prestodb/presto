@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
@@ -52,6 +53,9 @@ std::string typeName(const TypePtr& type) {
         const auto& shortDecimal = type->asShortDecimal();
         return fmt::format(
             "decimal({},{})", shortDecimal.precision(), shortDecimal.scale());
+      }
+      if (isBingTileType(type)) {
+        return "bingtile";
       }
       return "bigint";
     case TypeKind::HUGEINT: {

@@ -33,6 +33,8 @@ void registerJsonFunctions(const std::string& prefix = "");
 
 void registerHyperLogFunctions(const std::string& prefix = "");
 
+void registerGeospatialFunctions(const std::string& prefix = "");
+
 void registerGeneralFunctions(const std::string& prefix = "");
 
 void registerDateTimeFunctions(const std::string& prefix = "");

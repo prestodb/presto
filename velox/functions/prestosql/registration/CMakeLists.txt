@@ -23,6 +23,7 @@ velox_add_library(
   ComparisonFunctionsRegistration.cpp
   DateTimeFunctionsRegistration.cpp
   GeneralFunctionsRegistration.cpp
+  GeospatialFunctionsRegistration.cpp
   HyperLogFunctionsRegistration.cpp
   IntegerFunctionsRegistration.cpp
   JsonFunctionsRegistration.cpp

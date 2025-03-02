@@ -13,6 +13,7 @@
 # limitations under the License.
 velox_add_library(
   velox_presto_types
+  BingTileRegistration.cpp
   HyperLogLogRegistration.cpp
   IPAddressRegistration.cpp
   IPPrefixRegistration.cpp
