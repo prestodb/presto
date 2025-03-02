@@ -16,7 +16,7 @@ JAR file that acts like a normal UNIX executable and communicates with the Prest
 over HTTP using :doc:`Presto Client REST API </develop/client-protocol>`.
 
 Installation
-======================
+============
 
 Download :maven_download:`cli`.
 

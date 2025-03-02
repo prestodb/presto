@@ -1,7 +1,6 @@
-
-======================
+=====================
 Client Request Filter
-======================
+=====================
 
 Presto allows operators to customize the headers used to process queries. Some example use cases include customized authentication workflows, or enriching query attributes such as the query source. Use the Client Request Filter plugin to control header customization during query execution.
 
