@@ -228,6 +228,8 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kAnnouncementMaxFrequencyMs, 30'000), // 30s
           NUM_PROP(kHeartbeatFrequencyMs, 0),
           STR_PROP(kExchangeMaxErrorDuration, "3m"),
+          STR_PROP(kRequestDataSizesMaxWait, "10s"),
+          STR_PROP(kRequestDataMaxWait, "100ms"),
           STR_PROP(kExchangeRequestTimeout, "20s"),
           STR_PROP(kExchangeConnectTimeout, "20s"),
           BOOL_PROP(kExchangeEnableConnectionPool, true),
@@ -701,6 +703,18 @@ uint64_t SystemConfig::heartbeatFrequencyMs() const {
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
   return velox::config::toDuration(
       optionalProperty(kExchangeMaxErrorDuration).value());
+}
+
+std::chrono::duration<double> SystemConfig::exchangeRequestDataSizesMaxWaitMs()
+    const {
+  return velox::config::toDuration(
+      optionalProperty(kRequestDataSizesMaxWait).value());
+}
+
+std::chrono::duration<double> SystemConfig::exchangeRequestDataMaxWaitMs()
+    const {
+  return velox::config::toDuration(
+      optionalProperty(kRequestDataMaxWait).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
