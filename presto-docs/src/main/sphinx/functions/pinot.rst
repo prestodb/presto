@@ -1,6 +1,6 @@
-==================
+===============
 Pinot Functions
-==================
+===============
 
 These functions are used with Pinot connector.
 

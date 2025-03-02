@@ -1,6 +1,6 @@
-============================================
+=====================================
 Deploy Presto on a Mac using Homebrew
-============================================
+=====================================
 
 - If you are deploying Presto on an Intel Mac, see `Deploy Presto on an Intel Mac using Homebrew`_.
 

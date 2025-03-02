@@ -1,6 +1,6 @@
-===================
+============
 IP Functions
-===================
+============
 
 .. function:: ip_prefix(ip_address, prefix_bits) -> ipprefix
 

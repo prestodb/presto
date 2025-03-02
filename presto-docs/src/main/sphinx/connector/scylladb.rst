@@ -1,6 +1,6 @@
-===================
+==================
 ScyllaDB Connector
-===================
+==================
 
 The Cassandra Connector enables querying data stored in `ScyllaDB <https://www.scylladb.com>`_.
 

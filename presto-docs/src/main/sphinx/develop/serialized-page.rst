@@ -1,6 +1,6 @@
-=================================
+==========================
 SerializedPage Wire Format
-=================================
+==========================
 
 Presto uses SerializedPage binary columnar format for exchanging data between
 stages.
