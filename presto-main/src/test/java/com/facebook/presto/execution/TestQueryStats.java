@@ -36,7 +36,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -46,8 +45,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.RuntimeUnit.NONE;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -71,36 +68,36 @@ public class TestQueryStats
                     14L,
                     new Duration(15, NANOSECONDS),
                     new Duration(16, NANOSECONDS),
-                    new DataSize(121, BYTE),
+                    121,
                     15L,
                     new Duration(16, NANOSECONDS),
                     new Duration(17, NANOSECONDS),
-                    new DataSize(123, BYTE),
-                    succinctBytes(18L),
+                    123,
+                    18L,
                     200,
-                    succinctBytes(19L),
+                    19L,
                     110L,
                     111.0,
                     112L,
                     new Duration(113, NANOSECONDS),
                     new Duration(114, NANOSECONDS),
-                    new DataSize(234, BYTE),
-                    succinctBytes(116L),
+                    234,
+                    116L,
                     117L,
-                    succinctBytes(118L),
+                    118L,
                     new Duration(1000, NANOSECONDS),
                     new Duration(119, NANOSECONDS),
                     120L,
                     new Duration(121, NANOSECONDS),
                     new Duration(122, NANOSECONDS),
-                    new DataSize(345, BYTE),
-                    succinctBytes(124L),
-                    succinctBytes(125L),
-                    succinctBytes(126L),
-                    succinctBytes(127L),
-                    succinctBytes(128L),
-                    succinctBytes(129L),
-                    succinctBytes(130L),
+                    345,
+                    124L,
+                    125L,
+                    126L,
+                    127L,
+                    128L,
+                    129L,
+                    130L,
                     Optional.empty(),
                     null,
                     new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
@@ -120,36 +117,36 @@ public class TestQueryStats
                     24L,
                     new Duration(25, NANOSECONDS),
                     new Duration(26, NANOSECONDS),
-                    new DataSize(1210, BYTE),
+                    1210,
                     25L,
                     new Duration(26, NANOSECONDS),
                     new Duration(27, NANOSECONDS),
-                    new DataSize(1230, BYTE),
-                    succinctBytes(28L),
+                    1230,
+                    28L,
                     250,
-                    succinctBytes(29L),
+                    29L,
                     210L,
                     211.0,
                     212L,
                     new Duration(213, NANOSECONDS),
                     new Duration(214, NANOSECONDS),
-                    new DataSize(2340, BYTE),
-                    succinctBytes(216L),
+                    2340,
+                    216L,
                     217L,
-                    succinctBytes(218L),
+                    218L,
                     new Duration(2000, NANOSECONDS),
                     new Duration(219, NANOSECONDS),
                     220L,
                     new Duration(221, NANOSECONDS),
                     new Duration(222, NANOSECONDS),
-                    new DataSize(3450, BYTE),
-                    succinctBytes(224L),
-                    succinctBytes(225L),
-                    succinctBytes(226L),
-                    succinctBytes(227L),
-                    succinctBytes(228L),
-                    succinctBytes(229L),
-                    succinctBytes(230L),
+                    3450,
+                    224L,
+                    225L,
+                    226L,
+                    227L,
+                    228L,
+                    229L,
+                    230L,
                     Optional.empty(),
                     null,
                     new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))),
@@ -169,36 +166,36 @@ public class TestQueryStats
                     34L,
                     new Duration(35, NANOSECONDS),
                     new Duration(36, NANOSECONDS),
-                    new DataSize(12100, BYTE),
+                    12100,
                     35L,
                     new Duration(36, NANOSECONDS),
                     new Duration(37, NANOSECONDS),
-                    new DataSize(12300, BYTE),
-                    succinctBytes(38L),
+                    12300,
+                    38L,
                     350,
-                    succinctBytes(39L),
+                    39L,
                     310L,
                     311.0,
                     312L,
                     new Duration(313, NANOSECONDS),
                     new Duration(314, NANOSECONDS),
-                    new DataSize(23400, BYTE),
-                    succinctBytes(316L),
+                    23400,
+                    316L,
                     317L,
-                    succinctBytes(318L),
+                    318L,
                     new Duration(3000, NANOSECONDS),
                     new Duration(319, NANOSECONDS),
                     320L,
                     new Duration(321, NANOSECONDS),
                     new Duration(322, NANOSECONDS),
-                    new DataSize(34500, BYTE),
-                    succinctBytes(324L),
-                    succinctBytes(325L),
-                    succinctBytes(326L),
-                    succinctBytes(327L),
-                    succinctBytes(328L),
-                    succinctBytes(329L),
-                    succinctBytes(330L),
+                    34500,
+                    324L,
+                    325L,
+                    326L,
+                    327L,
+                    328L,
+                    329L,
+                    330L,
                     Optional.empty(),
                     null,
                     new RuntimeStats(),
@@ -239,13 +236,13 @@ public class TestQueryStats
 
             17.0,
             43.0,
-            new DataSize(18, BYTE),
-            new DataSize(19, BYTE),
-            new DataSize(20, BYTE),
-            new DataSize(21, BYTE),
-            new DataSize(22, BYTE),
-            new DataSize(23, BYTE),
-            new DataSize(42, BYTE),
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            42,
 
             true,
             new Duration(20, NANOSECONDS),
@@ -255,25 +252,25 @@ public class TestQueryStats
             false,
             ImmutableSet.of(),
 
-            new DataSize(123, BYTE),
+            123,
 
-            new DataSize(24, BYTE),
+            24,
             25,
 
-            new DataSize(26, BYTE),
+            26,
             27,
 
-            new DataSize(30, BYTE),
+            30,
             29,
 
-            new DataSize(28, BYTE),
+            28,
             29,
 
             30,
-            new DataSize(31, BYTE),
-            new DataSize(32, BYTE),
+            31,
+            32,
 
-            new DataSize(33, BYTE),
+            33,
 
             ImmutableList.of(new StageGcStatistics(
                     101,
@@ -307,18 +304,18 @@ public class TestQueryStats
         List<OperatorStats> pipeline00 = ImmutableList.of(
                 createOperatorStats(stageId0, stageExecutionId0, 0, 0, new PlanNodeId("101"),
                         ExchangeOperator.class,
-                        succinctBytes(5384L), 100L,
-                        succinctBytes(5040L), 100L,
-                        succinctBytes(5040L), 100L),
+                        5384L, 100L,
+                        5040L, 100L,
+                        5040L, 100L),
                 createOperatorStats(stageId0, stageExecutionId0, 0, 1, new PlanNodeId("102"),
                         TaskOutputOperator.class,
-                        succinctBytes(0L), 0L,
-                        succinctBytes(5040L), 100L,
-                        succinctBytes(5040L), 100L));
+                        0L, 0L,
+                        5040L, 100L,
+                        5040L, 100L));
         StageExecutionStats stageExecutionStats0 = createStageStats(stageId0, stageExecutionId0,
-                succinctBytes(5384L), 100L,
-                succinctBytes(5040L), 100L,
-                succinctBytes(5040L), 100L,
+                5384L, 100L,
+                5040L, 100L,
+                5040L, 100L,
                 pipeline00);
         StageExecutionInfo stageExecutionInfo0 = new StageExecutionInfo(
                 StageExecutionState.FINISHED,
@@ -332,60 +329,60 @@ public class TestQueryStats
         List<OperatorStats> pipeline10 = ImmutableList.of(
                 createOperatorStats(stageId1, stageExecutionId1, 0, 0, new PlanNodeId("1001"),
                         ScanFilterAndProjectOperator.class,
-                        succinctBytes(6150L), 100L,
-                        succinctBytes(6150L), 100L,
-                        succinctBytes(4400L), 100L),
+                        6150L, 100L,
+                        6150L, 100L,
+                        4400L, 100L),
                 createOperatorStats(stageId1, stageExecutionId1, 0, 1, new PlanNodeId("1002"),
                         LocalExchangeSinkOperator.class,
-                        succinctBytes(0L), 0L,
-                        succinctBytes(4400L), 100L,
-                        succinctBytes(4400L), 100L));
+                        0L, 0L,
+                        4400L, 100L,
+                        4400L, 100L));
 
         List<OperatorStats> pipeline11 = ImmutableList.of(
                 createOperatorStats(stageId1, stageExecutionId1, 1, 0, new PlanNodeId("1003"),
                         ScanFilterAndProjectOperator.class,
-                        succinctBytes(2470L), 50L,
-                        succinctBytes(2470L), 50L,
-                        succinctBytes(1670L), 50L),
+                        2470L, 50L,
+                        2470L, 50L,
+                        1670L, 50L),
                 createOperatorStats(stageId1, stageExecutionId1, 1, 1, new PlanNodeId("1004"),
                         LocalExchangeSinkOperator.class,
-                        succinctBytes(0L), 0L,
-                        succinctBytes(1670L), 50L,
-                        succinctBytes(1670L), 50L));
+                        0L, 0L,
+                        1670L, 50L,
+                        1670L, 50L));
 
         List<OperatorStats> pipeline12 = ImmutableList.of(
                 createOperatorStats(stageId1, stageExecutionId1, 2, 0, new PlanNodeId("1005"),
                         LocalExchangeSource.class,
-                        succinctBytes(0L), 0L,
-                        succinctBytes(1670L), 50L,
-                        succinctBytes(1670L), 50L),
+                        0L, 0L,
+                        1670L, 50L,
+                        1670L, 50L),
                 createOperatorStats(stageId1, stageExecutionId1, 2, 1, new PlanNodeId("1006"),
                         HashBuilderOperator.class,
-                        succinctBytes(0L), 0L,
-                        succinctBytes(1670L), 50L,
-                        succinctBytes(1670L), 50L));
+                        0L, 0L,
+                        1670L, 50L,
+                        1670L, 50L));
 
         List<OperatorStats> pipeline13 = ImmutableList.of(
                 createOperatorStats(stageId1, stageExecutionId1, 3, 0, new PlanNodeId("1007"),
                         LocalExchangeSource.class,
-                        succinctBytes(0L), 0L,
-                        succinctBytes(4400L), 100L,
-                        succinctBytes(4400L), 100L),
+                        0L, 0L,
+                        4400L, 100L,
+                        4400L, 100L),
                 createOperatorStats(stageId1, stageExecutionId1, 3, 1, new PlanNodeId("1008"),
                         LookupJoinOperator.class,
-                        succinctBytes(0L), 0L,
-                        succinctBytes(4400L), 100L,
-                        succinctBytes(5040L), 100L),
+                        0L, 0L,
+                        4400L, 100L,
+                        5040L, 100L),
                 createOperatorStats(stageId1, stageExecutionId1, 3, 2, new PlanNodeId("1009"),
                         TaskOutputOperator.class,
-                        succinctBytes(0L), 0L,
-                        succinctBytes(5040L), 100L,
-                        succinctBytes(5040L), 100L));
+                        0L, 0L,
+                        5040L, 100L,
+                        5040L, 100L));
         Builder<OperatorStats> stageOperatorStatsBuilder = ImmutableList.builder();
         StageExecutionStats stageExecutionStats1 = createStageStats(stageId1, stageExecutionId1,
-                succinctBytes(8620L), 150L,
-                succinctBytes(8620L), 150L,
-                succinctBytes(5040L), 100L,
+                8620L, 150L,
+                8620L, 150L,
+                5040L, 100L,
                 stageOperatorStatsBuilder.addAll(pipeline10)
                         .addAll(pipeline11)
                         .addAll(pipeline12)
@@ -409,16 +406,16 @@ public class TestQueryStats
         Optional<StageInfo> rootStage = Optional.of(stageInfo0);
         List<StageInfo> allStages = StageInfo.getAllStages(rootStage);
         QueryStats queryStats = QueryStats.create(new QueryStateTimer(new TestingTicker()), rootStage, allStages, 0,
-                succinctBytes(0L), succinctBytes(0L), succinctBytes(0L), succinctBytes(0L), succinctBytes(0L),
+                0L, 0L, 0L, 0L, 0L,
                 new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))));
 
-        assertEquals(queryStats.getRawInputDataSize().toBytes(), 8620);
+        assertEquals(queryStats.getRawInputDataSizeInBytes(), 8620);
         assertEquals(queryStats.getRawInputPositions(), 150);
-        assertEquals(queryStats.getShuffledDataSize().toBytes(), 5384);
+        assertEquals(queryStats.getShuffledDataSizeInBytes(), 5384);
         assertEquals(queryStats.getShuffledPositions(), 100);
-        assertEquals(queryStats.getProcessedInputDataSize().toBytes(), 13660);
+        assertEquals(queryStats.getProcessedInputDataSizeInBytes(), 13660);
         assertEquals(queryStats.getProcessedInputPositions(), 250);
-        assertEquals(queryStats.getOutputDataSize().toBytes(), 5040);
+        assertEquals(queryStats.getOutputDataSizeInBytes(), 5040);
         assertEquals(queryStats.getOutputPositions(), 100);
     }
 
@@ -464,38 +461,38 @@ public class TestQueryStats
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeUserMemory(), 17.0);
-        assertEquals(actual.getUserMemoryReservation(), new DataSize(18, BYTE));
-        assertEquals(actual.getTotalMemoryReservation(), new DataSize(19, BYTE));
-        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(20, BYTE));
-        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(21, BYTE));
-        assertEquals(actual.getPeakTaskUserMemory(), new DataSize(22, BYTE));
-        assertEquals(actual.getPeakTaskTotalMemory(), new DataSize(23, BYTE));
-        assertEquals(actual.getSpilledDataSize(), new DataSize(690, BYTE));
+        assertEquals(actual.getUserMemoryReservationInBytes(), 18);
+        assertEquals(actual.getTotalMemoryReservationInBytes(), 19);
+        assertEquals(actual.getPeakUserMemoryReservationInBytes(), 20);
+        assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 21);
+        assertEquals(actual.getPeakTaskUserMemoryInBytes(), 22);
+        assertEquals(actual.getPeakTaskTotalMemoryInBytes(), 23);
+        assertEquals(actual.getSpilledDataSizeInBytes(), 690);
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(23, NANOSECONDS));
 
-        assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
+        assertEquals(actual.getTotalAllocationInBytes(), 123);
 
-        assertEquals(actual.getRawInputDataSize(), new DataSize(24, BYTE));
+        assertEquals(actual.getRawInputDataSizeInBytes(), 24);
         assertEquals(actual.getRawInputPositions(), 25);
 
-        assertEquals(actual.getProcessedInputDataSize(), new DataSize(26, BYTE));
+        assertEquals(actual.getProcessedInputDataSizeInBytes(), 26);
         assertEquals(actual.getProcessedInputPositions(), 27);
 
-        assertEquals(actual.getShuffledDataSize(), new DataSize(30, BYTE));
+        assertEquals(actual.getShuffledDataSizeInBytes(), 30);
         assertEquals(actual.getShuffledPositions(), 29);
 
-        assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
+        assertEquals(actual.getOutputDataSizeInBytes(), 28);
         assertEquals(actual.getOutputPositions(), 29);
 
         assertEquals(actual.getWrittenOutputPositions(), 30);
 
-        assertEquals(actual.getWrittenOutputLogicalDataSize(), new DataSize(31, BYTE));
-        assertEquals(actual.getWrittenOutputPhysicalDataSize(), new DataSize(32, BYTE));
+        assertEquals(actual.getWrittenOutputLogicalDataSizeInBytes(), 31);
+        assertEquals(actual.getWrittenOutputPhysicalDataSizeInBytes(), 32);
 
-        assertEquals(actual.getWrittenIntermediatePhysicalDataSize(), new DataSize(33, BYTE));
+        assertEquals(actual.getWrittenIntermediatePhysicalDataSizeInBytes(), 33);
 
         assertEquals(actual.getStageGcStatistics().size(), 1);
         StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);
@@ -523,9 +520,9 @@ public class TestQueryStats
 
     private static OperatorStats createOperatorStats(int stageId, int stageExecutionId, int pipelineId,
             int operatorId, PlanNodeId planNodeId, Class operatorCls,
-            DataSize rawInputDataSize, long rawInputPositions,
-            DataSize inputDataSize, long inputPositions,
-            DataSize outputDataSize, long outputPositions)
+            long rawInputDataSize, long rawInputPositions,
+            long inputDataSize, long inputPositions,
+            long outputDataSize, long outputPositions)
     {
         return new OperatorStats(
                 stageId,
@@ -538,11 +535,11 @@ public class TestQueryStats
                 0L,
                 new Duration(0, NANOSECONDS),
                 new Duration(0, NANOSECONDS),
-                new DataSize(0, BYTE),
+                0,
                 0L,
                 new Duration(0, NANOSECONDS),
                 new Duration(0, NANOSECONDS),
-                new DataSize(0, BYTE),
+                0,
                 rawInputDataSize,
                 rawInputPositions,
                 inputDataSize,
@@ -551,23 +548,23 @@ public class TestQueryStats
                 0L,
                 new Duration(0, NANOSECONDS),
                 new Duration(0, NANOSECONDS),
-                new DataSize(0, BYTE),
+                0,
                 outputDataSize,
                 outputPositions,
-                succinctBytes(0L),
+                0L,
                 new Duration(0, NANOSECONDS),
                 new Duration(0, NANOSECONDS),
                 0L,
                 new Duration(0, NANOSECONDS),
                 new Duration(0, NANOSECONDS),
-                new DataSize(0, BYTE),
-                succinctBytes(0L),
-                succinctBytes(0L),
-                succinctBytes(0L),
-                succinctBytes(0L),
-                succinctBytes(0L),
-                succinctBytes(0L),
-                succinctBytes(0L),
+                0,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
                 Optional.empty(),
                 null,
                 new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
@@ -578,9 +575,9 @@ public class TestQueryStats
                 0);
     }
 
-    private static StageExecutionStats createStageStats(int stageId, int stageExecutionId, DataSize rawInputDataSize, long rawInputPositions,
-            DataSize inputDataSize, long inputPositions,
-            DataSize outputDataSize, long outputPositions,
+    private static StageExecutionStats createStageStats(int stageId, int stageExecutionId, long rawInputDataSize, long rawInputPositions,
+            long inputDataSize, long inputPositions,
+            long outputDataSize, long outputPositions,
             List<OperatorStats> operatorSummaries)
     {
         return new StageExecutionStats(
@@ -603,10 +600,10 @@ public class TestQueryStats
 
                 0.0,
                 0.0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                0L,
+                0L,
+                0L,
+                0L,
 
                 new Duration(0, NANOSECONDS),
                 new Duration(0, NANOSECONDS),
@@ -615,7 +612,7 @@ public class TestQueryStats
                 false,
                 ImmutableSet.of(),
 
-                new DataSize(0, BYTE),
+                0L,
 
                 rawInputDataSize,
                 rawInputPositions,
@@ -623,11 +620,11 @@ public class TestQueryStats
                 inputDataSize,
                 inputPositions,
 
-                new DataSize(0, BYTE),
+                0L,
                 outputDataSize,
                 outputPositions,
 
-                new DataSize(0, BYTE),
+                0L,
 
                 new StageGcStatistics(
                         stageId,

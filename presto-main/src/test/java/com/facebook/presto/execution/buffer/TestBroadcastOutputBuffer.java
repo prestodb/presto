@@ -136,7 +136,7 @@ public class TestBroadcastOutputBuffer
         assertQueueState(buffer, FIRST, 3, 0);
 
         // acknowledge first three pages
-        buffer.get(FIRST, 3, sizeOfPages(10)).cancel(true);
+        buffer.get(FIRST, 3, 10L).cancel(true);
         // pages now acknowledged
         assertQueueState(buffer, FIRST, 0, 3);
 
@@ -177,7 +177,7 @@ public class TestBroadcastOutputBuffer
         // page not acknowledged yet so sent count is still zero
         assertQueueState(buffer, SECOND, 11, 0);
         // acknowledge the 10 pages
-        buffer.get(SECOND, 10, sizeOfPages(10)).cancel(true);
+        buffer.get(SECOND, 10, 10L).cancel(true);
         assertQueueState(buffer, SECOND, 1, 10);
 
         //
@@ -301,7 +301,7 @@ public class TestBroadcastOutputBuffer
         assertQueueState(buffer, FIRST, 3, 3);
 
         // getting new pages will again acknowledge the previously acknowledged pages but this is ok
-        buffer.get(FIRST, 3, sizeOfPages(1)).cancel(true);
+        buffer.get(FIRST, 3, 1L).cancel(true);
         assertQueueState(buffer, FIRST, 3, 3);
     }
 
@@ -346,7 +346,7 @@ public class TestBroadcastOutputBuffer
         assertQueueState(buffer, FIRST, 3, 0);
 
         // acknowledge the pages
-        buffer.get(FIRST, 3, sizeOfPages(10)).cancel(true);
+        buffer.get(FIRST, 3, 10L).cancel(true);
 
         // attempt to get the three elements again
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
@@ -430,7 +430,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, 1L);
         assertFalse(future.isDone());
 
         // add a page and verify the future is complete
@@ -446,7 +446,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, sizeOfPages(1));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0L, 1L);
         assertFalse(future.isDone());
 
         // add a page and set no more pages
@@ -476,7 +476,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that was not declared, which will fail
-        buffer.get(SECOND, 0L, sizeOfPages(1));
+        buffer.get(SECOND, 0L, 1L);
     }
 
     @Test
@@ -486,7 +486,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // get a page from a buffer that doesn't exist yet
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(1));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, 1L);
         assertFalse(future.isDone());
 
         // abort that buffer, and verify the future is complete and buffer is finished
@@ -537,11 +537,11 @@ public class TestBroadcastOutputBuffer
         assertQueueState(buffer, SECOND, 3, 0);
 
         // acknowledge pages for first buffer, no space is freed
-        buffer.get(FIRST, 2, sizeOfPages(10)).cancel(true);
+        buffer.get(FIRST, 2, 10L).cancel(true);
         assertFalse(future.isDone());
 
         // acknowledge pages for second buffer, which makes space in the buffer
-        buffer.get(SECOND, 2, sizeOfPages(10)).cancel(true);
+        buffer.get(SECOND, 2, 10L).cancel(true);
 
         // writer should not be blocked
         assertFutureIsDone(future);
@@ -611,7 +611,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, 10L);
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -624,7 +624,7 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        future = buffer.get(FIRST, 1, 10L);
         assertFalse(future.isDone());
 
         // abort the buffer
@@ -649,7 +649,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, 10L);
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -661,7 +661,7 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        future = buffer.get(FIRST, 1, 10L);
         assertFalse(future.isDone());
 
         // finish the buffer
@@ -693,7 +693,7 @@ public class TestBroadcastOutputBuffer
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
-        buffer.get(FIRST, 1, sizeOfPages(1)).cancel(true);
+        buffer.get(FIRST, 1, 1L).cancel(true);
 
         // verify we are still blocked because the buffer is full
         assertFalse(firstEnqueuePage.isDone());
@@ -729,7 +729,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, 10L);
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -741,7 +741,7 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        future = buffer.get(FIRST, 1, 10L);
         assertFalse(future.isDone());
 
         // destroy the buffer
@@ -773,7 +773,7 @@ public class TestBroadcastOutputBuffer
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
-        buffer.get(FIRST, 1, sizeOfPages(1)).cancel(true);
+        buffer.get(FIRST, 1, 1L).cancel(true);
 
         // verify we are still blocked because the buffer is full
         assertFalse(firstEnqueuePage.isDone());
@@ -799,7 +799,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, 10L);
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -811,7 +811,7 @@ public class TestBroadcastOutputBuffer
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        future = buffer.get(FIRST, 1, 10L);
         assertFalse(future.isDone());
 
         // fail the buffer
@@ -821,7 +821,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(future.isDone());
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        future = buffer.get(FIRST, 1, 10L);
         assertFalse(future.isDone());
     }
 
@@ -846,7 +846,7 @@ public class TestBroadcastOutputBuffer
 
         // get and acknowledge one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(1), MAX_WAIT), bufferResult(0, createPage(0)));
-        buffer.get(FIRST, 1, sizeOfPages(1)).cancel(true);
+        buffer.get(FIRST, 1, 1L).cancel(true);
 
         // verify we are still blocked because the buffer is full
         assertFalse(firstEnqueuePage.isDone());
@@ -870,7 +870,7 @@ public class TestBroadcastOutputBuffer
         assertFalse(buffer.isFinished());
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, 10L);
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -889,9 +889,9 @@ public class TestBroadcastOutputBuffer
         buffer.setOutputBuffers(outputBuffers);
 
         // attempt to get page, and verify we are blocked
-        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        future = buffer.get(FIRST, 1, 10L);
         assertFalse(future.isDone());
-        future = buffer.get(SECOND, 0, sizeOfPages(10));
+        future = buffer.get(SECOND, 0, 10L);
         assertFalse(future.isDone());
 
         // set no more buffers
@@ -899,9 +899,9 @@ public class TestBroadcastOutputBuffer
         buffer.setOutputBuffers(outputBuffers);
 
         // attempt to get page, and verify we are blocked
-        future = buffer.get(FIRST, 1, sizeOfPages(10));
+        future = buffer.get(FIRST, 1, 10L);
         assertFalse(future.isDone());
-        future = buffer.get(SECOND, 0, sizeOfPages(10));
+        future = buffer.get(SECOND, 0, 10L);
         assertFalse(future.isDone());
     }
 
@@ -1084,7 +1084,7 @@ public class TestBroadcastOutputBuffer
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
-                dataSize,
+                dataSize.toBytes(),
                 () -> memoryContext.newLocalMemoryContext("test"),
                 notificationExecutor);
         buffer.setOutputBuffers(outputBuffers);
@@ -1146,7 +1146,7 @@ public class TestBroadcastOutputBuffer
         BroadcastOutputBuffer buffer = new BroadcastOutputBuffer(
                 TASK_INSTANCE_ID,
                 new StateMachine<>("bufferState", stateNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
-                dataSize,
+                dataSize.toBytes(),
                 () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                 stateNotificationExecutor);
         buffer.setOutputBuffers(outputBuffers);
