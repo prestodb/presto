@@ -39,7 +39,6 @@ import com.facebook.presto.spi.function.AggregationFunctionImplementation;
 import com.facebook.presto.spi.function.AlterRoutineCharacteristics;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
-import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
@@ -52,6 +51,8 @@ import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.type.TypeManagerContext;
+import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
@@ -107,6 +108,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
@@ -114,13 +116,8 @@ import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
-/**
- * TODO: This should not extend from FunctionMetadataManager and TypeManager
- * Functionalities relying on TypeManager and FunctionMetadataManager interfaces should rely on FunctionAndTypeResolver
- */
 @ThreadSafe
 public class FunctionAndTypeManager
-        implements FunctionMetadataManager, TypeManager
 {
     private static final Pattern DEFAULT_NAMESPACE_PREFIX_PATTERN = Pattern.compile("[a-z]+\\.[a-z]+");
     private final TransactionManager transactionManager;
@@ -128,8 +125,10 @@ public class FunctionAndTypeManager
     private final BuiltInTypeAndFunctionNamespaceManager builtInTypeAndFunctionNamespaceManager;
     private final FunctionInvokerProvider functionInvokerProvider;
     private final Map<String, FunctionNamespaceManagerFactory> functionNamespaceManagerFactories = new ConcurrentHashMap<>();
+    private final Map<String, TypeManagerFactory> typeManagerFactories = new ConcurrentHashMap<>();
     private final HandleResolver handleResolver;
     private final Map<String, FunctionNamespaceManager<? extends SqlFunction>> functionNamespaceManagers = new ConcurrentHashMap<>();
+    private final Map<String, TypeManager> typeManagers = new ConcurrentHashMap<>();
     private final FunctionSignatureMatcher functionSignatureMatcher;
     private final TypeCoercer typeCoercer;
     private final LoadingCache<FunctionResolutionCacheKey, FunctionHandle> functionCache;
@@ -151,6 +150,7 @@ public class FunctionAndTypeManager
         this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this);
         this.functionNamespaceManagers.put(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.functionInvokerProvider = new FunctionInvokerProvider(this);
+        this.typeManagers.put(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         // TODO: Provide a more encapsulated way for TransactionManager to register FunctionNamespaceManager
         transactionManager.registerFunctionNamespaceManager(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
@@ -235,6 +235,24 @@ public class FunctionAndTypeManager
             }
 
             @Override
+            public Type instantiateParametricType(TypeSignature typeSignature)
+            {
+                return FunctionAndTypeManager.this.instantiateParametricType(typeSignature);
+            }
+
+            @Override
+            public List<Type> getTypes()
+            {
+                return FunctionAndTypeManager.this.getTypes();
+            }
+
+            @Override
+            public Collection<ParametricType> getParametricTypes()
+            {
+                return FunctionAndTypeManager.this.getParametricTypes();
+            }
+
+            @Override
             public Collection<SqlFunction> listBuiltInFunctions()
             {
                 return FunctionAndTypeManager.this.listBuiltInFunctions();
@@ -290,7 +308,8 @@ public class FunctionAndTypeManager
         requireNonNull(functionNamespaceManagerName, "functionNamespaceManagerName is null");
         FunctionNamespaceManagerFactory factory = functionNamespaceManagerFactories.get(functionNamespaceManagerName);
         checkState(factory != null, "No factory for function namespace manager %s", functionNamespaceManagerName);
-        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(this, nodeManager, this));
+        FunctionAndTypeResolver functionAndTypeResolver = getFunctionAndTypeResolver();
+        FunctionNamespaceManager<?> functionNamespaceManager = factory.create(catalogName, properties, new FunctionNamespaceManagerContext(functionAndTypeResolver, nodeManager, functionAndTypeResolver));
         functionNamespaceManager.setBlockEncodingSerde(blockEncodingSerde);
 
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
@@ -308,7 +327,6 @@ public class FunctionAndTypeManager
         }
     }
 
-    @Override
     public FunctionMetadata getFunctionMetadata(FunctionHandle functionHandle)
     {
         if (functionHandle.getCatalogSchemaName().equals(SESSION_NAMESPACE)) {
@@ -319,7 +337,16 @@ public class FunctionAndTypeManager
         return functionNamespaceManager.get().getFunctionMetadata(functionHandle);
     }
 
-    @Override
+    public Type instantiateParametricType(TypeSignature typeSignature)
+    {
+        Map<String, ParametricType> parametricTypes = getServingTypeManager().getParametricTypes().stream()
+                .collect(toImmutableMap(ParametricType::getName, parametricType -> parametricType));
+        return builtInTypeAndFunctionNamespaceManager.instantiateParametricType(
+                typeSignature,
+                this,
+                parametricTypes);
+    }
+
     public Type getType(TypeSignature signature)
     {
         if (signature.getTypeSignatureBase().hasStandardType()) {
@@ -327,25 +354,23 @@ public class FunctionAndTypeManager
             if (signature.isDistinctType()) {
                 return getDistinctType(signature.getParameters().get(0).getDistinctTypeInfo());
             }
-            Optional<Type> type = builtInTypeAndFunctionNamespaceManager.getType(signature.getStandardTypeSignature());
-            if (type.isPresent()) {
+            Type type = getServingTypeManager().getType(signature.getStandardTypeSignature());
+            if (type != null) {
                 if (signature.getTypeSignatureBase().hasTypeName()) {
-                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type.get());
+                    return new TypeWithName(signature.getTypeSignatureBase().getTypeName(), type);
                 }
-                return type.get();
+                return type;
             }
         }
 
         return getUserDefinedType(signature);
     }
 
-    @Override
     public Type getParameterizedType(String baseTypeName, List<TypeSignatureParameter> typeParameters)
     {
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
-    @Override
     public boolean canCoerce(Type actualType, Type expectedType)
     {
         return typeCoercer.canCoerce(actualType, expectedType);
@@ -362,6 +387,32 @@ public class FunctionAndTypeManager
             throw new IllegalArgumentException(format("Resource group configuration manager '%s' is already registered", factory.getName()));
         }
         handleResolver.addFunctionNamespace(factory.getName(), factory.getHandleResolver());
+    }
+
+    public void loadTypeManager(String typeManagerName)
+    {
+        requireNonNull(typeManagerName, "typeManagerName is null");
+        TypeManagerFactory factory = typeManagerFactories.get(typeManagerName);
+        checkState(factory != null, "No factory for type manager %s", typeManagerName);
+        TypeManager typeManager = factory.create(new TypeManagerContext(getFunctionAndTypeResolver()));
+
+        if (typeManagers.putIfAbsent(typeManagerName, typeManager) != null) {
+            throw new IllegalArgumentException(format("Type manager [%s] is already registered", typeManager));
+        }
+    }
+
+    public void loadTypeManagers()
+    {
+        for (String typeManagerName : typeManagerFactories.keySet()) {
+            loadTypeManager(typeManagerName);
+        }
+    }
+
+    public void addTypeManagerFactory(TypeManagerFactory factory)
+    {
+        if (typeManagerFactories.putIfAbsent(factory.getName(), factory) != null) {
+            throw new IllegalArgumentException(format("Type manager '%s' is already registered", factory.getName()));
+        }
     }
 
     public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
@@ -511,7 +562,7 @@ public class FunctionAndTypeManager
 
     public Collection<ParametricType> getParametricTypes()
     {
-        return ImmutableList.copyOf(builtInTypeAndFunctionNamespaceManager.getParametricTypes());
+        return builtInTypeAndFunctionNamespaceManager.getParametricTypes();
     }
 
     public Optional<Type> getCommonSuperType(Type firstType, Type secondType)
@@ -543,14 +594,14 @@ public class FunctionAndTypeManager
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkArgument(functionNamespaceManager.isPresent(), "Cannot find function namespace for '%s'", functionHandle.getCatalogSchemaName());
-        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle, this);
+        return functionNamespaceManager.get().getAggregateFunctionImplementation(functionHandle, getFunctionAndTypeResolver());
     }
 
     public CompletableFuture<SqlFunctionResult> executeFunction(String source, FunctionHandle functionHandle, Page inputPage, List<Integer> channels)
     {
         Optional<FunctionNamespaceManager<?>> functionNamespaceManager = getServingFunctionNamespaceManager(functionHandle.getCatalogSchemaName());
         checkState(functionNamespaceManager.isPresent(), format("FunctionHandle %s should have a serving function namespace", functionHandle));
-        return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, this);
+        return functionNamespaceManager.get().executeFunction(source, functionHandle, inputPage, channels, getFunctionAndTypeResolver());
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionHandle functionHandle)
@@ -766,7 +817,6 @@ public class FunctionAndTypeManager
         return Optional.ofNullable(functionNamespaceManagers.get(typeSignatureBase.getTypeName().getCatalogName()));
     }
 
-    @Override
     @SuppressWarnings("unchecked")
     public SpecializedFunctionKey getSpecializedFunctionKey(Signature signature)
     {
@@ -833,6 +883,18 @@ public class FunctionAndTypeManager
         }
         String[] catalogSchemaNameString = defaultNamespacePrefixString.split("\\.");
         return new CatalogSchemaName(catalogSchemaNameString[0], catalogSchemaNameString[1]);
+    }
+
+    private TypeManager getServingTypeManager()
+    {
+        // Check if a custom TypeManager has been registered, otherwise use BuiltInTypeAndFunctionNamespaceManager.
+        for (Map.Entry<String, TypeManagerFactory> entry : typeManagerFactories.entrySet()) {
+            if (!typeManagers.containsKey(entry.getKey())) {
+                throw new PrestoException(GENERIC_USER_ERROR, format("Type manager not loaded for factory: %s", entry.getKey()));
+            }
+            return typeManagers.get(entry.getKey());
+        }
+        return builtInTypeAndFunctionNamespaceManager;
     }
 
     private static class FunctionResolutionCacheKey

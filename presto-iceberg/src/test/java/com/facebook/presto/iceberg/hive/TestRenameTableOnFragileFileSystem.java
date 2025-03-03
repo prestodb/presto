@@ -62,6 +62,7 @@ import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.sql.InMemoryExpressionOptimizerProvider;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.gen.RowExpressionPredicateCompiler;
 import com.facebook.presto.sql.planner.planPrinter.RowExpressionFormatter;
 import com.facebook.presto.sql.relational.FunctionResolution;
@@ -109,7 +110,8 @@ public class TestRenameTableOnFragileFileSystem
 {
     private static final MetadataManager METADATA = MetadataManager.createTestMetadataManager();
     private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = METADATA.getFunctionAndTypeManager();
-    private static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(METADATA.getFunctionAndTypeManager().getFunctionAndTypeResolver());
+    private static final FunctionAndTypeResolver FUNCTION_AND_TYPE_RESOLVER = FUNCTION_AND_TYPE_MANAGER.getFunctionAndTypeResolver();
+    private static final StandardFunctionResolution FUNCTION_RESOLUTION = new FunctionResolution(FUNCTION_AND_TYPE_RESOLVER);
 
     private static final RowExpressionService ROW_EXPRESSION_SERVICE = new RowExpressionService()
     {
@@ -373,7 +375,8 @@ public class TestRenameTableOnFragileFileSystem
         }
     }
 
-    private void createFile(FileSystem fileSystem, Path path, byte[] content) throws IOException
+    private void createFile(FileSystem fileSystem, Path path, byte[] content)
+            throws IOException
     {
         FSDataOutputStream outputStream = fileSystem.create(path, true, 1024);
         outputStream.write(content);
@@ -404,7 +407,7 @@ public class TestRenameTableOnFragileFileSystem
         IcebergHiveMetadataFactory icebergHiveMetadataFactory = new IcebergHiveMetadataFactory(
                 metastore,
                 hdfsEnvironment,
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
                 jsonCodec(CommitTaskData.class),
@@ -490,25 +493,29 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public FSDataInputStream open(Path f, int bufferSize) throws IOException
+        public FSDataInputStream open(Path f, int bufferSize)
+                throws IOException
         {
             return delegate.open(f, bufferSize);
         }
 
         @Override
-        public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress) throws IOException
+        public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
+                throws IOException
         {
             return delegate.create(f, permission, overwrite, bufferSize, replication, blockSize, progress);
         }
 
         @Override
-        public FSDataOutputStream append(Path f, int bufferSize, Progressable progress) throws IOException
+        public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
+                throws IOException
         {
             return delegate.append(f, bufferSize, progress);
         }
 
         @Override
-        public boolean rename(Path src, Path dst) throws IOException
+        public boolean rename(Path src, Path dst)
+                throws IOException
         {
             if (failSignal.get() == FailSignal.RENAME) {
                 return false;
@@ -517,7 +524,8 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public boolean delete(Path f, boolean recursive) throws IOException
+        public boolean delete(Path f, boolean recursive)
+                throws IOException
         {
             if (failSignal.get() == FailSignal.DELETE) {
                 return false;
@@ -526,7 +534,8 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public FileStatus[] listStatus(Path f) throws FileNotFoundException, IOException
+        public FileStatus[] listStatus(Path f)
+                throws FileNotFoundException, IOException
         {
             return delegate.listStatus(f);
         }
@@ -544,7 +553,8 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public boolean mkdirs(Path f, FsPermission permission) throws IOException
+        public boolean mkdirs(Path f, FsPermission permission)
+                throws IOException
         {
             if (this.failSignal.get() == FailSignal.MKDIRS) {
                 return false;
@@ -553,7 +563,8 @@ public class TestRenameTableOnFragileFileSystem
         }
 
         @Override
-        public FileStatus getFileStatus(Path f) throws IOException
+        public FileStatus getFileStatus(Path f)
+                throws IOException
         {
             return delegate.getFileStatus(f);
         }
