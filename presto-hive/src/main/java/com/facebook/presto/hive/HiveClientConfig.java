@@ -189,6 +189,7 @@ public class HiveClientConfig
     private boolean verboseRuntimeStatsEnabled;
     private boolean useRecordPageSourceForCustomSplit = true;
     private boolean hudiMetadataEnabled;
+    private String hudiTablesUseMergedView;
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
@@ -1613,6 +1614,19 @@ public class HiveClientConfig
     public boolean isHudiMetadataEnabled()
     {
         return this.hudiMetadataEnabled;
+    }
+
+    @Config("hive.hudi-tables-use-merged-view")
+    @ConfigDescription("For Hudi tables, a comma-separated list in the form of <schema>.<table> which should prefer to fetch the list of files from the merged file system view")
+    public HiveClientConfig setHudiTablesUseMergedView(String hudiTablesUseMergedView)
+    {
+        this.hudiTablesUseMergedView = hudiTablesUseMergedView;
+        return this;
+    }
+
+    public String getHudiTablesUseMergedView()
+    {
+        return this.hudiTablesUseMergedView;
     }
 
     @Config("hive.quick-stats.enabled")
