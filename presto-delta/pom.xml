@@ -168,6 +168,12 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hive-metastore</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.ion</groupId>
+                    <artifactId>ion-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
