@@ -58,7 +58,7 @@ String Functions
 
 .. function:: jarowinkler_similarity(string1, string2) -> double
 
-    Returns the Jaro-Winkler similarity of ``string1`` and ``string2``
+    Returns the Jaro-Winkler similarity of ``string1`` and ``string2``.
 
 .. function:: length(string) -> bigint
 
