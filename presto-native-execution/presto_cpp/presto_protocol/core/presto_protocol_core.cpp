@@ -3527,11 +3527,11 @@ void to_json(json& j, const OperatorStats& p) {
       "isBlockedCpu");
   to_json_key(
       j,
-      "isBlockedAllocation",
-      p.isBlockedAllocation,
+      "isBlockedAllocationInBytes",
+      p.isBlockedAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "isBlockedAllocation");
+      "int64_t",
+      "isBlockedAllocationInBytes");
   to_json_key(
       j,
       "addInputCalls",
@@ -3555,18 +3555,18 @@ void to_json(json& j, const OperatorStats& p) {
       "addInputCpu");
   to_json_key(
       j,
-      "addInputAllocation",
-      p.addInputAllocation,
+      "addInputAllocationInBytes",
+      p.addInputAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "addInputAllocation");
+      "int64_t",
+      "addInputAllocationInBytes");
   to_json_key(
       j,
-      "rawInputDataSize",
-      p.rawInputDataSize,
+      "rawInputDataSizeInBytes",
+      p.rawInputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "rawInputDataSize");
+      "int64_t",
+      "rawInputDataSizeInBytes");
   to_json_key(
       j,
       "rawInputPositions",
@@ -3576,11 +3576,11 @@ void to_json(json& j, const OperatorStats& p) {
       "rawInputPositions");
   to_json_key(
       j,
-      "inputDataSize",
-      p.inputDataSize,
+      "inputDataSizeInBytes",
+      p.inputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "inputDataSize");
+      "int64_t",
+      "inputDataSizeInBytes");
   to_json_key(
       j,
       "inputPositions",
@@ -3618,18 +3618,18 @@ void to_json(json& j, const OperatorStats& p) {
       "getOutputCpu");
   to_json_key(
       j,
-      "getOutputAllocation",
-      p.getOutputAllocation,
+      "getOutputAllocationInBytes",
+      p.getOutputAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "getOutputAllocation");
+      "int64_t",
+      "getOutputAllocationInBytes");
   to_json_key(
       j,
-      "outputDataSize",
-      p.outputDataSize,
+      "outputDataSizeInBytes",
+      p.outputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "outputDataSize");
+      "int64_t",
+      "outputDataSizeInBytes");
   to_json_key(
       j,
       "outputPositions",
@@ -3639,11 +3639,11 @@ void to_json(json& j, const OperatorStats& p) {
       "outputPositions");
   to_json_key(
       j,
-      "physicalWrittenDataSize",
-      p.physicalWrittenDataSize,
+      "physicalWrittenDataSizeInBytes",
+      p.physicalWrittenDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "physicalWrittenDataSize");
+      "int64_t",
+      "physicalWrittenDataSizeInBytes");
   to_json_key(
       j,
       "additionalCpu",
@@ -3671,60 +3671,60 @@ void to_json(json& j, const OperatorStats& p) {
       j, "finishCpu", p.finishCpu, "OperatorStats", "Duration", "finishCpu");
   to_json_key(
       j,
-      "finishAllocation",
-      p.finishAllocation,
+      "finishAllocationInBytes",
+      p.finishAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "finishAllocation");
+      "int64_t",
+      "finishAllocationInBytes");
   to_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "userMemoryReservation");
+      "int64_t",
+      "userMemoryReservationInBytes");
   to_json_key(
       j,
-      "revocableMemoryReservation",
-      p.revocableMemoryReservation,
+      "revocableMemoryReservationInBytes",
+      p.revocableMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "revocableMemoryReservation");
+      "int64_t",
+      "revocableMemoryReservationInBytes");
   to_json_key(
       j,
-      "systemMemoryReservation",
-      p.systemMemoryReservation,
+      "systemMemoryReservationInBytes",
+      p.systemMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "systemMemoryReservation");
+      "int64_t",
+      "systemMemoryReservationInBytes");
   to_json_key(
       j,
-      "peakUserMemoryReservation",
-      p.peakUserMemoryReservation,
+      "peakUserMemoryReservationInBytes",
+      p.peakUserMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakUserMemoryReservation");
+      "int64_t",
+      "peakUserMemoryReservationInBytes");
   to_json_key(
       j,
-      "peakSystemMemoryReservation",
-      p.peakSystemMemoryReservation,
+      "peakSystemMemoryReservationInBytes",
+      p.peakSystemMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakSystemMemoryReservation");
+      "int64_t",
+      "peakSystemMemoryReservationInBytes");
   to_json_key(
       j,
-      "peakTotalMemoryReservation",
-      p.peakTotalMemoryReservation,
+      "peakTotalMemoryReservationInBytes",
+      p.peakTotalMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakTotalMemoryReservation");
+      "int64_t",
+      "peakTotalMemoryReservationInBytes");
   to_json_key(
       j,
-      "spilledDataSize",
-      p.spilledDataSize,
+      "spilledDataSizeInBytes",
+      p.spilledDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "spilledDataSize");
+      "int64_t",
+      "spilledDataSizeInBytes");
   to_json_key(
       j,
       "blockedReason",
@@ -3834,11 +3834,11 @@ void from_json(const json& j, OperatorStats& p) {
       "isBlockedCpu");
   from_json_key(
       j,
-      "isBlockedAllocation",
-      p.isBlockedAllocation,
+      "isBlockedAllocationInBytes",
+      p.isBlockedAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "isBlockedAllocation");
+      "int64_t",
+      "isBlockedAllocationInBytes");
   from_json_key(
       j,
       "addInputCalls",
@@ -3862,18 +3862,18 @@ void from_json(const json& j, OperatorStats& p) {
       "addInputCpu");
   from_json_key(
       j,
-      "addInputAllocation",
-      p.addInputAllocation,
+      "addInputAllocationInBytes",
+      p.addInputAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "addInputAllocation");
+      "int64_t",
+      "addInputAllocationInBytes");
   from_json_key(
       j,
-      "rawInputDataSize",
-      p.rawInputDataSize,
+      "rawInputDataSizeInBytes",
+      p.rawInputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "rawInputDataSize");
+      "int64_t",
+      "rawInputDataSizeInBytes");
   from_json_key(
       j,
       "rawInputPositions",
@@ -3883,11 +3883,11 @@ void from_json(const json& j, OperatorStats& p) {
       "rawInputPositions");
   from_json_key(
       j,
-      "inputDataSize",
-      p.inputDataSize,
+      "inputDataSizeInBytes",
+      p.inputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "inputDataSize");
+      "int64_t",
+      "inputDataSizeInBytes");
   from_json_key(
       j,
       "inputPositions",
@@ -3925,18 +3925,18 @@ void from_json(const json& j, OperatorStats& p) {
       "getOutputCpu");
   from_json_key(
       j,
-      "getOutputAllocation",
-      p.getOutputAllocation,
+      "getOutputAllocationInBytes",
+      p.getOutputAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "getOutputAllocation");
+      "int64_t",
+      "getOutputAllocationInBytes");
   from_json_key(
       j,
-      "outputDataSize",
-      p.outputDataSize,
+      "outputDataSizeInBytes",
+      p.outputDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "outputDataSize");
+      "int64_t",
+      "outputDataSizeInBytes");
   from_json_key(
       j,
       "outputPositions",
@@ -3946,11 +3946,11 @@ void from_json(const json& j, OperatorStats& p) {
       "outputPositions");
   from_json_key(
       j,
-      "physicalWrittenDataSize",
-      p.physicalWrittenDataSize,
+      "physicalWrittenDataSizeInBytes",
+      p.physicalWrittenDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "physicalWrittenDataSize");
+      "int64_t",
+      "physicalWrittenDataSizeInBytes");
   from_json_key(
       j,
       "additionalCpu",
@@ -3978,60 +3978,60 @@ void from_json(const json& j, OperatorStats& p) {
       j, "finishCpu", p.finishCpu, "OperatorStats", "Duration", "finishCpu");
   from_json_key(
       j,
-      "finishAllocation",
-      p.finishAllocation,
+      "finishAllocationInBytes",
+      p.finishAllocationInBytes,
       "OperatorStats",
-      "DataSize",
-      "finishAllocation");
+      "int64_t",
+      "finishAllocationInBytes");
   from_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "userMemoryReservation");
+      "int64_t",
+      "userMemoryReservationInBytes");
   from_json_key(
       j,
-      "revocableMemoryReservation",
-      p.revocableMemoryReservation,
+      "revocableMemoryReservationInBytes",
+      p.revocableMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "revocableMemoryReservation");
+      "int64_t",
+      "revocableMemoryReservationInBytes");
   from_json_key(
       j,
-      "systemMemoryReservation",
-      p.systemMemoryReservation,
+      "systemMemoryReservationInBytes",
+      p.systemMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "systemMemoryReservation");
+      "int64_t",
+      "systemMemoryReservationInBytes");
   from_json_key(
       j,
-      "peakUserMemoryReservation",
-      p.peakUserMemoryReservation,
+      "peakUserMemoryReservationInBytes",
+      p.peakUserMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakUserMemoryReservation");
+      "int64_t",
+      "peakUserMemoryReservationInBytes");
   from_json_key(
       j,
-      "peakSystemMemoryReservation",
-      p.peakSystemMemoryReservation,
+      "peakSystemMemoryReservationInBytes",
+      p.peakSystemMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakSystemMemoryReservation");
+      "int64_t",
+      "peakSystemMemoryReservationInBytes");
   from_json_key(
       j,
-      "peakTotalMemoryReservation",
-      p.peakTotalMemoryReservation,
+      "peakTotalMemoryReservationInBytes",
+      p.peakTotalMemoryReservationInBytes,
       "OperatorStats",
-      "DataSize",
-      "peakTotalMemoryReservation");
+      "int64_t",
+      "peakTotalMemoryReservationInBytes");
   from_json_key(
       j,
-      "spilledDataSize",
-      p.spilledDataSize,
+      "spilledDataSizeInBytes",
+      p.spilledDataSizeInBytes,
       "OperatorStats",
-      "DataSize",
-      "spilledDataSize");
+      "int64_t",
+      "spilledDataSizeInBytes");
   from_json_key(
       j,
       "blockedReason",
@@ -4105,25 +4105,25 @@ void to_json(json& j, const DriverStats& p) {
       "elapsedTime");
   to_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "userMemoryReservation");
+      "int64_t",
+      "userMemoryReservationInBytes");
   to_json_key(
       j,
-      "revocableMemoryReservation",
-      p.revocableMemoryReservation,
+      "revocableMemoryReservationInBytes",
+      p.revocableMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "revocableMemoryReservation");
+      "int64_t",
+      "revocableMemoryReservationInBytes");
   to_json_key(
       j,
-      "systemMemoryReservation",
-      p.systemMemoryReservation,
+      "systemMemoryReservationInBytes",
+      p.systemMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "systemMemoryReservation");
+      "int64_t",
+      "systemMemoryReservationInBytes");
   to_json_key(
       j,
       "totalScheduledTime",
@@ -4156,18 +4156,18 @@ void to_json(json& j, const DriverStats& p) {
       "blockedReasons");
   to_json_key(
       j,
-      "totalAllocation",
-      p.totalAllocation,
+      "totalAllocationInBytes",
+      p.totalAllocationInBytes,
       "DriverStats",
-      "DataSize",
-      "totalAllocation");
+      "int64_t",
+      "totalAllocationInBytes");
   to_json_key(
       j,
-      "rawInputDataSize",
-      p.rawInputDataSize,
+      "rawInputDataSizeInBytes",
+      p.rawInputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "rawInputDataSize");
+      "int64_t",
+      "rawInputDataSizeInBytes");
   to_json_key(
       j,
       "rawInputPositions",
@@ -4184,11 +4184,11 @@ void to_json(json& j, const DriverStats& p) {
       "rawInputReadTime");
   to_json_key(
       j,
-      "processedInputDataSize",
-      p.processedInputDataSize,
+      "processedInputDataSizeInBytes",
+      p.processedInputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "processedInputDataSize");
+      "int64_t",
+      "processedInputDataSizeInBytes");
   to_json_key(
       j,
       "processedInputPositions",
@@ -4198,11 +4198,11 @@ void to_json(json& j, const DriverStats& p) {
       "processedInputPositions");
   to_json_key(
       j,
-      "outputDataSize",
-      p.outputDataSize,
+      "outputDataSizeInBytes",
+      p.outputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "outputDataSize");
+      "int64_t",
+      "outputDataSizeInBytes");
   to_json_key(
       j,
       "outputPositions",
@@ -4212,11 +4212,11 @@ void to_json(json& j, const DriverStats& p) {
       "outputPositions");
   to_json_key(
       j,
-      "physicalWrittenDataSize",
-      p.physicalWrittenDataSize,
+      "physicalWrittenDataSizeInBytes",
+      p.physicalWrittenDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "physicalWrittenDataSize");
+      "int64_t",
+      "physicalWrittenDataSizeInBytes");
   to_json_key(
       j,
       "operatorStats",
@@ -4245,25 +4245,25 @@ void from_json(const json& j, DriverStats& p) {
       "elapsedTime");
   from_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "userMemoryReservation");
+      "int64_t",
+      "userMemoryReservationInBytes");
   from_json_key(
       j,
-      "revocableMemoryReservation",
-      p.revocableMemoryReservation,
+      "revocableMemoryReservationInBytes",
+      p.revocableMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "revocableMemoryReservation");
+      "int64_t",
+      "revocableMemoryReservationInBytes");
   from_json_key(
       j,
-      "systemMemoryReservation",
-      p.systemMemoryReservation,
+      "systemMemoryReservationInBytes",
+      p.systemMemoryReservationInBytes,
       "DriverStats",
-      "DataSize",
-      "systemMemoryReservation");
+      "int64_t",
+      "systemMemoryReservationInBytes");
   from_json_key(
       j,
       "totalScheduledTime",
@@ -4296,18 +4296,18 @@ void from_json(const json& j, DriverStats& p) {
       "blockedReasons");
   from_json_key(
       j,
-      "totalAllocation",
-      p.totalAllocation,
+      "totalAllocationInBytes",
+      p.totalAllocationInBytes,
       "DriverStats",
-      "DataSize",
-      "totalAllocation");
+      "int64_t",
+      "totalAllocationInBytes");
   from_json_key(
       j,
-      "rawInputDataSize",
-      p.rawInputDataSize,
+      "rawInputDataSizeInBytes",
+      p.rawInputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "rawInputDataSize");
+      "int64_t",
+      "rawInputDataSizeInBytes");
   from_json_key(
       j,
       "rawInputPositions",
@@ -4324,11 +4324,11 @@ void from_json(const json& j, DriverStats& p) {
       "rawInputReadTime");
   from_json_key(
       j,
-      "processedInputDataSize",
-      p.processedInputDataSize,
+      "processedInputDataSizeInBytes",
+      p.processedInputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "processedInputDataSize");
+      "int64_t",
+      "processedInputDataSizeInBytes");
   from_json_key(
       j,
       "processedInputPositions",
@@ -4338,11 +4338,11 @@ void from_json(const json& j, DriverStats& p) {
       "processedInputPositions");
   from_json_key(
       j,
-      "outputDataSize",
-      p.outputDataSize,
+      "outputDataSizeInBytes",
+      p.outputDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "outputDataSize");
+      "int64_t",
+      "outputDataSizeInBytes");
   from_json_key(
       j,
       "outputPositions",
@@ -4352,11 +4352,11 @@ void from_json(const json& j, DriverStats& p) {
       "outputPositions");
   from_json_key(
       j,
-      "physicalWrittenDataSize",
-      p.physicalWrittenDataSize,
+      "physicalWrittenDataSizeInBytes",
+      p.physicalWrittenDataSizeInBytes,
       "DriverStats",
-      "DataSize",
-      "physicalWrittenDataSize");
+      "int64_t",
+      "physicalWrittenDataSizeInBytes");
   from_json_key(
       j,
       "operatorStats",
