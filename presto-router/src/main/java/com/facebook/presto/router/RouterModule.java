@@ -14,6 +14,7 @@
 package com.facebook.presto.router;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
 import com.facebook.presto.router.cluster.ClusterStatusTracker;
@@ -24,6 +25,9 @@ import com.facebook.presto.router.predictor.ForQueryCpuPredictor;
 import com.facebook.presto.router.predictor.ForQueryMemoryPredictor;
 import com.facebook.presto.router.predictor.PredictorManager;
 import com.facebook.presto.router.predictor.RemoteQueryFactory;
+import com.facebook.presto.router.scheduler.SchedulerManager;
+import com.facebook.presto.server.PluginManagerConfig;
+import com.facebook.presto.server.ServerConfig;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.units.Duration;
@@ -52,19 +56,29 @@ public class RouterModule
     @Override
     protected void setup(Binder binder)
     {
+        ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+
         httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
 
+        binder.bind(SchedulerManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteInfoFactory.class).in(Scopes.SINGLETON);
 
         bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
         bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
 
+        // Determine the NodeVersion
+        NodeVersion nodeVersion = new NodeVersion(serverConfig.getPrestoVersion());
+        binder.bind(NodeVersion.class).toInstance(nodeVersion);
+
         binder.bind(ClusterStatusTracker.class).in(Scopes.SINGLETON);
 
         binder.bind(PredictorManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteQueryFactory.class).in(Scopes.SINGLETON);
+
+        binder.bind(RouterPluginManager.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(PluginManagerConfig.class);
 
         bindHttpClient(binder, QUERY_PREDICTOR, ForQueryCpuPredictor.class, IDLE_TIMEOUT_SECOND, PREDICTOR_REQUEST_TIMEOUT_SECOND);
         bindHttpClient(binder, QUERY_PREDICTOR, ForQueryMemoryPredictor.class, IDLE_TIMEOUT_SECOND, PREDICTOR_REQUEST_TIMEOUT_SECOND);
