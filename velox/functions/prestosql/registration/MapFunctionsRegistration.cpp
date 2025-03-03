@@ -21,7 +21,6 @@
 #include "velox/functions/prestosql/MapFunctions.h"
 #include "velox/functions/prestosql/MapKeysByTopNValues.h"
 #include "velox/functions/prestosql/MapNormalize.h"
-#include "velox/functions/prestosql/MapRemoveNullValues.h"
 #include "velox/functions/prestosql/MapSubset.h"
 #include "velox/functions/prestosql/MapTopN.h"
 #include "velox/functions/prestosql/MapTopNKeys.h"

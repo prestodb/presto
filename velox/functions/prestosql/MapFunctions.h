@@ -32,4 +32,21 @@ struct MapKeyExists {
   }
 };
 
+template <typename TExec>
+struct MapRemoveNullValues {
+  VELOX_DEFINE_FUNCTION_TYPES(TExec);
+
+  void call(
+      out_type<Map<Generic<T1>, Generic<T2>>>& out,
+      const arg_type<Map<Generic<T1>, Generic<T2>>>& inputMap) {
+    for (const auto& entry : inputMap) {
+      if (entry.second.has_value()) {
+        auto [keyWriter, valueWriter] = out.add_item();
+        keyWriter.copy_from(entry.first);
+        valueWriter.copy_from(entry.second.value());
+      }
+    }
+  }
+};
+
 } // namespace facebook::velox::functions
