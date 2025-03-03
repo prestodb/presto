@@ -154,7 +154,7 @@ public class SqlTaskManager
         infoCacheTime = config.getInfoMaxAge();
         clientTimeout = config.getClientTimeout();
 
-        DataSize maxBufferSize = config.getSinkMaxBufferSize();
+        long maxBufferSizeInBytes = config.getSinkMaxBufferSize().toBytes();
 
         taskNotificationExecutor = newFixedThreadPool(config.getTaskNotificationThreads(), threadsNamed("task-notification-%s"));
         taskNotificationExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) taskNotificationExecutor);
@@ -197,7 +197,7 @@ public class SqlTaskManager
                             finishedTaskStats.merge(sqlTask.getIoStats());
                             return null;
                         },
-                        maxBufferSize,
+                        maxBufferSizeInBytes,
                         failedTasks,
                         spoolingOutputBufferFactory)));
     }
@@ -444,14 +444,14 @@ public class SqlTaskManager
     }
 
     @Override
-    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(TaskId taskId, OutputBufferId bufferId, long startingSequenceId, long maxSizeInBytes)
     {
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
         checkArgument(startingSequenceId >= 0, "startingSequenceId is negative");
-        requireNonNull(maxSize, "maxSize is null");
+        requireNonNull(maxSizeInBytes, "maxSize is null");
 
-        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSize);
+        return tasks.getUnchecked(taskId).getTaskResults(bufferId, startingSequenceId, maxSizeInBytes);
     }
 
     public OutputBufferInfo getOutputBufferInfo(TaskId taskId)
