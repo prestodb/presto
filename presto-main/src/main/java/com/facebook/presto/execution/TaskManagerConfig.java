@@ -100,6 +100,19 @@ public class TaskManagerConfig
     private double highMemoryTaskKillerGCReclaimMemoryThreshold = 0.01;
     private Duration highMemoryTaskKillerFrequentFullGCDurationThreshold = new Duration(1, SECONDS);
     private double highMemoryTaskKillerHeapMemoryThreshold = 0.9;
+    private boolean enableEventLoop;
+
+    @Config("task.enable-event-loop")
+    public TaskManagerConfig setEventLoopEnabled(boolean enableEventLoop)
+    {
+        this.enableEventLoop = enableEventLoop;
+        return this;
+    }
+
+    public boolean isEventLoopEnabled()
+    {
+        return enableEventLoop;
+    }
 
     @MinDuration("1ms")
     @MaxDuration("10s")
