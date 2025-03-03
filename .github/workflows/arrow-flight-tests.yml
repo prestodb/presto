@@ -190,6 +190,5 @@ jobs:
       - name: DEBUG Native worker log
         if: always()
         run: |
-          ls -la /tmp
-          ls -la /tmp/TestArrowFlightNativeQueries
-          find /tmp/TestArrowFlightNativeQueries/worker* -type f -print0 | head -z -n 1 | xargs -0 cat
+          ls -la /tmp/TestArrowFlightNativeQueries/worker*
+          find /tmp/TestArrowFlightNativeQueries/worker*/worker*out -type f -print0 | head -z -n 4 | xargs -0 cat
