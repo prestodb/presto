@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -77,14 +76,15 @@ public class BroadcastOutputBuffer
     public BroadcastOutputBuffer(
             String taskInstanceId,
             StateMachine<BufferState> state,
-            DataSize maxBufferSize,
+            long maxBufferSizeInBytes,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.state = requireNonNull(state, "state is null");
+        checkArgument(maxBufferSizeInBytes > 0, "maxBufferSizeInBytes must be > 0");
         this.memoryManager = new OutputBufferMemoryManager(
-                requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
+                maxBufferSizeInBytes,
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.pageTracker = new LifespanSerializedPageTracker(memoryManager, Optional.of((lifespan, releasedPageCount, releasedSizeInBytes) -> {
@@ -258,13 +258,13 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, long maxSizeInBytes)
     {
         checkState(!Thread.holdsLock(this), "Can not get pages while holding a lock on this");
         requireNonNull(outputBufferId, "outputBufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxSizeInBytes > 0, "maxSize must be at least 1 byte");
 
-        return getBuffer(outputBufferId).getPages(startingSequenceId, maxSize);
+        return getBuffer(outputBufferId).getPages(startingSequenceId, maxSizeInBytes);
     }
 
     @Override

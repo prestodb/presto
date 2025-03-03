@@ -27,7 +27,6 @@ import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.net.URI;
@@ -65,19 +64,19 @@ public interface QueryExecution
 
     Duration getTotalCpuTime();
 
-    DataSize getRawInputDataSize();
+    long getRawInputDataSizeInBytes();
 
-    DataSize getWrittenIntermediateDataSize();
+    long getWrittenIntermediateDataSizeInBytes();
 
     long getOutputPositions();
 
-    DataSize getOutputDataSize();
+    long getOutputDataSizeInBytes();
 
     int getRunningTaskCount();
 
-    DataSize getUserMemoryReservation();
+    long getUserMemoryReservationInBytes();
 
-    DataSize getTotalMemoryReservation();
+    long getTotalMemoryReservationInBytes();
 
     VersionedMemoryPoolId getMemoryPool();
 
@@ -99,6 +98,7 @@ public interface QueryExecution
      * Add a listener for the final query info.  This notification is guaranteed to be fired only once.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor.
+     *
      * @param stateChangeListener The listener to add.
      */
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);

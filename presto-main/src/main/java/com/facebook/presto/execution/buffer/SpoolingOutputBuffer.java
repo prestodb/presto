@@ -35,7 +35,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.SliceInput;
-import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -85,7 +84,7 @@ public class SpoolingOutputBuffer
     private final StateMachine<BufferState> state;
     private final TempDataOperationContext tempDataOperationContext;
     private final TempStorage tempStorage;
-    private final DataSize threshold;
+    private final long thresholdInBytes;
     private final FinalizerService finalizerService;
     private final ListeningExecutorService executor;
 
@@ -124,7 +123,7 @@ public class SpoolingOutputBuffer
             OutputBuffers outputBuffers,
             StateMachine<BufferState> state,
             TempStorage tempStorage,
-            DataSize threshold,
+            long thresholdInBytes,
             ListeningExecutorService executor,
             FinalizerService finalizerService)
     {
@@ -133,7 +132,8 @@ public class SpoolingOutputBuffer
         this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
         this.state = requireNonNull(state, "state is null");
         this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
-        this.threshold = requireNonNull(threshold, "threshold is null");
+        checkArgument(thresholdInBytes >= 0, "thresholdInBytes must be >= 0");
+        this.thresholdInBytes = thresholdInBytes;
         this.executor = requireNonNull(executor, "executor is null");
         this.finalizerService = requireNonNull(finalizerService, "finalizerService is null");
         this.finalizerService.addFinalizer(this, this::close);
@@ -167,13 +167,13 @@ public class SpoolingOutputBuffer
     @Override
     public double getUtilization()
     {
-        return totalInMemoryBytes.get() / (double) threshold.toBytes();
+        return totalInMemoryBytes.get() / (double) thresholdInBytes;
     }
 
     @Override
     public boolean isOverutilized()
     {
-        return totalInMemoryBytes.get() > threshold.toBytes();
+        return totalInMemoryBytes.get() > thresholdInBytes;
     }
 
     @Override
@@ -232,7 +232,7 @@ public class SpoolingOutputBuffer
             totalPagesRemaining.addAndGet(pagesAdded);
             peakMemoryUsage.accumulateAndGet(totalInMemoryBytes.get(), Math::max);
 
-            if (totalInMemoryBytes.get() >= threshold.toBytes()) {
+            if (totalInMemoryBytes.get() >= thresholdInBytes) {
                 flush();
             }
 
@@ -288,11 +288,11 @@ public class SpoolingOutputBuffer
     }
 
     @Override
-    public synchronized ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startSequenceId, DataSize maxSize)
+    public synchronized ListenableFuture<BufferResult> get(OutputBufferId bufferId, long startSequenceId, long maxSizeInBytes)
     {
         requireNonNull(bufferId, "outputBufferId is null");
         checkArgument(bufferId.getId() == outputBufferId.getId(), "Invalid buffer id");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxSizeInBytes > 0, "maxSize must be at least 1 byte");
 
         acknowledge(bufferId, startSequenceId);
 
@@ -300,12 +300,12 @@ public class SpoolingOutputBuffer
 
         // process the request if we have no more data coming in, have data to read, or if this is an outdated request
         if (noMorePages.get() || !handleInfoQueue.isEmpty() || !pages.isEmpty() || currentSequenceId != startSequenceId) {
-            return processRead(startSequenceId, maxSize);
+            return processRead(startSequenceId, maxSizeInBytes);
         }
 
         // creating a pending read, and abort the previous one
         PendingRead oldPendingRead = pendingRead;
-        pendingRead = new PendingRead(taskInstanceId, currentSequenceId, maxSize);
+        pendingRead = new PendingRead(taskInstanceId, currentSequenceId, maxSizeInBytes);
 
         if (oldPendingRead != null) {
             oldPendingRead.completeResultFutureWithEmpty();
@@ -320,11 +320,11 @@ public class SpoolingOutputBuffer
             return;
         }
 
-        ListenableFuture<BufferResult> resultFuture = processRead(pendingRead.getStartSequenceId(), pendingRead.getMaxSize());
+        ListenableFuture<BufferResult> resultFuture = processRead(pendingRead.getStartSequenceId(), pendingRead.getMaxSizeInBytes());
         pendingRead.setResultFuture(resultFuture);
     }
 
-    private synchronized ListenableFuture<BufferResult> processRead(long startSequenceId, DataSize maxSize)
+    private synchronized ListenableFuture<BufferResult> processRead(long startSequenceId, long maxSizeInBytes)
     {
         long currentSequenceId = this.currentSequenceId.get();
 
@@ -345,8 +345,7 @@ public class SpoolingOutputBuffer
         List<HandleInfo> handleInfos = ImmutableList.copyOf(handleInfoQueue);
         List<SerializedPage> pages = ImmutableList.copyOf(this.pages);
 
-        GetTracker getTracker = new GetTracker(maxSize, handleInfos, pages, toIntExact(startPage.get()));
-        long maxBytes = maxSize.toBytes();
+        GetTracker getTracker = new GetTracker(maxSizeInBytes, handleInfos, pages, toIntExact(startPage.get()));
 
         // read pages
         ListenableFuture<List<SerializedPage>> storagePages = getPagesFromStorage(startSequenceId, getTracker);
@@ -354,7 +353,7 @@ public class SpoolingOutputBuffer
             long pageCount = getTracker.getPageCount();
             long bytes = getTracker.getBytes();
             long startMemorySequenceId = startSequenceId + pageCount;
-            if (startMemorySequenceId == currentMemorySequenceId.get() && (bytes < maxBytes || input.isEmpty())) {
+            if (startMemorySequenceId == currentMemorySequenceId.get() && (bytes < maxSizeInBytes || input.isEmpty())) {
                 ImmutableList.Builder<SerializedPage> combinedPages = ImmutableList.builder();
                 combinedPages.addAll(input);
                 combinedPages.addAll(getPagesFromMemory(startMemorySequenceId, getTracker));
@@ -388,7 +387,7 @@ public class SpoolingOutputBuffer
 
     private ListenableFuture<List<SerializedPage>> getPagesFromStorage(ImmutableList.Builder<SerializedPage> resultBuilder, Iterator<HandleInfo> handleIterator, TempStorageHandle handle, GetTracker getTracker)
     {
-        long maxBytes = getTracker.getMaxSize().toBytes();
+        long maxBytes = getTracker.getMaxSizeInBytes();
         long bytes = getTracker.getBytes();
         long pageCount = getTracker.getPageCount();
 
@@ -424,11 +423,11 @@ public class SpoolingOutputBuffer
     private List<SerializedPage> getPagesFromMemory(long startSequenceId, GetTracker getTracker)
     {
         checkArgument(startSequenceId == currentMemorySequenceId.get(), "Invalid startSequenceId for memory pages");
-        checkArgument(getTracker.bytes < getTracker.maxSize.toBytes(), "bytesRead is greater than maxSize");
+        checkArgument(getTracker.bytes < getTracker.maxSizeInBytes, "bytesRead is greater than maxSize");
 
         ImmutableList.Builder<SerializedPage> result = ImmutableList.builder();
         List<SerializedPage> pages = getTracker.getMemoryPages();
-        long maxBytes = getTracker.maxSize.toBytes();
+        long maxBytes = getTracker.maxSizeInBytes;
         long bytes = 0;
         long pageCount = 0;
 
@@ -681,14 +680,15 @@ public class SpoolingOutputBuffer
     {
         private final String taskInstanceId;
         private final long startSequenceId;
-        private final DataSize maxSize;
+        private final long maxSizeInBytes;
         private final SettableFuture<BufferResult> resultFuture = SettableFuture.create();
 
-        private PendingRead(String taskInstanceId, long startSequenceId, DataSize maxSize)
+        private PendingRead(String taskInstanceId, long startSequenceId, long maxSizeInBytes)
         {
             this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
             this.startSequenceId = startSequenceId;
-            this.maxSize = requireNonNull(maxSize, "maxSize is null");
+            checkArgument(maxSizeInBytes > 0, "maxSizeInBytes must be at least 1 byte");
+            this.maxSizeInBytes = maxSizeInBytes;
         }
 
         public long getStartSequenceId()
@@ -696,9 +696,9 @@ public class SpoolingOutputBuffer
             return startSequenceId;
         }
 
-        public DataSize getMaxSize()
+        public long getMaxSizeInBytes()
         {
-            return maxSize;
+            return maxSizeInBytes;
         }
 
         public ListenableFuture<BufferResult> getResultFuture()
@@ -723,13 +723,14 @@ public class SpoolingOutputBuffer
         private long bytes;
         private long pageCount;
 
-        private final DataSize maxSize;
+        private final long maxSizeInBytes;
         private final List<SerializedPage> pages;
         private final List<HandleInfo> handleInfos;
 
-        private GetTracker(DataSize maxSize, List<HandleInfo> handleInfos, List<SerializedPage> pages, int startPage)
+        private GetTracker(long maxSizeInBytes, List<HandleInfo> handleInfos, List<SerializedPage> pages, int startPage)
         {
-            this.maxSize = requireNonNull(maxSize, "maxSize is null");
+            checkArgument(maxSizeInBytes > 0, "maxSizeInBytes must be at least 1 byte");
+            this.maxSizeInBytes = maxSizeInBytes;
             this.handleInfos = requireNonNull(handleInfos, "handleInfos is null");
             this.pages = requireNonNull(pages, "pages is null");
             this.startPage = startPage;
@@ -742,9 +743,9 @@ public class SpoolingOutputBuffer
             startPage = 0;
         }
 
-        private DataSize getMaxSize()
+        private long getMaxSizeInBytes()
         {
-            return maxSize;
+            return maxSizeInBytes;
         }
 
         private int getStartPage()

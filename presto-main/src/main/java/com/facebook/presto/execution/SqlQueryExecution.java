@@ -64,7 +64,6 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -105,8 +104,6 @@ import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -288,10 +285,10 @@ public class SqlQueryExecution
     /**
      * If query has not started executing, return 0
      * If the query is executing, gets the size of the current user memory consumed by the query
-     * If the query has finished executing, gets the value of the final query info's {@link QueryStats#getUserMemoryReservation()}
+     * If the query has finished executing, gets the value of the final query info's {@link QueryStats#getUserMemoryReservationInBytes()}
      */
     @Override
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservationInBytes()
     {
         // acquire reference to scheduler before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears scheduler when
@@ -299,19 +296,19 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getUserMemoryReservation();
+            return finalQueryInfo.get().getQueryStats().getUserMemoryReservationInBytes();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return 0L;
         }
-        return succinctBytes(scheduler.getUserMemoryReservation());
+        return scheduler.getUserMemoryReservation();
     }
 
     /**
      * Gets the current total memory reserved for this query
      */
     @Override
-    public DataSize getTotalMemoryReservation()
+    public long getTotalMemoryReservationInBytes()
     {
         // acquire reference to scheduler before checking finalQueryInfo, because
         // state change listener sets finalQueryInfo and then clears scheduler when
@@ -319,12 +316,12 @@ public class SqlQueryExecution
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getTotalMemoryReservation();
+            return finalQueryInfo.get().getQueryStats().getTotalMemoryReservationInBytes();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return 0L;
         }
-        return succinctBytes(scheduler.getTotalMemoryReservation());
+        return scheduler.getTotalMemoryReservation();
     }
 
     /**
@@ -380,31 +377,31 @@ public class SqlQueryExecution
     }
 
     @Override
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSizeInBytes()
     {
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getRawInputDataSize();
+            return finalQueryInfo.get().getQueryStats().getRawInputDataSizeInBytes();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return 0L;
         }
-        return scheduler.getRawInputDataSize();
+        return scheduler.getRawInputDataSizeInBytes();
     }
 
     @Override
-    public DataSize getWrittenIntermediateDataSize()
+    public long getWrittenIntermediateDataSizeInBytes()
     {
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getWrittenIntermediatePhysicalDataSize();
+            return finalQueryInfo.get().getQueryStats().getWrittenIntermediatePhysicalDataSizeInBytes();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return 0L;
         }
-        return scheduler.getWrittenIntermediateDataSize();
+        return scheduler.getWrittenIntermediateDataSizeInBytes();
     }
 
     @Override
@@ -422,17 +419,17 @@ public class SqlQueryExecution
     }
 
     @Override
-    public DataSize getOutputDataSize()
+    public long getOutputDataSizeInBytes()
     {
         SqlQuerySchedulerInterface scheduler = queryScheduler.get();
         Optional<QueryInfo> finalQueryInfo = stateMachine.getFinalQueryInfo();
         if (finalQueryInfo.isPresent()) {
-            return finalQueryInfo.get().getQueryStats().getOutputDataSize();
+            return finalQueryInfo.get().getQueryStats().getOutputDataSizeInBytes();
         }
         if (scheduler == null) {
-            return new DataSize(0, BYTE);
+            return 0L;
         }
-        return scheduler.getOutputDataSize();
+        return scheduler.getOutputDataSizeInBytes();
     }
 
     @Override
