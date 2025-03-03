@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Objects;
 
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 public class PinotColumnMetadata
         extends ColumnMetadata
@@ -30,7 +29,13 @@ public class PinotColumnMetadata
 
     public PinotColumnMetadata(String name, Type type, boolean inNullable, String comment)
     {
-        super(requireNonNull(name, "name is null"), requireNonNull(type, "type is null"), inNullable, comment, null, false, ImmutableMap.of());
+        super(ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setNullable(inNullable)
+                .setComment(comment)
+                .setHidden(false)
+                .setProperties(ImmutableMap.of()));
         this.name = name;
     }
 

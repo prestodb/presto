@@ -41,9 +41,11 @@ import com.google.common.collect.Lists;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.facebook.presto.spi.security.PrincipalType.ROLE;
 import static com.facebook.presto.spi.security.PrincipalType.USER;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SCHEMA_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
@@ -90,6 +92,21 @@ public final class MetadataUtil
         return new SchemaTableName(qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName());
     }
 
+    public static SchemaTableName toSchemaTableName(String schemaName, String tableName)
+    {
+        if (schemaName.equalsIgnoreCase(INFORMATION_SCHEMA)) {
+            return new SchemaTableName(schemaName.toLowerCase(ENGLISH), tableName.toLowerCase(ENGLISH));
+        }
+        return new SchemaTableName(schemaName, tableName);
+    }
+
+    public static SchemaTableName toSchemaTableName(QualifiedObjectName qualifiedObjectName, Metadata metadata, Session session)
+    {
+        String schemaName = metadata.normalizeIdentifier(session, qualifiedObjectName.getLegacyCatalogName(), qualifiedObjectName.getSchemaName(), identifier(qualifiedObjectName.getSchemaName()).isDelimited());
+        String tableName = metadata.normalizeIdentifier(session, qualifiedObjectName.getLegacyCatalogName(), qualifiedObjectName.getObjectName(), identifier(qualifiedObjectName.getObjectName()).isDelimited());
+        return toSchemaTableName(schemaName, tableName);
+    }
+
     public static ConnectorId getConnectorIdOrThrow(Session session, Metadata metadata, String catalogName)
     {
         return metadata.getCatalogHandle(session, catalogName)
@@ -132,7 +149,7 @@ public final class MetadataUtil
         return sessionCatalog.get();
     }
 
-    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
+    public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema, Metadata metadata)
     {
         String catalogName = session.getCatalog().orElse(null);
         String schemaName = session.getSchema().orElse(null);
@@ -143,9 +160,12 @@ public final class MetadataUtil
                 throw new SemanticException(INVALID_SCHEMA_NAME, node, "Too many parts in schema name: %s", schema.get());
             }
             if (parts.size() == 2) {
-                catalogName = parts.get(0);
+                catalogName = parts.get(0).toLowerCase(ENGLISH);
             }
-            schemaName = schema.get().getSuffix();
+            if (catalogName == null) {
+                throw new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set");
+            }
+            schemaName = metadata.normalizeIdentifier(session, catalogName, schema.get().getOriginalSuffix(), identifier(schema.get().getOriginalSuffix()).isDelimited());
         }
 
         if (catalogName == null) {
@@ -158,7 +178,7 @@ public final class MetadataUtil
         return new CatalogSchemaName(catalogName, schemaName);
     }
 
-    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
+    public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name, Metadata metadata)
     {
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
@@ -166,12 +186,15 @@ public final class MetadataUtil
             throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
-        List<String> parts = Lists.reverse(name.getParts());
+        List<String> parts = Lists.reverse(name.getOriginalParts());
         String objectName = parts.get(0);
         String schemaName = (parts.size() > 1) ? parts.get(1) : session.getSchema().orElseThrow(() ->
                 new SemanticException(SCHEMA_NOT_SPECIFIED, node, "Schema must be specified when session schema is not set"));
         String catalogName = (parts.size() > 2) ? parts.get(2) : session.getCatalog().orElseThrow(() ->
                 new SemanticException(CATALOG_NOT_SPECIFIED, node, "Catalog must be specified when session catalog is not set"));
+
+        schemaName = metadata.normalizeIdentifier(session, catalogName, schemaName, identifier(schemaName).isDelimited());
+        objectName = metadata.normalizeIdentifier(session, catalogName, objectName, identifier(objectName).isDelimited());
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
@@ -190,16 +213,19 @@ public final class MetadataUtil
     {
         requireNonNull(table, "table is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, table.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, table.getLegacyCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
 
             ConnectorTableHandle tableHandle;
+            String schemaName = metadata.normalizeIdentifier(session.toConnectorSession(connectorId), table.getSchemaName(), identifier(table.getSchemaName()).isDelimited());
+            String tableName = metadata.normalizeIdentifier(session.toConnectorSession(connectorId), table.getObjectName(), identifier(table.getObjectName()).isDelimited());
+
             tableHandle = tableVersion
-                    .map(expression -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table), Optional.of(expression)))
-                    .orElseGet(() -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table)));
+                    .map(expression -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(schemaName, tableName), Optional.of(expression)))
+                    .orElseGet(() -> metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(schemaName, tableName)));
             if (tableHandle != null) {
                 return Optional.of(new TableHandle(
                         connectorId,
@@ -301,7 +327,9 @@ public final class MetadataUtil
 
         public TableMetadataBuilder column(String columnName, Type type)
         {
-            columns.add(new ColumnMetadata(columnName, type));
+            columns.add(ColumnMetadata.builder()
+                    .setName(columnName)
+                    .setType(type).build());
             return this;
         }
 

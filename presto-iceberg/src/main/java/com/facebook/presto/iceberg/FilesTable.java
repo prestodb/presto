@@ -72,32 +72,32 @@ public class FilesTable
 
         tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("content", INTEGER))
-                        .add(new ColumnMetadata("file_path", VARCHAR))
-                        .add(new ColumnMetadata("file_format", VARCHAR))
-                        .add(new ColumnMetadata("record_count", BIGINT))
-                        .add(new ColumnMetadata("file_size_in_bytes", BIGINT))
-                        .add(new ColumnMetadata("column_sizes", typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                        .add(ColumnMetadata.builder().setName("content").setType(INTEGER).build())
+                        .add(ColumnMetadata.builder().setName("file_path").setType(VARCHAR).build())
+                        .add(ColumnMetadata.builder().setName("file_format").setType(VARCHAR).build())
+                        .add(ColumnMetadata.builder().setName("record_count").setType(BIGINT).build())
+                        .add(ColumnMetadata.builder().setName("file_size_in_bytes").setType(BIGINT).build())
+                        .add(ColumnMetadata.builder().setName("column_sizes").setType(typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                                 TypeSignatureParameter.of(INTEGER.getTypeSignature()),
-                                TypeSignatureParameter.of(BIGINT.getTypeSignature())))))
-                        .add(new ColumnMetadata("value_counts", typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                                TypeSignatureParameter.of(BIGINT.getTypeSignature())))).build())
+                        .add(ColumnMetadata.builder().setName("value_counts").setType(typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                                 TypeSignatureParameter.of(INTEGER.getTypeSignature()),
-                                TypeSignatureParameter.of(BIGINT.getTypeSignature())))))
-                        .add(new ColumnMetadata("null_value_counts", typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                                TypeSignatureParameter.of(BIGINT.getTypeSignature())))).build())
+                        .add(ColumnMetadata.builder().setName("null_value_counts").setType(typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                                 TypeSignatureParameter.of(INTEGER.getTypeSignature()),
-                                TypeSignatureParameter.of(BIGINT.getTypeSignature())))))
-                        .add(new ColumnMetadata("nan_value_counts", typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                                TypeSignatureParameter.of(BIGINT.getTypeSignature())))).build())
+                        .add(ColumnMetadata.builder().setName("nan_value_counts").setType(typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                                 TypeSignatureParameter.of(INTEGER.getTypeSignature()),
-                                TypeSignatureParameter.of(BIGINT.getTypeSignature())))))
-                        .add(new ColumnMetadata("lower_bounds", typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                                TypeSignatureParameter.of(BIGINT.getTypeSignature())))).build())
+                        .add(ColumnMetadata.builder().setName("lower_bounds").setType(typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                                 TypeSignatureParameter.of(INTEGER.getTypeSignature()),
-                                TypeSignatureParameter.of(VARCHAR.getTypeSignature())))))
-                        .add(new ColumnMetadata("upper_bounds", typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                                TypeSignatureParameter.of(VARCHAR.getTypeSignature())))).build())
+                        .add(ColumnMetadata.builder().setName("upper_bounds").setType(typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                                 TypeSignatureParameter.of(INTEGER.getTypeSignature()),
-                                TypeSignatureParameter.of(VARCHAR.getTypeSignature())))))
-                        .add(new ColumnMetadata("key_metadata", VARBINARY))
-                        .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
-                        .add(new ColumnMetadata("equality_ids", new ArrayType(INTEGER)))
+                                TypeSignatureParameter.of(VARCHAR.getTypeSignature())))).build())
+                        .add(ColumnMetadata.builder().setName("key_metadata").setType(VARBINARY).build())
+                        .add(ColumnMetadata.builder().setName("split_offsets").setType(new ArrayType(BIGINT)).build())
+                        .add(ColumnMetadata.builder().setName("equality_ids").setType(new ArrayType(INTEGER)).build())
                         .build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
     }

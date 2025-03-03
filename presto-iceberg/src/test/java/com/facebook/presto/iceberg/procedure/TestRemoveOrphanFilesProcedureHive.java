@@ -74,7 +74,8 @@ public class TestRemoveOrphanFilesProcedureHive
                 session.getUser(),
                 targetPath);
         TableMetadata metadata = newTableMetadata(
-                toIcebergSchema(ImmutableList.of(new ColumnMetadata("a", INTEGER), new ColumnMetadata("b", VARCHAR))),
+                toIcebergSchema(ImmutableList.of(ColumnMetadata.builder().setName("a").setType(INTEGER).build(),
+                        ColumnMetadata.builder().setName("b").setType(VARCHAR).build())),
                 PartitionSpec.unpartitioned(), targetPath,
                 tableProperties);
         Transaction transaction = createTableTransaction(tableName, operations, metadata);
@@ -85,6 +86,7 @@ public class TestRemoveOrphanFilesProcedureHive
     @Override
     Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName);
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
         ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
 
