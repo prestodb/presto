@@ -88,6 +88,47 @@ public class TestJsonExtractFunctions
     }
 
     @Test
+    public void testExtractJsonWithCanonicalOutput()
+    {
+        // Test with simple JSON object
+        String json = "{\"key_2\": 2, \"key_3\": 3, \"key_1\": 1}";
+        String path = "$";
+        String expected = "{\"key_1\":1,\"key_2\":2,\"key_3\":3}";
+        assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, expected);
+
+        // Test with nested JSON object
+        json = "{\"key_1\": {\"nested_key_2\": \"value_2\", \"nested_key_1\": \"value_1\"}, \"key_2\": 2}";
+        path = "$.key_1";
+        expected = "{\"nested_key_1\":\"value_1\",\"nested_key_2\":\"value_2\"}";
+        assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, expected);
+
+        // Test with Array of JSON objects
+        json = "[{\"key_b\":\"v_b\",\"key_a\":\"v_a\"}, {\"key_2\": \"value_2\"}]";
+        path = "$[0]";
+        expected = "{\"key_a\":\"v_a\",\"key_b\":\"v_b\"}";
+        assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, expected);
+    }
+
+    @Test
+    public void testParseNullIfJsonInvalid()
+    {
+        // Unbalanced quotes
+        String json = "{ \"key_2\": 2, \"key_1\": \"z\"a1\" }";
+        String path = "$.key_1";
+        assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, null);
+
+        // Missing colon
+        json = "{ \"key_2\" 2, \"key_1\": \"value_1\" }";
+        path = "$.key_2";
+        assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, null);
+
+        // Extra comma
+        json = "{ \"key_2\": 2, \"key_1\": \"value_1\", }";
+        path = "$.key_1";
+        assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, null);
+    }
+
+    @Test
     public void testJsonSize()
     {
         // simple expressions (should run on Presto engine)
