@@ -30,9 +30,9 @@ import com.facebook.presto.common.type.Type;
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.hive.common.type.HiveChar;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.lazy.LazyDate;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
@@ -279,8 +279,8 @@ public final class SerDeUtils
         if (object instanceof LazyDate) {
             return ((LazyDate) object).getWritableObject().getDays();
         }
-        if (object instanceof DateWritable) {
-            return ((DateWritable) object).getDays();
+        if (object instanceof DateWritableV2) {
+            return ((DateWritableV2) object).getDays();
         }
 
         // Hive will return java.sql.Date at midnight in JVM time zone
@@ -306,8 +306,8 @@ public final class SerDeUtils
     private static Timestamp getTimestamp(Object object, TimestampObjectInspector inspector)
     {
         // handle broken ObjectInspectors
-        if (object instanceof TimestampWritable) {
-            return ((TimestampWritable) object).getTimestamp();
+        if (object instanceof TimestampWritableV2) {
+            return ((TimestampWritableV2) object).getTimestamp().toSqlTimestamp();
         }
         return inspector.getPrimitiveJavaObject(object).toSqlTimestamp();
     }

@@ -64,8 +64,10 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile;
 import org.apache.hadoop.hive.ql.io.orc.OrcFile.ReaderOptions;
@@ -75,11 +77,11 @@ import org.apache.hadoop.hive.ql.io.orc.OrcStruct;
 import org.apache.hadoop.hive.ql.io.orc.OrcUtil;
 import org.apache.hadoop.hive.ql.io.orc.Reader;
 import org.apache.hadoop.hive.serde2.Serializer;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
@@ -107,8 +109,6 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -2051,8 +2051,8 @@ public class OrcTester
         else if (actualValue instanceof BytesWritable) {
             actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
         }
-        else if (actualValue instanceof DateWritable) {
-            actualValue = new SqlDate(((DateWritable) actualValue).getDays());
+        else if (actualValue instanceof DateWritableV2) {
+            actualValue = new SqlDate(((DateWritableV2) actualValue).getDays());
         }
         else if (actualValue instanceof DoubleWritable) {
             actualValue = ((DoubleWritable) actualValue).get();
@@ -2082,8 +2082,8 @@ public class OrcTester
         else if (actualValue instanceof Text) {
             actualValue = actualValue.toString();
         }
-        else if (actualValue instanceof TimestampWritable) {
-            TimestampWritable timestamp = (TimestampWritable) actualValue;
+        else if (actualValue instanceof TimestampWritableV2) {
+            TimestampWritableV2 timestamp = (TimestampWritableV2) actualValue;
             actualValue = sqlTimestampOf((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), SESSION);
         }
         else if (actualValue instanceof OrcStruct) {
@@ -2306,14 +2306,14 @@ public class OrcTester
             ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
 
             long millis = SECONDS.toMillis(zonedDateTime.toEpochSecond());
-            Date date = new Date(0);
+            Date date = new Date();
             // millis must be set separately to avoid masking
-            date.setTime(millis);
+            date.setTimeInMillis(millis);
             return date;
         }
         else if (type.equals(TIMESTAMP)) {
             long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
-            return new Timestamp(millisUtc);
+            return Timestamp.ofEpochMilli(millisUtc);
         }
         else if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
