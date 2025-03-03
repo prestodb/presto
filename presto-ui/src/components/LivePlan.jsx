@@ -98,18 +98,18 @@ export class StageStatistics extends React.Component<StageStatisticsProps, Stage
                     {stage.state}
                     <hr/>
                     CPU: {stats.totalCpuTime}<br />
-                    Buffered: {stats.bufferedDataSize}<br />
+                    Buffered: {stats.bufferedDataSizeInBytes}<br />
                     {stats.fullyBlocked ?
                         <div style={{color: '#ff0000'}}>Blocked: {stats.totalBlockedTime} </div> :
                         <div>Blocked: {stats.totalBlockedTime} </div>
                     }
-                    Memory: {stats.userMemoryReservation}
+                    Memory: {stats.userMemoryReservationInBytes}
                     <br/>
                     Splits: {"Q:" + stats.queuedDrivers + ", R:" + stats.runningDrivers + ", F:" + stats.completedDrivers}
                     <br/>
                     Lifespans: {stats.completedLifespans + " / " + stats.totalLifespans}
                     <hr/>
-                    Input: {stats.rawInputDataSize + " / " + formatRows(stats.rawInputPositions)}
+                    Input: {stats.rawInputDataSizeInBytes + " / " + formatRows(stats.rawInputPositions)}
                 </div>
             </div>
         );
@@ -250,7 +250,7 @@ export class LivePlan extends React.Component<LivePlanProps, LivePlanState> {
                                 class: "plan-edge",
                                 style: "stroke-width: 4px",
                                 arrowheadClass: "plan-arrowhead",
-                                label: sourceStats.outputDataSize + " / " + formatRows(sourceStats.outputPositions),
+                                label: sourceStats.outputDataSizeInBytes + " / " + formatRows(sourceStats.outputPositions),
                                 labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                                 labelType: "html",
                         });
