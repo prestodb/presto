@@ -38,7 +38,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.walkFileTree;
 
 // This is a hack for development and does not support nested classes.
-final class PluginDiscovery
+public final class PluginDiscovery
 {
     private static final String CLASS_FILE_SUFFIX = ".class";
 
