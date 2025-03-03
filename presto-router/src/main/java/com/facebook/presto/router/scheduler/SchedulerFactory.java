@@ -38,6 +38,8 @@ public class SchedulerFactory
                 return new UserHashScheduler();
             case ROUND_ROBIN:
                 return new RoundRobinScheduler();
+            case WEIGHTED_ROUND_ROBIN:
+                return new WeightedRoundRobinScheduler();
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported router scheduler type " + schedulerType);
     }

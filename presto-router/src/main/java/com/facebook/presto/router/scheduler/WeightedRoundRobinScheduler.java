@@ -13,12 +13,11 @@
  */
 package com.facebook.presto.router.scheduler;
 
-import com.facebook.airlift.log.Logger;
-
 import java.net.URI;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -38,23 +37,32 @@ public class WeightedRoundRobinScheduler
     private HashMap<URI, Integer> weights;
     private List<URI> serverList;
 
-    private static Integer serverIndex = 0;
-    private static final Logger log = Logger.get(WeightedRoundRobinScheduler.class);
+    private final Map<String, Integer> candidateIndexByGroup = new HashMap<>();
+    private String candidateGroupName;
 
     @Override
     public Optional<URI> getDestination(String user)
     {
+        int serverIndex = 0;
+
         checkArgument(candidates.size() == weights.size());
 
-        if (serverList == null) {
+        if (serverList == null || weights.values().stream().mapToInt(Integer::intValue).sum() != serverList.size()) {
             this.generateServerList();
         }
 
-        synchronized (serverIndex) {
+        synchronized (candidateIndexByGroup) {
+            if (!candidateIndexByGroup.containsKey(candidateGroupName)) {
+                candidateIndexByGroup.put(candidateGroupName, 0);
+            }
+            else {
+                serverIndex = candidateIndexByGroup.get(candidateGroupName) + 1;
+            }
             if (serverIndex >= serverList.size()) {
                 serverIndex = 0;
             }
-            return Optional.of(serverList.get(serverIndex++));
+            candidateIndexByGroup.put(candidateGroupName, serverIndex);
+            return Optional.of(serverList.get(serverIndex));
         }
     }
 
@@ -76,9 +84,7 @@ public class WeightedRoundRobinScheduler
     {
         // Only keeps the first given `weights` due to maintaining the
         // selected index for weighted round-robin.
-        if (this.weights == null) {
-            this.weights = weights;
-        }
+        this.weights = weights;
     }
 
     public HashMap<URI, Integer> getWeights()
@@ -88,11 +94,17 @@ public class WeightedRoundRobinScheduler
 
     private void generateServerList()
     {
-        checkArgument(candidates.size() > 0, "Server candidates should not be empty");
+        checkArgument(!candidates.isEmpty(), "Server candidates should not be empty");
 
         serverList = weights.keySet().stream()
                 .map(uri -> nCopies(weights.get(uri), uri))
                 .flatMap(Collection::stream)
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public void setCandidateGroupName(String candidateGroupName)
+    {
+        this.candidateGroupName = candidateGroupName;
     }
 }
