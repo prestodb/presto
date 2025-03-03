@@ -271,11 +271,11 @@ final class ShowQueriesRewrite
                         session.getRequiredTransactionId(),
                         session.getIdentity(),
                         session.getAccessControlContext(),
-                        new CatalogSchemaName(catalogName, qualifiedTableName.getLegacySchemaName()));
+                        new CatalogSchemaName(catalogName, qualifiedTableName.getSchemaName()));
 
                 predicate = Optional.of(combineConjuncts(
                         equal(identifier("table_schema"), new StringLiteral(qualifiedTableName.getSchemaName())),
-                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getLegacyObjectName()))));
+                        equal(identifier("table_name"), new StringLiteral(qualifiedTableName.getObjectName()))));
             }
             else {
                 if (catalogName == null) {
