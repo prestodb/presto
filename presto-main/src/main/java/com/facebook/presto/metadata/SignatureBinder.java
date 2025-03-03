@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.UnknownTypeException;
 import com.facebook.presto.common.type.FunctionType;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.ParameterKind;
@@ -532,7 +533,12 @@ public class SignatureBinder
     private boolean satisfiesCoercion(boolean allowCoercion, Type fromType, TypeSignature toTypeSignature)
     {
         if (allowCoercion) {
-            return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getType(toTypeSignature));
+            try {
+                return functionAndTypeManager.canCoerce(fromType, functionAndTypeManager.getType(toTypeSignature));
+            }
+            catch (UnknownTypeException e) {
+                return false;
+            }
         }
         else if (fromType.getTypeSignature().equals(toTypeSignature)) {
             return true;
