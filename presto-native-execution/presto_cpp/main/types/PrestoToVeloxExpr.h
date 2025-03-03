@@ -62,6 +62,13 @@ class VeloxExprConverter {
   std::optional<velox::core::TypedExprPtr> tryConvertDate(
       const protocol::CallExpression& pexpr) const;
 
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  velox::core::TypedExprPtr registerRestRemoteFunction(
+      const protocol::RestFunctionHandle& restFunctionHandle,
+      const std::vector<velox::core::TypedExprPtr>& args,
+      const velox::TypePtr& returnType) const;
+#endif
+
   velox::memory::MemoryPool* const pool_;
   TypeParser* const typeParser_;
 };
