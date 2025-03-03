@@ -113,8 +113,8 @@ type QueryStats = {
     totalCpuTime: string;
     cumulativeUserMemory: number;
     cumulativeTotalMemory: number;
-    userMemoryReservation: string;
-    peakUserMemoryReservation: string;
+    userMemoryReservationInBytes: number;
+    peakUserMemoryReservationInBytes: number;
     runtimeStats: RuntimeStats;
     elapsedTime: string;
     createTime: string;
@@ -124,18 +124,18 @@ type QueryStats = {
     totalPlanningTime: string;
     executionTime: string;
     processedInputPositions: number;
-    processedInputDataSize: string;
+    processedInputDataSizeInBytes: number;
     rawInputPositions: number;
-    rawInputDataSize: string;
+    rawInputDataSizeInBytes: number;
     shuffledPositions: number;
-    shuffledDataSize: string;
-    peakTotalMemoryReservation: string;
+    shuffledDataSizeInBytes: number;
+    peakTotalMemoryReservationInBytes: number;
     outputPositions: number;
-    outputDataSize: string;
+    outputDataSizeInBytes: number;
     writtenOutputPositions: number;
-    writtenOutputLogicalDataSize: string;
-    writtenOutputPhysicalDataSize: string;
-    spilledDataSize: string;
+    writtenOutputLogicalDataSizeInBytes: number;
+    writtenOutputPhysicalDataSizeInBytes: number;
+    spilledDataSizeInBytes: number;
 }
 
 type FailureInfo = {
@@ -745,7 +745,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                                 Current
                                             </td>
                                             <td className="stage-table-stat-text">
-                                                {prestoStage.latestAttemptExecutionInfo.stats.userMemoryReservation}
+                                                {formatDataSize(prestoStage.latestAttemptExecutionInfo.stats.userMemoryReservationInBytes)}
                                             </td>
                                         </tr>
                                         <tr>
@@ -761,7 +761,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                                 Peak
                                             </td>
                                             <td className="stage-table-stat-text">
-                                                {prestoStage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}
+                                                {formatDataSize(prestoStage.latestAttemptExecutionInfo.stats.peakUserMemoryReservationInBytes)}
                                             </td>
                                         </tr>
                                     </tbody>
@@ -1438,7 +1438,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Input Data
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.processedInputDataSize}
+                                            {formatDataSize(data.queryStats.processedInputDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1454,7 +1454,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Raw Input Data
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.rawInputDataSize}
+                                            {formatDataSize(data.queryStats.rawInputDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1474,7 +1474,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             </span>
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.shuffledDataSize}
+                                            {formatDataSize(data.queryStats.shuffledDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1482,7 +1482,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Peak User Memory
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.peakUserMemoryReservation}
+                                            {formatDataSize(data.queryStats.peakUserMemoryReservationInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1490,7 +1490,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Peak Total Memory
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.peakTotalMemoryReservation}
+                                            {formatDataSize(data.queryStats.peakTotalMemoryReservationInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1530,7 +1530,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Output Data
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.outputDataSize}
+                                            {formatDataSize(data.queryStats.outputDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1546,7 +1546,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Written Output Logical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.writtenOutputLogicalDataSize}
+                                            {formatDataSize(data.queryStats.writtenOutputLogicalDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1554,16 +1554,16 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Written Output Physical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {data.queryStats.writtenOutputPhysicalDataSize}
+                                            {formatDataSize(data.queryStats.writtenOutputPhysicalDataSizeInBytes)}
                                         </td>
                                     </tr>
-                                    {(parseDataSize(data.queryStats.spilledDataSize) || 0) > 0 &&
+                                    {(data.queryStats.spilledDataSizeInBytes || 0) > 0 &&
                                         <tr>
                                             <td className="info-title">
                                                 Spilled Data
                                             </td>
                                             <td className="info-text">
-                                                {data.queryStats.spilledDataSize}
+                                                {formatDataSize(data.queryStats.spilledDataSizeInBytes)}
                                             </td>
                                         </tr>
                                     }
@@ -1612,7 +1612,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                     </tr>
                                     <tr className="tr-noborder">
                                         <td className="info-sparkline-text">
-                                            {formatDataSize((parseDataSize(data.queryStats.processedInputDataSize) || 0) / elapsedTime)}
+                                            {formatDataSize((data.queryStats.processedInputDataSizeInBytes || 0) / elapsedTime)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1622,7 +1622,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                     </tr>
                                     <tr className="tr-noborder">
                                         <td className="info-sparkline-text">
-                                            {formatDataSize(parseDataSize(data.queryStats.userMemoryReservation) || 0)}
+                                            {formatDataSize(data.queryStats.userMemoryReservationInBytes || 0)}
                                         </td>
                                     </tr>
                                 </tbody>
