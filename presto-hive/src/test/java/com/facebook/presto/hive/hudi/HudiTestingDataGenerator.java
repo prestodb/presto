@@ -173,6 +173,7 @@ public class HudiTestingDataGenerator
         List<PartitionWithStatistics> partitions = new ArrayList<>();
         for (String partitionName : partitionNames) {
             Partition partition = Partition.builder()
+                    .setCatalogName(Optional.of("hive"))
                     .setDatabaseName(schemaName)
                     .setTableName(tableName)
                     .setValues(extractPartitionValues(partitionName))

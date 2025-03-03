@@ -48,6 +48,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.Utils.constructSchemaName;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.REGULAR;
@@ -67,27 +68,34 @@ public class HudiMetadata
     private final ExtendedHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
+    private final String catalogName;
 
     public HudiMetadata(
             ExtendedHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
-            TypeManager typeManager)
+            TypeManager typeManager, String catalogName)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.catalogName = catalogName;
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return metastore.getAllDatabases(toMetastoreContext(session));
+        if (catalogName != null) {
+            return metastore.getDatabases(toMetastoreContext(session), constructSchemaName(Optional.of(catalogName), ""));
+        }
+        else {
+            return metastore.getAllDatabases(toMetastoreContext(session));
+        }
     }
 
     @Override
     public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        Optional<Table> hiveTable = metastore.getTable(toMetastoreContext(session), tableName.getSchemaName(), tableName.getTableName());
+        Optional<Table> hiveTable = metastore.getTable(toMetastoreContext(session), constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()), tableName.getTableName());
         if (!hiveTable.isPresent()) {
             return null;
         }
@@ -147,8 +155,8 @@ public class HudiMetadata
     {
         MetastoreContext metastoreContext = toMetastoreContext(session);
         return metastore
-                .getAllTables(metastoreContext, schemaName.get())
-                .orElseGet(() -> metastore.getAllDatabases(metastoreContext))
+                .getAllTables(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), schemaName.get()))
+                .orElseGet(() -> metastore.getDatabases(metastoreContext, catalogName))
                 .stream()
                 .map(table -> new SchemaTableName(schemaName.get(), table))
                 .collect(toList());
@@ -170,7 +178,7 @@ public class HudiMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        List<SchemaTableName> tables = prefix.getTableName() != null ? singletonList(prefix.toSchemaTableName()) : listTables(session, Optional.of(prefix.getSchemaName()));
+        List<SchemaTableName> tables = prefix.getTableName() != null ? singletonList(prefix.toSchemaTableName()) : listTables(session, Optional.of(constructSchemaName(Optional.ofNullable(catalogName), prefix.getSchemaName())));
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName table : tables) {
@@ -193,7 +201,7 @@ public class HudiMetadata
     {
         MetastoreContext metastoreContext = toMetastoreContext(connectorSession);
         HudiTableHandle handle = (HudiTableHandle) tableHandle;
-        Optional<Table> table = metastore.getTable(metastoreContext, handle.getSchemaName(), handle.getTableName());
+        Optional<Table> table = metastore.getTable(metastoreContext, constructSchemaName(Optional.ofNullable(catalogName), handle.getSchemaName()), handle.getTableName());
         checkArgument(table.isPresent());
         return table.get();
     }
@@ -202,7 +210,7 @@ public class HudiMetadata
     {
         Table table = metastore.getTable(
                 toMetastoreContext(session),
-                tableName.getSchemaName(),
+                constructSchemaName(Optional.ofNullable(catalogName), tableName.getSchemaName()),
                 tableName.getTableName()).orElseThrow(() -> new TableNotFoundException(tableName));
 
         List<ColumnMetadata> columnMetadatas = allColumnHandles(table)

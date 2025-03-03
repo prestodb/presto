@@ -136,6 +136,16 @@ public class MockHiveMetastoreClient
     }
 
     @Override
+    public List<String> getDatabases(String pattern)
+    {
+        accessCount.incrementAndGet();
+        if (throwException) {
+            throw new IllegalStateException();
+        }
+        return ImmutableList.of(TEST_DATABASE);
+    }
+
+    @Override
     public List<String> getAllTables(String dbName)
     {
         accessCount.incrementAndGet();

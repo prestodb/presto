@@ -22,6 +22,7 @@ import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.MetastoreClientConfig;
@@ -411,7 +412,8 @@ public class TestRenameTableOnFragileFileSystem
                 new NodeVersion("test_node_v1"),
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new IcebergHiveTableOperationsConfig(),
-                new StatisticsFileCache(CacheBuilder.newBuilder().build()));
+                new StatisticsFileCache(CacheBuilder.newBuilder().build()),
+                new HiveCommonClientConfig());
         return icebergHiveMetadataFactory.create();
     }
 

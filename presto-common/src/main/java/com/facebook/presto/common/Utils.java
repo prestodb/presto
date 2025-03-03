@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.Type;
 
 import javax.annotation.Nullable;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
@@ -29,6 +30,10 @@ import static java.util.Objects.requireNonNull;
 
 public final class Utils
 {
+    private static final CharSequence CATALOG_DB_SEPARATOR = "#";
+    private static final Object CATALOG_DB_THRIFT_NAME_MARKER = "@";
+    private static final String DEFAULT_DATABASE = "default";
+
     private Utils()
     {
     }
@@ -125,5 +130,24 @@ public final class Utils
         if (!test) {
             throw new IllegalStateException(errorMessage);
         }
+    }
+
+    /**
+     * Constructs the schema name, including catalog name if applicable.
+     *
+     * @param schemaName the original schema name
+     * @return the formatted schema name (Example - @catalog_name#schema_name)
+     */
+    public static String constructSchemaName(Optional<String> catalogName, @Nullable String schemaName)
+    {
+        if (catalogName.isPresent() && schemaName != null && !schemaName.equals(DEFAULT_DATABASE) && !schemaName.contains(CATALOG_DB_SEPARATOR)) {
+            return String.format(
+                    "%s%s%s%s",
+                    CATALOG_DB_THRIFT_NAME_MARKER,
+                    catalogName.get(),
+                    CATALOG_DB_SEPARATOR,
+                    schemaName);
+        }
+        return schemaName;
     }
 }

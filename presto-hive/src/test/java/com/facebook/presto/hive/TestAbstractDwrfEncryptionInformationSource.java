@@ -50,6 +50,7 @@ public class TestAbstractDwrfEncryptionInformationSource
     private static Table createTable(HiveStorageFormat storageFormat, Optional<DwrfTableEncryptionProperties> tableEncryptionProperties, boolean isPartitioned)
     {
         return new Table(
+                Optional.of("catalogName"),
                 "dbName",
                 "tableName",
                 "owner",
