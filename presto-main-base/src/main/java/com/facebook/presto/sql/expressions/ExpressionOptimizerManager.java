@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.nodeManager.PluginNodeManager;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.relation.ExpressionOptimizer;
 import com.facebook.presto.spi.relation.ExpressionOptimizerProvider;
 import com.facebook.presto.spi.sql.planner.ExpressionOptimizerContext;
@@ -52,6 +53,7 @@ public class ExpressionOptimizerManager
 
     private final NodeManager nodeManager;
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final RowExpressionSerde rowExpressionSerde;
     private final FunctionResolution functionResolution;
     private final File configurationDirectory;
 
@@ -59,16 +61,17 @@ public class ExpressionOptimizerManager
     private final Map<String, ExpressionOptimizer> expressionOptimizers = new ConcurrentHashMap<>();
 
     @Inject
-    public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager)
+    public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde)
     {
-        this(nodeManager, functionAndTypeManager, EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY);
+        this(nodeManager, functionAndTypeManager, rowExpressionSerde, EXPRESSION_MANAGER_CONFIGURATION_DIRECTORY);
     }
 
-    public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, File configurationDirectory)
+    public ExpressionOptimizerManager(PluginNodeManager nodeManager, FunctionAndTypeManager functionAndTypeManager, RowExpressionSerde rowExpressionSerde, File configurationDirectory)
     {
         requireNonNull(nodeManager, "nodeManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
+        this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
         this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
         this.configurationDirectory = requireNonNull(configurationDirectory, "configurationDirectory is null");
         expressionOptimizers.put(DEFAULT_EXPRESSION_OPTIMIZER_NAME, new RowExpressionOptimizer(functionAndTypeManager));
@@ -88,7 +91,7 @@ public class ExpressionOptimizerManager
         }
     }
 
-    private void loadExpressionOptimizerFactory(File configurationFile)
+    public void loadExpressionOptimizerFactory(File configurationFile)
             throws IOException
     {
         String optimizerName = getNameWithoutExtension(configurationFile.getName());
@@ -104,12 +107,13 @@ public class ExpressionOptimizerManager
 
     public void loadExpressionOptimizerFactory(String factoryName, String optimizerName, Map<String, String> properties)
     {
+        requireNonNull(factoryName, "factoryName is null");
         checkArgument(expressionOptimizerFactories.containsKey(factoryName),
                 "ExpressionOptimizerFactory %s is not registered, registered factories: ", factoryName, expressionOptimizerFactories.keySet());
 
         ExpressionOptimizer optimizer = expressionOptimizerFactories.get(factoryName).createOptimizer(
                 properties,
-                new ExpressionOptimizerContext(nodeManager, functionAndTypeManager, functionResolution));
+                new ExpressionOptimizerContext(nodeManager, rowExpressionSerde, functionAndTypeManager, functionResolution));
         expressionOptimizers.put(optimizerName, optimizer);
     }
 
