@@ -22,6 +22,10 @@
             <artifactId>presto-pinot-toolkit</artifactId>
             <exclusions>
                 <exclusion>
+                    <groupId>org.quartz-scheduler</groupId>
+                    <artifactId>quartz</artifactId>
+                </exclusion>
+                <exclusion>
                     <groupId>com.google.protobuf</groupId>
                     <artifactId>protobuf-java</artifactId>
                 </exclusion>
