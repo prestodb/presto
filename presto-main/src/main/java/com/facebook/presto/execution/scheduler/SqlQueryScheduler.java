@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.LocationFactory;
@@ -41,6 +42,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanFragmentId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
@@ -48,7 +50,9 @@ import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.tracing.TracingManager;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -65,6 +69,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -151,6 +156,7 @@ public class SqlQueryScheduler
 
     private final PartialResultQueryTaskTracker partialResultQueryTaskTracker;
     private final CTEMaterializationTracker cteMaterializationTracker = new CTEMaterializationTracker();
+    private BaseSpan schedulerSpan;
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             LocationFactory locationFactory,
@@ -244,6 +250,9 @@ public class SqlQueryScheduler
         this.sectionedPlan = extractStreamingSections(plan);
         this.summarizeTaskInfo = summarizeTaskInfo;
 
+        BaseSpan querySpan = queryStateMachine.getSession().getQuerySpan();
+        this.schedulerSpan = TracingManager.getSpan(querySpan, TracingEnum.SCHEDULER.getName(), ImmutableMap.of("QUERY_ID", queryStateMachine.getQueryId().toString()));
+
         OutputBufferId rootBufferId = getOnlyElement(rootOutputBuffers.getBuffers().keySet());
         List<StageExecutionAndScheduler> stageExecutions = createStageExecutions(
                 sectionExecutionFactory,
@@ -276,6 +285,9 @@ public class SqlQueryScheduler
                 // output stage was canceled
                 queryStateMachine.transitionToCanceled();
             }
+            if (!Objects.isNull(schedulerSpan)) {
+                schedulerSpan.end();
+            }
         });
 
         for (StageExecutionAndScheduler stageExecutionInfo : stageExecutions.values()) {
@@ -297,10 +309,16 @@ public class SqlQueryScheduler
                 }
                 if (state == FAILED) {
                     queryStateMachine.transitionToFailed(stageExecution.getStageExecutionInfo().getFailureCause().get().toException());
+                    if (!Objects.isNull(schedulerSpan)) {
+                        schedulerSpan.end();
+                    }
                 }
                 else if (state == ABORTED) {
                     // this should never happen, since abort can only be triggered in query clean up after the query is finished
                     queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
+                    if (!Objects.isNull(schedulerSpan)) {
+                        schedulerSpan.end();
+                    }
                 }
                 else if (state == FINISHED) {
                     // checks if there's any new sections available for execution and starts the scheduling if any
@@ -377,7 +395,8 @@ public class SqlQueryScheduler
                         remoteTaskFactory,
                         splitSourceFactory,
                         0,
-                        cteMaterializationTracker).getSectionStages();
+                        cteMaterializationTracker,
+                        schedulerSpan).getSectionStages();
         stages.addAll(sectionStages);
 
         return stages.build();
@@ -555,6 +574,9 @@ public class SqlQueryScheduler
         catch (Throwable t) {
             scheduling.set(false);
             queryStateMachine.transitionToFailed(t);
+            if (!Objects.isNull(schedulerSpan)) {
+                schedulerSpan.end();
+            }
             throw t;
         }
         finally {
@@ -565,6 +587,9 @@ public class SqlQueryScheduler
                 }
                 catch (Throwable t) {
                     queryStateMachine.transitionToFailed(t);
+                    if (!Objects.isNull(schedulerSpan)) {
+                        schedulerSpan.end();
+                    }
                     // Self-suppression not permitted
                     if (closeError != t) {
                         closeError.addSuppressed(t);
@@ -697,7 +722,8 @@ public class SqlQueryScheduler
                 remoteTaskFactory,
                 splitSourceFactory,
                 0,
-                cteMaterializationTracker);
+                cteMaterializationTracker,
+                schedulerSpan);
         addStateChangeListeners(sectionExecution);
         Map<StageId, StageExecutionAndScheduler> updatedStageExecutions = sectionExecution.getSectionStages().stream()
                 .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
@@ -739,6 +765,9 @@ public class SqlQueryScheduler
                         // output stage was canceled
                         queryStateMachine.transitionToCanceled();
                     }
+                    if (!Objects.isNull(schedulerSpan)) {
+                        schedulerSpan.end();
+                    }
                 });
             }
             stageExecution.addStateChangeListener(state -> {
@@ -747,10 +776,16 @@ public class SqlQueryScheduler
                 }
                 if (state == FAILED) {
                     queryStateMachine.transitionToFailed(stageExecution.getStageExecutionInfo().getFailureCause().get().toException());
+                    if (!Objects.isNull(schedulerSpan)) {
+                        schedulerSpan.end();
+                    }
                 }
                 else if (state == ABORTED) {
                     // this should never happen, since abort can only be triggered in query clean up after the query is finished
                     queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
+                    if (!Objects.isNull(schedulerSpan)) {
+                        schedulerSpan.end();
+                    }
                 }
                 else if (state == FINISHED) {
                     // checks if there's any new sections available for execution and starts the scheduling if any

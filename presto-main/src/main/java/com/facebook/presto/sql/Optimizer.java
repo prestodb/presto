@@ -15,6 +15,7 @@ package com.facebook.presto.sql;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.TelemetryConfig;
 import com.facebook.presto.cost.CachingCostProvider;
 import com.facebook.presto.cost.CachingStatsProvider;
 import com.facebook.presto.cost.CostCalculator;
@@ -31,6 +32,7 @@ import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SemiJoinNode;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlannerUtils;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -39,9 +41,12 @@ import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.sql.planner.optimizations.PlanOptimizerResult;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
+import com.facebook.presto.tracing.TracingManager;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isPrintStatsForNonJoinQuery;
@@ -53,6 +58,8 @@ import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.getOptimizerNameForLog;
 import static com.facebook.presto.sql.OptimizerRuntimeTrackUtil.trackOptimizerRuntime;
+import static com.facebook.presto.tracing.TracingManager.scopedSpan;
+import static com.facebook.presto.tracing.TracingManager.setAttributes;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -98,36 +105,68 @@ public class Optimizer
         this.explain = explain;
     }
 
+    private BaseSpan optimizerSpan(PlanOptimizer optimizer)
+    {
+        if (!TracingManager.isRecording()) {
+            return null;
+        }
+        BaseSpan span = TracingManager.getSpan(optimizer.getClass().getSimpleName()); //Recheck if working
+
+        if (optimizer instanceof IterativeOptimizer) {
+            List<String> ruleNames = ((IterativeOptimizer) optimizer).getRules().stream()
+                    .map(x -> x.getClass().getSimpleName())
+                    .collect(Collectors.toList());
+
+            String rulesAsString = String.join(", ", ruleNames);
+            setAttributes(span, ImmutableMap.of("OPTIMIZER_RULES", rulesAsString));
+        }
+        return scopedSpan(span);
+    }
+
     public Plan validateAndOptimizePlan(PlanNode root, PlanStage stage)
     {
-        planChecker.validateIntermediatePlan(root, session, metadata, warningCollector);
+        try (BaseSpan ignored = scopedSpan("validate intermediate")) {
+            planChecker.validateIntermediatePlan(root, session, metadata, warningCollector);
+        }
 
         boolean enableVerboseRuntimeStats = SystemSessionProperties.isVerboseRuntimeStatsEnabled(session);
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
-            for (PlanOptimizer optimizer : planOptimizers) {
-                if (Thread.currentThread().isInterrupted()) {
-                    throw new PrestoException(QUERY_PLANNING_TIMEOUT, String.format("The query optimizer exceeded the timeout of %s.", getQueryAnalyzerTimeout(session).toString()));
-                }
-                long start = System.nanoTime();
-                PlanOptimizerResult optimizerResult = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
-                requireNonNull(optimizerResult, format("%s returned a null plan", optimizer.getClass().getName()));
-                if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
-                    session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", getOptimizerNameForLog(optimizer)), NANO, System.nanoTime() - start);
-                }
-                TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
+            try (BaseSpan ignored = scopedSpan("validate and optimize")) {
+                for (PlanOptimizer optimizer : planOptimizers) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new PrestoException(QUERY_PLANNING_TIMEOUT, String.format("The query optimizer exceeded the timeout of %s.", getQueryAnalyzerTimeout(session).toString()));
+                    }
+                    long start = System.nanoTime();
 
-                collectOptimizerInformation(optimizer, root, optimizerResult, types);
-                root = optimizerResult.getPlanNode();
+                    PlanOptimizerResult optimizerResult;
+
+                    try (BaseSpan opSpanIgnored = !TelemetryConfig.getTracingEnabled() ? null : optimizerSpan(optimizer)) {
+                        optimizerResult = optimizer.optimize(root, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector);
+                        requireNonNull(optimizerResult, format("%s returned a null plan", optimizer.getClass().getName()));
+                    }
+
+                    if (enableVerboseRuntimeStats || trackOptimizerRuntime(session, optimizer)) {
+                        session.getRuntimeStats().addMetricValue(String.format("optimizer%sTimeNanos", getOptimizerNameForLog(optimizer)), NANO, System.nanoTime() - start);
+                    }
+                    TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
+
+                    collectOptimizerInformation(optimizer, root, optimizerResult, types);
+                    root = optimizerResult.getPlanNode();
+                }
             }
         }
 
-        if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
-            // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
-            planChecker.validateFinalPlan(root, session, metadata, warningCollector);
+        try (BaseSpan ignored = scopedSpan("validate final")) {
+            if (stage.ordinal() >= OPTIMIZED_AND_VALIDATED.ordinal()) {
+                // make sure we produce a valid plan after optimizations run. This is mainly to catch programming errors
+                planChecker.validateFinalPlan(root, session, metadata, warningCollector);
+            }
         }
 
         TypeProvider types = TypeProvider.viewOf(variableAllocator.getVariables());
-        return new Plan(root, types, computeStats(root, types));
+        try (BaseSpan ignored = scopedSpan("plan stats")) {
+            return new Plan(root, types, computeStats(root, types));
+        }
     }
 
     private StatsAndCosts computeStats(PlanNode root, TypeProvider types)

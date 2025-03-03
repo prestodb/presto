@@ -24,7 +24,6 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.session.ResourceEstimates;
-import com.facebook.presto.spi.tracing.Tracer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -189,12 +188,6 @@ public class PrestoSparkSessionContext
     public String getLanguage()
     {
         return language;
-    }
-
-    @Override
-    public Optional<Tracer> getTracer()
-    {
-        return Optional.empty();
     }
 
     @Override
