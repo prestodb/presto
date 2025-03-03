@@ -1,0 +1,67 @@
+{
+  "partitionToWriteStats" : {
+    "p1" : [ {
+      "fileId" : "daf69bc6-01c8-4b86-b9ef-d9c036aa5cdc-0",
+      "path" : "p1/daf69bc6-01c8-4b86-b9ef-d9c036aa5cdc-0_0-61-98_20250303210915334.parquet",
+      "cdcStats" : null,
+      "prevCommit" : "null",
+      "numWrites" : 2,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 0,
+      "numInserts" : 2,
+      "totalWriteBytes" : 434606,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "p1",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 434606,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 0,
+        "totalCreateTime" : 146
+      }
+    } ],
+    "p2" : [ {
+      "fileId" : "bb70e1e1-8310-4ebe-8a9c-c955f8e72830-0",
+      "path" : "p2/bb70e1e1-8310-4ebe-8a9c-c955f8e72830-0_1-61-99_20250303210915334.parquet",
+      "cdcStats" : null,
+      "prevCommit" : "null",
+      "numWrites" : 2,
+      "numDeletes" : 0,
+      "numUpdateWrites" : 0,
+      "numInserts" : 2,
+      "totalWriteBytes" : 434605,
+      "totalWriteErrors" : 0,
+      "tempPath" : null,
+      "partitionPath" : "p2",
+      "totalLogRecords" : 0,
+      "totalLogFilesCompacted" : 0,
+      "totalLogSizeCompacted" : 0,
+      "totalUpdatedRecordsCompacted" : 0,
+      "totalLogBlocks" : 0,
+      "totalCorruptLogBlock" : 0,
+      "totalRollbackBlocks" : 0,
+      "fileSizeInBytes" : 434605,
+      "minEventTime" : null,
+      "maxEventTime" : null,
+      "runtimeStats" : {
+        "totalScanTime" : 0,
+        "totalUpsertTime" : 0,
+        "totalCreateTime" : 146
+      }
+    } ]
+  },
+  "compacted" : false,
+  "extraMetadata" : {
+    "schema" : "{\"type\":\"record\",\"name\":\"hudi_mor_part_update_record\",\"namespace\":\"hoodie.hudi_mor_part_update\",\"fields\":[{\"name\":\"id\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"partition\",\"type\":[\"null\",\"string\"],\"default\":null}]}"
+  },
+  "operationType" : "UPSERT"
+}

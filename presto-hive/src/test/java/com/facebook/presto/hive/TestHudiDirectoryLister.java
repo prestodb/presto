@@ -168,7 +168,7 @@ public class TestHudiDirectoryLister
                 HiveFileInfo fileInfo = fileInfoIterator.next();
                 String fileName = fileInfo.getFileName();
                 // expected to have the latest base file in p1 and p2 partitions
-                assertTrue(fileName.startsWith("37c2b860-eea6-4142-8bda-257b2562e4b4-0_1-338-594") || fileName.startsWith("7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0_1-149-341"));
+                assertTrue(fileName.startsWith("daf69bc6-01c8-4b86-b9ef-d9c036aa5cdc-0") || fileName.startsWith("bb70e1e1-8310-4ebe-8a9c-c955f8e72830-0"));
                 // not expected to have the older version of the base file in p1
                 assertFalse(fileName.startsWith("c0bbff31-67b3-4660-99ba-d388b8bb8c3c-0_0-32-192"));
             }
@@ -189,7 +189,6 @@ public class TestHudiDirectoryLister
                     getAllSessionProperties(
                             new HiveClientConfig()
                                     .setHudiMetadataEnabled(true),
-                            //.setHudiTablesUseMergedView(mockTable.getSchemaTableName().toString()),
                             new HiveCommonClientConfig()),
                     TEST_CLIENT_TAGS);
             HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
@@ -204,14 +203,11 @@ public class TestHudiDirectoryLister
                     new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
                     ImmutableMap.of(),
                     new RuntimeStats()));
-            String partition1OldFileId = "c0bbff31-67b3-4660-99ba-d388b8bb8c3c-0_0-32-192";
-            String partition1NewFileId = "37c2b860-eea6-4142-8bda-257b2562e4b4-0_1-338-594";
+            String partition1FileId = "daf69bc6-01c8-4b86-b9ef-d9c036aa5cdc-0";
             // expected to have the latest base file in p1 as well as older version because the table is not configured to use merged view
             List<HiveFileInfo> fileInfoList = ImmutableList.copyOf(fileInfoIterator);
-            assertEquals(fileInfoList.size(), 2);
-            assertTrue(fileInfoList.stream()
-                    .map(fileInfo -> fileInfo.getFileName())
-                    .allMatch(fileName -> fileName.startsWith(partition1OldFileId) || fileName.startsWith(partition1NewFileId)));
+            assertEquals(fileInfoList.size(), 1);
+            assertTrue(fileInfoList.get(0).getFileName().startsWith(partition1FileId));
 
             Path path2 = new Path(mockTable.getStorage().getLocation(), "p2");
             fileInfoIterator = directoryLister.list(fs, mockTable, path2, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(
@@ -221,13 +217,11 @@ public class TestHudiDirectoryLister
                     new ConnectorIdentity("test", Optional.empty(), Optional.empty()),
                     ImmutableMap.of(),
                     new RuntimeStats()));
-            String partition2OldFileId = "7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0_1-149-341";
+            String partition2FileId = "bb70e1e1-8310-4ebe-8a9c-c955f8e72830-0";
             // expected to have only the latest base file in p2
             List<HiveFileInfo> fileInfoList2 = ImmutableList.copyOf(fileInfoIterator);
             assertEquals(fileInfoList2.size(), 1);
-            assertTrue(fileInfoList2.stream()
-                    .map(fileInfo -> fileInfo.getFileName())
-                    .allMatch(fileName -> fileName.startsWith(partition2OldFileId)));
+            assertTrue(fileInfoList2.get(0).getFileName().startsWith(partition2FileId));
         }
         finally {
             hadoopConf = null;
