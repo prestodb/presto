@@ -349,6 +349,64 @@ TEST_F(ArrowFlightConnectorDataTypeTest, arrayType) {
       .assertResults(makeRowVector({expectedData}));
 }
 
+TEST_F(ArrowFlightConnectorDataTypeTest, mapType) {
+  auto data = std::vector<
+      std::optional<std::vector<std::pair<int32_t, std::optional<int64_t>>>>>({
+      {{{0, 100}, {1, 101}, {2, 102}}},
+      {{{std::numeric_limits<int32_t>::max(),
+         std::numeric_limits<int64_t>::max()},
+        {std::numeric_limits<int32_t>::min(),
+         std::numeric_limits<int64_t>::min()}}},
+      {{}},
+      {{{42, std::nullopt}}},
+      std::nullopt,
+      {{{3, -300},
+        {4, 400},
+        {5, -500},
+        {6, 600},
+        {7, -700},
+        {8, 800},
+        {9, -900}}},
+  });
+
+  auto keyBuilder = std::make_shared<arrow::NumericBuilder<arrow::Int32Type>>();
+  auto itemBuilder =
+      std::make_shared<arrow::NumericBuilder<arrow::Int64Type>>();
+  arrow::MapBuilder mapBuilder(
+      arrow::default_memory_pool(), keyBuilder, itemBuilder);
+
+  for (const auto& mapElements : data) {
+    if (mapElements.has_value()) {
+      AFC_RAISE_NOT_OK(mapBuilder.Append());
+      const auto& pairs = mapElements.value();
+      for (const auto& key_item : pairs) {
+        AFC_RAISE_NOT_OK(keyBuilder->Append(key_item.first));
+        if (key_item.second.has_value()) {
+          AFC_RAISE_NOT_OK(itemBuilder->Append(key_item.second.value()));
+        } else {
+          AFC_RAISE_NOT_OK(itemBuilder->AppendNull());
+        }
+      }
+    } else {
+      AFC_RAISE_NOT_OK(mapBuilder.AppendNull());
+    }
+  }
+  AFC_ASSIGN_OR_RAISE(auto mapArray, mapBuilder.Finish());
+
+  updateTable("sample-data", makeArrowTable({"map_col"}, {mapArray}));
+
+  core::PlanNodePtr plan;
+  plan = ArrowFlightPlanBuilder()
+             .flightTableScan(velox::ROW(
+                 {"map_col"}, {velox::MAP(velox::INTEGER(), velox::BIGINT())}))
+             .planNode();
+
+  auto expectedData = makeNullableMapVector(data);
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .assertResults(makeRowVector({expectedData}));
+}
+
 TEST_F(ArrowFlightConnectorDataTypeTest, rowType) {
   std::vector<int32_t> intData = {0, 1, 2, 3, 4};
   std::vector<std::string> varcharData = {"a", "bb", "ccc", "dddd", "eeeee"};
