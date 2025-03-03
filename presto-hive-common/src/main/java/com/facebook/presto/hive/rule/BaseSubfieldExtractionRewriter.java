@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.expressions.LogicalRowExpressions;
+import com.facebook.presto.hive.BaseHiveTableHandle;
 import com.facebook.presto.hive.BaseHiveTableLayoutHandle;
 import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.spi.ColumnHandle;
@@ -355,10 +356,8 @@ public abstract class BaseSubfieldExtractionRewriter
         session.getWarningCollector().add(new PrestoWarning(
                 HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE,
                 format(
-                        "Table '%s' returns 0 rows, and is converted to an empty %s by %s",
-                        tableScan.getTable().getConnectorHandle(),
-                        ValuesNode.class.getSimpleName(),
-                        BaseSubfieldExtractionRewriter.class.getSimpleName())));
+                        "No rows from table '%s' matched the filter",
+                        ((BaseHiveTableHandle) (tableScan.getTable().getConnectorHandle())).getTableName())));
         return new ValuesNode(
                 tableScan.getSourceLocation(),
                 idAllocator.getNextId(),
