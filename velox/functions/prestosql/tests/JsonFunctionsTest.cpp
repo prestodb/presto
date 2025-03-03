@@ -162,27 +162,6 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
     exprSet.eval(rows, evalCtx, result);
     velox::test::assertEqualVectors(expected, result[0]);
   };
-
-  // Utility function to evaluate json_extract both with and without constant
-  // inputs. Ensures that the results are same in both cases. 'wrapInTry' is
-  // used to test the cases where json_extract throws a user error and verify
-  // that they are captured by the TRY operator. The inputs are expected to have
-  // only one row.
-  std::optional<std::string>
-  jsonExtract(VectorPtr json, VectorPtr path, bool wrapInTry = false) {
-    std::string expr =
-        !wrapInTry ? "json_extract(c0, c1)" : "try(json_extract(c0, c1))";
-
-    auto result = evaluateOnce<std::string>(expr, makeRowVector({json, path}));
-    auto resultConstantInput = evaluateOnce<std::string>(
-        expr,
-        makeRowVector(
-            {BaseVector::wrapInConstant(1, 0, json),
-             BaseVector::wrapInConstant(1, 0, path)}));
-    EXPECT_EQ(result, resultConstantInput)
-        << "Equal results expected for constant and non constant inputs";
-    return result;
-  }
 };
 
 TEST_F(JsonFunctionsTest, jsonFormat) {
@@ -953,11 +932,11 @@ TEST_F(JsonFunctionsTest, invalidPath) {
 
 TEST_F(JsonFunctionsTest, jsonExtract) {
   auto jsonExtract = [&](std::optional<std::string> json,
-                         const std::string& path,
-                         bool wrapInTry = false) {
-    auto jsonInput = makeJsonVector(json);
-    auto pathInput = makeFlatVector<std::string>({path});
-    return JsonFunctionsTest::jsonExtract(jsonInput, pathInput, wrapInTry);
+                         const std::string& path) {
+    return evaluateOnce<std::string>(
+        "json_extract(c0, c1)",
+        makeRowVector(
+            {makeJsonVector(json), makeFlatVector<std::string>({path})}));
   };
 
   EXPECT_EQ(
@@ -1046,50 +1025,6 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   VELOX_ASSERT_THROW(
       jsonExtract(kJson, "concat($..category)"), "Invalid JSON path");
   VELOX_ASSERT_THROW(jsonExtract(kJson, "$.store.keys()"), "Invalid JSON path");
-
-  // Ensure User errors are captured in try() and not thrown.
-  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "$..price", true));
-  EXPECT_EQ(
-      std::nullopt,
-      jsonExtract(kJson, "$.store.book[?(@.price <10)].title", true));
-  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "max($..price)", true));
-  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "concat($..category)", true));
-  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "$.store.keys()", true));
-}
-
-TEST_F(JsonFunctionsTest, jsonExtractVarcharInput) {
-  auto jsonExtract = [&](std::optional<std::string> json,
-                         const std::string& path,
-                         bool wrapInTry = false) {
-    std::optional<StringView> s = json.has_value()
-        ? std::make_optional(StringView(json.value()))
-        : std::nullopt;
-    auto varcharInput = makeNullableFlatVector<std::string>({s}, VARCHAR());
-    auto pathInput = makeFlatVector<std::string>({path});
-    return JsonFunctionsTest::jsonExtract(varcharInput, pathInput, wrapInTry);
-  };
-
-  // Valid json
-  EXPECT_EQ(
-      R"({"x":{"a":1,"b":2}})",
-      jsonExtract(R"({"x": {"a" : 1, "b" : 2} })", "$"));
-  EXPECT_EQ(
-      R"({"a":1,"b":2})", jsonExtract(R"({"x": {"a" : 1, "b" : 2} })", "$.x"));
-
-  // Invalid JSON
-  EXPECT_EQ(std::nullopt, jsonExtract(R"({"x": {"a" : 1, "b" : "2""} })", "$"));
-  // Non-canonicalized json
-  EXPECT_EQ(
-      R"({"x":{"a":1,"b":2}})",
-      jsonExtract(R"({"x": {"b" : 2, "a" : 1} })", "$"));
-  // Input has escape characters
-  EXPECT_EQ(
-      R"({"x":{"a":"/1","b":"/2"}})",
-      jsonExtract(R"({"x": {"a" : "\/1", "b" : "\/2"} })", "$"));
-  // Invalid path
-  VELOX_ASSERT_THROW(jsonExtract(kJson, "$..price"), "Invalid JSON path");
-  // Ensure User error is captured in try() and not thrown.
-  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "$..price", true));
 }
 
 // The following tests ensure that the internal json functions

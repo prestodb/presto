@@ -27,6 +27,16 @@ void registerJsonFunctions(const std::string& prefix) {
   registerFunction<IsJsonScalarFunction, bool, Varchar>(
       {prefix + "is_json_scalar"});
 
+  registerFunction<JsonExtractScalarFunction, Varchar, Json, Varchar>(
+      {prefix + "json_extract_scalar"});
+  registerFunction<JsonExtractScalarFunction, Varchar, Varchar, Varchar>(
+      {prefix + "json_extract_scalar"});
+
+  registerFunction<JsonExtractFunction, Json, Json, Varchar>(
+      {prefix + "json_extract"});
+  registerFunction<JsonExtractFunction, Json, Varchar, Varchar>(
+      {prefix + "json_extract"});
+
   registerFunction<JsonArrayLengthFunction, int64_t, Json>(
       {prefix + "json_array_length"});
   registerFunction<JsonArrayLengthFunction, int64_t, Varchar>(
@@ -58,11 +68,6 @@ void registerJsonFunctions(const std::string& prefix) {
       {prefix + "json_size"});
   registerFunction<JsonSizeFunction, int64_t, Varchar, Varchar>(
       {prefix + "json_size"});
-
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_json_extract, prefix + "json_extract");
-
-  VELOX_REGISTER_VECTOR_FUNCTION(
-      udf_json_extract_scalar, prefix + "json_extract_scalar");
 
   VELOX_REGISTER_VECTOR_FUNCTION(udf_json_format, prefix + "json_format");
 

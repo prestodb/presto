@@ -17,10 +17,8 @@
 
 #include "velox/common/base/SortingNetwork.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/expression/VectorWriters.h"
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/functions/prestosql/json/JsonStringUtil.h"
-#include "velox/functions/prestosql/json/SIMDJsonExtractor.h"
 #include "velox/functions/prestosql/json/SIMDJsonUtil.h"
 #include "velox/functions/prestosql/types/JsonCastOperator.h"
 #include "velox/functions/prestosql/types/JsonType.h"
@@ -136,23 +134,23 @@ class JsonFormatFunction : public exec::VectorFunction {
   }
 };
 
-// A performant json parsing implementation. This is also leveraged by json
-// functions other than json_parse that need to parse a varchar input. If
-// `nullOnError` is true, the result will have null values for invalid jsons
-// otherwise it will set exceptions for those rows in 'context'.
-class JsonParseImpl {
+class JsonParseFunction : public exec::VectorFunction {
  public:
   void apply(
       const SelectivityVector& rows,
-      const VectorPtr& arg,
+      std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
       exec::EvalCtx& context,
-      VectorPtr& localResult,
-      bool nullOnError) const {
+      VectorPtr& result) const override {
     // Initialize errors here so that we get the proper exception context.
     folly::call_once(
         initializeErrors_, [this] { simdjsonErrorsToExceptions(errors_); });
 
+    VectorPtr localResult;
+
+    // Input can be constant or flat.
+    assert(args.size() > 0);
+    const auto& arg = args[0];
     if (arg->isConstantEncoding()) {
       auto value = arg->as<ConstantVector<StringView>>()->valueAt(0);
       auto size = value.size();
@@ -160,6 +158,7 @@ class JsonParseImpl {
       BufferPtr stringViews =
           AlignedBuffer::allocate<StringView>(1, context.pool());
       auto rawStringViews = stringViews->asMutable<StringView>();
+
       try {
         bool needNormalize =
             needNormalizeForJsonParse(value.data(), value.size());
@@ -171,13 +170,8 @@ class JsonParseImpl {
         VELOX_CHECK_EQ(prepareInput(value, needNormalize), size);
 
         if (auto error = parse(size, needNormalize)) {
+          context.setErrors(rows, errors_[error]);
           clearState();
-          if (nullOnError) {
-            localResult = BaseVector::createNullConstant(
-                JSON(), rows.end(), context.pool());
-          } else {
-            context.setErrors(rows, errors_[error]);
-          }
           return;
         }
         auto* output = buffer->asMutable<char>();
@@ -189,16 +183,14 @@ class JsonParseImpl {
         if (!e.isUserError()) {
           throw;
         }
-        if (nullOnError) {
-          localResult = BaseVector::createNullConstant(
-              JSON(), rows.end(), context.pool());
-        } else {
-          context.setErrors(rows, std::current_exception());
-        }
+        context.setErrors(rows, std::current_exception());
+
         FB_LOG_EVERY_MS(WARNING, 1000)
             << "Caught user error in json_parse: " << e.message();
+
         return;
       }
+
       auto constantBase = std::make_shared<FlatVector<StringView>>(
           context.pool(),
           JSON(),
@@ -208,100 +200,96 @@ class JsonParseImpl {
           std::vector<BufferPtr>{buffer});
 
       localResult = BaseVector::wrapInConstant(rows.end(), 0, constantBase);
-    }
-    VectorPtr jsonInput = arg;
-    if (!arg->isFlatEncoding()) {
-      BaseVector::flattenVector(jsonInput);
-    }
-    auto flatInput = jsonInput->asFlatVector<StringView>();
-    BufferPtr stringViews = AlignedBuffer::allocate<StringView>(
-        rows.end(), context.pool(), StringView());
-    auto rawStringViews = stringViews->asMutable<StringView>();
 
-    VELOX_CHECK_LE(rows.end(), flatInput->size());
+    } else {
+      auto flatInput = arg->asFlatVector<StringView>();
+      BufferPtr stringViews = AlignedBuffer::allocate<StringView>(
+          rows.end(), context.pool(), StringView());
+      auto rawStringViews = stringViews->asMutable<StringView>();
 
-    size_t maxSize = 0;
-    size_t totalOutputSize = 0;
-    std::vector<bool> needNormalizes(rows.end());
-    auto nullsOnErrors = AlignedBuffer::allocate<bool>(
-        rows.end(), context.pool(), bits::kNotNull);
-    auto rawNullsOnErrors = nullsOnErrors->asMutable<uint64_t>();
-    rows.applyToSelected([&](auto row) {
-      auto value = flatInput->valueAt(row);
-      bool needNormalize =
-          needNormalizeForJsonParse(value.data(), value.size());
-      auto size = value.size();
-      if (needNormalize) {
+      VELOX_CHECK_LE(rows.end(), flatInput->size());
+
+      size_t maxSize = 0;
+      size_t totalOutputSize = 0;
+      std::vector<bool> needNormalizes(rows.end());
+      std::vector<bool> hasError(rows.end());
+      rows.applyToSelected([&](auto row) {
+        auto value = flatInput->valueAt(row);
+        bool needNormalize =
+            needNormalizeForJsonParse(value.data(), value.size());
+        auto size = value.size();
+        if (needNormalize) {
+          try {
+            size = normalizedSizeForJsonParse(value.data(), value.size());
+          } catch (const VeloxException& e) {
+            if (!e.isUserError()) {
+              throw;
+            }
+            context.setVeloxExceptionError(row, std::current_exception());
+            hasError[row] = true;
+            return;
+          }
+        }
+        needNormalizes[row] = needNormalize;
+        maxSize = std::max(maxSize, size);
+        totalOutputSize += size;
+      });
+
+      paddedInput_.resize(maxSize + simdjson::SIMDJSON_PADDING);
+      BufferPtr buffer =
+          AlignedBuffer::allocate<char>(totalOutputSize, context.pool());
+      auto* output = buffer->asMutable<char>();
+
+      rows.applyToSelected([&](auto row) {
+        if (hasError[row]) {
+          return;
+        }
+
         try {
-          size = normalizedSizeForJsonParse(value.data(), value.size());
+          auto value = flatInput->valueAt(row);
+          auto size = prepareInput(value, needNormalizes[row]);
+          if (auto error = parse(size, needNormalizes[row])) {
+            context.setVeloxExceptionError(row, errors_[error]);
+            clearState();
+            return;
+          }
+          auto outputSize = concatViews(views_, output);
+          rawStringViews[row] = StringView(output, outputSize);
+          if (!StringView::isInline(outputSize)) {
+            output += outputSize;
+          }
         } catch (const VeloxException& e) {
+          clearState();
+
           if (!e.isUserError()) {
             throw;
           }
-          if (!nullOnError) {
-            context.setVeloxExceptionError(row, std::current_exception());
-          }
-          // We use this to skip error-ed out rows when generating output.
-          bits::setNull(rawNullsOnErrors, row, true);
-          return;
-        }
-      }
-      needNormalizes[row] = needNormalize;
-      maxSize = std::max(maxSize, size);
-      totalOutputSize += size;
-    });
 
-    paddedInput_.resize(maxSize + simdjson::SIMDJSON_PADDING);
-    BufferPtr buffer =
-        AlignedBuffer::allocate<char>(totalOutputSize, context.pool());
-    auto* output = buffer->asMutable<char>();
-
-    rows.applyToSelected([&](auto row) {
-      if (bits::isBitNull(rawNullsOnErrors, row)) {
-        // Skip if error-ed out earlier.
-        return;
-      }
-
-      try {
-        auto value = flatInput->valueAt(row);
-        auto size = prepareInput(value, needNormalizes[row]);
-        if (auto error = parse(size, needNormalizes[row])) {
-          if (!nullOnError) {
-            context.setVeloxExceptionError(row, errors_[error]);
-          } else {
-            bits::setNull(rawNullsOnErrors, row, true);
-          }
-          clearState();
-          return;
-        }
-        auto outputSize = concatViews(views_, output);
-        rawStringViews[row] = StringView(output, outputSize);
-        if (!StringView::isInline(outputSize)) {
-          output += outputSize;
-        }
-      } catch (const VeloxException& e) {
-        clearState();
-
-        if (!e.isUserError()) {
-          throw;
-        }
-        if (!nullOnError) {
           context.setVeloxExceptionError(row, std::current_exception());
-        } else {
-          bits::setNull(rawNullsOnErrors, row, true);
-        }
-        FB_LOG_EVERY_MS(WARNING, 1000)
-            << "Caught user error in json_parse: " << e.message();
-      }
-    });
 
-    localResult = std::make_shared<FlatVector<StringView>>(
-        context.pool(),
-        JSON(),
-        nullOnError ? nullsOnErrors : nullptr,
-        rows.end(),
-        stringViews,
-        std::vector<BufferPtr>{buffer});
+          FB_LOG_EVERY_MS(WARNING, 1000)
+              << "Caught user error in json_parse: " << e.message();
+        }
+      });
+
+      localResult = std::make_shared<FlatVector<StringView>>(
+          context.pool(),
+          JSON(),
+          nullptr,
+          rows.end(),
+          stringViews,
+          std::vector<BufferPtr>{buffer});
+    }
+
+    context.moveOrCopyResult(localResult, rows, result);
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    // varchar -> json
+    return {exec::FunctionSignatureBuilder()
+                .returnType("json")
+                .argumentType("varchar")
+                .build()};
   }
 
  private:
@@ -510,302 +498,6 @@ class JsonParseImpl {
   mutable std::vector<FastSortKey> fastSortKeys_;
 };
 
-class JsonParseFunction : public exec::VectorFunction {
- public:
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      const TypePtr& outputType,
-      exec::EvalCtx& context,
-      VectorPtr& result) const override {
-    // Input can be constant or flat.
-    assert(args.size() > 0);
-    const auto& arg = args[0];
-    VectorPtr localResult;
-    parser.apply(
-        rows, arg, outputType, context, localResult, false /* nullOnError */);
-    context.moveOrCopyResult(localResult, rows, result);
-  }
-
-  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    // varchar -> json
-    return {exec::FunctionSignatureBuilder()
-                .returnType("json")
-                .argumentType("varchar")
-                .build()};
-  }
-
- private:
-  JsonParseImpl parser;
-};
-
-class JsonExtractFunction : public exec::VectorFunction {
- public:
-  JsonExtractFunction(bool extractScalarOnly)
-      : extractScalarOnly_(extractScalarOnly) {}
-
-  void apply(
-      const SelectivityVector& rows,
-      std::vector<VectorPtr>& args,
-      const TypePtr& outputType,
-      exec::EvalCtx& context,
-      VectorPtr& result) const override {
-    VELOX_CHECK_EQ(args.size(), 2);
-    VectorPtr jsonInput = args[0];
-    if (jsonInput->type() != JSON()) {
-      VELOX_CHECK_EQ(args[0]->type(), VARCHAR());
-      VectorPtr parsedJson;
-      parser_.apply(
-          rows, jsonInput, JSON(), context, parsedJson, true /* nullOnError */);
-      jsonInput = parsedJson;
-    }
-    VectorPtr localResult;
-    applyImpl(rows, jsonInput, args[1], outputType, context, localResult);
-    context.moveOrCopyResult(localResult, rows, result);
-  }
-
-  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures(
-      bool extractScalarOnly) {
-    if (extractScalarOnly) {
-      return {
-          exec::FunctionSignatureBuilder()
-              .returnType("varchar")
-              .argumentType("json")
-              .argumentType("varchar")
-              .build(),
-          exec::FunctionSignatureBuilder()
-              .returnType("varchar")
-              .argumentType("varchar")
-              .argumentType("varchar")
-              .build()};
-    }
-    return {
-        exec::FunctionSignatureBuilder()
-            .returnType("json")
-            .argumentType("json")
-            .argumentType("varchar")
-            .build(),
-        exec::FunctionSignatureBuilder()
-            .returnType("json")
-            .argumentType("varchar")
-            .argumentType("varchar")
-            .build()};
-  }
-
- private:
-  void applyImpl(
-      const SelectivityVector& rows,
-      const VectorPtr& json,
-      const VectorPtr& path,
-      const TypePtr& outputType,
-      exec::EvalCtx& context,
-      VectorPtr& localResult) const {
-    VELOX_CHECK_EQ(json->type(), JSON());
-
-    if (json->isConstantEncoding() && path->isConstantEncoding()) {
-      bool nullResult = false;
-      std::string output;
-      if (json->as<ConstantVector<StringView>>()->isNullAt(0) ||
-          path->as<ConstantVector<StringView>>()->isNullAt(0)) {
-        nullResult = true;
-      } else {
-        auto jsonValue = json->as<ConstantVector<StringView>>()->valueAt(0);
-        auto pathValue = path->as<ConstantVector<StringView>>()->valueAt(0);
-        try {
-          if (extractScalarOnly_) {
-            nullResult = processJsonExtractScalar(
-                             jsonValue, pathValue, output) != simdjson::SUCCESS;
-          } else {
-            nullResult = processJsonExtract(jsonValue, pathValue, output) !=
-                simdjson::SUCCESS;
-          }
-        } catch (const VeloxException& e) {
-          if (!e.isUserError()) {
-            throw;
-          }
-          nullResult = true;
-          context.setErrors(rows, std::current_exception());
-        }
-      }
-
-      if (nullResult) {
-        localResult = BaseVector::createNullConstant(
-            outputType, rows.end(), context.pool());
-      } else {
-        localResult = BaseVector::createConstant(
-            outputType, output, rows.end(), context.pool());
-      }
-      return;
-    }
-    localResult = context.getVector(outputType, rows.end());
-    auto flatResult = localResult->asFlatVector<StringView>();
-    VELOX_CHECK_NOT_NULL(flatResult);
-    exec::LocalDecodedVector decodedJson(context, *json, rows);
-    exec::LocalDecodedVector decodedPath(context, *path, rows);
-    exec::VectorWriter<Json> resultWriter;
-    resultWriter.init(*flatResult);
-
-    if (extractScalarOnly_) {
-      context.applyToSelectedNoThrow(rows, [&](auto row) {
-        VELOX_DCHECK(!decodedPath->isNullAt(row));
-        resultWriter.setOffset(row);
-        std::string output;
-        if (!decodedJson->isNullAt(row) &&
-            processJsonExtractScalar(
-                decodedJson->valueAt<StringView>(row),
-                decodedPath->valueAt<StringView>(row),
-                output) == simdjson::SUCCESS) {
-          resultWriter.current() = output;
-          resultWriter.commit(true);
-        } else {
-          resultWriter.commit(false);
-        }
-      });
-    } else {
-      context.applyToSelectedNoThrow(rows, [&](auto row) {
-        VELOX_DCHECK(!decodedPath->isNullAt(row));
-        resultWriter.setOffset(row);
-        std::string output;
-        if (!decodedJson->isNullAt(row) &&
-            processJsonExtract(
-                decodedJson->valueAt<StringView>(row),
-                decodedPath->valueAt<StringView>(row),
-                output) == simdjson::SUCCESS) {
-          resultWriter.current() = output;
-          resultWriter.commit(true);
-        } else {
-          resultWriter.commit(false);
-        }
-      });
-    }
-    resultWriter.finish();
-  }
-
-  FOLLY_ALWAYS_INLINE simdjson::error_code processJsonExtract(
-      const StringView& json,
-      const StringView& jsonPath,
-      std::string& output) const {
-    static constexpr std::string_view kNullString{"null"};
-    static constexpr std::string_view emptyArrayString{"[]"};
-    std::vector<std::string_view> results;
-    auto consumer = [&results](auto& v) {
-      // We could just convert v to a string using to_json_string directly, but
-      // in that case the JSON wouldn't be parsed (it would just return the
-      // contents directly) and we might miss invalid JSON.
-      SIMDJSON_ASSIGN_OR_RAISE(auto vtype, v.type());
-      switch (vtype) {
-        case simdjson::ondemand::json_type::object: {
-          SIMDJSON_ASSIGN_OR_RAISE(
-              auto jsonStr, simdjson::to_json_string(v.get_object()));
-          results.push_back(std::move(jsonStr));
-          break;
-        }
-        case simdjson::ondemand::json_type::array: {
-          SIMDJSON_ASSIGN_OR_RAISE(
-              auto jsonStr, simdjson::to_json_string(v.get_array()));
-          results.push_back(std::move(jsonStr));
-          break;
-        }
-        case simdjson::ondemand::json_type::string:
-        case simdjson::ondemand::json_type::number:
-        case simdjson::ondemand::json_type::boolean: {
-          SIMDJSON_ASSIGN_OR_RAISE(auto jsonStr, simdjson::to_json_string(v));
-          results.push_back(std::move(jsonStr));
-          break;
-        }
-        case simdjson::ondemand::json_type::null:
-          results.push_back(kNullString);
-          break;
-      }
-      return simdjson::SUCCESS;
-    };
-
-    auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
-    bool isDefinitePath = true;
-    simdjson::padded_string paddedJson(json.data(), json.size());
-    SIMDJSON_TRY(extractor.extract(paddedJson, consumer, isDefinitePath));
-
-    if (results.size() == 0) {
-      if (isDefinitePath) {
-        // If the path didn't map to anything in the JSON object, return null.
-        return simdjson::NO_SUCH_FIELD;
-      }
-      output = emptyArrayString;
-      return simdjson::SUCCESS;
-    }
-    std::stringstream ss;
-    if (!isDefinitePath) {
-      ss << "[";
-    }
-    for (int i = 0; i < results.size(); i++) {
-      if (i > 0) {
-        ss << ",";
-      }
-      ss << results[i];
-    }
-    if (!isDefinitePath) {
-      ss << "]";
-    }
-    output = ss.str();
-    return simdjson::SUCCESS;
-  }
-
-  FOLLY_ALWAYS_INLINE simdjson::error_code processJsonExtractScalar(
-      const StringView& json,
-      const StringView& jsonPath,
-      std::string& output) const {
-    bool resultPopulated = false;
-    std::optional<std::string> resultStr;
-    auto consumer = [&resultStr, &resultPopulated](auto& v) {
-      if (resultPopulated) {
-        // We should just get a single value, if we see multiple, it's an error
-        // and we should return null.
-        resultStr = std::nullopt;
-        return simdjson::SUCCESS;
-      }
-
-      resultPopulated = true;
-
-      SIMDJSON_ASSIGN_OR_RAISE(auto vtype, v.type());
-      switch (vtype) {
-        case simdjson::ondemand::json_type::boolean: {
-          SIMDJSON_ASSIGN_OR_RAISE(bool vbool, v.get_bool());
-          resultStr = vbool ? "true" : "false";
-          break;
-        }
-        case simdjson::ondemand::json_type::string: {
-          SIMDJSON_ASSIGN_OR_RAISE(resultStr, v.get_string());
-          break;
-        }
-        case simdjson::ondemand::json_type::object:
-        case simdjson::ondemand::json_type::array:
-        case simdjson::ondemand::json_type::null:
-          // Do nothing.
-          break;
-        default: {
-          SIMDJSON_ASSIGN_OR_RAISE(resultStr, simdjson::to_json_string(v));
-        }
-      }
-      return simdjson::SUCCESS;
-    };
-
-    auto& extractor = SIMDJsonExtractor::getInstance(jsonPath);
-    bool isDefinitePath = true;
-    simdjson::padded_string paddedJson(json.data(), json.size());
-    SIMDJSON_TRY(extractor.extract(paddedJson, consumer, isDefinitePath));
-
-    if (resultStr.has_value()) {
-      output = std::move(resultStr.value());
-      return simdjson::SUCCESS;
-    } else {
-      return simdjson::NO_SUCH_FIELD;
-    }
-  }
-
-  bool extractScalarOnly_{false};
-  JsonParseImpl parser_;
-};
-
 // This function is called when $internal$json_string_to_array/map/row
 // is called. It is used for expressions like 'Cast(json_parse(x) as
 // ARRAY<...>)' etc. This is an optimization to avoid parsing the json string
@@ -855,39 +547,6 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     udf_json_format,
     JsonFormatFunction::signatures(),
     std::make_unique<JsonFormatFunction>());
-
-VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
-    udf_json_extract_scalar,
-    JsonExtractFunction::signatures(true),
-    [](const std::string& /*name*/,
-       const std::vector<exec::VectorFunctionArg>&,
-       const velox::core::QueryConfig&) {
-      return std::make_shared<JsonExtractFunction>(true);
-    });
-
-// Only used internally at Meta.
-VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
-    udf_json_extract_scalar_varchar_only,
-    (std::vector<std::shared_ptr<exec::FunctionSignature>>{
-        facebook::velox::exec::FunctionSignatureBuilder()
-            .returnType("varchar")
-            .argumentType("varchar")
-            .argumentType("varchar")
-            .build()}),
-    [](const std::string& /*name*/,
-       const std::vector<exec::VectorFunctionArg>&,
-       const velox::core::QueryConfig&) {
-      return std::make_shared<JsonExtractFunction>(true);
-    });
-
-VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
-    udf_json_extract,
-    JsonExtractFunction::signatures(false),
-    [](const std::string& /*name*/,
-       const std::vector<exec::VectorFunctionArg>&,
-       const velox::core::QueryConfig&) {
-      return std::make_shared<JsonExtractFunction>(false);
-    });
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_json_parse,

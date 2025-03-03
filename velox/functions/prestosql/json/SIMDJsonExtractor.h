@@ -31,7 +31,7 @@ class SIMDJsonExtractor {
  public:
   /**
    * Extract element(s) from a JSON object using the given path.
-   * @param json: A json string of type simdjson::padded_string
+   * @param json: A JSON object
    * @param path: Path to locate a JSON object. Following operators are
    * supported.
    *              "$"      Root member of a JSON structure no matter if it's an
@@ -43,12 +43,10 @@ class SIMDJsonExtractor {
    * @param consumer: Function to consume the extracted elements. Should be able
    *                  to take an argument that can either be a
    *                  simdjson::ondemand::document or a
-   *                  simdjson::ondemand::value. Note: If the consumer holds
-   *                  onto string_view(s) generated from applying
-   *                  simdjson::to_json_string to the arguments, then those
-   *                  string_view(s) will reference the original `json`
-   *                  padded_string and remain valid as long as it remains
-   *                  in scope.
+   *                  simdjson::ondemand::value. Note that once consumer
+   *                  returns, it should be assumed that the argument passed in
+   *                  is no longer valid, so do not attempt to store it as is
+   *                  in the consumer.
    * @param isDefinitePath is an output param that will get set to
    *                       false if a token is evaluated which can return
    *                       multiple results like '*'.
@@ -57,7 +55,7 @@ class SIMDJsonExtractor {
    */
   template <typename TConsumer>
   simdjson::error_code extract(
-      const simdjson::padded_string& json,
+      const velox::StringView& json,
       TConsumer& consumer,
       bool& isDefinitePath);
 
@@ -106,9 +104,10 @@ simdjson::error_code extractArray(
 
 template <typename TConsumer>
 simdjson::error_code SIMDJsonExtractor::extract(
-    const simdjson::padded_string& paddedJson,
+    const velox::StringView& json,
     TConsumer& consumer,
     bool& isDefinitePath) {
+  simdjson::padded_string paddedJson(json.data(), json.size());
   SIMDJSON_ASSIGN_OR_RAISE(auto jsonDoc, simdjsonParse(paddedJson));
   SIMDJSON_ASSIGN_OR_RAISE(auto isScalar, jsonDoc.is_scalar());
   if (isScalar) {
