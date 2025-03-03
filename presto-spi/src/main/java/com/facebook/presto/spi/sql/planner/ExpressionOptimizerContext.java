@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.sql.planner;
 
 import com.facebook.presto.spi.NodeManager;
+import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 
@@ -22,12 +23,14 @@ import static java.util.Objects.requireNonNull;
 public class ExpressionOptimizerContext
 {
     private final NodeManager nodeManager;
+    private final RowExpressionSerde rowExpressionSerde;
     private final FunctionMetadataManager functionMetadataManager;
     private final StandardFunctionResolution functionResolution;
 
-    public ExpressionOptimizerContext(NodeManager nodeManager, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution functionResolution)
+    public ExpressionOptimizerContext(NodeManager nodeManager, RowExpressionSerde rowExpressionSerde, FunctionMetadataManager functionMetadataManager, StandardFunctionResolution functionResolution)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.rowExpressionSerde = requireNonNull(rowExpressionSerde, "rowExpressionSerde is null");
         this.functionMetadataManager = requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         this.functionResolution = requireNonNull(functionResolution, "functionResolution is null");
     }
@@ -35,6 +38,11 @@ public class ExpressionOptimizerContext
     public NodeManager getNodeManager()
     {
         return nodeManager;
+    }
+
+    public RowExpressionSerde getRowExpressionSerde()
+    {
+        return rowExpressionSerde;
     }
 
     public FunctionMetadataManager getFunctionMetadataManager()
