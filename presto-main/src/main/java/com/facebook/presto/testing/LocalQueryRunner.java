@@ -891,7 +891,7 @@ public class LocalQueryRunner
                 for (Driver driver : drivers) {
                     if (alwaysRevokeMemory) {
                         driver.getDriverContext().getOperatorContexts().stream()
-                                .filter(operatorContext -> operatorContext.getOperatorStats().getRevocableMemoryReservation().getValue() > 0)
+                                .filter(operatorContext -> operatorContext.getOperatorStats().getRevocableMemoryReservationInBytes() > 0)
                                 .forEach(OperatorContext::requestMemoryRevoking);
                     }
 

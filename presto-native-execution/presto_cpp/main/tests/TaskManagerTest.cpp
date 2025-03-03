@@ -101,7 +101,7 @@ int64_t sumOpSpillBytes(
       if (opStats.operatorType != opType) {
         continue;
       }
-      sum += opStats.spilledDataSize.getValue(protocol::DataUnit::BYTE);
+      sum += opStats.spilledDataSizeInBytes;
     }
   }
   return sum;

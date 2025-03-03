@@ -25,7 +25,6 @@ import com.facebook.presto.execution.buffer.ThriftBufferResult;
 import com.facebook.presto.server.ForAsyncRpc;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.inject.Inject;
@@ -36,7 +35,6 @@ import static com.facebook.airlift.concurrent.MoreFutures.addTimeout;
 import static com.facebook.presto.util.TaskUtils.DEFAULT_MAX_WAIT_TIME;
 import static com.facebook.presto.util.TaskUtils.randomizeWaitTime;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
 
 // TODO: the server currently only supports exchange; more end points (for /v1/task) should be supported
@@ -59,7 +57,7 @@ public class ThriftTaskService
         requireNonNull(taskId, "taskId is null");
         requireNonNull(bufferId, "bufferId is null");
 
-        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, new DataSize(maxSizeInBytes, BYTE));
+        ListenableFuture<BufferResult> bufferResultFuture = taskManager.getTaskResults(taskId, bufferId, token, maxSizeInBytes);
         Duration waitTime = randomizeWaitTime(DEFAULT_MAX_WAIT_TIME);
         bufferResultFuture = addTimeout(
                 bufferResultFuture,
