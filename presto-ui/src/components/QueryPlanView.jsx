@@ -64,7 +64,7 @@ export default function PlanView({show, data}) {
                             class: "plan-edge",
                             style: "stroke-width: 4px",
                             arrowheadClass: "plan-arrowhead",
-                            label: sourceStats.outputDataSize + " / " + formatRows(sourceStats.outputPositions),
+                            label: sourceStats.outputDataSizeInBytes + " / " + formatRows(sourceStats.outputPositions),
                             labelStyle: "color: #fff; font-weight: bold; font-size: 24px;",
                             labelType: "html",
                         });
