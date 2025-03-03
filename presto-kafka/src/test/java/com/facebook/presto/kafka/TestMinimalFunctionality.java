@@ -90,8 +90,10 @@ public class TestMinimalFunctionality
     @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
-        queryRunner.close();
-        queryRunner = null;
+        if (queryRunner != null) {
+            queryRunner.close();
+            queryRunner = null;
+        }
     }
 
     private void createMessages(String topicName, int count)
