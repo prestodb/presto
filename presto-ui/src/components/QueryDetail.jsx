@@ -32,7 +32,6 @@ import {
     getTaskIdSuffix,
     getTaskNumber,
     GLYPHICON_HIGHLIGHT,
-    parseDataSize,
     parseDuration,
     precisionRound
 } from "../utils";
@@ -40,9 +39,9 @@ import {QueryHeader} from "./QueryHeader";
 
 createTheme('dark', {
     background: {
-      default: 'transparent',
+        default: 'transparent',
     },
-  });
+});
 
 function TaskList({tasks}) {
     function removeQueryId(id) {
@@ -113,6 +112,7 @@ function TaskList({tasks}) {
         }
         return elapsedTime;
     }
+
     const customStyles = {
         headCells: {
             style: {
@@ -134,20 +134,20 @@ function TaskList({tasks}) {
             selector: row => row.taskId,
             sortFunction: compareTaskId,
             cell: row => (<a href={"/v1/taskInfo/" + row.taskId + "?pretty"}>
-                            {getTaskIdSuffix(row.taskId)}
-                            </a>),
+                {getTaskIdSuffix(row.taskId)}
+            </a>),
             minWidth: '60px',
         },
         {
             name: 'Host',
             selector: row => getHostname(row.taskStatus.self),
             cell: row => (<a href={"worker.html?" + row.nodeId} className="font-light nowrap" target="_blank">
-                            {showingPortNumbers ? getHostAndPort(row.taskStatus.self) :  getHostname(row.taskStatus.self)}
-                            </a>),
+                {showingPortNumbers ? getHostAndPort(row.taskStatus.self) : getHostname(row.taskStatus.self)}
+            </a>),
             sortable: true,
             grow: 3,
             minWidth: '30px',
-            style: { overflow: 'auto' },
+            style: {overflow: 'auto'},
         },
         {
             name: 'State',
@@ -157,8 +157,8 @@ function TaskList({tasks}) {
         },
         {
             name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
-                data-bs-toggle="tooltip" data-bs-placement="top"
-                title="Pending splits"/>),
+                         data-bs-toggle="tooltip" data-bs-placement="top"
+                         title="Pending splits"/>),
             selector: row => row.stats.queuedDrivers,
             sortable: true,
             maxWidth: '50px',
@@ -166,8 +166,8 @@ function TaskList({tasks}) {
         },
         {
             name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
-                data-bs-toggle="tooltip" data-bs-placement="top"
-                title="Running splits"/>),
+                         data-bs-toggle="tooltip" data-bs-placement="top"
+                         title="Running splits"/>),
             selector: row => row.stats.runningDrivers,
             sortable: true,
             maxWidth: '50px',
@@ -175,9 +175,9 @@ function TaskList({tasks}) {
         },
         {
             name: (<span className="bi bi-bookmark-check-fill"
-                style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
-                data-bs-placement="top"
-                title="Blocked splits"/>),
+                         style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip"
+                         data-bs-placement="top"
+                         title="Blocked splits"/>),
             selector: row => row.stats.blockedDrivers,
             sortable: true,
             maxWidth: '50px',
@@ -185,8 +185,8 @@ function TaskList({tasks}) {
         },
         {
             name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
-                data-bs-toggle="tooltip" data-bs-placement="top"
-                title="Completed splits"/>),
+                         data-bs-toggle="tooltip" data-bs-placement="top"
+                         title="Completed splits"/>),
             selector: row => row.stats.completedDrivers,
             sortable: true,
             maxWidth: '50px',
@@ -286,7 +286,7 @@ class RuntimeStatsList extends React.Component {
     }
 
     getExpandedIcon() {
-        return this.state.expanded ?  "bi bi-chevron-up" : "bi bi-chevron-down";
+        return this.state.expanded ? "bi bi-chevron-up" : "bi bi-chevron-down";
     }
 
     getExpandedStyle() {
@@ -300,47 +300,47 @@ class RuntimeStatsList extends React.Component {
     }
 
     renderMetricValue(unit, value) {
-      if (unit === "NANO") {
-          return formatDuration(parseDuration(value+ "ns"));
-      }
-      if (unit === "BYTE") {
-          return formatDataSize(value);
-      }
-      return formatCount(value); // NONE
+        if (unit === "NANO") {
+            return formatDuration(parseDuration(value + "ns"));
+        }
+        if (unit === "BYTE") {
+            return formatDataSize(value);
+        }
+        return formatCount(value); // NONE
     }
 
     render() {
         return (
-             <table className="table" id="runtime-stats-table">
-                 <tbody>
-                 <tr>
-                     <th className="info-text">Metric Name</th>
-                     <th className="info-text">Sum</th>
-                     <th className="info-text">Count</th>
-                     <th className="info-text">Min</th>
-                     <th className="info-text">Max</th>
-                     <th className="expand-charts-container">
-                         <a onClick={this.toggleExpanded.bind(this)} className="expand-stats-button">
-                             <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="Show metrics" />
-                         </a>
-                     </th>
-                 </tr>
-                 {
-                   Object
-                     .values(this.props.stats)
-                     .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
-                     .map((metric) =>
-                         <tr style={this.getExpandedStyle()}>
-                             <td className="info-text">{metric.name}</td>
-                             <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
-                             <td className="info-text">{formatCount(metric.count)}</td>
-                             <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
-                             <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
-                         </tr>
-                     )
-                 }
-                 </tbody>
-             </table>
+            <table className="table" id="runtime-stats-table">
+                <tbody>
+                <tr>
+                    <th className="info-text">Metric Name</th>
+                    <th className="info-text">Sum</th>
+                    <th className="info-text">Count</th>
+                    <th className="info-text">Min</th>
+                    <th className="info-text">Max</th>
+                    <th className="expand-charts-container">
+                        <a onClick={this.toggleExpanded.bind(this)} className="expand-stats-button">
+                            <span className={"bi " + this.getExpandedIcon()} style={GLYPHICON_HIGHLIGHT} data-bs-toggle="tooltip" data-bs-placement="top" title="Show metrics"/>
+                        </a>
+                    </th>
+                </tr>
+                {
+                    Object
+                        .values(this.props.stats)
+                        .sort((m1, m2) => (m1.name.localeCompare(m2.name)))
+                        .map((metric) =>
+                            <tr style={this.getExpandedStyle()}>
+                                <td className="info-text">{metric.name}</td>
+                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.sum)}</td>
+                                <td className="info-text">{formatCount(metric.count)}</td>
+                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.min)}</td>
+                                <td className="info-text">{this.renderMetricValue(metric.unit, metric.max)}</td>
+                            </tr>
+                        )
+                }
+                </tbody>
+            </table>
         );
     }
 }
@@ -596,7 +596,7 @@ class StageSummary extends React.Component {
                                             Current
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.userMemoryReservation}
+                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.userMemoryReservationInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -612,7 +612,7 @@ class StageSummary extends React.Component {
                                             Peak
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}
+                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservationInBytes)}
                                         </td>
                                     </tr>
                                     </tbody>
@@ -913,17 +913,17 @@ export class QueryDetail extends React.Component {
     }
 
     static getQueryURL(id) {
-            if (!id || typeof id !== 'string' || id.length === 0) {
-                return "/v1/query/undefined";
-            }
-            const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
-            return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
-         }
+        if (!id || typeof id !== 'string' || id.length === 0) {
+            return "/v1/query/undefined";
+        }
+        const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
+        return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
+    }
 
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
-        const queryId =  getFirstParameter(window.location.search);
+        const queryId = getFirstParameter(window.location.search);
 
         $.get(QueryDetail.getQueryURL(queryId), function (query) {
             let lastSnapshotStages = this.state.lastSnapshotStage;
@@ -946,7 +946,7 @@ export class QueryDetail extends React.Component {
                 lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
                 lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
                 lastRowInput: query.queryStats.processedInputPositions,
-                lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
+                lastByteInput: query.queryStats.processedInputDataSizeInBytes,
 
                 initialized: true,
                 ended: query.finalQueryInfo,
@@ -969,13 +969,13 @@ export class QueryDetail extends React.Component {
                 const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
-                const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
+                const currentByteInputRate = (query.queryStats.processedInputDataSizeInBytes - lastByteInput) / elapsedSecsSinceLastRefresh;
                 this.setState({
                     scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
                     cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
                     rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
                     byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                    reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), this.state.reservedMemory),
+                    reservedMemory: addToHistory(query.queryStats.userMemoryReservationInBytes, this.state.reservedMemory),
                 });
             }
             this.resetTimer();
@@ -1089,9 +1089,9 @@ export class QueryDetail extends React.Component {
             <div className="col-12">
                 <h3>
                     Prepared Query
-                        <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
-                            <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
-                        </a>
+                    <a className="btn copy-button" data-clipboard-target="#prepared-query-text" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
+                        <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
+                    </a>
                 </h3>
                 <pre id="prepared-query">
                     <code className="lang-sql" id="prepared-query-text">
@@ -1182,14 +1182,18 @@ export class QueryDetail extends React.Component {
 
     renderRuntimeStats() {
         const query = this.state.query;
-        if (query.queryStats.runtimeStats === undefined) return null;
-        if (Object.values(query.queryStats.runtimeStats).length == 0) return null;
+        if (query.queryStats.runtimeStats === undefined) {
+            return null;
+        }
+        if (Object.values(query.queryStats.runtimeStats).length == 0) {
+            return null;
+        }
         return (
             <div className="row">
                 <div className="col-6">
                     <h3>Runtime Statistics</h3>
                     <hr className="h3-hr"/>
-                    <RuntimeStatsList stats={query.queryStats.runtimeStats} />
+                    <RuntimeStatsList stats={query.queryStats.runtimeStats}/>
                 </div>
             </div>
         );
@@ -1224,7 +1228,8 @@ export class QueryDetail extends React.Component {
                             <tr>
                                 <td className="info-title">
                                     Stack Trace
-                                    <a className="btn copy-button" data-clipboard-target="#stack-trace" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
+                                    <a className="btn copy-button" data-clipboard-target="#stack-trace" data-bs-toggle="tooltip" data-bs-placement="right"
+                                       title="Copy to clipboard">
                                         <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                                     </a>
                                 </td>
@@ -1276,7 +1281,8 @@ export class QueryDetail extends React.Component {
                                 <td className="info-text wrap-text">
                                     <span id="query-user">{query.session.user}</span>
                                     &nbsp;&nbsp;
-                                    <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-bs-placement="right" title="Copy to clipboard">
+                                    <a href="#" className="copy-button" data-clipboard-target="#query-user" data-bs-toggle="tooltip" data-bs-placement="right"
+                                       title="Copy to clipboard">
                                         <span className="bi bi-copy" aria-hidden="true" alt="Copy to clipboard"/>
                                     </a>
                                 </td>
@@ -1474,7 +1480,7 @@ export class QueryDetail extends React.Component {
                                             Input Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.processedInputDataSize}
+                                            {formatDataSize(query.queryStats.processedInputDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1490,12 +1496,13 @@ export class QueryDetail extends React.Component {
                                             Raw Input Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.rawInputDataSize}
+                                            {formatDataSize(query.queryStats.rawInputDataSizeInBytes)}
                                         </td>
                                     </tr>
-                                   <tr>
+                                    <tr>
                                         <td className="info-title">
-                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right" title="The total number of rows shuffled across all query stages">
+                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
+                                                  title="The total number of rows shuffled across all query stages">
                                                 Shuffled Rows
                                             </span>
                                         </td>
@@ -1505,12 +1512,13 @@ export class QueryDetail extends React.Component {
                                     </tr>
                                     <tr>
                                         <td className="info-title">
-                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right" title="The total number of bytes shuffled across all query stages">
+                                            <span className="text" data-bs-toggle="tooltip" data-bs-placement="right"
+                                                  title="The total number of bytes shuffled across all query stages">
                                                 Shuffled Data
                                             </span>
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.shuffledDataSize}
+                                            {formatDataSize(query.queryStats.shuffledDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1518,7 +1526,7 @@ export class QueryDetail extends React.Component {
                                             Peak User Memory
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.peakUserMemoryReservation}
+                                            {formatDataSize(query.queryStats.peakUserMemoryReservationInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1526,7 +1534,7 @@ export class QueryDetail extends React.Component {
                                             Peak Total Memory
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.peakTotalMemoryReservation}
+                                            {formatDataSize(query.queryStats.peakTotalMemoryReservationInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1542,7 +1550,7 @@ export class QueryDetail extends React.Component {
                                             Cumulative User Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(query.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(query.queryStats.cumulativeUserMemory / 1000.0)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1550,7 +1558,7 @@ export class QueryDetail extends React.Component {
                                             Cumulative Total
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(query.queryStats.cumulativeTotalMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(query.queryStats.cumulativeTotalMemory / 1000.0)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1566,7 +1574,7 @@ export class QueryDetail extends React.Component {
                                             Output Data
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.outputDataSize}
+                                            {formatDataSize(query.queryStats.outputDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1582,7 +1590,7 @@ export class QueryDetail extends React.Component {
                                             Written Output Logical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.writtenOutputLogicalDataSize}
+                                            {formatDataSize(query.queryStats.writtenOutputLogicalDataSizeInBytes)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1590,18 +1598,18 @@ export class QueryDetail extends React.Component {
                                             Written Output Physical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {query.queryStats.writtenOutputPhysicalDataSize}
+                                            {formatDataSize(query.queryStats.writtenOutputPhysicalDataSizeInBytes)}
                                         </td>
                                     </tr>
-                                    {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
-                                    <tr>
-                                        <td className="info-title">
-                                            Spilled Data
-                                        </td>
-                                        <td className="info-text">
-                                            {query.queryStats.spilledDataSize}
-                                        </td>
-                                    </tr>
+                                    {query.queryStats.spilledDataSizeInBytes > 0 &&
+                                        <tr>
+                                            <td className="info-title">
+                                                Spilled Data
+                                            </td>
+                                            <td className="info-text">
+                                                {formatDataSize(query.queryStats.spilledDataSizeInBytes)}
+                                            </td>
+                                        </tr>
                                     }
                                     </tbody>
                                 </table>
