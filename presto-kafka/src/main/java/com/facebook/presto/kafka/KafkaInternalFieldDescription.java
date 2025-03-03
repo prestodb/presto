@@ -133,6 +133,8 @@ public enum KafkaInternalFieldDescription
 
     ColumnMetadata getColumnMetadata(boolean hidden)
     {
-        return new ColumnMetadata(columnName, type, comment, hidden);
+        return ColumnMetadata.builder(columnName, type)
+                .setComment(comment)
+                .setHidden(hidden).build();
     }
 }

@@ -57,7 +57,9 @@ enum BuiltinColumns
 
     public ColumnMetadata getMetadata()
     {
-        return new ColumnMetadata(name, type, "", null, true);
+        return ColumnMetadata.builder(name, type)
+                .setComment("")
+                .setHidden(true).build();
     }
 
     public ColumnHandle getColumnHandle()

@@ -44,10 +44,10 @@ public class NodesSystemTable
     private static final ConnectorTableMetadata METADATA = new ConnectorTableMetadata(
             new SchemaTableName("system", "nodes"),
             ImmutableList.<ColumnMetadata>builder()
-                    .add(new ColumnMetadata("presto_node_id", createUnboundedVarcharType()))
-                    .add(new ColumnMetadata("presto_node_address", createUnboundedVarcharType()))
-                    .add(new ColumnMetadata("elasticsearch_node_id", createUnboundedVarcharType()))
-                    .add(new ColumnMetadata("elasticsearch_node_address", createUnboundedVarcharType()))
+                    .add(ColumnMetadata.builder("presto_node_id", createUnboundedVarcharType()).build())
+                    .add(ColumnMetadata.builder("presto_node_address", createUnboundedVarcharType()).build())
+                    .add(ColumnMetadata.builder("elasticsearch_node_id", createUnboundedVarcharType()).build())
+                    .add(ColumnMetadata.builder("elasticsearch_node_address", createUnboundedVarcharType()).build())
                     .build());
 
     private final ElasticsearchClient client;

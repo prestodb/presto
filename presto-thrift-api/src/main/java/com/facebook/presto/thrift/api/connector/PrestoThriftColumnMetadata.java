@@ -73,11 +73,9 @@ public final class PrestoThriftColumnMetadata
 
     public ColumnMetadata toColumnMetadata(TypeManager typeManager)
     {
-        return new ColumnMetadata(
-                name,
-                typeManager.getType(parseTypeSignature(type)),
-                comment,
-                hidden);
+        return ColumnMetadata.builder(name, typeManager.getType(parseTypeSignature(type)))
+                .setComment(comment)
+                .setHidden(hidden).build();
     }
 
     @Override

@@ -74,7 +74,8 @@ public class TestRemoveOrphanFilesProcedureHive
                 session.getUser(),
                 targetPath);
         TableMetadata metadata = newTableMetadata(
-                toIcebergSchema(ImmutableList.of(new ColumnMetadata("a", INTEGER), new ColumnMetadata("b", VARCHAR))),
+                toIcebergSchema(ImmutableList.of(ColumnMetadata.builder("a", INTEGER).build(),
+                        ColumnMetadata.builder("b", VARCHAR).build())),
                 PartitionSpec.unpartitioned(), targetPath,
                 tableProperties);
         Transaction transaction = createTableTransaction(tableName, operations, metadata);
