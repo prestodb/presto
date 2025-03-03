@@ -25,9 +25,11 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.io.HiveCharWritable;
@@ -46,8 +48,6 @@ import org.joda.time.DateTimeZone;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
@@ -312,9 +312,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
     private static long getLongExpressedValue(Object value, DateTimeZone hiveTimeZone)
     {
         if (value instanceof Date) {
-            long storageTime = ((Date) value).getTime();
-            // convert date from VM current time zone to UTC
-            long utcMillis = storageTime + JVM_TIME_ZONE.getOffset(storageTime);
+            long utcMillis = ((Date) value).toEpochMilli();
             return TimeUnit.MILLISECONDS.toDays(utcMillis);
         }
         if (value instanceof Timestamp) {
@@ -323,7 +321,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             // time zone. We need to convert it to the configured time zone.
 
             // the timestamp that Hive parsed using the JVM time zone
-            long parsedJvmMillis = ((Timestamp) value).getTime();
+            long parsedJvmMillis = ((Timestamp) value).toSqlTimestamp().getTime();
 
             // remove the JVM time zone correction from the timestamp
             long hiveMillis = JVM_TIME_ZONE.convertUTCToLocal(parsedJvmMillis);

@@ -25,9 +25,9 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.UnknownType;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 
 import java.math.BigInteger;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -91,7 +91,7 @@ public final class ObjectInputDecoders
             case DOUBLE:
                 return o -> ((Double) o);
             case TIMESTAMP:
-                return o -> new Timestamp(((long) o));
+                return o -> Timestamp.ofEpochMilli(((long) o));
             case VARBINARY:
                 return o -> ((Slice) o).getBytes();
             case VARCHAR:
