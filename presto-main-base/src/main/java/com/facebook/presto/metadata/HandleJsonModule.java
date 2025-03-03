@@ -23,6 +23,18 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 public class HandleJsonModule
         implements Module
 {
+    private final HandleResolver handleResolver;
+
+    public HandleJsonModule()
+    {
+        this(null);
+    }
+
+    public HandleJsonModule(HandleResolver handleResolver)
+    {
+        this.handleResolver = handleResolver;
+    }
+
     @Override
     public void configure(Binder binder)
     {
@@ -39,6 +51,11 @@ public class HandleJsonModule
         jsonBinder(binder).addModuleBinding().to(FunctionHandleJacksonModule.class);
         jsonBinder(binder).addModuleBinding().to(MetadataUpdateJacksonModule.class);
 
-        binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+        if (handleResolver == null) {
+            binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(HandleResolver.class).toInstance(handleResolver);
+        }
     }
 }
