@@ -21,6 +21,8 @@ import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
@@ -33,55 +35,31 @@ public class TestingPrestoServerRouter
             throws Exception
     {
         super();
-        this.blocker = new InstanceRequestBlocker(this.getBaseUrl().getPort());
+        this.blocker = new InstanceRequestBlocker();
     }
 
     private static class InstanceRequestBlocker
             implements Filter
     {
-        private final Object monitor = new Object();
-        private volatile boolean blocked;
-        private final int port;
-
-        public InstanceRequestBlocker(int port)
-        {
-            this.port = port;
-        }
+        private boolean blocked;
 
         @Override
         public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
                 throws IOException, ServletException
         {
-            if (request.getServerPort() == port) {
-                System.out.println(String.format("BLOCKED %d, request port %d", port, request.getServerPort()));
-                synchronized (monitor) {
-                    while (blocked) {
-                        try {
-                            monitor.wait();
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            throw new RuntimeException(e);
-                        }
-                    }
-                }
+            if (!blocked) {
+                chain.doFilter(request, response);
             }
-            System.out.println(String.format("UNBLOCKED %d, request port %d", port, request.getServerPort()));
-            chain.doFilter(request, response);
         }
 
         public void block()
         {
-            synchronized (monitor) {
-                blocked = true;
-            }
+            blocked = true;
         }
 
         public void unblock()
         {
-            synchronized (monitor) {
-                blocked = false;
-                monitor.notifyAll();
-            }
+            blocked = false;
         }
 
         @Override
