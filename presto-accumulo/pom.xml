@@ -400,6 +400,18 @@
                             </excludes>
                         </configuration>
                     </plugin>
+                    <plugin>
+                        <groupId>org.basepom.maven</groupId>
+                        <artifactId>duplicate-finder-maven-plugin</artifactId>
+                        <configuration>
+                            <ignoredClassPatterns>
+                                <ignoredClassPattern>org.slf4j.impl.StaticLoggerBinder</ignoredClassPattern>
+                                <ignoredClassPattern>org.slf4j.impl.StaticMDCBinder</ignoredClassPattern>
+                                <ignoredClassPattern>org.slf4j.impl.StaticMarkerBinder</ignoredClassPattern>
+                            </ignoredClassPatterns>
+                        </configuration>
+                    </plugin>
+
                 </plugins>
             </build>
         </profile>
