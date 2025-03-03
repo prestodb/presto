@@ -26,7 +26,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -43,8 +42,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getFirst;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -344,41 +341,41 @@ public class DriverContext
 
         List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
         OperatorStats inputOperator = getFirst(operators, null);
-        DataSize rawInputDataSize;
+        long rawInputDataSize;
         long rawInputPositions;
         Duration rawInputReadTime;
-        DataSize processedInputDataSize;
+        long processedInputDataSize;
         long processedInputPositions;
-        DataSize outputDataSize;
+        long outputDataSize;
         long outputPositions;
         if (inputOperator != null) {
-            rawInputDataSize = inputOperator.getRawInputDataSize();
+            rawInputDataSize = inputOperator.getRawInputDataSizeInBytes();
             rawInputPositions = inputOperator.getRawInputPositions();
             rawInputReadTime = inputOperator.getAddInputWall();
 
-            processedInputDataSize = inputOperator.getInputDataSize();
+            processedInputDataSize = inputOperator.getInputDataSizeInBytes();
             processedInputPositions = inputOperator.getInputPositions();
 
             OperatorStats outputOperator = requireNonNull(getLast(operators, null));
-            outputDataSize = outputOperator.getOutputDataSize();
+            outputDataSize = outputOperator.getOutputDataSizeInBytes();
             outputPositions = outputOperator.getOutputPositions();
         }
         else {
-            rawInputDataSize = new DataSize(0, BYTE);
+            rawInputDataSize = 0L;
             rawInputPositions = 0;
             rawInputReadTime = new Duration(0, MILLISECONDS);
 
-            processedInputDataSize = new DataSize(0, BYTE);
+            processedInputDataSize = 0L;
             processedInputPositions = 0;
 
-            outputDataSize = new DataSize(0, BYTE);
+            outputDataSize = 0L;
             outputPositions = 0;
         }
 
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
         long physicalWrittenDataSize = 0;
         for (OperatorStats operator : operators) {
-            physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
+            physicalWrittenDataSize += operator.getPhysicalWrittenDataSizeInBytes();
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
             }
@@ -392,23 +389,23 @@ public class DriverContext
                 executionEndTime,
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
-                succinctBytes(driverMemoryContext.getUserMemory()),
-                succinctBytes(driverMemoryContext.getRevocableMemory()),
-                succinctBytes(driverMemoryContext.getSystemMemory()),
+                driverMemoryContext.getUserMemory(),
+                driverMemoryContext.getRevocableMemory(),
+                driverMemoryContext.getSystemMemory(),
                 succinctNanos(totalScheduledTime),
                 succinctNanos(totalCpuTime),
                 succinctNanos(totalBlockedTime),
                 blockedMonitor != null,
                 builder.build(),
-                succinctBytes(totalAllocation),
-                rawInputDataSize.convertToMostSuccinctDataSize(),
+                totalAllocation,
+                rawInputDataSize,
                 rawInputPositions,
                 rawInputReadTime,
-                processedInputDataSize.convertToMostSuccinctDataSize(),
+                processedInputDataSize,
                 processedInputPositions,
-                outputDataSize.convertToMostSuccinctDataSize(),
+                outputDataSize,
                 outputPositions,
-                succinctBytes(physicalWrittenDataSize),
+                physicalWrittenDataSize,
                 operators);
     }
 
