@@ -14,7 +14,8 @@
 
 package com.facebook.presto.hive.functions.type;
 
-import java.sql.Date;
+import org.apache.hadoop.hive.common.type.Date;
+
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -30,6 +31,6 @@ public final class DateTimeUtils
         Instant instant = Instant.ofEpochMilli((millis));
         OffsetDateTime dt = OffsetDateTime.ofInstant(instant, ZoneId.of("UTC"));
         // A trick to prevent including zone info
-        return new Date(dt.getYear() - 1900, dt.getMonthValue() - 1, dt.getDayOfMonth());
+        return Date.of(dt.getYear() - 1900, dt.getMonthValue() - 1, dt.getDayOfMonth());
     }
 }

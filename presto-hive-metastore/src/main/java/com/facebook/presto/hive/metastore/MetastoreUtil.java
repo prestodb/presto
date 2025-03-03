@@ -75,6 +75,7 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.FileUtils;
 import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.io.Text;
 import org.joda.time.DateTimeZone;
@@ -85,7 +86,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -98,6 +98,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -682,7 +683,7 @@ public class MetastoreUtil
         }
         if (TimestampType.TIMESTAMP.equals(type)) {
             long millisUtc = type.getLong(block, position);
-            return new Timestamp(millisUtc);
+            return Timestamp.ofEpochMilli(millisUtc, TimeZone.getDefault().toZoneId());
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
