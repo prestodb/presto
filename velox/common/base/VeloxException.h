@@ -23,6 +23,7 @@
 #include <folly/FixedString.h>
 #include <folly/String.h>
 #include <folly/synchronization/CallOnce.h>
+#include <gflags/gflags.h>
 #include <glog/logging.h>
 
 #include "velox/common/process/StackTrace.h"

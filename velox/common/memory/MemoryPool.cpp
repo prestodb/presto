@@ -27,6 +27,13 @@
 
 #include <re2/re2.h>
 
+DEFINE_bool(
+    velox_memory_pool_capacity_transfer_across_tasks,
+    false,
+    "Whether allow to memory capacity transfer between memory pools from different tasks, which might happen in use case like Spark-Gluten");
+
+DECLARE_bool(velox_suppress_memory_capacity_exceeding_error_message);
+
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
@@ -964,7 +971,7 @@ std::string MemoryPoolImpl::treeMemoryUsage(bool skipEmptyPool) const {
   if (parent_ != nullptr) {
     return parent_->treeMemoryUsage(skipEmptyPool);
   }
-  if (config::globalConfig().suppressMemoryCapacityExceedingErrorMessage) {
+  if (FLAGS_velox_suppress_memory_capacity_exceeding_error_message) {
     return "";
   }
   std::stringstream out;

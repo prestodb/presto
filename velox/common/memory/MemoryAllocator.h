@@ -24,11 +24,13 @@
 #include <unordered_set>
 
 #include <fmt/format.h>
+#include <gflags/gflags.h>
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/memory/Allocation.h"
 #include "velox/common/time/Timer.h"
+
+DECLARE_bool(velox_time_allocations);
 
 namespace facebook::velox::memory {
 
@@ -94,7 +96,7 @@ struct Stats {
 
   template <typename Op>
   void recordAllocate(int64_t bytes, int32_t count, Op op) {
-    if (config::globalConfig().timeAllocations) {
+    if (FLAGS_velox_time_allocations) {
       auto index = sizeIndex(bytes);
       velox::ClockTimer timer(sizes[index].allocateClocks);
       op();
@@ -107,7 +109,7 @@ struct Stats {
 
   template <typename Op>
   void recordFree(int64_t bytes, Op op) {
-    if (config::globalConfig().timeAllocations) {
+    if (FLAGS_velox_time_allocations) {
       auto index = sizeIndex(bytes);
       ClockTimer timer(sizes[index].freeClocks);
       op();

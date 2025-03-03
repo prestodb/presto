@@ -20,7 +20,6 @@ target_link_libraries(
   velox_memory
   velox_buffer
   velox_test_util
-  velox_flag_definitions
   GTest::gtest
   GTest::gtest_main
   GTest::gmock

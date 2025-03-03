@@ -22,7 +22,6 @@
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/caching/FileIds.h"
 #include "velox/common/caching/SsdCache.h"
-#include "velox/common/config/GlobalConfig.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/process/TraceContext.h"
 
@@ -34,6 +33,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <numeric>
+
+DECLARE_bool(velox_ssd_odirect);
+DECLARE_bool(velox_ssd_verify_write);
 
 namespace facebook::velox::cache {
 
@@ -116,7 +118,7 @@ SsdFile::SsdFile(const Config& config)
   process::TraceContext trace("SsdFile::SsdFile");
   filesystems::FileOptions fileOptions;
   fileOptions.shouldThrowOnFileAlreadyExists = false;
-  fileOptions.bufferIo = !config::globalConfig().useSsdODirect;
+  fileOptions.bufferIo = !FLAGS_velox_ssd_odirect;
   writeFile_ = fs_->openFileForWrite(fileName_, fileOptions);
   readFile_ = fs_->openFileForRead(fileName_, fileOptions);
 
@@ -415,7 +417,7 @@ void SsdFile::write(std::vector<CachePin>& pins) {
           checksum = checksumEntry(*entry);
         }
         entries_[std::move(key)] = SsdRun(offset, size, checksum);
-        if (config::globalConfig().verifySsdWrite) {
+        if (FLAGS_velox_ssd_verify_write) {
           verifyWrite(*entry, SsdRun(offset, size, checksum));
         }
         offset += size;

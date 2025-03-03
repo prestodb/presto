@@ -22,7 +22,6 @@
 #include "velox/common/memory/MmapArena.h"
 #include "velox/common/memory/SharedArbitrator.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/flag_definitions/flags.h"
 
 #include <fmt/format.h>
 #include <folly/Random.h>
@@ -36,7 +35,6 @@
 #endif // linux
 
 DECLARE_bool(velox_memory_leak_check_enabled);
-DECLARE_bool(velox_time_allocations);
 
 using namespace facebook::velox::common::testutil;
 
@@ -58,7 +56,6 @@ class MemoryAllocatorTest : public testing::TestWithParam<int> {
   static void SetUpTestCase() {
     TestValue::enable();
     FLAGS_velox_memory_leak_check_enabled = true;
-    translateFlagsToGlobalConfig();
   }
 
   void SetUp() override {
@@ -652,8 +649,8 @@ TEST_P(MemoryAllocatorTest, stats) {
     ASSERT_EQ(stats.sizes[i].numAllocations, 0);
   }
 
+  gflags::FlagSaver flagSaver;
   FLAGS_velox_time_allocations = true;
-  translateFlagsToGlobalConfig();
   for (auto i = 0; i < sizes.size(); ++i) {
     std::unique_ptr<Allocation> allocation = std::make_unique<Allocation>();
     auto size = sizes[i];
@@ -665,17 +662,14 @@ TEST_P(MemoryAllocatorTest, stats) {
     ASSERT_GE(stats.sizes[i].totalBytes, size * AllocationTraits::kPageSize);
     ASSERT_GE(stats.sizes[i].numAllocations, 1);
   }
-  FLAGS_velox_time_allocations = false;
-  translateFlagsToGlobalConfig();
 }
 
 TEST_P(MemoryAllocatorTest, singleAllocation) {
   if (!useMmap_ && enableReservation_) {
     return;
   }
-
+  gflags::FlagSaver flagSaver;
   FLAGS_velox_time_allocations = true;
-  translateFlagsToGlobalConfig();
   const std::vector<MachinePageCount>& sizes = instance_->sizeClasses();
   MachinePageCount capacity = kCapacityPages;
   for (auto i = 0; i < sizes.size(); ++i) {
@@ -722,8 +716,6 @@ TEST_P(MemoryAllocatorTest, singleAllocation) {
     }
     ASSERT_TRUE(instance_->checkConsistency());
   }
-  FLAGS_velox_time_allocations = false;
-  translateFlagsToGlobalConfig();
 }
 
 TEST_P(MemoryAllocatorTest, increasingSize) {
@@ -1618,11 +1610,6 @@ TEST_P(MemoryAllocatorTest, allocatorCapacityWithThreads) {
   EXPECT_EQ(instance_->numAllocated(), 0);
 }
 
-VELOX_INSTANTIATE_TEST_SUITE_P(
-    MemoryAllocatorTestSuite,
-    MemoryAllocatorTest,
-    testing::ValuesIn({0, 1, 2}));
-
 class MmapArenaTest : public testing::Test {
  public:
   // 32 MB arena space
@@ -1952,6 +1939,11 @@ TEST_P(MemoryAllocatorTest, unmap) {
   }
 }
 
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    MemoryAllocatorTestSuite,
+    MemoryAllocatorTest,
+    testing::ValuesIn({0, 1, 2}));
+
 class MmapConfigTest : public testing::Test {
  public:
  protected:
@@ -1998,4 +1990,5 @@ TEST_F(MmapConfigTest, sizeClasses) {
     runPages = runPages / 2;
   }
 }
+
 } // namespace facebook::velox::memory

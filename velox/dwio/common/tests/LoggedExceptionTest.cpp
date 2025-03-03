@@ -15,7 +15,6 @@
  */
 #include <folly/Random.h>
 #include <gtest/gtest.h>
-#include "velox/common/config/GlobalConfig.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 using namespace facebook::velox::dwio::common::exception;
@@ -25,24 +24,21 @@ namespace {
 void testTraceCollectionSwitchControl(bool enabled) {
   // Logged exception is system type of velox exception.
   // Disable rate control in the test.
-  config::globalConfig().exceptionUserStacktraceRateLimitMs = 0;
-  config::globalConfig().exceptionSystemStacktraceRateLimitMs = 0;
+  FLAGS_velox_exception_user_stacktrace_rate_limit_ms = 0;
+  FLAGS_velox_exception_system_stacktrace_rate_limit_ms = 0;
 
-  // NOTE: the user config should not affect the tracing behavior of system type
+  // NOTE: the user flag should not affect the tracing behavior of system type
   // of exception collection.
-  config::globalConfig().exceptionUserStacktraceEnabled =
-      folly::Random::oneIn(2);
-  config::globalConfig().exceptionSystemStacktraceEnabled =
-      enabled ? true : false;
-
+  FLAGS_velox_exception_user_stacktrace_enabled = folly::Random::oneIn(2);
+  FLAGS_velox_exception_system_stacktrace_enabled = enabled ? true : false;
   try {
     throw LoggedException("Test error message");
   } catch (VeloxException& e) {
     SCOPED_TRACE(fmt::format(
         "enabled: {}, user flag: {}, sys flag: {}",
         enabled,
-        config::globalConfig().exceptionUserStacktraceEnabled,
-        config::globalConfig().exceptionSystemStacktraceEnabled));
+        FLAGS_velox_exception_user_stacktrace_enabled,
+        FLAGS_velox_exception_system_stacktrace_enabled));
     ASSERT_TRUE(e.exceptionType() == VeloxException::Type::kSystem);
     ASSERT_EQ(enabled, e.stackTrace() != nullptr);
   }

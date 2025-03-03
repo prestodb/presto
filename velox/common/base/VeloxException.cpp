@@ -15,7 +15,6 @@
  */
 
 #include "velox/common/base/VeloxException.h"
-#include "velox/common/config/GlobalConfig.h"
 
 #include <folly/synchronization/AtomicStruct.h>
 #include <exception>
@@ -135,18 +134,16 @@ namespace {
 bool isStackTraceEnabled(VeloxException::Type type) {
   using namespace std::literals::chrono_literals;
   const bool isSysException = type == VeloxException::Type::kSystem;
-  if ((isSysException &&
-       !config::globalConfig().exceptionSystemStacktraceEnabled) ||
-      (!isSysException &&
-       !config::globalConfig().exceptionUserStacktraceEnabled)) {
+  if ((isSysException && !FLAGS_velox_exception_system_stacktrace_enabled) ||
+      (!isSysException && !FLAGS_velox_exception_user_stacktrace_enabled)) {
     // VeloxException stacktraces are disabled.
     return false;
   }
 
   const int32_t rateLimitMs = isSysException
-      ? config::globalConfig().exceptionSystemStacktraceRateLimitMs
-      : config::globalConfig().exceptionUserStacktraceRateLimitMs;
-  // not static so the global config can be manipulated at runtime
+      ? FLAGS_velox_exception_system_stacktrace_rate_limit_ms
+      : FLAGS_velox_exception_user_stacktrace_rate_limit_ms;
+  // not static so the gflag can be manipulated at runtime
   if (0 == rateLimitMs) {
     // VeloxException stacktraces are not rate-limited
     return true;

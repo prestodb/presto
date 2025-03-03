@@ -133,7 +133,7 @@ class ExprEncodingsTest
 
   void SetUp() override {
     // This test throws a lot of exceptions, so turn off stack trace capturing.
-    config::globalConfig().exceptionUserStacktraceEnabled = false;
+    FLAGS_velox_exception_user_stacktrace_enabled = false;
 
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();

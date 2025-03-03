@@ -19,7 +19,6 @@
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/flag_definitions/flags.h"
 
 #include <re2/re2.h>
 
@@ -35,13 +34,11 @@ class MemoryCapExceededTest : public OperatorTestBase,
     // NOTE: if 'GetParam()' is true, then suppress the verbose error message in
     // memory capacity exceeded exception.
     FLAGS_velox_suppress_memory_capacity_exceeding_error_message = GetParam();
-    translateFlagsToGlobalConfig();
   }
 
   void TearDown() override {
     OperatorTestBase::TearDown();
     FLAGS_velox_suppress_memory_capacity_exceeding_error_message = false;
-    translateFlagsToGlobalConfig();
   }
 };
 

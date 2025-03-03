@@ -42,6 +42,9 @@
 #include "velox/vector/tests/TestingAlwaysThrowsFunction.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+DECLARE_string(velox_save_input_on_expression_any_failure_path);
+DECLARE_string(velox_save_input_on_expression_system_failure_path);
+
 namespace facebook::velox::test {
 namespace {
 class ExprTest : public testing::Test, public VectorTestBase {
@@ -2408,8 +2411,8 @@ TEST_P(ParameterizedExprTest, exceptionContext) {
   registerFunction<TestingAlwaysThrowsFunction, int32_t, int32_t>(
       {"always_throws"});
 
-  config::globalConfig().saveInputOnExpressionAnyFailurePath = "";
-  config::globalConfig().saveInputOnExpressionSystemFailurePath = "";
+  FLAGS_velox_save_input_on_expression_any_failure_path = "";
+  FLAGS_velox_save_input_on_expression_system_failure_path = "";
 
   try {
     evaluate("always_throws(c0) + c1", data);
@@ -2443,7 +2446,7 @@ TEST_P(ParameterizedExprTest, exceptionContext) {
 
   // Enable saving vector and expression SQL for system errors only.
   auto tempDirectory = exec::test::TempDirectoryPath::create();
-  config::globalConfig().saveInputOnExpressionSystemFailurePath =
+  FLAGS_velox_save_input_on_expression_system_failure_path =
       tempDirectory->getPath();
 
   try {
@@ -2479,9 +2482,9 @@ TEST_P(ParameterizedExprTest, exceptionContext) {
   }
 
   // Enable saving vector and expression SQL for all errors.
-  config::globalConfig().saveInputOnExpressionAnyFailurePath =
+  FLAGS_velox_save_input_on_expression_any_failure_path =
       tempDirectory->getPath();
-  config::globalConfig().saveInputOnExpressionSystemFailurePath = "";
+  FLAGS_velox_save_input_on_expression_system_failure_path = "";
 
   try {
     evaluate("always_throws(c0) + c1", data);

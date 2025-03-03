@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(${VELOX_BUILD_TESTING})
+if (${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
-endif()
-
-velox_add_library(velox_global_config GlobalConfig.cpp)
+endif ()
 
 velox_add_library(velox_common_config Config.cpp)
 velox_link_libraries(
   velox_common_config
-  PUBLIC velox_common_base velox_global_config velox_exception
+  PUBLIC velox_common_base
+         velox_exception
   PRIVATE re2::re2)

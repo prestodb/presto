@@ -12,5 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 velox_add_library(velox_flag_definitions flags.cpp)
-velox_link_libraries(velox_flag_definitions PRIVATE velox_global_config
-                                                    gflags::gflags)
+velox_link_libraries(velox_flag_definitions PRIVATE gflags::gflags)

@@ -27,7 +27,6 @@
 #include "velox/common/testutil/ScopedTestTime.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/flag_definitions/flags.h"
 
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
@@ -42,6 +41,9 @@ using namespace facebook::velox::cache;
 using namespace facebook::velox::common::testutil;
 
 using facebook::velox::memory::MemoryAllocator;
+
+DECLARE_bool(velox_ssd_odirect);
+DECLARE_bool(velox_ssd_verify_write);
 
 // Represents a planned load from a file. Many of these constitute a load plan.
 struct Request {
@@ -138,7 +140,6 @@ class AsyncDataCacheTest : public ::testing::TestWithParam<TestParam> {
     if (ssdBytes > 0) {
       // tmpfs does not support O_DIRECT, so turn this off for testing.
       FLAGS_velox_ssd_odirect = false;
-      translateFlagsToGlobalConfig();
       // Make a new tempDirectory only if one is not already set. The
       // second creation of cache must find the checkpoint of the
       // previous one.
@@ -720,7 +721,7 @@ TEST_P(AsyncDataCacheTest, pin) {
 
 TEST_P(AsyncDataCacheTest, replace) {
   constexpr int64_t kMaxBytes = 64 << 20;
-  config::globalConfig().exceptionUserStacktraceEnabled = false;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
   initializeCache(kMaxBytes);
   // Load 10x the max size, inject an error every 21 batches.
   loadLoop(0, kMaxBytes * 10, 21);
@@ -738,7 +739,7 @@ TEST_P(AsyncDataCacheTest, replace) {
 
 TEST_P(AsyncDataCacheTest, evictAccounting) {
   constexpr int64_t kMaxBytes = 64 << 20;
-  config::globalConfig().exceptionUserStacktraceEnabled = false;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
   initializeCache(kMaxBytes);
   auto pool = manager_->addLeafPool("test");
 
@@ -762,7 +763,7 @@ TEST_P(AsyncDataCacheTest, evictAccounting) {
 TEST_P(AsyncDataCacheTest, largeEvict) {
   constexpr int64_t kMaxBytes = 256 << 20;
   constexpr int32_t kNumThreads = 24;
-  config::globalConfig().exceptionUserStacktraceEnabled = false;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
   initializeCache(kMaxBytes);
   // Load 10x the max size, inject an allocation of 1/8 the capacity every 4
   // batches.
@@ -841,7 +842,7 @@ TEST_P(AsyncDataCacheTest, DISABLED_ssd) {
   constexpr uint64_t kRamBytes = 32 << 20;
   constexpr uint64_t kSsdBytes = 512UL << 20;
 #endif
-  config::globalConfig().exceptionUserStacktraceEnabled = false;
+  FLAGS_velox_exception_user_stacktrace_enabled = false;
   initializeCache(kRamBytes, kSsdBytes);
   cache_->setVerifyHook(
       [&](const AsyncDataCacheEntry& entry) { checkContents(entry); });
@@ -849,7 +850,6 @@ TEST_P(AsyncDataCacheTest, DISABLED_ssd) {
   // Read back all writes. This increases the chance of writes falling behind
   // new entry creation.
   FLAGS_velox_ssd_verify_write = true;
-  translateFlagsToGlobalConfig();
 
   // We read kSsdBytes worth of data on 16 threads. The same data will be hit by
   // all threads. The expectation is that most of the data ends up on SSD. All
@@ -865,7 +865,7 @@ TEST_P(AsyncDataCacheTest, DISABLED_ssd) {
 
   // We allow writes to proceed faster.
   FLAGS_velox_ssd_verify_write = false;
-  translateFlagsToGlobalConfig();
+
   // We read the data back. The verify hook checks correct values. Error every
   // 13 batch loads.
   runThreads(16, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 13); });

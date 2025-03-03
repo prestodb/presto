@@ -38,9 +38,11 @@ velox_link_libraries(
   PUBLIC velox_common_base
          velox_common_config
          velox_exception
+         velox_flag_definitions
          velox_time
          velox_type
          Folly::folly
          fmt::fmt
+         gflags::gflags
          glog::glog
   PRIVATE velox_test_util re2::re2)

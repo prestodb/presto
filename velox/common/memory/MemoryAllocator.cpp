@@ -25,6 +25,8 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/memory/Memory.h"
 
+DECLARE_bool(velox_memory_use_hugepages);
+
 namespace facebook::velox::memory {
 
 // static
@@ -413,7 +415,7 @@ void MemoryAllocator::useHugePages(
     const ContiguousAllocation& data,
     bool enable) {
 #ifdef linux
-  if (!config::globalConfig().memoryUseHugepages) {
+  if (!FLAGS_velox_memory_use_hugepages) {
     return;
   }
   auto maybeRange = data.hugePageRange();
