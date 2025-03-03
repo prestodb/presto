@@ -32,6 +32,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -171,21 +172,21 @@ public class BasicQueryStats
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
-                queryStats.getRawInputDataSize(),
+                succinctBytes(queryStats.getRawInputDataSizeInBytes()),
                 queryStats.getRawInputPositions(),
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getCumulativeTotalMemory(),
-                queryStats.getUserMemoryReservation(),
-                queryStats.getTotalMemoryReservation(),
-                queryStats.getPeakUserMemoryReservation(),
-                queryStats.getPeakTotalMemoryReservation(),
-                queryStats.getPeakTaskTotalMemory(),
-                queryStats.getPeakNodeTotalMemory(),
+                succinctBytes(queryStats.getUserMemoryReservationInBytes()),
+                succinctBytes(queryStats.getTotalMemoryReservationInBytes()),
+                succinctBytes(queryStats.getPeakUserMemoryReservationInBytes()),
+                succinctBytes(queryStats.getPeakTotalMemoryReservationInBytes()),
+                succinctBytes(queryStats.getPeakTaskTotalMemoryInBytes()),
+                succinctBytes(queryStats.getPeakNodeTotalMemoryInBytes()),
                 queryStats.getTotalCpuTime(),
                 queryStats.getTotalScheduledTime(),
                 queryStats.isFullyBlocked(),
                 queryStats.getBlockedReasons(),
-                queryStats.getTotalAllocation(),
+                succinctBytes(queryStats.getTotalAllocationInBytes()),
                 queryStats.getProgressPercentage());
     }
 
