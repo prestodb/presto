@@ -401,11 +401,11 @@ public class PlanPrinter
                             stageExecutionStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageExecutionStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageExecutionStats.getProcessedInputPositions()),
-                            stageExecutionStats.getProcessedInputDataSize(),
+                            stageExecutionStats.getProcessedInputDataSizeInBytes(),
                             formatDouble(avgPositionsPerTask),
                             formatDouble(sdAmongTasks),
                             formatPositions(stageExecutionStats.getOutputPositions()),
-                            stageExecutionStats.getOutputDataSize(),
+                            stageExecutionStats.getOutputDataSizeInBytes(),
                             tasks.size()));
         }
 
