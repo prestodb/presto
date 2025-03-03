@@ -166,7 +166,7 @@ public class TestHudiDirectoryLister
                     new RuntimeStats()));
             while (fileInfoIterator.hasNext()) {
                 HiveFileInfo fileInfo = fileInfoIterator.next();
-                String fileName = fileInfo.getPath().getName();
+                String fileName = fileInfo.getFileName();
                 // expected to have the latest base file in p1 and p2 partitions
                 assertTrue(fileName.startsWith("37c2b860-eea6-4142-8bda-257b2562e4b4-0_1-338-594") || fileName.startsWith("7483ef07-d1f8-4d44-b9b0-cba6df5cd1b8-0_1-149-341"));
                 // not expected to have the older version of the base file in p1
@@ -210,7 +210,7 @@ public class TestHudiDirectoryLister
             List<HiveFileInfo> fileInfoList = ImmutableList.copyOf(fileInfoIterator);
             assertEquals(fileInfoList.size(), 2);
             assertTrue(fileInfoList.stream()
-                    .map(fileInfo -> fileInfo.getPath().getName())
+                    .map(fileInfo -> fileInfo.getFileName())
                     .allMatch(fileName -> fileName.startsWith(partition1OldFileId) || fileName.startsWith(partition1NewFileId)));
 
             Path path2 = new Path(mockTable.getStorage().getLocation(), "p2");
@@ -226,7 +226,7 @@ public class TestHudiDirectoryLister
             List<HiveFileInfo> fileInfoList2 = ImmutableList.copyOf(fileInfoIterator);
             assertEquals(fileInfoList2.size(), 1);
             assertTrue(fileInfoList2.stream()
-                    .map(fileInfo -> fileInfo.getPath().getName())
+                    .map(fileInfo -> fileInfo.getFileName())
                     .allMatch(fileName -> fileName.startsWith(partition2OldFileId)));
         }
         finally {
