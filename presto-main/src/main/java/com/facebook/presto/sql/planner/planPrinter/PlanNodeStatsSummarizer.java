@@ -123,7 +123,7 @@ public class PlanNodeStatsSummarizer
                 planNodeAddInputMillis.merge(planNodeId, operatorStats.getAddInputWall().toMillis(), Long::sum);
                 planNodeFinishMillis.merge(planNodeId, operatorStats.getFinishWall().toMillis(), Long::sum);
                 planNodeGetOutputMillis.merge(planNodeId, operatorStats.getGetOutputWall().toMillis(), Long::sum);
-                planNodePeakMemory.merge(planNodeId, operatorStats.getPeakTotalMemoryReservation().toBytes(), Math::max);
+                planNodePeakMemory.merge(planNodeId, operatorStats.getPeakTotalMemoryReservationInBytes(), Math::max);
 
                 // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
                 if (operatorStats.getPlanNodeId().equals(inputPlanNode) && !pipelineStats.isInputPipeline()) {
@@ -161,10 +161,10 @@ public class PlanNodeStatsSummarizer
                 }
 
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
-                planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
+                planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSizeInBytes(), Long::sum);
 
                 planNodeRawInputPositions.merge(planNodeId, operatorStats.getRawInputPositions(), Long::sum);
-                planNodeRawInputBytes.merge(planNodeId, operatorStats.getRawInputDataSize().toBytes(), Long::sum);
+                planNodeRawInputBytes.merge(planNodeId, operatorStats.getRawInputDataSizeInBytes(), Long::sum);
 
                 planNodeNullJoinBuildKeyCount.merge(planNodeId, operatorStats.getNullJoinBuildKeyCount(), Long::sum);
                 planNodeJoinBuildKeyCount.merge(planNodeId, operatorStats.getJoinBuildKeyCount(), Long::sum);
@@ -190,7 +190,7 @@ public class PlanNodeStatsSummarizer
                 }
 
                 planNodeOutputPositions.merge(planNodeId, operatorStats.getOutputPositions(), Long::sum);
-                planNodeOutputBytes.merge(planNodeId, operatorStats.getOutputDataSize().toBytes(), Long::sum);
+                planNodeOutputBytes.merge(planNodeId, operatorStats.getOutputDataSizeInBytes(), Long::sum);
                 processedNodes.add(planNodeId);
             }
         }
