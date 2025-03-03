@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.sql.planner.plan;
 
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanVisitor;
+import com.facebook.presto.sql.planner.BasePlanFragmenter;
 import com.facebook.presto.sql.planner.CanonicalJoinNode;
 import com.facebook.presto.sql.planner.CanonicalTableScanNode;
 import com.facebook.presto.sql.planner.StatsEquivalentPlanNodeWithLimit;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
+
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 
 public abstract class InternalPlanVisitor<R, C>
         extends PlanVisitor<R, C>
@@ -138,6 +142,17 @@ public abstract class InternalPlanVisitor<R, C>
     }
 
     public R visitSequence(SequenceNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    // TODO: Include and add TableFunction/ProcessorNode Implementations. Implement the class. There are a lot.
+    public R visitTableFunction(TableFunctionNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
+    public R visitTableFunctionProcessor(TableFunctionProcessorNode node, C context)
     {
         return visitPlan(node, context);
     }
