@@ -300,7 +300,7 @@ public class TestEventListener
         assertNotNull(queryProgressEvent);
         assertTrue(queryProgressEvent.getMonotonicallyIncreasingEventId() > lastSeenQueryProgressEventId);
         lastSeenQueryProgressEventId = queryProgressEvent.getMonotonicallyIncreasingEventId();
-        assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
+        assertTrue(queryStats.getOutputDataSizeInBytes() > 0L);
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
         assertEquals(result.getRowCount(), queryStats.getOutputPositions());
         assertEquals(result.getRowCount(), queryCompletedEvent.getStatistics().getOutputRows());
@@ -314,7 +314,7 @@ public class TestEventListener
         assertNotNull(queryProgressEvent);
         assertTrue(queryProgressEvent.getMonotonicallyIncreasingEventId() > lastSeenQueryProgressEventId);
         lastSeenQueryProgressEventId = queryProgressEvent.getMonotonicallyIncreasingEventId();
-        assertTrue(queryStats.getOutputDataSize().toBytes() > 0L);
+        assertTrue(queryStats.getOutputDataSizeInBytes() > 0L);
         assertTrue(queryCompletedEvent.getStatistics().getOutputBytes() > 0L);
         assertEquals(1L, queryStats.getOutputPositions());
         assertEquals(1L, queryCompletedEvent.getStatistics().getOutputRows());

@@ -183,13 +183,13 @@ public class TestQueryStateInfo
         assertEquals(progress.getExecutionTimeMillis(), stats.getExecutionTime().toMillis());
         assertEquals(progress.getCpuTimeMillis(), stats.getTotalCpuTime().toMillis());
         assertEquals(progress.getScheduledTimeMillis(), stats.getTotalScheduledTime().toMillis());
-        assertEquals(progress.getCurrentMemoryBytes(), stats.getUserMemoryReservation().toBytes());
-        assertEquals(progress.getPeakMemoryBytes(), stats.getPeakUserMemoryReservation().toBytes());
-        assertEquals(progress.getPeakTotalMemoryBytes(), stats.getPeakTotalMemoryReservation().toBytes());
+        assertEquals(progress.getCurrentMemoryBytes(), stats.getUserMemoryReservationInBytes());
+        assertEquals(progress.getPeakMemoryBytes(), stats.getPeakUserMemoryReservationInBytes());
+        assertEquals(progress.getPeakTotalMemoryBytes(), stats.getPeakTotalMemoryReservationInBytes());
         assertEquals(progress.getCumulativeUserMemory(), stats.getCumulativeUserMemory());
         assertEquals(progress.getCumulativeTotalMemory(), stats.getCumulativeTotalMemory());
         assertEquals(progress.getInputRows(), stats.getRawInputPositions());
-        assertEquals(progress.getInputBytes(), stats.getRawInputDataSize().toBytes());
+        assertEquals(progress.getInputBytes(), stats.getRawInputDataSizeInBytes());
         assertEquals(progress.isBlocked(), stats.isFullyBlocked());
         assertEquals(progress.getBlockedReasons(), Optional.of(stats.getBlockedReasons()));
         assertEquals(progress.getProgressPercentage(), stats.getProgressPercentage());
@@ -243,13 +243,13 @@ public class TestQueryStateInfo
                         19,
                         20.0,
                         43.0,
-                        DataSize.valueOf("21GB"),
-                        DataSize.valueOf("22GB"),
-                        DataSize.valueOf("23GB"),
-                        DataSize.valueOf("24GB"),
-                        DataSize.valueOf("25GB"),
-                        DataSize.valueOf("26GB"),
-                        DataSize.valueOf("42GB"),
+                        DataSize.valueOf("21GB").toBytes(),
+                        DataSize.valueOf("22GB").toBytes(),
+                        DataSize.valueOf("23GB").toBytes(),
+                        DataSize.valueOf("24GB").toBytes(),
+                        DataSize.valueOf("25GB").toBytes(),
+                        DataSize.valueOf("26GB").toBytes(),
+                        DataSize.valueOf("42GB").toBytes(),
                         true,
                         Duration.valueOf("23m"),
                         Duration.valueOf("24m"),
@@ -257,19 +257,19 @@ public class TestQueryStateInfo
                         Duration.valueOf("26m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
-                        DataSize.valueOf("123MB"),
-                        DataSize.valueOf("27GB"),
+                        DataSize.valueOf("123MB").toBytes(),
+                        DataSize.valueOf("27GB").toBytes(),
                         28,
-                        DataSize.valueOf("29GB"),
+                        DataSize.valueOf("29GB").toBytes(),
                         30,
-                        DataSize.valueOf("32GB"),
+                        DataSize.valueOf("32GB").toBytes(),
                         40,
-                        DataSize.valueOf("31GB"),
+                        DataSize.valueOf("31GB").toBytes(),
                         32,
                         33,
-                        DataSize.valueOf("34GB"),
-                        DataSize.valueOf("35GB"),
-                        DataSize.valueOf("36GB"),
+                        DataSize.valueOf("34GB").toBytes(),
+                        DataSize.valueOf("35GB").toBytes(),
+                        DataSize.valueOf("36GB").toBytes(),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         new RuntimeStats()),

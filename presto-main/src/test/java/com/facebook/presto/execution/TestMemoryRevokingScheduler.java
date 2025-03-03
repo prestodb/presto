@@ -796,7 +796,7 @@ public class TestMemoryRevokingScheduler
                 new MockExchangeClientSupplier(),
                 singleThreadedExecutor,
                 Functions.identity(),
-                new DataSize(32, MEGABYTE),
+                new DataSize(32, MEGABYTE).toBytes(),
                 new CounterStat(),
                 new SpoolingOutputBufferFactory(new FeaturesConfig()));
     }

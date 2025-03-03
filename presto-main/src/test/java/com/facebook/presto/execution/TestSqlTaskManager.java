@@ -131,13 +131,13 @@ public class TestSqlTaskManager
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-            BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
+            BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE).toBytes()).get();
             assertEquals(results.isBufferComplete(), false);
             assertEquals(results.getSerializedPages().size(), 1);
             assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
             for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
-                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, Unit.MEGABYTE)).get();
+                results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), new DataSize(1, Unit.MEGABYTE).toBytes()).get();
             }
             assertEquals(results.isBufferComplete(), true);
             assertEquals(results.getSerializedPages().size(), 0);
@@ -165,7 +165,7 @@ public class TestSqlTaskManager
             taskInfo = sqlTaskManager.getTaskInfo(taskId);
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-            BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE)).get();
+            BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, new DataSize(1, Unit.MEGABYTE).toBytes()).get();
 
             // Task results clear out all buffered data once ack is sent
             long retainedPageSize = results.getSerializedPages().get(0).getRetainedSizeInBytes();

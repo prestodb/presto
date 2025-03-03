@@ -33,13 +33,13 @@ import static org.testng.Assert.assertThrows;
 public class TestQueryLimit
 {
     private static final QueryLimit<Duration> QUERY_LIMIT_DURATION = createDurationLimit(new Duration(1, HOURS), SYSTEM);
-    private static final QueryLimit<DataSize> QUERY_LIMIT_DATA_SIZE = createDataSizeLimit(new DataSize(1, MEGABYTE), RESOURCE_GROUP);
+    private static final QueryLimit<Long> QUERY_LIMIT_DATA_SIZE = createDataSizeLimit(new DataSize(1, MEGABYTE).toBytes(), RESOURCE_GROUP);
 
     @Test
     public void testGetLimit()
     {
         assertEquals(QUERY_LIMIT_DURATION.getLimit(), new Duration(1, HOURS));
-        assertEquals(QUERY_LIMIT_DATA_SIZE.getLimit(), new DataSize(1, MEGABYTE));
+        assertEquals(QUERY_LIMIT_DATA_SIZE.getLimit(), new DataSize(1, MEGABYTE).toBytes());
     }
 
     @Test
@@ -57,8 +57,8 @@ public class TestQueryLimit
         QueryLimit<Duration> shortLimit = createDurationLimit(new Duration(1, MINUTES), RESOURCE_GROUP);
         assertEquals(getMinimum(QUERY_LIMIT_DURATION, longLimit, shortLimit), shortLimit);
 
-        QueryLimit<DataSize> largeLimit = createDataSizeLimit(new DataSize(2, MEGABYTE), QUERY);
-        QueryLimit<DataSize> smallLimit = createDataSizeLimit(new DataSize(1, BYTE), RESOURCE_GROUP);
+        QueryLimit<Long> largeLimit = createDataSizeLimit(new DataSize(2, MEGABYTE).toBytes(), QUERY);
+        QueryLimit<Long> smallLimit = createDataSizeLimit(new DataSize(1, BYTE).toBytes(), RESOURCE_GROUP);
         assertEquals(getMinimum(smallLimit, QUERY_LIMIT_DATA_SIZE, largeLimit), smallLimit);
         assertEquals(getMinimum(null, QUERY_LIMIT_DATA_SIZE, largeLimit), QUERY_LIMIT_DATA_SIZE);
         assertEquals(getMinimum(null, largeLimit, null, null, QUERY_LIMIT_DATA_SIZE), QUERY_LIMIT_DATA_SIZE);
