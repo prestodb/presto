@@ -46,6 +46,7 @@ import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression.Form;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.InterpretedFunctionInvoker;
+import com.facebook.presto.sql.analyzer.FunctionAndTypeResolver;
 import com.facebook.presto.sql.planner.RowExpressionInterpreter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -104,8 +105,9 @@ public final class RowExpressionDomainTranslator
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
-        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
-        this.functionResolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+        FunctionAndTypeResolver functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+        this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeResolver), functionAndTypeResolver);
+        this.functionResolution = new FunctionResolution(functionAndTypeResolver);
     }
 
     @Override
@@ -302,9 +304,10 @@ public final class RowExpressionDomainTranslator
             this.metadata = metadata;
             this.session = session;
             this.functionAndTypeManager = metadata.getFunctionAndTypeManager();
-            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver()), functionAndTypeManager);
+            FunctionAndTypeResolver functionAndTypeResolver = functionAndTypeManager.getFunctionAndTypeResolver();
+            this.logicalRowExpressions = new LogicalRowExpressions(new RowExpressionDeterminismEvaluator(functionAndTypeManager), new FunctionResolution(functionAndTypeResolver), functionAndTypeResolver);
             this.determinismEvaluator = new RowExpressionDeterminismEvaluator(functionAndTypeManager);
-            this.resolution = new FunctionResolution(functionAndTypeManager.getFunctionAndTypeResolver());
+            this.resolution = new FunctionResolution(functionAndTypeResolver);
             this.columnExtractor = requireNonNull(columnExtractor, "columnExtractor is null");
         }
 
