@@ -178,8 +178,9 @@ public abstract class IcebergDistributedTestBase
         extends AbstractTestQueryFramework
 {
     private static final String METADATA_FILE_EXTENSION = ".metadata.json";
-    private final CatalogType catalogType;
-    private final Map<String, String> extraConnectorProperties;
+    protected final CatalogType catalogType;
+    protected final Map<String, String> extraConnectorProperties;
+    protected IcebergQueryRunner icebergQueryRunner;
 
     protected IcebergDistributedTestBase(CatalogType catalogType, Map<String, String> extraConnectorProperties)
     {
@@ -196,10 +197,11 @@ public abstract class IcebergDistributedTestBase
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder()
+        this.icebergQueryRunner = IcebergQueryRunner.builder()
                 .setCatalogType(catalogType)
                 .setExtraConnectorProperties(extraConnectorProperties)
-                .build().getQueryRunner();
+                .build();
+        return icebergQueryRunner.getQueryRunner();
     }
 
     @Test

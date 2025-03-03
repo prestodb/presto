@@ -93,6 +93,8 @@ import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
+import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
@@ -211,6 +213,26 @@ public class IcebergCommonModule
         StatisticsFileCache statisticsFileCache = new StatisticsFileCache(delegate);
         exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), statisticsFileCache);
         return statisticsFileCache;
+    }
+
+    @Singleton
+    @Provides
+    public ManifestFileCache createManifestFileCache(IcebergConfig config, MBeanExporter exporter)
+    {
+        CacheBuilder<ManifestFileCacheKey, ManifestFileCachedContent> delegate = CacheBuilder.newBuilder()
+                .maximumWeight(config.getMaxManifestCacheSize())
+                .<ManifestFileCacheKey, ManifestFileCachedContent>weigher((key, entry) -> (int) entry.getData().stream().mapToLong(ByteBuffer::capacity).sum())
+                .recordStats();
+        if (config.getManifestCacheExpireDuration() > 0) {
+            delegate.expireAfterWrite(Duration.ofMillis(config.getManifestCacheExpireDuration()));
+        }
+        ManifestFileCache manifestFileCache = new ManifestFileCache(
+                delegate.build(),
+                config.getManifestCachingEnabled(),
+                config.getManifestCacheMaxContentLength(),
+                config.getManifestCacheMaxChunkSize().toBytes());
+        exporter.export(generatedNameOf(ManifestFileCache.class, connectorId), manifestFileCache);
+        return manifestFileCache;
     }
 
     @ForCachingHiveMetastore
