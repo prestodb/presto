@@ -20,7 +20,6 @@ import com.facebook.presto.operator.repartition.PartitionedOutputInfo;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -29,7 +28,6 @@ import java.util.HashSet;
 import java.util.Optional;
 
 import static com.facebook.presto.common.RuntimeUnit.NONE;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -60,25 +58,25 @@ public class TestOperatorStats
             1,
             new Duration(2, NANOSECONDS),
             new Duration(3, NANOSECONDS),
-            new DataSize(234, BYTE),
+            234L,
             2,
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
-            new DataSize(123, BYTE),
-            new DataSize(5, BYTE),
+            123L,
+            5L,
             10,
-            new DataSize(6, BYTE),
+            6L,
             7,
             8d,
 
             9,
             new Duration(10, NANOSECONDS),
             new Duration(11, NANOSECONDS),
-            new DataSize(234, BYTE),
-            new DataSize(12, BYTE),
+            234L,
+            12L,
             13,
 
-            new DataSize(14, BYTE),
+            14L,
 
             new Duration(100, NANOSECONDS),
             new Duration(15, NANOSECONDS),
@@ -86,15 +84,15 @@ public class TestOperatorStats
             16,
             new Duration(17, NANOSECONDS),
             new Duration(18, NANOSECONDS),
-            new DataSize(345, BYTE),
+            345L,
 
-            new DataSize(Long.MAX_VALUE, BYTE),
-            new DataSize(20, BYTE),
-            new DataSize(21, BYTE),
-            new DataSize(22, BYTE),
-            new DataSize(23, BYTE),
-            new DataSize(24, BYTE),
-            new DataSize(25, BYTE),
+            1_000_000_000L,
+            20L,
+            21L,
+            22L,
+            23L,
+            24L,
+            25L,
 
             Optional.empty(),
 
@@ -119,25 +117,25 @@ public class TestOperatorStats
             1,
             new Duration(2, NANOSECONDS),
             new Duration(3, NANOSECONDS),
-            new DataSize(234, BYTE),
+            234L,
             2,
             new Duration(3, NANOSECONDS),
             new Duration(4, NANOSECONDS),
-            new DataSize(123, BYTE),
-            new DataSize(5, BYTE),
+            123L,
+            5L,
             10,
-            new DataSize(6, BYTE),
+            6L,
             7,
             8d,
 
             9,
             new Duration(10, NANOSECONDS),
             new Duration(11, NANOSECONDS),
-            new DataSize(234, BYTE),
-            new DataSize(12, BYTE),
+            234L,
+            12L,
             13,
 
-            new DataSize(14, BYTE),
+            14L,
 
             new Duration(100, NANOSECONDS),
             new Duration(15, NANOSECONDS),
@@ -145,15 +143,15 @@ public class TestOperatorStats
             16,
             new Duration(17, NANOSECONDS),
             new Duration(18, NANOSECONDS),
-            new DataSize(345, BYTE),
+            345L,
 
-            new DataSize(19, BYTE),
-            new DataSize(20, BYTE),
-            new DataSize(21, BYTE),
-            new DataSize(22, BYTE),
-            new DataSize(23, BYTE),
-            new DataSize(24, BYTE),
-            new DataSize(25, BYTE),
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
             Optional.empty(),
             MERGEABLE_INFO,
             new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))),
@@ -194,35 +192,35 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCalls(), 2);
         assertEquals(actual.getAddInputWall(), new Duration(3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(4, NANOSECONDS));
-        assertEquals(actual.getAddInputAllocation(), new DataSize(123, BYTE));
-        assertEquals(actual.getRawInputDataSize(), new DataSize(5, BYTE));
-        assertEquals(actual.getInputDataSize(), new DataSize(6, BYTE));
+        assertEquals(actual.getAddInputAllocationInBytes(), 123);
+        assertEquals(actual.getRawInputDataSizeInBytes(), 5);
+        assertEquals(actual.getInputDataSizeInBytes(), 6);
         assertEquals(actual.getInputPositions(), 7);
         assertEquals(actual.getSumSquaredInputPositions(), 8.0);
 
         assertEquals(actual.getGetOutputCalls(), 9);
         assertEquals(actual.getGetOutputWall(), new Duration(10, NANOSECONDS));
         assertEquals(actual.getGetOutputCpu(), new Duration(11, NANOSECONDS));
-        assertEquals(actual.getGetOutputAllocation(), new DataSize(234, BYTE));
-        assertEquals(actual.getOutputDataSize(), new DataSize(12, BYTE));
+        assertEquals(actual.getGetOutputAllocationInBytes(), 234);
+        assertEquals(actual.getOutputDataSizeInBytes(), 12);
         assertEquals(actual.getOutputPositions(), 13);
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(14, BYTE));
+        assertEquals(actual.getPhysicalWrittenDataSizeInBytes(), 14);
 
         assertEquals(actual.getBlockedWall(), new Duration(15, NANOSECONDS));
 
         assertEquals(actual.getFinishCalls(), 16);
         assertEquals(actual.getFinishWall(), new Duration(17, NANOSECONDS));
         assertEquals(actual.getFinishCpu(), new Duration(18, NANOSECONDS));
-        assertEquals(actual.getFinishAllocation(), new DataSize(345, BYTE));
+        assertEquals(actual.getFinishAllocationInBytes(), 345);
 
-        assertEquals(actual.getUserMemoryReservation().toBytes(), Long.MAX_VALUE);
-        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(20, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(21, BYTE));
-        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(22, BYTE));
-        assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(23, BYTE));
-        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(24, BYTE));
-        assertEquals(actual.getSpilledDataSize(), new DataSize(25, BYTE));
+        assertEquals(actual.getUserMemoryReservationInBytes(), 1_000_000_000L);
+        assertEquals(actual.getRevocableMemoryReservationInBytes(), 20);
+        assertEquals(actual.getSystemMemoryReservationInBytes(), 21);
+        assertEquals(actual.getPeakUserMemoryReservationInBytes(), 22);
+        assertEquals(actual.getPeakSystemMemoryReservationInBytes(), 23);
+        assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 24);
+        assertEquals(actual.getSpilledDataSizeInBytes(), 25);
         assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
         assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
         assertRuntimeMetricEquals(actual.getRuntimeStats().getMetric(TEST_METRIC_NAME), TEST_RUNTIME_METRIC_1);
@@ -243,35 +241,35 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
-        assertEquals(actual.getAddInputAllocation(), new DataSize(3 * 123, BYTE));
-        assertEquals(actual.getRawInputDataSize(), new DataSize(3 * 5, BYTE));
-        assertEquals(actual.getInputDataSize(), new DataSize(3 * 6, BYTE));
+        assertEquals(actual.getAddInputAllocationInBytes(), 3 * 123);
+        assertEquals(actual.getRawInputDataSizeInBytes(), 3 * 5);
+        assertEquals(actual.getInputDataSizeInBytes(), 3 * 6);
         assertEquals(actual.getInputPositions(), 3 * 7);
         assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
 
         assertEquals(actual.getGetOutputCalls(), 3 * 9);
         assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
         assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
-        assertEquals(actual.getGetOutputAllocation(), new DataSize(3 * 234, BYTE));
-        assertEquals(actual.getOutputDataSize(), new DataSize(3 * 12, BYTE));
+        assertEquals(actual.getGetOutputAllocationInBytes(), 3 * 234);
+        assertEquals(actual.getOutputDataSizeInBytes(), 3 * 12);
         assertEquals(actual.getOutputPositions(), 3 * 13);
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(3 * 14, BYTE));
+        assertEquals(actual.getPhysicalWrittenDataSizeInBytes(), 3 * 14);
         assertEquals(actual.getAdditionalCpu(), new Duration(3 * 100, NANOSECONDS));
         assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
 
         assertEquals(actual.getFinishCalls(), 3 * 16);
         assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
-        assertEquals(actual.getFinishAllocation(), new DataSize(3 * 345, BYTE));
+        assertEquals(actual.getFinishAllocationInBytes(), 3 * 345);
 
-        assertEquals(actual.getUserMemoryReservation().toBytes(), Long.MAX_VALUE);
-        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 20, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
-        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(22, BYTE));
-        assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(23, BYTE));
-        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(24, BYTE));
-        assertEquals(actual.getSpilledDataSize(), new DataSize(3 * 25, BYTE));
+        assertEquals(actual.getUserMemoryReservationInBytes(), 3 * 1_000_000_000L);
+        assertEquals(actual.getRevocableMemoryReservationInBytes(), 3 * 20);
+        assertEquals(actual.getSystemMemoryReservationInBytes(), 3 * 21);
+        assertEquals(actual.getPeakUserMemoryReservationInBytes(), 22);
+        assertEquals(actual.getPeakSystemMemoryReservationInBytes(), 23);
+        assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 24);
+        assertEquals(actual.getSpilledDataSizeInBytes(), 3 * 25);
         assertNull(actual.getInfo());
         RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_1, TEST_RUNTIME_METRIC_1);
         expectedMetric.mergeWith(TEST_RUNTIME_METRIC_1);
@@ -293,20 +291,20 @@ public class TestOperatorStats
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
-        assertEquals(actual.getAddInputAllocation(), new DataSize(3 * 123, BYTE));
-        assertEquals(actual.getRawInputDataSize(), new DataSize(3 * 5, BYTE));
-        assertEquals(actual.getInputDataSize(), new DataSize(3 * 6, BYTE));
+        assertEquals(actual.getAddInputAllocationInBytes(), 3 * 123);
+        assertEquals(actual.getRawInputDataSizeInBytes(), 3 * 5);
+        assertEquals(actual.getInputDataSizeInBytes(), 3 * 6);
         assertEquals(actual.getInputPositions(), 3 * 7);
         assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
 
         assertEquals(actual.getGetOutputCalls(), 3 * 9);
         assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
         assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
-        assertEquals(actual.getGetOutputAllocation(), new DataSize(3 * 234, BYTE));
-        assertEquals(actual.getOutputDataSize(), new DataSize(3 * 12, BYTE));
+        assertEquals(actual.getGetOutputAllocationInBytes(), 3 * 234);
+        assertEquals(actual.getOutputDataSizeInBytes(), 3 * 12);
         assertEquals(actual.getOutputPositions(), 3 * 13);
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), new DataSize(3 * 14, BYTE));
+        assertEquals(actual.getPhysicalWrittenDataSizeInBytes(), 3 * 14);
 
         assertEquals(actual.getAdditionalCpu(), new Duration(3 * 100, NANOSECONDS));
         assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
@@ -314,15 +312,15 @@ public class TestOperatorStats
         assertEquals(actual.getFinishCalls(), 3 * 16);
         assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
         assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
-        assertEquals(actual.getFinishAllocation(), new DataSize(3 * 345, BYTE));
+        assertEquals(actual.getFinishAllocationInBytes(), 3 * 345);
 
-        assertEquals(actual.getUserMemoryReservation(), new DataSize(3 * 19, BYTE));
-        assertEquals(actual.getRevocableMemoryReservation(), new DataSize(3 * 20, BYTE));
-        assertEquals(actual.getSystemMemoryReservation(), new DataSize(3 * 21, BYTE));
-        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(22, BYTE));
-        assertEquals(actual.getPeakSystemMemoryReservation(), new DataSize(23, BYTE));
-        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(24, BYTE));
-        assertEquals(actual.getSpilledDataSize(), new DataSize(3 * 25, BYTE));
+        assertEquals(actual.getUserMemoryReservationInBytes(), 3 * 19);
+        assertEquals(actual.getRevocableMemoryReservationInBytes(), 3 * 20);
+        assertEquals(actual.getSystemMemoryReservationInBytes(), 3 * 21);
+        assertEquals(actual.getPeakUserMemoryReservationInBytes(), 22);
+        assertEquals(actual.getPeakSystemMemoryReservationInBytes(), 23);
+        assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 24);
+        assertEquals(actual.getSpilledDataSizeInBytes(), 3 * 25);
         assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
         assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
         RuntimeMetric expectedMetric = RuntimeMetric.merge(TEST_RUNTIME_METRIC_2, TEST_RUNTIME_METRIC_2);
