@@ -894,6 +894,83 @@ public class AddLocalExchanges
             return rebaseAndDeriveProperties(node, ImmutableList.of(probe, index));
         }
 
+        // TODO: Missing node implementations
+        @Override
+        public PlanWithProperties visitTableFunction(TableFunctionNode node, StreamPreferredProperties parentPreferences)
+        {
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        @Override
+        public PlanWithProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, StreamPreferredProperties parentPreferences)
+        {
+            if (node.getSource().isEmpty()) {
+                return deriveProperties(node, ImmutableList.of());
+            }
+
+            if (node.getSpecification().isEmpty()) {
+                // node.getSpecification.isEmpty() indicates that there were no sources or a single source with row semantics.
+                // The case of no sources was addressed above.
+                // The case of a single source with row semantics is addressed here. Source's properties do not hold after the TableFunctionProcessorNode
+                PlanWithProperties child = planAndEnforce(node.getSource().orElseThrow(), StreamPreferredProperties.any(), StreamPreferredProperties.any());
+                return rebaseAndDeriveProperties(node, ImmutableList.of(child));
+            }
+
+            List<Symbol> partitionBy = node.getSpecification().orElseThrow().getPartitionBy();
+            StreamPreferredProperties childRequirements;
+            if (!node.isPruneWhenEmpty()) {
+                childRequirements = singleStream();
+            }
+            else {
+                childRequirements = parentPreferences
+                        .constrainTo(node.getSource().orElseThrow().getOutputSymbols())
+                        .withDefaultParallelism(session)
+                        .withPartitioning(partitionBy);
+            }
+
+            PlanWithProperties child = planAndEnforce(node.getSource().orElseThrow(), childRequirements, childRequirements);
+
+            List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
+            if (!partitionBy.isEmpty()) {
+                desiredProperties.add(new GroupingProperty<>(partitionBy));
+            }
+            node.getSpecification().flatMap(DataOrganizationSpecification::getOrderingScheme).ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
+            Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
+
+            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
+            if (!partitionBy.isEmpty()) {
+                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
+                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+                prePartitionedInputs = partitionBy.stream()
+                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                        .collect(toImmutableSet());
+            }
+
+            int preSortedOrderPrefix = 0;
+            if (prePartitionedInputs.equals(ImmutableSet.copyOf(partitionBy))) {
+                while (matchIterator.hasNext() && matchIterator.next().isEmpty()) {
+                    preSortedOrderPrefix++;
+                }
+            }
+
+            TableFunctionProcessorNode result = new TableFunctionProcessorNode(
+                    node.getId(),
+                    node.getName(),
+                    node.getProperOutputs(),
+                    Optional.of(child.getNode()),
+                    node.isPruneWhenEmpty(),
+                    node.getPassThroughSpecifications(),
+                    node.getRequiredSymbols(),
+                    node.getMarkerSymbols(),
+                    node.getSpecification(),
+                    prePartitionedInputs,
+                    preSortedOrderPrefix,
+                    node.getHashSymbol(),
+                    node.getHandle());
+
+            return deriveProperties(result, child.getProperties());
+        }
+
         //
         // Helpers
         //
