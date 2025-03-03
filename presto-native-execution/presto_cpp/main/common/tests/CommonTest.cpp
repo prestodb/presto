@@ -16,7 +16,6 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/common/base/Exceptions.h"
 
-
 using namespace facebook::velox;
 using namespace facebook::presto;
 
