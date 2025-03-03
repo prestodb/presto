@@ -50,6 +50,7 @@ import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.viewfs.ViewFileSystem;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.ProtectMode;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
@@ -64,7 +65,7 @@ import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
-import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
@@ -97,6 +98,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.TimeZone;
 
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
@@ -865,7 +867,7 @@ public final class HiveWriteUtils
     private static class TimestampFieldSetter
             extends FieldSetter
     {
-        private final TimestampWritable value = new TimestampWritable();
+        private final TimestampWritableV2 value = new TimestampWritableV2();
 
         public TimestampFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
         {
@@ -876,7 +878,7 @@ public final class HiveWriteUtils
         public void setField(Block block, int position)
         {
             long millisUtc = TimestampType.TIMESTAMP.getLong(block, position);
-            value.setTime(millisUtc);
+            value.set(Timestamp.ofEpochMilli(millisUtc, TimeZone.getDefault().toZoneId()));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
