@@ -22,6 +22,7 @@ import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.RequestInfo;
 import com.facebook.presto.server.security.ServerSecurityModule;
+import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -48,7 +49,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHealthChecks
 {
-    private List<TestingPrestoServerRouter> prestoServers;
+    private List<TestingPrestoServer> prestoServers;
     private ClusterManager clusterManager;
 
     @BeforeClass
@@ -63,9 +64,9 @@ public class TestHealthChecks
         Logging.initialize();
 
         // set up server
-        ImmutableList.Builder<TestingPrestoServerRouter> builder = ImmutableList.builder();
+        ImmutableList.Builder<TestingPrestoServer> builder = ImmutableList.builder();
         for (int i = 0; i < 3; ++i) {
-            TestingPrestoServerRouter server = new TestingPrestoServerRouter();
+            TestingPrestoServer server = new TestingPrestoServerRouter();
             server.installPlugin(new TpchPlugin());
             server.createCatalog("tpch", "tpch");
             server.refreshNodes();
@@ -74,7 +75,7 @@ public class TestHealthChecks
 
         prestoServers = builder.build();
 
-        for (TestingPrestoServerRouter s : prestoServers) {
+        for (TestingPrestoServer s : prestoServers) {
             configTemplate = configTemplate.replaceFirst("\\$\\{SERVERS}", String.format("\"%s\"", s.getBaseUrl().toString()));
         }
 
@@ -101,7 +102,7 @@ public class TestHealthChecks
     public void tearDownServer()
             throws Exception
     {
-        for (TestingPrestoServerRouter prestoServer : prestoServers) {
+        for (TestingPrestoServer prestoServer : prestoServers) {
             prestoServer.close();
         }
     }
@@ -110,27 +111,26 @@ public class TestHealthChecks
     public void testHealthChecks()
             throws InterruptedException
     {
-        TestingPrestoServerRouter server0 = prestoServers.get(0);
-        TestingPrestoServerRouter server1 = prestoServers.get(1);
-        TestingPrestoServerRouter server2 = prestoServers.get(2);
+        TestingPrestoServer server0 = prestoServers.get(0);
+        TestingPrestoServer server1 = prestoServers.get(1);
+        TestingPrestoServer server2 = prestoServers.get(2);
 
-        clusterManager.refreshHealthStatuses();
         List<URI> destinations = getDestinations(3);
         assertTrue(destinations.contains(server0.getBaseUrl()));
         assertTrue(destinations.contains(server1.getBaseUrl()));
         assertTrue(destinations.contains(server2.getBaseUrl()));
 
         server0.stopResponding();
-        Thread.sleep(6000);
-        clusterManager.refreshHealthStatuses();
+        while (clusterManager.getRemoteClusterInfos().get(server0.getBaseUrl()).isHealthy()) {
+            Thread.sleep(1);
+        }
+
         destinations = getDestinations(3);
         assertFalse(destinations.contains(server0.getBaseUrl()));
         assertTrue(destinations.contains(server1.getBaseUrl()));
         assertTrue(destinations.contains(server2.getBaseUrl()));
 
         server0.startResponding();
-        Thread.sleep(6000);
-        clusterManager.refreshHealthStatuses();
         destinations = getDestinations(3);
         assertTrue(destinations.contains(server0.getBaseUrl()));
         assertTrue(destinations.contains(server1.getBaseUrl()));
