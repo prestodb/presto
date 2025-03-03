@@ -46,7 +46,9 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator.RecordWriter;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
@@ -57,10 +59,11 @@ import org.apache.hadoop.hive.serde2.columnar.BytesRefArrayWritable;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
 import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDeBase;
 import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.DateWritableV2;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
 import org.apache.hadoop.hive.serde2.io.ShortWritable;
 import org.apache.hadoop.hive.serde2.io.TimestampWritable;
+import org.apache.hadoop.hive.serde2.io.TimestampWritableV2;
 import org.apache.hadoop.hive.serde2.lazy.LazyArray;
 import org.apache.hadoop.hive.serde2.lazy.LazyMap;
 import org.apache.hadoop.hive.serde2.lazy.LazyPrimitive;
@@ -99,8 +102,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
-import java.sql.Date;
-import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -180,6 +181,7 @@ import static org.apache.hadoop.mapred.Reporter.NULL;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -808,7 +810,7 @@ public class RcFileTester
         assertFalse(iterator.hasNext());
     }
 
-    private static Object decodeRecordReaderValue(Type type, Object actualValue)
+        private static Object decodeRecordReaderValue(Type type, Object actualValue)
     {
         if (actualValue instanceof LazyPrimitive) {
             actualValue = ((LazyPrimitive<?, ?>) actualValue).getWritableObject();
@@ -822,8 +824,8 @@ public class RcFileTester
         else if (actualValue instanceof BytesWritable) {
             actualValue = new SqlVarbinary(((BytesWritable) actualValue).copyBytes());
         }
-        else if (actualValue instanceof DateWritable) {
-            actualValue = new SqlDate(((DateWritable) actualValue).getDays());
+        else if (actualValue instanceof DateWritableV2) {
+            actualValue = new SqlDate(((DateWritableV2) actualValue).getDays());
         }
         else if (actualValue instanceof DoubleWritable) {
             actualValue = ((DoubleWritable) actualValue).get();
@@ -850,8 +852,8 @@ public class RcFileTester
         else if (actualValue instanceof Text) {
             actualValue = actualValue.toString();
         }
-        else if (actualValue instanceof TimestampWritable) {
-            TimestampWritable timestamp = (TimestampWritable) actualValue;
+        else if (actualValue instanceof TimestampWritableV2) {
+            TimestampWritableV2 timestamp = (TimestampWritableV2) actualValue;
             if (SESSION.getSqlFunctionProperties().isLegacyTimestamp()) {
                 actualValue = new SqlTimestamp((timestamp.getSeconds() * 1000) + (timestamp.getNanos() / 1000000L), UTC_KEY, MILLISECONDS);
             }
@@ -1040,14 +1042,13 @@ public class RcFileTester
             ZonedDateTime zonedDateTime = localDate.atStartOfDay(ZoneId.systemDefault());
 
             long millis = zonedDateTime.toEpochSecond() * 1000;
-            Date date = new Date(0);
+
             // mills must be set separately to avoid masking
-            date.setTime(millis);
-            return date;
+            return Date.ofEpochMilli(millis);
         }
         else if (type.equals(TIMESTAMP)) {
-            long millisUtc = (int) ((SqlTimestamp) value).getMillisUtc();
-            return new Timestamp(millisUtc);
+            long millisUtc = (long) ((SqlTimestamp) value).getMillisUtc();
+            return Timestamp.ofEpochMilli(millisUtc);
         }
         else if (type instanceof DecimalType) {
             return HiveDecimal.create(((SqlDecimal) value).toBigDecimal());
