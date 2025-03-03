@@ -53,7 +53,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.sun.management.ThreadMXBean;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.lang.management.ManagementFactory;
@@ -855,21 +854,19 @@ public class SqlQueryScheduler
     }
 
     @Override
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSizeInBytes()
     {
-        long datasize = stageExecutions.values().stream()
-                .mapToLong(stage -> stage.getStageExecution().getRawInputDataSize().toBytes())
+        return stageExecutions.values().stream()
+                .mapToLong(stage -> stage.getStageExecution().getRawInputDataSize())
                 .sum();
-        return DataSize.succinctBytes(datasize);
     }
 
     @Override
-    public DataSize getWrittenIntermediateDataSize()
+    public long getWrittenIntermediateDataSizeInBytes()
     {
-        long datasize = stageExecutions.values().stream()
-                .mapToLong(stage -> stage.getStageExecution().getWrittenIntermediateDataSize().toBytes())
+        return stageExecutions.values().stream()
+                .mapToLong(stage -> stage.getStageExecution().getWrittenIntermediateDataSize())
                 .sum();
-        return DataSize.succinctBytes(datasize);
     }
 
     @Override
@@ -879,9 +876,9 @@ public class SqlQueryScheduler
     }
 
     @Override
-    public DataSize getOutputDataSize()
+    public long getOutputDataSizeInBytes()
     {
-        return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputDataSize();
+        return stageExecutions.get(rootStageId).getStageExecution().getStageExecutionInfo().getStats().getOutputDataSizeInBytes();
     }
 
     public BasicStageExecutionStats getBasicStageStats()

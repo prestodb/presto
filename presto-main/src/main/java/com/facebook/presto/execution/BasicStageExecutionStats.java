@@ -15,15 +15,13 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.operator.BlockedReason;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.util.HashSet;
 import java.util.OptionalDouble;
 import java.util.Set;
 
-import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.airlift.units.DataSize.succinctBytes;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -39,13 +37,13 @@ public class BasicStageExecutionStats
             0,
             0,
 
-            new DataSize(0, BYTE),
+            0L,
             0,
 
             0.0,
             0.0,
-            new DataSize(0, BYTE),
-            new DataSize(0, BYTE),
+            0L,
+            0L,
 
             new Duration(0, MILLISECONDS),
             new Duration(0, MILLISECONDS),
@@ -53,7 +51,7 @@ public class BasicStageExecutionStats
             false,
             ImmutableSet.of(),
 
-            new DataSize(0, BYTE),
+            0L,
 
             OptionalDouble.empty());
 
@@ -62,17 +60,17 @@ public class BasicStageExecutionStats
     private final int queuedDrivers;
     private final int runningDrivers;
     private final int completedDrivers;
-    private final DataSize rawInputDataSize;
+    private final long rawInputDataSizeInBytes;
     private final long rawInputPositions;
     private final double cumulativeUserMemory;
     private final double cumulativeTotalMemory;
-    private final DataSize userMemoryReservation;
-    private final DataSize totalMemoryReservation;
+    private final long userMemoryReservationInBytes;
+    private final long totalMemoryReservationInBytes;
     private final Duration totalCpuTime;
     private final Duration totalScheduledTime;
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
-    private final DataSize totalAllocation;
+    private final long totalAllocationInBytes;
     private final OptionalDouble progressPercentage;
 
     public BasicStageExecutionStats(
@@ -83,13 +81,13 @@ public class BasicStageExecutionStats
             int runningDrivers,
             int completedDrivers,
 
-            DataSize rawInputDataSize,
+            long rawInputDataSizeInBytes,
             long rawInputPositions,
 
             double cumulativeUserMemory,
             double cumulativeTotalMemory,
-            DataSize userMemoryReservation,
-            DataSize totalMemoryReservation,
+            long userMemoryReservationInBytes,
+            long totalMemoryReservationInBytes,
 
             Duration totalCpuTime,
             Duration totalScheduledTime,
@@ -97,7 +95,7 @@ public class BasicStageExecutionStats
             boolean fullyBlocked,
             Set<BlockedReason> blockedReasons,
 
-            DataSize totalAllocation,
+            long totalAllocationInBytes,
 
             OptionalDouble progressPercentage)
     {
@@ -106,17 +104,21 @@ public class BasicStageExecutionStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
+        checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
+        this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
         this.rawInputPositions = rawInputPositions;
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.cumulativeTotalMemory = cumulativeTotalMemory;
-        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
-        this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
+        checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservationInBytes is negative");
+        this.userMemoryReservationInBytes = userMemoryReservationInBytes;
+        checkArgument(totalMemoryReservationInBytes >= 0, "totalMemoryReservationInBytes is negative");
+        this.totalMemoryReservationInBytes = totalMemoryReservationInBytes;
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
-        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
+        checkArgument(totalAllocationInBytes >= 0, "totalAllocationInBytes is negative");
+        this.totalAllocationInBytes = totalAllocationInBytes;
         this.progressPercentage = requireNonNull(progressPercentage, "progressPercentage is null");
     }
 
@@ -145,9 +147,9 @@ public class BasicStageExecutionStats
         return completedDrivers;
     }
 
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSizeInBytes()
     {
-        return rawInputDataSize;
+        return rawInputDataSizeInBytes;
     }
 
     public long getRawInputPositions()
@@ -165,14 +167,14 @@ public class BasicStageExecutionStats
         return cumulativeTotalMemory;
     }
 
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservationInBytes()
     {
-        return userMemoryReservation;
+        return userMemoryReservationInBytes;
     }
 
-    public DataSize getTotalMemoryReservation()
+    public long getTotalMemoryReservationInBytes()
     {
-        return totalMemoryReservation;
+        return totalMemoryReservationInBytes;
     }
 
     public Duration getTotalCpuTime()
@@ -195,9 +197,9 @@ public class BasicStageExecutionStats
         return blockedReasons;
     }
 
-    public DataSize getTotalAllocation()
+    public long getTotalAllocationInBytes()
     {
-        return totalAllocation;
+        return totalAllocationInBytes;
     }
 
     public OptionalDouble getProgressPercentage()
@@ -238,8 +240,8 @@ public class BasicStageExecutionStats
 
             cumulativeUserMemory += stageStats.getCumulativeUserMemory();
             cumulativeTotalMemory += stageStats.getCumulativeTotalMemory();
-            userMemoryReservation += stageStats.getUserMemoryReservation().toBytes();
-            totalMemoryReservation += stageStats.getTotalMemoryReservation().toBytes();
+            userMemoryReservation += stageStats.getUserMemoryReservationInBytes();
+            totalMemoryReservation += stageStats.getTotalMemoryReservationInBytes();
 
             totalScheduledTimeMillis += stageStats.getTotalScheduledTime().roundTo(MILLISECONDS);
             totalCpuTime += stageStats.getTotalCpuTime().roundTo(MILLISECONDS);
@@ -249,9 +251,9 @@ public class BasicStageExecutionStats
             fullyBlocked &= stageStats.isFullyBlocked();
             blockedReasons.addAll(stageStats.getBlockedReasons());
 
-            totalAllocation += stageStats.getTotalAllocation().toBytes();
+            totalAllocation += stageStats.getTotalAllocationInBytes();
 
-            rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
+            rawInputDataSize += stageStats.getRawInputDataSizeInBytes();
             rawInputPositions += stageStats.getRawInputPositions();
         }
 
@@ -268,13 +270,13 @@ public class BasicStageExecutionStats
                 runningDrivers,
                 completedDrivers,
 
-                succinctBytes(rawInputDataSize),
+                rawInputDataSize,
                 rawInputPositions,
 
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
-                succinctBytes(userMemoryReservation),
-                succinctBytes(totalMemoryReservation),
+                userMemoryReservation,
+                totalMemoryReservation,
 
                 succinctDuration(totalCpuTime, MILLISECONDS),
                 succinctDuration(totalScheduledTimeMillis, MILLISECONDS),
@@ -282,7 +284,7 @@ public class BasicStageExecutionStats
                 fullyBlocked,
                 blockedReasons,
 
-                succinctBytes(totalAllocation),
+                totalAllocation,
 
                 progressPercentage);
     }

@@ -44,7 +44,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -99,7 +98,7 @@ public class SqlTask
             ExchangeClientSupplier exchangeClientSupplier,
             ExecutorService taskNotificationExecutor,
             Function<SqlTask, ?> onDone,
-            DataSize maxBufferSize,
+            long maxBufferSizeInBytes,
             CounterStat failedTasks,
             SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
@@ -111,7 +110,7 @@ public class SqlTask
                 sqlTaskExecutionFactory,
                 exchangeClientSupplier,
                 taskNotificationExecutor,
-                maxBufferSize,
+                maxBufferSizeInBytes,
                 spoolingOutputBufferFactory);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
@@ -125,7 +124,7 @@ public class SqlTask
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExchangeClientSupplier exchangeClientSupplier,
             ExecutorService taskNotificationExecutor,
-            DataSize maxBufferSize,
+            long maxBufferSizeInBytes,
             SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
@@ -136,7 +135,7 @@ public class SqlTask
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
         requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
-        requireNonNull(maxBufferSize, "maxBufferSize is null");
+        checkArgument(maxBufferSizeInBytes > 0, "maxBufferSizeInBytes must be > 0");
         requireNonNull(spoolingOutputBufferFactory, "spoolingOutputBufferFactory is null");
 
         this.taskExchangeClientManager = new TaskExchangeClientManager(exchangeClientSupplier);
@@ -144,7 +143,7 @@ public class SqlTask
                 taskId,
                 taskInstanceId.getUuidString(),
                 taskNotificationExecutor,
-                maxBufferSize,
+                maxBufferSizeInBytes,
                 // Pass a memory context supplier instead of a memory context to the output buffer,
                 // because we haven't created the task context that holds the memory context yet.
                 () -> queryContext.getTaskContextByTaskId(taskId).localSystemMemoryContext(),
@@ -487,12 +486,12 @@ public class SqlTask
         return taskHolderReference.get().taskExecution.getTaskContext().getTaskMetadataContext();
     }
 
-    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getTaskResults(OutputBufferId bufferId, long startingSequenceId, long maxSizeInBytes)
     {
         requireNonNull(bufferId, "bufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxSizeInBytes > 0, "maxSize must be at least 1 byte");
 
-        return outputBuffer.get(bufferId, startingSequenceId, maxSize);
+        return outputBuffer.get(bufferId, startingSequenceId, maxSizeInBytes);
     }
 
     public OutputBufferInfo getOutputBufferInfo()
