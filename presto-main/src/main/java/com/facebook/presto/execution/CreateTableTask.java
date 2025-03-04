@@ -47,7 +47,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -102,7 +101,7 @@ public class CreateTableTask
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (tableHandle.isPresent()) {
             if (!statement.isNotExists()) {
@@ -111,7 +110,7 @@ public class CreateTableTask
             return immediateFuture(null);
         }
 
-        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getLegacyCatalogName());
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
@@ -120,7 +119,8 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
-                String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
+                String columnName = column.getName().getValue();
+                String name = metadata.normalizeIdentifier(session, tableName.getLegacyCatalogName(), columnName, column.getName().isDelimited());
                 Type type;
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
@@ -141,25 +141,24 @@ public class CreateTableTask
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                         connectorId,
-                        tableName.getCatalogName(),
+                        tableName.getLegacyCatalogName(),
                         sqlProperties,
                         session,
                         metadata,
                         parameterLookup);
 
-                columns.put(name, new ColumnMetadata(
-                        name,
-                        type,
-                        column.isNullable(), column.getComment().orElse(null),
-                        null,
-                        false,
-                        columnProperties));
+                columns.put(name, ColumnMetadata.builder()
+                        .setName(name)
+                        .setType(type)
+                        .setNullable(column.isNullable())
+                        .setComment(column.getComment().orElse(null))
+                        .setProperties(columnProperties).build());
             }
             else if (element instanceof LikeClause) {
                 LikeClause likeClause = (LikeClause) element;
-                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
-                getConnectorIdOrThrow(session, metadata, likeTableName.getCatalogName(), statement, likeTableCatalogError);
-                if (!tableName.getCatalogName().equals(likeTableName.getCatalogName())) {
+                QualifiedObjectName likeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName(), metadata);
+                getConnectorIdOrThrow(session, metadata, likeTableName.getLegacyCatalogName(), statement, likeTableCatalogError);
+                if (!tableName.getLegacyCatalogName().equals(likeTableName.getLegacyCatalogName())) {
                     throw new SemanticException(NOT_SUPPORTED, statement, "LIKE table across catalogs is not supported");
                 }
                 TableHandle likeTable = metadata.getMetadataResolver(session).getTableHandle(likeTableName)
@@ -179,10 +178,10 @@ public class CreateTableTask
                 likeTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .forEach(column -> {
-                            if (columns.containsKey(column.getName().toLowerCase(Locale.ENGLISH))) {
+                            if (columns.containsKey(column.getName())) {
                                 throw new SemanticException(DUPLICATE_COLUMN_NAME, element, "Column name '%s' specified more than once", column.getName());
                             }
-                            columns.put(column.getName().toLowerCase(Locale.ENGLISH), column);
+                            columns.put(column.getName(), column);
                         });
             }
             else if (element instanceof ConstraintSpecification) {
@@ -215,7 +214,7 @@ public class CreateTableTask
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                 connectorId,
-                tableName.getCatalogName(),
+                tableName.getLegacyCatalogName(),
                 sqlProperties,
                 session,
                 metadata,
@@ -223,9 +222,9 @@ public class CreateTableTask
 
         Map<String, Object> finalProperties = combineProperties(sqlProperties.keySet(), properties, inheritedProperties);
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(toSchemaTableName(tableName), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment(), constraints, Collections.emptyMap());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(toSchemaTableName(tableName, metadata, session), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment(), constraints, Collections.emptyMap());
         try {
-            metadata.createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
+            metadata.createTable(session, tableName.getLegacyCatalogName(), tableMetadata, statement.isNotExists());
         }
         catch (PrestoException e) {
             // connectors are not required to handle the ignoreExisting flag
