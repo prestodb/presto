@@ -801,10 +801,15 @@ void PrestoTask::updateExecutionInfoLocked(
   //
   // TODO: We should really extend the API (protocol::TaskStats and Presto
   // coordinator UI) to have splits information as a proper fix.
-  prestoTaskStats.totalDrivers = veloxTaskStats.numTotalSplits;
-  prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedSplits;
+  prestoTaskStats.totalDrivers = veloxTaskStats.numTotalDrivers;
+  prestoTaskStats.queuedDrivers = veloxTaskStats.numQueuedDrivers;
   prestoTaskStats.runningDrivers = veloxTaskStats.numRunningDrivers;
-  prestoTaskStats.completedDrivers = veloxTaskStats.numFinishedSplits;
+  prestoTaskStats.completedDrivers = veloxTaskStats.numCompletedDrivers;
+
+  prestoTaskStats.totalSplits = veloxTaskStats.numTotalSplits;
+  prestoTaskStats.queuedSplits = veloxTaskStats.numQueuedSplits;
+  prestoTaskStats.runningSplits = veloxTaskStats.numRunningSplits;
+  prestoTaskStats.completedSplits = veloxTaskStats.numFinishedSplits;
 
   if (includePipelineStats) {
     prestoTaskStats.pipelines.resize(veloxTaskStats.pipelineStats.size());
