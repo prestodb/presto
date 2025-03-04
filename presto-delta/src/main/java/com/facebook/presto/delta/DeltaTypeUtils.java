@@ -41,6 +41,7 @@ import io.delta.kernel.types.MapType;
 import io.delta.kernel.types.ShortType;
 import io.delta.kernel.types.StringType;
 import io.delta.kernel.types.StructType;
+import io.delta.kernel.types.TimestampNTZType;
 import io.delta.kernel.types.TimestampType;
 
 import java.math.BigDecimal;
@@ -231,6 +232,9 @@ public class DeltaTypeUtils
             return createUnboundedVarcharType();
         }
         else if (deltaType instanceof TimestampType) {
+            return TIMESTAMP;
+        }
+        else if (deltaType instanceof TimestampNTZType) {
             return TIMESTAMP;
         }
 
