@@ -35,7 +35,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
-import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.analyzer.CTEInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerInformationCollector;
 import com.facebook.presto.sql.planner.optimizations.OptimizerResultCollector;
@@ -66,6 +66,8 @@ import static com.facebook.presto.SystemSessionProperties.warnOnCommonNanPattern
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.tracing.TracingManager.getInvalidSpan;
+import static com.facebook.presto.tracing.TracingManager.spanString;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -75,6 +77,8 @@ import static java.util.Objects.requireNonNull;
 public final class Session
 {
     private final QueryId queryId;
+    private final BaseSpan querySpan;
+    private final BaseSpan rootSpan;
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Identity identity;
@@ -97,7 +101,6 @@ public final class Session
     private final Map<String, String> preparedStatements;
     private final Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions;
     private final AccessControlContext context;
-    private final Optional<Tracer> tracer;
     private final WarningCollector warningCollector;
     private final RuntimeStats runtimeStats;
     private final Optional<QueryType> queryType;
@@ -110,6 +113,8 @@ public final class Session
 
     public Session(
             QueryId queryId,
+            BaseSpan querySpan,
+            BaseSpan rootSpan,
             Optional<TransactionId> transactionId,
             boolean clientTransactionSupport,
             Identity identity,
@@ -131,12 +136,13 @@ public final class Session
             SessionPropertyManager sessionPropertyManager,
             Map<String, String> preparedStatements,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
-            Optional<Tracer> tracer,
             WarningCollector warningCollector,
             RuntimeStats runtimeStats,
             Optional<QueryType> queryType)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.querySpan = querySpan;
+        this.rootSpan = rootSpan;
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.identity = requireNonNull(identity, "identity is null");
@@ -172,7 +178,6 @@ public final class Session
         checkArgument(!transactionId.isPresent() || unprocessedCatalogProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
 
         checkArgument(catalog.isPresent() || !schema.isPresent(), "schema is set but catalog is not");
-        this.tracer = requireNonNull(tracer, "tracer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.runtimeStats = requireNonNull(runtimeStats, "runtimeStats is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
@@ -182,6 +187,16 @@ public final class Session
     public QueryId getQueryId()
     {
         return queryId;
+    }
+
+    public BaseSpan getQuerySpan()
+    {
+        return querySpan;
+    }
+
+    public BaseSpan getRootSpan()
+    {
+        return rootSpan;
     }
 
     public String getUser()
@@ -322,11 +337,6 @@ public final class Session
         return runtimeStats;
     }
 
-    public Optional<Tracer> getTracer()
-    {
-        return tracer;
-    }
-
     public WarningCollector getWarningCollector()
     {
         return warningCollector;
@@ -426,6 +436,8 @@ public final class Session
 
         return new Session(
                 queryId,
+                querySpan,
+                rootSpan,
                 Optional.of(transactionId),
                 clientTransactionSupport,
                 new Identity(
@@ -454,7 +466,6 @@ public final class Session
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
-                tracer,
                 warningCollector,
                 runtimeStats,
                 queryType);
@@ -530,6 +541,8 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
+                .add("querySpan", spanString(querySpan).orElse(null))
+                .add("rootSpan", rootSpan.toString())
                 .add("transactionId", transactionId)
                 .add("user", getUser())
                 .add("principal", getIdentity().getPrincipal().orElse(null))
@@ -562,6 +575,8 @@ public final class Session
     public static class SessionBuilder
     {
         private QueryId queryId;
+        private BaseSpan querySpan = getInvalidSpan(); //do not initialize with null
+        private BaseSpan rootSpan = getInvalidSpan();  //do not initialize with null
         private TransactionId transactionId;
         private boolean clientTransactionSupport;
         private Identity identity;
@@ -576,7 +591,6 @@ public final class Session
         private String clientInfo;
         private Set<String> clientTags = ImmutableSet.of();
         private ResourceEstimates resourceEstimates;
-        private Optional<Tracer> tracer = Optional.empty();
         private long startTime = System.currentTimeMillis();
         private final Map<String, String> systemProperties = new HashMap<>();
         private final Map<ConnectorId, Map<String, String>> connectorProperties = new HashMap<>();
@@ -617,7 +631,6 @@ public final class Session
             session.unprocessedCatalogProperties.forEach((key, value) -> this.catalogSessionProperties.put(key, new HashMap<>(value)));
             this.preparedStatements.putAll(session.preparedStatements);
             this.sessionFunctions.putAll(session.sessionFunctions);
-            this.tracer = requireNonNull(session.tracer, "tracer is null");
             this.warningCollector = requireNonNull(session.warningCollector, "warningCollector is null");
             this.runtimeStats = requireNonNull(session.runtimeStats, "runtimeStats is null");
             this.queryType = requireNonNull(session.queryType, "queryType is null");
@@ -633,12 +646,6 @@ public final class Session
         {
             checkArgument(catalogSessionProperties.isEmpty(), "Catalog session properties cannot be set if there is an open transaction");
             this.transactionId = transactionId;
-            return this;
-        }
-
-        public SessionBuilder setTracer(Optional<Tracer> tracer)
-        {
-            this.tracer = requireNonNull(tracer, "tracer is null");
             return this;
         }
 
@@ -742,6 +749,18 @@ public final class Session
             return this;
         }
 
+        public SessionBuilder setQuerySpan(BaseSpan querySpan)
+        {
+            this.querySpan = querySpan;
+            return this;
+        }
+
+        public SessionBuilder setRootSpan(BaseSpan rootSpan)
+        {
+            this.rootSpan = rootSpan;
+            return this;
+        }
+
         /**
          * Sets a catalog property for the session.  The property name and value must
          * only contain characters from US-ASCII and must not be for '='.
@@ -837,6 +856,8 @@ public final class Session
         {
             return new Session(
                     queryId,
+                    querySpan,
+                    rootSpan,
                     Optional.ofNullable(transactionId),
                     clientTransactionSupport,
                     identity,
@@ -859,7 +880,6 @@ public final class Session
                     sessionPropertyManager,
                     preparedStatements,
                     sessionFunctions,
-                    tracer,
                     warningCollector,
                     runtimeStats,
                     queryType);

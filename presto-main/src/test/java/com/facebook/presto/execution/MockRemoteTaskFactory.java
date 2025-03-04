@@ -43,6 +43,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.spiller.SpillSpaceTracker;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -148,7 +149,7 @@ public class MockRemoteTaskFactory
                 nodeStatsTracker,
                 true,
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
-                SchedulerStatsTracker.NOOP);
+                SchedulerStatsTracker.NOOP, null);
     }
 
     @Override
@@ -162,7 +163,8 @@ public class MockRemoteTaskFactory
             NodeTaskMap.NodeStatsTracker nodeStatsTracker,
             boolean summarizeTaskInfo,
             TableWriteInfo tableWriteInfo,
-            SchedulerStatsTracker schedulerStatsTracker)
+            SchedulerStatsTracker schedulerStatsTracker,
+            BaseSpan stageSpan)
     {
         return new MockRemoteTask(taskId, fragment, node.getNodeIdentifier(), executor, scheduledExecutor, initialSplits, nodeStatsTracker);
     }

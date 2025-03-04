@@ -350,6 +350,13 @@
             <artifactId>ratis-metrics-default</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-open-telemetry</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
