@@ -410,7 +410,7 @@ function defined above can be registered using the following function call:
 
 .. code-block:: c++
 
-  registerFunction<CeilFunction, double, double>({"ceil", "ceiling");
+  registerFunction<CeilFunction, double, double>({"ceil", "ceiling"});
 
 Here, we register the CeilFunction function that takes a double and returns a
 double. If we want to allow the ceil function to be called on float inputs,
@@ -418,7 +418,7 @@ we need to call registerFunction again:
 
 .. code-block:: c++
 
-  registerFunction<CeilFunction, float, float>({"ceil", "ceiling");
+  registerFunction<CeilFunction, float, float>({"ceil", "ceiling"});
 
 We need to call registerFunction for each signature we want to support.
 
