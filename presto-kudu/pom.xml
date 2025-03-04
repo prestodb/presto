@@ -13,7 +13,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <kudu.version>1.12.0</kudu.version>
+        <!-- Custom kudu version built from branch: https://github.ibm.com/lakehouse/wxd-kudu/tree/branch-1.17.x -->
+        <kudu.version>1.17.4-wxd</kudu.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
@@ -59,7 +60,7 @@
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
         </dependency>
-        
+
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>configuration</artifactId>
