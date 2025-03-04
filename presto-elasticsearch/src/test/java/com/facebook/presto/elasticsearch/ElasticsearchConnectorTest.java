@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -31,6 +32,7 @@ import java.io.IOException;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
+import static com.facebook.presto.elasticsearch.client.ElasticSearchClientUtils.performRequest;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
@@ -39,9 +41,10 @@ import static java.lang.String.format;
 public class ElasticsearchConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
-    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0";
+    private final String elasticsearchServer = "docker.elastic.co/elasticsearch/elasticsearch:7.17.27";
     private ElasticsearchServer elasticsearch;
     private RestHighLevelClient client;
+    private ElasticSearchClientUtils elasticSearchClientUtils;
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
@@ -218,7 +221,6 @@ public class ElasticsearchConnectorTest
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+        performRequest("PUT", format("/%s/_alias/%s", index, alias), client);
     }
 }

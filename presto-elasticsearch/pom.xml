@@ -12,7 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
+        <dep.elasticsearch.version>7.17.27</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -120,25 +120,13 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore-nio</artifactId>
-            <version>4.4.5</version>
+            <version>4.4.12</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-
             <exclusions>
-                <!-- elasticsearch-rest-high-level-client 6.0.0 brings in httpcore 4.4.5 vs (4.4.4) -->
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-
-                    <!-- elasticsearch-rest-high-level-client 6.0.0 brings in commons-codec 1.10 vs (1.9) -->
-                <exclusion>
-                    <groupId>commons-codec</groupId>
-                    <artifactId>commons-codec</artifactId>
-                </exclusion>
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
@@ -154,8 +142,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpasyncclient</artifactId>
-            <version>4.1.2</version>
-
+            <version>4.1.4</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
@@ -240,6 +227,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
+            <version>1.20.5</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -256,6 +244,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>elasticsearch</artifactId>
+            <version>1.20.5</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -273,6 +262,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -340,6 +335,18 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-core</artifactId>
+            <version>${dep.elasticsearch.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch-x-content</artifactId>
+            <version>${dep.elasticsearch.version}</version>
         </dependency>
 
         <dependency>
