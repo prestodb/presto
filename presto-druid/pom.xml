@@ -130,6 +130,11 @@
                     <groupId>it.unimi.dsi</groupId>
                     <artifactId>fastutil-core</artifactId>
                 </exclusion>
+<!--                &lt;!&ndash;Adding exclusion to fix image scan vulnerability&ndash;&gt;-->
+<!--                <exclusion>-->
+<!--                    <groupId>commons-net</groupId>-->
+<!--                    <artifactId>commons-net</artifactId>-->
+<!--                </exclusion>-->
             </exclusions>
         </dependency>
 
