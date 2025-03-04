@@ -22,7 +22,6 @@ import com.facebook.presto.execution.buffer.OutputBufferInfo;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -67,7 +66,7 @@ public class TestingOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBuffers.OutputBufferId bufferId, long token, long maxSizeInBytes)
     {
         throw new UnsupportedOperationException();
     }

@@ -23,7 +23,6 @@ import com.facebook.presto.spi.eventlistener.StageGcStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 import org.joda.time.DateTime;
 
 import java.util.ArrayList;
@@ -44,7 +43,6 @@ import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.execution.StageExecutionState.FINISHED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -68,8 +66,8 @@ public class StageExecutionInfo
             DateTime schedulingComplete,
             DistributionSnapshot getSplitDistribution,
             RuntimeStats stageRuntimeStats,
-            DataSize peakUserMemoryReservation,
-            DataSize peakNodeTotalMemoryReservation,
+            long peakUserMemoryReservation,
+            long peakNodeTotalMemoryReservation,
             int finishedLifespans,
             int totalLifespans)
     {
@@ -118,8 +116,8 @@ public class StageExecutionInfo
 
                 taskStatsAggregator.cumulativeUserMemory,
                 taskStatsAggregator.cumulativeTotalMemory,
-                succinctBytes(taskStatsAggregator.userMemoryReservation),
-                succinctBytes(taskStatsAggregator.totalMemoryReservation),
+                taskStatsAggregator.userMemoryReservation,
+                taskStatsAggregator.totalMemoryReservation,
                 peakUserMemoryReservation,
                 peakNodeTotalMemoryReservation,
                 succinctDuration(taskStatsAggregator.totalScheduledTime, NANOSECONDS),
@@ -129,16 +127,16 @@ public class StageExecutionInfo
                 taskStatsAggregator.fullyBlocked && taskStatsAggregator.runningTaskCount > 0,
                 taskStatsAggregator.blockedReasons,
 
-                succinctBytes(taskStatsAggregator.totalAllocation),
+                taskStatsAggregator.totalAllocation,
 
-                succinctBytes(taskStatsAggregator.rawInputDataSize),
+                taskStatsAggregator.rawInputDataSize,
                 taskStatsAggregator.rawInputPositions,
-                succinctBytes(taskStatsAggregator.processedInputDataSize),
+                taskStatsAggregator.processedInputDataSize,
                 taskStatsAggregator.processedInputPositions,
-                succinctBytes(taskStatsAggregator.bufferedDataSize),
-                succinctBytes(taskStatsAggregator.outputDataSize),
+                taskStatsAggregator.bufferedDataSize,
+                taskStatsAggregator.outputDataSize,
                 taskStatsAggregator.outputPositions,
-                succinctBytes(taskStatsAggregator.physicalWrittenDataSize),
+                taskStatsAggregator.physicalWrittenDataSize,
 
                 new StageGcStatistics(
                         stageExecutionId.getStageId().getId(),

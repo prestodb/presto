@@ -24,7 +24,6 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -53,7 +52,7 @@ public class LazyOutputBuffer
     private final StateMachine<BufferState> state;
     private final TaskId taskId;
     private final String taskInstanceId;
-    private final DataSize maxBufferSize;
+    private final long maxBufferSizeInBytes;
     private final Supplier<LocalMemoryContext> systemMemoryContextSupplier;
     private final Executor executor;
     private final SpoolingOutputBufferFactory spoolingOutputBufferFactory;
@@ -73,7 +72,7 @@ public class LazyOutputBuffer
             TaskId taskId,
             String taskInstanceId,
             Executor executor,
-            DataSize maxBufferSize,
+            long maxBufferSizeInBytes,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             SpoolingOutputBufferFactory spoolingOutputBufferFactory)
     {
@@ -81,8 +80,8 @@ public class LazyOutputBuffer
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
         this.executor = requireNonNull(executor, "executor is null");
         state = new StateMachine<>(taskId + "-buffer", executor, OPEN, TERMINAL_BUFFER_STATES);
-        this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
-        checkArgument(maxBufferSize.toBytes() > 0, "maxBufferSize must be at least 1");
+        checkArgument(maxBufferSizeInBytes > 0, "maxBufferSize must be at least 1");
+        this.maxBufferSizeInBytes = maxBufferSizeInBytes;
         this.systemMemoryContextSupplier = requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null");
         this.spoolingOutputBufferFactory = requireNonNull(spoolingOutputBufferFactory, "spoolingOutputBufferFactory is null");
     }
@@ -161,13 +160,13 @@ public class LazyOutputBuffer
                     }
                     switch (newOutputBuffers.getType()) {
                         case PARTITIONED:
-                            outputBuffer = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSize, systemMemoryContextSupplier, executor);
+                            outputBuffer = new PartitionedOutputBuffer(taskInstanceId, state, newOutputBuffers, maxBufferSizeInBytes, systemMemoryContextSupplier, executor);
                             break;
                         case BROADCAST:
-                            outputBuffer = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                            outputBuffer = new BroadcastOutputBuffer(taskInstanceId, state, maxBufferSizeInBytes, systemMemoryContextSupplier, executor);
                             break;
                         case ARBITRARY:
-                            outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSize, systemMemoryContextSupplier, executor);
+                            outputBuffer = new ArbitraryOutputBuffer(taskInstanceId, state, maxBufferSizeInBytes, systemMemoryContextSupplier, executor);
                             break;
                         case DISCARDING:
                             outputBuffer = new DiscardingOutputBuffer(newOutputBuffers, state);
@@ -198,7 +197,7 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId bufferId, long token, long maxSizeInBytes)
     {
         OutputBuffer outputBuffer = delegate;
         if (outputBuffer == null) {
@@ -208,14 +207,14 @@ public class LazyOutputBuffer
                         return immediateFuture(emptyResults(taskInstanceId, 0, true));
                     }
 
-                    PendingRead pendingRead = new PendingRead(bufferId, token, maxSize);
+                    PendingRead pendingRead = new PendingRead(bufferId, token, maxSizeInBytes);
                     pendingReads.add(pendingRead);
                     return pendingRead.getFutureResult();
                 }
                 outputBuffer = delegate;
             }
         }
-        return outputBuffer.get(bufferId, token, maxSize);
+        return outputBuffer.get(bufferId, token, maxSizeInBytes);
     }
 
     @Override
@@ -376,15 +375,16 @@ public class LazyOutputBuffer
     {
         private final OutputBufferId bufferId;
         private final long startingSequenceId;
-        private final DataSize maxSize;
+        private final long maxSizeInBytes;
 
         private final ExtendedSettableFuture<BufferResult> futureResult = ExtendedSettableFuture.create();
 
-        public PendingRead(OutputBufferId bufferId, long startingSequenceId, DataSize maxSize)
+        public PendingRead(OutputBufferId bufferId, long startingSequenceId, long maxSizeInBytes)
         {
             this.bufferId = requireNonNull(bufferId, "bufferId is null");
             this.startingSequenceId = startingSequenceId;
-            this.maxSize = requireNonNull(maxSize, "maxSize is null");
+            checkArgument(maxSizeInBytes > 0, "maxSizeInBytes should be at lease 1 byte");
+            this.maxSizeInBytes = maxSizeInBytes;
         }
 
         public ExtendedSettableFuture<BufferResult> getFutureResult()
@@ -399,7 +399,7 @@ public class LazyOutputBuffer
             }
 
             try {
-                ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxSize);
+                ListenableFuture<BufferResult> result = delegate.get(bufferId, startingSequenceId, maxSizeInBytes);
                 futureResult.setAsync(result);
             }
             catch (Exception e) {

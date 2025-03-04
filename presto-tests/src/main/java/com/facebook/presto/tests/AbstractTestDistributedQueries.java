@@ -1253,7 +1253,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenOutputPositions(), 25L);
-        assertTrue(queryInfo.getQueryStats().getWrittenOutputLogicalDataSize().toBytes() > 0L);
+        assertTrue(queryInfo.getQueryStats().getWrittenOutputLogicalDataSizeInBytes() > 0L);
 
         sql = "INSERT INTO test_written_stats SELECT * FROM nation LIMIT 10";
         resultResultWithQueryId = distributedQueryRunner.executeWithQueryId(getSession(), sql);
@@ -1261,7 +1261,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
         assertEquals(queryInfo.getQueryStats().getWrittenOutputPositions(), 10L);
-        assertTrue(queryInfo.getQueryStats().getWrittenOutputLogicalDataSize().toBytes() > 0L);
+        assertTrue(queryInfo.getQueryStats().getWrittenOutputLogicalDataSizeInBytes() > 0L);
 
         assertUpdate("DROP TABLE test_written_stats");
     }
