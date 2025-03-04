@@ -14,6 +14,7 @@
 
 import React from "react";
 
+import { clsx } from 'clsx';
 import {getFirstParameter} from "../utils";
 
 const ALL_THREADS = "All Threads";
@@ -118,7 +119,9 @@ export class WorkerThreadList extends React.Component {
     renderGroupListItem(group) {
         return (
             <li key={group}>
-                <a href="#" className={this.state.selectedGroup === group ? "selected" : ""} onClick={this.handleGroupClick.bind(this, group)}>
+                <a href="#"
+                        className={clsx('dropdown-item text-dark', this.state.selectedGroup === group ? "selected" : "")}
+                        onClick={this.handleGroupClick.bind(this, group)}>
                     {group} ({this.filterThreads(group, this.state.selectedThreadState).length})
                 </a>
             </li>
@@ -128,7 +131,9 @@ export class WorkerThreadList extends React.Component {
     renderThreadStateListItem(threadState) {
         return (
             <li key={threadState}>
-                <a href="#" className={this.state.selectedThreadState === threadState ? "selected" : ""} onClick={this.handleThreadStateClick.bind(this, threadState)}>
+                <a href="#"
+                        className={clsx('dropdown-item text-dark', this.state.selectedThreadState === threadState ? "selected" : "")}
+                        onClick={this.handleThreadStateClick.bind(this, threadState)}>
                     {threadState} ({this.filterThreads(this.state.selectedGroup, threadState).length})
                 </a>
             </li>
@@ -173,7 +178,12 @@ export class WorkerThreadList extends React.Component {
             if (this.state.initialized === false) {
                 display = (
                     <div className="row error-message">
-                        <div className="col-12"><button className="btn btn-info live-button rounded-0 text-white" onClick={this.handleNewSnapshotClick.bind(this)} style={{fontSize: '14px', backgroundColor:"rgb(91, 192, 222)", borderColor:"rgb(70, 184, 218)"}}>Capture Snapshot</button></div>
+                        <div className="col-12">
+                            <button className="btn btn-info rounded-0 text-white dropdown-text"
+                                    onClick={this.handleNewSnapshotClick.bind(this)}>
+                                Capture Snapshot
+                            </button>
+                        </div>
                     </div>
                 );
             }
@@ -196,28 +206,32 @@ export class WorkerThreadList extends React.Component {
                                 &nbsp;&nbsp;
                             </td>
                             <td>
-                                <button className="btn btn-info live-button rounded-0" onClick={this.handleNewSnapshotClick.bind(this)}>New Snapshot</button>
+                                <button
+                                        className="btn btn-info rounded-0 text-white dropdown-text"
+                                        onClick={this.handleNewSnapshotClick.bind(this)}>
+                                    New Snapshot
+                                </button>
                                 &nbsp;&nbsp;
                                 &nbsp;&nbsp;
                             </td>
                             <td>
                                 <div className="input-group-btn text-right">
-                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-bs-toggle="dropdown" aria-haspopup="true"
+                                    <button type="button" className="btn btn-default dropdown-toggle bg-white text-dark rounded-0 dropdown-text" data-bs-toggle="dropdown" aria-haspopup="true"
                                             aria-expanded="false">
                                         <strong>Group:</strong> {this.state.selectedGroup} <span className="caret"/>
                                     </button>
-                                    <ul className="dropdown-menu dropdown-menu-items">
+                                    <ul className="dropdown-menu bg-white rounded-0 dropdown-text">
                                         {Object.keys(threads).map(group => this.renderGroupListItem(group))}
                                     </ul>
                                 </div>
                             </td>
                             <td>
                                 <div className="input-group-btn text-right">
-                                    <button type="button" className="btn btn-default dropdown-toggle pull-right text-right" data-bs-toggle="dropdown" aria-haspopup="true"
+                                    <button type="button" className="btn btn-default dropdown-toggle bg-white text-dark rounded-0 dropdown-text" data-bs-toggle="dropdown" aria-haspopup="true"
                                             aria-expanded="false">
                                         <strong>State:</strong> {this.state.selectedThreadState} <span className="caret"/>
                                     </button>
-                                    <ul className="dropdown-menu-items ">
+                                    <ul className="dropdown-menu bg-white rounded-0 dropdown-text">
                                         {THREAD_STATES.map(state => this.renderThreadStateListItem(state))}
                                     </ul>
                                 </div>
