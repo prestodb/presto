@@ -21,8 +21,6 @@ import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
@@ -35,21 +33,28 @@ public class TestingPrestoServerRouter
             throws Exception
     {
         super();
-        this.blocker = new InstanceRequestBlocker();
+        this.blocker = new InstanceRequestBlocker(this.getBaseUrl().getPort());
     }
 
-    private static class InstanceRequestBlocker
+    public static class InstanceRequestBlocker
             implements Filter
     {
         private boolean blocked;
+        private final int port;
+
+        public InstanceRequestBlocker(int port)
+        {
+            this.port = port;
+        }
 
         @Override
         public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
                 throws IOException, ServletException
         {
-            if (!blocked) {
-                chain.doFilter(request, response);
+            if (blocked && request.getServerPort() == port) {
+                return;
             }
+            chain.doFilter(request, response);
         }
 
         public void block()
@@ -77,13 +82,11 @@ public class TestingPrestoServerRouter
     public void stopResponding()
     {
         blocker.block();
-        System.out.println(String.format("STOP RESPONDING %s", this.getBaseUrl().toString()));
     }
 
     @Override
     public void startResponding()
     {
         blocker.unblock();
-        System.out.println(String.format("START RESPONDING %s", this.getBaseUrl().toString()));
     }
 }
