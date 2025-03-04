@@ -74,6 +74,20 @@ module.exports = (env) => {
         },
     };
 
+    const devServer = {
+        static: {
+            directory: path.join(__dirname, '..', outputDir),
+        },
+        proxy: [
+            {
+                context: ['/v1'],
+                target: `http://${apiHost}:${apiPort}`,
+                // secure: false, // when using http
+                // changeOrigin: true, // Modify the Origin header to match the target
+            },
+        ],
+    }
+
     const mainConfig = {
         ...baseConfig,
         entry: {
@@ -86,6 +100,7 @@ module.exports = (env) => {
             'timeline': './timeline.jsx',
             'res_groups': './res_groups.jsx',
             'sql_client': './sql_client.jsx',
+            'dev/query_viewer': './query_viewer.jsx',
             ...baseConfig.entry,
         },
         optimization: {
@@ -110,19 +125,7 @@ module.exports = (env) => {
                 },
             },
         },
-        devServer: {
-            static: {
-                directory: path.join(__dirname, '..', outputDir),
-            },
-            proxy: [
-                {
-                    context: ['/v1'],
-                    target: `http://${apiHost}:${apiPort}`,
-                    // secure: false, // when using http
-                    // changeOrigin: true, // Modify the Origin header to match the target
-                },
-            ],
-        },
+        devServer,
     };
 
     const spaConfig = {
@@ -156,5 +159,15 @@ module.exports = (env) => {
             splitChunks: false,
         }
     };
-    return [mainConfig, spaConfig]
+
+    if (env.config === 'all') {
+        return [mainConfig, spaConfig];
+    }
+    if (env.config === 'spa') {
+        return {
+            ...spaConfig,
+            devServer,
+        }
+    }
+    return mainConfig;
 };
