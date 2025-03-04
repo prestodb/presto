@@ -62,6 +62,13 @@ public class WeightedRoundRobinScheduler
                 serverIndex = 0;
             }
             candidateIndexByGroup.put(candidateGroupName, serverIndex);
+
+            //If server list is empty (servers got filtered out due to 0 weight)
+            //select the first candidate from candidate list
+            if (serverList.isEmpty() && !candidates.isEmpty()) {
+                return Optional.of(candidates.get(0));
+            }
+
             return Optional.of(serverList.get(serverIndex));
         }
     }
