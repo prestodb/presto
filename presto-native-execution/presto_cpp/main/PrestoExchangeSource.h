@@ -56,6 +56,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       return velox::getCurrentTimeMs() - startMs_;
     }
 
+    size_t numTries() const {
+      return numTries_;
+    }
+
     // Returns whether we have exhausted all retries. We only retry if we spent
     // less than maxWaitMs_ time after we first started.
     bool isExhausted() const {
