@@ -96,6 +96,7 @@ void registerMathFunctions(const std::string& prefix) {
       {prefix + "rand", prefix + "random"});
   registerFunction<RandFunction, double, Constant<int64_t>>(
       {prefix + "rand", prefix + "random"});
+  registerFunction<SignFunction, double, double>({prefix + "sign"});
 
   // Operators.
   registerBinaryNumeric<PlusFunction>({prefix + "add"});
