@@ -24,7 +24,9 @@ import com.facebook.airlift.log.LogJmxModule;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeModule;
 import com.facebook.airlift.tracetoken.TraceTokenModule;
+import com.facebook.presto.router.scheduler.SchedulerManager;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Injector;
 import com.google.inject.Module;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -53,7 +55,9 @@ public class PrestoRouter
 
         Logger log = Logger.get(RouterModule.class);
         try {
-            app.initialize();
+            Injector injector = app.initialize();
+            injector.getInstance(RouterPluginManager.class).loadPlugins();
+            injector.getInstance(SchedulerManager.class).loadScheduler();
             log.info("======== SERVER STARTED ========");
         }
         catch (Throwable t) {
