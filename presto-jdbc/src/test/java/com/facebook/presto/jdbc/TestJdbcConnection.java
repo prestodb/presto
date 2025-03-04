@@ -302,7 +302,7 @@ public class TestJdbcConnection
         try (Connection connection = createConnection("sessionProperties=query_max_run_time:2d;max_failed_task_percentage:0.6")) {
             assertThat(listSession(connection))
                     .contains("join_distribution_type|AUTOMATIC|AUTOMATIC")
-                    .contains("exchange_compression|false|false")
+                    .contains("exchange_compression_codec|NONE|NONE")
                     .contains("query_max_run_time|2d|100.00d")
                     .contains("max_failed_task_percentage|0.6|0.3");
 
@@ -312,15 +312,15 @@ public class TestJdbcConnection
 
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                    .contains("exchange_compression|false|false");
+                    .contains("exchange_compression_codec|NONE|NONE");
 
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET SESSION exchange_compression = true");
+                statement.execute("SET SESSION exchange_compression_codec = 'LZ4'");
             }
 
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                    .contains("exchange_compression|true|false");
+                    .contains("exchange_compression_codec|LZ4|NONE");
         }
     }
 
