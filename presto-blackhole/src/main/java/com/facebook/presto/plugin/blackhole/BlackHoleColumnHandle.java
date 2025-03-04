@@ -55,7 +55,7 @@ public final class BlackHoleColumnHandle
 
     public ColumnMetadata toColumnMetadata()
     {
-        return new ColumnMetadata(name, columnType);
+        return ColumnMetadata.builder(name, columnType).build();
     }
 
     @Override

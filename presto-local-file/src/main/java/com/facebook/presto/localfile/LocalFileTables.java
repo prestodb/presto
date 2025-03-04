@@ -114,17 +114,17 @@ public class LocalFileTables
     {
         private static final List<ColumnMetadata> COLUMNS = ImmutableList.of(
                 SERVER_ADDRESS_COLUMN,
-                new ColumnMetadata("timestamp", TIMESTAMP),
-                new ColumnMetadata("client_address", createUnboundedVarcharType()),
-                new ColumnMetadata("method", createUnboundedVarcharType()),
-                new ColumnMetadata("request_uri", createUnboundedVarcharType()),
-                new ColumnMetadata("user", createUnboundedVarcharType()),
-                new ColumnMetadata("agent", createUnboundedVarcharType()),
-                new ColumnMetadata("response_code", BIGINT),
-                new ColumnMetadata("request_size", BIGINT),
-                new ColumnMetadata("response_size", BIGINT),
-                new ColumnMetadata("time_to_last_byte", BIGINT),
-                new ColumnMetadata("trace_token", createUnboundedVarcharType()));
+                ColumnMetadata.builder("timestamp", TIMESTAMP).build(),
+                ColumnMetadata.builder("client_address", createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder("method", createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder("request_uri", createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder("user", createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder("agent", createUnboundedVarcharType()).build(),
+                ColumnMetadata.builder("response_code", BIGINT).build(),
+                ColumnMetadata.builder("request_size", BIGINT).build(),
+                ColumnMetadata.builder("response_size", BIGINT).build(),
+                ColumnMetadata.builder("time_to_last_byte", BIGINT).build(),
+                ColumnMetadata.builder("trace_token", createUnboundedVarcharType()).build());
 
         private static final String TABLE_NAME = "http_request_log";
 

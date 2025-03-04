@@ -416,7 +416,7 @@ public abstract class AbstractTestHiveFileSystem
             throws Exception
     {
         List<ColumnMetadata> columns = ImmutableList.<ColumnMetadata>builder()
-                .add(new ColumnMetadata("id", BIGINT))
+                .add(ColumnMetadata.builder("id", BIGINT).build())
                 .build();
 
         MaterializedResult data = MaterializedResult.resultBuilder(newSession(), BIGINT)

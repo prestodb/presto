@@ -65,7 +65,8 @@ public class TestRemoveOrphanFilesProcedureHadoop
     {
         Catalog catalog = CatalogUtil.loadCatalog(HADOOP.getCatalogImpl(), ICEBERG_CATALOG, getProperties(), new Configuration());
         return catalog.createTable(TableIdentifier.of(TEST_SCHEMA, tableName),
-                toIcebergSchema(ImmutableList.of(new ColumnMetadata("a", INTEGER), new ColumnMetadata("b", VARCHAR))),
+                toIcebergSchema(ImmutableList.of(ColumnMetadata.builder("a", INTEGER).build(),
+                        ColumnMetadata.builder("b", VARCHAR).build())),
                 null,
                 tableProperties);
     }

@@ -77,7 +77,7 @@ public class DruidColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(getColumnName(), getColumnType());
+        return ColumnMetadata.builder(getColumnName(), getColumnType()).build();
     }
 
     @Override
