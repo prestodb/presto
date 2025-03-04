@@ -55,7 +55,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class TestFeaturesConfig
 {
     @Test
-    public void testDefaults()
+    public void gintestDefaults()
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(FeaturesConfig.class)
                 .setCpuCostWeight(75)
@@ -254,7 +254,8 @@ public class TestFeaturesConfig
                 .setEnhancedCTESchedulingEnabled(true)
                 .setExpressionOptimizerName("default")
                 .setExcludeInvalidWorkerSessionProperties(false)
-                .setAddExchangeBelowPartialAggregationOverGroupId(false));
+                .setAddExchangeBelowPartialAggregationOverGroupId(false)
+                .setRestrictCatalogEndpointsLocally(false));
     }
 
     @Test
@@ -458,6 +459,7 @@ public class TestFeaturesConfig
                 .put("expression-optimizer-name", "custom")
                 .put("exclude-invalid-worker-session-properties", "true")
                 .put("optimizer.add-exchange-below-partial-aggregation-over-group-id", "true")
+                .put("restrict-catalog-endpoints-locally", "true")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -658,7 +660,8 @@ public class TestFeaturesConfig
                 .setEnhancedCTESchedulingEnabled(false)
                 .setExpressionOptimizerName("custom")
                 .setExcludeInvalidWorkerSessionProperties(true)
-                .setAddExchangeBelowPartialAggregationOverGroupId(true);
+                .setAddExchangeBelowPartialAggregationOverGroupId(true)
+                .setRestrictCatalogEndpointsLocally(true);
         assertFullMapping(properties, expected);
     }
 
