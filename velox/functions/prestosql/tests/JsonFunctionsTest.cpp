@@ -481,6 +481,11 @@ TEST_F(JsonFunctionsTest, jsonParse) {
         R"({"\/&\"\f\r\n": "a", "\/&page=26": "c"})",
         R"({"/&\"\f\r\n":"a","/&page=26":"c"})");
   }
+
+  // Test with incomplete unicode escape sequences.
+  VELOX_ASSERT_USER_THROW(
+      jsonParse("\"\\u1234\\u89\""),
+      "Invalid escape sequence at the end of string");
 }
 
 TEST_F(JsonFunctionsTest, canonicalization) {

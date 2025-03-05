@@ -198,7 +198,7 @@ size_t normalizedSizeForJsonCast(const char* input, size_t length) {
 
 namespace {
 
-int32_t parseHex(const std::string_view& hexString) {
+FOLLY_ALWAYS_INLINE int32_t parseHex(std::string_view hexString) {
   int32_t result = 0;
   for (auto c : hexString) {
     result = (result << 4) + digitToHex(c);
@@ -235,7 +235,7 @@ int32_t getEscapedChar(std::string_view view, size_t& pos) {
         pos++;
         return '/';
       case 'u': {
-        if (pos + 5 > view.size()) {
+        if (pos + 6 > view.size()) {
           VELOX_USER_FAIL("Invalid escape sequence at the end of string");
         }
 
@@ -349,7 +349,7 @@ size_t normalizeForJsonParse(const char* input, size_t length, char* output) {
           continue;
         case 'u': {
           VELOX_USER_CHECK(
-              start + 5 <= end, "Invalid escape sequence at the end of string");
+              start + 6 <= end, "Invalid escape sequence at the end of string");
 
           // Read 4 hex digits.
           auto codePoint = parseHex(std::string_view(start + 2, 4));
@@ -442,7 +442,7 @@ size_t normalizedSizeForJsonParse(const char* input, size_t length) {
           continue;
         case 'u': {
           VELOX_USER_CHECK(
-              start + 5 <= end, "Invalid escape sequence at the end of string");
+              start + 6 <= end, "Invalid escape sequence at the end of string");
           auto codePoint = parseHex(std::string_view(start + 2, 4));
           if (isHighSurrogate(codePoint) || isLowSurrogate(codePoint) ||
               isSpecialCode(codePoint)) {
