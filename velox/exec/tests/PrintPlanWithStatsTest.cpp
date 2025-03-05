@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -133,7 +134,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
   ensureTaskCompletion(task.get());
   compareOutputs(
       ::testing::UnitTest::GetInstance()->current_test_info()->name(),
-      printPlanWithStats(*op, task->taskStats()),
+      task->printPlanWithStats(),
       {{"-- Project\\[4\\]\\[expressions: \\(c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(p1:BIGINT, plus\\(ROW\\[\"c1\"\\],1\\)\\), \\(p2:BIGINT, plus\\(ROW\\[\"c1\"\\],ROW\\[\"u_c1\"\\]\\)\\)\\] -> c0:INTEGER, p1:BIGINT, p2:BIGINT"},
        {"   Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+, Threads: 1, CPU breakdown: B/I/O/F (.+/.+/.+/.+)"},
        {"  -- HashJoin\\[3\\]\\[INNER c0=u_c0\\] -> c0:INTEGER, c1:BIGINT, u_c1:BIGINT"},
@@ -374,4 +375,42 @@ TEST_F(PrintPlanWithStatsTest, tableWriterWithTableScan) {
        {"        storageReadBytes [ ]* sum: .+, count: 1, min: .+, max: .+"},
        {"        totalRemainingFilterTime\\s+sum: .+, count: .+, min: .+, max: .+"},
        {"        totalScanTime    [ ]* sum: .+, count: .+, min: .+, max: .+"}});
+}
+
+TEST_F(PrintPlanWithStatsTest, taskAPI) {
+  // Test various task states.
+  auto checkOutput = [](exec::Task* task) {
+    compareOutputs(
+        ::testing::UnitTest::GetInstance()->current_test_info()->name(),
+        task->printPlanWithStats(),
+        {{"-- Aggregation\\[1\\]\\[SINGLE \\[c0\\] a0 := sum\\(ROW\\[\"c1\"\\]\\)\\] -> c0:BIGINT, a0:BIGINT"},
+         {"   Output: .+, Cpu time: .+, Wall time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+, CPU breakdown: B/I/O/F (.+/.+/.+/.+)"},
+         {"  -- TableScan\\[0\\]\\[table: hive_table\\] -> c0:BIGINT, c1:BIGINT"},
+         {"     Input: .+, Output: .+, Cpu time: .+, Wall time: .+, Blocked wall time: .+, Peak memory: .+, Memory allocations: .+, CPU breakdown: B/I/O/F (.+/.+/.+/.+)"}});
+  };
+
+  const auto data = makeRowVector({
+      makeFlatVector<int64_t>(50, folly::identity),
+      makeFlatVector<int64_t>(50, folly::identity),
+  });
+
+  const auto plan = PlanBuilder()
+                        .tableScan(asRowType(data->type()))
+                        .singleAggregation({"c0"}, {"sum(c1)"}, {})
+                        .planFragment();
+
+  auto task = exec::Task::create(
+      "task",
+      std::move(plan),
+      0,
+      core::QueryCtx::create(driverExecutor_.get()),
+      exec::Task::ExecutionMode::kParallel);
+  checkOutput(task.get());
+
+  task->start(4, 1);
+  checkOutput(task.get());
+
+  task->requestAbort();
+  ASSERT_TRUE(waitForTaskAborted(task.get()));
+  checkOutput(task.get());
 }

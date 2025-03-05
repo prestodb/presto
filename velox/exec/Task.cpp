@@ -30,6 +30,7 @@
 #include "velox/exec/NestedLoopJoinBuild.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/OutputBufferManager.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/TraceUtil.h"
 
@@ -246,6 +247,7 @@ std::shared_ptr<Task> Task::create(
     Consumer consumer,
     int32_t memoryArbitrationPriority,
     std::function<void(std::exception_ptr)> onError) {
+  VELOX_CHECK_NOT_NULL(planFragment.planNode);
   return Task::create(
       taskId,
       std::move(planFragment),
@@ -268,6 +270,7 @@ std::shared_ptr<Task> Task::create(
     ConsumerSupplier consumerSupplier,
     int32_t memoryArbitrationPriority,
     std::function<void(std::exception_ptr)> onError) {
+  VELOX_CHECK_NOT_NULL(planFragment.planNode);
   auto task = std::shared_ptr<Task>(new Task(
       taskId,
       std::move(planFragment),
@@ -2433,6 +2436,11 @@ ContinueFuture Task::taskDeletionFuture() {
   return std::move(future);
 }
 
+std::string Task::printPlanWithStats(bool includeCustomStats) const {
+  return exec::printPlanWithStats(
+      *planFragment_.planNode, taskStats_, includeCustomStats);
+}
+
 std::string Task::toString() const {
   std::lock_guard<std::timed_mutex> l(mutex_);
   std::stringstream out;
@@ -2443,10 +2451,7 @@ std::string Task::toString() const {
     out << "Error: " << errorMessageLocked() << std::endl;
   }
 
-  if (planFragment_.planNode) {
-    out << "Plan:\n"
-        << planFragment_.planNode->toString(true, true) << std::endl;
-  }
+  out << "Plan:\n" << planFragment_.planNode->toString(true, true) << std::endl;
 
   size_t numRemainingDrivers{0};
   for (const auto& driver : drivers_) {
@@ -2522,9 +2527,7 @@ folly::dynamic Task::toJson() const {
     obj["exception"] = errorMessageLocked();
   }
 
-  if (planFragment_.planNode) {
-    obj["plan"] = planFragment_.planNode->toString(true, true);
-  }
+  obj["plan"] = planFragment_.planNode->toString(true, true);
 
   folly::dynamic drivers = folly::dynamic::object;
   for (auto i = 0; i < drivers_.size(); ++i) {

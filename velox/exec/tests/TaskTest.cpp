@@ -2128,6 +2128,8 @@ DEBUG_ONLY_TEST_F(TaskTest, taskReclaimStats) {
   // Fail the task to finish test.
   task->requestAbort();
   ASSERT_TRUE(waitForTaskAborted(task.get()));
+  ASSERT_EQ(
+      task->planFragment().planNode->toString(), plan.planNode->toString());
   task.reset();
   waitForAllTasksToBeDeleted();
 }

@@ -116,6 +116,12 @@ class Task : public std::enable_shared_from_this<Task> {
     spillDirectoryCallback_ = std::move(spillDirectoryCallback);
   }
 
+  /// Returns human-friendly representation of the plan augmented with runtime
+  /// statistics. The implementation invokes exec::printPlanWithStats().
+  ///
+  /// @param includeCustomStats If true, prints operator-specific counters.
+  std::string printPlanWithStats(bool includeCustomStats = false) const;
+
   std::string toString() const;
 
   folly::dynamic toJson() const;
@@ -130,6 +136,11 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Returns task ID specified in the constructor.
   const std::string& taskId() const {
     return taskId_;
+  }
+
+  /// Returns plan fragment specified in the constructor.
+  const core::PlanFragment& planFragment() const {
+    return planFragment_;
   }
 
   const int destination() const {
