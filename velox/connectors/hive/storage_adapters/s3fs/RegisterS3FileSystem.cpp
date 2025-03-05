@@ -17,7 +17,9 @@
 #include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h" // @manual
 
 #ifdef VELOX_ENABLE_S3
+#include "velox/common/base/StatsReporter.h"
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Config.h" // @manual
+#include "velox/connectors/hive/storage_adapters/s3fs/S3Counters.h" // @manual
 #include "velox/connectors/hive/storage_adapters/s3fs/S3FileSystem.h" // @manual
 #include "velox/connectors/hive/storage_adapters/s3fs/S3Util.h" // @manual
 #include "velox/dwio/common/FileSink.h"
@@ -128,6 +130,21 @@ void finalizeS3FileSystem() {
   });
 
   finalizeS3();
+#endif
+}
+
+void registerS3Metrics() {
+#ifdef VELOX_ENABLE_S3
+  DEFINE_METRIC(kMetricS3ActiveConnections, velox::StatType::SUM);
+  DEFINE_METRIC(kMetricS3StartedUploads, velox::StatType::COUNT);
+  DEFINE_METRIC(kMetricS3FailedUploads, velox::StatType::COUNT);
+  DEFINE_METRIC(kMetricS3SuccessfulUploads, velox::StatType::COUNT);
+  DEFINE_METRIC(kMetricS3MetadataCalls, velox::StatType::COUNT);
+  DEFINE_METRIC(kMetricS3GetObjectCalls, velox::StatType::COUNT);
+  DEFINE_METRIC(kMetricS3GetObjectErrors, velox::StatType::COUNT);
+  DEFINE_METRIC(kMetricS3GetMetadataErrors, velox::StatType::COUNT);
+  DEFINE_METRIC(kMetricS3GetObjectRetries, velox::StatType::COUNT);
+  DEFINE_METRIC(kMetricS3GetMetadataRetries, velox::StatType::COUNT);
 #endif
 }
 

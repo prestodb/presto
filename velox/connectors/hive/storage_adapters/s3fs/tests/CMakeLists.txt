@@ -90,6 +90,15 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main)
 
+add_executable(velox_s3metrics_test S3FileSystemMetricsTest.cpp)
+add_test(velox_s3metrics_test velox_s3metrics_test)
+target_link_libraries(
+  velox_s3metrics_test
+  velox_s3fs
+  velox_exec_test_lib
+  GTest::gtest
+  GTest::gtest_main)
+
 add_executable(velox_s3multiendpoints_test S3MultipleEndpointsTest.cpp)
 add_test(velox_s3multiendpoints_test velox_s3multiendpoints_test)
 target_link_libraries(
