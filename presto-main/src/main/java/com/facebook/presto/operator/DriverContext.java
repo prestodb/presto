@@ -63,6 +63,8 @@ public class DriverContext
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
+    private final AtomicBoolean exitEarly = new AtomicBoolean();
+
     private final DateTime createdTime = DateTime.now();
     private final long createNanos = System.nanoTime();
 
@@ -189,6 +191,16 @@ public class DriverContext
         executionEndTime.set(DateTime.now());
 
         pipelineContext.driverFinished(this);
+    }
+
+    public void setExitEarly()
+    {
+        exitEarly.set(true);
+    }
+
+    public boolean getExitEarly()
+    {
+        return exitEarly.get();
     }
 
     public void failed(Throwable cause)

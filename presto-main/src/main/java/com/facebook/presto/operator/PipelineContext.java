@@ -41,6 +41,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -98,6 +99,8 @@ public class PipelineContext
     private final ConcurrentMap<Integer, OperatorStats> operatorStatsById = new ConcurrentHashMap<>();
 
     private final MemoryTrackingContext pipelineMemoryContext;
+
+    private AtomicBoolean exitEarly = new AtomicBoolean();
 
     public PipelineContext(int pipelineId, TaskContext taskContext, Executor notificationExecutor, ScheduledExecutorService yieldExecutor, MemoryTrackingContext pipelineMemoryContext, boolean inputPipeline, boolean outputPipeline, boolean partitioned)
     {
@@ -179,6 +182,10 @@ public class PipelineContext
 
         if (!drivers.remove(driverContext)) {
             throw new IllegalArgumentException("Unknown driver " + driverContext);
+        }
+
+        if (!exitEarly.get() && driverContext.getExitEarly()) {
+            exitEarly.set(true);
         }
 
         // always update last execution end time
@@ -278,6 +285,11 @@ public class PipelineContext
     public boolean isAllocationTrackingEnabled()
     {
         return taskContext.isAllocationTrackingEnabled();
+    }
+
+    public boolean exitEarly()
+    {
+        return exitEarly.get();
     }
 
     public CounterStat getInputDataSize()

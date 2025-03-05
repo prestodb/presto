@@ -92,6 +92,14 @@ public interface Operator
     boolean isFinished();
 
     /**
+     * This operator exist early in the query level.
+     */
+    default boolean exitEarly()
+    {
+        return false;
+    }
+
+    /**
      * This method will always be called before releasing the Operator reference.
      */
     @Override
