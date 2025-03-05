@@ -170,9 +170,9 @@ class HiveConfig {
       "hive.reader.timestamp_partition_value_as_local_time";
 
   static constexpr const char* kReadStatsBasedFilterReorderDisabled =
-      "hive.reader.stats-based-filter-reorder-disabled";
+      "stats-based-filter-reorder-disabled";
   static constexpr const char* kReadStatsBasedFilterReorderDisabledSession =
-      "hive.reader.stats_based_filter_reorder_disabled";
+      "stats_based_filter_reorder_disabled";
 
   static constexpr const char* kLocalDataPath = "hive_local_data_path";
   static constexpr const char* kLocalFileFormat = "hive_local_file_format";
