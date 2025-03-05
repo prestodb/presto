@@ -33,17 +33,17 @@ public class ColumnMetadata
     private final String name;
     private final Type type;
     private final boolean nullable;
-    private final String comment;
-    private final String extraInfo;
+    private final Optional<String> comment;
+    private final Optional<String> extraInfo;
     private final boolean hidden;
     private final Map<String, Object> properties;
 
     private ColumnMetadata(Builder builder)
     {
-        this(builder.name, builder.type, builder.nullable, builder.comment.orElse(null), builder.extraInfo.orElse(null), builder.hidden, builder.properties);
+        this(builder.name, builder.type, builder.nullable, builder.comment, builder.extraInfo, builder.hidden, builder.properties);
     }
 
-    protected ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    protected ColumnMetadata(String name, Type type, boolean nullable, Optional<String> comment, Optional<String> extraInfo, boolean hidden, Map<String, Object> properties)
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
@@ -75,12 +75,12 @@ public class ColumnMetadata
 
     public Optional<String> getComment()
     {
-        return Optional.ofNullable(comment);
+        return comment;
     }
 
     public Optional<String> getExtraInfo()
     {
-        return Optional.ofNullable(extraInfo);
+        return extraInfo;
     }
 
     public boolean isHidden()
