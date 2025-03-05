@@ -4,6 +4,8 @@ services:
     domainname: docker.cluster
     hostname: presto-master
     command: /docker/volumes/conf/docker/files/presto-launcher-wrapper.sh multinode-tls-master run
+    volumes:
+      - ${OVERRIDE_JDK_DIR}:/docker/volumes/overridejdk
     ports:
       - '7778:7778'
     networks:
