@@ -69,7 +69,8 @@ class FileHandleGenerator {
       : properties_(std::move(properties)) {}
   std::unique_ptr<FileHandle> operator()(
       const std::string& filename,
-      const FileProperties* properties);
+      const FileProperties* properties,
+      filesystems::File::IoStats* stats);
 
  private:
   const std::shared_ptr<const config::ConfigBase> properties_;
@@ -80,6 +81,7 @@ using FileHandleFactory = CachedFactory<
     FileHandle,
     FileHandleGenerator,
     FileProperties,
+    filesystems::File::IoStats,
     FileHandleSizer>;
 
 using FileHandleCachedPtr = CachedPtr<std::string, FileHandle>;

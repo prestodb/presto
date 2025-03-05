@@ -175,7 +175,8 @@ class Throttler {
 
     std::unique_ptr<ThrottleSignal> operator()(
         const std::string& /*unused*/,
-        const void* /*unused*/);
+        const void* /*unused*/,
+        void* /*unused*/);
   };
 
   using CachedThrottleSignalPtr = CachedPtr<std::string, ThrottleSignal>;
