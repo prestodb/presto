@@ -39,6 +39,7 @@ export OS_CXXFLAGS=" -isystem $(brew --prefix)/include "
 NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
 
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
+BUILD_GEOS="${BUILD_GEOS:-true}"
 VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly shared for use in libvelox.so.
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_VELOX_DEPS="bison flex gflags glog googletest icu4c libevent libsodium lz4 lzo openssl protobuf@21 snappy xz zstd"
@@ -48,6 +49,7 @@ FMT_VERSION="10.1.1"
 BOOST_VERSION="boost-1.84.0"
 STEMMER_VERSION="2.2.0"
 DUCKDB_VERSION="v0.8.1"
+GEOS_VERSION="3.13.0"
 
 function update_brew {
   DEFAULT_BREW_PATH=/usr/local/bin/brew
@@ -174,6 +176,13 @@ function install_stemmer {
   )
 }
 
+function install_geos {
+  if [[ "$BUILD_GEOS" == "true" ]]; then
+    wget_and_untar https://github.com/libgeos/geos/archive/${GEOS_VERSION}.tar.gz geos
+    cmake_install_dir geos -DBUILD_TESTING=OFF
+  fi
+}
+
 function install_velox_deps {
   run_and_time install_velox_deps_from_brew
   run_and_time install_ranges_v3
@@ -188,6 +197,7 @@ function install_velox_deps {
   run_and_time install_fbthrift
   run_and_time install_duckdb
   run_and_time install_stemmer
+  run_and_time install_geos
 }
 
 (return 2> /dev/null) && return # If script was sourced, don't run commands.

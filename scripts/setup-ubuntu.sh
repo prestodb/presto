@@ -36,6 +36,7 @@ COMPILER_FLAGS=$(get_cxx_flags)
 export COMPILER_FLAGS
 NPROC=${BUILD_THREADS:-$(getconf _NPROCESSORS_ONLN)}
 BUILD_DUCKDB="${BUILD_DUCKDB:-true}"
+BUILD_GEOS="${BUILD_GEOS:-true}"
 export CMAKE_BUILD_TYPE=Release
 VELOX_BUILD_SHARED=${VELOX_BUILD_SHARED:-"OFF"} #Build folly shared for use in libvelox.so.
 SUDO="${SUDO:-"sudo --preserve-env"}"
@@ -80,6 +81,7 @@ THRIFT_VERSION="v0.16.0"
 ARROW_VERSION="15.0.0"
 STEMMER_VERSION="2.2.0"
 DUCKDB_VERSION="v0.8.1"
+GEOS_VERSION="3.13.0"
 
 # Install packages required for build.
 function install_build_prerequisites {
@@ -294,6 +296,13 @@ function install_cuda {
   $SUDO apt install -y cuda-nvcc-$dashed cuda-cudart-dev-$dashed cuda-nvrtc-dev-$dashed cuda-driver-dev-$dashed
 }
 
+function install_geos {
+  if [[ "$BUILD_GEOS" == "true" ]]; then
+    wget_and_untar https://github.com/libgeos/geos/archive/${GEOS_VERSION}.tar.gz geos
+    cmake_install_dir geos -DBUILD_TESTING=OFF
+  fi
+}
+
 function install_velox_deps {
   run_and_time install_velox_deps_from_apt
   run_and_time install_fmt
@@ -309,6 +318,7 @@ function install_velox_deps {
   run_and_time install_stemmer
   run_and_time install_thrift
   run_and_time install_arrow
+  run_and_time install_geos
 }
 
 function install_apt_deps {
