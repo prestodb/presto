@@ -127,12 +127,7 @@ TEST_F(StreamArenaTest, randomRange) {
   auto arena = newArena();
   ByteRange range;
   for (int i = 0; i < numRanges; ++i) {
-    if (folly::Random::oneIn(4)) {
-      const int requestSize =
-          1 + folly::Random::rand32() % (2 * AllocationTraits::kPageSize);
-      arena->newTinyRange(requestSize, nullptr, &range);
-      ASSERT_EQ(range.size, requestSize);
-    } else if (folly::Random::oneIn(3)) {
+    if (folly::Random::oneIn(3)) {
       const int requestSize =
           AllocationTraits::pageBytes(pool_->largestSizeClass()) +
           (folly::Random::rand32() % (4 << 20));
@@ -152,9 +147,6 @@ TEST_F(StreamArenaTest, randomRange) {
 TEST_F(StreamArenaTest, error) {
   auto arena = newArena();
   ByteRange range;
-  VELOX_ASSERT_THROW(
-      arena->newTinyRange(0, nullptr, &range),
-      "StreamArena::newTinyRange can't be zero length");
   VELOX_ASSERT_THROW(
       arena->newRange(0, nullptr, &range),
       "StreamArena::newRange can't be zero length");

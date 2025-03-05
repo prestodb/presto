@@ -44,14 +44,10 @@ class StreamArena {
   /// its last 8 bytes. When extending, we need to update the entry so
   /// that the next pointer is not seen when reading the content and
   /// is also not counted in the payload size of the multipart entry.
+  ///
+  /// NOTE: The method does not guarantee returned 'range' has size of 'bytes',
+  /// it is caller's responsibility to check.
   virtual void newRange(int32_t bytes, ByteRange* lastRange, ByteRange* range);
-
-  /// sets 'range' to point to a small piece of memory owned by this. These
-  /// always come from the heap. The use case is for headers that may change
-  /// length based on data properties, not for bulk data. See 'newRange' for the
-  /// meaning of 'lastRange'.
-  virtual void
-  newTinyRange(int32_t bytes, ByteRange* lastRange, ByteRange* range);
 
   /// Returns the Total size in bytes held by all Allocations.
   virtual size_t size() const {
@@ -68,6 +64,7 @@ class StreamArena {
 
  private:
   memory::MemoryPool* const pool_;
+
   const memory::MachinePageCount allocationQuantum_{2};
 
   // All non-contiguous allocations.
@@ -88,8 +85,6 @@ class StreamArena {
 
   // Tracks all the contiguous and non-contiguous allocations in bytes.
   size_t size_ = 0;
-
-  std::vector<std::string> tinyRanges_;
 };
 
 } // namespace facebook::velox

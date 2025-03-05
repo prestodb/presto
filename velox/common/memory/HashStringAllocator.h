@@ -290,11 +290,6 @@ class HashStringAllocator : public StreamArena {
   /// Allocates a new range of at least 'bytes' size.
   void newContiguousRange(int32_t bytes, ByteRange* range);
 
-  void newTinyRange(int32_t bytes, ByteRange* lastRange, ByteRange* range)
-      override {
-    newRange(bytes, lastRange, range);
-  }
-
   /// Returns the total memory footprint of 'this'.
   int64_t retainedSize() const {
     return state_.pool().allocatedBytes() + state_.sizeFromPool();

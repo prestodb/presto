@@ -68,7 +68,17 @@ class VectorStream {
   }
 
   void initializeHeader(std::string_view name, StreamArena& streamArena) {
-    streamArena.newTinyRange(50, nullptr, &header_);
+    // Allocations from stream arena must be aligned size.
+    static constexpr uint32_t kHeaderSize = 64;
+    VELOX_CHECK_GE(kHeaderSize, name.size() + sizeof(int32_t));
+    streamArena.newRange(kHeaderSize, nullptr, &header_);
+    if (header_.size < kHeaderSize) {
+      // StreamArena::newRange() does not guarantee the size. If returned range
+      // does not have enough space, allocate a new one. The second arena
+      // allocation will allocate a new slab which must have enough size.
+      streamArena.newRange(kHeaderSize, nullptr, &header_);
+      VELOX_CHECK_EQ(header_.size, kHeaderSize);
+    }
     header_.size = name.size() + sizeof(int32_t);
     folly::storeUnaligned<int32_t>(header_.buffer, name.size());
     ::memcpy(header_.buffer + sizeof(int32_t), &name[0], name.size());
