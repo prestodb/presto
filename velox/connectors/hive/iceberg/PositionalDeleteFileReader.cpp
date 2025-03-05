@@ -254,7 +254,7 @@ void PositionalDeleteFileReader::updateDeleteBitmap(
       static_cast<uint64_t>(deleteBitmapBuffer->size()),
       deletePositionsOffset_ == 0 ||
               (deletePositionsOffset_ < deletePositionsVector->size() &&
-               deletePositions[deletePositionsOffset_] > rowNumberUpperBound)
+               deletePositions[deletePositionsOffset_] >= rowNumberUpperBound)
           ? 0
           : bits::nbytes(
                 deletePositions[deletePositionsOffset_ - 1] + 1 -

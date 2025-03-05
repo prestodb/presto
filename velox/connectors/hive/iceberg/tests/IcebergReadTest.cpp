@@ -689,6 +689,10 @@ TEST_F(HiveIcebergTest, positionalDeletesMultipleSplits) {
         {{"data_file_1", makeRandomIncreasingValues(0, 20000)}}}},
       0,
       3);
+
+  // Include only upper bound(which is exclusive) in delete positions for the
+  // second 10k batch of rows.
+  assertMultipleSplits({1000, 9000, 20000}, 1, 0, 20000, 3);
 }
 
 TEST_F(HiveIcebergTest, testPartitionedRead) {
