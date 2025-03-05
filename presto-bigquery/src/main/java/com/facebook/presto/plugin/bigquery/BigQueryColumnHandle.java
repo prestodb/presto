@@ -18,7 +18,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
@@ -99,8 +98,7 @@ public class BigQueryColumnHandle
         return ColumnMetadata.builder(name, getPrestoType())
                 .setNullable(mode == NULLABLE)
                 .setComment(description)
-                .setHidden(false)
-                .setProperties(ImmutableMap.of()).build();
+                .setHidden(false).build();
     }
 
     @Override

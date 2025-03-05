@@ -15,6 +15,8 @@ package com.facebook.presto.spi;
 
 import com.facebook.presto.common.type.Type;
 
+import javax.annotation.Nullable;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -167,13 +169,13 @@ public class ColumnMetadata
             return this;
         }
 
-        public Builder setComment(String comment)
+        public Builder setComment(@Nullable String comment)
         {
             this.comment = Optional.ofNullable(comment);
             return this;
         }
 
-        public Builder setExtraInfo(String extraInfo)
+        public Builder setExtraInfo(@Nullable String extraInfo)
         {
             this.extraInfo = Optional.ofNullable(extraInfo);
             return this;

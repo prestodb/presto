@@ -52,8 +52,7 @@ public class Conversions
         return ColumnMetadata.builder(field.getName(), adapt(field).getPrestoType())
                 .setNullable(getMode(field) == NULLABLE)
                 .setComment(field.getDescription())
-                .setHidden(false)
-                .setProperties(ImmutableMap.of()).build();
+                .setHidden(false).build();
     }
 
     static BigQueryType.Adaptor adapt(Field field)
