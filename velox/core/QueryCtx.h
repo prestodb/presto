@@ -115,7 +115,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
 
   /// Checks if the associated query is under memory arbitration or not. The
   /// function returns true if it is and set future which is fulfilled when the
-  /// the memory arbiration finishes.
+  /// memory arbitration finishes.
   bool checkUnderArbitration(ContinueFuture* future);
 
   /// Updates the aggregated spill bytes of this query, and throws if exceeds

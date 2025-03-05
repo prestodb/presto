@@ -45,7 +45,7 @@ constexpr uint64_t DEFAULT_AUTO_PRELOAD_SIZE =
  * first is fully consumed and the second has been filled, and then starts
  * a new parallel read.  For clients with a slow network connection to
  * Warm Storage, enabling PREFETCH reduces elapsed time by 10% or more,
- * at the cost of a second buffer.   The relative improvment would be greater
+ * at the cost of a second buffer.   The relative improvement would be greater
  * for cases where the network throughput is higher.
  */
 enum class PrefetchMode {

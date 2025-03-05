@@ -409,7 +409,7 @@ class Driver : public std::enable_shared_from_this<Driver> {
 
   /// Checks if the associated query is under memory arbitration or not. The
   /// function returns true if it is and set future which is fulfilled when the
-  /// the memory arbiration finishes.
+  /// memory arbitration finishes.
   bool checkUnderArbitration(ContinueFuture* future);
 
   void initializeOperatorStats(std::vector<OperatorStats>& stats);
