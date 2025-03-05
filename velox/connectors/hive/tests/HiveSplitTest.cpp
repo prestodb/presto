@@ -22,7 +22,7 @@ using namespace facebook::velox;
 using namespace facebook::velox::connector::hive;
 
 TEST(HiveSplitTest, builder) {
-  FileProperties properties = {11, 1111};
+  FileProperties properties = {.fileSize = 11, .modificationTime = 1111};
   auto extra = std::make_shared<std::string>("extra file info");
   std::unordered_map<std::string, std::string> custom;
   custom["custom1"] = "customValue1";

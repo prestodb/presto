@@ -185,10 +185,10 @@ std::shared_ptr<HiveConnectorSplit> HiveConnectorSplit::create(
   const auto& propertiesObj = obj.getDefault("properties", nullptr);
   if (propertiesObj != nullptr) {
     properties = FileProperties{
-        propertiesObj["fileSize"].isNull()
+        .fileSize = propertiesObj["fileSize"].isNull()
             ? std::nullopt
             : std::optional(propertiesObj["fileSize"].asInt()),
-        propertiesObj["modificationTime"].isNull()
+        .modificationTime = propertiesObj["modificationTime"].isNull()
             ? std::nullopt
             : std::optional(propertiesObj["modificationTime"].asInt())};
   }

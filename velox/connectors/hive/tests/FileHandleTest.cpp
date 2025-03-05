@@ -64,7 +64,8 @@ TEST(FileHandleTest, localFileWithProperties) {
       std::make_unique<SimpleLRUCache<std::string, FileHandle>>(1000),
       std::make_unique<FileHandleGenerator>());
   FileProperties properties = {
-      tempFile->fileSize(), tempFile->fileModifiedTime()};
+      .fileSize = tempFile->fileSize(),
+      .modificationTime = tempFile->fileModifiedTime()};
   auto fileHandle = factory.generate(filename, &properties);
   ASSERT_EQ(fileHandle->file->size(), 3);
   char buffer[3];

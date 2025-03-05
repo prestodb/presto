@@ -55,6 +55,8 @@ std::unique_ptr<FileHandle> FileHandleGenerator::operator()(
     options.stats = stats;
     if (properties) {
       options.fileSize = properties->fileSize;
+      options.readRangeHint = properties->readRangeHint;
+      options.extraFileInfo = properties->extraFileInfo;
     }
     fileHandle->file = filesystems::getFileSystem(filename, properties_)
                            ->openFileForRead(filename, options);
