@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <string>
+#include <vector>
 
 namespace facebook::velox::date {
 class time_zone;
@@ -62,6 +63,9 @@ int16_t getTimeZoneID(std::string_view timeZone, bool failOnError = true);
 /// Returns the timeZoneID for a given offset in minutes. The offset must be in
 /// [-14:00, +14:00] range.
 int16_t getTimeZoneID(int32_t offsetMinutes);
+
+/// Returns all valid time zone IDs.
+std::vector<int16_t> getTimeZoneIDs();
 
 // Validates that the time point can be safely used by the external date
 // library.

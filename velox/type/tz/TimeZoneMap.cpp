@@ -424,6 +424,21 @@ int16_t getTimeZoneID(int32_t offsetMinutes) {
   }
 }
 
+std::vector<int16_t> getTimeZoneIDs() {
+  const auto& timeZoneDatabase = getTimeZoneDatabase();
+
+  std::vector<int16_t> ids;
+  ids.reserve(timeZoneDatabase.size());
+
+  for (int16_t i = 0; i < timeZoneDatabase.size(); ++i) {
+    if (timeZoneDatabase[i] != nullptr) {
+      ids.push_back(i);
+    }
+  }
+
+  return ids;
+}
+
 TimeZone::seconds TimeZone::to_sys(
     TimeZone::seconds timestamp,
     TimeZone::TChoose choose) const {
