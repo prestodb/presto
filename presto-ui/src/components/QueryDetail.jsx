@@ -159,7 +159,7 @@ function TaskList({tasks}) {
             name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
                          data-bs-toggle="tooltip" data-bs-placement="top"
                          title="Pending splits"/>),
-            selector: row => row.stats.queuedDrivers,
+            selector: row => row.stats.queuedSplits,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -168,7 +168,7 @@ function TaskList({tasks}) {
             name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
                          data-bs-toggle="tooltip" data-bs-placement="top"
                          title="Running splits"/>),
-            selector: row => row.stats.runningDrivers,
+            selector: row => row.stats.runningSplits,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -187,7 +187,7 @@ function TaskList({tasks}) {
             name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
                          data-bs-toggle="tooltip" data-bs-placement="top"
                          title="Completed splits"/>),
-            selector: row => row.stats.completedDrivers,
+            selector: row => row.stats.completedSplits,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
