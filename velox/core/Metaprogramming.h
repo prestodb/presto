@@ -151,7 +151,7 @@ struct has_method {
         -> decltype(std::declval<__T>().MethodName(args...)) { \
       return {};                                               \
     }                                                          \
-  };
+  }
 
 // Calling Name::resolve<T>::type will return T::TypeName if T::TypeName
 // exists, and otherwise will return T::OtherTypeName (it's existence is not
@@ -169,5 +169,5 @@ struct has_method {
         std::void_t<decltype(sizeof(typename __T::TypeName))>> {     \
       using type = typename __T::TypeName;                           \
     };                                                               \
-  };
+  }
 } // namespace facebook::velox::util

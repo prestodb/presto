@@ -134,7 +134,7 @@ bool SpillStats::operator<(const SpillStats& other) const {
     } else if (counter > other.counter) { \
       ++gtCount;                          \
     }                                     \
-  } while (0);
+  } while (0)
 
   UPDATE_COUNTER(spillRuns);
   UPDATE_COUNTER(spilledInputBytes);
