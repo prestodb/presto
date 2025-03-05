@@ -671,7 +671,8 @@ bool tryParseTimestampString(
                  len,
                  pos,
                  daysSinceEpoch,
-                 parseMode == TimestampParseMode::kIso8601
+                 parseMode == TimestampParseMode::kIso8601 ||
+                         parseMode == TimestampParseMode::kSparkCast
                      ? ParseMode::kSparkCast
                      : ParseMode::kNonStrict)) {
     return false;
@@ -1024,6 +1025,34 @@ Expected<ParsedTimestampWithTimeZone> fromTimestampWithTimezoneString(
     }
   }
   return {{resultTimestamp, timeZone, offset}};
+}
+
+Timestamp fromParsedTimestampWithTimeZone(
+    ParsedTimestampWithTimeZone parsed,
+    const tz::TimeZone* sessionTimeZone) {
+  if (parsed.timeZone) {
+    parsed.timestamp.toGMT(*parsed.timeZone);
+  } else if (parsed.offsetMillis.has_value()) {
+    auto seconds = parsed.timestamp.getSeconds();
+    // use int128_t to avoid overflow.
+    __int128_t nanos = parsed.timestamp.getNanos();
+    seconds -= parsed.offsetMillis.value() / util::kMillisPerSecond;
+    nanos -= (parsed.offsetMillis.value() % util::kMillisPerSecond) *
+        util::kNanosPerMicro * util::kMicrosPerMsec;
+    if (nanos < 0) {
+      seconds -= 1;
+      nanos += Timestamp::kNanosInSecond;
+    } else if (nanos > Timestamp::kMaxNanos) {
+      seconds += 1;
+      nanos -= Timestamp::kNanosInSecond;
+    }
+    parsed.timestamp = Timestamp(seconds, nanos);
+  } else {
+    if (sessionTimeZone) {
+      parsed.timestamp.toGMT(*sessionTimeZone);
+    }
+  }
+  return parsed.timestamp;
 }
 
 int32_t toDate(const Timestamp& timestamp, const tz::TimeZone* timeZone_) {

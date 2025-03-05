@@ -234,11 +234,14 @@ TEST_F(SparkCastExprTest, invalidDate) {
 TEST_F(SparkCastExprTest, stringToTimestamp) {
   std::vector<std::optional<std::string>> input{
       "1970-01-01",
+      "1970-01-01 00:00:00-02:00",
+      "1970-01-01 00:00:00 +02:00",
       "2000-01-01",
       "1970-01-01 00:00:00",
       "2000-01-01 12:21:56",
       std::nullopt,
       "2015-03-18T12:03:17",
+      "2015-03-18T12:03:17Z",
       "2015-03-18 12:03:17",
       "2015-03-18T12:03:17",
       "2015-03-18 12:03:17.123",
@@ -248,10 +251,13 @@ TEST_F(SparkCastExprTest, stringToTimestamp) {
   };
   std::vector<std::optional<Timestamp>> expected{
       Timestamp(0, 0),
+      Timestamp(7200, 0),
+      Timestamp(-7200, 0),
       Timestamp(946684800, 0),
       Timestamp(0, 0),
       Timestamp(946729316, 0),
       std::nullopt,
+      Timestamp(1426680197, 0),
       Timestamp(1426680197, 0),
       Timestamp(1426680197, 0),
       Timestamp(1426680197, 0),
@@ -261,6 +267,18 @@ TEST_F(SparkCastExprTest, stringToTimestamp) {
       Timestamp(1426680197, 456000000),
   };
   testCast<std::string, Timestamp>("timestamp", input, expected);
+
+  setTimezone("Asia/Shanghai");
+  testCast<std::string, Timestamp>(
+      "timestamp",
+      {"1970-01-01 00:00:00",
+       "1970-01-01 08:00:00",
+       "1970-01-01 08:00:59",
+       "1970"},
+      {Timestamp(-8 * 3600, 0),
+       Timestamp(0, 0),
+       Timestamp(59, 0),
+       Timestamp(-8 * 3600, 0)});
 }
 
 TEST_F(SparkCastExprTest, intToTimestamp) {

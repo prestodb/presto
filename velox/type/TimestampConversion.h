@@ -269,10 +269,17 @@ inline Expected<ParsedTimestampWithTimeZone> fromTimestampWithTimezoneString(
   return fromTimestampWithTimezoneString(str.data(), str.size(), parseMode);
 }
 
+/// Converts ParsedTimestampWithTimeZone to Timestamp according to the
+/// timezone-based adjustment. If no timezone information is available
+/// in the first argument, respects the session timezone if configured.
+Timestamp fromParsedTimestampWithTimeZone(
+    ParsedTimestampWithTimeZone parsed,
+    const tz::TimeZone* sessionTimeZone);
+
 Timestamp fromDatetime(int64_t daysSinceEpoch, int64_t microsSinceMidnight);
 
 /// Returns the number of days since epoch for a given timestamp and optional
 /// time zone.
-int32_t toDate(const Timestamp& timestamp, const tz::TimeZone* timeZone_);
+int32_t toDate(const Timestamp& timestamp, const tz::TimeZone* timeZone);
 
 } // namespace facebook::velox::util

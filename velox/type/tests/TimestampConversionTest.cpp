@@ -469,6 +469,51 @@ TEST(DateTimeUtilTest, fromTimestampWithTimezoneString) {
           Timestamp(0, 0), tz::locateZone("-06:00"), std::nullopt}));
 }
 
+TEST(DateTimeUtilTest, fromParsedTimestampWithTimeZone) {
+  // Based on the parsed timezone.
+  auto input = ParsedTimestampWithTimeZone{
+      Timestamp(0, 0), tz::locateZone("-06:00"), std::nullopt};
+  EXPECT_EQ(
+      fromParsedTimestampWithTimeZone(input, nullptr), Timestamp(21600, 0));
+  input = ParsedTimestampWithTimeZone{
+      Timestamp(0, 0), tz::locateZone("+06:00"), std::nullopt};
+  EXPECT_EQ(
+      fromParsedTimestampWithTimeZone(input, nullptr), Timestamp(-21600, 0));
+  input = ParsedTimestampWithTimeZone{
+      Timestamp(21600, 0), tz::locateZone("+06:00"), std::nullopt};
+  EXPECT_EQ(fromParsedTimestampWithTimeZone(input, nullptr), Timestamp(0, 0));
+  input = ParsedTimestampWithTimeZone{
+      Timestamp(0, 0), tz::locateZone("America/Los_Angeles"), std::nullopt};
+  EXPECT_EQ(
+      fromParsedTimestampWithTimeZone(input, nullptr), Timestamp(28800, 0));
+
+  // Based on the configured session timezone.
+  input = ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, std::nullopt};
+  EXPECT_EQ(
+      fromParsedTimestampWithTimeZone(input, tz::locateZone("-06:00")),
+      Timestamp(21600, 0));
+  input = ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, std::nullopt};
+  EXPECT_EQ(
+      fromParsedTimestampWithTimeZone(input, tz::locateZone("+06:00")),
+      Timestamp(-21600, 0));
+  input = ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, std::nullopt};
+  EXPECT_EQ(
+      fromParsedTimestampWithTimeZone(
+          input, tz::locateZone("America/Los_Angeles")),
+      Timestamp(28800, 0));
+
+  // Prioritize using the parsed timezone instead of the configured one.
+  input = ParsedTimestampWithTimeZone{
+      Timestamp(0, 0), tz::locateZone("+06:00"), std::nullopt};
+  EXPECT_EQ(
+      fromParsedTimestampWithTimeZone(input, tz::locateZone("-06:00")),
+      Timestamp(-21600, 0));
+
+  // No timezone, then no adjustment.
+  input = ParsedTimestampWithTimeZone{Timestamp(0, 0), nullptr, std::nullopt};
+  EXPECT_EQ(fromParsedTimestampWithTimeZone(input, nullptr), Timestamp(0, 0));
+}
+
 TEST(DateTimeUtilTest, toGMT) {
   auto* laZone = tz::locateZone("America/Los_Angeles");
 

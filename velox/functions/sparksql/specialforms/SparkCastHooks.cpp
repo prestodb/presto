@@ -31,8 +31,17 @@ SparkCastHooks::SparkCastHooks(const velox::core::QueryConfig& config)
 
 Expected<Timestamp> SparkCastHooks::castStringToTimestamp(
     const StringView& view) const {
-  return util::fromTimestampString(
+  auto conversionResult = util::fromTimestampWithTimezoneString(
       view.data(), view.size(), util::TimestampParseMode::kSparkCast);
+  if (conversionResult.hasError()) {
+    return folly::makeUnexpected(conversionResult.error());
+  }
+
+  auto sessionTimezone = config_.sessionTimezone().empty()
+      ? nullptr
+      : tz::locateZone(config_.sessionTimezone());
+  return util::fromParsedTimestampWithTimeZone(
+      conversionResult.value(), sessionTimezone);
 }
 
 template <typename T>
