@@ -495,7 +495,7 @@ if(${VELOX_BUILD_MINIMAL_WITH_DWIO}
 
   # Locate or build protobuf.
   velox_set_source(Protobuf)
-  velox_resolve_dependency(Protobuf CONFIG 3.21.7 REQUIRED)
+  velox_resolve_dependency(Protobuf 3.21.7 REQUIRED)
   include_directories(${Protobuf_INCLUDE_DIRS})
 endif()
 
