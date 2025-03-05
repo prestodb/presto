@@ -11,32 +11,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.planner.plan;
+package com.facebook.presto.spi.plan;
 
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.metadata.IndexHandle;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.IndexHandle;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 
 public class IndexSourceNode
-        extends InternalPlanNode
+        extends PlanNode
 {
     private final IndexHandle indexHandle;
     private final TableHandle tableHandle;
@@ -73,9 +75,9 @@ public class IndexSourceNode
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.indexHandle = requireNonNull(indexHandle, "indexHandle is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.lookupVariables = ImmutableSet.copyOf(requireNonNull(lookupVariables, "lookupVariables is null"));
-        this.outputVariables = ImmutableList.copyOf(requireNonNull(outputVariables, "outputVariables is null"));
-        this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
+        this.lookupVariables = unmodifiableSet(new LinkedHashSet<>(requireNonNull(lookupVariables, "lookupVariables is null")));
+        this.outputVariables = unmodifiableList(new ArrayList<>(requireNonNull(outputVariables, "outputVariables is null")));
+        this.assignments = unmodifiableMap(new LinkedHashMap<>(requireNonNull(assignments, "assignments is null")));
         this.currentConstraint = requireNonNull(currentConstraint, "effectiveTupleDomain is null");
         checkArgument(!lookupVariables.isEmpty(), "lookupVariables is empty");
         checkArgument(!outputVariables.isEmpty(), "outputVariables is empty");
@@ -123,11 +125,11 @@ public class IndexSourceNode
     @Override
     public List<PlanNode> getSources()
     {
-        return ImmutableList.of();
+        return emptyList();
     }
 
     @Override
-    public <R, C> R accept(InternalPlanVisitor<R, C> visitor, C context)
+    public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitIndexSource(this, context);
     }

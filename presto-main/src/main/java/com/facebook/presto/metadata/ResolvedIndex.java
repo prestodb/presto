@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
+import com.facebook.presto.spi.IndexHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import static java.util.Objects.requireNonNull;
