@@ -40,6 +40,8 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -78,6 +80,7 @@ public class ClusterManager
     private final Logger log = Logger.get(ClusterManager.class);
 
     // Cluster status
+    private static final Duration pollingInterval = Duration.ofSeconds(5);
     private final ConcurrentHashMap<URI, RemoteClusterInfo> remoteClusterInfos = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
 
@@ -139,7 +142,7 @@ public class ClusterManager
                 }
                 lastConfigUpdate.set(newConfigUpdateTime);
             }
-        }, 0L, 5L, TimeUnit.SECONDS);
+        }, 0L, pollingInterval.get(ChronoUnit.SECONDS), TimeUnit.SECONDS);
     }
 
     public void startConfigReloadTaskFileWatcher()
@@ -302,7 +305,7 @@ public class ClusterManager
                 catch (Exception e) {
                     log.error(e, "Error polling list of queries");
                 }
-            }, 5, 5, TimeUnit.SECONDS);
+            }, pollingInterval.get(ChronoUnit.SECONDS), pollingInterval.get(ChronoUnit.SECONDS), TimeUnit.SECONDS);
 
             pollQueryInfos();
         }
