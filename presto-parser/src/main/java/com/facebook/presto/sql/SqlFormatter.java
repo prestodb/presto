@@ -38,6 +38,7 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.DescriptorArgument;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
@@ -112,6 +113,9 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SqlParameterDeclaration;
 import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableArgument;
+import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
@@ -205,6 +209,114 @@ public final class SqlFormatter
             append(indent, "LATERAL (");
             process(node.getQuery(), indent + 1);
             append(indent, ")");
+            return null;
+        }
+
+        @Override
+        protected Void visitTableFunctionInvocation(TableFunctionInvocation node, Integer indent)
+        {
+            append(indent, "TABLE(");
+            appendTableFunctionInvocation(node, indent + 1);
+            builder.append(")");
+            return null;
+        }
+
+        private void appendTableFunctionInvocation(TableFunctionInvocation node, Integer indent)
+        {
+            builder.append(formatName(node.getName()))
+                    .append("(\n");
+            appendTableFunctionArguments(node.getArguments(), indent + 1);
+            if (!node.getCopartitioning().isEmpty()) {
+                builder.append("\n");
+                append(indent + 1, "COPARTITION ");
+                builder.append(node.getCopartitioning().stream()
+                        .map(tableList -> tableList.stream()
+                                .map(Formatter::formatName)
+                                .collect(Collectors.joining(", ", "(", ")")))
+                        .collect(Collectors.joining(", ")));
+            }
+            builder.append(")");
+        }
+
+        private void appendTableFunctionArguments(List<TableFunctionArgument> arguments, int indent)
+        {
+            for (int i = 0; i < arguments.size(); i++) {
+                TableFunctionArgument argument = arguments.get(i);
+                if (argument.getName().isPresent()) {
+                    append(indent, formatExpression(argument.getName().get(), parameters));
+                    builder.append(" => ");
+                }
+                else {
+                    append(indent, "");
+                }
+                Node value = argument.getValue();
+                if (value instanceof Expression) {
+                    builder.append(formatExpression((Expression) value, parameters));
+                }
+                else {
+                    process(value, indent + 1);
+                }
+                if (i < arguments.size() - 1) {
+                    builder.append(",\n");
+                }
+            }
+        }
+
+        @Override
+        protected Void visitTableArgument(TableArgument node, Integer indent)
+        {
+            Relation relation = node.getTable();
+            Relation unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            builder.append("TABLE(");
+            process(unaliased, indent);
+            builder.append(")");
+            if (relation instanceof AliasedRelation) {
+                AliasedRelation aliasedRelation = (AliasedRelation) relation;
+                builder.append(" AS ")
+                        .append(formatExpression(aliasedRelation.getAlias(), parameters));
+                appendAliasColumns(builder, aliasedRelation.getColumnNames());
+            }
+            if (node.getPartitionBy().isPresent()) {
+                builder.append("\n");
+                append(indent, "PARTITION BY ")
+                        .append(node.getPartitionBy().get().stream()
+                                .map(expr -> formatExpression(expr, parameters))
+                                .collect(joining(", ")));
+            }
+            if (node.isPruneWhenEmpty()) {
+                builder.append("\n");
+                append(indent, "PRUNE WHEN EMPTY");
+            }
+            else {
+                builder.append("\n");
+                append(indent, "KEEP WHEN EMPTY");
+            }
+            node.getOrderBy().ifPresent(orderBy -> {
+                builder.append("\n");
+                append(indent, formatOrderBy(orderBy, Optional.empty()));
+            });
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDescriptorArgument(DescriptorArgument node, Integer indent)
+        {
+            if (node.getDescriptor().isPresent()) {
+                builder.append(node.getDescriptor().get().getFields().stream()
+                        .map(field -> {
+                            String formattedField = formatExpression(field.getName(), parameters);
+                            if (field.getType().isPresent()) {
+                                formattedField = formattedField + " " + field.getType().get();
+                            }
+                            return formattedField;
+                        })
+                        .collect(Collectors.joining(", ", "DESCRIPTOR(", ")")));
+            }
+            else {
+                builder.append("CAST (NULL AS DESCRIPTOR)");
+            }
+
             return null;
         }
 
