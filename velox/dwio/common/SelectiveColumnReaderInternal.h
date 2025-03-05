@@ -48,23 +48,8 @@ void SelectiveColumnReader::prepareRead(
     int64_t offset,
     const RowSet& rows,
     const uint64_t* incomingNulls) {
-  const bool readsNullsOnly = this->readsNullsOnly();
-  seekTo(offset, readsNullsOnly);
-
   const vector_size_t numRows = rows.back() + 1;
-  if (isFlatMapValue_) {
-    if (!nullsInReadRange_) {
-      nullsInReadRange_ = std::move(flatMapValueNullsInReadRange_);
-    }
-  } else if (nullsInReadRange_ && !nullsInReadRange_->unique()) {
-    nullsInReadRange_.reset();
-  }
-
-  formatData_->readNulls(
-      numRows, incomingNulls, nullsInReadRange_, readsNullsOnly);
-  if (isFlatMapValue_ && nullsInReadRange_) {
-    flatMapValueNullsInReadRange_ = nullsInReadRange_;
-  }
+  readNulls(offset, numRows, incomingNulls);
 
   // We check for all nulls and no nulls. We expect both calls to
   // bits::isAllSet to fail early in the common case. We could do a

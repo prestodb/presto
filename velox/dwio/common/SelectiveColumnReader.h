@@ -502,6 +502,29 @@ class SelectiveColumnReader {
       const RowSet& rows,
       const uint64_t* incomingNulls);
 
+  // Read nulls and inMap bits for the column.  Usually this is called as part
+  // of prepareRead; in case of NullColumnReader, we don't call prepareRead, so
+  // we need to call this separately.
+  void readNulls(
+      int64_t offset,
+      vector_size_t numRows,
+      const uint64_t* incomingNulls) {
+    const bool readsNullsOnly = this->readsNullsOnly();
+    seekTo(offset, readsNullsOnly);
+    if (isFlatMapValue_) {
+      if (!nullsInReadRange_) {
+        nullsInReadRange_ = std::move(flatMapValueNullsInReadRange_);
+      }
+    } else if (nullsInReadRange_ && !nullsInReadRange_->unique()) {
+      nullsInReadRange_.reset();
+    }
+    formatData_->readNulls(
+        numRows, incomingNulls, nullsInReadRange_, readsNullsOnly);
+    if (isFlatMapValue_ && nullsInReadRange_) {
+      flatMapValueNullsInReadRange_ = nullsInReadRange_;
+    }
+  }
+
   virtual bool readsNullsOnly() const {
     return scanSpec_->readsNullsOnly();
   }
