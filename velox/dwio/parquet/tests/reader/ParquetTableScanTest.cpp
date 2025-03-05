@@ -1202,6 +1202,84 @@ TEST_F(ParquetTableScanTest, deltaByteArray) {
   assertSelect({"a"}, "SELECT a from expected");
 }
 
+TEST_F(ParquetTableScanTest, booleanRle) {
+  WriterOptions options;
+  options.enableDictionary = false;
+  options.encoding = facebook::velox::parquet::arrow::Encoding::RLE;
+  options.useParquetDataPageV2 = true;
+
+  auto allTrue = [](vector_size_t row) -> bool { return true; };
+  auto allFalse = [](vector_size_t row) -> bool { return false; };
+  auto nonNullAtFirst = [](vector_size_t row) -> bool { return row != 0; };
+  auto randomTrueFalse = [](vector_size_t row) -> bool {
+    return std::rand() % 2 == 0;
+  };
+  auto randomNull = [](vector_size_t row) -> bool {
+    return std::rand() % 2 == 0;
+  };
+
+  auto vector = makeRowVector(
+      {"c0", "c1", "c2", "c3", "c4"},
+      {
+          makeFlatVector<bool>(100, allTrue, nonNullAtFirst),
+          makeFlatVector<bool>(100, allFalse, nonNullAtFirst),
+          makeFlatVector<bool>(100, allTrue),
+          makeFlatVector<bool>(100, allFalse),
+          makeFlatVector<bool>(100, randomTrueFalse, randomNull),
+      });
+  auto schema = asRowType(vector->type());
+  auto file = TempFilePath::create();
+  writeToParquetFile(file->getPath(), {vector}, options);
+  loadData(file->getPath(), schema, vector);
+
+  std::shared_ptr<connector::ColumnHandle> c0 = makeColumnHandle(
+      "c0", BOOLEAN(), BOOLEAN(), {}, HiveColumnHandle::ColumnType::kRegular);
+  std::shared_ptr<connector::ColumnHandle> c1 = makeColumnHandle(
+      "c1", BOOLEAN(), BOOLEAN(), {}, HiveColumnHandle::ColumnType::kRegular);
+  std::shared_ptr<connector::ColumnHandle> c2 = makeColumnHandle(
+      "c2", BOOLEAN(), BOOLEAN(), {}, HiveColumnHandle::ColumnType::kRegular);
+  std::shared_ptr<connector::ColumnHandle> c3 = makeColumnHandle(
+      "c3", BOOLEAN(), BOOLEAN(), {}, HiveColumnHandle::ColumnType::kRegular);
+  std::shared_ptr<connector::ColumnHandle> c4 = makeColumnHandle(
+      "c4", BOOLEAN(), BOOLEAN(), {}, HiveColumnHandle::ColumnType::kRegular);
+
+  assertSelect({"c0"}, "SELECT c0 FROM tmp");
+  assertSelect({"c1"}, "SELECT c1 FROM tmp");
+  assertSelect({"c2"}, "SELECT c2 FROM tmp");
+  assertSelect({"c3"}, "SELECT c3 FROM tmp");
+  assertSelect({"c4"}, "SELECT c4 FROM tmp");
+}
+
+TEST_F(ParquetTableScanTest, singleBooleanRle) {
+  WriterOptions options;
+  options.enableDictionary = false;
+  options.encoding = facebook::velox::parquet::arrow::Encoding::RLE;
+  options.useParquetDataPageV2 = true;
+
+  auto vector = makeRowVector(
+      {"c0", "c1", "c2"},
+      {
+          makeFlatVector<bool>(std::vector<bool>{true}),
+          makeFlatVector<bool>(std::vector<bool>{false}),
+          makeNullableFlatVector<bool>({std::nullopt}),
+      });
+  auto schema = asRowType(vector->type());
+  auto file = TempFilePath::create();
+  writeToParquetFile(file->getPath(), {vector}, options);
+  loadData(file->getPath(), schema, vector);
+
+  std::shared_ptr<connector::ColumnHandle> c0 = makeColumnHandle(
+      "c0", BOOLEAN(), BOOLEAN(), {}, HiveColumnHandle::ColumnType::kRegular);
+  std::shared_ptr<connector::ColumnHandle> c1 = makeColumnHandle(
+      "c1", BOOLEAN(), BOOLEAN(), {}, HiveColumnHandle::ColumnType::kRegular);
+  std::shared_ptr<connector::ColumnHandle> c2 = makeColumnHandle(
+      "c2", BOOLEAN(), BOOLEAN(), {}, HiveColumnHandle::ColumnType::kRegular);
+
+  assertSelect({"c0"}, "SELECT c0 FROM tmp");
+  assertSelect({"c1"}, "SELECT c1 FROM tmp");
+  assertSelect({"c2"}, "SELECT c2 FROM tmp");
+}
+
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv, false};

@@ -654,8 +654,19 @@ int32_t PageReader::getLengthsAndNulls(
   return bits.valuesRead;
 }
 
+template <typename T>
+inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoadAs(
+    const uint8_t* unaligned) {
+  std::remove_const_t<T> ret;
+  std::memcpy(&ret, unaligned, sizeof(T));
+  return ret;
+}
+
 void PageReader::makeDecoder() {
   auto parquetType = type_->parquetType_.value();
+  auto pageDataSize = folly::Endian::little(
+      SafeLoadAs<uint32_t>(reinterpret_cast<const uint8_t*>(pageData_)));
+  const uint8_t parquetMagicNumberSize = 4;
   switch (encoding_) {
     case Encoding::RLE_DICTIONARY:
     case Encoding::PLAIN_DICTIONARY:
@@ -704,6 +715,28 @@ void PageReader::makeDecoder() {
         default:
           VELOX_UNSUPPORTED(
               "DELTA_BINARY_PACKED decoder only supports INT32 and INT64");
+      }
+      break;
+    case Encoding::RLE:
+      switch (parquetType) {
+        case thrift::Type::BOOLEAN:
+          VELOX_CHECK_GE(
+              encodedDataSize_,
+              parquetMagicNumberSize,
+              "Received invalid length : {} (corrupt data page?)",
+              encodedDataSize_);
+          VELOX_CHECK_LE(
+              pageDataSize,
+              static_cast<uint32_t>(encodedDataSize_ - parquetMagicNumberSize),
+              "Received invalid number of bytes: {} (corrupt data page?)",
+              pageDataSize);
+          rleBooleanDecoder_ = std::make_unique<RleBpDataDecoder>(
+              pageData_ + parquetMagicNumberSize,
+              pageData_ + encodedDataSize_,
+              1);
+          break;
+        default:
+          VELOX_UNSUPPORTED("RLE decoder only supports BOOLEAN");
       }
       break;
     case Encoding::DELTA_BYTE_ARRAY:
@@ -755,6 +788,8 @@ void PageReader::skip(int64_t numRows) {
     deltaBpDecoder_->skip(toSkip);
   } else if (deltaByteArrDecoder_) {
     deltaByteArrDecoder_->skip(toSkip);
+  } else if (rleBooleanDecoder_) {
+    rleBooleanDecoder_->skip(toSkip);
   } else {
     VELOX_FAIL("No decoder to skip");
   }

@@ -49,13 +49,16 @@ class RleBpDataDecoder : public facebook::velox::parquet::RleBpDecoder {
 
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
-    if (dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
-      fastPath<hasNulls>(nulls, visitor);
-      return;
+    // processRle is not implemented for signed char ColumnVisitor
+    if constexpr (!std::is_same_v<typename Visitor::DataType, signed char>) {
+      if (dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
+        fastPath<hasNulls>(nulls, visitor);
+        return;
+      }
     }
     int32_t current = visitor.start();
     skip<hasNulls>(current, 0, nulls);
-    int32_t toSkip;
+    int32_t toSkip = 0;
     bool atEnd = false;
     const bool allowNulls = hasNulls && visitor.allowNulls();
     for (;;) {
@@ -280,28 +283,10 @@ class RleBpDataDecoder : public facebook::velox::parquet::RleBpDecoder {
     }
   }
 
-  // Loads a bit field from 'ptr' + bitOffset for up to 'bitWidth' bits. makes
-  // sure not to access bytes past lastSafeWord + 7.
-  static inline uint64_t safeLoadBits(
-      const char* ptr,
-      int32_t bitOffset,
-      uint8_t bitWidth,
-      const char* lastSafeWord) {
-    VELOX_DCHECK_GE(7, bitOffset);
-    VELOX_DCHECK_GE(56, bitWidth);
-    if (ptr < lastSafeWord) {
-      return *reinterpret_cast<const uint64_t*>(ptr) >> bitOffset;
-    }
-    const int32_t byteWidth = bits::divRoundUp(bitOffset + bitWidth, 8);
-    return bits::loadPartialWord(
-               reinterpret_cast<const uint8_t*>(ptr), byteWidth) >>
-        bitOffset;
-  }
-
   // Reads one value of 'bitWithd_' bits and advances the position.
   int64_t readBitField() {
     auto value =
-        safeLoadBits(
+        dwio::common::safeLoadBits(
             super::bufferStart_, bitOffset_, bitWidth_, lastSafeWord_) &
         bitMask_;
     bitOffset_ += bitWidth_;
