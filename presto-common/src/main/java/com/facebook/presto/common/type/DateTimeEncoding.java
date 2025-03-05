@@ -15,6 +15,7 @@ package com.facebook.presto.common.type;
 
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class DateTimeEncoding
@@ -25,9 +26,14 @@ public final class DateTimeEncoding
 
     private static final int TIME_ZONE_MASK = 0xFFF;
     private static final int MILLIS_SHIFT = 12;
+    private static final long MAX_MILLIS = 0x7FFFFFFFFFFFFL;
+    private static final long MIN_MILLIS = (MAX_MILLIS + 1) * -1;
 
     private static long pack(long millisUtc, short timeZoneKey)
     {
+        if (millisUtc > MAX_MILLIS || millisUtc < MIN_MILLIS) {
+            throw new ArithmeticException(format("TimestampWithTimeZone overflow: %s ms", millisUtc));
+        }
         return (millisUtc << MILLIS_SHIFT) | (timeZoneKey & TIME_ZONE_MASK);
     }
 
