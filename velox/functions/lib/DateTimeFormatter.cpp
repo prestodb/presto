@@ -903,7 +903,12 @@ int32_t parseFromPattern(
         ++cur;
         ++count;
       }
-      number *= std::pow(10, 3 - count);
+      // If the number of digits is less than 3, a simple formatter interprets
+      // it as the whole number; otherwise, it pads the number with zeros.
+      if (type != DateTimeFormatterType::STRICT_SIMPLE &&
+          type != DateTimeFormatterType::LENIENT_SIMPLE) {
+        number *= std::pow(10, 3 - count);
+      }
     } else if (
         (curPattern.specifier == DateTimeFormatSpecifier::YEAR ||
          curPattern.specifier == DateTimeFormatSpecifier::YEAR_OF_ERA ||
