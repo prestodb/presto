@@ -66,7 +66,7 @@ public class TestHealthChecks
         // set up server
         ImmutableList.Builder<TestingPrestoServer> builder = ImmutableList.builder();
         for (int i = 0; i < 3; ++i) {
-            TestingPrestoServer server = new TestingPrestoServerRouter();
+            TestingPrestoServer server = new TestingPrestoServer();
             server.installPlugin(new TpchPlugin());
             server.createCatalog("tpch", "tpch");
             server.refreshNodes();
@@ -131,6 +131,10 @@ public class TestHealthChecks
         assertTrue(destinations.contains(server2.getBaseUrl()));
 
         server0.startResponding();
+        while (!clusterManager.getRemoteClusterInfos().get(server0.getBaseUrl()).isHealthy()) {
+            Thread.sleep(1);
+        }
+
         destinations = getDestinations(3);
         assertTrue(destinations.contains(server0.getBaseUrl()));
         assertTrue(destinations.contains(server1.getBaseUrl()));
