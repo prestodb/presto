@@ -46,15 +46,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # TODO: https://github.com/facebookincubator/velox/issues/9014
-  if: false
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04]
+        os: [8-core-ubuntu]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -92,6 +90,7 @@ jobs:
 
       - run: mkdir -p ccache
       - name: "Restore ccache"
+        if: false 
         uses: actions/cache/restore@v3
         id: restore-cache
         with:
@@ -101,49 +100,40 @@ jobs:
             ccache-wheels-${{ matrix.os }}-
 
       - name: Install macOS dependencies
-        if: matrix.os == 'macos-11'
+        if: startsWith(matrix.os, 'macos')
         run: |
-          echo "OPENSSL_ROOT_DIR=/usr/local/opt/openssl@1.1/" >> $GITHUB_ENV
-          bash scripts/setup-macos.sh &&
-          bash scripts/setup-macos.sh install_folly
+          export INSTALL_PREFIX="$GITHUB_WORKSPACE/dependencies"
+          echo "CMAKE_PREFIX_PATH=$INSTALL_PREFIX" >> $GITHUB_ENV
+          bash scripts/setup-macos.sh 
 
       - name: "Create sdist"
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == '8-core-ubuntu'
         env:
           BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
         run: |
           python setup.py sdist --dist-dir wheelhouse
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.22.0
+        uses: pypa/cibuildwheel@v2.23.0
         env:
           # required for preadv/pwritev
           MACOSX_DEPLOYMENT_TARGET: "11.0"
           CIBW_ARCHS: "x86_64"
-          # On PRs only build for Python 3.7
-          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp37-*' || 'cp3*' }}
+          # Only build for 3.12 for now
+          CIBW_BUILD: ${{ github.event_name == 'pull_request' && 'cp312-*' || 'cp312-*' }}
           CIBW_SKIP: "*musllinux* cp36-*"
-          CIBW_MANYLINUX_X86_64_IMAGE: "ghcr.io/facebookincubator/velox-dev:torcharrow-avx"
-          CIBW_BEFORE_ALL_LINUX: >
-            mkdir -p /output &&
-            cp -R /host${{ github.workspace }}/ccache /output/ccache &&
-            ccache -s
-          CIBW_ENVIRONMENT_PASS_LINUX: CCACHE_DIR BUILD_VERSION
+          CIBW_MANYLINUX_X86_64_IMAGE: "ghcr.io/facebookincubator/velox-dev:pyvelox"
+          CIBW_ENVIRONMENT_PASS_LINUX: "CCACHE_DIR BUILD_VERSION CMAKE_PREFIX_PATH"
           CIBW_TEST_EXTRAS: "tests"
           CIBW_TEST_COMMAND: "cd {project}/pyvelox && python -m unittest -v"
-          CIBW_TEST_SKIP: "*macos*"
-          CCACHE_DIR: "${{ matrix.os != 'macos-11' && '/output' || github.workspace }}/ccache"
+          CIBW_TEST_SKIP: "*"
+          # CCACHE_DIR: "${{ matrix.os != 'macos-11' && '/output' || github.workspace }}/ccache"
           BUILD_VERSION: "${{ inputs.version || steps.version.outputs.build_version }}"
         with:
           output-dir: wheelhouse
 
-      - name: "Move ccache to workspace"
-        if: matrix.os != 'macos-11'
-        run: |
-          mkdir -p ccache
-          cp -R ./wheelhouse/ccache/* ccache
-
       - name: "Save ccache"
+        if: false
         uses: actions/cache/save@v3
         id: cache
         with:
@@ -151,7 +141,7 @@ jobs:
           key: ccache-wheels-${{ matrix.os }}-${{ github.sha }}
 
       - name: "Rename wheel compatibility tag"
-        if: matrix.os == 'macos-11'
+        if: startsWith(matrix.os, 'macos')
         run: |
           brew install rename
           cd wheelhouse
