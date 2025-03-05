@@ -26,6 +26,7 @@ import com.facebook.presto.sql.tree.GroupingOperation;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.transaction.NoOpTransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 
@@ -117,7 +118,7 @@ public class Analyzer
         Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
 
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, new NoOpTransactionManager(), session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement(), warningCollector);
         analysis.populateTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session));
