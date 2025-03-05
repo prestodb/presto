@@ -16,10 +16,10 @@ package com.facebook.presto.sql.planner.iterative.rule;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.plan.IndexSourceNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.google.common.collect.Maps;
 
 import java.util.List;
