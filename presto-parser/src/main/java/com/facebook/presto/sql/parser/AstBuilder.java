@@ -55,6 +55,8 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.Descriptor;
+import com.facebook.presto.sql.tree.DescriptorField;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
@@ -168,7 +170,10 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableArgument;
 import com.facebook.presto.sql.tree.TableElement;
+import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -205,6 +210,8 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
+import static com.facebook.presto.sql.tree.DescriptorArgument.descriptorArgument;
+import static com.facebook.presto.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
@@ -1481,6 +1488,117 @@ class AstBuilder
     public Node visitLateral(SqlBaseParser.LateralContext context)
     {
         return new Lateral(getLocation(context), (Query) visit(context.query()));
+    }
+
+    @Override
+    public Node visitTableFunctionInvocation(SqlBaseParser.TableFunctionInvocationContext context)
+    {
+        return visit(context.tableFunctionCall());
+    }
+
+    @Override
+    public Node visitTableFunctionCall(SqlBaseParser.TableFunctionCallContext context)
+    {
+        QualifiedName name = getQualifiedName(context.qualifiedName());
+        List<TableFunctionArgument> arguments = visit(context.tableFunctionArgument(), TableFunctionArgument.class);
+        List<List<QualifiedName>> copartitioning = ImmutableList.of();
+        if (context.COPARTITION() != null) {
+            copartitioning = context.copartitionTables().stream()
+                    .map(tablesList -> tablesList.qualifiedName().stream()
+                            .map(this::getQualifiedName)
+                            .collect(toImmutableList()))
+                    .collect(toImmutableList());
+        }
+
+        return new TableFunctionInvocation(getLocation(context), name, arguments, copartitioning);
+    }
+
+    @Override
+    public Node visitTableFunctionArgument(SqlBaseParser.TableFunctionArgumentContext context)
+    {
+        Optional<Identifier> name = visitIfPresent(context.identifier(), Identifier.class);
+        Node value;
+        if (context.tableArgument() != null) {
+            value = visit(context.tableArgument());
+        }
+        else if (context.descriptorArgument() != null) {
+            value = visit(context.descriptorArgument());
+        }
+        else {
+            value = visit(context.expression());
+        }
+
+        return new TableFunctionArgument(getLocation(context), name, value);
+    }
+
+    @Override
+    public Node visitTableArgument(SqlBaseParser.TableArgumentContext context)
+    {
+        Relation table = (Relation) visit(context.tableArgumentRelation());
+
+        Optional<List<Expression>> partitionBy = Optional.empty();
+        if (context.PARTITION() != null) {
+            partitionBy = Optional.of(visit(context.expression(), Expression.class));
+        }
+
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(visit(context.sortItem(), SortItem.class)));
+        }
+
+        boolean pruneWhenEmpty = context.PRUNE() != null;
+
+        return new TableArgument(getLocation(context), table, partitionBy, orderBy, pruneWhenEmpty);
+    }
+
+    @Override
+    public Node visitTableArgumentTable(SqlBaseParser.TableArgumentTableContext context)
+    {
+        Relation relation = new Table(getLocation(context.TABLE()), getQualifiedName(context.qualifiedName()));
+
+        if (context.identifier() != null) {
+            Identifier alias = (Identifier) visit(context.identifier());
+            List<Identifier> columnNames = ImmutableList.of();
+            if (context.columnAliases() != null) {
+                columnNames = visit(context.columnAliases().identifier(), Identifier.class);
+            }
+            relation = new AliasedRelation(getLocation(context.TABLE()), relation, alias, columnNames);
+        }
+
+        return relation;
+    }
+
+    @Override
+    public Node visitTableArgumentQuery(SqlBaseParser.TableArgumentQueryContext context)
+    {
+        Relation relation = new TableSubquery(getLocation(context.TABLE()), (Query) visit(context.query()));
+
+        if (context.identifier() != null) {
+            Identifier alias = (Identifier) visit(context.identifier());
+            List<Identifier> columnNames = ImmutableList.of();
+            if (context.columnAliases() != null) {
+                columnNames = visit(context.columnAliases().identifier(), Identifier.class);
+            }
+            relation = new AliasedRelation(getLocation(context.TABLE()), relation, alias, columnNames);
+        }
+
+        return relation;
+    }
+
+    @Override
+    public Node visitDescriptorArgument(SqlBaseParser.DescriptorArgumentContext context)
+    {
+        if (context.NULL() != null) {
+            return nullDescriptorArgument(getLocation(context));
+        }
+        List<DescriptorField> fields = visit(context.descriptorField(), DescriptorField.class);
+        return descriptorArgument(getLocation(context), new Descriptor(getLocation(context.DESCRIPTOR()), fields));
+    }
+
+    @Override
+    public Node visitDescriptorField(SqlBaseParser.DescriptorFieldContext context)
+    {
+        return new DescriptorField(getLocation(context), (Identifier) visit(context.identifier()), Optional.of(getType(context.type())));
     }
 
     @Override

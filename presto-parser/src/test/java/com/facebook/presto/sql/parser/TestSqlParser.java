@@ -51,6 +51,8 @@ import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
 import com.facebook.presto.sql.tree.DescribeInput;
 import com.facebook.presto.sql.tree.DescribeOutput;
+import com.facebook.presto.sql.tree.Descriptor;
+import com.facebook.presto.sql.tree.DescriptorField;
 import com.facebook.presto.sql.tree.DoubleLiteral;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
@@ -107,6 +109,7 @@ import com.facebook.presto.sql.tree.QuantifiedComparisonExpression;
 import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.RefreshMaterializedView;
+import com.facebook.presto.sql.tree.Relation;
 import com.facebook.presto.sql.tree.RenameColumn;
 import com.facebook.presto.sql.tree.RenameSchema;
 import com.facebook.presto.sql.tree.RenameTable;
@@ -145,6 +148,9 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableArgument;
+import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionInvocation;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -190,11 +196,14 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
+import static com.facebook.presto.sql.tree.DescriptorArgument.descriptorArgument;
+import static com.facebook.presto.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language.SQL;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
@@ -3454,5 +3463,99 @@ public class TestSqlParser
 
         assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR TIMESTAMP BEFORE TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles'",
                 new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
+    }
+
+    @Test
+    public void testTableFunctionInvocation()
+    {
+        assertStatement("SELECT * FROM TABLE(some_ptf(input => 1))",
+                selectAllFrom(new TableFunctionInvocation(
+                        new NodeLocation(1, 21),
+                        QualifiedName.of("some_ptf"),
+                        ImmutableList.of(new TableFunctionArgument(
+                                new NodeLocation(1, 30),
+                                Optional.of(new Identifier(new NodeLocation(1, 30), "input", false)),
+                                new LongLiteral(new NodeLocation(1, 39), "1"))),
+                        ImmutableList.of())));
+
+        assertStatement("SELECT * FROM TABLE(some_ptf(" +
+                "                                               arg1 => TABLE(orders) AS ord(a, b, c) " +
+                "                                                                    PARTITION BY a " +
+                "                                                                    PRUNE WHEN EMPTY " +
+                "                                                                    ORDER BY b ASC NULLS LAST, " +
+                "                                               arg2 => CAST(NULL AS DESCRIPTOR), " +
+                "                                               arg3 => DESCRIPTOR(x integer, y varchar), " +
+                "                                               arg4 => 5, " +
+                "                                               'not-named argument' " +
+                "                                               COPARTITION (ord, nation)))",
+                selectAllFrom(new TableFunctionInvocation(
+                        new NodeLocation(1, 21),
+                        QualifiedName.of("some_ptf"),
+                        ImmutableList.of(
+                                new TableFunctionArgument(
+                                        new NodeLocation(1, 77),
+                                        Optional.of(new Identifier(new NodeLocation(1, 77), "arg1", false)),
+                                        new TableArgument(
+                                                new NodeLocation(1, 85),
+                                                new AliasedRelation(
+                                                        new NodeLocation(1, 85),
+                                                        new Table(new NodeLocation(1, 85), QualifiedName.of("orders")),
+                                                        new Identifier(new NodeLocation(1, 102), "ord", false),
+                                                        ImmutableList.of(
+                                                                new Identifier(new NodeLocation(1, 106), "a", false),
+                                                                new Identifier(new NodeLocation(1, 109), "b", false),
+                                                                new Identifier(new NodeLocation(1, 112), "c", false))),
+                                                Optional.of(ImmutableList.of(new Identifier(new NodeLocation(1, 196), "a", false))),
+                                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new NodeLocation(1, 360), new Identifier(new NodeLocation(1, 360), "b", false), ASCENDING, LAST)))),
+                                                true)),
+                                new TableFunctionArgument(
+                                        new NodeLocation(1, 425),
+                                        Optional.of(new Identifier(new NodeLocation(1, 425), "arg2", false)),
+                                        nullDescriptorArgument(new NodeLocation(1, 433))),
+                                new TableFunctionArgument(
+                                        new NodeLocation(1, 506),
+                                        Optional.of(new Identifier(new NodeLocation(1, 506), "arg3", false)),
+                                        descriptorArgument(
+                                                new NodeLocation(1, 514),
+                                                new Descriptor(new NodeLocation(1, 514), ImmutableList.of(
+                                                        new DescriptorField(
+                                                                new NodeLocation(1, 525),
+                                                                new Identifier(new NodeLocation(1, 525), "x", false),
+                                                                Optional.of("integer")),
+                                                        new DescriptorField(
+                                                                new NodeLocation(1, 536),
+                                                                new Identifier(new NodeLocation(1, 536), "y", false),
+                                                                Optional.of("varchar")))))),
+                                new TableFunctionArgument(
+                                        new NodeLocation(1, 595),
+                                        Optional.of(new Identifier(new NodeLocation(1, 595), "arg4", false)),
+                                        new LongLiteral(new NodeLocation(1, 603), "5")),
+                                new TableFunctionArgument(
+                                        new NodeLocation(1, 653),
+                                        Optional.empty(),
+                                        new StringLiteral(new NodeLocation(1, 653), "not-named argument"))),
+                        ImmutableList.of(ImmutableList.of(
+                                QualifiedName.of("ord"),
+                                QualifiedName.of("nation"))))));
+    }
+
+    private static Query selectAllFrom(Relation relation)
+    {
+        return new Query(
+                new NodeLocation(1, 1),
+                Optional.empty(),
+                new QuerySpecification(
+                        new NodeLocation(1, 1),
+                        new Select(new NodeLocation(1, 1), false, ImmutableList.of(new AllColumns(new NodeLocation(1, 8)))),
+                        Optional.of(relation),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
     }
 }
