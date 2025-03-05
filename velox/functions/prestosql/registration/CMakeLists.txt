@@ -33,6 +33,7 @@ velox_add_library(
   ProbabilityTrigonometricFunctionsRegistration.cpp
   RegistrationFunctions.cpp
   StringFunctionsRegistration.cpp
+  TDigestFunctionsRegistration.cpp
   URLFunctionsRegistration.cpp)
 
 # GCC 12 has a bug where it does not respect "pragma ignore" directives and ends

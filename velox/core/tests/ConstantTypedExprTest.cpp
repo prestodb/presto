@@ -18,6 +18,7 @@
 #include "velox/core/Expressions.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::core::test {
@@ -46,6 +47,9 @@ TEST(ConstantTypedExprTest, null) {
 
   EXPECT_FALSE(*makeNull(HYPERLOGLOG()) == *makeNull(VARBINARY()));
   EXPECT_FALSE(*makeNull(VARBINARY()) == *makeNull(HYPERLOGLOG()));
+
+  EXPECT_FALSE(*makeNull(TDIGEST(DOUBLE())) == *makeNull(VARBINARY()));
+  EXPECT_FALSE(*makeNull(VARBINARY()) == *makeNull(TDIGEST(DOUBLE())));
 
   EXPECT_FALSE(*makeNull(TIMESTAMP_WITH_TIME_ZONE()) == *makeNull(BIGINT()));
   EXPECT_FALSE(*makeNull(BIGINT()) == *makeNull(TIMESTAMP_WITH_TIME_ZONE()));

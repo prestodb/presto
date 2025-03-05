@@ -231,7 +231,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "IPADDRESS",
           "IPPREFIX",
           "BINGTILE",
-      }),
+          "TDIGEST"}),
       names);
 
   ASSERT_TRUE(registerCustomType(
@@ -248,7 +248,7 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
           "IPPREFIX",
           "BINGTILE",
           "FANCY_INT",
-      }),
+          "TDIGEST"}),
       names);
 
   ASSERT_TRUE(unregisterCustomType("fancy_int"));
@@ -257,19 +257,27 @@ TEST_F(CustomTypeTest, getCustomTypeNames) {
 TEST_F(CustomTypeTest, nullConstant) {
   ASSERT_TRUE(registerCustomType(
       "fancy_int", std::make_unique<FancyIntTypeFactories>()));
-
-  auto names = getCustomTypeNames();
-  for (const auto& name : names) {
-    auto type = getCustomType(name, {});
+  auto checkNullConstant = [&](const TypePtr& type,
+                               const std::string& expectedTypeString) {
     auto null = BaseVector::createNullConstant(type, 10, pool());
     EXPECT_TRUE(null->isConstantEncoding());
     EXPECT_TRUE(type->equivalent(*null->type()));
     EXPECT_EQ(type->toString(), null->type()->toString());
+    EXPECT_EQ(type->toString(), expectedTypeString);
     for (auto i = 0; i < 10; ++i) {
       EXPECT_TRUE(null->isNullAt(i));
     }
+  };
+  auto names = getCustomTypeNames();
+  for (const auto& name : names) {
+    if (name == "TDIGEST") {
+      auto type = getCustomType(name, {TypeParameter(DOUBLE())});
+      checkNullConstant(type, "TDIGEST(DOUBLE)");
+    } else {
+      auto type = getCustomType(name, {});
+      checkNullConstant(type, type->toString());
+    }
   }
-
   ASSERT_TRUE(unregisterCustomType("fancy_int"));
 }
 
