@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/functions/prestosql/aggregates/ArrayAggAggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/aggregates/ValueList.h"
