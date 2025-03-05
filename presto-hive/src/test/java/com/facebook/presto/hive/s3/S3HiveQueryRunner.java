@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 
+import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 
@@ -38,9 +39,22 @@ public final class S3HiveQueryRunner
             HostAndPort s3Endpoint,
             String s3AccessKey,
             String s3SecretKey,
-            Map<String, String> additionalHiveProperties)
+            Map<String, String> additionalHiveProperties,
+            Map<String, String> additionalHiveClientProperties)
             throws Exception
     {
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        if (!additionalHiveClientProperties.isEmpty()) {
+            metastoreClientConfig.setMetastoreTlsEnabled(Boolean.parseBoolean(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.enabled")));
+            if (additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore.path") != null) {
+                metastoreClientConfig.setMetastoreTlsKeystorePath(new File(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore.path")));
+                metastoreClientConfig.setMetastoreTlsKeystorePassword(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.keystore.password"));
+            }
+            if (additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore.path") != null) {
+                metastoreClientConfig.setMetastoreTlsTruststorePath(new File(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore.path")));
+                metastoreClientConfig.setMetastoreTlsTruststorePassword(additionalHiveClientProperties.get("hive.metastore.thrift.client.tls.truststore.password"));
+            }
+        }
         return HiveQueryRunner.createQueryRunner(ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(),
                 ImmutableMap.of(), "sql-standard",
                 ImmutableMap.<String, String>builder()
@@ -55,10 +69,10 @@ public final class S3HiveQueryRunner
                 Optional.of(new BridgingHiveMetastore(
                         new ThriftHiveMetastore(
                                 new TestingHiveCluster(
-                                        new MetastoreClientConfig(),
+                                        metastoreClientConfig,
                                         hiveEndpoint.getHost(),
                                         hiveEndpoint.getPort()),
-                                new MetastoreClientConfig(),
+                                metastoreClientConfig,
                                 HDFS_ENVIRONMENT),
                         new HivePartitionMutator())),
                 ImmutableMap.of());
