@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/exec/HashTable.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox::exec::test {
@@ -110,6 +111,8 @@ class TestIndexSource : public connector::IndexSource,
   TestIndexSource(
       const RowTypePtr& inputType,
       const RowTypePtr& outputType,
+      size_t numEqualJoinKeys,
+      const core::TypedExprPtr& joinConditionExpr,
       const std::shared_ptr<TestIndexTableHandle>& tableHandle,
       connector::ConnectorQueryCtx* connectorQueryCtx,
       folly::Executor* executor);
@@ -162,6 +165,18 @@ class TestIndexSource : public connector::IndexSource,
       rawBuffer = buffer->asMutable<T>();
     }
 
+    void evalJoinConditions();
+
+    // Check if a given equality matched 'row' has passed join conditions.
+    inline bool joinConditionPassed(vector_size_t row) const {
+      return source_->conditionFilterInputRows_.isValid(row) &&
+          !source_->decodedConditionFilterResult_.isNullAt(row) &&
+          source_->decodedConditionFilterResult_.valueAt<bool>(row);
+    }
+
+    // Creates input vector for join condition evaluation.
+    RowVectorPtr createConditionInput();
+
     // Extracts the lookup result columns from the index table and return in
     // 'result'.
     void extractLookupColumns(
@@ -207,10 +222,15 @@ class TestIndexSource : public connector::IndexSource,
   };
 
  private:
+  // Invoked to check if this source has already encountered async lookup error,
+  // and throws if it has.
+  void checkNotFailed();
+
   // Initialize the output projections for lookup result processing.
   void initOutputProjections();
-  // Invoked to check if this source has already encountered async lookup error.
-  void checkNotFailed();
+
+  // Initialize the condition filter input type and projections if configured.
+  void initConditionProjections();
 
   const std::shared_ptr<TestIndexTableHandle> tableHandle_;
   const RowTypePtr inputType_;
@@ -218,12 +238,25 @@ class TestIndexSource : public connector::IndexSource,
   const RowTypePtr keyType_;
   const RowTypePtr valueType_;
   connector::ConnectorQueryCtx* const connectorQueryCtx_;
+  const size_t numEqualJoinKeys_;
+  const std::unique_ptr<exec::ExprSet> conditionExprSet_;
   const std::shared_ptr<memory::MemoryPool> pool_;
   folly::Executor* const executor_;
 
-  std::vector<IdentityProjection> lookupOutputProjections_;
+  // Join condition filter input type.
+  RowTypePtr conditionInputType_;
+
   // If not empty, set to the first encountered async error.
   std::string error_;
+
+  // Reusable memory for join condition filter evaluation.
+  VectorPtr conditionFilterResult_;
+  DecodedVector decodedConditionFilterResult_;
+  SelectivityVector conditionFilterInputRows_;
+  // Column projections for join condition input and lookup output.
+  std::vector<IdentityProjection> conditionInputProjections_;
+  std::vector<IdentityProjection> conditionTableProjections_;
+  std::vector<IdentityProjection> lookupOutputProjections_;
 };
 
 class TestIndexConnector : public connector::Connector {

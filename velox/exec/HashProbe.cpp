@@ -1230,7 +1230,7 @@ RowVectorPtr HashProbe::createFilterInput(
         outputRowMapping_, offset, outputTableRowsCapacity_ - offset, pool());
   }
   std::vector<VectorPtr> filterColumns(filterInputType_->size());
-  for (auto projection : filterInputProjections_) {
+  for (const auto& projection : filterInputProjections_) {
     if (projectedInputColumns_.find(projection.inputChannel) !=
         projectedInputColumns_.end()) {
       // If the column is projected to the output, ensure it's loaded if it's
