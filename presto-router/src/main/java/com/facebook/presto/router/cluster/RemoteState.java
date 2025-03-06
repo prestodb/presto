@@ -63,7 +63,7 @@ public abstract class RemoteState
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.remoteUri = requireNonNull(remoteUri, "remoteUri is null");
-        this.timeToUnhealthy = remoteStateConfig.getTimeToUnhealthy();
+        this.timeToUnhealthy = remoteStateConfig.getClusterUnhealthyTimeout();
     }
 
     public void handleResponse(JsonNode response) {}

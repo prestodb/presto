@@ -22,24 +22,44 @@ import java.time.Duration;
 
 public class RemoteStateConfig
 {
-    private Duration timeToUnhealthy;
+    private Duration clusterUnhealthyTimeout;
+    private Duration pollingInterval;
 
     @Config("router.remote-state.cluster-unhealthy-timeout")
-    @ConfigDescription("The amount of time in seconds that a cluster must remain unresponsive to health checks in order to be deemed \"unhealthy\"")
-    public RemoteStateConfig setTimeToUnhealthy(String timeToUnhealthy)
+    @ConfigDescription("The amount of that a cluster must remain unresponsive to health checks in order to be deemed \"unhealthy\"")
+    public RemoteStateConfig setClusterUnhealthyTimeout(String clusterUnhealthyTimeout)
     {
-        this.timeToUnhealthy = Duration.parse(timeToUnhealthy);
+        this.clusterUnhealthyTimeout = Duration.parse(clusterUnhealthyTimeout);
         return this;
     }
 
-    public void setTimeToUnhealthy(Duration timeToUnhealthy)
+    public void setClusterUnhealthyTimeout(Duration timeToUnhealthy)
     {
-        this.timeToUnhealthy = timeToUnhealthy;
+        this.clusterUnhealthyTimeout = timeToUnhealthy;
     }
 
     @NotNull
-    public Duration getTimeToUnhealthy()
+    public Duration getClusterUnhealthyTimeout()
     {
-        return this.timeToUnhealthy;
+        return this.clusterUnhealthyTimeout;
+    }
+
+    @Config("router.remote-state.polling-interval")
+    @ConfigDescription("The amount of time between attached cluster health checks. This value being lower than cluster-unhealthy-timeout can lead to unexpected behavior")
+    public RemoteStateConfig setPollingInterval(String pollingInterval)
+    {
+        this.pollingInterval = Duration.parse(pollingInterval);
+        return this;
+    }
+
+    public void setPollingInterval(Duration pollingInterval)
+    {
+        this.pollingInterval = pollingInterval;
+    }
+
+    @NotNull
+    public Duration getPollingInterval()
+    {
+        return this.pollingInterval;
     }
 }
