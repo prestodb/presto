@@ -25,7 +25,8 @@ namespace facebook::presto::util {
 #define PRESTO_SHUTDOWN_LOG(severity) \
   LOG(severity) << PRESTO_SHUTDOWN_LOG_PREFIX
 
-protocol::DateTime toISOTimestamp(uint64_t timeMilli);
+using DateTime = std::string;
+DateTime toISOTimestamp(uint64_t timeMilli);
 
 std::shared_ptr<folly::SSLContext> createSSLContext(
     const std::string& clientCertAndKeyPath,

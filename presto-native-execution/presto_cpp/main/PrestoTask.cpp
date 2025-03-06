@@ -313,9 +313,9 @@ void updatePipelineStats(
     protocol::PipelineStats& prestoPipelineStats) {
   prestoPipelineStats.inputPipeline = veloxPipelineStats.inputPipeline;
   prestoPipelineStats.outputPipeline = veloxPipelineStats.outputPipeline;
-  prestoPipelineStats.firstStartTime = prestoTaskStats.createTime;
-  prestoPipelineStats.lastStartTime = prestoTaskStats.endTime;
-  prestoPipelineStats.lastEndTime = prestoTaskStats.endTime;
+  prestoPipelineStats.firstStartTimeInMillis = prestoTaskStats.createTimeInMillis;
+  prestoPipelineStats.lastStartTimeInMillis = prestoTaskStats.endTimeInMillis;
+  prestoPipelineStats.lastEndTimeInMillis = prestoTaskStats.endTimeInMillis;
 
   prestoPipelineStats.operatorSummaries.resize(
       veloxPipelineStats.operatorStats.size());
@@ -468,7 +468,7 @@ PrestoTask::PrestoTask(
 
 void PrestoTask::updateHeartbeatLocked() {
   lastHeartbeatMs = velox::getCurrentTimeMs();
-  info.lastHeartbeat = util::toISOTimestamp(lastHeartbeatMs);
+  info.lastHeartbeatInMillis = lastHeartbeatMs;
 }
 
 void PrestoTask::updateCoordinatorHeartbeat() {
@@ -691,18 +691,13 @@ void PrestoTask::updateTimeInfoLocked(
   prestoTaskStats.totalCpuTimeInNanos = {};
   prestoTaskStats.totalBlockedTimeInNanos = {};
 
-  prestoTaskStats.createTime =
-      util::toISOTimestamp(veloxTaskStats.executionStartTimeMs);
-  prestoTaskStats.firstStartTime =
-      util::toISOTimestamp(veloxTaskStats.firstSplitStartTimeMs);
+  prestoTaskStats.createTimeInMillis = veloxTaskStats.executionStartTimeMs;
+  prestoTaskStats.firstStartTimeInMillis = veloxTaskStats.firstSplitStartTimeMs;
   createTimeMs = veloxTaskStats.executionStartTimeMs;
   firstSplitStartTimeMs = veloxTaskStats.firstSplitStartTimeMs;
-  prestoTaskStats.lastStartTime =
-      util::toISOTimestamp(veloxTaskStats.lastSplitStartTimeMs);
-  prestoTaskStats.lastEndTime =
-      util::toISOTimestamp(veloxTaskStats.executionEndTimeMs);
-  prestoTaskStats.endTime =
-      util::toISOTimestamp(veloxTaskStats.executionEndTimeMs);
+  prestoTaskStats.lastStartTimeInMillis = veloxTaskStats.lastSplitStartTimeMs;
+  prestoTaskStats.lastEndTimeInMillis = veloxTaskStats.executionEndTimeMs;
+  prestoTaskStats.endTimeInMillis = veloxTaskStats.executionEndTimeMs;
   lastEndTimeMs = veloxTaskStats.executionEndTimeMs;
 
   if (veloxTaskStats.executionEndTimeMs > veloxTaskStats.executionStartTimeMs) {
