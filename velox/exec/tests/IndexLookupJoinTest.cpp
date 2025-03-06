@@ -128,7 +128,6 @@ class IndexLookupJoinTest : public HiveConnectorTestBase,
     opts.vectorSize = numRows;
     opts.nullRatio = 0.0;
     opts.allowSlice = false;
-    opts.allowDictionaryVector = false;
     VectorFuzzer fuzzer(opts, pool_.get());
 
     tableData.keyData = fuzzer.fuzzInputFlatRow(keyType_);
@@ -205,7 +204,6 @@ class IndexLookupJoinTest : public HiveConnectorTestBase,
     opts.allowSlice = false;
     // TODO: add nullable handling later.
     opts.nullRatio = 0.0;
-    opts.allowDictionaryVector = false;
     VectorFuzzer fuzzer(opts, pool_.get());
     for (int i = 0; i < numBatches; ++i) {
       probeInputs.push_back(fuzzer.fuzzInputRow(probeType_));
