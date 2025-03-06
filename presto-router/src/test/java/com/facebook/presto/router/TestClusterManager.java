@@ -24,6 +24,7 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.jdbc.PrestoResultSet;
+import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -33,12 +34,16 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -62,6 +67,7 @@ public class TestClusterManager
     private List<TestingPrestoServer> prestoServers;
     private LifeCycleManager lifeCycleManager;
     private HttpServerInfo httpServerInfo;
+    private ClusterManager clusterManager;
     private ClusterStatusTracker clusterStatusTracker;
     private File configFile;
 
@@ -85,11 +91,16 @@ public class TestClusterManager
                 new JaxrsModule(true),
                 new RouterModule());
 
-        Injector injector = app.doNotInitializeLogging().setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath()).quiet().initialize();
+        Injector injector = app.doNotInitializeLogging()
+                .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
+                .setRequiredConfigurationProperty("presto.version", "testversion")
+                .quiet().initialize();
+
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
         httpServerInfo = injector.getInstance(HttpServerInfo.class);
         clusterStatusTracker = injector.getInstance(ClusterStatusTracker.class);
+        clusterManager = injector.getInstance(ClusterManager.class);
     }
 
     @AfterClass(alwaysRun = true)
@@ -102,7 +113,7 @@ public class TestClusterManager
         lifeCycleManager.stop();
     }
 
-    @Test(enabled = false)
+    @Test
     public void testQuery()
             throws Exception
     {
@@ -125,6 +136,26 @@ public class TestClusterManager
         sleepUninterruptibly(10, SECONDS);
         assertEquals(clusterStatusTracker.getAllQueryInfos().size(), NUM_QUERIES);
         assertQueryState();
+    }
+
+    @Test(enabled = false)
+    public void testConfigReload()
+            throws IOException, InterruptedException
+    {
+        assertEquals(clusterManager.getAllClusters().size(), 3);
+
+        String originalConfigContent = new String(Files.readAllBytes(configFile.toPath()));
+        String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
+
+        Files.write(configFile.toPath(), modifiedConfigContent.getBytes(), StandardOpenOption.WRITE);
+        Thread.sleep(500);
+
+        assertEquals(clusterManager.getAllClusters().size(), 0);
+
+        Files.write(configFile.toPath(), originalConfigContent.getBytes(), StandardOpenOption.WRITE);
+        Thread.sleep(500);
+
+        assertEquals(clusterManager.getAllClusters().size(), 3);
     }
 
     private void assertQueryState()
