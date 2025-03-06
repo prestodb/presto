@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -76,7 +77,7 @@ public class DriverStats
     {
         this.lifespan = null;
 
-        this.createTimeInMillis = System.currentTimeMillis();
+        this.createTimeInMillis = currentTimeMillis();
         this.startTimeInMillis = 0L;
         this.endTimeInMillis = 0L;
         this.queuedTime = new Duration(0, MILLISECONDS);

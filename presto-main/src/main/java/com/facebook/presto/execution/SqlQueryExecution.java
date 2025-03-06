@@ -65,7 +65,6 @@ import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -328,9 +327,9 @@ public class SqlQueryExecution
      * Gets the timestamp this query was registered for execution with the query state machine
      */
     @Override
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return stateMachine.getCreateTime();
+        return stateMachine.getCreateTimeInMillis();
     }
 
     /**
@@ -338,15 +337,15 @@ public class SqlQueryExecution
      * Otherwise returns a {@link Optional#empty()}
      */
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public long getExecutionStartTimeInMillis()
     {
-        return stateMachine.getExecutionStartTime();
+        return stateMachine.getExecutionStartTimeInMillis();
     }
 
     @Override
-    public DateTime getLastHeartbeat()
+    public long getLastHeartbeatInMillis()
     {
-        return stateMachine.getLastHeartbeat();
+        return stateMachine.getLastHeartbeatInMillis();
     }
 
     /**
@@ -354,9 +353,9 @@ public class SqlQueryExecution
      * Otherwise returns a {@link Optional#empty()}
      */
     @Override
-    public Optional<DateTime> getEndTime()
+    public long getEndTimeInMillis()
     {
-        return stateMachine.getEndTime();
+        return stateMachine.getEndTimeInMillis();
     }
 
     /**

@@ -56,7 +56,6 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -373,8 +372,8 @@ public class QueryStateMachine
 
         BasicStageExecutionStats stageStats = rootStage.orElse(EMPTY_STAGE_STATS);
         BasicQueryStats queryStats = new BasicQueryStats(
-                queryStateTimer.getCreateTime(),
-                getEndTime().orElse(null),
+                queryStateTimer.getCreateTimeInMillis(),
+                getEndTimeInMillis(),
                 queryStateTimer.getWaitingForPrerequisitesTime(),
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getElapsedTime(),
@@ -1009,24 +1008,24 @@ public class QueryStateMachine
         queryStateTimer.endAnalysis();
     }
 
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return queryStateTimer.getCreateTime();
+        return queryStateTimer.getCreateTimeInMillis();
     }
 
-    public Optional<DateTime> getExecutionStartTime()
+    public long getExecutionStartTimeInMillis()
     {
-        return queryStateTimer.getExecutionStartTime();
+        return queryStateTimer.getExecutionStartTimeInMillis();
     }
 
-    public DateTime getLastHeartbeat()
+    public long getLastHeartbeatInMillis()
     {
-        return queryStateTimer.getLastHeartbeat();
+        return queryStateTimer.getLastHeartbeatInMillis();
     }
 
-    public Optional<DateTime> getEndTime()
+    public long getEndTimeInMillis()
     {
-        return queryStateTimer.getEndTime();
+        return queryStateTimer.getEndTimeInMillis();
     }
 
     public Optional<ExecutionFailureInfo> getFailureInfo()
@@ -1278,10 +1277,10 @@ public class QueryStateMachine
     private static QueryStats pruneQueryStats(QueryStats queryStats)
     {
         return new QueryStats(
-                queryStats.getCreateTime(),
-                queryStats.getExecutionStartTime(),
-                queryStats.getLastHeartbeat(),
-                queryStats.getEndTime(),
+                queryStats.getCreateTimeInMillis(),
+                queryStats.getExecutionStartTimeInMillis(),
+                queryStats.getLastHeartbeatInMillis(),
+                queryStats.getEndTimeInMillis(),
                 queryStats.getElapsedTime(),
                 queryStats.getWaitingForPrerequisitesTime(),
                 queryStats.getQueuedTime(),

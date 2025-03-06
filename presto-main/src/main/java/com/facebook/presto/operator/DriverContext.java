@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,6 +43,8 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.transform;
 import static io.airlift.units.Duration.succinctNanos;
 import static java.lang.Math.max;
+import static java.lang.System.currentTimeMillis;
+import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -60,8 +61,8 @@ public class DriverContext
 
     private final AtomicBoolean finished = new AtomicBoolean();
 
-    private final DateTime createdTime = DateTime.now();
-    private final long createNanos = System.nanoTime();
+    private final long createdTimeInMillis = currentTimeMillis();
+    private final long createNanos = nanoTime();
 
     private final AtomicLong startNanos = new AtomicLong();
     private final AtomicLong endNanos = new AtomicLong();
@@ -71,8 +72,8 @@ public class DriverContext
     private final AtomicReference<BlockedMonitor> blockedMonitor = new AtomicReference<>();
     private final AtomicLong blockedWallNanos = new AtomicLong();
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
+    private final AtomicLong executionStartTime = new AtomicLong();
+    private final AtomicLong executionEndTime = new AtomicLong();
 
     private final MemoryTrackingContext driverMemoryContext;
 
@@ -150,8 +151,8 @@ public class DriverContext
     public void startProcessTimer()
     {
         // Must update startNanos first so that the value is valid once executionStartTime is not null
-        if (executionStartTime.get() == null && startNanos.compareAndSet(0, System.nanoTime())) {
-            executionStartTime.set(DateTime.now());
+        if (executionStartTime.get() == 0 && startNanos.compareAndSet(0, nanoTime())) {
+            executionStartTime.set(currentTimeMillis());
             pipelineContext.start();
         }
     }
@@ -182,8 +183,8 @@ public class DriverContext
             return;
         }
         // Must update endNanos first, so that the value is valid after executionEndTime is not null
-        endNanos.set(System.nanoTime());
-        executionEndTime.set(DateTime.now());
+        endNanos.set(nanoTime());
+        executionEndTime.set(currentTimeMillis());
 
         pipelineContext.driverFinished(this);
     }
@@ -311,7 +312,7 @@ public class DriverContext
 
     public boolean isExecutionStarted()
     {
-        return executionStartTime.get() != null;
+        return executionStartTime.get() != 0;
     }
 
     public boolean isFullyBlocked()
@@ -332,12 +333,12 @@ public class DriverContext
         }
 
         // startNanos is always valid once executionStartTime is not null
-        DateTime executionStartTime = this.executionStartTime.get();
-        Duration queuedTime = new Duration(nanosBetween(createNanos, executionStartTime == null ? System.nanoTime() : startNanos.get()), NANOSECONDS);
+        long executionStartTimeInMillis = this.executionStartTime.get();
+        Duration queuedTime = new Duration(nanosBetween(createNanos, executionStartTimeInMillis == 0 ? nanoTime() : startNanos.get()), NANOSECONDS);
 
         // endNanos is always valid once executionStartTime is not null
-        DateTime executionEndTime = this.executionEndTime.get();
-        Duration elapsedTime = new Duration(nanosBetween(createNanos, executionEndTime == null ? System.nanoTime() : endNanos.get()), NANOSECONDS);
+        long executionEndTimeInMillis = this.executionEndTime.get();
+        Duration elapsedTime = new Duration(nanosBetween(createNanos, executionEndTimeInMillis == 0 ? nanoTime() : endNanos.get()), NANOSECONDS);
 
         List<OperatorStats> operators = ImmutableList.copyOf(transform(operatorContexts, OperatorContext::getOperatorStats));
         OperatorStats inputOperator = getFirst(operators, null);
@@ -384,9 +385,9 @@ public class DriverContext
 
         return new DriverStats(
                 lifespan,
-                createdTime,
-                executionStartTime,
-                executionEndTime,
+                createdTimeInMillis,
+                executionStartTimeInMillis,
+                executionEndTimeInMillis,
                 queuedTime.convertToMostSuccinctTimeUnit(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 driverMemoryContext.getUserMemory(),
@@ -444,7 +445,7 @@ public class DriverContext
     private class BlockedMonitor
             implements Runnable
     {
-        private final long start = System.nanoTime();
+        private final long start = nanoTime();
         private boolean finished;
 
         @Override
@@ -462,7 +463,7 @@ public class DriverContext
 
         public long getBlockedTime()
         {
-            return nanosBetween(start, System.nanoTime());
+            return nanosBetween(start, nanoTime());
         }
     }
 

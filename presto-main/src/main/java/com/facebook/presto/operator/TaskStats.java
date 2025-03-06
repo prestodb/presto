@@ -26,9 +26,9 @@ import org.joda.time.DateTime;
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -94,10 +94,55 @@ public class TaskStats
     public TaskStats(long createTimeInMillis, long endTimeInMillis)
     {
         this(createTimeInMillis,
-                0,
-                0,
-                0,
+                0L,
+                0L,
+                0L,
                 endTimeInMillis,
+                0L,
+                0L,
+                0,
+                0,
+                0,
+                0L,
+                0,
+                0,
+                0L,
+                0,
+                0,
+                0.0,
+                0.0,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                0L,
+                false,
+                ImmutableSet.of(),
+                0L,
+                0L,
+                0,
+                0L,
+                0,
+                0L,
+                0,
+                0L,
+                0,
+                0L,
+                ImmutableList.of(),
+                new RuntimeStats());
+    }
+
+    public TaskStats(DateTime createTime, DateTime endTime)
+    {
+        this(createTime,
+                null,
+                null,
+                null,
+                endTime,
                 0L,
                 0L,
                 0,
@@ -190,7 +235,7 @@ public class TaskStats
             List<PipelineStats> pipelines,
             RuntimeStats runtimeStats)
     {
-        checkArgument(createTimeInMillis > 0, "createTimeInMillis is negative");
+        checkArgument(createTimeInMillis >= 0, "createTimeInMillis is negative");
         this.createTimeInMillis = createTimeInMillis;
         this.firstStartTimeInMillis = firstStartTimeInMillis;
         this.lastStartTimeInMillis = lastStartTimeInMillis;
@@ -318,11 +363,11 @@ public class TaskStats
             @JsonProperty("pipelines") List<PipelineStats> pipelines,
             @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
     {
-        this(Optional.ofNullable(createTime).map(DateTime::getMillis).orElse(0L),
-                Optional.ofNullable(firstStartTime).map(DateTime::getMillis).orElse(0L),
-                Optional.ofNullable(lastStartTime).map(DateTime::getMillis).orElse(0L),
-                Optional.ofNullable(lastEndTime).map(DateTime::getMillis).orElse(0L),
-                Optional.ofNullable(endTime).map(DateTime::getMillis).orElse(0L),
+        this(toTimeStampInMillis(createTime),
+                toTimeStampInMillis(firstStartTime),
+                toTimeStampInMillis(lastStartTime),
+                toTimeStampInMillis(lastEndTime),
+                toTimeStampInMillis(endTime),
 
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
@@ -692,11 +737,11 @@ public class TaskStats
     public TaskStats summarize()
     {
         return new TaskStats(
-                createTimeInMillis,
-                firstStartTimeInMillis,
-                lastStartTimeInMillis,
-                lastEndTimeInMillis,
-                endTimeInMillis,
+                new DateTime(createTimeInMillis),
+                new DateTime(firstStartTimeInMillis),
+                new DateTime(lastStartTimeInMillis),
+                new DateTime(lastEndTimeInMillis),
+                new DateTime(endTimeInMillis),
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
                 totalDrivers,
@@ -738,11 +783,11 @@ public class TaskStats
     public TaskStats summarizeFinal()
     {
         return new TaskStats(
-                createTimeInMillis,
-                firstStartTimeInMillis,
-                lastStartTimeInMillis,
-                lastEndTimeInMillis,
-                endTimeInMillis,
+                new DateTime(createTimeInMillis),
+                new DateTime(firstStartTimeInMillis),
+                new DateTime(lastStartTimeInMillis),
+                new DateTime(lastEndTimeInMillis),
+                new DateTime(endTimeInMillis),
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
                 totalDrivers,

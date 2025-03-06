@@ -15,9 +15,7 @@ package com.facebook.presto.execution;
 
 import com.google.common.base.Ticker;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.units.Duration.succinctNanos;
@@ -64,7 +62,7 @@ public class QueryStateTimer
 {
     private final Ticker ticker;
 
-    private final DateTime createTime = DateTime.now();
+    private final long createTimeInMillis = System.currentTimeMillis();
 
     private final long createNanos;
     private final AtomicReference<Long> beginQueuedNanos = new AtomicReference<>();
@@ -250,14 +248,14 @@ public class QueryStateTimer
     // Stats
     //
 
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return createTime;
+        return createTimeInMillis;
     }
 
-    public Optional<DateTime> getExecutionStartTime()
+    public long getExecutionStartTimeInMillis()
     {
-        return toDateTime(beginPlanningNanos);
+        return toMillis(beginPlanningNanos);
     }
 
     public Duration getElapsedTime()
@@ -319,9 +317,9 @@ public class QueryStateTimer
         return getDuration(executionTime, beginPlanningNanos);
     }
 
-    public Optional<DateTime> getEndTime()
+    public long getEndTimeInMillis()
     {
-        return toDateTime(endNanos);
+        return toMillis(endNanos);
     }
 
     public Duration getAnalysisTime()
@@ -329,9 +327,9 @@ public class QueryStateTimer
         return getDuration(analysisTime, beginAnalysisNanos);
     }
 
-    public DateTime getLastHeartbeat()
+    public long getLastHeartbeatInMillis()
     {
-        return toDateTime(lastHeartbeatNanos.get());
+        return toMillis(lastHeartbeatNanos);
     }
 
     //
@@ -370,18 +368,9 @@ public class QueryStateTimer
         return new Duration(0, MILLISECONDS);
     }
 
-    private Optional<DateTime> toDateTime(AtomicReference<Long> instantNanos)
+    private long toMillis(AtomicReference<Long> instantNanos)
     {
         Long nanos = instantNanos.get();
-        if (nanos == null) {
-            return Optional.empty();
-        }
-        return Optional.of(toDateTime(nanos));
-    }
-
-    private DateTime toDateTime(long instantNanos)
-    {
-        long millisSinceCreate = NANOSECONDS.toMillis(instantNanos - createNanos);
-        return new DateTime(createTime.getMillis() + millisSinceCreate);
+        return nanos != null ? createTimeInMillis + NANOSECONDS.toMillis(nanos - createNanos) : 0L;
     }
 }

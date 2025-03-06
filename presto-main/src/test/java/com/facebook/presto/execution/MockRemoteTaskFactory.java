@@ -94,6 +94,7 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.addExact;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 
 public class MockRemoteTaskFactory
@@ -293,10 +294,10 @@ public class MockRemoteTaskFactory
                             0,
                             0,
                             0,
-                            System.currentTimeMillis() + 100 - stats.getCreateTimeInMillis(),
+                            currentTimeMillis() + 100 - stats.getCreateTimeInMillis(),
                             0L,
                             0L),
-                    System.currentTimeMillis(),
+                    currentTimeMillis(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),
@@ -337,7 +338,7 @@ public class MockRemoteTaskFactory
                     0,
                     stats.getTotalCpuTimeInNanos(),
                     // Adding 100 millis to make sure task age > 0 for testing
-                    System.currentTimeMillis() + 100 - stats.getCreateTimeInMillis(),
+                    currentTimeMillis() + 100 - stats.getCreateTimeInMillis(),
                     queuedSplitsInfo.getWeightSum(),
                     combinedSplitsInfo.getWeightSum() - queuedSplitsInfo.getWeightSum());
         }
