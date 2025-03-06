@@ -27,6 +27,8 @@ namespace facebook::velox::core {
 
 // static
 Expressions::TypeResolverHook Expressions::resolverHook_;
+// static
+Expressions::FieldAccessHook Expressions::fieldAccessHook_;
 
 namespace {
 
@@ -226,6 +228,12 @@ TypedExprPtr Expressions::inferTypes(
   }
 
   if (auto fae = std::dynamic_pointer_cast<const FieldAccessExpr>(expr)) {
+    if (fieldAccessHook_) {
+      auto result = fieldAccessHook_(fae, children);
+      if (result) {
+        return result;
+      }
+    }
     VELOX_CHECK(
         !fae->getFieldName().empty(), "Anonymous columns are not supported");
     VELOX_CHECK_EQ(

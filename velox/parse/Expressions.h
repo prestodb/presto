@@ -24,6 +24,7 @@ namespace facebook::velox::core {
 
 class CallExpr;
 class LambdaExpr;
+class FieldAccessExpr;
 
 class Expressions {
  public:
@@ -31,6 +32,10 @@ class Expressions {
       const std::vector<core::TypedExprPtr>& inputs,
       const std::shared_ptr<const core::CallExpr>& expr,
       bool nullOnFailure)>;
+
+  using FieldAccessHook = std::function<core::TypedExprPtr(
+      std::shared_ptr<const FieldAccessExpr> fae,
+      std::vector<core::TypedExprPtr>& children)>;
 
   static TypedExprPtr inferTypes(
       const std::shared_ptr<const IExpr>& expr,
@@ -46,6 +51,14 @@ class Expressions {
 
   static TypeResolverHook getResolverHook() {
     return resolverHook_;
+  }
+
+  static void setFieldAccessHook(FieldAccessHook hook) {
+    fieldAccessHook_ = hook;
+  }
+
+  static FieldAccessHook getFieldAccessHook() {
+    return fieldAccessHook_;
   }
 
   static TypedExprPtr inferTypes(
@@ -70,6 +83,7 @@ class Expressions {
       const VectorPtr& complexConstants = nullptr);
 
   static TypeResolverHook resolverHook_;
+  static FieldAccessHook fieldAccessHook_;
 };
 
 class InputExpr : public core::IExpr {
