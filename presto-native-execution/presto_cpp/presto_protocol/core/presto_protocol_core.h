@@ -104,7 +104,6 @@ using Subfield = std::string;
 using HiveType = std::string;
 using Type = std::string;
 
-using DateTime = std::string;
 using Locale = std::string;
 using TimeZoneKey = long;
 using URI = std::string;
@@ -1150,9 +1149,9 @@ void from_json(const json& j, OperatorStats& p);
 namespace facebook::presto::protocol {
 struct DriverStats {
   Lifespan lifespan = {};
-  DateTime createTime = {};
-  DateTime startTime = {};
-  DateTime endTime = {};
+  long createTimeInMillis = {};
+  long startTimeInMillis = {};
+  long endTimeInMillis = {};
   Duration queuedTime = {};
   Duration elapsedTime = {};
   int64_t userMemoryReservationInBytes = {};
@@ -1721,9 +1720,9 @@ void from_json(const json& j, PartialAggregationStatsEstimate& p);
 namespace facebook::presto::protocol {
 struct PipelineStats {
   int pipelineId = {};
-  DateTime firstStartTime = {};
-  DateTime lastStartTime = {};
-  DateTime lastEndTime = {};
+  int64_t firstStartTimeInMillis = {};
+  int64_t lastStartTimeInMillis = {};
+  int64_t lastEndTimeInMillis = {};
   bool inputPipeline = {};
   bool outputPipeline = {};
   int totalDrivers = {};
@@ -2401,11 +2400,11 @@ void from_json(const json& j, TableWriterNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct TaskStats {
-  DateTime createTime = {};
-  DateTime firstStartTime = {};
-  DateTime lastStartTime = {};
-  DateTime lastEndTime = {};
-  DateTime endTime = {};
+  int64_t createTimeInMillis = {};
+  int64_t firstStartTimeInMillis = {};
+  int64_t lastStartTimeInMillis = {};
+  int64_t lastEndTimeInMillis = {};
+  int64_t endTimeInMillis = {};
   int64_t elapsedTimeInNanos = {};
   int64_t queuedTimeInNanos = {};
   int totalDrivers = {};
@@ -2482,7 +2481,7 @@ namespace facebook::presto::protocol {
 struct TaskInfo {
   TaskId taskId = {};
   TaskStatus taskStatus = {};
-  DateTime lastHeartbeat = {};
+  int64_t lastHeartbeatInMillis = {};
   OutputBufferInfo outputBuffers = {};
   List<PlanNodeId> noMoreSplits = {};
   TaskStats stats = {};
