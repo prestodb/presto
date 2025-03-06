@@ -64,6 +64,11 @@
     </property>
 
     <property>
+        <name>hive.users.in.admin.role</name>
+        <value>hdfs,hive</value>
+    </property>
+
+    <property>
         <name>hive.metastore.use.SSL</name>
         <value>true</value>
         <description>Set this to true for using SSL encryption in HMS server.</description>
