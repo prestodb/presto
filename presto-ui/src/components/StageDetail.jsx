@@ -13,14 +13,25 @@
  */
 
 import React from "react";
-import {createRoot} from 'react-dom/client';
+import ReactDOM from "react-dom";
+import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
-import {clsx} from 'clsx';
+import { clsx } from 'clsx';
 
-import {formatCount, formatDataSize, formatDuration, getFirstParameter, getTaskNumber, isQueryEnded, parseDuration} from "../utils";
-import {initializeGraph, initializeSvg} from "../d3utils";
+import {
+    formatCount,
+    formatDataSize,
+    formatDuration,
+    getChildren,
+    getFirstParameter,
+    getTaskNumber,
+    isQueryEnded,
+    parseDataSize,
+    parseDuration
+} from "../utils";
+import { initializeGraph, initializeSvg } from "../d3utils";
 import {QueryHeader} from "./QueryHeader";
 
 function getTotalWallTime(operator) {
@@ -34,7 +45,7 @@ class OperatorSummary extends React.Component {
         const totalWallTime = parseDuration(operator.addInputWall) + parseDuration(operator.getOutputWall) + parseDuration(operator.finishWall) + parseDuration(operator.blockedWall);
 
         const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
-        const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputDataSizeInBytes) / (totalWallTime / 1000.0);
+        const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
         return (
             <div className="header-data">
@@ -53,7 +64,7 @@ class OperatorSummary extends React.Component {
                             Output
                         </td>
                         <td>
-                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSizeInBytes + ")"}
+                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
                         </td>
                     </tr>
                     <tr>
@@ -85,7 +96,7 @@ class OperatorSummary extends React.Component {
                             Input
                         </td>
                         <td>
-                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSizeInBytes + ")"}
+                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
                         </td>
                     </tr>
                     </tbody>
@@ -107,19 +118,19 @@ const BAR_CHART_PROPERTIES = {
     disableHiddenCheck: true,
 };
 
-function OperatorStatistic({id, name, operators, supplier, renderer}) {
+function OperatorStatistic({ id, name, operators, supplier, renderer }) {
 
     React.useEffect(() => {
         const statistic = operators.map(supplier);
         const numTasks = operators.length;
 
-        const tooltipValueLookups = {'offset': {}};
+        const tooltipValueLookups = { 'offset': {} };
         for (let i = 0; i < numTasks; i++) {
             tooltipValueLookups['offset'][i] = "" + i;
         }
 
-        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups});
-        $('#operator-statics-' + id).sparkline(statistic, $.extend({}, stageBarChartProperties, {numberFormatter: renderer}));
+        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, { barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups });
+        $('#operator-statics-' + id).sparkline(statistic, $.extend({}, stageBarChartProperties, { numberFormatter: renderer }));
 
     }, [operators, supplier, renderer]);
 
@@ -129,13 +140,13 @@ function OperatorStatistic({id, name, operators, supplier, renderer}) {
                 {name}
             </div>
             <div className="col-10">
-                <span className="bar-chart" id={`operator-statics-${id}`}/>
+                <span className="bar-chart" id={`operator-statics-${id}`} />
             </div>
         </div>
     );
 }
 
-function OperatorDetail({index, operator, tasks}) {
+function OperatorDetail({ index, operator, tasks }) {
     const selectedStatistics = [
         {
             name: "Total Wall Time",
@@ -152,7 +163,7 @@ function OperatorDetail({index, operator, tasks}) {
         {
             name: "Input Data Size",
             id: "inputDataSize",
-            supplier: operator => operator.inputDataSizeInBytes,
+            supplier: operator => parseDataSize(operator.inputDataSize),
             renderer: formatDataSize
         },
         {
@@ -164,7 +175,7 @@ function OperatorDetail({index, operator, tasks}) {
         {
             name: "Output Data Size",
             id: "outputDataSize",
-            supplier: operator => operator.outputDataSizeInBytes,
+            supplier: operator => parseDataSize(operator.outputDataSize),
             renderer: formatDataSize
         },
     ];
@@ -195,17 +206,17 @@ function OperatorDetail({index, operator, tasks}) {
     const totalWallTime = getTotalWallTime(operator);
 
     const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / totalWallTime;
-    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputDataSizeInBytes) / (totalWallTime / 1000.0);
+    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
     const rowOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputPositions) / totalWallTime;
-    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputDataSizeInBytes) / (totalWallTime / 1000.0);
+    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.outputDataSize)) / (totalWallTime / 1000.0);
 
     return (
         <div className="col-12 container mx-2">
             <div className="modal-header">
                 <h3 className="modal-title fs-5">
                     <small>Pipeline {operator.pipelineId}</small>
-                    <br/>
+                    <br />
                     {operator.operatorType}
                 </h3>
                 <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -221,7 +232,7 @@ function OperatorDetail({index, operator, tasks}) {
                                         Input
                                     </td>
                                     <td>
-                                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSizeInBytes + ")"}
+                                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
                                     </td>
                                 </tr>
                                 <tr>
@@ -237,7 +248,7 @@ function OperatorDetail({index, operator, tasks}) {
                                         Output
                                     </td>
                                     <td>
-                                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSizeInBytes + ")"}
+                                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
                                     </td>
                                 </tr>
                                 <tr>
@@ -349,9 +360,8 @@ class StageOperatorGraph extends React.Component {
             }
             const container = document.getElementById('operator-detail');
             const root = createRoot(container);
-            root.render(<OperatorDetail key={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>);
-        }
-        else {
+            root.render(<OperatorDetail key={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
+        } else {
             return;
         }
     }
@@ -363,7 +373,7 @@ class StageOperatorGraph extends React.Component {
                 pipelineOperators.set(operator.pipelineId, []);
             }
             pipelineOperators.get(operator.pipelineId).push(operator);
-        });
+         });
 
         const result = new Map();
         pipelineOperators.forEach((pipelineOperators, pipelineId) => {
@@ -484,14 +494,13 @@ export class StageDetail extends React.Component {
             this.timeoutId = setTimeout(this.refreshLoop, 1000);
         }
     }
-
-    static getQueryURL(id) {
+     static getQueryURL(id) {
         if (!id || typeof id !== 'string' || id.length === 0) {
             return "/v1/query/undefined";
         }
         const sanitizedId = id.replace(/[^a-z0-9_]/gi, '');
         return sanitizedId.length > 0 ? `/v1/query/${encodeURIComponent(sanitizedId)}` : "/v1/query/undefined";
-    }
+     }
 
     refreshLoop() {
         clearTimeout(this.timeoutId); // to stop multiple series of refreshLoop from going on simultaneously
@@ -505,7 +514,7 @@ export class StageDetail extends React.Component {
             }
         }
 
-
+       
         $.get(StageDetail.getQueryURL(rawQueryId), query => {
             this.setState({
                 initialized: true,
@@ -610,15 +619,15 @@ export class StageDetail extends React.Component {
                                 <div className="stage-dropdown" role="group">
                                     <div className="btn-group">
                                         <button type="button" className="btn bg-white btn-secondary text-dark dropdown-toggle"
-                                                data-bs-toggle="dropdown" aria-haspopup="true"
-                                                aria-expanded="false">Select Stage<span className="caret"/>
+                                            data-bs-toggle="dropdown" aria-haspopup="true"
+                                            aria-expanded="false">Select Stage<span className="caret"/>
                                         </button>
                                         <ul className="dropdown-menu bg-white">
                                             {
                                                 allStages.map(stageId => (
                                                     <li key={stageId}>
                                                         <a className={clsx('dropdown-item text-dark', stage.plan.id === stageId && 'selected')}
-                                                           onClick={() => this.setState({selectedStageId: stageId})}>{stageId}</a>
+                                                            onClick={() => this.setState({selectedStageId: stageId})}>{stageId}</a>
                                                     </li>
                                                 ))
                                             }

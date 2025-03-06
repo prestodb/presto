@@ -32,6 +32,7 @@ import {
     getTaskIdSuffix,
     getTaskNumber,
     GLYPHICON_HIGHLIGHT,
+    parseDataSize,
     parseDuration,
     precisionRound
 } from "../utils";
@@ -580,7 +581,7 @@ class StageSummary extends React.Component {
                                             Cumulative
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {formatDataSizeBytes(stage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
+                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -588,7 +589,7 @@ class StageSummary extends React.Component {
                                             Cumulative Total
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {formatDataSizeBytes(stage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
+                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -596,7 +597,7 @@ class StageSummary extends React.Component {
                                             Current
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.userMemoryReservationInBytes)}
+                                            {stage.latestAttemptExecutionInfo.stats.userMemoryReservation}
                                         </td>
                                     </tr>
                                     <tr>
@@ -612,7 +613,7 @@ class StageSummary extends React.Component {
                                             Peak
                                         </td>
                                         <td className="stage-table-stat-text">
-                                            {formatDataSize(stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservationInBytes)}
+                                            {stage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}
                                         </td>
                                     </tr>
                                     </tbody>
@@ -946,7 +947,7 @@ export class QueryDetail extends React.Component {
                 lastScheduledTime: parseDuration(query.queryStats.totalScheduledTime),
                 lastCpuTime: parseDuration(query.queryStats.totalCpuTime),
                 lastRowInput: query.queryStats.processedInputPositions,
-                lastByteInput: query.queryStats.processedInputDataSizeInBytes,
+                lastByteInput: parseDataSize(query.queryStats.processedInputDataSize),
 
                 initialized: true,
                 ended: query.finalQueryInfo,
@@ -969,13 +970,13 @@ export class QueryDetail extends React.Component {
                 const currentScheduledTimeRate = (parseDuration(query.queryStats.totalScheduledTime) - lastScheduledTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentCpuTimeRate = (parseDuration(query.queryStats.totalCpuTime) - lastCpuTime) / (elapsedSecsSinceLastRefresh * 1000);
                 const currentRowInputRate = (query.queryStats.processedInputPositions - lastRowInput) / elapsedSecsSinceLastRefresh;
-                const currentByteInputRate = (query.queryStats.processedInputDataSizeInBytes - lastByteInput) / elapsedSecsSinceLastRefresh;
+                const currentByteInputRate = (parseDataSize(query.queryStats.processedInputDataSize) - lastByteInput) / elapsedSecsSinceLastRefresh;
                 this.setState({
                     scheduledTimeRate: addToHistory(currentScheduledTimeRate, this.state.scheduledTimeRate),
                     cpuTimeRate: addToHistory(currentCpuTimeRate, this.state.cpuTimeRate),
                     rowInputRate: addToHistory(currentRowInputRate, this.state.rowInputRate),
                     byteInputRate: addToHistory(currentByteInputRate, this.state.byteInputRate),
-                    reservedMemory: addToHistory(query.queryStats.userMemoryReservationInBytes, this.state.reservedMemory),
+                    reservedMemory: addToHistory(parseDataSize(query.queryStats.userMemoryReservation), this.state.reservedMemory),
                 });
             }
             this.resetTimer();
@@ -1480,7 +1481,7 @@ export class QueryDetail extends React.Component {
                                             Input Data
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.processedInputDataSizeInBytes)}
+                                            {query.queryStats.processedInputDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1496,7 +1497,7 @@ export class QueryDetail extends React.Component {
                                             Raw Input Data
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.rawInputDataSizeInBytes)}
+                                            {query.queryStats.rawInputDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1518,7 +1519,7 @@ export class QueryDetail extends React.Component {
                                             </span>
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.shuffledDataSizeInBytes)}
+                                            {query.queryStats.shuffledDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1526,7 +1527,7 @@ export class QueryDetail extends React.Component {
                                             Peak User Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.peakUserMemoryReservationInBytes)}
+                                            {query.queryStats.peakUserMemoryReservation}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1534,7 +1535,7 @@ export class QueryDetail extends React.Component {
                                             Peak Total Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.peakTotalMemoryReservationInBytes)}
+                                            {query.queryStats.peakTotalMemoryReservation}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1574,7 +1575,7 @@ export class QueryDetail extends React.Component {
                                             Output Data
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.outputDataSizeInBytes)}
+                                            {query.queryStats.outputDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1590,7 +1591,7 @@ export class QueryDetail extends React.Component {
                                             Written Output Logical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.writtenOutputLogicalDataSizeInBytes)}
+                                            {query.queryStats.writtenOutputLogicalDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1598,16 +1599,16 @@ export class QueryDetail extends React.Component {
                                             Written Output Physical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(query.queryStats.writtenOutputPhysicalDataSizeInBytes)}
+                                            {query.queryStats.writtenOutputPhysicalDataSize}
                                         </td>
                                     </tr>
-                                    {query.queryStats.spilledDataSizeInBytes > 0 &&
+                                    {parseDataSize(query.queryStats.spilledDataSize) > 0 &&
                                         <tr>
                                             <td className="info-title">
                                                 Spilled Data
                                             </td>
                                             <td className="info-text">
-                                                {formatDataSize(query.queryStats.spilledDataSizeInBytes)}
+                                                {query.queryStats.spilledDataSize}
                                             </td>
                                         </tr>
                                     }
