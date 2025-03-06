@@ -105,7 +105,6 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
-import org.joda.time.DateTime;
 import scala.Tuple2;
 import scala.collection.AbstractIterator;
 import scala.collection.Iterator;
@@ -936,7 +935,7 @@ public class PrestoSparkTaskExecutorFactory
                     taskStats.getFullGcCount(),
                     taskStats.getFullGcTimeInMillis(),
                     taskStats.getTotalCpuTimeInNanos(),
-                    System.currentTimeMillis() - taskStats.getCreateTime().getMillis(),
+                    System.currentTimeMillis() - taskStats.getCreateTimeInMillis(),
                     taskStats.getQueuedPartitionedSplitsWeight(),
                     taskStats.getRunningPartitionedSplitsWeight());
 
@@ -954,7 +953,7 @@ public class PrestoSparkTaskExecutorFactory
             return new TaskInfo(
                     taskId,
                     taskStatus,
-                    DateTime.now(),
+                    System.currentTimeMillis(),
                     outputBufferInfo,
                     ImmutableSet.of(),
                     taskStats,
