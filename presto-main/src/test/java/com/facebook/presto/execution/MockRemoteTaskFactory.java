@@ -59,7 +59,6 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -294,10 +293,10 @@ public class MockRemoteTaskFactory
                             0,
                             0,
                             0,
-                            System.currentTimeMillis() + 100 - stats.getCreateTime().getMillis(),
+                            System.currentTimeMillis() + 100 - stats.getCreateTimeInMillis(),
                             0L,
                             0L),
-                    DateTime.now(),
+                    System.currentTimeMillis(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
                     taskContext.getTaskStats(),
@@ -338,7 +337,7 @@ public class MockRemoteTaskFactory
                     0,
                     stats.getTotalCpuTimeInNanos(),
                     // Adding 100 millis to make sure task age > 0 for testing
-                    System.currentTimeMillis() + 100 - stats.getCreateTime().getMillis(),
+                    System.currentTimeMillis() + 100 - stats.getCreateTimeInMillis(),
                     queuedSplitsInfo.getWeightSum(),
                     combinedSplitsInfo.getWeightSum() - queuedSplitsInfo.getWeightSum());
         }

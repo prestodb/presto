@@ -573,18 +573,18 @@ public class TestQueryStateMachine
         assertNotNull(queryStats.getTotalPlanningTime());
         assertNotNull(queryStats.getFinishingTime());
 
-        assertNotNull(queryStats.getCreateTime());
+        assertTrue(queryStats.getCreateTimeInMillis() > 0);
         if (queryInfo.getState() == WAITING_FOR_PREREQUISITES || queryInfo.getState() == QUEUED || queryInfo.getState() == WAITING_FOR_RESOURCES || queryInfo.getState() == DISPATCHING) {
-            assertNull(queryStats.getExecutionStartTime());
+            assertEquals(queryStats.getExecutionStartTimeInMillis(), 0L);
         }
         else {
-            assertNotNull(queryStats.getExecutionStartTime());
+            assertTrue(queryStats.getExecutionStartTimeInMillis() > 0);
         }
         if (queryInfo.getState().isDone()) {
-            assertNotNull(queryStats.getEndTime());
+            assertTrue(queryStats.getEndTimeInMillis() > 0);
         }
         else {
-            assertNull(queryStats.getEndTime());
+            assertEquals(queryStats.getEndTimeInMillis(), 0);
         }
 
         assertEquals(stateMachine.getQueryState(), expectedState);

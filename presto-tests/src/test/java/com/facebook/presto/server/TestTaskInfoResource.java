@@ -109,7 +109,7 @@ public class TestTaskInfoResource
         assertEquals(expectedTask.getTaskId(), actualTask.getTaskId());
         assertEquals(expectedTask.getTaskStatus().getState(), actualTask.getTaskStatus().getState());
         assertEquals(expectedTask.getTaskStatus().getSelf(), actualTask.getTaskStatus().getSelf());
-        assertEquals(expectedTask.getStats().getCreateTime(), actualTask.getStats().getCreateTime());
+        assertEquals(expectedTask.getStats().getCreateTimeInMillis(), actualTask.getStats().getCreateTimeInMillis());
     }
 
     public URI taskUri(String path, String taskId)
