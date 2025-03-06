@@ -83,6 +83,7 @@ import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.statistics.ColumnStatistics;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Binder;
@@ -93,8 +94,11 @@ import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
+import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
@@ -203,7 +207,7 @@ public class IcebergCommonModule
     @Provides
     public StatisticsFileCache createStatisticsFileCache(IcebergConfig config, MBeanExporter exporter)
     {
-        Cache<StatisticsFileCacheKey, ColumnStatistics> delegate = CacheBuilder.newBuilder()
+        com.github.benmanes.caffeine.cache.Cache<StatisticsFileCacheKey, ColumnStatistics> delegate = Caffeine.newBuilder()
                 .maximumWeight(config.getMaxStatisticsFileCacheSize().toBytes())
                 .<StatisticsFileCacheKey, ColumnStatistics>weigher((key, entry) -> (int) entry.getEstimatedSize())
                 .recordStats()
@@ -211,6 +215,26 @@ public class IcebergCommonModule
         StatisticsFileCache statisticsFileCache = new StatisticsFileCache(delegate);
         exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), statisticsFileCache);
         return statisticsFileCache;
+    }
+
+    @Singleton
+    @Provides
+    public ManifestFileCache createManifestFileCache(IcebergConfig config, MBeanExporter exporter)
+    {
+        com.github.benmanes.caffeine.cache.Caffeine<ManifestFileCacheKey, ManifestFileCachedContent> delegate = Caffeine.newBuilder()
+                .maximumWeight(config.getMaxManifestCacheSize())
+                .<ManifestFileCacheKey, ManifestFileCachedContent>weigher((key, entry) -> (int) entry.getData().stream().mapToLong(ByteBuffer::capacity).sum())
+                .recordStats();
+        if (config.getManifestCacheExpireDuration() > 0) {
+            delegate.expireAfterWrite(config.getManifestCacheExpireDuration(), MILLISECONDS);
+        }
+        ManifestFileCache manifestFileCache = new ManifestFileCache(
+                delegate.build(),
+                config.getManifestCachingEnabled(),
+                config.getManifestCacheMaxContentLength(),
+                config.getManifestCacheMaxChunkSize().toBytes());
+        exporter.export(generatedNameOf(ManifestFileCache.class, connectorId), manifestFileCache);
+        return manifestFileCache;
     }
 
     @ForCachingHiveMetastore
