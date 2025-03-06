@@ -225,9 +225,6 @@ public class ClusterManager
         }
 
         scheduler.setCandidates(healthyClusterURIs);
-        if (schedulerType == WEIGHTED_RANDOM_CHOICE || schedulerType == WEIGHTED_ROUND_ROBIN) {
-            scheduler.setWeights(serverWeights.get(groupSpec.getName()));
-        }
         return scheduler.getDestination(requestInfo.getUser());
     }
 
