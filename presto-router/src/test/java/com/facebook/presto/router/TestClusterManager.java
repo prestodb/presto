@@ -41,7 +41,9 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
@@ -142,13 +144,22 @@ public class TestClusterManager
     public void testConfigReload()
             throws IOException, InterruptedException
     {
+        Path configFilePath = configFile.toPath();
         assertEquals(clusterManager.getAllClusters().size(), 3);
 
-        String originalConfigContent = new String(Files.readAllBytes(configFile.toPath()));
+        String originalConfigContent = new String(Files.readAllBytes(configFilePath));
         String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
 
-        Files.write(configFile.toPath(), modifiedConfigContent.getBytes(), StandardOpenOption.WRITE);
-        Thread.sleep(500);
+        FileOutputStream fos = new FileOutputStream(configFilePath.toString(), false);
+        byte[] bytes = modifiedConfigContent.getBytes(StandardCharsets.UTF_8);
+        fos.write(bytes);
+        fos.close();
+
+        System.out.println(new String(Files.readAllBytes(configFilePath)));
+
+        while (clusterManager.getAllClusters().size() == 3) {
+            Thread.sleep(1);
+        }
 
         assertEquals(clusterManager.getAllClusters().size(), 0);
 

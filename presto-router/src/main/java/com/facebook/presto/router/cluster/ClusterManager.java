@@ -113,10 +113,14 @@ public class ClusterManager
             try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
                 File routerConfigFile = new File(routerConfig.getConfigFile());
                 Path parentDir = routerConfigFile.toPath().getParent();
-                parentDir.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
+                parentDir.register(
+                        watchService,
+                        StandardWatchEventKinds.ENTRY_MODIFY,
+                        StandardWatchEventKinds.ENTRY_CREATE);
 
                 while (true) {
                     WatchKey key = watchService.take();
+                    log.info("Changes to router config directory detected");
                     for (WatchEvent<?> event : key.pollEvents()) {
                         Path changed = (Path) event.context();
                         if (changed.endsWith(routerConfigFile.getName())) {
