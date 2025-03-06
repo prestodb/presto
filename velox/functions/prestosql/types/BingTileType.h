@@ -80,6 +80,91 @@ class BingTileType : public BigintType {
     obj["type"] = name();
     return obj;
   }
+
+  static constexpr uint8_t kBingTileVersion = 0;
+  static constexpr uint8_t kBingTileMaxZoomLevel = 23;
+  static constexpr uint8_t kBingTileZoomBitWidth = 5;
+  static constexpr uint8_t kBingTileVersionOffset = 63 - kBingTileZoomBitWidth;
+  static constexpr uint8_t kBingTileZoomOffset = 31 - kBingTileZoomBitWidth;
+  static constexpr uint64_t kBits23Mask = (1 << 24) - 1;
+  static constexpr uint64_t kBits5Mask = (1 << 6) - 1;
+
+  static inline uint64_t
+  bingTileCoordsToInt(uint32_t x, uint32_t y, uint8_t zoom) {
+    uint64_t tile = (static_cast<uint64_t>(zoom) << kBingTileZoomOffset) |
+        (static_cast<uint64_t>(x) << 32) | static_cast<uint64_t>(y);
+    return tile;
+  }
+
+  /// Returns the version of the tile (as uint64)
+  static inline uint8_t bingTileVersion(uint64_t tile) {
+    return (tile >> kBingTileVersionOffset) & kBits5Mask;
+  }
+
+  /// Returns the zoom of the tile (as uint64)
+  static inline uint8_t bingTileZoom(uint64_t tile) {
+    return (tile >> kBingTileZoomOffset) & kBits5Mask;
+  }
+
+  /// Returns the x-coordinate of the tile (as uint64)
+  static inline uint32_t bingTileX(uint64_t tile) {
+    return (tile >> 32) & kBits23Mask;
+  }
+
+  /// Returns the y-coordinate of the tile (as uint64)
+  static inline uint32_t bingTileY(uint64_t tile) {
+    return tile & kBits23Mask;
+  }
+
+  /// Returns true if the tile (as uint64) is valid
+  static inline bool isBingTileIntValid(uint64_t tile) {
+    uint8_t zoom = bingTileZoom(tile);
+    uint64_t coordinateBound = 1 << zoom;
+    // Using bitwise & so that it's branchless and the data
+    // can be prefetched and the ops pipelined.
+    // Linter wants the bools cast to uint8 for bitwise ops.
+    return (uint8_t)(bingTileVersion(tile) == kBingTileVersion) &
+        (uint8_t)(zoom <= kBingTileMaxZoomLevel) &
+        (uint8_t)(bingTileX(tile) < coordinateBound) &
+        (uint8_t)(bingTileY(tile) < coordinateBound);
+  }
+
+  static std::optional<std::string> bingTileInvalidReason(uint64_t tile) {
+    // TODO?: We are duplicating some logic in isBingTileIntValid; maybe we
+    // should extract?
+
+    uint8_t version = BingTileType::bingTileVersion(tile);
+    if (version != BingTileType::kBingTileVersion) {
+      return fmt::format("Version {} not supported", version);
+    }
+
+    uint8_t zoom = BingTileType::bingTileZoom(tile);
+    if (zoom > BingTileType::kBingTileMaxZoomLevel) {
+      return fmt::format(
+          "Zoom {} is greater than max zoom {}",
+          zoom,
+          BingTileType::kBingTileMaxZoomLevel);
+    }
+
+    uint64_t coordinateBound = 1 << zoom;
+
+    if (BingTileType::bingTileX(tile) >= coordinateBound) {
+      return fmt::format(
+          "X coordinate {} is greater than max coordinate {} at zoom {}",
+          BingTileType::bingTileX(tile),
+          coordinateBound - 1,
+          zoom);
+    }
+    if (BingTileType::bingTileY(tile) >= coordinateBound) {
+      return fmt::format(
+          "Y coordinate {} is greater than max coordinate {} at zoom {}",
+          BingTileType::bingTileY(tile),
+          coordinateBound - 1,
+          zoom);
+    }
+
+    return std::nullopt;
+  }
 };
 
 inline bool isBingTileType(const TypePtr& type) {

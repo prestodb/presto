@@ -40,4 +40,44 @@ TEST_F(BingTileTypeTest, serde) {
   testTypeSerde(BINGTILE());
 }
 
+TEST_F(BingTileTypeTest, packing) {
+  uint64_t tileX123Y111Z7 = BingTileType::bingTileCoordsToInt(123, 111, 7);
+  ASSERT_TRUE(BingTileType::isBingTileIntValid(tileX123Y111Z7));
+  ASSERT_EQ(BingTileType::bingTileVersion(tileX123Y111Z7), 0);
+  ASSERT_EQ(BingTileType::bingTileZoom(tileX123Y111Z7), 7);
+  ASSERT_EQ(BingTileType::bingTileX(tileX123Y111Z7), 123);
+  ASSERT_EQ(BingTileType::bingTileY(tileX123Y111Z7), 111);
+
+  uint64_t tileZ0 = BingTileType::bingTileCoordsToInt(0, 0, 0);
+  ASSERT_TRUE(BingTileType::isBingTileIntValid(tileZ0));
+  ASSERT_EQ(BingTileType::bingTileVersion(tileZ0), 0);
+  ASSERT_EQ(BingTileType::bingTileZoom(tileZ0), 0);
+  ASSERT_EQ(BingTileType::bingTileX(tileZ0), 0);
+  ASSERT_EQ(BingTileType::bingTileY(tileZ0), 0);
+
+  // Error cases
+  uint64_t tileV1 = (uint64_t)1 << (63 - 5);
+  ASSERT_FALSE(BingTileType::isBingTileIntValid(tileV1));
+  ASSERT_EQ(
+      BingTileType::bingTileInvalidReason(tileV1), "Version 1 not supported");
+
+  uint64_t tileZ24 = BingTileType::bingTileCoordsToInt(0, 0, 24);
+  ASSERT_FALSE(BingTileType::isBingTileIntValid(tileZ24));
+  ASSERT_EQ(
+      BingTileType::bingTileInvalidReason(tileZ24),
+      "Zoom 24 is greater than max zoom 23");
+
+  uint64_t tileX0Y1Z0 = BingTileType::bingTileCoordsToInt(0, 1, 0);
+  ASSERT_FALSE(BingTileType::isBingTileIntValid(tileX0Y1Z0));
+  ASSERT_EQ(
+      BingTileType::bingTileInvalidReason(tileX0Y1Z0),
+      "Y coordinate 1 is greater than max coordinate 0 at zoom 0");
+
+  uint64_t tileX256Y1Z8 = BingTileType::bingTileCoordsToInt(256, 1, 8);
+  ASSERT_FALSE(BingTileType::isBingTileIntValid(tileX256Y1Z8));
+  ASSERT_EQ(
+      BingTileType::bingTileInvalidReason(tileX256Y1Z8),
+      "X coordinate 256 is greater than max coordinate 255 at zoom 8");
+}
+
 } // namespace facebook::velox::test
