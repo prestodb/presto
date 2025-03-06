@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/exec/HashBitRange.h"
 #include "velox/exec/HashTable.h"
 #include "velox/exec/JoinBridge.h"
 #include "velox/exec/MemoryReclaimer.h"

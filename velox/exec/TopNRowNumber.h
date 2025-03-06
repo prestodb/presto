@@ -17,6 +17,7 @@
 
 #include "velox/exec/HashTable.h"
 #include "velox/exec/Operator.h"
+#include "velox/exec/Spiller.h"
 
 namespace facebook::velox::exec {
 class TopNRowNumberSpiller;

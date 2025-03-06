@@ -22,6 +22,7 @@
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/Spill.h"
 #include "velox/py/vector/PyVector.h"
 
 namespace facebook::velox::py {

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/exec/TopNRowNumber.h"
-#include "velox/exec/OperatorUtils.h"
 
 namespace facebook::velox::exec {
 
