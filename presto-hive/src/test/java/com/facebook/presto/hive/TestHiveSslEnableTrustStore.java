@@ -41,7 +41,7 @@ public class TestHiveSslEnableTrustStore
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        this.bucketName = "test-hive-ssl-enable-" + randomTableSuffix();
+        this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
         this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE3_IMAGE, "hive_ssl");
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(

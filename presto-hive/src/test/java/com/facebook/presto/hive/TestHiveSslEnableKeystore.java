@@ -41,7 +41,8 @@ public class TestHiveSslEnableKeystore
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        this.bucketName = "test-hive-ssl-enable-" + randomTableSuffix();
+       // this.bucketName = "test-hive-ssl-enable-" + randomTableSuffix();
+        this.bucketName = "test-hive-insert-overwrite-" + randomTableSuffix();
         this.dockerizedS3DataLake = new HiveMinIODataLake(bucketName, ImmutableMap.of(), HIVE3_IMAGE, "hive_ssl");
         this.dockerizedS3DataLake.start();
         return S3HiveQueryRunner.create(
@@ -49,13 +50,13 @@ public class TestHiveSslEnableKeystore
                 this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint(),
                 HiveMinIODataLake.ACCESS_KEY,
                 HiveMinIODataLake.SECRET_KEY,
-                new HashMap<>(),
                 ImmutableMap.<String, String>builder()
                         // This is required when connecting to ssl enabled hms
                         .put("hive.metastore.thrift.client.tls.enabled", "true")
                         .put("hive.metastore.thrift.client.tls.keystore.path", this.getClass().getClassLoader().getResource("hive_ssl_enable/metastore.jks").getPath())
                         .put("hive.metastore.thrift.client.tls.keystore.password", "password")
-                        .build());
+                        .build(),
+                new HashMap<>());
     }
 
     @BeforeClass
