@@ -117,7 +117,7 @@ public class BasicStageExecutionStats
         this.queuedDrivers = queuedDrivers;
         this.runningDrivers = runningDrivers;
         this.completedDrivers = completedDrivers;
-         this.totalSplits = totalSplits;
+        this.totalSplits = totalSplits;
         this.queuedSplits = queuedSplits;
         this.runningSplits = runningSplits;
         this.completedSplits = completedSplits;
