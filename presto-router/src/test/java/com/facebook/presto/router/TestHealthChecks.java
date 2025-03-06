@@ -93,8 +93,9 @@ public class TestHealthChecks
 
         Injector injector = app.doNotInitializeLogging()
                 .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
-                .setOptionalConfigurationProperty("router.remote-state.cluster-unhealthy-timeout", "PT10S")
                 .setRequiredConfigurationProperty("presto.version", "testversion")
+                .setOptionalConfigurationProperty("router.remote-state.cluster-unhealthy-timeout", "PT3S")
+                .setOptionalConfigurationProperty("router.remote-state.polling-interval", "PT2S")
                 .initialize();
         clusterManager = injector.getInstance(ClusterManager.class);
     }

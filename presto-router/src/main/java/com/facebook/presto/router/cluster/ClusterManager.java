@@ -80,12 +80,12 @@ public class ClusterManager
     private final Logger log = Logger.get(ClusterManager.class);
 
     // Cluster status
-    private static final Duration pollingInterval = Duration.ofSeconds(5);
+    private static Duration pollingInterval = Duration.ofSeconds(5);
     private final ConcurrentHashMap<URI, RemoteClusterInfo> remoteClusterInfos = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
 
     @Inject
-    public ClusterManager(RouterConfig config, @ForClusterManager ScheduledExecutorService scheduledExecutorService, RemoteInfoFactory remoteInfoFactory)
+    public ClusterManager(RouterConfig config, @ForClusterManager ScheduledExecutorService scheduledExecutorService, RemoteInfoFactory remoteInfoFactory, RemoteStateConfig remoteStateConfig)
     {
         this.routerConfig = config;
         this.scheduledExecutorService = scheduledExecutorService;
@@ -105,6 +105,7 @@ public class ClusterManager
             remoteQueryInfos.put(uri, remoteInfoFactory.createRemoteQueryInfo(discoveryURIs.get(uri)));
             log.info("Successfully attached cluster %s to the router. Queries will be routed to cluster after successful health check", uri.getHost());
         });
+        pollingInterval = remoteStateConfig.getPollingInterval();
     }
 
     @PostConstruct
