@@ -214,7 +214,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     VELOX_UNSUPPORTED("{} unsupported", __FUNCTION__);
   }
 
-  std::string toString() const override {
+  std::string toString(bool /* unused */) const override {
     return fmt::format(
         "Mock Memory Pool[{}]",
         velox::memory::MemoryAllocator::kindString(allocator_->kind()));

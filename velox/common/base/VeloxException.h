@@ -89,10 +89,14 @@ inline constexpr auto kNotImplemented = "NOT_IMPLEMENTED"_fs;
 /// An error raised when memory pool exceeds limits.
 inline constexpr auto kMemCapExceeded = "MEM_CAP_EXCEEDED"_fs;
 
+/// An error raised when memory request failed due to arbitration failures. This
+/// is normally caused by insufficient global memory resource.
+inline constexpr auto kMemArbitrationFailure = "MEM_ARBITRATION_FAILURE"_fs;
+
 /// An error raised when memory pool is aborted.
 inline constexpr auto kMemAborted = "MEM_ABORTED"_fs;
 
-/// An error raised when memory arbitration is timed out.
+/// An error raised when memory arbitration times out.
 inline constexpr auto kMemArbitrationTimeout = "MEM_ARBITRATION_TIMEOUT"_fs;
 
 /// Error caused by memory allocation failure (inclusive of allocator memory cap

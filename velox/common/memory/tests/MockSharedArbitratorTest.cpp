@@ -569,6 +569,55 @@ void verifyReclaimerStats(
   }
 }
 
+TEST_F(MockSharedArbitrationTest, configToString) {
+  std::unordered_map<std::string, std::string> configs;
+  configs[std::string(SharedArbitrator::ExtraConfig::kReservedCapacity)] =
+      "100B";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryPoolInitialCapacity)] = "512MB";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryPoolReservedCapacity)] = "200B";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMaxMemoryArbitrationTime)] = "5000ms";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationEnabled)] = "true";
+  configs[std::string(SharedArbitrator::ExtraConfig::kCheckUsageLeak)] =
+      "false";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryPoolMinReclaimBytes)] = "64mb";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryPoolAbortCapacityLimit)] = "256mb";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationMemoryReclaimPct)] =
+      "30";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kMemoryReclaimThreadsHwMultiplier)] =
+      "1.0";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationWithoutSpill)] = "true";
+  configs[std::string(
+      SharedArbitrator::ExtraConfig::kGlobalArbitrationAbortTimeRatio)] = "0.8";
+
+  MemoryArbitrator::Config arbitratorConfig{
+      "SHARED", 1024, nullptr, std::move(configs)};
+  ASSERT_EQ(
+      arbitratorConfig.toString(),
+      "kind=SHARED;capacity=1.00KB;"
+      "arbitrationStateCheckCb=(unset);"
+      "global-arbitration-without-spill=true;"
+      "memory-reclaim-threads-hw-multiplier=1.0;"
+      "check-usage-leak=false;"
+      "global-arbitration-enabled=true;"
+      "max-memory-arbitration-time=5000ms;"
+      "global-arbitration-memory-reclaim-pct=30;"
+      "memory-pool-abort-capacity-limit=256mb;"
+      "memory-pool-min-reclaim-bytes=64mb;"
+      "memory-pool-reserved-capacity=200B;"
+      "memory-pool-initial-capacity=512MB;"
+      "global-arbitration-abort-time-ratio=0.8;"
+      "reserved-capacity=100B;");
+}
+
 TEST_F(MockSharedArbitrationTest, extraConfigs) {
   // Testing default values
   std::unordered_map<std::string, std::string> emptyConfigs;
@@ -864,9 +913,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailures) {
     auto task = addTask(64 * MB);
     auto* op = task->addMemoryOp(false);
     op->allocate(32 * MB);
-    VELOX_ASSERT_THROW(
-        op->allocate(64 * MB),
-        "Exceeded memory pool capacity after attempt to grow capacity");
+    VELOX_ASSERT_THROW(op->allocate(64 * MB), "Exceeded memory pool capacity");
   }
 
   // Global arbitration failure.
@@ -1971,7 +2018,7 @@ TEST_F(MockSharedArbitrationTest, globalArbitrationEnableCheck) {
     } else {
       VELOX_ASSERT_THROW(
           requestPool->allocate(memoryCapacity / 2),
-          "Exceeded memory pool cap");
+          "Local arbitration failure.");
     }
   }
 }
@@ -3984,7 +4031,7 @@ TEST_F(MockSharedArbitrationTest, arbitrationFailure) {
     } else {
       VELOX_ASSERT_THROW(
           requestorOp->allocate(testData.requestorRequestBytes),
-          "Exceeded memory pool capacity after attempt");
+          "Exceeded memory pool capacity");
       ASSERT_FALSE(requestorOp->pool()->aborted());
       ASSERT_FALSE(otherOp->pool()->aborted());
     }
@@ -4034,7 +4081,7 @@ TEST_F(
     std::shared_ptr<MockTask> task2 = addTask();
     MockMemoryOperator* op2 = task2->addMemoryOp(false);
     VELOX_ASSERT_THROW(
-        op2->allocate(memoryCapacity / 2), "Exceeded memory pool capacity ");
+        op2->allocate(memoryCapacity / 2), "Local arbitration failure.");
   }
 }
 

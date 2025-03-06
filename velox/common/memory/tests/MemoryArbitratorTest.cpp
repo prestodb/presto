@@ -132,23 +132,24 @@ TEST_F(MemoryArbitrationTest, queryMemoryCapacity) {
     auto rootPool =
         manager.addRootPool("root-1", 8L << 20, MemoryReclaimer::create());
     ASSERT_EQ(rootPool->capacity(), 1 << 20);
-    ASSERT_TRUE(manager.arbitrator()->growCapacity(rootPool.get(), 1 << 20));
+    ASSERT_NO_THROW(
+        manager.arbitrator()->growCapacity(rootPool.get(), 1 << 20));
     ASSERT_EQ(rootPool->capacity(), 1 << 20);
-    ASSERT_FALSE(manager.arbitrator()->growCapacity(rootPool.get(), 6 << 20));
+    VELOX_ASSERT_THROW(
+        manager.arbitrator()->growCapacity(rootPool.get(), 6 << 20),
+        "Exceeded memory pool capacity");
     ASSERT_EQ(rootPool->capacity(), 1 << 20);
-    ASSERT_TRUE(manager.arbitrator()->growCapacity(rootPool.get(), 2 << 20));
-    ASSERT_TRUE(manager.arbitrator()->growCapacity(rootPool.get(), 1 << 20));
+    ASSERT_NO_THROW(
+        manager.arbitrator()->growCapacity(rootPool.get(), 2 << 20));
+    ASSERT_NO_THROW(
+        manager.arbitrator()->growCapacity(rootPool.get(), 1 << 20));
     ASSERT_EQ(rootPool->capacity(), 4 << 20);
     ASSERT_EQ(manager.arbitrator()->stats().freeCapacityBytes, 2 << 20);
     ASSERT_EQ(manager.arbitrator()->stats().freeReservedCapacityBytes, 2 << 20);
 
     auto leafPool = rootPool->addLeafChild("leaf-1.0");
     VELOX_ASSERT_THROW(
-        leafPool->allocate(7L << 20),
-        "Exceeded memory pool capacity after attempt to grow capacity through "
-        "arbitration. Requestor pool name 'leaf-1.0', request size 7.00MB, "
-        "current usage 0B, memory pool capacity 4.00MB, memory pool max "
-        "capacity 8.00MB");
+        leafPool->allocate(7L << 20), "Exceeded memory pool capacity");
     ASSERT_EQ(manager.arbitrator()->shrinkCapacity(rootPool.get(), 0), 0);
     VELOX_ASSERT_THROW(
         manager.arbitrator()->shrinkCapacity(leafPool.get(), 0), "");
@@ -341,7 +342,7 @@ class FakeTestArbitrator : public MemoryArbitrator {
 
   void removePool(MemoryPool* /*unused*/) override {}
 
-  bool growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
+  void growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
     VELOX_NYI();
   }
 

@@ -30,6 +30,33 @@ namespace facebook::velox::memory {
 class MemoryPool;
 class ArbitrationOperation;
 
+#define VELOX_MEM_POOL_CAP_EXCEEDED(errorMessage)                   \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
+      /* isRetriable */ true,                                       \
+      "{}",                                                         \
+      errorMessage);
+
+#define VELOX_MEM_ARBITRATION_FAILED(errorMessage)                   \
+  _VELOX_THROW(                                                      \
+      ::facebook::velox::VeloxRuntimeError,                          \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(),  \
+      ::facebook::velox::error_code::kMemArbitrationFailure.c_str(), \
+      /* isRetriable */ true,                                        \
+      "{}",                                                          \
+      errorMessage);
+
+#define VELOX_MEM_POOL_ABORTED(errorMessage)                        \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kMemAborted.c_str(),           \
+      /* isRetriable */ true,                                       \
+      "{}",                                                         \
+      errorMessage);
+
 using MemoryArbitrationStateCheckCB = std::function<void(MemoryPool&)>;
 
 /// The memory arbitrator interface. There is one memory arbitrator object per
@@ -67,6 +94,19 @@ class MemoryArbitrator {
 
     /// Additional configs that are arbitrator implementation specific.
     std::unordered_map<std::string, std::string> extraConfigs{};
+
+    std::string toString() const {
+      std::stringstream ss;
+      for (const auto& extraConfig : extraConfigs) {
+        ss << extraConfig.first << "=" << extraConfig.second << ";";
+      }
+      return fmt::format(
+          "kind={};capacity={};arbitrationStateCheckCb={};{}",
+          kind,
+          succinctBytes(capacity),
+          (arbitrationStateCheckCb ? "(set)" : "(unset)"),
+          ss.str());
+    }
   };
 
   using Factory = std::function<std::unique_ptr<MemoryArbitrator>(
@@ -99,7 +139,11 @@ class MemoryArbitrator {
   virtual std::string kind() const = 0;
 
   uint64_t capacity() const {
-    return capacity_;
+    return config_.capacity;
+  }
+
+  const Config& config() const {
+    return config_;
   }
 
   virtual ~MemoryArbitrator() = default;
@@ -124,7 +168,7 @@ class MemoryArbitrator {
   /// up a number of pools to either shrink its memory capacity without actually
   /// freeing memory or reclaim its used memory to free up enough memory for
   /// 'requestor' to grow.
-  virtual bool growCapacity(MemoryPool* pool, uint64_t requestBytes) = 0;
+  virtual void growCapacity(MemoryPool* pool, uint64_t requestBytes) = 0;
 
   /// Invoked by the memory manager to shrink up to 'targetBytes' free capacity
   /// from a memory 'pool', and returns them back to the arbitrator. If
@@ -217,9 +261,7 @@ class MemoryArbitrator {
   virtual std::string toString() const = 0;
 
  protected:
-  explicit MemoryArbitrator(const Config& config)
-      : capacity_(config.capacity),
-        arbitrationStateCheckCb_(config.arbitrationStateCheckCb) {}
+  explicit MemoryArbitrator(const Config& config) : config_(config) {}
 
   /// Helper utilities used by the memory arbitrator implementations to call
   /// protected methods of memory pool.
@@ -228,8 +270,7 @@ class MemoryArbitrator {
 
   static uint64_t shrinkPool(MemoryPool* pool, uint64_t targetBytes);
 
-  const uint64_t capacity_;
-  const MemoryArbitrationStateCheckCB arbitrationStateCheckCb_;
+  const Config config_;
 };
 
 /// Formatter for fmt.

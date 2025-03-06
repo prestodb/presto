@@ -80,10 +80,10 @@ class NoopArbitrator : public MemoryArbitrator {
  public:
   explicit NoopArbitrator(const Config& config) : MemoryArbitrator(config) {
     VELOX_CHECK(config.kind.empty());
-    if (capacity_ != kMaxMemory) {
-      LOG(WARNING) << "Query memory capacity[" << succinctBytes(capacity_)
-                   << "] is set for " << kind()
-                   << " arbitrator which has no capacity enforcement";
+    if (config_.capacity != kMaxMemory) {
+      LOG(WARNING) << "Query memory capacity["
+                   << succinctBytes(config_.capacity) << "] is set for "
+                   << kind() << " arbitrator which has no capacity enforcement";
     }
   }
 
@@ -104,8 +104,8 @@ class NoopArbitrator : public MemoryArbitrator {
 
   // Noop arbitrator has no memory capacity limit so no operation needed for
   // memory pool capacity grow.
-  bool growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
-    return false;
+  void growCapacity(MemoryPool* /*unused*/, uint64_t /*unused*/) override {
+    VELOX_MEM_POOL_CAP_EXCEEDED("Exceeded memory pool capacity.");
   }
 
   // Noop arbitrator has no memory capacity limit so no operation needed for
@@ -134,7 +134,8 @@ class NoopArbitrator : public MemoryArbitrator {
     return fmt::format(
         "ARBIRTATOR[{} CAPACITY[{}]]",
         kind(),
-        capacity_ == kMaxMemory ? "UNLIMITED" : succinctBytes(capacity_));
+        config_.capacity == kMaxMemory ? "UNLIMITED"
+                                       : succinctBytes(config_.capacity));
   }
 };
 

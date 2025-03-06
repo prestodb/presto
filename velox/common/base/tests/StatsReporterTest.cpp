@@ -249,9 +249,9 @@ class TestStatsReportMemoryArbitrator : public memory::MemoryArbitrator {
 
   void removePool(memory::MemoryPool* /*unused*/) override {}
 
-  bool growCapacity(memory::MemoryPool* /*unused*/, uint64_t /*unused*/)
+  void growCapacity(memory::MemoryPool* /*unused*/, uint64_t /*unused*/)
       override {
-    return false;
+    VELOX_FAIL("Cannot grow capacity.");
   }
 
   uint64_t shrinkCapacity(memory::MemoryPool* /*unused*/, uint64_t /*unused*/)
@@ -396,7 +396,7 @@ class TestMemoryPool : public memory::MemoryPool {
     return false;
   }
 
-  std::string toString() const override {
+  std::string toString(bool /* unused */) const override {
     return "";
   }
 

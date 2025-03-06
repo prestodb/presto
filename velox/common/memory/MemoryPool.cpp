@@ -817,7 +817,7 @@ void MemoryPoolImpl::reserveThreadSafe(uint64_t size, bool reserveOnly) {
   }
 }
 
-bool MemoryPoolImpl::incrementReservationThreadSafe(
+void MemoryPoolImpl::incrementReservationThreadSafe(
     MemoryPool* requestor,
     uint64_t size) {
   VELOX_CHECK(threadSafe_);
@@ -827,59 +827,39 @@ bool MemoryPoolImpl::incrementReservationThreadSafe(
   // first. If it exceeds the capacity and can't grow, the root memory pool will
   // throw an exception to fail the request.
   if (parent_ != nullptr) {
-    if (!toImpl(parent_)->incrementReservationThreadSafe(requestor, size)) {
-      return false;
-    }
+    toImpl(parent_)->incrementReservationThreadSafe(requestor, size);
   }
 
   if (maybeIncrementReservation(size)) {
-    return true;
+    return;
   }
 
   VELOX_CHECK_NULL(parent_);
 
-  if (growCapacity(requestor, size)) {
-    TestValue::adjust(
-        "facebook::velox::memory::MemoryPoolImpl::incrementReservationThreadSafe::AfterGrowCallback",
-        this);
-    // NOTE: if memory arbitration succeeds, it should have already committed
-    // the reservation 'size' in the root memory pool.
-    return true;
-  }
-  VELOX_MEM_POOL_CAP_EXCEEDED(fmt::format(
-      "Exceeded memory pool capacity after attempt to grow capacity "
-      "through arbitration. Requestor pool name '{}', request size {}, current "
-      "usage {}, memory pool capacity {}, memory pool max capacity {}, memory "
-      "manager capacity {}\n{}",
-      requestor->name(),
-      succinctBytes(size),
-      succinctBytes(requestor->usedBytes()),
-      capacityToString(capacity()),
-      capacityToString(maxCapacity_),
-      capacityToString(manager_->capacity()),
-      treeMemoryUsage()));
+  growCapacity(requestor, size);
+  TestValue::adjust(
+      "facebook::velox::memory::MemoryPoolImpl::incrementReservationThreadSafe::AfterGrowCallback",
+      this);
+  // NOTE: if memory arbitration succeeds, it should have already committed
+  // the reservation 'size' in the root memory pool.
 }
 
-bool MemoryPoolImpl::growCapacity(MemoryPool* requestor, uint64_t size) {
+void MemoryPoolImpl::growCapacity(MemoryPool* requestor, uint64_t size) {
   VELOX_CHECK(requestor->isLeaf());
   ++numCapacityGrowths_;
 
-  bool success{false};
   {
     MemoryPoolArbitrationSection arbitrationSection(requestor);
-    success = arbitrator_->growCapacity(this, size);
+    arbitrator_->growCapacity(this, size);
   }
   // The memory pool might have been aborted during the time it leaves the
   // arbitration no matter the arbitration succeed or not.
   if (FOLLY_UNLIKELY(aborted())) {
-    if (success) {
-      // Release the reservation committed by the memory arbitration on success.
-      decrementReservation(size);
-    }
+    // Release the reservation committed by the memory arbitration on success.
+    decrementReservation(size);
     VELOX_CHECK_NOT_NULL(abortError());
     std::rethrow_exception(abortError());
   }
-  return success;
 }
 
 bool MemoryPoolImpl::maybeIncrementReservation(uint64_t size) {

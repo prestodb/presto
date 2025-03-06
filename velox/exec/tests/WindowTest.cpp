@@ -207,8 +207,7 @@ TEST_F(WindowTest, rowBasedStreamingWindowOOM) {
               .planNode();
 
       VELOX_ASSERT_THROW(
-          readCursor(params, [](Task*) {}),
-          "Exceeded memory pool capacity after attempt to grow capacity through arbitration.");
+          readCursor(params, [](Task*) {}), "Exceeded memory pool capacity");
     }
   };
   // RowStreamingWindow will not OOM.

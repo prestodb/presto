@@ -38,27 +38,6 @@ class ParallelMemoryReclaimer;
 
 namespace facebook::velox::memory {
 class TestArbitrator;
-}
-
-namespace facebook::velox::memory {
-#define VELOX_MEM_POOL_CAP_EXCEEDED(errorMessage)                   \
-  _VELOX_THROW(                                                     \
-      ::facebook::velox::VeloxRuntimeError,                         \
-      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
-      ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
-      /* isRetriable */ true,                                       \
-      "{}",                                                         \
-      errorMessage);
-
-#define VELOX_MEM_POOL_ABORTED(errorMessage)                        \
-  _VELOX_THROW(                                                     \
-      ::facebook::velox::VeloxRuntimeError,                         \
-      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
-      ::facebook::velox::error_code::kMemAborted.c_str(),           \
-      /* isRetriable */ true,                                       \
-      "{}",                                                         \
-      errorMessage);
-
 class MemoryManager;
 
 constexpr int64_t kMaxMemory = std::numeric_limits<int64_t>::max();
@@ -458,7 +437,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Returns the stats of this memory pool.
   virtual Stats stats() const = 0;
 
-  virtual std::string toString() const = 0;
+  virtual std::string toString(bool detail = false) const = 0;
 
   /// Invoked to generate a descriptive memory usage summary of the entire tree.
   /// If 'skipEmptyPool' is true, then skip print out the child memory pools
@@ -660,9 +639,16 @@ class MemoryPoolImpl : public MemoryPool {
 
   void setDestructionCallback(const DestructionCallback& callback);
 
-  std::string toString() const override {
-    std::lock_guard<std::mutex> l(mutex_);
-    return toStringLocked();
+  std::string toString(bool detail = false) const override {
+    std::string result;
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      result = toStringLocked();
+    }
+    if (detail) {
+      result += "\n" + treeMemoryUsage();
+    }
+    return result;
   }
 
   /// Detailed debug pool state printout by traversing the pool structure from
@@ -819,27 +805,19 @@ class MemoryPoolImpl : public MemoryPool {
 
   void reserveThreadSafe(uint64_t size, bool reserveOnly = false);
 
-  // Increments the reservation and checks against limits at root tracker. Calls
-  // root tracker's 'growCallback_' if it is set and limit exceeded. Should be
-  // called without holding 'mutex_'. This function returns true if reservation
-  // succeeds. It returns false if there is concurrent reservation increment
-  // requests and need a retry from the leaf memory usage tracker. The function
-  // throws if a limit is exceeded and there is no corresponding GrowCallback or
-  // the GrowCallback fails.
-  bool incrementReservationThreadSafe(MemoryPool* requestor, uint64_t size);
+  // Increments the reservation and checks against limits at root memory pool.
+  // Provokes root memory pool to grow capacity through arbitrator if exceeds
+  // capacity. Should be called without holding 'mutex_'. This function throws
+  // if max capacity is exceeded or arbitration fails.
+  void incrementReservationThreadSafe(MemoryPool* requestor, uint64_t size);
 
-  FOLLY_ALWAYS_INLINE bool incrementReservationNonThreadSafe(
+  FOLLY_ALWAYS_INLINE void incrementReservationNonThreadSafe(
       MemoryPool* requestor,
       uint64_t size) {
     VELOX_CHECK_NOT_NULL(parent_);
     VELOX_CHECK(isLeaf());
-
-    if (!toImpl(parent_)->incrementReservationThreadSafe(requestor, size)) {
-      return false;
-    }
-
+    toImpl(parent_)->incrementReservationThreadSafe(requestor, size);
     reservationBytes_ += size;
-    return true;
   }
 
   // Returns the needed reservation size. If there is sufficient unused memory
@@ -875,7 +853,7 @@ class MemoryPoolImpl : public MemoryPool {
   // Invoked to grow capacity of the root memory pool from the memory
   // arbitrator. 'requestor' is the leaf memory pool that triggers the memory
   // capacity growth. 'size' is the memory capacity growth in bytes.
-  bool growCapacity(MemoryPool* requestor, uint64_t size);
+  void growCapacity(MemoryPool* requestor, uint64_t size);
 
   FOLLY_ALWAYS_INLINE void releaseNonThreadSafe(
       uint64_t size,

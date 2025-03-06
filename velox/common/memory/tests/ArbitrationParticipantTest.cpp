@@ -63,11 +63,10 @@ class TestArbitrator : public MemoryArbitrator {
 
   void removePool(MemoryPool* /*unused*/) override {}
 
-  bool growCapacity(MemoryPool* memoryPool, uint64_t requestBytes) override {
+  void growCapacity(MemoryPool* memoryPool, uint64_t requestBytes) override {
     VELOX_CHECK_LE(
         memoryPool->capacity() + requestBytes, memoryPool->maxCapacity());
     memoryPool->grow(requestBytes, requestBytes);
-    return true;
   }
 
   uint64_t shrinkCapacity(uint64_t /*unused*/, bool /*unused*/, bool /*unused*/)
