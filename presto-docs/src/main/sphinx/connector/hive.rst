@@ -226,6 +226,16 @@ Property Name                                                         Descriptio
 ``hive.invalidate-metastore-cache-procedure-enabled``    When enabled, users will be able to invalidate metastore        false
                                                          cache on demand.
 
+``hive.metastore.thrift.client.tls.enabled``             Whether TLS security is enabled.                                false
+
+``hive.metastore.thrift.client.tls.keystore.path``       Path to the PEM or JKS key store.
+
+``hive.metastore.thrift.client.tls.keystore.password``   Password for the key store.
+
+``hive.metastore.thrift.client.tls.truststore.path``     Path to the PEM or JKS trust store.
+
+``hive.metastore.thrift.client.tls.truststore.password`` Password for the trust store
+
 ======================================================= ============================================================= ============
 
 AWS Glue Catalog Configuration Properties
