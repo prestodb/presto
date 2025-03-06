@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -39,6 +40,7 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -77,13 +79,13 @@ public class QueryStats
 
     private final double cumulativeUserMemory;
     private final double cumulativeTotalMemory;
-    private final long userMemoryReservationInBytes;
-    private final long totalMemoryReservationInBytes;
-    private final long peakUserMemoryReservationInBytes;
-    private final long peakTotalMemoryReservationInBytes;
-    private final long peakTaskTotalMemoryInBytes;
-    private final long peakTaskUserMemoryInBytes;
-    private final long peakNodeTotalMemoryInBytes;
+    private final DataSize userMemoryReservation;
+    private final DataSize totalMemoryReservation;
+    private final DataSize peakUserMemoryReservation;
+    private final DataSize peakTotalMemoryReservation;
+    private final DataSize peakTaskTotalMemory;
+    private final DataSize peakTaskUserMemory;
+    private final DataSize peakNodeTotalMemory;
 
     private final boolean scheduled;
     private final Duration totalScheduledTime;
@@ -93,25 +95,25 @@ public class QueryStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
-    private final long totalAllocationInBytes;
+    private final DataSize totalAllocation;
 
-    private final long rawInputDataSizeInBytes;
+    private final DataSize rawInputDataSize;
     private final long rawInputPositions;
 
-    private final long processedInputDataSizeInBytes;
+    private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
-    private final long shuffledDataSizeInBytes;
+    private final DataSize shuffledDataSize;
     private final long shuffledPositions;
 
-    private final long outputDataSizeInBytes;
+    private final DataSize outputDataSize;
     private final long outputPositions;
 
     private final long writtenOutputPositions;
-    private final long writtenOutputLogicalDataSizeInBytes;
-    private final long writtenOutputPhysicalDataSizeInBytes;
+    private final DataSize writtenOutputLogicalDataSize;
+    private final DataSize writtenOutputPhysicalDataSize;
 
-    private final long writtenIntermediatePhysicalDataSizeInBytes;
+    private final DataSize writtenIntermediatePhysicalDataSize;
 
     private final List<StageGcStatistics> stageGcStatistics;
 
@@ -152,13 +154,13 @@ public class QueryStats
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
-            @JsonProperty("userMemoryReservationInBytes") long userMemoryReservationInBytes,
-            @JsonProperty("totalMemoryReservationInBytes") long totalMemoryReservationInBytes,
-            @JsonProperty("peakUserMemoryReservationInBytes") long peakUserMemoryReservationInBytes,
-            @JsonProperty("peakTotalMemoryReservationInBytes") long peakTotalMemoryReservationInBytes,
-            @JsonProperty("peakTaskUserMemoryInBytes") long peakTaskUserMemoryInBytes,
-            @JsonProperty("peakTaskTotalMemoryInBytes") long peakTaskTotalMemoryInBytes,
-            @JsonProperty("peakNodeTotalMemoryInBytes") long peakNodeTotalMemoryInBytes,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
+            @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
+            @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
+            @JsonProperty("peakNodeTotalMemory") DataSize peakNodeTotalMemory,
 
             @JsonProperty("scheduled") boolean scheduled,
             @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
@@ -168,25 +170,25 @@ public class QueryStats
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
 
-            @JsonProperty("totalAllocationInBytes") long totalAllocationInBytes,
+            @JsonProperty("totalAllocation") DataSize totalAllocation,
 
-            @JsonProperty("rawInputDataSizeInBytes") long rawInputDataSizeInBytes,
+            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
             @JsonProperty("rawInputPositions") long rawInputPositions,
 
-            @JsonProperty("processedInputDataSizeInBytes") long processedInputDataSizeInBytes,
+            @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
-            @JsonProperty("shuffledDataSizeInBytes") long shuffledDataSizeInBytes,
+            @JsonProperty("shuffledDataSize") DataSize shuffledDataSize,
             @JsonProperty("shuffledPositions") long shuffledPositions,
 
-            @JsonProperty("outputDataSizeInBytes") long outputDataSizeInBytes,
+            @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
 
             @JsonProperty("writtenOutputPositions") long writtenOutputPositions,
-            @JsonProperty("writtenOutputLogicalDataSizeInBytes") long writtenOutputLogicalDataSizeInBytes,
-            @JsonProperty("writtenOutputPhysicalDataSizeInBytes") long writtenOutputPhysicalDataSizeInBytes,
+            @JsonProperty("writtenOutputLogicalDataSize") DataSize writtenOutputLogicalDataSize,
+            @JsonProperty("writtenOutputPhysicalDataSize") DataSize writtenOutputPhysicalDataSize,
 
-            @JsonProperty("writtenIntermediatePhysicalDataSizeInBytes") long writtenIntermediatePhysicalDataSizeInBytes,
+            @JsonProperty("writtenIntermediatePhysicalDataSize") DataSize writtenIntermediatePhysicalDataSize,
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
 
@@ -234,20 +236,13 @@ public class QueryStats
         this.cumulativeUserMemory = cumulativeUserMemory;
         checkArgument(cumulativeTotalMemory >= 0, "cumulativeTotalMemory is negative");
         this.cumulativeTotalMemory = cumulativeTotalMemory;
-        checkArgument(userMemoryReservationInBytes >= 0, "userMemoryReservationInBytes is negative");
-        this.userMemoryReservationInBytes = userMemoryReservationInBytes;
-        checkArgument(totalMemoryReservationInBytes >= 0, "totalMemoryReservationInBytes is negative");
-        this.totalMemoryReservationInBytes = totalMemoryReservationInBytes;
-        checkArgument(peakUserMemoryReservationInBytes >= 0, "peakUserMemoryReservationInBytes is negative");
-        this.peakUserMemoryReservationInBytes = peakUserMemoryReservationInBytes;
-        checkArgument(peakTotalMemoryReservationInBytes >= 0, "peakTotalMemoryReservationInBytes is negative");
-        this.peakTotalMemoryReservationInBytes = peakTotalMemoryReservationInBytes;
-        checkArgument(peakTaskTotalMemoryInBytes >= 0, "peakTaskTotalMemoryInBytes is negative");
-        this.peakTaskTotalMemoryInBytes = peakTaskTotalMemoryInBytes;
-        checkArgument(peakTaskUserMemoryInBytes >= 0, "peakTaskUserMemoryInBytes is negative");
-        this.peakTaskUserMemoryInBytes = peakTaskUserMemoryInBytes;
-        checkArgument(peakNodeTotalMemoryInBytes >= 0, "peakNodeTotalMemoryInBytes is negative");
-        this.peakNodeTotalMemoryInBytes = peakNodeTotalMemoryInBytes;
+        this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
+        this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
+        this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
+        this.peakTotalMemoryReservation = requireNonNull(peakTotalMemoryReservation, "peakTotalMemoryReservation is null");
+        this.peakTaskTotalMemory = requireNonNull(peakTaskTotalMemory, "peakTaskTotalMemory is null");
+        this.peakTaskUserMemory = requireNonNull(peakTaskUserMemory, "peakTaskUserMemory is null");
+        this.peakNodeTotalMemory = requireNonNull(peakNodeTotalMemory, "peakNodeTotalMemory is null");
         this.scheduled = scheduled;
         this.totalScheduledTime = requireNonNull(totalScheduledTime, "totalScheduledTime is null");
         this.totalCpuTime = requireNonNull(totalCpuTime, "totalCpuTime is null");
@@ -256,36 +251,29 @@ public class QueryStats
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
-        checkArgument(totalAllocationInBytes >= 0, "totalAllocationInBytes is negative");
-        this.totalAllocationInBytes = totalAllocationInBytes;
-        checkArgument(rawInputDataSizeInBytes >= 0, "rawInputDataSizeInBytes is negative");
-        this.rawInputDataSizeInBytes = rawInputDataSizeInBytes;
+        this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
+
+        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
         checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
 
-        checkArgument(processedInputDataSizeInBytes >= 0, "processedInputDataSizeInBytes is negative");
-        this.processedInputDataSizeInBytes = processedInputDataSizeInBytes;
+        this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
-        checkArgument(shuffledDataSizeInBytes >= 0, "shuffledDataSizeInBytes is negative");
-        this.shuffledDataSizeInBytes = shuffledDataSizeInBytes;
+        this.shuffledDataSize = requireNonNull(shuffledDataSize, "shuffledDataSize is null");
         checkArgument(shuffledPositions >= 0, "shuffledPositions is negative");
         this.shuffledPositions = shuffledPositions;
 
-        checkArgument(outputDataSizeInBytes >= 0, "outputDataSizeInBytes is negative");
-        this.outputDataSizeInBytes = outputDataSizeInBytes;
+        this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
-        checkArgument(writtenOutputPositions >= 0, "writtenOutputPositions is negative");
+        checkArgument(writtenOutputPositions >= 0, "writtenOutputPositions is negative: %s", writtenOutputPositions);
         this.writtenOutputPositions = writtenOutputPositions;
-        checkArgument(writtenOutputLogicalDataSizeInBytes >= 0, "writtenOutputLogicalDataSizeInBytes is negative");
-        this.writtenOutputLogicalDataSizeInBytes = writtenOutputLogicalDataSizeInBytes;
-        checkArgument(writtenOutputPhysicalDataSizeInBytes >= 0, "writtenOutputPhysicalDataSizeInBytes is negative");
-        this.writtenOutputPhysicalDataSizeInBytes = writtenOutputPhysicalDataSizeInBytes;
-        checkArgument(writtenIntermediatePhysicalDataSizeInBytes >= 0, "writtenIntermediatePhysicalDataSizeInBytes is negative");
-        this.writtenIntermediatePhysicalDataSizeInBytes = writtenIntermediatePhysicalDataSizeInBytes;
+        this.writtenOutputLogicalDataSize = requireNonNull(writtenOutputLogicalDataSize, "writtenOutputLogicalDataSize is null");
+        this.writtenOutputPhysicalDataSize = requireNonNull(writtenOutputPhysicalDataSize, "writtenOutputPhysicalDataSize is null");
+        this.writtenIntermediatePhysicalDataSize = requireNonNull(writtenIntermediatePhysicalDataSize, "writtenIntermediatePhysicalDataSize is null");
 
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
 
@@ -466,13 +454,13 @@ public class QueryStats
 
                 cumulativeUserMemory,
                 cumulativeTotalMemory,
-                userMemoryReservation,
-                totalMemoryReservation,
-                peakUserMemoryReservation,
-                peakTotalMemoryReservation,
-                peakTaskUserMemory,
-                peakTaskTotalMemory,
-                peakNodeTotalMemory,
+                succinctBytes(userMemoryReservation),
+                succinctBytes(totalMemoryReservation),
+                succinctBytes(peakUserMemoryReservation),
+                succinctBytes(peakTotalMemoryReservation),
+                succinctBytes(peakTaskUserMemory),
+                succinctBytes(peakTaskTotalMemory),
+                succinctBytes(peakNodeTotalMemory),
 
                 isScheduled,
 
@@ -483,22 +471,22 @@ public class QueryStats
                 fullyBlocked,
                 blockedReasons,
 
-                totalAllocation,
+                succinctBytes(totalAllocation),
 
-                rawInputDataSize,
+                succinctBytes(rawInputDataSize),
                 rawInputPositions,
-                processedInputDataSize,
+                succinctBytes(processedInputDataSize),
                 processedInputPositions,
-                shuffledDataSize,
+                succinctBytes(shuffledDataSize),
                 shuffledPositions,
-                outputDataSize,
+                succinctBytes(outputDataSize),
                 outputPositions,
 
                 writtenOutputPositions,
-                writtenOutputLogicalDataSize,
-                writtenOutputPhysicalDataSize,
+                succinctBytes(writtenOutputLogicalDataSize),
+                succinctBytes(writtenOutputPhysicalDataSize),
 
-                writtenIntermediatePhysicalDataSize,
+                succinctBytes(writtenIntermediatePhysicalDataSize),
 
                 stageGcStatistics.build(),
 
@@ -545,13 +533,13 @@ public class QueryStats
                 0,
                 0,
                 0,
-                0L,
-                0L,
-                0L,
-                0L,
-                0L,
-                0L,
-                0L,
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
                 false,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -559,19 +547,19 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
-                0L,
-                0L,
+                succinctBytes(0),
+                succinctBytes(0),
                 0,
-                0L,
+                succinctBytes(0),
                 0,
-                0L,
+                succinctBytes(0),
                 0,
-                0L,
+                succinctBytes(0),
                 0,
                 0,
-                0L,
-                0L,
-                0L,
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 new RuntimeStats());
@@ -735,45 +723,45 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getUserMemoryReservationInBytes()
+    public DataSize getUserMemoryReservation()
     {
-        return userMemoryReservationInBytes;
+        return userMemoryReservation;
     }
 
     @JsonProperty
-    public long getTotalMemoryReservationInBytes()
+    public DataSize getTotalMemoryReservation()
     {
-        return totalMemoryReservationInBytes;
+        return totalMemoryReservation;
     }
 
     @JsonProperty
-    public long getPeakUserMemoryReservationInBytes()
+    public DataSize getPeakUserMemoryReservation()
     {
-        return peakUserMemoryReservationInBytes;
+        return peakUserMemoryReservation;
     }
 
     @JsonProperty
-    public long getPeakTotalMemoryReservationInBytes()
+    public DataSize getPeakTotalMemoryReservation()
     {
-        return peakTotalMemoryReservationInBytes;
+        return peakTotalMemoryReservation;
     }
 
     @JsonProperty
-    public long getPeakTaskTotalMemoryInBytes()
+    public DataSize getPeakTaskTotalMemory()
     {
-        return peakTaskTotalMemoryInBytes;
+        return peakTaskTotalMemory;
     }
 
     @JsonProperty
-    public long getPeakNodeTotalMemoryInBytes()
+    public DataSize getPeakNodeTotalMemory()
     {
-        return peakNodeTotalMemoryInBytes;
+        return peakNodeTotalMemory;
     }
 
     @JsonProperty
-    public long getPeakTaskUserMemoryInBytes()
+    public DataSize getPeakTaskUserMemory()
     {
-        return peakTaskUserMemoryInBytes;
+        return peakTaskUserMemory;
     }
 
     @JsonProperty
@@ -819,15 +807,15 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getTotalAllocationInBytes()
+    public DataSize getTotalAllocation()
     {
-        return totalAllocationInBytes;
+        return totalAllocation;
     }
 
     @JsonProperty
-    public long getRawInputDataSizeInBytes()
+    public DataSize getRawInputDataSize()
     {
-        return rawInputDataSizeInBytes;
+        return rawInputDataSize;
     }
 
     @JsonProperty
@@ -837,9 +825,9 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getProcessedInputDataSizeInBytes()
+    public DataSize getProcessedInputDataSize()
     {
-        return processedInputDataSizeInBytes;
+        return processedInputDataSize;
     }
 
     @JsonProperty
@@ -849,9 +837,9 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getShuffledDataSizeInBytes()
+    public DataSize getShuffledDataSize()
     {
-        return shuffledDataSizeInBytes;
+        return shuffledDataSize;
     }
 
     @JsonProperty
@@ -861,9 +849,9 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getOutputDataSizeInBytes()
+    public DataSize getOutputDataSize()
     {
-        return outputDataSizeInBytes;
+        return outputDataSize;
     }
 
     @JsonProperty
@@ -879,21 +867,21 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getWrittenOutputLogicalDataSizeInBytes()
+    public DataSize getWrittenOutputLogicalDataSize()
     {
-        return writtenOutputLogicalDataSizeInBytes;
+        return writtenOutputLogicalDataSize;
     }
 
     @JsonProperty
-    public long getWrittenOutputPhysicalDataSizeInBytes()
+    public DataSize getWrittenOutputPhysicalDataSize()
     {
-        return writtenOutputPhysicalDataSizeInBytes;
+        return writtenOutputPhysicalDataSize;
     }
 
     @JsonProperty
-    public long getWrittenIntermediatePhysicalDataSizeInBytes()
+    public DataSize getWrittenIntermediatePhysicalDataSize()
     {
-        return writtenIntermediatePhysicalDataSizeInBytes;
+        return writtenIntermediatePhysicalDataSize;
     }
 
     @JsonProperty
@@ -918,11 +906,11 @@ public class QueryStats
     }
 
     @JsonProperty
-    public long getSpilledDataSizeInBytes()
+    public DataSize getSpilledDataSize()
     {
-        return operatorSummaries.stream()
+        return succinctBytes(operatorSummaries.stream()
                 .mapToLong(OperatorStats::getSpilledDataSizeInBytes)
-                .sum();
+                .sum());
     }
 
     @JsonProperty

@@ -113,8 +113,8 @@ type QueryStats = {
     totalCpuTime: string;
     cumulativeUserMemory: number;
     cumulativeTotalMemory: number;
-    userMemoryReservationInBytes: number;
-    peakUserMemoryReservationInBytes: number;
+    userMemoryReservation: string;
+    peakUserMemoryReservation: string;
     runtimeStats: RuntimeStats;
     elapsedTime: string;
     createTime: string;
@@ -124,18 +124,18 @@ type QueryStats = {
     totalPlanningTime: string;
     executionTime: string;
     processedInputPositions: number;
-    processedInputDataSizeInBytes: number;
+    processedInputDataSize: string;
     rawInputPositions: number;
-    rawInputDataSizeInBytes: number;
+    rawInputDataSize: string;
     shuffledPositions: number;
-    shuffledDataSizeInBytes: number;
-    peakTotalMemoryReservationInBytes: number;
+    shuffledDataSize: string;
+    peakTotalMemoryReservation: string;
     outputPositions: number;
-    outputDataSizeInBytes: number;
+    outputDataSize: string;
     writtenOutputPositions: number;
-    writtenOutputLogicalDataSizeInBytes: number;
-    writtenOutputPhysicalDataSizeInBytes: number;
-    spilledDataSizeInBytes: number;
+    writtenOutputLogicalDataSize: string;
+    writtenOutputPhysicalDataSize: string;
+    spilledDataSize: string;
 }
 
 type FailureInfo = {
@@ -729,7 +729,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                                 Cumulative
                                             </td>
                                             <td className="stage-table-stat-text">
-                                                {formatDataSizeBytes(prestoStage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
+                                                {formatDataSize(prestoStage.latestAttemptExecutionInfo.stats.cumulativeUserMemory / 1000)}
                                             </td>
                                         </tr>
                                         <tr>
@@ -737,7 +737,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                                 Cumulative Total
                                             </td>
                                             <td className="stage-table-stat-text">
-                                                {formatDataSizeBytes(prestoStage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
+                                                {formatDataSize(prestoStage.latestAttemptExecutionInfo.stats.cumulativeTotalMemory / 1000)}
                                             </td>
                                         </tr>
                                         <tr>
@@ -745,7 +745,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                                 Current
                                             </td>
                                             <td className="stage-table-stat-text">
-                                                {formatDataSize(prestoStage.latestAttemptExecutionInfo.stats.userMemoryReservationInBytes)}
+                                                {prestoStage.latestAttemptExecutionInfo.stats.userMemoryReservation}
                                             </td>
                                         </tr>
                                         <tr>
@@ -761,7 +761,7 @@ function StageSummary({ index, prestoStage }: { index: number, prestoStage: Outp
                                                 Peak
                                             </td>
                                             <td className="stage-table-stat-text">
-                                                {formatDataSize(prestoStage.latestAttemptExecutionInfo.stats.peakUserMemoryReservationInBytes)}
+                                                {prestoStage.latestAttemptExecutionInfo.stats.peakUserMemoryReservation}
                                             </td>
                                         </tr>
                                     </tbody>
@@ -1438,7 +1438,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Input Data
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(data.queryStats.processedInputDataSizeInBytes)}
+                                            {data.queryStats.processedInputDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1454,7 +1454,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Raw Input Data
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(data.queryStats.rawInputDataSizeInBytes)}
+                                            {data.queryStats.rawInputDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1474,7 +1474,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             </span>
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(data.queryStats.shuffledDataSizeInBytes)}
+                                            {data.queryStats.shuffledDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1482,7 +1482,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Peak User Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(data.queryStats.peakUserMemoryReservationInBytes)}
+                                            {data.queryStats.peakUserMemoryReservation}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1490,7 +1490,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Peak Total Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(data.queryStats.peakTotalMemoryReservationInBytes)}
+                                            {data.queryStats.peakTotalMemoryReservation}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1506,7 +1506,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Cumulative User Memory
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(data.queryStats.cumulativeUserMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(data.queryStats.cumulativeUserMemory / 1000.0)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1514,7 +1514,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Cumulative Total
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSizeBytes(data.queryStats.cumulativeTotalMemory / 1000.0) + " seconds"}
+                                            {formatDataSize(data.queryStats.cumulativeTotalMemory / 1000.0)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1530,7 +1530,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Output Data
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(data.queryStats.outputDataSizeInBytes)}
+                                            {data.queryStats.outputDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1546,7 +1546,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Written Output Logical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(data.queryStats.writtenOutputLogicalDataSizeInBytes)}
+                                            {data.queryStats.writtenOutputLogicalDataSize}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1554,16 +1554,16 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                             Written Output Physical Data Size
                                         </td>
                                         <td className="info-text">
-                                            {formatDataSize(data.queryStats.writtenOutputPhysicalDataSizeInBytes)}
+                                            {data.queryStats.writtenOutputPhysicalDataSize}
                                         </td>
                                     </tr>
-                                    {(data.queryStats.spilledDataSizeInBytes || 0) > 0 &&
+                                    {(parseDataSize(data.queryStats.spilledDataSize) || 0) > 0 &&
                                         <tr>
                                             <td className="info-title">
                                                 Spilled Data
                                             </td>
                                             <td className="info-text">
-                                                {formatDataSize(data.queryStats.spilledDataSizeInBytes)}
+                                                {data.queryStats.spilledDataSize}
                                             </td>
                                         </tr>
                                     }
@@ -1612,7 +1612,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                     </tr>
                                     <tr className="tr-noborder">
                                         <td className="info-sparkline-text">
-                                            {formatDataSize((data.queryStats.processedInputDataSizeInBytes || 0) / elapsedTime)}
+                                            {formatDataSize((parseDataSize(data.queryStats.processedInputDataSize) || 0) / elapsedTime)}
                                         </td>
                                     </tr>
                                     <tr>
@@ -1622,7 +1622,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                     </tr>
                                     <tr className="tr-noborder">
                                         <td className="info-sparkline-text">
-                                            {formatDataSize(data.queryStats.userMemoryReservationInBytes || 0)}
+                                            {formatDataSize(parseDataSize(data.queryStats.userMemoryReservation) || 0)}
                                         </td>
                                     </tr>
                                 </tbody>

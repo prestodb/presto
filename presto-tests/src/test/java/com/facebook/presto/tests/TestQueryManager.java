@@ -366,13 +366,13 @@ public class TestQueryManager
         @Override
         public long getRawInputDataSizeInBytes()
         {
-            return info.getQueryStats().getRawInputDataSizeInBytes();
+            return info.getQueryStats().getRawInputDataSize().toBytes();
         }
 
         @Override
         public long getOutputDataSizeInBytes()
         {
-            return info.getQueryStats().getOutputDataSizeInBytes();
+            return info.getQueryStats().getOutputDataSize().toBytes();
         }
 
         @Override
@@ -450,13 +450,13 @@ public class TestQueryManager
                         19,
                         20.0,
                         43.0,
-                        DataSize.valueOf("21GB").toBytes(),
-                        DataSize.valueOf("22GB").toBytes(),
-                        DataSize.valueOf("23GB").toBytes(),
-                        DataSize.valueOf("24GB").toBytes(),
-                        DataSize.valueOf("25GB").toBytes(),
-                        DataSize.valueOf("26GB").toBytes(),
-                        DataSize.valueOf("42GB").toBytes(),
+                        DataSize.valueOf("21GB"),
+                        DataSize.valueOf("22GB"),
+                        DataSize.valueOf("23GB"),
+                        DataSize.valueOf("24GB"),
+                        DataSize.valueOf("25GB"),
+                        DataSize.valueOf("26GB"),
+                        DataSize.valueOf("42GB"),
                         true,
                         Duration.valueOf("23m"),
                         Duration.valueOf("24m"),
@@ -464,19 +464,19 @@ public class TestQueryManager
                         Duration.valueOf("26m"),
                         true,
                         ImmutableSet.of(WAITING_FOR_MEMORY),
-                        DataSize.valueOf("123MB").toBytes(),
-                        DataSize.valueOf("27GB").toBytes(),
+                        DataSize.valueOf("123MB"),
+                        DataSize.valueOf("27GB"),
                         28,
-                        DataSize.valueOf("29GB").toBytes(),
+                        DataSize.valueOf("29GB"),
                         30,
-                        DataSize.valueOf("32GB").toBytes(),
+                        DataSize.valueOf("32GB"),
                         40,
-                        DataSize.valueOf("31GB").toBytes(),
+                        DataSize.valueOf("31GB"),
                         32,
                         33,
-                        DataSize.valueOf("34GB").toBytes(),
-                        DataSize.valueOf("35GB").toBytes(),
-                        DataSize.valueOf("36GB").toBytes(),
+                        DataSize.valueOf("34GB"),
+                        DataSize.valueOf("35GB"),
+                        DataSize.valueOf("36GB"),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         new RuntimeStats()),
