@@ -41,7 +41,6 @@ import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -94,9 +93,9 @@ public class TaskContext
     private final AtomicLong endFullGcCount = new AtomicLong(-1);
     private final AtomicLong endFullGcTimeNanos = new AtomicLong(-1);
 
-    private final AtomicReference<DateTime> executionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
-    private final AtomicReference<DateTime> executionEndTime = new AtomicReference<>();
+    private final AtomicReference<Long> executionStartTime = new AtomicReference<>();
+    private final AtomicReference<Long> lastExecutionStartTime = new AtomicReference<>();
+    private final AtomicReference<Long> executionEndTime = new AtomicReference<>();
 
     private final Set<Lifespan> completedDriverGroups = newConcurrentHashSet();
 
@@ -237,7 +236,7 @@ public class TaskContext
 
     public void start()
     {
-        DateTime now = DateTime.now();
+        long now = System.currentTimeMillis();
         executionStartTime.compareAndSet(null, now);
         startNanos.compareAndSet(0, System.nanoTime());
         startFullGcCount.compareAndSet(-1, gcMonitor.getMajorGcCount());
@@ -250,7 +249,7 @@ public class TaskContext
     private void updateStatsIfDone(TaskState newState)
     {
         if (newState.isDone()) {
-            DateTime now = DateTime.now();
+            long now = System.currentTimeMillis();
             long majorGcCount = gcMonitor.getMajorGcCount();
             long majorGcTime = gcMonitor.getMajorGcTime().roundTo(NANOSECONDS);
 
@@ -489,8 +488,8 @@ public class TaskContext
         boolean runningPipelinesFullyBlocked = true;
 
         for (PipelineStats pipeline : pipelineStats) {
-            if (pipeline.getLastEndTime() != null) {
-                lastExecutionEndTime = max(pipeline.getLastEndTime().getMillis(), lastExecutionEndTime);
+            if (pipeline.getLastEndTimeInMillis() != 0) {
+                lastExecutionEndTime = max(pipeline.getLastEndTimeInMillis(), lastExecutionEndTime);
             }
             if (pipeline.getRunningDrivers() > 0 || pipeline.getRunningPartitionedDrivers() > 0 || pipeline.getBlockedDrivers() > 0) {
                 // pipeline is running
@@ -573,11 +572,11 @@ public class TaskContext
         boolean fullyBlocked = hasRunningPipelines && runningPipelinesFullyBlocked;
 
         return new TaskStats(
-                taskStateMachine.getCreatedTime(),
-                executionStartTime.get(),
-                lastExecutionStartTime.get(),
-                lastExecutionEndTime == 0 ? null : new DateTime(lastExecutionEndTime),
-                executionEndTime.get(),
+                taskStateMachine.getCreatedTimeInMillis(),
+                Optional.ofNullable(executionStartTime.get()).orElse(0L),
+                Optional.ofNullable(lastExecutionStartTime.get()).orElse(0L),
+                lastExecutionEndTime,
+                Optional.ofNullable(executionEndTime.get()).orElse(0L),
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
                 totalDrivers,

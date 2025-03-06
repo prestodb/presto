@@ -27,10 +27,10 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.Immutable;
 
-import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.Objects.requireNonNull;
@@ -188,8 +188,8 @@ public class BasicQueryStats
             @JsonProperty("totalAllocation") DataSize totalAllocation,
             @JsonProperty("progressPercentage") OptionalDouble progressPercentage)
     {
-        this(Optional.ofNullable(createTime).map(DateTime::getMillis).orElse(0L),
-                Optional.ofNullable(endTime).map(DateTime::getMillis).orElse(0L),
+        this(toTimeStampInMillis(createTime),
+                toTimeStampInMillis(endTime),
                 waitingForPrerequisitesTime,
                 queuedTime,
                 elapsedTime,

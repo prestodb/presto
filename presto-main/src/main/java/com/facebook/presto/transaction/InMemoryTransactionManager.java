@@ -35,7 +35,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -358,7 +357,7 @@ public class InMemoryTransactionManager
     @ThreadSafe
     private static class TransactionMetadata
     {
-        private final DateTime createTime = DateTime.now();
+        private final long createTimeInMillis = System.currentTimeMillis();
         private final CatalogManager catalogManager;
         private final TransactionId transactionId;
         private final IsolationLevel isolationLevel;
@@ -633,10 +632,10 @@ public class InMemoryTransactionManager
         {
             // the callbacks in statement performed on another thread so are safe
             List<ListenableFuture<?>> abortFutures = Stream.concat(
-                    functionNamespaceTransactions.values().stream()
-                            .map(transactionMetadata -> finishingExecutor.submit(() -> safeAbort(transactionMetadata))),
-                    connectorIdToMetadata.values().stream()
-                            .map(connection -> finishingExecutor.submit(() -> safeAbort(connection))))
+                            functionNamespaceTransactions.values().stream()
+                                    .map(transactionMetadata -> finishingExecutor.submit(() -> safeAbort(transactionMetadata))),
+                            connectorIdToMetadata.values().stream()
+                                    .map(connection -> finishingExecutor.submit(() -> safeAbort(connection))))
                     .collect(toList());
             return nonCancellationPropagating(Futures.allAsList(abortFutures));
         }
@@ -673,7 +672,7 @@ public class InMemoryTransactionManager
             // copying the key set is safe here because the map is concurrent
             @SuppressWarnings("FieldAccessNotGuarded") List<ConnectorId> connectorIds = ImmutableList.copyOf(connectorIdToMetadata.keySet());
 
-            return new TransactionInfo(transactionId, isolationLevel, readOnly, autoCommitContext, createTime, idleTime, connectorIds, writtenConnectorId);
+            return new TransactionInfo(transactionId, isolationLevel, readOnly, autoCommitContext, createTimeInMillis, idleTime, connectorIds, writtenConnectorId);
         }
 
         private static class ConnectorTransactionMetadata

@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
@@ -357,11 +358,10 @@ public class QueryStats
 
             @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
     {
-        this(
-                Optional.ofNullable(createTime).map(DateTime::getMillis).orElse(0L),
-                Optional.ofNullable(executionStartTime).map(DateTime::getMillis).orElse(0L),
-                Optional.ofNullable(lastHeartbeat).map(DateTime::getMillis).orElse(0L),
-                Optional.ofNullable(endTime).map(DateTime::getMillis).orElse(0L),
+        this(toTimeStampInMillis(createTime),
+                toTimeStampInMillis(executionStartTime),
+                toTimeStampInMillis(lastHeartbeat),
+                toTimeStampInMillis(endTime),
 
                 elapsedTime,
                 waitingForPrerequisitesTime,

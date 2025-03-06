@@ -78,7 +78,6 @@ import com.sun.management.ThreadMXBean;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 
@@ -433,7 +432,7 @@ public final class HttpRemoteTaskWithEventLoop
                 .map(outputId -> new BufferInfo(outputId, false, 0, 0, PageBufferInfo.empty()))
                 .collect(toImmutableList());
 
-        TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(DateTime.now(), null), nodeId);
+        TaskInfo initialTask = createInitialTask(taskId, location, bufferStates, new TaskStats(System.currentTimeMillis(), 0), nodeId);
 
         this.taskStatusFetcher = new ContinuousTaskStatusFetcherWithEventLoop(
                 this::failTask,

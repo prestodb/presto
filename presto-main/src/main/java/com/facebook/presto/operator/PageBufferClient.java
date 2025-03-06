@@ -26,7 +26,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -95,7 +94,7 @@ public final class PageBufferClient
     @GuardedBy("this")
     private ListenableFuture<?> future;
     @GuardedBy("this")
-    private DateTime lastUpdate = DateTime.now();
+    private long lastUpdate = System.currentTimeMillis();
     @GuardedBy("this")
     private long token;
     @GuardedBy("this")
@@ -205,7 +204,7 @@ public final class PageBufferClient
 
             this.future = null;
 
-            lastUpdate = DateTime.now();
+            lastUpdate = System.currentTimeMillis();
         }
 
         if (future != null && !future.isDone()) {
@@ -240,7 +239,7 @@ public final class PageBufferClient
             }
         }, delayNanos, NANOSECONDS);
 
-        lastUpdate = DateTime.now();
+        lastUpdate = System.currentTimeMillis();
         requestsScheduled.incrementAndGet();
     }
 
@@ -258,7 +257,7 @@ public final class PageBufferClient
             sendGetResults(maxResponseSize);
         }
 
-        lastUpdate = DateTime.now();
+        lastUpdate = System.currentTimeMillis();
     }
 
     private synchronized void sendGetResults(DataSize maxResponseSize)
@@ -349,7 +348,7 @@ public final class PageBufferClient
                     if (future == resultFuture) {
                         future = null;
                     }
-                    lastUpdate = DateTime.now();
+                    lastUpdate = System.currentTimeMillis();
                 }
                 clientCallback.requestComplete(PageBufferClient.this);
             }
@@ -391,7 +390,7 @@ public final class PageBufferClient
                     if (future == resultFuture) {
                         future = null;
                     }
-                    lastUpdate = DateTime.now();
+                    lastUpdate = System.currentTimeMillis();
                 }
                 requestsCompleted.incrementAndGet();
                 clientCallback.clientFinished(PageBufferClient.this);
@@ -437,7 +436,7 @@ public final class PageBufferClient
             if (future == expectedFuture) {
                 future = null;
             }
-            lastUpdate = DateTime.now();
+            lastUpdate = System.currentTimeMillis();
         }
         clientCallback.requestComplete(PageBufferClient.this);
     }
