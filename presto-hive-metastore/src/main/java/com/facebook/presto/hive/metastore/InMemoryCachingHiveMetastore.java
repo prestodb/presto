@@ -1046,6 +1046,7 @@ public class InMemoryCachingHiveMetastore
         if (metastoreImpersonationEnabled) {
             context = new MetastoreContext(
                     context.getUsername(),
+                    context.getPrincipal(),
                     context.getQueryId(),
                     context.getClientInfo(),
                     context.getClientTags(),

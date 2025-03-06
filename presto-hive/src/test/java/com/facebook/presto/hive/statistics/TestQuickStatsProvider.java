@@ -131,6 +131,7 @@ public class TestQuickStatsProvider
     public void setUp()
     {
         metastoreContext = new MetastoreContext(SESSION.getUser(),
+                Optional.empty(),
                 SESSION.getQueryId(),
                 Optional.empty(),
                 Collections.emptySet(),

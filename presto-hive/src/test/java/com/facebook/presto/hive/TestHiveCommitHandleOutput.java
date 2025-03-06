@@ -184,6 +184,7 @@ public class TestHiveCommitHandleOutput
         Map<String, Optional<Partition>> partitions = hiveMeta.getMetastore().getPartitionsByNames(
                 new MetastoreContext(
                         connectorSession.getUser(),
+                        Optional.empty(),
                         connectorSession.getQueryId(),
                         Optional.empty(),
                         Collections.emptySet(),

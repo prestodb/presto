@@ -206,6 +206,7 @@ public class TestParquetQuickStatsBuilder
                 Optional.empty());
 
         metastoreContext = new MetastoreContext(SESSION.getUser(),
+                Optional.empty(),
                 SESSION.getQueryId(),
                 Optional.empty(),
                 Collections.emptySet(),

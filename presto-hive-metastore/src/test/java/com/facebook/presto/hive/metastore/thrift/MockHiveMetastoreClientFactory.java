@@ -18,6 +18,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
 
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +38,7 @@ public class MockHiveMetastoreClientFactory
     }
 
     @Override
-    public HiveMetastoreClient create(HostAndPort address, Optional<String> token)
+    public HiveMetastoreClient create(HostAndPort address, Optional<String> token, Optional<Principal> principal)
             throws TTransportException
     {
         checkState(!clients.isEmpty(), "mock not given enough clients");

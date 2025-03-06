@@ -38,6 +38,7 @@ import javax.security.sasl.RealmChoiceCallback;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.security.Principal;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +78,7 @@ public class KerberosHiveMetastoreAuthentication
     }
 
     @Override
-    public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost, Optional<String> tokenString)
+    public TTransport authenticate(TTransport rawTransport, String hiveMetastoreHost, Optional<String> tokenString, Optional<Principal> principal)
     {
         return tokenString.map(s -> authenticateWithToken(rawTransport, s)).orElseGet(() -> authenticateWithHost(rawTransport, hiveMetastoreHost));
     }

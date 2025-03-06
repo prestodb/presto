@@ -19,6 +19,7 @@ import org.apache.thrift.TException;
 import javax.inject.Inject;
 
 import java.net.URI;
+import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -65,7 +66,7 @@ public class StaticHiveCluster
      * connection succeeds or there are no more fallback metastores.
      */
     @Override
-    public HiveMetastoreClient createMetastoreClient(Optional<String> token)
+    public HiveMetastoreClient createMetastoreClient(Optional<String> token, Optional<Principal> principal)
             throws TException
     {
         List<HostAndPort> metastores = new ArrayList<>(addresses);
@@ -76,7 +77,7 @@ public class StaticHiveCluster
         TException lastException = null;
         for (HostAndPort metastore : metastores) {
             try {
-                HiveMetastoreClient client = clientFactory.create(metastore, token);
+                HiveMetastoreClient client = clientFactory.create(metastore, token, principal);
 
                 if (!isNullOrEmpty(metastoreUsername)) {
                     client.setUGI(metastoreUsername);

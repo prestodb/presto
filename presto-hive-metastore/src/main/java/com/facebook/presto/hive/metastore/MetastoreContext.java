@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HiveColumnConverterProvider;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 
+import java.security.Principal;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -30,6 +31,7 @@ import static java.util.Objects.requireNonNull;
 public class MetastoreContext
 {
     private final String username;
+    private final Optional<Principal> principal;
     private final String queryId;
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
@@ -57,11 +59,12 @@ public class MetastoreContext
             WarningCollector warningCollector,
             RuntimeStats runtimeStats)
     {
-        this(requireNonNull(identity, "identity is null").getUser(), queryId, clientInfo, clientTags, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
+        this(requireNonNull(identity, "identity is null").getUser(), requireNonNull(identity).getPrincipal(), queryId, clientInfo, clientTags, source, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
     }
 
     public MetastoreContext(
             String username,
+            Optional<Principal> principal,
             String queryId,
             Optional<String> clientInfo,
             Set<String> clientTags,
@@ -72,11 +75,12 @@ public class MetastoreContext
             WarningCollector warningCollector,
             RuntimeStats runtimeStats)
     {
-        this(username, queryId, clientInfo, clientTags, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
+        this(username, principal, queryId, clientInfo, clientTags, source, false, metastoreHeaders, userDefinedTypeEncodingEnabled, columnConverterProvider, warningCollector, runtimeStats);
     }
 
     public MetastoreContext(
             String username,
+            Optional<Principal> principal,
             String queryId,
             Optional<String> clientInfo,
             Set<String> clientTags,
@@ -89,6 +93,7 @@ public class MetastoreContext
             RuntimeStats runtimeStats)
     {
         this.username = requireNonNull(username, "username is null");
+        this.principal = requireNonNull(principal, "principal is null");
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
@@ -120,6 +125,10 @@ public class MetastoreContext
     public String getUsername()
     {
         return username;
+    }
+    public Optional<Principal> getPrincipal()
+    {
+        return principal;
     }
 
     public String getQueryId()
