@@ -17,14 +17,16 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.iceberg.IcebergTransactionManager;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorPlanOptimizer;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.relation.RowExpressionService;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergPlanOptimizerProvider
@@ -46,16 +48,21 @@ public class IcebergPlanOptimizerProvider
         requireNonNull(functionResolution, "functionResolution is null");
         requireNonNull(functionMetadataManager, "functionMetadataManager is null");
         requireNonNull(typeManager, "typeManager is null");
-        this.planOptimizers = ImmutableSet.of(
-                new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
-                new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
-                new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager));
-        this.logicalPlanOptimizers = ImmutableSet.of(
-                new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
-                new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
-                new IcebergMetadataOptimizer(functionMetadataManager, typeManager, transactionManager, rowExpressionService, functionResolution),
-                new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager),
-                new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager));
+        ClassLoader classLoader = getClass().getClassLoader();
+        this.planOptimizers = ImmutableList.of(
+                        new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
+                        new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
+                        new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager))
+                .stream().map(rule -> new ClassLoaderSafeConnectorPlanOptimizer(rule, classLoader))
+                .collect(toImmutableSet());
+        this.logicalPlanOptimizers = ImmutableList.of(
+                        new IcebergPlanOptimizer(functionResolution, rowExpressionService, functionMetadataManager, transactionManager),
+                        new IcebergFilterPushdown(rowExpressionService, functionResolution, functionMetadataManager, transactionManager, typeManager),
+                        new IcebergMetadataOptimizer(functionMetadataManager, typeManager, transactionManager, rowExpressionService, functionResolution),
+                        new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager),
+                        new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager))
+                .stream().map(rule -> new ClassLoaderSafeConnectorPlanOptimizer(rule, classLoader))
+                .collect(toImmutableSet());
     }
 
     @Override
