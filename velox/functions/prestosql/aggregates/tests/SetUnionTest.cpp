@@ -688,5 +688,42 @@ TEST_F(SetUnionTest, TimestampWithTimeZone) {
       {data}, {"c1"}, {"set_union(c0)"}, {"array_sort(a0)", "c1"}, {expected});
 }
 
+TEST_F(SetUnionTest, unknownType) {
+  // Test with unknown type
+  auto type = UNKNOWN();
+
+  auto data = makeRowVector({
+      makeAllNullArrayVector(10, type),
+  });
+
+  auto expected = makeRowVector({
+      makeArrayVector<int64_t>({{}}, type),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
+
+  data = makeRowVector({
+      makeNullableArrayVector<int64_t>(
+          {
+              {},
+              {std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+              {std::nullopt, std::nullopt, std::nullopt},
+          },
+          ARRAY(type)),
+  });
+
+  expected = makeRowVector({
+      makeNullableArrayVector(
+          std::vector<std::vector<std::optional<int64_t>>>{
+              {std::nullopt},
+          },
+          ARRAY(type)),
+  });
+
+  testAggregations(
+      {data}, {}, {"set_union(c0)"}, {"array_sort(a0)"}, {expected});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

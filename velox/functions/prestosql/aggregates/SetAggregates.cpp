@@ -208,6 +208,8 @@ std::unique_ptr<exec::Aggregate> create(
       [[fallthrough]];
     case TypeKind::ROW:
       return std::make_unique<Aggregate<ComplexType>>(resultType);
+    case TypeKind::UNKNOWN:
+      return std::make_unique<Aggregate<UnknownValue>>(resultType);
     default:
       VELOX_UNREACHABLE(
           "Unexpected type {}", mapTypeKindToName(inputType->kind()));
@@ -302,6 +304,8 @@ void registerSetAggAggregate(
             [[fallthrough]];
           case TypeKind::ROW:
             return std::make_unique<SetAggAggregate<ComplexType>>(resultType);
+          case TypeKind::UNKNOWN:
+            return std::make_unique<SetAggAggregate<UnknownValue>>(resultType);
           default:
             VELOX_UNREACHABLE(
                 "Unexpected type {}", mapTypeKindToName(typeKind));
