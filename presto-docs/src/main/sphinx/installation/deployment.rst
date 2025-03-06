@@ -421,7 +421,7 @@ Run the Presto server:
 File-Based Metastore
 --------------------
 
-For testing or development purposes, Presto can be configured to use a local 
+For testing or development purposes, Presto can be configured to use a HDFS, S3, or local
 filesystem directory as a Hive Metastore. 
 
 The file-based metastore works only with the following connectors: 
@@ -444,8 +444,9 @@ Configuring a File-Based Metastore
     hive.metastore=file
     hive.metastore.catalog.dir=file:///<catalog-dir>
 
-Replace ``<catalog-dir>`` in the example with the path to a directory on an 
-accessible filesystem.
+Replace ``file:///<catalog-dir>`` in the example with the path to a directory on an
+accessible filesystem. For example, use ``hdfs://<host:port>/<catalog-dir>`` on HDFS
+or ``s3://<bucket>/<catalog-dir>`` on an Object Storage System.
 
 Using a File-Based Warehouse
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
