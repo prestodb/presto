@@ -92,12 +92,12 @@ import java.util.TimeZone;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.common.Utils.constructSchemaName;
 import static com.facebook.presto.hive.HiveStatisticsUtil.createPartitionStatistics;
 import static com.facebook.presto.hive.HiveStatisticsUtil.updatePartitionStatistics;
 import static com.facebook.presto.hive.HiveUtil.decodeViewData;
 import static com.facebook.presto.hive.HiveUtil.encodeViewData;
 import static com.facebook.presto.hive.HiveUtil.hiveColumnHandles;
+import static com.facebook.presto.hive.MetadataUtils.constructSchemaName;
 import static com.facebook.presto.hive.SchemaProperties.getLocation;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static com.facebook.presto.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;

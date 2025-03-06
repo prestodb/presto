@@ -48,8 +48,8 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static com.facebook.presto.common.Utils.constructSchemaName;
 import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN_INDEX;
+import static com.facebook.presto.hive.MetadataUtils.constructSchemaName;
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.PARTITION_KEY;
 import static com.facebook.presto.hudi.HudiColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_UNKNOWN_TABLE_TYPE;

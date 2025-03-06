@@ -149,7 +149,6 @@ import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.common.Utils.constructSchemaName;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -287,6 +286,7 @@ import static com.facebook.presto.hive.HiveWriteUtils.isWritableType;
 import static com.facebook.presto.hive.HiveWriterFactory.computeBucketedFileName;
 import static com.facebook.presto.hive.HiveWriterFactory.getFileExtension;
 import static com.facebook.presto.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static com.facebook.presto.hive.MetadataUtils.constructSchemaName;
 import static com.facebook.presto.hive.MetadataUtils.createPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;

@@ -89,7 +89,6 @@ import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.UnknownDBException;
 import org.apache.hadoop.hive.metastore.api.UnknownTableException;
 import org.apache.hadoop.hive.metastore.api.UnlockRequest;
-import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.apache.thrift.TException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
@@ -169,6 +168,8 @@ import static org.apache.hadoop.hive.metastore.api.LockState.ACQUIRED;
 import static org.apache.hadoop.hive.metastore.api.LockState.WAITING;
 import static org.apache.hadoop.hive.metastore.api.LockType.EXCLUSIVE;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CAT_NAME;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.DB_NAME;
 import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.parseDbName;
 
 @ThreadSafe
@@ -267,7 +268,7 @@ public class ThriftHiveMetastore
             Optional<UniqueConstraintsResponse> uniqueConstraintsResponse = retry()
                     .stopOnIllegalExceptions()
                     .run("getUniqueConstraints", stats.getGetUniqueConstraints().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints(parseDbName[MetaStoreUtils.CAT_NAME], parseDbName[MetaStoreUtils.DB_NAME], tableName))));
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints(parseDbName[CAT_NAME], parseDbName[DB_NAME], tableName))));
 
             if (!uniqueConstraintsResponse.isPresent() || uniqueConstraintsResponse.get().getUniqueConstraints().size() == 0) {
                 return ImmutableList.of();
@@ -305,7 +306,7 @@ public class ThriftHiveMetastore
             Optional<NotNullConstraintsResponse> notNullConstraintsResponse = retry()
                     .stopOnIllegalExceptions()
                     .run("getNotNullConstraints", stats.getGetNotNullConstraints().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints(parseDbName[MetaStoreUtils.CAT_NAME], parseDbName[MetaStoreUtils.DB_NAME], tableName))));
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints(parseDbName[CAT_NAME], parseDbName[DB_NAME], tableName))));
 
             if (!notNullConstraintsResponse.isPresent() || notNullConstraintsResponse.get().getNotNullConstraints().size() == 0) {
                 return ImmutableList.of();

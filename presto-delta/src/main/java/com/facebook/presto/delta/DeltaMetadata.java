@@ -54,7 +54,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.common.Utils.constructSchemaName;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.delta.DeltaExpressionUtils.splitPredicate;
@@ -62,6 +61,7 @@ import static com.facebook.presto.delta.DeltaTableProperties.EXTERNAL_LOCATION_P
 import static com.facebook.presto.delta.DeltaTableProperties.getTableStorageFormat;
 import static com.facebook.presto.delta.DeltaTableProperties.isExternalTable;
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
+import static com.facebook.presto.hive.MetadataUtils.constructSchemaName;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;

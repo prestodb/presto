@@ -53,7 +53,6 @@ import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.apache.hadoop.hive.metastore.api.UniqueConstraintsRequest;
 import org.apache.hadoop.hive.metastore.api.UniqueConstraintsResponse;
 import org.apache.hadoop.hive.metastore.api.UnlockRequest;
-import org.apache.hadoop.hive.metastore.utils.MetaStoreUtils;
 import org.apache.thrift.TApplicationException;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -67,6 +66,9 @@ import java.util.Optional;
 
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CAT_NAME;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.DB_NAME;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.parseDbName;
 import static org.apache.thrift.TApplicationException.UNKNOWN_METHOD;
 
 public class ThriftHiveMetastoreClient
@@ -201,9 +203,9 @@ public class ThriftHiveMetastoreClient
     public List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
             throws TException
     {
-        String[] parseDbName = MetaStoreUtils.parseDbName(databaseName, null);
-        TableStatsRequest tableStatsRequest = new TableStatsRequest(parseDbName[MetaStoreUtils.DB_NAME], tableName, columnNames);
-        tableStatsRequest.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
+        String[] parseDbName = parseDbName(databaseName, null);
+        TableStatsRequest tableStatsRequest = new TableStatsRequest(parseDbName[DB_NAME], tableName, columnNames);
+        tableStatsRequest.setCatName(parseDbName[CAT_NAME]);
         return client.get_table_statistics_req(tableStatsRequest).getTableStats();
     }
 
@@ -211,9 +213,9 @@ public class ThriftHiveMetastoreClient
     public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
             throws TException
     {
-        String[] parseDbName = MetaStoreUtils.parseDbName(databaseName, null);
-        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, parseDbName[MetaStoreUtils.DB_NAME], tableName);
-        statisticsDescription.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
+        String[] parseDbName = parseDbName(databaseName, null);
+        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(true, parseDbName[DB_NAME], tableName);
+        statisticsDescription.setCatName(parseDbName[CAT_NAME]);
         ColumnStatistics request = new ColumnStatistics(statisticsDescription, statistics);
         client.update_table_column_statistics(request);
     }
@@ -229,9 +231,9 @@ public class ThriftHiveMetastoreClient
     public Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> partitionNames, List<String> columnNames)
             throws TException
     {
-        String[] parseDbName = MetaStoreUtils.parseDbName(databaseName, null);
-        PartitionsStatsRequest partitionsStatsRequest = new PartitionsStatsRequest(parseDbName[MetaStoreUtils.DB_NAME], tableName, columnNames, partitionNames);
-        partitionsStatsRequest.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
+        String[] parseDbName = parseDbName(databaseName, null);
+        PartitionsStatsRequest partitionsStatsRequest = new PartitionsStatsRequest(parseDbName[DB_NAME], tableName, columnNames, partitionNames);
+        partitionsStatsRequest.setCatName(parseDbName[CAT_NAME]);
         return client.get_partitions_statistics_req(partitionsStatsRequest).getPartStats();
     }
 
@@ -239,10 +241,10 @@ public class ThriftHiveMetastoreClient
     public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
             throws TException
     {
-        String[] parseDbName = MetaStoreUtils.parseDbName(databaseName, null);
-        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, parseDbName[MetaStoreUtils.DB_NAME], tableName);
+        String[] parseDbName = parseDbName(databaseName, null);
+        ColumnStatisticsDesc statisticsDescription = new ColumnStatisticsDesc(false, parseDbName[DB_NAME], tableName);
         statisticsDescription.setPartName(partitionName);
-        statisticsDescription.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
+        statisticsDescription.setCatName(parseDbName[CAT_NAME]);
         ColumnStatistics request = new ColumnStatistics(statisticsDescription, statistics);
         client.update_partition_column_statistics(request);
     }
@@ -468,9 +470,9 @@ public class ThriftHiveMetastoreClient
     public Optional<PrimaryKeysResponse> getPrimaryKey(String dbName, String tableName)
             throws TException
     {
-        String[] parseDbName = MetaStoreUtils.parseDbName(dbName, null);
-        PrimaryKeysRequest pkRequest = new PrimaryKeysRequest(parseDbName[MetaStoreUtils.DB_NAME], tableName);
-        pkRequest.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
+        String[] parseDbName = parseDbName(dbName, null);
+        PrimaryKeysRequest pkRequest = new PrimaryKeysRequest(parseDbName[DB_NAME], tableName);
+        pkRequest.setCatName(parseDbName[CAT_NAME]);
 
         try {
             return Optional.of(client.get_primary_keys(pkRequest));
@@ -523,9 +525,9 @@ public class ThriftHiveMetastoreClient
     public void dropConstraint(String dbName, String tableName, String constraintName)
             throws TException
     {
-        String[] parseDbName = MetaStoreUtils.parseDbName(dbName, null);
-        DropConstraintRequest dropConstraintRequest = new DropConstraintRequest(parseDbName[MetaStoreUtils.DB_NAME], tableName, constraintName);
-        dropConstraintRequest.setCatName(parseDbName[MetaStoreUtils.CAT_NAME]);
+        String[] parseDbName = parseDbName(dbName, null);
+        DropConstraintRequest dropConstraintRequest = new DropConstraintRequest(parseDbName[DB_NAME], tableName, constraintName);
+        dropConstraintRequest.setCatName(parseDbName[CAT_NAME]);
         client.drop_constraint(dropConstraintRequest);
     }
 
