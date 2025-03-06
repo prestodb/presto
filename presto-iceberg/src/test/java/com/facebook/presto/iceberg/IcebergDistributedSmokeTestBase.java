@@ -16,13 +16,19 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.hive.HdfsEnvironment;
+import com.facebook.presto.hive.HiveClientConfig;
+import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.UpdateProperties;
@@ -43,7 +49,8 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
-import static com.facebook.presto.iceberg.procedure.TestIcebergRegisterAndUnregisterProcedure.getMetadataFileLocation;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
+import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -53,6 +60,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -1606,7 +1614,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
         String metadataLocation = getLocation(schemaName, tableName);
-        String metadataFileName = getMetadataFileLocation(getSession().toConnectorSession(), schemaName, tableName, metadataLocation);
+        String metadataFileName = getMetadataFileLocation(getSession().toConnectorSession(), getHdfsEnvironment(), schemaName, tableName, metadataLocation);
 
         // Register new table with procedure
         String newTableName = tableName + "_new";
@@ -1625,7 +1633,7 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value integer)");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1)", 1);
 
-        String metadataLocation = getLocation(schemaName, tableName).replace("//", "") + "_invalid";
+        String metadataLocation = getLocation(schemaName, tableName) + "_invalid";
 
         @Language("RegExp") String errorMessage = format("Unable to find metadata at location %s/%s", metadataLocation, METADATA_FOLDER_NAME);
         assertQueryFails("CALL system.register_table ('" + schemaName + "', '" + tableName + "', '" + metadataLocation + "')", errorMessage);
@@ -2019,5 +2027,24 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuerySucceeds("ALTER TABLE IF EXISTS non_existent_test_table1 SET PROPERTIES (commit_retries = 6)");
         assertQueryFails("ALTER TABLE non_existent_test_table2 SET PROPERTIES (commit_retries = 6)",
                 format("Table does not exist: iceberg.%s.non_existent_test_table2", getSession().getSchema().get()));
+    }
+
+    protected HdfsEnvironment getHdfsEnvironment()
+    {
+        HiveClientConfig hiveClientConfig = new HiveClientConfig();
+        MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
+        HiveS3Config hiveS3Config = new HiveS3Config();
+        return IcebergDistributedTestBase.getHdfsEnvironment(hiveClientConfig, metastoreClientConfig, hiveS3Config);
+    }
+
+    private static String getMetadataFileLocation(ConnectorSession session, HdfsEnvironment hdfsEnvironment, String schema, String table, String metadataLocation)
+    {
+        metadataLocation = stripTrailingSlash(metadataLocation);
+        org.apache.hadoop.fs.Path metadataDir = new org.apache.hadoop.fs.Path(metadataLocation, METADATA_FOLDER_NAME);
+        FileSystem fileSystem = getFileSystem(session, hdfsEnvironment, new SchemaTableName(schema, table), metadataDir);
+        return resolveLatestMetadataLocation(
+                session,
+                fileSystem,
+                metadataDir).getName();
     }
 }
