@@ -74,11 +74,6 @@ public class HiveMinIODataLake
             filesToMount.put("hive_s3_insert_overwrite/hadoop-core-site.xml", hadoopCoreSitePath);
         }
         else if (testType.equalsIgnoreCase("hive_ssl")) {
-            String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
-            if (hiveHadoopImage == HIVE3_IMAGE) {
-                hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
-            }
-            filesToMount.put("hive_s3_insert_overwrite/hadoop-core-site.xml", hadoopCoreSitePath);
             filesToMount.put("hive_ssl_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
             filesToMount.put("hive_ssl_enable/metastore.jks", "/opt/hive/conf/metastore.jks");
             filesToMount.put("hive_ssl_enable/truststore.jks", "/opt/hive/conf/truststore.jks");
