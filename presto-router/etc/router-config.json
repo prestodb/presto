@@ -2,7 +2,7 @@
   "groups": [
     {
       "name": "all",
-      "members": [ "http://localhost:8080" ]
+      "members": []
     }
   ],
   "selectors": [
