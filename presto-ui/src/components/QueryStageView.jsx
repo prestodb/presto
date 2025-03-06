@@ -12,16 +12,23 @@
  * limitations under the License.
  */
 
-import {clsx} from 'clsx';
+import { clsx } from 'clsx';
 import React from "react";
-import {createRoot} from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
 import ReactDOMServer from "react-dom/server";
 import * as dagreD3 from "dagre-d3-es";
 import * as d3 from "d3";
 
 
-import {formatCount, formatDataSize, formatDuration, getTaskNumber, parseDuration} from "../utils";
-import {initializeGraph} from '../d3utils';
+import {
+    formatCount,
+    formatDataSize,
+    formatDuration,
+    getTaskNumber,
+    parseDataSize,
+    parseDuration
+} from "../utils";
+import { initializeGraph } from '../d3utils';
 
 function getTotalWallTime(operator) {
     return parseDuration(operator.addInputWall) +
@@ -30,13 +37,13 @@ function getTotalWallTime(operator) {
         parseDuration(operator.blockedWall)
 }
 
-function OperatorSummary({operator}) {
+function OperatorSummary({ operator }) {
     const totalWallTime = parseDuration(operator.addInputWall) +
         parseDuration(operator.getOutputWall) +
         parseDuration(operator.finishWall) +
         parseDuration(operator.blockedWall);
     const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / (totalWallTime / 1000.0);
-    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputDataSizeInBytes) / (totalWallTime / 1000.0);
+    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
     return (
         <div className="header-data">
@@ -50,46 +57,46 @@ function OperatorSummary({operator}) {
             </div>
             <table className="table">
                 <tbody>
-                <tr>
-                    <td>
-                        Output
-                    </td>
-                    <td>
-                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSizeInBytes + ")"}
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        Drivers
-                    </td>
-                    <td>
-                        {operator.totalDrivers}
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        Wall Time
-                    </td>
-                    <td>
-                        {formatDuration(totalWallTime)}
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        Blocked
-                    </td>
-                    <td>
-                        {formatDuration(parseDuration(operator.blockedWall))}
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        Input
-                    </td>
-                    <td>
-                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSizeInBytes + ")"}
-                    </td>
-                </tr>
+                    <tr>
+                        <td>
+                            Output
+                        </td>
+                        <td>
+                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Drivers
+                        </td>
+                        <td>
+                            {operator.totalDrivers}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Wall Time
+                        </td>
+                        <td>
+                            {formatDuration(totalWallTime)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Blocked
+                        </td>
+                        <td>
+                            {formatDuration(parseDuration(operator.blockedWall))}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Input
+                        </td>
+                        <td>
+                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -108,19 +115,19 @@ const BAR_CHART_PROPERTIES = {
     zeroColor: '#8997B3',
 };
 
-function OperatorStatistic({id, name, operators, supplier, renderer}) {
+function OperatorStatistic({ id, name, operators, supplier, renderer }) {
 
     React.useEffect(() => {
         const statistic = operators.map(supplier);
         const numTasks = operators.length;
 
-        const tooltipValueLookups = {'offset': {}};
+        const tooltipValueLookups = { 'offset': {} };
         for (let i = 0; i < numTasks; i++) {
             tooltipValueLookups['offset'][i] = "" + i;
         }
 
-        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, {barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups});
-        $('#operator-statics-' + id).sparkline(statistic, $.extend({}, stageBarChartProperties, {numberFormatter: renderer}));
+        const stageBarChartProperties = $.extend({}, BAR_CHART_PROPERTIES, { barWidth: 800 / numTasks, tooltipValueLookups: tooltipValueLookups });
+        $('#operator-statics-' + id).sparkline(statistic, $.extend({}, stageBarChartProperties, { numberFormatter: renderer }));
 
     }, [operators, supplier, renderer]);
 
@@ -130,13 +137,13 @@ function OperatorStatistic({id, name, operators, supplier, renderer}) {
                 {name}
             </div>
             <div className="col-10">
-                <span className="bar-chart" id={`operator-statics-${id}`}/>
+                <span className="bar-chart" id={`operator-statics-${id}`} />
             </div>
         </div>
     );
 }
 
-function OperatorDetail({index, operator, tasks}) {
+function OperatorDetail({ index, operator, tasks }) {
 
     const selectedStatistics = [
         {
@@ -154,7 +161,7 @@ function OperatorDetail({index, operator, tasks}) {
         {
             name: "Input Data Size",
             id: "inputDataSize",
-            supplier: operator => operator.inputDataSizeInBytes,
+            supplier: operator => parseDataSize(operator.inputDataSize),
             renderer: formatDataSize
         },
         {
@@ -166,7 +173,7 @@ function OperatorDetail({index, operator, tasks}) {
         {
             name: "Output Data Size",
             id: "outputDataSize",
-            supplier: operator => operator.outputDataSizeInBytes,
+            supplier: operator => parseDataSize(operator.outputDataSize),
             renderer: formatDataSize
         },
     ];
@@ -197,17 +204,17 @@ function OperatorDetail({index, operator, tasks}) {
     const totalWallTime = getTotalWallTime(operator);
 
     const rowInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputPositions) / totalWallTime;
-    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * operator.inputDataSizeInBytes) / (totalWallTime / 1000.0);
+    const byteInputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.inputDataSize)) / (totalWallTime / 1000.0);
 
     const rowOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputPositions) / totalWallTime;
-    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * operator.outputDataSizeInBytes) / (totalWallTime / 1000.0);
+    const byteOutputRate = totalWallTime === 0 ? 0 : (1.0 * parseDataSize(operator.outputDataSize)) / (totalWallTime / 1000.0);
 
     return (
         <div className="col-12 container mx-2">
             <div className="modal-header">
                 <h3 className="modal-title fs-5">
                     <small>Pipeline {operator.pipelineId}</small>
-                    <br/>
+                    <br />
                     {operator.operatorType}
                 </h3>
                 <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -218,76 +225,76 @@ function OperatorDetail({index, operator, tasks}) {
                         <div className="col-6">
                             <table className="table">
                                 <tbody>
-                                <tr>
-                                    <td>
-                                        Input
-                                    </td>
-                                    <td>
-                                        {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSizeInBytes + ")"}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Input Rate
-                                    </td>
-                                    <td>
-                                        {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Output
-                                    </td>
-                                    <td>
-                                        {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSizeInBytes + ")"}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Output Rate
-                                    </td>
-                                    <td>
-                                        {formatCount(rowOutputRate) + " rows/s (" + formatDataSize(byteOutputRate) + "/s)"}
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td>
+                                            Input
+                                        </td>
+                                        <td>
+                                            {formatCount(operator.inputPositions) + " rows (" + operator.inputDataSize + ")"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Input Rate
+                                        </td>
+                                        <td>
+                                            {formatCount(rowInputRate) + " rows/s (" + formatDataSize(byteInputRate) + "/s)"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Output
+                                        </td>
+                                        <td>
+                                            {formatCount(operator.outputPositions) + " rows (" + operator.outputDataSize + ")"}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Output Rate
+                                        </td>
+                                        <td>
+                                            {formatCount(rowOutputRate) + " rows/s (" + formatDataSize(byteOutputRate) + "/s)"}
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                         <div className="col-6">
                             <table className="table">
                                 <tbody>
-                                <tr>
-                                    <td>
-                                        Wall Time
-                                    </td>
-                                    <td>
-                                        {formatDuration(totalWallTime)}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Blocked
-                                    </td>
-                                    <td>
-                                        {formatDuration(parseDuration(operator.blockedWall))}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Drivers
-                                    </td>
-                                    <td>
-                                        {operator.totalDrivers}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>
-                                        Tasks
-                                    </td>
-                                    <td>
-                                        {operatorTasks.length}
-                                    </td>
-                                </tr>
+                                    <tr>
+                                        <td>
+                                            Wall Time
+                                        </td>
+                                        <td>
+                                            {formatDuration(totalWallTime)}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Blocked
+                                        </td>
+                                        <td>
+                                            {formatDuration(parseDuration(operator.blockedWall))}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Drivers
+                                        </td>
+                                        <td>
+                                            {operator.totalDrivers}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Tasks
+                                        </td>
+                                        <td>
+                                            {operatorTasks.length}
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -313,19 +320,19 @@ function OperatorDetail({index, operator, tasks}) {
                                     name={statistic.name}
                                     supplier={statistic.supplier}
                                     renderer={statistic.renderer}
-                                    operators={operatorTasks}/>
+                                    operators={operatorTasks} />
                             );
                         })
                     }
-                    <p/>
-                    <p/>
+                    <p />
+                    <p />
                 </div>
             </div>
         </div>
     );
 }
 
-function StageOperatorGraph({id, stage}) {
+function StageOperatorGraph({ id, stage }) {
 
     const detailContainer = React.useRef(null);
 
@@ -336,7 +343,7 @@ function StageOperatorGraph({id, stage}) {
                 pipelineOperators.set(operator.pipelineId, []);
             }
             pipelineOperators.get(operator.pipelineId).push(operator);
-        });
+         });
 
         const result = new Map();
         pipelineOperators.forEach((pipelineOperators, pipelineId) => {
@@ -368,7 +375,7 @@ function StageOperatorGraph({id, stage}) {
         const graph = initializeGraph();
         operatorGraphs.forEach((operator, pipelineId) => {
             const pipelineNodeId = "pipeline-" + pipelineId;
-            graph.setNode(pipelineNodeId, {label: "Pipeline " + pipelineId + " ", clusterLabelPos: 'top', style: 'fill: #2b2b2b', labelStyle: 'fill: #fff'});
+            graph.setNode(pipelineNodeId, { label: "Pipeline " + pipelineId + " ", clusterLabelPos: 'top', style: 'fill: #2b2b2b', labelStyle: 'fill: #fff' });
             computeD3StageOperatorGraph(graph, operator, null, pipelineNodeId)
         });
 
@@ -409,9 +416,8 @@ function StageOperatorGraph({id, stage}) {
             if (!detailContainer.current) {
                 detailContainer.current = createRoot(document.getElementById('operator-detail'));
             }
-            detailContainer.current.render(<OperatorDetail index={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks}/>);
-        }
-        else {
+            detailContainer.current.render(<OperatorDetail index={event} operator={operatorStageSummary} tasks={stage.latestAttemptExecutionInfo.tasks} />);
+        } else {
             return;
         }
     }
@@ -420,15 +426,15 @@ function StageOperatorGraph({id, stage}) {
         const operatorNodeId = "operator-" + operator.pipelineId + "-" + operator.operatorId;
 
         // this is a non-standard use of ReactDOMServer, but it's the cleanest way to unify DagreD3 with React
-        const html = ReactDOMServer.renderToString(<OperatorSummary key={operator.pipelineId + "-" + operator.operatorId} operator={operator}/>);
-        graph.setNode(operatorNodeId, {class: "operator-stats", label: html, labelType: "html"});
+        const html = ReactDOMServer.renderToString(<OperatorSummary key={operator.pipelineId + "-" + operator.operatorId} operator={operator} />);
+        graph.setNode(operatorNodeId, { class: "operator-stats", label: html, labelType: "html" });
 
         if (operator.hasOwnProperty("child")) {
             computeD3StageOperatorGraph(graph, operator.child, operatorNodeId, pipelineNode);
         }
 
         if (sink !== null) {
-            graph.setEdge(operatorNodeId, sink, {class: "plan-edge", arrowheadClass: "plan-arrowhead"});
+            graph.setEdge(operatorNodeId, sink, { class: "plan-edge", arrowheadClass: "plan-arrowhead" });
         }
 
         graph.setParent(operatorNodeId, pipelineNode);
@@ -456,9 +462,9 @@ function StageOperatorGraph({id, stage}) {
     return null;
 }
 
-export default function StageView({data, show}) {
+export default function StageView({ data, show }) {
 
-    const [state, setState] = React.useState({selectedStageId: 0});
+    const [state, setState] = React.useState({ selectedStageId: 0 });
 
     const findStage = (stageId, currentStage) => {
         if (stageId === null) {
@@ -510,7 +516,7 @@ export default function StageView({data, show}) {
         );
     }
 
-    const stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage}/>;
+    const stageOperatorGraph = <StageOperatorGraph id={stage.stageId} stage={stage} />;
 
     return (
         <div className={clsx(!show && 'visually-hidden')}>
@@ -524,15 +530,15 @@ export default function StageView({data, show}) {
                             <div className="stage-dropdown" role="group">
                                 <div className="btn-group">
                                     <button type="button" className="btn btn-secondary dropdown-toggle bg-white text-dark"
-                                            data-bs-toggle="dropdown" aria-haspopup="true"
-                                            aria-expanded="false">Select Stage<span className="caret"/>
+                                        data-bs-toggle="dropdown" aria-haspopup="true"
+                                        aria-expanded="false">Select Stage<span className="caret"/>
                                     </button>
                                     <ul className="dropdown-menu bg-white">
                                         {
                                             allStages.map(stageId => (
                                                 <li key={stageId}>
                                                     <a className={clsx('dropdown-item text-dark', stage.plan.id === stageId && 'selected')}
-                                                       onClick={() => setState({selectedStageId: stageId})}>{stageId}</a>
+                                                        onClick={() => setState({selectedStageId: stageId})}>{stageId}</a>
                                                 </li>
                                             ))
                                         }
@@ -543,10 +549,10 @@ export default function StageView({data, show}) {
                     </div>
                 </div>
             </div>
-            <hr className="h3-hr"/>
+            <hr className="h3-hr" />
             <div className="row">
                 <div className="col-12 graph-container">
-                    <svg id="operator-canvas"/>
+                    <svg id="operator-canvas" />
                     {stageOperatorGraph}
                 </div>
                 <div id="operator-detail-modal" className="modal fade" tabIndex="-1" role="dialog" aria-hidden="true">

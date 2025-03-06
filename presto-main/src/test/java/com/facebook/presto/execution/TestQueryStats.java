@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -236,13 +238,13 @@ public class TestQueryStats
 
             17.0,
             43.0,
-            18,
-            19,
-            20,
-            21,
-            22,
-            23,
-            42,
+            new DataSize(18, BYTE),
+            new DataSize(19, BYTE),
+            new DataSize(20, BYTE),
+            new DataSize(21, BYTE),
+            new DataSize(22, BYTE),
+            new DataSize(23, BYTE),
+            new DataSize(42, BYTE),
 
             true,
             new Duration(20, NANOSECONDS),
@@ -252,25 +254,25 @@ public class TestQueryStats
             false,
             ImmutableSet.of(),
 
-            123,
+            new DataSize(123, BYTE),
 
-            24,
+            new DataSize(24, BYTE),
             25,
 
-            26,
+            new DataSize(26, BYTE),
             27,
 
-            30,
+            new DataSize(30, BYTE),
             29,
 
-            28,
+            new DataSize(28, BYTE),
             29,
 
             30,
-            31,
-            32,
+            new DataSize(31, BYTE),
+            new DataSize(32, BYTE),
 
-            33,
+            new DataSize(33, BYTE),
 
             ImmutableList.of(new StageGcStatistics(
                     101,
@@ -409,13 +411,13 @@ public class TestQueryStats
                 0L, 0L, 0L, 0L, 0L,
                 new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))));
 
-        assertEquals(queryStats.getRawInputDataSizeInBytes(), 8620);
+        assertEquals(queryStats.getRawInputDataSize().toBytes(), 8620);
         assertEquals(queryStats.getRawInputPositions(), 150);
-        assertEquals(queryStats.getShuffledDataSizeInBytes(), 5384);
+        assertEquals(queryStats.getShuffledDataSize().toBytes(), 5384);
         assertEquals(queryStats.getShuffledPositions(), 100);
-        assertEquals(queryStats.getProcessedInputDataSizeInBytes(), 13660);
+        assertEquals(queryStats.getProcessedInputDataSize().toBytes(), 13660);
         assertEquals(queryStats.getProcessedInputPositions(), 250);
-        assertEquals(queryStats.getOutputDataSizeInBytes(), 5040);
+        assertEquals(queryStats.getOutputDataSize().toBytes(), 5040);
         assertEquals(queryStats.getOutputPositions(), 100);
     }
 
@@ -461,38 +463,38 @@ public class TestQueryStats
         assertEquals(actual.getCompletedDrivers(), 16);
 
         assertEquals(actual.getCumulativeUserMemory(), 17.0);
-        assertEquals(actual.getUserMemoryReservationInBytes(), 18);
-        assertEquals(actual.getTotalMemoryReservationInBytes(), 19);
-        assertEquals(actual.getPeakUserMemoryReservationInBytes(), 20);
-        assertEquals(actual.getPeakTotalMemoryReservationInBytes(), 21);
-        assertEquals(actual.getPeakTaskUserMemoryInBytes(), 22);
-        assertEquals(actual.getPeakTaskTotalMemoryInBytes(), 23);
-        assertEquals(actual.getSpilledDataSizeInBytes(), 690);
+        assertEquals(actual.getUserMemoryReservation(), new DataSize(18, BYTE));
+        assertEquals(actual.getTotalMemoryReservation(), new DataSize(19, BYTE));
+        assertEquals(actual.getPeakUserMemoryReservation(), new DataSize(20, BYTE));
+        assertEquals(actual.getPeakTotalMemoryReservation(), new DataSize(21, BYTE));
+        assertEquals(actual.getPeakTaskUserMemory(), new DataSize(22, BYTE));
+        assertEquals(actual.getPeakTaskTotalMemory(), new DataSize(23, BYTE));
+        assertEquals(actual.getSpilledDataSize(), new DataSize(690, BYTE));
 
         assertEquals(actual.getTotalScheduledTime(), new Duration(20, NANOSECONDS));
         assertEquals(actual.getTotalCpuTime(), new Duration(21, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(23, NANOSECONDS));
 
-        assertEquals(actual.getTotalAllocationInBytes(), 123);
+        assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
 
-        assertEquals(actual.getRawInputDataSizeInBytes(), 24);
+        assertEquals(actual.getRawInputDataSize(), new DataSize(24, BYTE));
         assertEquals(actual.getRawInputPositions(), 25);
 
-        assertEquals(actual.getProcessedInputDataSizeInBytes(), 26);
+        assertEquals(actual.getProcessedInputDataSize(), new DataSize(26, BYTE));
         assertEquals(actual.getProcessedInputPositions(), 27);
 
-        assertEquals(actual.getShuffledDataSizeInBytes(), 30);
+        assertEquals(actual.getShuffledDataSize(), new DataSize(30, BYTE));
         assertEquals(actual.getShuffledPositions(), 29);
 
-        assertEquals(actual.getOutputDataSizeInBytes(), 28);
+        assertEquals(actual.getOutputDataSize(), new DataSize(28, BYTE));
         assertEquals(actual.getOutputPositions(), 29);
 
         assertEquals(actual.getWrittenOutputPositions(), 30);
 
-        assertEquals(actual.getWrittenOutputLogicalDataSizeInBytes(), 31);
-        assertEquals(actual.getWrittenOutputPhysicalDataSizeInBytes(), 32);
+        assertEquals(actual.getWrittenOutputLogicalDataSize(), new DataSize(31, BYTE));
+        assertEquals(actual.getWrittenOutputPhysicalDataSize(), new DataSize(32, BYTE));
 
-        assertEquals(actual.getWrittenIntermediatePhysicalDataSizeInBytes(), 33);
+        assertEquals(actual.getWrittenIntermediatePhysicalDataSize(), new DataSize(33, BYTE));
 
         assertEquals(actual.getStageGcStatistics().size(), 1);
         StageGcStatistics gcStatistics = actual.getStageGcStatistics().get(0);
