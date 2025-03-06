@@ -49,13 +49,13 @@ public class TestHiveSslEnableTrustStore
                 this.dockerizedS3DataLake.getMinio().getMinioApiEndpoint(),
                 HiveMinIODataLake.ACCESS_KEY,
                 HiveMinIODataLake.SECRET_KEY,
-                new HashMap<>(),
                 ImmutableMap.<String, String>builder()
                         // This is required when connecting to ssl enabled hms
                         .put("hive.metastore.thrift.client.tls.enabled", "true")
                         .put("hive.metastore.thrift.client.tls.truststore.path", this.getClass().getClassLoader().getResource("hive_ssl_enable/truststore.jks").getPath())
                         .put("hive.metastore.thrift.client.tls.truststore.password", "password")
-                        .build());
+                        .build(),
+                new HashMap<>());
     }
 
     @BeforeClass
