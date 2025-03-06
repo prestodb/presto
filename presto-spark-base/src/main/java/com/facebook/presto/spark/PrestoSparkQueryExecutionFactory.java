@@ -116,7 +116,6 @@ import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.util.CollectionAccumulator;
-import org.joda.time.DateTime;
 import scala.Option;
 
 import javax.inject.Inject;
@@ -423,7 +422,7 @@ public class PrestoSparkQueryExecutionFactory
                 StageExecutionState.FINISHED,
                 Optional.empty(),
                 taskInfos,
-                DateTime.now(),
+                System.currentTimeMillis(),
                 new Distribution().snapshot(),
                 new RuntimeStats(),
                 peakUserMemoryReservationInBytes,
