@@ -44,7 +44,7 @@ public class TableArgumentSpecification
         return passThroughColumns;
     }
 
-    public static Builder builder(String name)
+    public static Builder builder()
     {
         return new Builder();
     }
