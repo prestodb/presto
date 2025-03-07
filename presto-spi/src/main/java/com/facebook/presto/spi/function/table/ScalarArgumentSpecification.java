@@ -15,7 +15,7 @@ package com.facebook.presto.spi.function.table;
 
 import com.facebook.presto.common.type.Type;
 
-import static com.facebook.presto.spi.function.table.ConnectorTableFunction.checkArgument;
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

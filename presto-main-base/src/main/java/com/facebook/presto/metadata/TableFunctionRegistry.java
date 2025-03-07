@@ -19,7 +19,9 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.function.CatalogSchemaFunctionName;
 import com.facebook.presto.spi.function.SchemaFunctionName;
+import com.facebook.presto.spi.function.table.ArgumentSpecification;
 import com.facebook.presto.spi.function.table.ConnectorTableFunction;
+import com.facebook.presto.spi.function.table.TableArgumentSpecification;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
@@ -28,11 +30,14 @@ import com.google.common.collect.ImmutableMap;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.spi.StandardErrorCode.MISSING_CATALOG_NAME;
+import static com.facebook.presto.spi.function.table.Preconditions.checkArgument;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.SCHEMA_NOT_SPECIFIED;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,6 +54,9 @@ public class TableFunctionRegistry
     {
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(functions, "functions is null");
+
+        functions.stream()
+                .forEach(TableFunctionRegistry::validateTableFunction);
 
         ImmutableMap.Builder<SchemaFunctionName, TableFunctionMetadata> builder = ImmutableMap.builder();
         for (ConnectorTableFunction function : functions) {
@@ -114,5 +122,30 @@ public class TableFunctionRegistry
         }
 
         return null;
+    }
+
+    private static void validateTableFunction(ConnectorTableFunction tableFunction)
+    {
+        requireNonNull(tableFunction, "tableFunction is null");
+        requireNonNull(tableFunction.getName(), "table function name is null");
+        requireNonNull(tableFunction.getSchema(), "table function schema name is null");
+        requireNonNull(tableFunction.getArguments(), "table function arguments is null");
+        requireNonNull(tableFunction.getReturnTypeSpecification(), "table function returnTypeSpecification is null");
+
+        checkArgument(!tableFunction.getName().isEmpty(), "table function name is empty");
+        checkArgument(!tableFunction.getSchema().isEmpty(), "table function schema name is empty");
+
+        Set<String> argumentNames = new HashSet<>();
+        for (ArgumentSpecification specification : tableFunction.getArguments()) {
+            if (!argumentNames.add(specification.getName())) {
+                throw new IllegalArgumentException("duplicate argument name: " + specification.getName());
+            }
+        }
+        long tableArgumentsWithRowSemantics = tableFunction.getArguments().stream()
+                .filter(specification -> specification instanceof TableArgumentSpecification)
+                .map(TableArgumentSpecification.class::cast)
+                .filter(TableArgumentSpecification::isRowSemantics)
+                .count();
+        checkArgument(tableArgumentsWithRowSemantics <= 1, "more than one table argument with row semantics");
     }
 }
