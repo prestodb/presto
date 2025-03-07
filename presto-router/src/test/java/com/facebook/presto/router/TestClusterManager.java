@@ -34,11 +34,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -97,7 +94,6 @@ public class TestClusterManager
                 .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
                 .setRequiredConfigurationProperty("presto.version", "testversion")
                 .quiet().initialize();
-
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
         httpServerInfo = injector.getInstance(HttpServerInfo.class);
