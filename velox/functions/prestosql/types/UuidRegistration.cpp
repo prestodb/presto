@@ -28,11 +28,11 @@ namespace {
 class UuidCastOperator : public exec::CastOperator {
  public:
   bool isSupportedFromType(const TypePtr& other) const override {
-    return VARCHAR()->equivalent(*other);
+    return VARCHAR()->equivalent(*other) || VARBINARY()->equivalent(*other);
   }
 
   bool isSupportedToType(const TypePtr& other) const override {
-    return VARCHAR()->equivalent(*other);
+    return VARCHAR()->equivalent(*other) || VARBINARY()->equivalent(*other);
   }
 
   void castTo(
@@ -43,7 +43,8 @@ class UuidCastOperator : public exec::CastOperator {
       VectorPtr& result) const override {
     context.ensureWritable(rows, resultType, result);
 
-    if (input.typeKind() == TypeKind::VARCHAR) {
+    if (input.typeKind() == TypeKind::VARCHAR ||
+        input.typeKind() == TypeKind::VARBINARY) {
       castFromString(input, context, rows, *result);
     } else {
       VELOX_UNSUPPORTED(
@@ -59,7 +60,8 @@ class UuidCastOperator : public exec::CastOperator {
       VectorPtr& result) const override {
     context.ensureWritable(rows, resultType, result);
 
-    if (resultType->kind() == TypeKind::VARCHAR) {
+    if (resultType->kind() == TypeKind::VARCHAR ||
+        resultType->kind() == TypeKind::VARBINARY) {
       castToString(input, context, rows, *result);
     } else {
       VELOX_UNSUPPORTED(
