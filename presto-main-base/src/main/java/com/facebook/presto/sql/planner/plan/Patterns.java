@@ -228,6 +228,11 @@ public class Patterns
         return typeOf(WindowNode.class);
     }
 
+    public static Pattern<TableFunctionNode> tableFunction()
+    {
+        return typeOf(TableFunctionNode.class);
+    }
+
     public static Pattern<RowNumberNode> rowNumber()
     {
         return typeOf(RowNumberNode.class);
