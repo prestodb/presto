@@ -1381,7 +1381,7 @@ export class QueryDetail extends React.Component {
                                     Completion Time
                                 </td>
                                 <td className="info-text">
-                                    {query.queryStats.endTime ? formatShortDateTime(new Date(query.queryStats.endTime)) : ""}
+                                    {new Date(query.queryStats.endTime).getTime() !== 0 ? formatShortDateTime(new Date(query.queryStats.endTime)) : ""}
                                 </td>
                             </tr>
                             <tr>

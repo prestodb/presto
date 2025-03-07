@@ -1338,7 +1338,7 @@ export default function QueryOverview({ data, show }: { data: QueryData, show: b
                                     Completion Time
                                 </td>
                                 <td className="info-text">
-                                    {data.queryStats.endTime ? formatShortDateTime(new Date(data.queryStats.endTime)) : ""}
+                                    {new Date(data.queryStats.endTime).getTime() !== 0 ? formatShortDateTime(new Date(data.queryStats.endTime)) : ""}
                                 </td>
                             </tr>
                             <tr>
