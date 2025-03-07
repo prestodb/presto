@@ -68,6 +68,11 @@ bool SimpleFunctionRegistry::registerFunctionInternal(
   });
 }
 
+void SimpleFunctionRegistry::removeFunction(const std::string& name) {
+  const auto sanitizedName = sanitizeName(name);
+  registeredFunctions_.withWLock([&](auto& map) { map.erase(sanitizedName); });
+}
+
 namespace {
 // This function is not thread safe. It should be called only from within a
 // synchronized read region of registeredFunctions_.

@@ -97,6 +97,10 @@ resolveVectorFunctionWithMetadata(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
+/// Given name of a function, removes it from both the simple and vector
+/// function registries (including all signatures).
+void removeFunction(const std::string& functionName);
+
 /// Clears the function registry.
 void clearFunctionRegistry();
 

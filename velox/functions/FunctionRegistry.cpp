@@ -181,4 +181,10 @@ resolveVectorFunctionWithMetadata(
   return exec::resolveVectorFunctionWithMetadata(functionName, argTypes);
 }
 
+void removeFunction(const std::string& functionName) {
+  exec::mutableSimpleFunctions().removeFunction(functionName);
+  exec::vectorFunctionFactories().withWLock(
+      [&](auto& functionMap) { functionMap.erase(functionName); });
+}
+
 } // namespace facebook::velox

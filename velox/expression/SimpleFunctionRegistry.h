@@ -91,6 +91,8 @@ class SimpleFunctionRegistry {
     }
   }
 
+  void removeFunction(const std::string& name);
+
   std::vector<std::string> getFunctionNames() const {
     std::vector<std::string> result;
     registeredFunctions_.withRLock([&](const auto& map) {
