@@ -218,7 +218,8 @@ public class HashBuilderOperator
     private final Optional<Integer> sortChannel;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
 
-    private final PagesIndex index;
+    @Nullable
+    private PagesIndex index;
 
     private final boolean spillEnabled;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
@@ -525,6 +526,13 @@ public class HashBuilderOperator
             return;
         }
 
+        checkState(index != null, "index is null");
+        ListenableFuture<?> reserved = localUserMemoryContext.setBytes(index.getEstimatedMemoryRequiredToCreateLookupSource(
+                sortChannel));
+        if (!reserved.isDone()) {
+            // Yield when not enough memory is available to proceed, finish is expected to be called again when some memory is freed
+            return;
+        }
         LookupSourceSupplier partition = buildLookupSource();
         if (spillEnabled) {
             localRevocableMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
@@ -545,10 +553,6 @@ public class HashBuilderOperator
             return;
         }
 
-        index.clear();
-        localRevocableMemoryContext.setBytes(0);
-        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes(), enforceBroadcastMemoryLimit);
-        lookupSourceSupplier = null;
         close();
     }
 
@@ -676,15 +680,17 @@ public class HashBuilderOperator
         }
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
         lookupSourceSupplier = null;
+        localRevocableMemoryContext.setBytes(0);
+        localUserMemoryContext.setBytes(0, enforceBroadcastMemoryLimit);
+        index = null;
+        lookupSourceSupplier = null;
+
         unspillInProgress = Optional.empty();
         state = State.CLOSED;
         finishMemoryRevoke = finishMemoryRevoke.map(ifPresent -> () -> {});
 
         try (Closer closer = Closer.create()) {
-            closer.register(index::clear);
             spiller.ifPresent(closer::register);
-            closer.register(() -> localUserMemoryContext.setBytes(0, enforceBroadcastMemoryLimit));
-            closer.register(() -> localRevocableMemoryContext.setBytes(0));
         }
         catch (IOException e) {
             throw new RuntimeException(e);

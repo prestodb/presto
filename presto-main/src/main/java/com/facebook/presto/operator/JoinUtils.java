@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.List;
 
@@ -26,7 +27,7 @@ public final class JoinUtils
 {
     private JoinUtils() {}
 
-    public static List<Page> channelsToPages(List<List<Block>> channels)
+    public static List<Page> channelsToPages(List<ObjectArrayList<Block>> channels)
     {
         if (channels.isEmpty()) {
             return ImmutableList.of();
