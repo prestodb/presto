@@ -15,7 +15,6 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.QueryId;
@@ -103,7 +102,8 @@ public class QueryRewriterManager
             QueryPreparerProvider queryPreparerProvider)
     {
         QueryId queryId = session.getQueryId();
-        QueryAndSessionProperties rewrittenQueryAndSessionProperties = new QueryAndSessionProperties(query, session.getSystemProperties(), Optional.empty());
+        requireNonNull(query, "expected non null query");
+        QueryAndSessionProperties rewrittenQueryAndSessionProperties = new QueryAndSessionProperties(Optional.of(query), session.getSystemProperties());
         if (getQueryRewriterProvider().isPresent()) {
             QueryRewriterInput queryRewriterInput = new QueryRewriterInput.Builder()
                     .setQuery(query)
@@ -117,22 +117,13 @@ public class QueryRewriterManager
                     .setAnalyzerProvider(analyzerProvider)
                     .setQueryPreparer(queryPreparerProvider.getQueryPreparer())
                     .build();
-            try {
-                QueryRewriterProvider provider = getQueryRewriterProvider().get();
-                QueryRewriterOutput queryRewriterOutput = provider.getQueryRewriter().rewriteSQL(queryRewriterInput);
-                String rewrittenQuery = queryRewriterOutput.getRewrittenQuery();
-                // Checking if the rewritten query is parseable.
-                PreparedQuery preparedQuery = queryPreparerProvider.getQueryPreparer()
-                        .prepareQuery(analyzerOptions, rewrittenQuery, session.getPreparedStatements(), session.getWarningCollector());
-                // apply updated session properties.
-                Map<String, String> systemPropertyOverrides = queryRewriterOutput.getSessionProperties();
-                rewrittenQueryAndSessionProperties = new QueryAndSessionProperties(rewrittenQuery, systemPropertyOverrides, Optional.of(preparedQuery));
-                log.info("createQueryInternal :: QueryId [%s] - Replacing with optimized query", queryId.getId());
-            }
-            catch (Exception e) {
-                // TODO : Implement a better way to test if rewritten query is parseable.
-                log.warn(format("rewritten query for query with id %s is discarded", session.getQueryId()), e);
-            }
+            QueryRewriterProvider provider = getQueryRewriterProvider().get();
+            QueryRewriterOutput queryRewriterOutput = provider.getQueryRewriter().rewriteSQL(queryRewriterInput);
+            String rewrittenQuery = queryRewriterOutput.getRewrittenQuery();
+            // apply updated session properties.
+            Map<String, String> systemPropertyOverrides = queryRewriterOutput.getSessionProperties();
+            rewrittenQueryAndSessionProperties = new QueryAndSessionProperties(Optional.ofNullable(rewrittenQuery), systemPropertyOverrides);
+            log.info("createQueryInternal :: QueryId [%s] - Replacing with optimized query", queryId.getId());
         }
         return rewrittenQueryAndSessionProperties;
     }
