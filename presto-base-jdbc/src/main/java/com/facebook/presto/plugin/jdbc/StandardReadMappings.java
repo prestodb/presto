@@ -21,9 +21,11 @@ import com.google.common.base.CharMatcher;
 import org.joda.time.chrono.ISOChronology;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -157,12 +159,18 @@ public final class StandardReadMappings
     {
         return longReadMapping(TIMESTAMP, (resultSet, columnIndex) -> {
             /*
-             * TODO `resultSet.getTimestamp(columnIndex)` returns wrong value if JVM's zone had forward offset change and the local time
-             * corresponding to timestamp value being retrieved was not present (a 'gap'), this includes regular DST changes (e.g. Europe/Warsaw)
-             * and one-time policy changes (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00).
-             * The problem can be averted by using `resultSet.getObject(columnIndex, LocalDateTime.class)` -- but this is not universally supported by JDBC drivers.
+             * resultSet.getTimestamp() checks if the value is valid in the JVM's zone on some JDBC drivers. If it does not check on other JDBC drivers, it could return invalid
+             * time value if JVM's zone has forward offset change, e.g. during daylight saving, and the time value is not present in local time. Retry with
+             * resultSet.getObject(columnIndex, LocalDateTime.class) which does not check validity. Timestamp.valueOf() returns a value valid in JVM's zone.
              */
-            Timestamp timestamp = resultSet.getTimestamp(columnIndex);
+            Timestamp timestamp;
+            try {
+                timestamp = resultSet.getTimestamp(columnIndex);
+            }
+            catch (SQLException e) {
+                LocalDateTime dateTime = resultSet.getObject(columnIndex, LocalDateTime.class);
+                timestamp = Timestamp.valueOf(dateTime);
+            }
             return timestamp.getTime();
         });
     }
