@@ -26,13 +26,15 @@ Values::Values(CompileState& state, const core::ValuesNode& values)
       roundsLeft_(values.repeatTimes()) {}
 
 std::vector<AdvanceResult> Values::canAdvance(WaveStream& stream) {
+  std::vector<AdvanceResult> results;
   if (current_ < values_.size()) {
-    return {{.numRows = values_[current_]->size()}};
+    auto& result = results.emplace_back();
+    result.numRows = values_[current_]->size();
+  } else if (roundsLeft_ > 1) {
+    auto& result = results.emplace_back();
+    result.numRows = values_[0]->size();
   }
-  if (roundsLeft_ > 1) {
-    return {{.numRows = values_[0]->size()}};
-  }
-  return {};
+  return results;
 }
 
 void Values::schedule(WaveStream& stream, int32_t maxRows) {

@@ -262,6 +262,7 @@ AdvanceResult AbstractReadAggregation::canAdvance(
     LaunchControl* control,
     OperatorState* state,
     int32_t instructionIdx) const {
+  AdvanceResult result;
   auto* aggState = reinterpret_cast<AggregateOperatorState*>(state);
   int32_t batchSize = FLAGS_wave_max_reader_batch_rows;
   int32_t rowSize = aggState->rowSize;
@@ -270,7 +271,7 @@ AdvanceResult AbstractReadAggregation::canAdvance(
     auto maxReadStreams = aggState->maxReadStreams;
     auto streamIdx = stream.streamIdx();
     if (streamIdx >= maxReadStreams) {
-      return {};
+      return result;
     }
     auto deviceStream = WaveStream::streamFromReserve();
     auto deviceAgg = aggState->alignedHead;
@@ -334,22 +335,25 @@ AdvanceResult AbstractReadAggregation::canAdvance(
         aggState->temp->as<uintptr_t>() + 1);
     aggState->temp->as<uintptr_t>()[0] = numRows;
     if (numRows == 0) {
-      return {};
+      return result;
     }
     deviceStream->hostToDeviceAsync(
         aggState->resultRows[streamIdx]->as<char>(),
         aggState->temp->as<char>(),
         (numRows + 1) * sizeof(int64_t*));
     deviceStream->wait();
-    return {.numRows = numRows};
+    result.numRows = numRows;
+    return result;
   }
 
   // Single row case.
   if (aggState->isNew) {
     aggState->isNew = false;
-    return {.numRows = 1, .continueLabel = continueLabel};
+    result.numRows = 1;
+    result.continueLabel = continueLabel;
+    return result;
   }
-  return {};
+  return result;
 }
 
 } // namespace facebook::velox::wave
