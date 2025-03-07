@@ -73,7 +73,12 @@ class JsonExtractor {
 
     while (kTokenizer.hasNext()) {
       if (auto token = kTokenizer.getNext()) {
-        tokens_.emplace_back(token.value());
+        auto& tk = token.value();
+        if (tk.selector == JsonPathTokenizer::Selector::WILDCARD) {
+          tokens_.emplace_back("*");
+        } else {
+          tokens_.emplace_back(tk.value);
+        }
       } else {
         tokens_.clear();
         return false;

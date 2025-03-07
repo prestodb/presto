@@ -29,12 +29,16 @@ namespace facebook::velox::functions {
 ///   $ - the root element
 ///   . or [] - child operator
 ///   * - wildcard (all objects/elements regardless their names)
+///   @ - current node (but only when specified at the beginning)
 ///
 /// Supports single- and double-quoted keys.
 ///
 /// Notably, doesn't support deep scan, e.g. $..author.
 ///
-/// The leading '$.' is optional. Paths '$.foo.bar' and 'foo.bar' are
+/// Jawyay specific behaviour that velox adopts:
+///
+/// (1) Leading '$.' is optional:
+/// Paths '$.foo.bar' and 'foo.bar' are
 /// equivalent. This is not part of JSONPath syntax, but this is the behavior of
 /// Jayway implementation used by Presto.
 ///
@@ -42,10 +46,54 @@ namespace facebook::velox::functions {
 /// and '$[0]' are equivalent.  This is not part of JSONPath syntax, but this is
 /// the behavior of Jayway implementation used by Presto.
 ///
+/// NOTE: Jayway implementation does not automatically attach a '$.' if the path
+/// starts with '@' as '@' points to the current node which if used at the
+/// beginning is equivalent to '$'. Velox also honors this.
+///
+/// (2) Redundant dot-notation:
 /// It is allowed to use dot-notation redundantly, e.g. non-standard path
 /// '$.[0].foo' is allowed and is equivalent to '$[0].foo'. Similarly, paths
 /// '$.[0].[1].[2]' and '$[0].[1][2]' are allowed and equivalent to
 /// '$[0][1][2]'.
+///
+/// NOTE: Jayway changes the interpretation of the string inside a bracket
+/// depending on whether a dot precedes the brackets or not. If a dot precedes
+/// the brackets, then an unquoted string inside the brackets can only consist
+/// of a wildcard or an index. For example, in Jayway, $.foo[bar] is valid, but
+/// $.foo.[bar] is not. Therefore, even though $.foo[0] and $.foo.[0] are both
+/// valid, in the former, '0' can serve both as a key and an index, but
+/// in the latter, '0' can only be an index. In Velox, we do not make this
+/// distinction and always treat an unquoted string inside a bracket as both a
+/// key and an index.
+///
+/// (3) String after dot-notation is consumed as if inside quotes:
+/// Some special characters in json path syntax like AT '@', SINGLE-QUOTE ''',
+/// COLON ':' and DOUBLE-QUOTE '"' are not treated specially and consumed. For
+/// eg. '$.$' is equivalent to '$.['$']. Similarly, '$."abc"' is equivalent to
+/// '$.["\"abc\""]'
+///
+/// (4) Whitespaces are ignored between brackets [] and unquoted strings:
+/// Jayway only ignores whitespaces for unquoted strings containing only numbers
+/// whereas in velox we allow it for other permissible characters as well. For
+/// eg. $.[ foo ] is invalid in Jayway but ALLOWED in velox. This was done to
+/// make the behavior of ignoring whitespaces more consistent as whitespaces are
+/// ignored if there is a quoted string within brackets.
+///
+/// (5) Dot and Bracket notation are interpreted the same after a wildcard:
+/// Jayway changes how it inteprets unquoted strings after dot and bracket
+/// notations. That is, tokens after dot notation are considered as either a
+/// key(if there is an object) or an index(if there is an array), however
+/// in Jayway if this is preceeded by a wildcard then it is only considered as
+/// a key. For eg: SELECT json_extract(json '[["array0", "array1"]]',
+/// '$.*.0') => return [] in jayway but SELECT json_extract(json '[["array0",
+/// "array1"]]', '$.0.0') => returns "array0"
+/// Similarly, tokens after bracket notation are also considered as either a
+/// key or an index but in Jawyway if this is preceeded by a wildcard
+/// then it is only considered as an index. For eg: SELECT json_extract(json
+/// '[{"0": "obj"}]', '$.*.[0]') => returns [] in jayway but SELECT
+/// json_extract(json '[{"0": "obj"}]', '$.0.[0]') => returns "obj"
+/// In Velox, we do not make this distinction and always treat an unquoted
+/// string inside a bracket or after a dot as both a key and an index.
 ///
 /// Examples:
 ///   "$"
@@ -56,8 +104,23 @@ namespace facebook::velox::functions {
 ///   "$[-1]"
 ///   "[0][1]"
 ///   "$['store'][book][1]"
+///
+/// TODO: Add support for unicode charaters after dot notation.
 class JsonPathTokenizer {
  public:
+  enum class Selector { KEY, WILDCARD, KEY_OR_INDEX };
+
+  struct Token {
+    std::string value;
+    Selector selector;
+
+    bool operator==(const Token& other) const {
+      return (value == other.value && selector == other.selector);
+    }
+
+    std::string toString() const;
+  };
+
   /// Resets the tokenizer to a new path. This method must be called and return
   /// true before calling hasNext or getNext.
   ///
@@ -70,16 +133,18 @@ class JsonPathTokenizer {
 
   /// Returns the next token or std::nullopt if there are no more tokens left or
   /// the remaining path is invalid.
-  std::optional<std::string> getNext();
+  std::optional<Token> getNext();
 
  private:
   bool match(char expected);
 
-  std::optional<std::string> matchDotKey();
+  std::optional<Token> matchDotKey();
 
-  std::optional<std::string> matchUnquotedSubscriptKey();
+  std::optional<Token> matchUnquotedSubscriptKey();
 
-  std::optional<std::string> matchQuotedSubscriptKey(char quote);
+  std::optional<Token> matchQuotedSubscriptKey(char quote);
+
+  void skipWhitespace();
 
   // The index of the next character to process. This is at least one for
   // standard paths that start with '$'. This can be zero if 'reset' was called

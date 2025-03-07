@@ -91,7 +91,7 @@ class SIMDJsonExtractor {
   // Max number of extractors cached in extractorCache.
   static const uint32_t kMaxCacheSize{32};
 
-  std::vector<std::string> tokens_;
+  std::vector<JsonPathTokenizer::Token> tokens_;
 };
 
 simdjson::error_code extractObject(
@@ -118,7 +118,7 @@ simdjson::error_code SIMDJsonExtractor::extract(
       return consumer(jsonDoc);
     }
     VELOX_CHECK_GT(tokens_.size(), 0);
-    if (tokens_[0] == "*") {
+    if (tokens_[0].selector == JsonPathTokenizer::Selector::WILDCARD) {
       isDefinitePath = false;
     }
     return simdjson::SUCCESS;
@@ -140,11 +140,11 @@ simdjson::error_code SIMDJsonExtractor::extract(
   for (int tokenIndex = tokenStartIndex; tokenIndex < tokens_.size();
        tokenIndex++) {
     auto& token = tokens_[tokenIndex];
-    if (token == "*") {
+    if (token.selector == JsonPathTokenizer::Selector::WILDCARD) {
       isDefinitePath = false;
     }
     if (input.type() == simdjson::ondemand::json_type::object) {
-      if (token == "*") {
+      if (token.selector == JsonPathTokenizer::Selector::WILDCARD) {
         SIMDJSON_ASSIGN_OR_RAISE(auto jsonObj, input.get_object());
         for (auto field : jsonObj) {
           simdjson::ondemand::value val = field.value();
@@ -160,11 +160,13 @@ simdjson::error_code SIMDJsonExtractor::extract(
           }
         }
         return simdjson::SUCCESS;
-      } else {
-        SIMDJSON_TRY(extractObject(input, token, result));
+      } else if (
+          token.selector == JsonPathTokenizer::Selector::KEY ||
+          token.selector == JsonPathTokenizer::Selector::KEY_OR_INDEX) {
+        SIMDJSON_TRY(extractObject(input, token.value, result));
       }
     } else if (input.type() == simdjson::ondemand::json_type::array) {
-      if (token == "*") {
+      if (token.selector == JsonPathTokenizer::Selector::WILDCARD) {
         for (auto child : input.get_array()) {
           if (tokenIndex == tokens_.size() - 1) {
             // If this is the last token in the path, consume each element in
@@ -178,8 +180,8 @@ simdjson::error_code SIMDJsonExtractor::extract(
           }
         }
         return simdjson::SUCCESS;
-      } else {
-        SIMDJSON_TRY(extractArray(input, token, result));
+      } else if (token.selector == JsonPathTokenizer::Selector::KEY_OR_INDEX) {
+        SIMDJSON_TRY(extractArray(input, token.value, result));
       }
     }
     if (!result) {
