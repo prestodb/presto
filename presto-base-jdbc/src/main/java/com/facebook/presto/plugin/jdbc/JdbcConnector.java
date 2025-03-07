@@ -46,9 +46,6 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
-import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static java.util.Objects.requireNonNull;
 
@@ -71,6 +68,7 @@ public class JdbcConnector
     private final RowExpressionService rowExpressionService;
     private final JdbcClient jdbcClient;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final JdbcTransactionManager transactionManager;
 
     @Inject
     public JdbcConnector(
@@ -85,7 +83,8 @@ public class JdbcConnector
             StandardFunctionResolution functionResolution,
             RowExpressionService rowExpressionService,
             JdbcClient jdbcClient,
-            Optional<JdbcSessionPropertiesProvider> sessionPropertiesProvider)
+            Optional<JdbcSessionPropertiesProvider> sessionPropertiesProvider,
+            JdbcTransactionManager transactionManager)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.jdbcMetadataFactory = requireNonNull(jdbcMetadataFactory, "jdbcMetadataFactory is null");
@@ -99,6 +98,7 @@ public class JdbcConnector
         this.rowExpressionService = requireNonNull(rowExpressionService, "rowExpressionService is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.sessionProperties = requireNonNull(sessionPropertiesProvider, "sessionPropertiesProvider is null").map(JdbcSessionPropertiesProvider::getSessionProperties).orElse(ImmutableList.of());
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
 
     @Override
@@ -121,33 +121,26 @@ public class JdbcConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
-        checkConnectorSupports(READ_COMMITTED, isolationLevel);
-        JdbcTransactionHandle transaction = new JdbcTransactionHandle();
-        transactions.put(transaction, jdbcMetadataFactory.create());
-        return transaction;
+        return transactionManager.beginTransaction(isolationLevel, readOnly);
     }
 
     @Override
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
-        JdbcMetadata metadata = transactions.get(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        return new ClassLoaderSafeConnectorMetadata(metadata, getClass().getClassLoader());
+        return new ClassLoaderSafeConnectorMetadata(transactionManager.getMetadata(transaction), getClass().getClassLoader());
     }
 
     @Override
     public ConnectorCommitHandle commit(ConnectorTransactionHandle transaction)
     {
-        checkArgument(transactions.remove(transaction) != null, "no such transaction: %s", transaction);
+        transactionManager.commit(transaction);
         return INSTANCE;
     }
 
     @Override
     public void rollback(ConnectorTransactionHandle transaction)
     {
-        JdbcMetadata metadata = transactions.remove(transaction);
-        checkArgument(metadata != null, "no such transaction: %s", transaction);
-        metadata.rollback();
+        transactionManager.rollback(transaction);
     }
 
     @Override
