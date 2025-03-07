@@ -33,6 +33,7 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.IndexSourceNode;
+import com.facebook.presto.spi.plan.InputDistribution;
 import com.facebook.presto.spi.plan.JoinDistributionType;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.LimitNode;
@@ -545,7 +546,7 @@ public class AddExchanges
             if (!node.getInputDistribution().isPresent()) {
                 return visitPlan(node, preferredProperties);
             }
-            DeleteNode.InputDistribution inputDistribution = node.getInputDistribution().get();
+            InputDistribution inputDistribution = node.getInputDistribution().get();
             List<LocalProperty<VariableReferenceExpression>> desiredProperties = new ArrayList<>();
             if (!inputDistribution.getPartitionBy().isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(inputDistribution.getPartitionBy()));
