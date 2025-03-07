@@ -136,7 +136,7 @@ public class TestClusterManager
         assertQueryState();
     }
 
-    @Test(enabled = false)
+    @Test
     public void testConfigReload()
             throws IOException, InterruptedException
     {
@@ -146,21 +146,21 @@ public class TestClusterManager
         String originalConfigContent = new String(Files.readAllBytes(configFilePath));
         String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
 
-        FileOutputStream fos = new FileOutputStream(configFilePath.toString(), false);
-        byte[] bytes = modifiedConfigContent.getBytes(StandardCharsets.UTF_8);
-        fos.write(bytes);
-        fos.close();
+        FileOutputStream fos = new FileOutputStream(configFile, false);
 
-        System.out.println(new String(Files.readAllBytes(configFilePath)));
-
-        while (clusterManager.getAllClusters().size() == 3) {
-            Thread.sleep(1);
-        }
+        fos.write(modifiedConfigContent.getBytes());
+        fos.flush();
+        fos.getFD().sync();
+        Thread.sleep(500);
 
         assertEquals(clusterManager.getAllClusters().size(), 0);
 
-        Files.write(configFile.toPath(), originalConfigContent.getBytes(), StandardOpenOption.WRITE);
+        fos.write(originalConfigContent.getBytes());
+        fos.flush();
+        fos.getFD().sync();
         Thread.sleep(500);
+
+        fos.close();
 
         assertEquals(clusterManager.getAllClusters().size(), 3);
     }
@@ -204,7 +204,7 @@ public class TestClusterManager
             throws IOException
     {
         // setup router config file
-        File tempFile = File.createTempFile("router", "json");
+        File tempFile = File.createTempFile("router", ".json");
         FileOutputStream fileOutputStream = new FileOutputStream(tempFile);
         String configTemplate = new String(Files.readAllBytes(Paths.get(getResourceFilePath("simple-router-template.json"))));
         fileOutputStream.write(configTemplate.replaceAll("\\$\\{SERVERS}", getClusterList(servers)).getBytes(UTF_8));
