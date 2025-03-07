@@ -64,21 +64,21 @@ public class TableArgumentSpecification
             return this;
         }
 
-        public Builder rowSemantics(boolean rowSemantics)
+        public Builder rowSemantics()
         {
-            this.rowSemantics = rowSemantics;
+            this.rowSemantics = true;
             return this;
         }
 
-        public Builder pruneWhenEmpty(boolean pruneWhenEmpty)
+        public Builder pruneWhenEmpty()
         {
-            this.pruneWhenEmpty = pruneWhenEmpty;
+            this.pruneWhenEmpty = true;
             return this;
         }
 
-        public Builder passThroughColumns(boolean passThroughColumns)
+        public Builder passThroughColumns()
         {
-            this.passThroughColumns = passThroughColumns;
+            this.passThroughColumns = true;
             return this;
         }
 
