@@ -70,8 +70,10 @@ using SubfieldFilters = std::unordered_map<Subfield, std::unique_ptr<Filter>>;
  */
 class Filter : public velox::ISerializable {
  protected:
-  Filter(bool deterministic, bool nullAllowed, FilterKind kind)
-      : nullAllowed_(nullAllowed), deterministic_(deterministic), kind_(kind) {}
+  Filter(bool _deterministic, bool _nullAllowed, FilterKind _kind)
+      : nullAllowed_(_nullAllowed),
+        deterministic_(_deterministic),
+        kind_(_kind) {}
 
  public:
   virtual ~Filter() = default;
@@ -1893,7 +1895,7 @@ class TimestampRange : public Filter {
     return upper_;
   }
 
-  const bool nullAllowed() const {
+  bool nullAllowed() const {
     return nullAllowed_;
   }
 

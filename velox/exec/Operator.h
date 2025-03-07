@@ -67,7 +67,7 @@ class OperatorCtx {
     return planNodeId_;
   }
 
-  const int32_t operatorId() const {
+  int32_t operatorId() const {
     return operatorId_;
   }
 
@@ -383,11 +383,11 @@ class Operator : public BaseRuntimeStatWriter {
     return operatorCtx_->planNodeId();
   }
 
-  const int32_t operatorId() const {
+  int32_t operatorId() const {
     return operatorCtx_->operatorId();
   }
 
-  const uint32_t splitGroupId() const {
+  uint32_t splitGroupId() const {
     return operatorCtx_->driverCtx()->splitGroupId;
   }
 

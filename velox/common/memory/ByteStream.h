@@ -352,7 +352,14 @@ class ByteOutputStream {
 
   template <typename T>
   void append(folly::Range<const T*> values) {
-    static_assert(std::is_trivially_copyable_v<T>);
+    static_assert(
+        std::is_trivially_copyable_v<T> ||
+        std::is_same_v<T, std::shared_ptr<void>>);
+
+    if (std::is_same_v<T, std::shared_ptr<void>>) {
+      VELOX_FAIL("Cannot serialize OPAQUE data");
+    }
+
     if (current_->position + sizeof(T) * values.size() > current_->size) {
       appendStringView(std::string_view(
           reinterpret_cast<const char*>(&values[0]),
@@ -517,12 +524,6 @@ class ByteOutputStream {
   template <typename T>
   friend class AppendWindow;
 };
-
-template <>
-inline void ByteOutputStream::append(
-    folly::Range<const std::shared_ptr<void>*> /*values*/) {
-  VELOX_FAIL("Cannot serialize OPAQUE data");
-}
 
 /// A scoped wrapper that provides 'size' T's of writable space in 'stream'.
 /// Normally gives an address into 'stream's buffer but can use 'scratch' to
