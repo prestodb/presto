@@ -24,7 +24,8 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.airlift.node.testing.TestingNodeModule;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.jdbc.PrestoResultSet;
-import com.facebook.presto.router.cluster.ClusterStatusTracker;
+import com.facebook.presto.router.cluster.ClusterManager;
+import com.facebook.presto.router.cluster.ClusterManager.ClusterStatusTracker;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
@@ -37,8 +38,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -62,6 +66,7 @@ public class TestClusterManager
     private List<TestingPrestoServer> prestoServers;
     private LifeCycleManager lifeCycleManager;
     private HttpServerInfo httpServerInfo;
+    private ClusterManager clusterManager;
     private ClusterStatusTracker clusterStatusTracker;
     private File configFile;
 
@@ -85,11 +90,15 @@ public class TestClusterManager
                 new JaxrsModule(true),
                 new RouterModule());
 
-        Injector injector = app.doNotInitializeLogging().setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath()).quiet().initialize();
+        Injector injector = app.doNotInitializeLogging()
+                .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
+                .setRequiredConfigurationProperty("presto.version", "testversion")
+                .quiet().initialize();
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
         httpServerInfo = injector.getInstance(HttpServerInfo.class);
         clusterStatusTracker = injector.getInstance(ClusterStatusTracker.class);
+        clusterManager = injector.getInstance(ClusterManager.class);
     }
 
     @AfterClass(alwaysRun = true)
@@ -102,7 +111,7 @@ public class TestClusterManager
         lifeCycleManager.stop();
     }
 
-    @Test(enabled = false)
+    @Test
     public void testQuery()
             throws Exception
     {
@@ -125,6 +134,35 @@ public class TestClusterManager
         sleepUninterruptibly(10, SECONDS);
         assertEquals(clusterStatusTracker.getAllQueryInfos().size(), NUM_QUERIES);
         assertQueryState();
+    }
+
+    @Test
+    public void testConfigReload()
+            throws IOException, InterruptedException
+    {
+        Path configFilePath = configFile.toPath();
+        assertEquals(clusterManager.getAllClusters().size(), 3);
+
+        String originalConfigContent = new String(Files.readAllBytes(configFilePath));
+        String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
+
+        FileOutputStream fos = new FileOutputStream(configFile, false);
+
+        fos.write(modifiedConfigContent.getBytes());
+        fos.flush();
+        fos.getFD().sync();
+        Thread.sleep(500);
+
+        assertEquals(clusterManager.getAllClusters().size(), 0);
+
+        fos.write(originalConfigContent.getBytes());
+        fos.flush();
+        fos.getFD().sync();
+        Thread.sleep(500);
+
+        fos.close();
+
+        assertEquals(clusterManager.getAllClusters().size(), 3);
     }
 
     private void assertQueryState()
@@ -166,7 +204,7 @@ public class TestClusterManager
             throws IOException
     {
         // setup router config file
-        File tempFile = File.createTempFile("router", "json");
+        File tempFile = File.createTempFile("router", ".json");
         FileOutputStream fileOutputStream = new FileOutputStream(tempFile);
         String configTemplate = new String(Files.readAllBytes(Paths.get(getResourceFilePath("simple-router-template.json"))));
         fileOutputStream.write(configTemplate.replaceAll("\\$\\{SERVERS}", getClusterList(servers)).getBytes(UTF_8));
