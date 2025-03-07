@@ -71,7 +71,7 @@ public class ClusterManager
     private Scheduler scheduler;
     private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
     private HashMap<URI, URI> discoveryURIs = new HashMap<>();
-    private final RouterConfig routerConfig;
+    public final RouterConfig routerConfig;
     private final ScheduledExecutorService scheduledExecutorService;
     private final AtomicLong lastConfigUpdate = new AtomicLong();
     private final RemoteInfoFactory remoteInfoFactory;
@@ -116,7 +116,8 @@ public class ClusterManager
                 parentDir.register(
                         watchService,
                         StandardWatchEventKinds.ENTRY_MODIFY,
-                        StandardWatchEventKinds.ENTRY_CREATE);
+                        StandardWatchEventKinds.ENTRY_CREATE,
+                        StandardWatchEventKinds.ENTRY_DELETE);
 
                 while (true) {
                     WatchKey key = watchService.take();
