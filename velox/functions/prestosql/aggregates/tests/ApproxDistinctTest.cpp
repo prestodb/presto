@@ -32,7 +32,8 @@ class ApproxDistinctTest : public AggregationTestBase {
   void testGlobalAgg(
       const VectorPtr& values,
       double maxStandardError,
-      int64_t expectedResult) {
+      int64_t expectedResult,
+      bool testApproxSet = true) {
     auto vectors = makeRowVector({values});
     auto expected =
         makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
@@ -51,12 +52,14 @@ class ApproxDistinctTest : public AggregationTestBase {
         {},
         {expected});
 
-    testAggregations(
-        {vectors},
-        {},
-        {fmt::format("approx_set(c0, {})", maxStandardError)},
-        {"cardinality(a0)"},
-        {expected});
+    if (testApproxSet) {
+      testAggregations(
+          {vectors},
+          {},
+          {fmt::format("approx_set(c0, {})", maxStandardError)},
+          {"cardinality(a0)"},
+          {expected});
+    }
   }
 
   void testGlobalAgg(
@@ -307,6 +310,33 @@ TEST_F(ApproxDistinctTest, globalAggIntegersWithError) {
   values = makeFlatVector<int32_t>(50'000, folly::identity);
   testGlobalAgg(values, common::hll::kLowestMaxStandardError, 50043);
   testGlobalAgg(values, common::hll::kHighestMaxStandardError, 39069);
+}
+
+TEST_F(ApproxDistinctTest, booleanValues) {
+  vector_size_t size = 2'000;
+  auto values =
+      makeFlatVector<bool>(size, [](auto row) { return row % 2 == 0; });
+  testGlobalAgg(values, 2, false);
+
+  values = makeFlatVector<bool>(size, [](auto /*row*/) { return true; });
+  testGlobalAgg(values, 1, false);
+
+  values = makeFlatVector<bool>(size, [](auto /*row*/) { return false; });
+  testGlobalAgg(values, 1, false);
+
+  values = makeFlatVector<bool>(
+      size, [](auto row) { return row % 2 == 0; }, nullEvery(3));
+  testGlobalAgg(values, 2, false);
+
+  values = makeFlatVector<bool>(
+      size, [](auto row) { return row % 2 == 0; }, nullEvery(1));
+  testGlobalAgg(values, 0, false);
+
+  auto keys = makeFlatVector<int32_t>(size, [](auto row) { return row % 2; });
+  auto v = makeFlatVector<bool>(size, [](auto row) {
+    return row % 2 == 0 ? true : (row % 3 == 0 ? true : false);
+  });
+  testGroupByAgg(keys, v, {{0, 1}, {1, 2}}, false);
 }
 
 TEST_F(ApproxDistinctTest, globalAggAllNulls) {

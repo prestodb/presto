@@ -35,6 +35,23 @@ namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
+template <typename T>
+inline uint64_t hashOne(T value) {
+  return XXH64(&value, sizeof(T), 0);
+}
+
+// Use timestamp.toMillis() to compute hash value.
+template <>
+inline uint64_t hashOne<Timestamp>(Timestamp value) {
+  return hashOne(value.toMillis());
+}
+
+template <>
+inline uint64_t hashOne<StringView>(StringView value) {
+  return XXH64(value.data(), value.size(), 0);
+}
+
+template <typename T>
 struct HllAccumulator {
   explicit HllAccumulator(HashStringAllocator* allocator)
       : sparseHll_{allocator}, denseHll_{allocator} {}
@@ -45,7 +62,9 @@ struct HllAccumulator {
         DenseHll::estimateInMemorySize(indexBitLength_));
   }
 
-  void append(uint64_t hash) {
+  void append(T value) {
+    const auto hash = hashOne(value);
+
     if (isSparse_) {
       if (sparseHll_.insertHash(hash)) {
         toDense();
@@ -110,21 +129,46 @@ struct HllAccumulator {
   DenseHll denseHll_;
 };
 
-template <typename T>
-inline uint64_t hashOne(T value) {
-  return XXH64(&value, sizeof(T), 0);
-}
-
-// Use timestamp.toMillis() to compute hash value.
 template <>
-inline uint64_t hashOne<Timestamp>(Timestamp value) {
-  return hashOne(value.toMillis());
-}
+struct HllAccumulator<bool> {
+  explicit HllAccumulator(HashStringAllocator* /*allocator*/) {}
 
-template <>
-inline uint64_t hashOne<StringView>(StringView value) {
-  return XXH64(value.data(), value.size(), 0);
-}
+  void append(bool value) {
+    approxDistinctState_ |= (1 << value);
+  }
+
+  int64_t cardinality() const {
+    return (approxDistinctState_ & 1) + ((approxDistinctState_ & 2) >> 1);
+  }
+
+  void mergeWith(
+      StringView /*serialized*/,
+      HashStringAllocator* /*allocator*/) {
+    VELOX_UNREACHABLE(
+        "APPROX_DISTINCT<BOOLEAN> unsupported mergeWith(StringView, HashStringAllocator*)");
+  }
+
+  void mergeWith(int8_t data) {
+    approxDistinctState_ |= data;
+  }
+
+  int32_t serializedSize() const {
+    return sizeof(int8_t);
+  }
+
+  void serialize(char* /*outputBuffer*/) {
+    VELOX_UNREACHABLE("APPROX_DISTINCT<BOOLEAN> unsupported serialize(char*)");
+  }
+
+  void setIndexBitLength(int8_t /*indexBitLength*/) {}
+
+  int8_t getState() const {
+    return approxDistinctState_;
+  }
+
+ private:
+  int8_t approxDistinctState_{0};
+};
 
 template <typename T>
 class ApproxDistinctAggregate : public exec::Aggregate {
@@ -140,11 +184,11 @@ class ApproxDistinctAggregate : public exec::Aggregate {
         indexBitLength_{common::hll::toIndexBitLength(defaultError)} {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(HllAccumulator);
+    return sizeof(HllAccumulator<T>);
   }
 
   int32_t accumulatorAlignmentSize() const override {
-    return alignof(HllAccumulator);
+    return alignof(HllAccumulator<T>);
   }
 
   bool isFixedSize() const override {
@@ -174,7 +218,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
           groups,
           numGroups,
           flatResult,
-          [](HllAccumulator* accumulator,
+          [](HllAccumulator<T>* accumulator,
              FlatVector<int64_t>* result,
              vector_size_t index) {
             result->set(index, accumulator->cardinality());
@@ -185,28 +229,39 @@ class ApproxDistinctAggregate : public exec::Aggregate {
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     VELOX_CHECK(result);
-    auto flatResult = (*result)->asFlatVector<StringView>();
+    if (isBoolType()) {
+      auto* flatResult = (*result)->asFlatVector<int8_t>();
 
-    extract<false>(
-        groups,
-        numGroups,
-        flatResult,
-        [&](HllAccumulator* accumulator,
-            FlatVector<StringView>* result,
-            vector_size_t index) {
-          auto size = accumulator->serializedSize();
-          StringView serialized;
-          if (StringView::isInline(size)) {
-            std::string buffer(size, '\0');
-            accumulator->serialize(buffer.data());
-            serialized = StringView::makeInline(buffer);
-          } else {
-            char* rawBuffer = flatResult->getRawStringBufferWithSpace(size);
-            accumulator->serialize(rawBuffer);
-            serialized = StringView(rawBuffer, size);
-          }
-          result->setNoCopy(index, serialized);
-        });
+      for (auto i = 0; i < numGroups; ++i) {
+        char* group = groups[i];
+        auto* accumulator = value<HllAccumulator<bool>>(group);
+        flatResult->set(i, accumulator->getState());
+      }
+
+    } else {
+      auto* flatResult = (*result)->asFlatVector<StringView>();
+
+      extract<false>(
+          groups,
+          numGroups,
+          flatResult,
+          [&](HllAccumulator<T>* accumulator,
+              FlatVector<StringView>* result,
+              vector_size_t index) {
+            auto size = accumulator->serializedSize();
+            StringView serialized;
+            if (StringView::isInline(size)) {
+              std::string buffer(size, '\0');
+              accumulator->serialize(buffer.data());
+              serialized = StringView::makeInline(buffer);
+            } else {
+              char* rawBuffer = flatResult->getRawStringBufferWithSpace(size);
+              accumulator->serialize(rawBuffer);
+              serialized = StringView(rawBuffer, size);
+            }
+            result->setNoCopy(index, serialized);
+          });
+    }
   }
 
   void addRawInput(
@@ -226,12 +281,10 @@ class ApproxDistinctAggregate : public exec::Aggregate {
 
         auto group = groups[row];
         auto tracker = trackRowSize(group);
-        auto accumulator = value<HllAccumulator>(group);
+        auto accumulator = value<HllAccumulator<T>>(group);
         clearNull(group);
         accumulator->setIndexBitLength(indexBitLength_);
-
-        auto hash = hashOne(decodedValue_.valueAt<T>(row));
-        accumulator->append(hash);
+        accumulator->append(decodedValue_.valueAt<T>(row));
       });
     }
   }
@@ -252,10 +305,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
       auto tracker = trackRowSize(group);
       clearNull(group);
 
-      auto serialized = decodedHll_.valueAt<StringView>(row);
-
-      auto accumulator = value<HllAccumulator>(group);
-      accumulator->mergeWith(serialized, allocator_);
+      mergeToAccumulator(group, row);
     });
   }
 
@@ -275,35 +325,30 @@ class ApproxDistinctAggregate : public exec::Aggregate {
           return;
         }
 
-        auto accumulator = value<HllAccumulator>(group);
+        auto accumulator = value<HllAccumulator<T>>(group);
         clearNull(group);
         accumulator->setIndexBitLength(indexBitLength_);
 
-        auto hash = hashOne(decodedValue_.valueAt<T>(row));
-        accumulator->append(hash);
+        accumulator->append(decodedValue_.valueAt<T>(row));
       });
     }
   }
 
   void addSingleGroupIntermediateResults(
       char* group,
-      const SelectivityVector& row,
+      const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
-    decodedHll_.decode(*args[0], row, true);
+    decodedHll_.decode(*args[0], rows, true);
 
     auto tracker = trackRowSize(group);
-    row.applyToSelected([&](auto row) {
+    rows.applyToSelected([&](auto row) {
       if (decodedHll_.isNullAt(row)) {
         return;
       }
 
       clearNull(group);
-
-      auto serialized = decodedHll_.valueAt<StringView>(row);
-
-      auto accumulator = value<HllAccumulator>(group);
-      accumulator->mergeWith(serialized, allocator_);
+      mergeToAccumulator(group, row);
     });
   }
 
@@ -314,15 +359,30 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     setAllNulls(groups, indices);
     for (auto i : indices) {
       auto group = groups[i];
-      new (group + offset_) HllAccumulator(allocator_);
+      new (group + offset_) HllAccumulator<T>(allocator_);
     }
   }
 
   void destroyInternal(folly::Range<char**> groups) override {
-    destroyAccumulators<HllAccumulator>(groups);
+    destroyAccumulators<HllAccumulator<T>>(groups);
   }
 
  private:
+  void mergeToAccumulator(char* group, const vector_size_t row) {
+    if (isBoolType()) {
+      value<HllAccumulator<bool>>(group)->mergeWith(
+          decodedHll_.valueAt<int8_t>(row));
+    } else {
+      auto serialized = decodedHll_.valueAt<StringView>(row);
+      HllAccumulator<T>* accumulator = value<HllAccumulator<T>>(group);
+      accumulator->mergeWith(serialized, allocator_);
+    }
+  }
+
+  constexpr bool isBoolType() const {
+    return std::is_same<T, bool>::value;
+  }
+
   template <
       bool convertNullToZero,
       typename ExtractResult,
@@ -357,7 +417,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
           bits::clearBit(rawNulls, i);
         }
 
-        auto accumulator = value<HllAccumulator>(group);
+        auto accumulator = value<HllAccumulator<T>>(group);
         extractFunction(accumulator, result, i);
       }
     }
@@ -455,7 +515,6 @@ exec::AggregateRegistrationResult registerApproxDistinct(
                              .build());
   } else {
     for (const auto& inputType : {
-             "boolean",
              "tinyint",
              "smallint",
              "integer",
@@ -482,6 +541,14 @@ exec::AggregateRegistrationResult registerApproxDistinct(
                                .argumentType("double")
                                .build());
     }
+
+    signatures.push_back(
+        exec::AggregateFunctionSignatureBuilder()
+            .returnType(hllAsFinalResult ? "tinyint" : "bigint")
+            .intermediateType("tinyint")
+            .argumentType("boolean")
+            .build());
+
     signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                              .integerVariable("a_precision")
                              .integerVariable("a_scale")
@@ -503,13 +570,17 @@ exec::AggregateRegistrationResult registerApproxDistinct(
       name,
       std::move(signatures),
       [name, hllAsFinalResult, hllAsRawInput, defaultError](
-          core::AggregationNode::Step /*step*/,
+          core::AggregationNode::Step step,
           const std::vector<TypePtr>& argTypes,
           const TypePtr& resultType,
           const core::QueryConfig& /*config*/)
           -> std::unique_ptr<exec::Aggregate> {
         if (argTypes[0]->isUnKnown()) {
           return std::make_unique<ApproxDistinctAggregate<UnknownValue>>(
+              resultType, hllAsFinalResult, hllAsRawInput, defaultError);
+        }
+        if (exec::isPartialInput(step) && argTypes[0]->isTinyint()) {
+          return std::make_unique<ApproxDistinctAggregate<bool>>(
               resultType, hllAsFinalResult, hllAsRawInput, defaultError);
         }
         return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(

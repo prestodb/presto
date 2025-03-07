@@ -34,6 +34,11 @@ bool isPartialOutput(core::AggregationNode::Step step) {
       step == core::AggregationNode::Step::kIntermediate;
 }
 
+bool isPartialInput(core::AggregationNode::Step step) {
+  return step == core::AggregationNode::Step::kIntermediate ||
+      step == core::AggregationNode::Step::kFinal;
+}
+
 AggregateFunctionMap& aggregateFunctions() {
   static AggregateFunctionMap functions;
   return functions;
