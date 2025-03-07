@@ -98,7 +98,9 @@ public final class AccumuloColumnHandle
     @JsonIgnore
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(name, type, comment, false);
+        return ColumnMetadata.builder(name, type)
+                .setComment(comment)
+                .setHidden(false).build();
     }
 
     @JsonProperty

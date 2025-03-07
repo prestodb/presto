@@ -40,7 +40,7 @@ public class SheetsTable
 
         ImmutableList.Builder<ColumnMetadata> columnsMetadata = ImmutableList.builder();
         for (SheetsColumn column : columns) {
-            columnsMetadata.add(new ColumnMetadata(column.getName(), column.getType()));
+            columnsMetadata.add(ColumnMetadata.builder(column.getName(), column.getType()).build());
         }
         this.columnsMetadata = columnsMetadata.build();
         this.values = values;

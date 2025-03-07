@@ -94,7 +94,7 @@ public class CreateViewTask
                 .collect(toImmutableList());
 
         List<ColumnMetadata> columnMetadata = columns.stream()
-                .map(column -> new ColumnMetadata(column.getName(), column.getType()))
+                .map(column -> ColumnMetadata.builder(column.getName(), column.getType()).build())
                 .collect(toImmutableList());
 
         ConnectorTableMetadata viewMetadata = new ConnectorTableMetadata(toSchemaTableName(name), columnMetadata);

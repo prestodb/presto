@@ -40,7 +40,6 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public final class ClickHouseColumnHandle
@@ -133,7 +132,9 @@ public final class ClickHouseColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType, nullable, null, null, false, emptyMap());
+        return ColumnMetadata.builder(columnName, columnType)
+                .setNullable(nullable)
+                .setHidden(false).build();
     }
 
     @Override

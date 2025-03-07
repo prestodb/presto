@@ -38,9 +38,9 @@ public class LarkSheetsSystemTable
 {
     private static final String IDENTIFIER = "$sheets";
     private static final List<ColumnMetadata> COLUMNS = ImmutableList.of(
-            new ColumnMetadata("index", INTEGER),
-            new ColumnMetadata("sheetId", VARCHAR),
-            new ColumnMetadata("title", VARCHAR));
+            ColumnMetadata.builder("index", INTEGER).build(),
+            ColumnMetadata.builder("sheetId", VARCHAR).build(),
+            ColumnMetadata.builder("title", VARCHAR).build());
 
     private final ConnectorTableMetadata metadata;
     private final List<SheetInfo> sheets;

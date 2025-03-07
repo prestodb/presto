@@ -18,9 +18,9 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 public class PinotColumnMetadata
         extends ColumnMetadata
@@ -30,7 +30,7 @@ public class PinotColumnMetadata
 
     public PinotColumnMetadata(String name, Type type, boolean inNullable, String comment)
     {
-        super(requireNonNull(name, "name is null"), requireNonNull(type, "type is null"), inNullable, comment, null, false, ImmutableMap.of());
+        super(name, type, inNullable, Optional.ofNullable(comment), null, false, ImmutableMap.of());
         this.name = name;
     }
 

@@ -70,7 +70,7 @@ public final class PinotColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(getColumnName(), getDataType());
+        return ColumnMetadata.builder(getColumnName(), getDataType()).build();
     }
 
     @Override

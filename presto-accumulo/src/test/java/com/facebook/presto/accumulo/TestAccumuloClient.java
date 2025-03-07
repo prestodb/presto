@@ -59,11 +59,11 @@ public class TestAccumuloClient
 
         try {
             List<ColumnMetadata> columns = ImmutableList.of(
-                    new ColumnMetadata("id", BIGINT),
-                    new ColumnMetadata("a", BIGINT),
-                    new ColumnMetadata("b", BIGINT),
-                    new ColumnMetadata("c", BIGINT),
-                    new ColumnMetadata("d", BIGINT));
+                    ColumnMetadata.builder("id", BIGINT).build(),
+                    ColumnMetadata.builder("a", BIGINT).build(),
+                    ColumnMetadata.builder("b", BIGINT).build(),
+                    ColumnMetadata.builder("c", BIGINT).build(),
+                    ColumnMetadata.builder("d", BIGINT).build());
 
             Map<String, Object> properties = new HashMap<>();
             new AccumuloTableProperties().getTableProperties().forEach(meta -> properties.put(meta.getName(), meta.getDefaultValue()));
