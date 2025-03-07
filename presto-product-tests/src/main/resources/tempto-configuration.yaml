@@ -105,7 +105,7 @@ databases:
 
   sqlserver:
     jdbc_driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    jdbc_url: jdbc:sqlserver://sqlserver
+    jdbc_url: jdbc:sqlserver://sqlserver;encrypt=false;
     jdbc_user: sa
     jdbc_password: SQLServerPass1
     jdbc_pooling: true
