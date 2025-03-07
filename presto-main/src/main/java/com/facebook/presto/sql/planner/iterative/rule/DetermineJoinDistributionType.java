@@ -41,10 +41,12 @@ import io.airlift.units.DataSize;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.confidenceBasedBroadcastEnabled;
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinMaxBroadcastTableSize;
+import static com.facebook.presto.SystemSessionProperties.isPreferBroadcastJoinOverPartitionedJoinEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSizeBasedJoinDistributionTypeEnabled;
 import static com.facebook.presto.SystemSessionProperties.isUseBroadcastJoinWhenBuildSizeSmallProbeSizeUnknownEnabled;
 import static com.facebook.presto.SystemSessionProperties.treatLowConfidenceZeroEstimationAsUnknownEnabled;
@@ -59,6 +61,7 @@ import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.i
 import static com.facebook.presto.sql.planner.iterative.rule.JoinSwappingUtils.isSmallerThanThreshold;
 import static com.facebook.presto.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static com.facebook.presto.sql.planner.plan.Patterns.join;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Double.NaN;
@@ -165,6 +168,10 @@ public class DetermineJoinDistributionType
             return getSyntacticOrderJoin(joinNode, context, AUTOMATIC);
         }
 
+        checkState(possibleJoinNodes.stream().allMatch(x -> x.getPlanNode() instanceof JoinNode));
+        if (isPreferBroadcastJoinOverPartitionedJoinEnabled(context.getSession()) && possibleJoinNodes.stream().anyMatch(x -> ((JoinNode) x.getPlanNode()).getDistributionType().isPresent() && ((JoinNode) x.getPlanNode()).getDistributionType().get().equals(REPLICATED))) {
+            possibleJoinNodes = possibleJoinNodes.stream().filter(x -> ((JoinNode) x.getPlanNode()).getDistributionType().isPresent() && ((JoinNode) x.getPlanNode()).getDistributionType().get().equals(REPLICATED)).collect(toImmutableList());
+        }
         // Using Ordering to facilitate rule determinism
         Ordering<PlanNodeWithCost> planNodeOrderings = costComparator.forSession(context.getSession()).onResultOf(PlanNodeWithCost::getCost);
         return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
