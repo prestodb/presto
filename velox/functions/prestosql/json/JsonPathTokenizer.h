@@ -79,7 +79,8 @@ namespace facebook::velox::functions {
 /// make the behavior of ignoring whitespaces more consistent as whitespaces are
 /// ignored if there is a quoted string within brackets.
 ///
-/// (5) Dot and Bracket notation are interpreted the same after a wildcard:
+/// (5) Dot and Bracket notation are interpreted the same after a wildcard or
+///     recursive operator:
 /// Jayway changes how it inteprets unquoted strings after dot and bracket
 /// notations. That is, tokens after dot notation are considered as either a
 /// key(if there is an object) or an index(if there is an array), however
@@ -108,7 +109,7 @@ namespace facebook::velox::functions {
 /// TODO: Add support for unicode charaters after dot notation.
 class JsonPathTokenizer {
  public:
-  enum class Selector { KEY, WILDCARD, KEY_OR_INDEX };
+  enum class Selector { KEY, WILDCARD, KEY_OR_INDEX, RECURSIVE };
 
   struct Token {
     std::string value;
@@ -153,6 +154,13 @@ class JsonPathTokenizer {
 
   // The path specified in 'reset'.
   std::string_view path_;
+
+  // Intermediate state variable used to signify that we previous processed the
+  // DOT operator. This is used in cases where the path does not start with a
+  // '$' where we assume the path starts with '$.' OR when we have just
+  // processed the recursive operator '..' and expect either a dotKey or a
+  // bracket.
+  bool previouslyProcessedDotOp_ = false;
 };
 
 } // namespace facebook::velox::functions

@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/prestosql/json/SIMDJsonExtractor.h"
+#include <boost/algorithm/string/join.hpp>
 #include <optional>
 #include <string>
 
@@ -74,11 +75,11 @@ class SIMDJsonExtractorTest : public testing::Test {
     }
 
     EXPECT_EQ(expected->size(), res.size())
-        << "with json " << json << " and path " << path;
+        << "Actual: " << boost::algorithm::join(res, "\n==Next==\n");
     for (int i = 0; i < res.size(); i++) {
       EXPECT_EQ(folly::parseJson(expected->at(i)), folly::parseJson(res.at(i)))
-          << "Encountered different values at position " << i << " with json "
-          << json << " and path " << path;
+          << "Encountered different values at position " << i
+          << "Expected: " << expected->at(i) << "\n Actual: " << res.at(i);
     }
   }
 
@@ -445,7 +446,6 @@ TEST_F(SIMDJsonExtractorTest, fullJsonValueTest) {
 TEST_F(SIMDJsonExtractorTest, invalidJsonPathTest) {
   expectThrowInvalidArgument("", "");
   expectThrowInvalidArgument("{}", "$.bar[2]-1");
-  expectThrowInvalidArgument("{}", "$.fuu..bar");
   expectThrowInvalidArgument("{}", "$.");
   expectThrowInvalidArgument("", "$$");
   expectThrowInvalidArgument("", " ");
@@ -605,6 +605,135 @@ TEST_F(SIMDJsonExtractorTest, specialCases) {
       std::vector<std::string>{"\"obj\"", "\"array0\"", "\"array1\""});
   testExtract(json, "$.*.['*']", std::vector<std::string>{"\"obj\""});
   testExtract(json, "$.*.[\"*\"]", std::vector<std::string>{"\"obj\""});
+}
+
+TEST_F(SIMDJsonExtractorTest, recursiveDescent) {
+  std::string json =
+      R"DELIM(
+      {
+      "object": {
+        "array": [0,1,2],
+        "object": {
+          "1": "value",
+          "array": [4,5,6],
+          "foo": "bar"
+        }
+      }
+    })DELIM";
+
+  testExtract(
+      json,
+      "$..object",
+      std::vector<std::string>{
+          R"DELIM(
+          {
+          "array": [0,1,2],
+          "object": {
+            "1": "value",
+            "array": [4,5,6],
+            "foo": "bar"
+          }
+          })DELIM",
+          R"DELIM({
+            "1": "value",
+            "array": [4,5,6],
+            "foo": "bar"
+          })DELIM",
+      });
+
+  testExtract(json, "$..array", std::vector<std::string>{"[0,1,2]", "[4,5,6]"});
+  testExtract(json, "$..1", std::vector<std::string>{"1", "\"value\"", "5"});
+  testExtract(json, "$..2", std::vector<std::string>{"2", "6"});
+  testExtract(json, "$..non_existent_key", std::vector<std::string>{});
+  testExtract(
+      json,
+      "$..object..1",
+      std::vector<std::string>{"1", "\"value\"", "5", "\"value\"", "5"});
+  testExtract(json, "$..object..2", std::vector<std::string>{"2", "6", "6"});
+
+  testExtract(
+      json,
+      "$..object..*",
+      std::vector<std::string>{
+          "[0,1,2]",
+          R"DELIM({
+              "1": "value",
+              "array": [4,5,6],
+              "foo": "bar"
+            })DELIM",
+          "0",
+          "1",
+          "2",
+          "\"value\"",
+          "[4,5,6]",
+          "\"bar\"",
+          "4",
+          "5",
+          "6",
+          "\"value\"",
+          "[4,5,6]",
+          "\"bar\"",
+          "4",
+          "5",
+          "6"});
+  testExtract(json, "$..non_existent_key..*", std::vector<std::string>{});
+
+  testExtract(
+      json,
+      "$..*",
+      std::vector<std::string>{
+          R"DELIM(
+                  {
+                    "array": [0,1,2],
+                    "object": {
+                      "1": "value",
+                      "array": [4,5,6],
+                      "foo": "bar"
+                    }
+                  })DELIM",
+          "[0,1,2]",
+          R"DELIM({
+                "1": "value",
+                "array": [4,5,6],
+                "foo": "bar"
+              })DELIM",
+          "0",
+          "1",
+          "2",
+          "\"value\"",
+          "[4,5,6]",
+          "\"bar\"",
+          "4",
+          "5",
+          "6"});
+
+  testExtract(
+      json,
+      "$..*..1",
+      std::vector<std::string>{
+          "1", "\"value\"", "5", "1", "\"value\"", "5", "5"});
+  testExtract(
+      json, "$..*..2", std::vector<std::string>{"2", "6", "2", "6", "6"});
+  testExtract(
+      json,
+      "$..*..[\"1\"]",
+      std::vector<std::string>{"\"value\"", "\"value\""});
+  testExtract(json, "$..*..8", std::vector<std::string>{});
+
+  testExtract(
+      json,
+      "$..*..*",
+      std::vector<std::string>{"[0,1,2]",
+                               R"DELIM({
+                "1": "value",
+                "array": [4,5,6],
+                "foo": "bar"
+              })DELIM",   "0",         "1",       "2",
+                               "\"value\"", "[4,5,6]",   "\"bar\"", "4",
+                               "5",         "6",         "0",       "1",
+                               "2",         "\"value\"", "[4,5,6]", "\"bar\"",
+                               "4",         "5",         "6",       "4",
+                               "5",         "6"});
 }
 
 } // namespace

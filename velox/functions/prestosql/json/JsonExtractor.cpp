@@ -76,6 +76,10 @@ class JsonExtractor {
         auto& tk = token.value();
         if (tk.selector == JsonPathTokenizer::Selector::WILDCARD) {
           tokens_.emplace_back("*");
+        } else if (tk.selector == JsonPathTokenizer::Selector::RECURSIVE) {
+          // Not supported in this implementation of json_extract
+          tokens_.clear();
+          return false;
         } else {
           tokens_.emplace_back(tk.value);
         }

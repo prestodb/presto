@@ -34,4 +34,10 @@ simdjson::simdjson_result<simdjson::ondemand::document> simdjsonParse(
   return parser.iterate(json);
 }
 
+simdjson::padded_string_view reusePaddedStringView(
+    const std::string_view& json) {
+  return simdjson::padded_string_view(
+      json.data(), json.length(), json.length() + simdjson::SIMDJSON_PADDING);
+};
+
 } // namespace facebook::velox

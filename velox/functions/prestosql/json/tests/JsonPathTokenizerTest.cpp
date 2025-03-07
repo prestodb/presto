@@ -393,11 +393,177 @@ TEST(JsonPathTokenizerTest, validPaths) {
       "ab\\\"cd\\\"ef"s, TokenList{{"ab\"cd\"ef"s, Selector::KEY}});
 }
 
+TEST(JsonPathTokenizerTest, recursiveOperator) {
+  // Used at the start
+  assertValidPath(
+      "$..foo"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"foo", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      ".foo"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"foo", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$..[foo]"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"foo", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$..[\"foo\"]"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"foo", Selector::KEY},
+      });
+
+  // Used in conjunction with wildcard
+  assertValidPath(
+      "$..*"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"", Selector::WILDCARD},
+      });
+  assertValidPath(
+      ".*"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"", Selector::WILDCARD},
+      });
+  assertValidPath(
+      "$..[*]"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"", Selector::WILDCARD},
+      });
+  assertValidPath(
+      "$..[\"*\"]"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"*", Selector::KEY},
+      });
+
+  // Used in between specifiers
+  assertValidPath(
+      "$.foo..bar"s,
+      TokenList{
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.foo..[bar]"s,
+      TokenList{
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.foo..[\"bar\"]"s,
+      TokenList{
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY},
+      });
+
+  // Used in between specifiers with but before wildcard
+  assertValidPath(
+      "$.foo..*"s,
+      TokenList{
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"", Selector::WILDCARD},
+      });
+  assertValidPath(
+      "$.foo..[*]"s,
+      TokenList{
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"", Selector::WILDCARD},
+      });
+  assertValidPath(
+      "$.foo..[\"*\"]"s,
+      TokenList{
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"*", Selector::KEY},
+      });
+
+  // Used in between specifiers with but after wildcard
+  assertValidPath(
+      "$.*..bar"s,
+      TokenList{
+          {"", Selector::WILDCARD},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.*..[bar]"s,
+      TokenList{
+          {"", Selector::WILDCARD},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$.*..[\"bar\"]"s,
+      TokenList{
+          {"", Selector::WILDCARD},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY},
+      });
+
+  // Used multiple times
+  assertValidPath(
+      "$..foo..bar"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      ".foo..[bar]"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$..foo..[bar]"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY_OR_INDEX},
+      });
+  assertValidPath(
+      "$..foo..[\"bar\"]"s,
+      TokenList{
+          {"", Selector::RECURSIVE},
+          {"foo", Selector::KEY_OR_INDEX},
+          {"", Selector::RECURSIVE},
+          {"bar", Selector::KEY},
+      });
+
+  // Invalid cases
+  EXPECT_FALSE(getTokens("$.."));
+  EXPECT_FALSE(getTokens("$..."));
+  EXPECT_FALSE(getTokens("$..["));
+  EXPECT_FALSE(getTokens("$.foo.."));
+  EXPECT_FALSE(getTokens("$.foo..."));
+  EXPECT_FALSE(getTokens("$.foo..["));
+}
+
 TEST(JsonPathTokenizerTest, invalidPaths) {
   JsonPathTokenizer tokenizer;
 
   // Empty path.
   EXPECT_FALSE(getTokens(""));
+  EXPECT_FALSE(getTokens("$."));
 
   // Backslash not followed by valid escape.
   EXPECT_FALSE(getTokens("$[\"a\\ \"]"s));
@@ -420,17 +586,6 @@ TEST(JsonPathTokenizerTest, invalidPaths) {
 
   // Unicode characters after dot operator.
   EXPECT_FALSE(getTokens("$.[屬性]"));
-
-  // Unsupported deep scan operator.
-  EXPECT_FALSE(getTokens("$..store"));
-  EXPECT_FALSE(getTokens("..store"));
-  EXPECT_FALSE(getTokens("$..[3].foo"));
-  EXPECT_FALSE(getTokens("..[3].foo"));
-
-  // Paths without leading '$' which essentially translates to "$.." and is
-  // unsupported.
-  EXPECT_FALSE(getTokens(".[1].foo"));
-  EXPECT_FALSE(getTokens(".foo.bar.baz"));
 
   // Array Slice
   EXPECT_FALSE(getTokens("$[1:3]"));

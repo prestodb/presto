@@ -1035,15 +1035,24 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   EXPECT_EQ(std::nullopt, jsonExtract("null", "$.foo"));
   EXPECT_EQ(std::nullopt, jsonExtract("null", "$.[0]"));
 
+  // Recurssive opearator
+  EXPECT_EQ("[8.95,12.99,8.99,22.99,19.95]", jsonExtract(kJson, "$..price"));
+  EXPECT_EQ(
+      "[8.95,12.99,8.99,22.99,19.95,8.95,12.99,8.99,22.99,19.95,8.95,12.99,8.99,22.99]",
+      jsonExtract(kJson, "$..*..price"));
+
   // non-definite paths that end up being evaluated vs. not evaluated
   EXPECT_EQ(
       "[123,456]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a.b[*]"));
   EXPECT_EQ(
       std::nullopt, jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a.c[*]"));
+  EXPECT_EQ(
+      "[[123, 456]]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a..b"));
+  EXPECT_EQ("[]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a..c"));
+  EXPECT_EQ(std::nullopt, jsonExtract(R"({"a": {"b": [123, 456]}})", "$.c..b"));
 
   // TODO The following paths are supported by Presto via Jayway, but do not
   // work in Velox yet. Figure out how to add support for these.
-  VELOX_ASSERT_THROW(jsonExtract(kJson, "$..price"), "Invalid JSON path");
   VELOX_ASSERT_THROW(
       jsonExtract(kJson, "$.store.book[?(@.price < 10)].title"),
       "Invalid JSON path");
@@ -1053,7 +1062,6 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   VELOX_ASSERT_THROW(jsonExtract(kJson, "$.store.keys()"), "Invalid JSON path");
 
   // Ensure User errors are captured in try() and not thrown.
-  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "$..price", true));
   EXPECT_EQ(
       std::nullopt,
       jsonExtract(kJson, "$.store.book[?(@.price <10)].title", true));
@@ -1092,9 +1100,9 @@ TEST_F(JsonFunctionsTest, jsonExtractVarcharInput) {
       R"({"x":{"a":"/1","b":"/2"}})",
       jsonExtract(R"({"x": {"a" : "\/1", "b" : "\/2"} })", "$"));
   // Invalid path
-  VELOX_ASSERT_THROW(jsonExtract(kJson, "$..price"), "Invalid JSON path");
+  VELOX_ASSERT_THROW(jsonExtract(kJson, "$.book[1:2]"), "Invalid JSON path");
   // Ensure User error is captured in try() and not thrown.
-  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "$..price", true));
+  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "$.book[1:2]", true));
 }
 
 // The following tests ensure that the internal json functions
