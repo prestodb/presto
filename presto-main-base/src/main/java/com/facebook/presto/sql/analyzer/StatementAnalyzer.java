@@ -1503,7 +1503,10 @@ class StatementAnalyzer
                 Type expectedArgumentType = ((ScalarArgumentSpecification) argumentSpecification).getType();
                 // currently, only constant arguments are supported
                 Object constantValue = ExpressionInterpreter.evaluateConstantExpression(expression, expectedArgumentType, metadata, session, analysis.getParameters());
-                return new ScalarArgument(expectedArgumentType, constantValue); // TODO test coercion, test parameter
+                return ScalarArgument.builder()
+                        .type(expectedArgumentType)
+                        .value(constantValue)
+                        .build(); // TODO test coercion, test parameter
             }
 
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());
@@ -1521,7 +1524,10 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, errorLocation, "Descriptor arguments are not yet supported for table functions");
             }
             if (argumentSpecification instanceof ScalarArgumentSpecification) {
-                return new ScalarArgument(((ScalarArgumentSpecification) argumentSpecification).getType(), argumentSpecification.getDefaultValue());
+                return ScalarArgument.builder()
+                        .type(((ScalarArgumentSpecification) argumentSpecification).getType())
+                        .value(argumentSpecification.getDefaultValue())
+                        .build();
             }
 
             throw new IllegalStateException("Unexpected argument specification: " + argumentSpecification.getClass().getSimpleName());

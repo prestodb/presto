@@ -20,19 +20,13 @@ public class TableArgumentSpecification
     private final boolean pruneWhenEmpty;
     private final boolean passThroughColumns;
 
-    public TableArgumentSpecification(String name, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns)
+    private TableArgumentSpecification(String name, boolean rowSemantics, boolean pruneWhenEmpty, boolean passThroughColumns)
     {
         super(name, true, null);
 
         this.rowSemantics = rowSemantics;
         this.pruneWhenEmpty = pruneWhenEmpty;
         this.passThroughColumns = passThroughColumns;
-    }
-
-    public TableArgumentSpecification(String name)
-    {
-        // defaults
-        this(name, false, false, false);
     }
 
     public boolean isRowSemantics()
@@ -48,5 +42,49 @@ public class TableArgumentSpecification
     public boolean isPassThroughColumns()
     {
         return passThroughColumns;
+    }
+
+    public static Builder builder(String name)
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private String name;
+        private boolean rowSemantics;
+        private boolean pruneWhenEmpty;
+        private boolean passThroughColumns;
+
+        private Builder() {}
+
+        public Builder name(String name)
+        {
+            this.name = name;
+            return this;
+        }
+
+        public Builder rowSemantics(boolean rowSemantics)
+        {
+            this.rowSemantics = rowSemantics;
+            return this;
+        }
+
+        public Builder pruneWhenEmpty(boolean pruneWhenEmpty)
+        {
+            this.pruneWhenEmpty = pruneWhenEmpty;
+            return this;
+        }
+
+        public Builder passThroughColumns(boolean passThroughColumns)
+        {
+            this.passThroughColumns = passThroughColumns;
+            return this;
+        }
+
+        public TableArgumentSpecification build()
+        {
+            return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, passThroughColumns);
+        }
     }
 }

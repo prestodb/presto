@@ -16,13 +16,40 @@ package com.facebook.presto.spi.function.table;
 public class DescriptorArgumentSpecification
         extends ArgumentSpecification
 {
-    public DescriptorArgumentSpecification(String name)
+    private DescriptorArgumentSpecification(String name, boolean required, Descriptor defaultValue)
     {
-        super(name, true, null);
+        super(name, required, defaultValue);
     }
 
-    public DescriptorArgumentSpecification(String name, Descriptor defaultValue)
+    public static Builder builder()
     {
-        super(name, false, defaultValue);
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private String name;
+        private boolean required = true;
+        private Descriptor defaultValue;
+
+        private Builder() {}
+
+        public Builder name(String name)
+        {
+            this.name = name;
+            return this;
+        }
+
+        public Builder defaultValue(Descriptor defaultValue)
+        {
+            this.required = false;
+            this.defaultValue = defaultValue;
+            return this;
+        }
+
+        public DescriptorArgumentSpecification build()
+        {
+            return new DescriptorArgumentSpecification(name, required, defaultValue);
+        }
     }
 }
