@@ -160,8 +160,6 @@ public class TestClusterManager
         fos.getFD().sync();
         Thread.sleep(500);
 
-        fos.close();
-
         assertEquals(clusterManager.getAllClusters().size(), 3);
     }
 
@@ -204,7 +202,8 @@ public class TestClusterManager
             throws IOException
     {
         // setup router config file
-        File tempFile = File.createTempFile("router", ".json");
+        //File tempFile = File.createTempFile("router", ".json");
+        File tempFile = new File(Paths.get(getResourceFilePath("simple-router-template.json")).getParent().toString() + "/temp-config.json");
         FileOutputStream fileOutputStream = new FileOutputStream(tempFile);
         String configTemplate = new String(Files.readAllBytes(Paths.get(getResourceFilePath("simple-router-template.json"))));
         fileOutputStream.write(configTemplate.replaceAll("\\$\\{SERVERS}", getClusterList(servers)).getBytes(UTF_8));
