@@ -51,6 +51,7 @@ import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.cost.TaskCountEstimator;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
+import com.facebook.presto.dispatcher.QueryRewriterManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.AlterFunctionTask;
 import com.facebook.presto.execution.CommitTask;
@@ -523,7 +524,7 @@ public class LocalQueryRunner
         BuiltInAnalyzerProvider analyzerProvider = new BuiltInAnalyzerProvider(queryAnalyzer);
         BuiltInQueryPreparer queryPreparer = new BuiltInQueryPreparer(sqlParser);
         BuiltInQueryPreparerProvider queryPreparerProvider = new BuiltInQueryPreparerProvider(queryPreparer);
-
+        EventListenerManager eventListenerManager = new EventListenerManager();
         this.pluginManager = new PluginManager(
                 nodeInfo,
                 new PluginManagerConfig(),
@@ -547,7 +548,8 @@ public class LocalQueryRunner
                 new NodeStatusNotificationManager(),
                 new ClientRequestFilterManager(),
                 planCheckerProviderManager,
-                expressionOptimizerManager);
+                expressionOptimizerManager,
+                new QueryRewriterManager(eventListenerManager));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());

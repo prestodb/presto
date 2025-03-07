@@ -39,6 +39,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.SystemSessionProperties.isExploitConstraints;
 import static com.facebook.presto.SystemSessionProperties.isInPredicatesAsInnerJoinsEnabled;
+import static com.facebook.presto.SystemSessionProperties.isQueryRewriterPluginSucceeded;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.matching.Pattern.empty;
@@ -87,7 +88,8 @@ public class TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin
     {
         return isExploitConstraints(session) &&
                 getJoinReorderingStrategy(session) == AUTOMATIC &&
-                isInPredicatesAsInnerJoinsEnabled(session);
+                isInPredicatesAsInnerJoinsEnabled(session) &&
+                !isQueryRewriterPluginSucceeded(session);
     }
 
     @Override

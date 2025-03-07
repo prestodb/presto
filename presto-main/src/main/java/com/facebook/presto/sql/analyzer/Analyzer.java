@@ -36,6 +36,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
 import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
+import static com.facebook.presto.SystemSessionProperties.isQueryRewriterPluginSucceeded;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExternalFunctions;
@@ -110,7 +111,7 @@ public class Analyzer
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
-        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe, isQueryRewriterPluginSucceeded(session));
 
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);

@@ -36,6 +36,7 @@ import java.util.Set;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.SystemSessionProperties.isExploitConstraints;
 import static com.facebook.presto.SystemSessionProperties.isInPredicatesAsInnerJoinsEnabled;
+import static com.facebook.presto.SystemSessionProperties.isQueryRewriterPluginSucceeded;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
@@ -94,7 +95,8 @@ public class TransformDistinctInnerJoinToLeftEarlyOutJoin
     {
         return isInPredicatesAsInnerJoinsEnabled(session) &&
                 isExploitConstraints(session) &&
-                getJoinReorderingStrategy(session) == AUTOMATIC;
+                getJoinReorderingStrategy(session) == AUTOMATIC &&
+                !isQueryRewriterPluginSucceeded(session);
     }
 
     @Override
