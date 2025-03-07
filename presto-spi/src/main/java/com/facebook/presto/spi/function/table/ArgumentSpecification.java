@@ -36,7 +36,7 @@ public abstract class ArgumentSpecification
     // native representation
     private final Object defaultValue;
 
-    public ArgumentSpecification(String name, boolean required, @Nullable Object defaultValue)
+    ArgumentSpecification(String name, boolean required, @Nullable Object defaultValue)
     {
         this.name = checkNotNullOrEmpty(name, "name");
         checkArgument(!required || defaultValue == null, "non-null default value for a required argument");

@@ -29,14 +29,8 @@ import static java.util.Objects.requireNonNull;
 public class DescriptorArgument
         extends Argument
 {
-    public static final DescriptorArgument NULL_DESCRIPTOR = new DescriptorArgument(Optional.empty());
+    public static final DescriptorArgument NULL_DESCRIPTOR = builder().build();
     private final Optional<Descriptor> descriptor;
-
-    public static DescriptorArgument descriptorArgument(Descriptor descriptor)
-    {
-        requireNonNull(descriptor, "descriptor is null");
-        return new DescriptorArgument(Optional.of(descriptor));
-    }
 
     @JsonCreator
     private DescriptorArgument(@JsonProperty("descriptor") Optional<Descriptor> descriptor)
@@ -48,5 +42,28 @@ public class DescriptorArgument
     public Optional<Descriptor> getDescriptor()
     {
         return descriptor;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private Descriptor descriptor;
+
+        private Builder() {}
+
+        public Builder descriptor(Descriptor descriptor)
+        {
+            this.descriptor = descriptor;
+            return this;
+        }
+
+        public DescriptorArgument build()
+        {
+            return new DescriptorArgument(Optional.ofNullable(descriptor));
+        }
     }
 }

@@ -54,4 +54,34 @@ public class ScalarArgument
     {
         return value;
     }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private Type type;
+        private Object value;
+
+        private Builder() {}
+
+        public Builder type(Type type)
+        {
+            this.type = type;
+            return this;
+        }
+
+        public Builder value(Object value)
+        {
+            this.value = value;
+            return this;
+        }
+
+        public ScalarArgument build()
+        {
+            return new ScalarArgument(type, value);
+        }
+    }
 }
