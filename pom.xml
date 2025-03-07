@@ -66,7 +66,7 @@
         <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
-        <dep.slf4j.version>1.7.32</dep.slf4j.version>
+        <dep.slf4j.version>1.7.35</dep.slf4j.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
@@ -213,6 +213,22 @@
         <module>presto-base-arrow-flight</module>
         <module>presto-function-server</module>
     </modules>
+
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <layout>default</layout>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <dependencyManagement>
         <dependencies>
@@ -924,9 +940,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.presto.hive</groupId>
-                <artifactId>hive-apache</artifactId>
-                <version>3.0.0-10</version>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hive-apache</artifactId>
+                <version>hive4-upgrade-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -1030,9 +1046,9 @@
             </dependency>
 
             <dependency>
-                <groupId>com.facebook.hive</groupId>
-                <artifactId>hive-dwrf</artifactId>
-                <version>0.8.7</version>
+                <groupId>com.github.imjalpreet</groupId>
+                <artifactId>presto-hive-dwrf</artifactId>
+                <version>hive4-upgrade-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -1458,7 +1474,7 @@
             <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
-                <version>0.14.1</version>
+                <version>0.16.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.apache.httpcomponents</groupId>
@@ -2179,6 +2195,10 @@
                     <exclusion>
                         <groupId>com.google.inject.extensions</groupId>
                         <artifactId>guice-multibindings</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.facebook.presto.hive</groupId>
+                        <artifactId>hive-apache</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
