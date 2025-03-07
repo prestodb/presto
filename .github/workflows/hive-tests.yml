@@ -32,7 +32,6 @@ jobs:
 
   hive-tests:
     strategy:
-      fail-fast: false
       matrix:
         java: [ 8, 17.0.13 ]
     runs-on: ubuntu-latest
@@ -80,7 +79,6 @@ jobs:
 
   hive-dockerized-tests:
     strategy:
-      fail-fast: false
       matrix:
         java: [ 8, 17.0.13 ]
     runs-on: ubuntu-latest
