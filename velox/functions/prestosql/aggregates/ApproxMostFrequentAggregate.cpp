@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/functions/prestosql/aggregates/ApproxMostFrequentAggregate.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/SimpleAggregateAdapter.h"
 #include "velox/exec/Strings.h"

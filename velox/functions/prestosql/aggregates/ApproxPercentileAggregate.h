@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace facebook::velox::aggregate::prestosql {
 
 enum ApproxPercentileIntermediateTypeChildIndex {
@@ -29,5 +31,10 @@ enum ApproxPercentileIntermediateTypeChildIndex {
   kItems = 7,
   kLevels = 8,
 };
+
+void registerApproxPercentileAggregate(
+    const std::string& prefix,
+    bool withCompanionFunctions,
+    bool overwrite);
 
 } // namespace facebook::velox::aggregate::prestosql

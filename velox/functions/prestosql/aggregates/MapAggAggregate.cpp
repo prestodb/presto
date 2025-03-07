@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/functions/prestosql/aggregates/MapAggAggregate.h"
 #include "velox/functions/lib/CheckNestedNulls.h"
 #include "velox/functions/prestosql/aggregates/MapAggregateBase.h"
 

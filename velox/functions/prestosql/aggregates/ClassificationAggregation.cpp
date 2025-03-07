@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/functions/prestosql/aggregates/ClassificationAggregation.h"
 #include "velox/common/base/IOUtils.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"

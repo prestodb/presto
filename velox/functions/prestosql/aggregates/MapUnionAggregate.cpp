@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/functions/prestosql/aggregates/MapUnionAggregate.h"
 #include "velox/functions/prestosql/aggregates/MapAggregateBase.h"
 
 namespace facebook::velox::aggregate::prestosql {

@@ -20,6 +20,7 @@
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
+#include "velox/functions/prestosql/aggregates/ChecksumAggregate.h"
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
 #include "velox/vector/FlatVector.h"
 

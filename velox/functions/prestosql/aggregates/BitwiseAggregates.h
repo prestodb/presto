@@ -20,20 +20,9 @@
 
 namespace facebook::velox::aggregate::prestosql {
 
-/// Register array_agg aggregate function.
-/// @param prefix Prefix for the aggregate function.
-/// @param withCompanionFunctions Also register companion functions, defaults
-/// to true.
-/// @param overwrite Whether to overwrite existing entry in the function
-/// registry, defaults to true.
-void registerArrayAggAggregate(
-    const std::string& prefix = "",
-    bool withCompanionFunctions = true,
-    bool overwrite = true);
-
-void registerInternalArrayAggAggregate(
+void registerBitwiseAggregates(
     const std::string& prefix,
     bool withCompanionFunctions,
+    bool onlyPrestoSignatures,
     bool overwrite);
-
 } // namespace facebook::velox::aggregate::prestosql

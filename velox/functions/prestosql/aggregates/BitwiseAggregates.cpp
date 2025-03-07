@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/functions/prestosql/aggregates/BitwiseAggregates.h"
 #include "velox/functions/lib/aggregates/BitwiseAggregateBase.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 

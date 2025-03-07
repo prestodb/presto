@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/functions/prestosql/aggregates/SumAggregate.h"
 #include "velox/functions/lib/aggregates/SumAggregateBase.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 

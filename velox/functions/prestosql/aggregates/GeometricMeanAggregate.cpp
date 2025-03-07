@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/functions/prestosql/aggregates/GeometricMeanAggregate.h"
 #include <cmath>
 #include "velox/exec/SimpleAggregateAdapter.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
