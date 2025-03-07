@@ -62,6 +62,7 @@ import com.facebook.presto.spi.function.table.ReturnTypeSpecification;
 import com.facebook.presto.spi.function.table.ScalarArgument;
 import com.facebook.presto.spi.function.table.ScalarArgumentSpecification;
 import com.facebook.presto.spi.function.table.TableArgumentSpecification;
+import com.facebook.presto.spi.function.table.TableFunctionAnalysis;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AccessControl;
@@ -1296,7 +1297,7 @@ class StatementAnalyzer
             ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(
                     session.getRequiredTransactionId(),
                     connectorId);
-            ConnectorTableFunction.Analysis functionAnalysis = function.analyze(session.toConnectorSession(connectorId), transactionHandle, passedArguments);
+            TableFunctionAnalysis functionAnalysis = function.analyze(session.toConnectorSession(connectorId), transactionHandle, passedArguments);
             analysis.setTableFunctionAnalysis(node, new Analysis.TableFunctionInvocationAnalysis(connectorId, functionName.toString(), passedArguments, functionAnalysis.getHandle(), transactionHandle));
 
             // TODO handle the DescriptorMapping descriptorsToTables mapping from the TableFunction.Analysis:
@@ -1309,7 +1310,7 @@ class StatementAnalyzer
             // 4. at this point, the Identifier should be recorded as a column reference to the appropriate table
             // 5. record the mapping NameAndPosition -> Identifier
             // ... later translate Identifier to Symbol in Planner, and eventually translate it to channel before execution
-            if (!functionAnalysis.getDescriptorsToTables().isEmpty()) {
+            if (!functionAnalysis.getDescriptorMapping().isEmpty()) {
                 throw new SemanticException(NOT_SUPPORTED, node, "Table arguments are not yet supported for table functions");
             }
 

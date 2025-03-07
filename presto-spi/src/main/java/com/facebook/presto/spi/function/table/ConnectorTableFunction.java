@@ -19,7 +19,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Collections.unmodifiableList;
@@ -89,57 +88,7 @@ public abstract class ConnectorTableFunction
      *
      * @param arguments actual invocation arguments, mapped by argument names
      */
-    public Analysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
-    {
-        throw new UnsupportedOperationException("analyze method not implemented for Table Function " + name);
-    }
-
-    /**
-     * The `analyze()` method should produce an object of this class, containing all the analysis results:
-     * <p>
-     * The `returnedType` field is used to inform the Analyzer of the proper columns returned by the Table
-     * Function, that is, the columns produced by the function, as opposed to the columns passed from the
-     * input tables. The `returnedType` should only be set if the declared returned type is GENERIC_TABLE.
-     * <p>
-     * The `descriptorsToTables` field is used to inform the Analyzer of the semantics of descriptor arguments.
-     * Some descriptor arguments (or some of their fields) might be references to columns of the input tables.
-     * In such case, the Analyzer must be informed of those dependencies. It allows to pass the right values
-     * (input channels) to the Table Function during execution. It also allows to prune unused input columns
-     * during the optimization phase.
-     * <p>
-     * The `handle` field can be used to carry all information necessary to execute the table function,
-     * gathered at analysis time. Typically, these are the values of the constant arguments, and results
-     * of pre-processing arguments.
-     */
-    public static class Analysis
-    {
-        private final Optional<Descriptor> returnedType;
-        private final DescriptorMapping descriptorsToTables;
-        private final ConnectorTableFunctionHandle handle;
-
-        public Analysis(Optional<Descriptor> returnedType, DescriptorMapping descriptorsToTables, ConnectorTableFunctionHandle handle)
-        {
-            this.returnedType = requireNonNull(returnedType, "returnedType is null");
-            returnedType.ifPresent(descriptor -> checkArgument(descriptor.isTyped(), "field types not specified"));
-            this.descriptorsToTables = requireNonNull(descriptorsToTables, "descriptorsToTables is null");
-            this.handle = requireNonNull(handle, "handle is null");
-        }
-
-        public Optional<Descriptor> getReturnedType()
-        {
-            return returnedType;
-        }
-
-        public DescriptorMapping getDescriptorsToTables()
-        {
-            return descriptorsToTables;
-        }
-
-        public ConnectorTableFunctionHandle getHandle()
-        {
-            return handle;
-        }
-    }
+    public abstract TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments);
 
     static String checkNotNullOrEmpty(String value, String name)
     {
