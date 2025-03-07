@@ -34,7 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: changes
     strategy:
-      fail-fast: false
       matrix:
         java: [8, 17.0.13]
         modules:

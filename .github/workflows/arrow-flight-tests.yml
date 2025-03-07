@@ -17,7 +17,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         modules:
           - ":presto-base-arrow-flight"  # Only run tests for the `presto-base-arrow-flight` module
