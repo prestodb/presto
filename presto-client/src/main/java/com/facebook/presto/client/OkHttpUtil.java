@@ -14,6 +14,7 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.security.pem.PemReader;
+import com.facebook.presto.client.okhttp3.internal.tls.LegacyHostnameVerifier;
 import com.google.common.base.CharMatcher;
 import com.google.common.net.HostAndPort;
 import okhttp3.Call;
@@ -237,6 +238,7 @@ public final class OkHttpUtil
             sslContext.init(keyManagers, new TrustManager[] {trustManager}, null);
 
             clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), trustManager);
+            clientBuilder.hostnameVerifier(LegacyHostnameVerifier.INSTANCE);
         }
         catch (GeneralSecurityException | IOException e) {
             throw new ClientException("Error setting up SSL: " + e.getMessage(), e);
