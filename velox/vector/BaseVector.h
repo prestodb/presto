@@ -1113,7 +1113,7 @@ struct fmt::formatter<facebook::velox::VectorEncoding::Simple> {
   auto format(
       const facebook::velox::VectorEncoding::Simple& x,
       FormatContext& ctx) const {
-    return format_to(
+    return fmt::format_to(
         ctx.out(), "{}", facebook::velox::VectorEncoding::mapSimpleToName(x));
   }
 };
