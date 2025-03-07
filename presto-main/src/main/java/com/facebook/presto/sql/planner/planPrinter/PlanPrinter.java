@@ -328,6 +328,21 @@ public class PlanPrinter
         return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toJson();
     }
 
+    public static String jsonDistributedPlan(List<StageInfo> subStages, FunctionAndTypeManager functionAndTypeManager, Session session)
+    {
+        ImmutableList.Builder<Map<PlanFragmentId, JsonPlanFragment>> stageListBuilder = ImmutableList.builder();
+        for (StageInfo outputStageInfo : subStages) {
+            List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
+            Map<PlanNodeId, PlanNodeStats> aggregatedStats = aggregateStageStats(allStages);
+            List<PlanFragment> allFragments = getAllStages(Optional.of(outputStageInfo)).stream()
+                    .map(StageInfo::getPlan)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+            stageListBuilder.add(fragmentMapBuilder(allFragments, Optional.of(aggregatedStats), functionAndTypeManager, session));
+        }
+        return new JsonRenderer(functionAndTypeManager).render(stageListBuilder.build());
+    }
+
     public static String jsonDistributedPlan(StageInfo outputStageInfo, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         List<StageInfo> allStages = getAllStages(Optional.of(outputStageInfo));
@@ -336,12 +351,12 @@ public class PlanPrinter
                 .map(StageInfo::getPlan)
                 .map(Optional::get)
                 .collect(toImmutableList());
-        return formatJsonFragmentList(allFragments, Optional.of(aggregatedStats), functionAndTypeManager, session);
+        return new JsonRenderer(functionAndTypeManager).render(fragmentMapBuilder(allFragments, Optional.of(aggregatedStats), functionAndTypeManager, session));
     }
 
     public static String jsonDistributedPlan(SubPlan plan, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
-        return formatJsonFragmentList(plan.getAllFragments(), Optional.empty(), functionAndTypeManager, session);
+        return new JsonRenderer(functionAndTypeManager).render(fragmentMapBuilder(plan.getAllFragments(), Optional.empty(), functionAndTypeManager, session));
     }
 
     private String formatSourceLocation(Optional<SourceLocation> sourceLocation1, Optional<SourceLocation> sourceLocation2)
@@ -362,7 +377,7 @@ public class PlanPrinter
         return "";
     }
 
-    private static String formatJsonFragmentList(List<PlanFragment> fragments, Optional<Map<PlanNodeId, PlanNodeStats>> executionStats, FunctionAndTypeManager functionAndTypeManager, Session session)
+    private static Map<PlanFragmentId, JsonPlanFragment> fragmentMapBuilder(List<PlanFragment> fragments, Optional<Map<PlanNodeId, PlanNodeStats>> executionStats, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         ImmutableSortedMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap = ImmutableSortedMap.naturalOrder();
         for (PlanFragment fragment : fragments) {
@@ -372,7 +387,7 @@ public class PlanPrinter
             JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(printer.toJson());
             fragmentJsonMap.put(fragmentId, jsonPlanFragment);
         }
-        return new JsonRenderer(functionAndTypeManager).render(fragmentJsonMap.build());
+        return fragmentJsonMap.build();
     }
 
     private static String formatFragment(

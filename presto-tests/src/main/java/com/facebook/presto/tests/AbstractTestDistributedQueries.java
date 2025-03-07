@@ -371,7 +371,7 @@ public abstract class AbstractTestDistributedQueries
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0");
     }
 
-    private static void assertJsonNodesHaveStats(JsonRenderer.JsonRenderedNode node)
+    protected static void assertJsonNodesHaveStats(JsonRenderer.JsonRenderedNode node)
     {
         assertTrue(node.getStats().isPresent());
         node.getChildren().forEach(AbstractTestDistributedQueries::assertJsonNodesHaveStats);
@@ -381,12 +381,21 @@ public abstract class AbstractTestDistributedQueries
     public void testExplainAnalyzeFormatJson()
     {
         JsonRenderer renderer = new JsonRenderer(getQueryRunner().getMetadata().getFunctionAndTypeManager());
-        Map<PlanFragmentId, JsonRenderer.JsonPlan> fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT * FROM orders").getOnlyValue());
-        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
-        fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders").getOnlyValue());
-        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
-        fragments = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0").getOnlyValue());
-        fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+
+        List<Map<PlanFragmentId, JsonRenderer.JsonPlan>> fragmentsList = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT * FROM orders").getOnlyValue());
+        fragmentsList.forEach(fragments -> {
+            fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        });
+
+        fragmentsList = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders").getOnlyValue());
+        fragmentsList.forEach(fragments -> {
+            fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        });
+
+        fragmentsList = renderer.deserialize((String) computeActual("EXPLAIN ANALYZE (format JSON) SELECT rank() OVER (PARTITION BY orderkey ORDER BY clerk DESC) FROM orders WHERE orderkey < 0").getOnlyValue());
+        fragmentsList.forEach(fragments -> {
+            fragments.values().forEach(planFragment -> assertJsonNodesHaveStats(planFragment.getPlan()));
+        });
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "EXPLAIN ANALYZE doesn't support statement type: DropTable")

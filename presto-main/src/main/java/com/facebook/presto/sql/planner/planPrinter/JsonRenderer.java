@@ -39,9 +39,10 @@ import static java.util.Objects.requireNonNull;
 public class JsonRenderer
         implements Renderer<String>
 {
+    private final JsonCodec<List<Map<PlanFragmentId, JsonPlanFragment>>> planListCodec;
     private final JsonCodec<Map<PlanFragmentId, JsonPlanFragment>> planMapCodec;
     private final JsonCodec<JsonRenderedNode> codec;
-    private final JsonCodec<Map<PlanFragmentId, JsonPlan>> deserializationCodec;
+    private final JsonCodec<List<Map<PlanFragmentId, JsonPlan>>> deserializationCodec;
 
     public JsonRenderer(FunctionAndTypeManager functionAndTypeManager)
     {
@@ -52,10 +53,11 @@ public class JsonRenderer
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider, true);
         this.codec = codecFactory.jsonCodec(JsonRenderedNode.class);
         this.planMapCodec = codecFactory.mapJsonCodec(PlanFragmentId.class, JsonPlanFragment.class);
-        this.deserializationCodec = codecFactory.mapJsonCodec(PlanFragmentId.class, JsonPlan.class);
+        this.planListCodec = codecFactory.listJsonCodec(codecFactory.mapJsonCodec(PlanFragmentId.class, JsonPlanFragment.class));
+        this.deserializationCodec = codecFactory.listJsonCodec(codecFactory.mapJsonCodec(PlanFragmentId.class, JsonPlan.class));
     }
 
-    public Map<PlanFragmentId, JsonPlan> deserialize(String serialized)
+    public List<Map<PlanFragmentId, JsonPlan>> deserialize(String serialized)
     {
         return deserializationCodec.fromJson(serialized);
     }
@@ -69,6 +71,10 @@ public class JsonRenderer
     public String render(Map<PlanFragmentId, JsonPlanFragment> fragmentJsonMap)
     {
         return planMapCodec.toJson(fragmentJsonMap);
+    }
+    public String render(List<Map<PlanFragmentId, JsonPlanFragment>> fragmentJsonMap)
+    {
+        return planListCodec.toJson(fragmentJsonMap);
     }
 
     @VisibleForTesting
