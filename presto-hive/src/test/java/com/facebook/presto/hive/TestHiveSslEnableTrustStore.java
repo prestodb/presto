@@ -52,8 +52,8 @@ public class TestHiveSslEnableTrustStore
                 ImmutableMap.<String, String>builder()
                         // This is required when connecting to ssl enabled hms
                         .put("hive.metastore.thrift.client.tls.enabled", "true")
-                        .put("hive.metastore.thrift.client.tls.truststore.path", this.getClass().getClassLoader().getResource("hive_ssl_enable/truststore.jks").getPath())
-                        .put("hive.metastore.thrift.client.tls.truststore.password", "password")
+                        .put("hive.metastore.thrift.client.tls.truststore.path", this.getClass().getClassLoader().getResource("hive_ssl_enable/hive-metastore-truststore.jks").getPath())
+                        .put("hive.metastore.thrift.client.tls.truststore.password", "123456")
                         .build(),
                 new HashMap<>());
     }

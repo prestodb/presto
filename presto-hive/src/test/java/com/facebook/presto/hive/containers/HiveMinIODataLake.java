@@ -75,8 +75,8 @@ public class HiveMinIODataLake
         }
         else if (testType.equalsIgnoreCase("hive_ssl")) {
             filesToMount.put("hive_ssl_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
-            filesToMount.put("hive_ssl_enable/metastore.jks", "/opt/hive/conf/metastore.jks");
-            filesToMount.put("hive_ssl_enable/truststore.jks", "/opt/hive/conf/truststore.jks");
+            filesToMount.put("hive_ssl_enable/hive-metastore.jks", "/opt/hive/conf/hive-metastore.jks");
+            filesToMount.put("hive_ssl_enable/hive-metastore-truststore.jks", "/opt/hive/conf/hive-metastore-truststore.jks");
         }
         this.hiveHadoopContainer = closer.register(
                 HiveHadoopContainer.builder()
