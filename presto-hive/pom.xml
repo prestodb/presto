@@ -689,6 +689,8 @@
                             <includes>
                                 <include>**/TestHive2InsertOverwrite.java</include>
                                 <include>**/TestHive3InsertOverwrite.java</include>
+                                <include>**/TestHiveSslEnableKeystore.java</include>
+                                <include>**/TestHiveSslEnableTrustStore.java</include>
                             </includes>
                         </configuration>
                     </plugin>
