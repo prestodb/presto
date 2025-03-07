@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
@@ -38,5 +40,12 @@ public final class SchemaProperties
     public static Optional<String> getLocation(Map<String, Object> schemaProperties)
     {
         return Optional.ofNullable((String) schemaProperties.get(LOCATION_PROPERTY));
+    }
+
+    public static Map<String, Object> getDatabaseProperties(Database database)
+    {
+        ImmutableMap.Builder<String, Object> result = ImmutableMap.builder();
+        database.getLocation().ifPresent(location -> result.put(LOCATION_PROPERTY, location));
+        return result.build();
     }
 }
