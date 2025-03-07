@@ -78,6 +78,8 @@ public class TestRowOperators
     private static FunctionAssertions fieldNameInJsonCastEnabled;
     private static FunctionAssertions legacyJsonCastEnabled;
     private static FunctionAssertions legacyJsonCastDisabled;
+    private static FunctionAssertions legacyJsonExtractEnabled;
+    private static FunctionAssertions legacyJsonExtractDisabled;
 
     @BeforeClass
     public void setUp()
@@ -100,6 +102,13 @@ public class TestRowOperators
         FunctionsConfig featuresConfigWithLegacyJsonCastDisabled = new FunctionsConfig()
                 .setLegacyJsonCast(false);
         legacyJsonCastDisabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithLegacyJsonCastDisabled, true);
+
+        FunctionsConfig featuresConfigWithLegacyJsonExtractEnabled = new FunctionsConfig()
+                .setLegacyJsonExtract(true);
+        legacyJsonExtractEnabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithLegacyJsonExtractEnabled, true);
+        FunctionsConfig featuresConfigWithLegacyJsonExtractDisabled = new FunctionsConfig()
+                .setLegacyJsonExtract(false);
+        legacyJsonExtractDisabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithLegacyJsonExtractDisabled, true);
     }
 
     @AfterClass(alwaysRun = true)
@@ -113,6 +122,10 @@ public class TestRowOperators
         legacyJsonCastEnabled = null;
         legacyJsonCastDisabled.close();
         legacyJsonCastDisabled = null;
+        legacyJsonExtractEnabled.close();
+        legacyJsonExtractEnabled = null;
+        legacyJsonExtractDisabled.close();
+        legacyJsonExtractDisabled = null;
     }
 
     @ScalarFunction
@@ -715,6 +728,15 @@ public class TestRowOperators
 
     @Test
     public void testRowNestedNullVarchar()
+    {
+        assertFunction(
+                "CAST(ROW(JSON_EXTRACT('{\"decision_data\":{\"result\":null}}', '$.decision_data.result')) AS ROW(decision_string VARCHAR))",
+                RowType.from(ImmutableList.of(RowType.field("decision_string", VARCHAR))),
+                asList((String) null));
+    }
+
+    @Test
+    public void testRowNestedJsonExtractNullVarchar()
     {
         assertFunction(
                 "CAST(ROW(JSON_EXTRACT('{\"decision_data\":{\"result\":null}}', '$.decision_data.result')) AS ROW(decision_string VARCHAR))",

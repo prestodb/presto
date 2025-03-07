@@ -83,6 +83,7 @@ public class TestFunctionsConfig
                 .put("deprecated.legacy-char-to-varchar-coercion", "true")
                 .put("legacy-json-cast", "false")
                 .put("presto.default-namespace", "native.default")
+                .put("legacy-json-extract", "false")
                 .build();
 
         FunctionsConfig expected = new FunctionsConfig()
@@ -107,7 +108,8 @@ public class TestFunctionsConfig
                 .setWarnOnCommonNanPatterns(true)
                 .setLegacyCharToVarcharCoercion(true)
                 .setLegacyJsonCast(false)
-                .setDefaultNamespacePrefix("native.default");
+                .setDefaultNamespacePrefix("native.default")
+                .setLegacyJsonExtract(false);
         assertFullMapping(properties, expected);
     }
 }

@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -20,17 +22,20 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.io.SerializedString;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.JsonUtil.createJsonGenerator;
 import static com.facebook.presto.util.JsonUtil.createJsonParser;
+import static com.facebook.presto.util.JsonUtil.truncateIfNecessaryForErrorMessage;
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
@@ -38,6 +43,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.util.Objects.requireNonNull;
 
@@ -121,13 +127,25 @@ public final class JsonExtract
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
             .disable(CANONICALIZE_FIELD_NAMES);
 
+    private static final ObjectMapper SORTED_MAPPER = new JsonObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
+    public static final int DEFAULT_PARSE_INT_VALUE = -1;
+
     private JsonExtract() {}
 
-    public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor)
+    public static <T> T extract(Slice jsonInput, JsonExtractor<T> jsonExtractor, SqlFunctionProperties properties)
     {
         requireNonNull(jsonInput, "jsonInput is null");
         try {
-            return jsonExtractor.extract(jsonInput.getInput());
+            return jsonExtractor.extract(jsonInput.getInput(), properties);
+        }
+        // Instead of suppressing PrestoException, enhance the error message to provide more context and information.
+        catch (PrestoException e) {
+            if (e.getMessage().endsWith("Invalid Json input: ")) {
+                String detailedErrorMsg = e.getMessage() + truncateIfNecessaryForErrorMessage(jsonInput);
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, detailedErrorMsg);
+            } else {
+                throw e;
+            }
         }
         catch (JsonParseException e) {
             // Return null if we failed to parse something
@@ -156,7 +174,7 @@ public final class JsonExtract
 
     public interface JsonExtractor<T>
     {
-        T extract(InputStream inputStream)
+        T extract(InputStream inputStream, SqlFunctionProperties properties)
                 throws IOException;
     }
 
@@ -174,11 +192,11 @@ public final class JsonExtract
          *
          * @return the value, or null if not applicable
          */
-        abstract T extract(JsonParser jsonParser)
+        abstract T extract(JsonParser jsonParser, SqlFunctionProperties properties)
                 throws IOException;
 
         @Override
-        public T extract(InputStream inputStream)
+        public T extract(InputStream inputStream, SqlFunctionProperties properties)
                 throws IOException
         {
             try (JsonParser jsonParser = createJsonParser(JSON_FACTORY, inputStream)) {
@@ -187,7 +205,7 @@ public final class JsonExtract
                     return null;
                 }
 
-                return extract(jsonParser);
+                return extract(jsonParser, properties);
             }
         }
     }
@@ -210,25 +228,31 @@ public final class JsonExtract
             this.fieldName = new SerializedString(requireNonNull(fieldName, "fieldName is null"));
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.exceptionOnOutOfBounds = exceptionOnOutOfBounds;
-            this.index = tryParseInt(fieldName, -1);
+            this.index = tryParseInt(fieldName, DEFAULT_PARSE_INT_VALUE);
         }
 
-        @Override
-        public T extract(JsonParser jsonParser)
+        public T legacyExtract(JsonParser jsonParser, SqlFunctionProperties properties)
                 throws IOException
         {
             if (jsonParser.getCurrentToken() == START_OBJECT) {
-                return processJsonObject(jsonParser);
+                return processJsonObject(jsonParser, properties);
             }
 
             if (jsonParser.getCurrentToken() == START_ARRAY) {
-                return processJsonArray(jsonParser);
+                return processJsonArray(jsonParser, properties);
             }
 
             throw new JsonParseException(jsonParser, "Expected a JSON object or array");
         }
 
-        public T processJsonObject(JsonParser jsonParser)
+        @Override
+        T extract(JsonParser jsonParser, SqlFunctionProperties properties)
+                throws IOException
+        {
+            return legacyExtract(jsonParser, properties);
+        }
+
+        public T processJsonObject(JsonParser jsonParser, SqlFunctionProperties properties)
                 throws IOException
         {
             while (!jsonParser.nextFieldName(fieldName)) {
@@ -244,10 +268,10 @@ public final class JsonExtract
 
             jsonParser.nextToken(); // Shift to first token of the value
 
-            return delegate.extract(jsonParser);
+            return delegate.extract(jsonParser, properties);
         }
 
-        public T processJsonArray(JsonParser jsonParser)
+        public T processJsonArray(JsonParser jsonParser, SqlFunctionProperties properties)
                 throws IOException
         {
             int currentIndex = 0;
@@ -270,7 +294,7 @@ public final class JsonExtract
                 jsonParser.skipChildren(); // Skip nested structure if currently at the start of one
             }
 
-            return delegate.extract(jsonParser);
+            return delegate.extract(jsonParser, properties);
         }
     }
 
@@ -278,7 +302,7 @@ public final class JsonExtract
             extends PrestoJsonExtractor<Slice>
     {
         @Override
-        public Slice extract(JsonParser jsonParser)
+        public Slice extract(JsonParser jsonParser, SqlFunctionProperties properties)
                 throws IOException
         {
             JsonToken token = jsonParser.getCurrentToken();
@@ -296,13 +320,31 @@ public final class JsonExtract
             extends PrestoJsonExtractor<Slice>
     {
         @Override
-        public Slice extract(JsonParser jsonParser)
+        public Slice extract(JsonParser jsonParser, SqlFunctionProperties properties)
                 throws IOException
         {
             if (!jsonParser.hasCurrentToken()) {
                 throw new JsonParseException(jsonParser, "Unexpected end of value");
             }
+            if (properties.isLegacyJsonExtract()) {
+                return legacyExtract(jsonParser);
+            }
+            DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
+            // Write the JSON to output stream with sorted keys
+            SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(jsonParser, Object.class));
+            // nextToken will throw an exception if there are trailing characters.
+            try {
+                jsonParser.nextToken();
+            }
+            catch (JsonParseException e) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON input: ");
+            }
+            return dynamicSliceOutput.slice();
+        }
 
+        public Slice legacyExtract(JsonParser jsonParser)
+                throws IOException
+        {
             DynamicSliceOutput dynamicSliceOutput = new DynamicSliceOutput(ESTIMATED_JSON_OUTPUT_SIZE);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, dynamicSliceOutput)) {
                 jsonGenerator.copyCurrentStructure(jsonParser);
@@ -315,7 +357,7 @@ public final class JsonExtract
             extends PrestoJsonExtractor<Long>
     {
         @Override
-        public Long extract(JsonParser jsonParser)
+        public Long extract(JsonParser jsonParser, SqlFunctionProperties properties)
                 throws IOException
         {
             if (!jsonParser.hasCurrentToken()) {

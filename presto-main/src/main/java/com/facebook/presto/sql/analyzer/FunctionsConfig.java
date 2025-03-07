@@ -47,6 +47,7 @@ public class FunctionsConfig
     private boolean warnOnPossibleNans;
     private boolean legacyCharToVarcharCoercion;
     private boolean legacyJsonCast = true;
+    private boolean legacyJsonExtract = true;
     private String defaultNamespacePrefix = JAVA_BUILTIN_NAMESPACE.toString();
 
     @Config("deprecated.legacy-array-agg")
@@ -306,6 +307,18 @@ public class FunctionsConfig
     public boolean isLegacyJsonCast()
     {
         return legacyJsonCast;
+    }
+
+    @Config("legacy-json-extract")
+    public FunctionsConfig setLegacyJsonExtract(boolean legacyJsonExtract)
+    {
+        this.legacyJsonExtract = legacyJsonExtract;
+        return this;
+    }
+
+    public boolean isLegacyJsonExtract()
+    {
+        return legacyJsonExtract;
     }
 
     @Config("presto.default-namespace")

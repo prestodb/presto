@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.operator.scalar;
 
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 public class TestJsonExtractFunctions
@@ -61,6 +65,20 @@ public class TestJsonExtractFunctions
             "    \"expensive\": 10\n" +
             "}";
 
+    private static FunctionAssertions legacyJsonExtractEnabled;
+    private static FunctionAssertions legacyJsonExtractDisabled;
+    @BeforeClass
+    public void setUp()
+    {
+        registerScalar(getClass());
+        FunctionsConfig featuresConfigWithLegacyJsonExtractEnabled = new FunctionsConfig()
+                .setLegacyJsonExtract(true);
+        legacyJsonExtractEnabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithLegacyJsonExtractEnabled, true);
+        FunctionsConfig featuresConfigWithLegacyJsonExtractDisabled = new FunctionsConfig()
+                .setLegacyJsonExtract(false);
+        legacyJsonExtractDisabled = new FunctionAssertions(session, new FeaturesConfig(), featuresConfigWithLegacyJsonExtractDisabled, true);
+    }
+
     @Test
     public void testJsonExtract()
     {
@@ -83,8 +101,48 @@ public class TestJsonExtractFunctions
         assertFunction(format("JSON_EXTRACT('%s', '%s')", json, "concat($..category)"), JSON, "\"referencefictionfictionfiction\"");
         assertFunction(format("JSON_EXTRACT('%s', '%s')", json, "$.store.keys()"), JSON, "[\"book\",\"bicycle\"]");
         assertFunction(format("JSON_EXTRACT('%s', '%s')", json, "$.store.book[1].author"), JSON, "\"Evelyn Waugh\"");
-
         assertInvalidFunction(format("JSON_EXTRACT('%s', '%s')", json, "$...invalid"), "Invalid JSON path: '$...invalid'");
+    }
+
+
+    @Test
+    public void testExtractJsonWithCanonicalOutput()
+    {
+        // Test with simple JSON object
+        String json = "{\"key_2\": 2, \"key_3\": 3, \"key_1\": 1}";
+        String path = "$";
+        String expected = "{\"key_1\":1,\"key_2\":2,\"key_3\":3}";
+        legacyJsonExtractDisabled.assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, expected);
+
+        // Test with nested JSON object
+        json = "{\"key_1\": {\"nested_key_2\": \"value_2\", \"nested_key_1\": \"value_1\"}, \"key_2\": 2}";
+        path = "$.key_1";
+        expected = "{\"nested_key_1\":\"value_1\",\"nested_key_2\":\"value_2\"}";
+        legacyJsonExtractDisabled.assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, expected);
+
+        // Test with Array of JSON objects
+        json = "[{\"key_b\":\"v_b\",\"key_a\":\"v_a\"}, {\"key_2\": \"value_2\"}]";
+        path = "$[0]";
+        expected = "{\"key_a\":\"v_a\",\"key_b\":\"v_b\"}";
+        legacyJsonExtractDisabled.assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, expected);
+    }
+
+    @Test
+    public void testParseNullIfJsonInvalid()
+    {
+        // Unbalanced quotes
+        String json = "{ \"key_2\": 2, \"key_1\": \"z\"a1\" }";
+        String path = "$.key_1";
+        legacyJsonExtractEnabled.assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, "\"z\"");
+        assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, "\"z\"");
+        legacyJsonExtractDisabled.assertInvalidFunction(format("JSON_EXTRACT('%s', '%s')", json, path), INVALID_FUNCTION_ARGUMENT);
+
+        // Extra comma
+        json = "{ \"key_2\": 2, \"key_1\": \"value_1\", }";
+        path = "$.key_1";
+        legacyJsonExtractEnabled.assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, "\"value_1\"");
+        assertFunction(format("JSON_EXTRACT('%s', '%s')", json, path), JSON, "\"value_1\"");
+        legacyJsonExtractDisabled.assertInvalidFunction(format("JSON_EXTRACT('%s', '%s')", json, path), INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
