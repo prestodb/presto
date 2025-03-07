@@ -76,23 +76,23 @@
 
     <property>
         <name>hive.metastore.keystore.path</name>
-        <value>/opt/hive/conf/metastore.jks</value>
+        <value>/opt/hive/conf/hive-metastore.jks</value>
         <description>Metastore SSL certificate keystore location.</description>
     </property>
 
     <property>
         <name>hive.metastore.keystore.password</name>
-        <value>password</value>
+        <value>123456</value>
     </property>
 
     <property>
         <name>hive.metastore.truststore.path</name>
-        <value>/opt/hive/conf/truststore.jks</value>
+        <value>/opt/hive/conf/hive-metastore-truststore.jks</value>
     </property>
 
     <property>
         <name>hive.metastore.truststore.password</name>
-        <value>password</value>
+        <value>123456</value>
     </property>
 
 </configuration>
