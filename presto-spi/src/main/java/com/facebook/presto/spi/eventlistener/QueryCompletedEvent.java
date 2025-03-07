@@ -16,6 +16,7 @@ package com.facebook.presto.spi.eventlistener;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoWarning;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.prestospark.PrestoSparkExecutionContext;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
@@ -57,6 +58,7 @@ public class QueryCompletedEvent
     private final Set<String> windowFunctions;
     private final Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext;
     private final Map<PlanCanonicalizationStrategy, String> hboPlanHash;
+    private final Optional<Map<PlanNodeId, PlanNode>> planIdNodeMap;
 
     public QueryCompletedEvent(
             QueryMetadata metadata,
@@ -84,7 +86,8 @@ public class QueryCompletedEvent
             Set<String> aggregateFunctions,
             Set<String> windowFunctions,
             Optional<PrestoSparkExecutionContext> prestoSparkExecutionContext,
-            Map<PlanCanonicalizationStrategy, String> hboPlanHash)
+            Map<PlanCanonicalizationStrategy, String> hboPlanHash,
+            Optional<Map<PlanNodeId, PlanNode>> planNodeIdMap)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -112,6 +115,7 @@ public class QueryCompletedEvent
         this.windowFunctions = requireNonNull(windowFunctions, "windowFunctions is null");
         this.prestoSparkExecutionContext = requireNonNull(prestoSparkExecutionContext, "prestoSparkExecutionContext is null");
         this.hboPlanHash = requireNonNull(hboPlanHash, "planHash is null");
+        this.planIdNodeMap = requireNonNull(planNodeIdMap, "planNodeIdMap is null");
     }
 
     public QueryMetadata getMetadata()
@@ -242,5 +246,10 @@ public class QueryCompletedEvent
     public Map<PlanCanonicalizationStrategy, String> getHboPlanHash()
     {
         return hboPlanHash;
+    }
+
+    public Optional<Map<PlanNodeId, PlanNode>> getPlanNodeIdMap()
+    {
+        return planIdNodeMap;
     }
 }
