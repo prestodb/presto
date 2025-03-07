@@ -120,6 +120,12 @@ class HiveConfig {
   /// Maximum number of entries in the file handle cache.
   static constexpr const char* kNumCacheFileHandles = "num_cached_file_handles";
 
+  /// Expiration time in ms for a file handle in the cache. A value of 0
+  /// means cache will not evict the handle after kFileHandleExprationDurationMs
+  /// has passed.
+  static constexpr const char* kFileHandleExpirationDurationMs =
+      "file-handle-expiration-duration-ms";
+
   /// Enable file handle cache.
   static constexpr const char* kEnableFileHandleCache =
       "file-handle-cache-enabled";
@@ -214,6 +220,8 @@ class HiveConfig {
   int32_t loadQuantum(const config::ConfigBase* session) const;
 
   int32_t numCacheFileHandles() const;
+
+  uint64_t fileHandleExpirationDurationMs() const;
 
   bool isFileHandleCacheEnabled() const;
 

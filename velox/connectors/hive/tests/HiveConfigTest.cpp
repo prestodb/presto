@@ -68,6 +68,7 @@ TEST(HiveConfigTest, overrideConfig) {
       {HiveConfig::kMaxCoalescedBytes, "100"},
       {HiveConfig::kMaxCoalescedDistance, "100kB"},
       {HiveConfig::kNumCacheFileHandles, "100"},
+      {HiveConfig::kFileHandleExpirationDurationMs, "200"},
       {HiveConfig::kEnableFileHandleCache, "false"},
       {HiveConfig::kSortWriterMaxOutputRows, "100"},
       {HiveConfig::kSortWriterMaxOutputBytes, "100MB"},
@@ -93,6 +94,7 @@ TEST(HiveConfigTest, overrideConfig) {
   ASSERT_EQ(
       hiveConfig.maxCoalescedDistanceBytes(emptySession.get()), 100 << 10);
   ASSERT_EQ(hiveConfig.numCacheFileHandles(), 100);
+  ASSERT_EQ(hiveConfig.fileHandleExpirationDurationMs(), 200);
   ASSERT_FALSE(hiveConfig.isFileHandleCacheEnabled());
   ASSERT_EQ(hiveConfig.sortWriterMaxOutputRows(emptySession.get()), 100);
   ASSERT_EQ(

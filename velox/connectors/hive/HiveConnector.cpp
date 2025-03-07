@@ -55,7 +55,9 @@ HiveConnector::HiveConnector(
   if (hiveConfig_->isFileHandleCacheEnabled()) {
     LOG(INFO) << "Hive connector " << connectorId()
               << " created with maximum of "
-              << hiveConfig_->numCacheFileHandles() << " cached file handles.";
+              << hiveConfig_->numCacheFileHandles()
+              << " cached file handles with expiration of "
+              << hiveConfig_->fileHandleExpirationDurationMs() << "ms.";
   } else {
     LOG(INFO) << "Hive connector " << connectorId()
               << " created with file handle cache disabled";
