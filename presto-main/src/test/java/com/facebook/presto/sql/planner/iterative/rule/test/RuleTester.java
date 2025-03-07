@@ -36,6 +36,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.facebook.presto.transaction.TransactionManager;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.io.Closeable;
@@ -91,20 +92,23 @@ public class RuleTester
 
     public RuleTester(List<Plugin> plugins, Map<String, String> sessionProperties, SessionPropertyManager sessionPropertyManager, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)
     {
-        Session.SessionBuilder sessionBuilder = testSessionBuilder(sessionPropertyManager)
-                .setCatalog(CATALOG_ID)
-                .setSchema("tiny")
-                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+        this(plugins, getSession(sessionProperties, sessionPropertyManager), nodeCountForStats, connectorFactory);
+    }
 
-        for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
-            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
-        }
+    public RuleTester(List<Plugin> plugins, Session session, Optional<Integer> nodeCountForStats, ConnectorFactory connectorFactory)
+    {
+        this(plugins,
+                session,
+                nodeCountForStats.map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
+                        .orElseGet(() -> new LocalQueryRunner(session)),
+                connectorFactory);
+    }
 
-        session = sessionBuilder.build();
+    public RuleTester(List<Plugin> plugins, Session session, LocalQueryRunner preCreatedRunner, ConnectorFactory connectorFactory)
+    {
+        this.session = session;
+        queryRunner = preCreatedRunner;
 
-        queryRunner = nodeCountForStats
-                .map(nodeCount -> LocalQueryRunner.queryRunnerWithFakeNodeCountForStats(session, nodeCount))
-                .orElseGet(() -> new LocalQueryRunner(session));
         queryRunner.createCatalog(session.getCatalog().get(),
                 connectorFactory,
                 ImmutableMap.of());
@@ -119,6 +123,20 @@ public class RuleTester
         this.sqlParser = queryRunner.getSqlParser();
     }
 
+    public static Session getSession(Map<String, String> sessionProperties, SessionPropertyManager sessionPropertyManager)
+    {
+        Session.SessionBuilder sessionBuilder = testSessionBuilder(sessionPropertyManager)
+                .setCatalog(CATALOG_ID)
+                .setSchema("tiny")
+                .setSystemProperty("task_concurrency", "1"); // these tests don't handle exchanges from local parallel
+
+        for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
+            sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue());
+        }
+
+        return sessionBuilder.build();
+    }
+
     public RuleAssert assertThat(Rule rule)
     {
         return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
@@ -126,7 +144,12 @@ public class RuleTester
 
     public RuleAssert assertThat(Rule rule, LogicalPropertiesProvider logicalPropertiesProvider)
     {
-        return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl, Optional.of(logicalPropertiesProvider));
+        return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl, Optional.of(logicalPropertiesProvider), ImmutableList.of());
+    }
+
+    public RuleAssert assertThat(Rule rule, List<String> extraCatalogs)
+    {
+        return new RuleAssert(metadata, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl, Optional.empty(), extraCatalogs);
     }
 
     public OptimizerAssert assertThat(Set<Rule<?>> rules)
