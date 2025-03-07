@@ -149,9 +149,17 @@ std::optional<folly::Uri> S3ProxyConfigurationBuilder::build() {
   return proxyUri;
 }
 
-std::optional<std::string> parseStandardRegionName(std::string_view endpoint) {
+std::optional<std::string> parseAWSStandardRegionName(
+    std::string_view endpoint) {
+  // The assumption is that the endpoint ends with
+  // ".amazonaws.com" or ".amazonaws.com/". That means for AWS we don't
+  // expect a port in the endpoint.
   const std::string_view kAmazonHostSuffix = ".amazonaws.com";
   auto index = endpoint.size() - kAmazonHostSuffix.size();
+  // Handle the case where the endpoint ends in a trailing slash.
+  if (endpoint.back() == '/') {
+    index--;
+  }
   if (endpoint.rfind(kAmazonHostSuffix) != index) {
     return std::nullopt;
   }

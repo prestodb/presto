@@ -195,7 +195,9 @@ std::string getNoProxyEnvVar();
 // Endpoint can be 'service.[region].amazonaws.com' or
 // 'bucket.s3-[region].amazonaws.com' or bucket.s3.[region].amazonaws.com'
 // Return value is a region string value if present.
-std::optional<std::string> parseStandardRegionName(std::string_view endpoint);
+// The endpoint may contain a trailing '/' that is handled.
+std::optional<std::string> parseAWSStandardRegionName(
+    std::string_view endpoint);
 
 class S3ProxyConfigurationBuilder {
  public:
