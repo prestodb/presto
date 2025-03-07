@@ -17,7 +17,7 @@
 #pragma once
 
 #include <algorithm>
-#include "velox/common/base/RawVector.h"
+#include "velox/common/memory/RawVector.h"
 #include "velox/common/process/ProcessBase.h"
 #include "velox/dwio/common/StreamUtil.h"
 

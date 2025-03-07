@@ -31,7 +31,6 @@ velox_add_library(
   Fs.cpp
   PeriodicStatsReporter.cpp
   RandomUtil.cpp
-  RawVector.cpp
   RuntimeMetrics.cpp
   SimdUtil.cpp
   SkewedPartitionBalancer.cpp

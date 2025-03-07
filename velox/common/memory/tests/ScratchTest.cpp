@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/common/base/Scratch.h"
+#include "velox/common/memory/Scratch.h"
 
 #include <gtest/gtest.h>
 

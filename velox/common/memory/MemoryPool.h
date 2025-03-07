@@ -211,7 +211,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
       std::unique_ptr<MemoryReclaimer> reclaimer = nullptr);
 
   /// Allocates a buffer with specified 'size'.
-  virtual void* allocate(int64_t size) = 0;
+  virtual void* allocate(
+      int64_t size,
+      std::optional<uint32_t> alignment = std::nullopt) = 0;
 
   /// Allocates a zero-filled buffer with capacity that can store 'numEntries'
   /// entries with each size of 'sizeEach'.
@@ -568,7 +570,8 @@ class MemoryPoolImpl : public MemoryPool {
 
   ~MemoryPoolImpl() override;
 
-  void* allocate(int64_t size) override;
+  void* allocate(int64_t size, std::optional<uint32_t> alignment = std::nullopt)
+      override;
 
   void* allocateZeroFilled(int64_t numEntries, int64_t sizeEach) override;
 

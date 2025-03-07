@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/common/base/Scratch.h"
+#include "velox/common/memory/Scratch.h"
 #include "velox/common/memory/StreamArena.h"
 #include "velox/type/Type.h"
 

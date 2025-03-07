@@ -30,6 +30,7 @@ velox_add_library(
   MemoryPool.cpp
   MmapAllocator.cpp
   MmapArena.cpp
+  RawVector.cpp
   SharedArbitrator.cpp
   StreamArena.cpp)
 

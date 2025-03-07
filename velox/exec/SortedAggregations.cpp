@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/exec/SortedAggregations.h"
-#include "velox/common/base/RawVector.h"
+#include "velox/common/memory/RawVector.h"
 
 namespace facebook::velox::exec {
 

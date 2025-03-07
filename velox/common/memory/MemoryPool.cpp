@@ -486,7 +486,21 @@ MemoryPool::Stats MemoryPoolImpl::statsLocked() const {
   return stats;
 }
 
-void* MemoryPoolImpl::allocate(int64_t size) {
+void* MemoryPoolImpl::allocate(
+    int64_t size,
+    std::optional<uint32_t> alignment) {
+  if (alignment.has_value()) {
+    const auto alignmentValue = alignment.value();
+    if (FOLLY_UNLIKELY(alignment_ % alignmentValue != 0)) {
+      VELOX_UNSUPPORTED(
+          "Memory pool only supports fixed alignment allocations. Requested "
+          "alignment {} must already be aligned with this memory pool's fixed "
+          "alignment {}.",
+          alignmentValue,
+          alignment_);
+    }
+  }
+
   CHECK_AND_INC_MEM_OP_STATS(Allocs);
   const auto alignedSize = sizeAlign(size);
   reserve(alignedSize);

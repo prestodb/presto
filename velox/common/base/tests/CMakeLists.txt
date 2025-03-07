@@ -24,10 +24,8 @@ add_executable(
   FsTest.cpp
   IndexedPriorityQueueTest.cpp
   RangeTest.cpp
-  RawVectorTest.cpp
   RuntimeMetricsTest.cpp
   ScopedLockTest.cpp
-  ScratchTest.cpp
   SemaphoreTest.cpp
   SimdUtilTest.cpp
   SkewedPartitionBalancerTest.cpp

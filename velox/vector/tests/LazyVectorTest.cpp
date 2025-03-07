@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "velox/common/base/RawVector.h"
+#include "velox/common/memory/RawVector.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/common/base/RawVector.h"
+#include "velox/common/memory/RawVector.h"
 
 /// A utility for reusable scoped temporary scratch areas.
 namespace facebook::velox {

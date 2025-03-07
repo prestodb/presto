@@ -16,7 +16,7 @@
 
 #include "velox/common/base/SimdUtil.h"
 #include <folly/Random.h>
-#include "velox/common/base/RawVector.h"
+#include "velox/common/memory/RawVector.h"
 #include "velox/common/time/Timer.h"
 
 #include <gtest/gtest.h>

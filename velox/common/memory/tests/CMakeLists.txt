@@ -27,6 +27,8 @@ add_executable(
   MemoryManagerTest.cpp
   MemoryPoolTest.cpp
   MockSharedArbitratorTest.cpp
+  RawVectorTest.cpp
+  ScratchTest.cpp
   SharedArbitratorTest.cpp
   StreamArenaTest.cpp)
 

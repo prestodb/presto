@@ -94,7 +94,8 @@ class MockMemoryPool : public velox::memory::MemoryPool {
         "standalone_pool", MemoryPool::Kind::kAggregate, nullptr);
   }
 
-  void* allocate(int64_t size) override {
+  void* allocate(int64_t size, std::optional<uint32_t> alignment = std::nullopt)
+      override {
     updateLocalMemoryUsage(size);
     return allocator_->allocateBytes(size);
   }

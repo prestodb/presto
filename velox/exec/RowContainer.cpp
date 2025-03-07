@@ -16,7 +16,7 @@
 
 #include "velox/exec/RowContainer.h"
 
-#include "velox/common/base/RawVector.h"
+#include "velox/common/memory/RawVector.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/Operator.h"

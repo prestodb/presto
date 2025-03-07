@@ -17,7 +17,7 @@
 #pragma once
 
 #include <folly/container/F14Set.h>
-#include "velox/common/base/RawVector.h"
+#include "velox/common/memory/RawVector.h"
 #include "velox/vector/BaseVector.h"
 
 namespace facebook::velox {

@@ -15,8 +15,8 @@
  */
 
 #pragma once
-#include "velox/common/base/RawVector.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/common/memory/RawVector.h"
 #include "velox/common/process/ProcessBase.h"
 #include "velox/common/process/TraceHistory.h"
 #include "velox/dwio/common/FormatData.h"

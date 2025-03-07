@@ -282,7 +282,7 @@ class TestMemoryPool : public memory::MemoryPool {
  public:
   explicit TestMemoryPool() : MemoryPool("", Kind::kAggregate, nullptr, {}) {}
 
-  void* allocate(int64_t size) override {
+  void* allocate(int64_t size, std::optional<uint32_t> /* unused */) override {
     return nullptr;
   }
 

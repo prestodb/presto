@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/common/base/RawVector.h"
+#include "velox/common/memory/RawVector.h"
 #include <folly/Preprocessor.h>
 #include <numeric>
 

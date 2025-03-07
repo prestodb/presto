@@ -16,8 +16,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <sstream>
-#include "velox/common/base/RawVector.h"
 #include "velox/common/base/SimdUtil.h"
+#include "velox/common/memory/RawVector.h"
 #include "velox/common/time/Timer.h"
 #include "velox/type/Type.h"
 
