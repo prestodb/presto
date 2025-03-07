@@ -285,22 +285,22 @@ public class DispatchManager
             sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
             session = sessionBuilder.build();
 
-            // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, sessionBuilder.getWarningCollector());
             QueryPreparerProvider queryPreparerProvider = queryPreparerProviderManager.getQueryPreparerProvider(getAnalyzerType(session));
-            preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, sessionBuilder.getPreparedStatements(), sessionBuilder.getWarningCollector());
-            query = preparedQuery.getFormattedQuery().orElse(query);
 
             // Rewrite the query
             if (SystemSessionProperties.isQueryRewriterPluginEnabled(session)) {
                 QueryAndSessionProperties queryAndSessionProperties = queryRewriterManager.rewriteQueryAndSession(query, session, analyzerOptions,
                         analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session)), queryPreparerProvider);
-                if (queryAndSessionProperties.getPreparedQuery().isPresent()) {
+                if (queryAndSessionProperties.getQuery().isPresent()) {
                     queryAndSessionProperties.getSystemSessionProperties().forEach(sessionBuilder::setSystemProperty);
-                    preparedQuery = queryAndSessionProperties.getPreparedQuery().get();
-                    query = queryAndSessionProperties.getQuery();
+                    query = queryAndSessionProperties.getQuery().get();
                 }
             }
+
+            // prepare query
+            preparedQuery = queryPreparerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, sessionBuilder.getPreparedStatements(), sessionBuilder.getWarningCollector());
+            query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
             Optional<QueryType> queryType = preparedQuery.getQueryType();

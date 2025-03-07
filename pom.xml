@@ -2558,6 +2558,7 @@
                                 <excludes combine.children="append">
                                     <!-- TODO: fix this in Airlift resolver -->
                                     <exclude>org.codehaus.plexus:plexus-utils</exclude>
+                                    <exclude>org.slf4j:slf4j-api</exclude>
                                     <exclude>com.google.guava:guava</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
                                     <exclude>com.fasterxml.jackson.core:jackson-core</exclude>

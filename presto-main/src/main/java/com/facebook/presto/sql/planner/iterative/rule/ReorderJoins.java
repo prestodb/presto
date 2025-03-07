@@ -69,6 +69,7 @@ import static com.facebook.presto.SystemSessionProperties.confidenceBasedBroadca
 import static com.facebook.presto.SystemSessionProperties.getJoinDistributionType;
 import static com.facebook.presto.SystemSessionProperties.getJoinReorderingStrategy;
 import static com.facebook.presto.SystemSessionProperties.getMaxReorderedJoins;
+import static com.facebook.presto.SystemSessionProperties.isQueryRewriterPluginSucceeded;
 import static com.facebook.presto.SystemSessionProperties.shouldHandleComplexEquiJoins;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.and;
@@ -140,7 +141,7 @@ public class ReorderJoins
     @Override
     public boolean isEnabled(Session session)
     {
-        return getJoinReorderingStrategy(session) == AUTOMATIC;
+        return getJoinReorderingStrategy(session) == AUTOMATIC && !isQueryRewriterPluginSucceeded(session);
     }
 
     @Override

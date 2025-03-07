@@ -14,25 +14,21 @@
 
 package com.facebook.presto.dispatcher;
 
-import com.facebook.presto.common.analyzer.PreparedQuery;
-
 import java.util.Map;
 import java.util.Optional;
 
 public class QueryAndSessionProperties
 {
-    private final String query;
+    private final Optional<String> query;
     private final Map<String, String> systemSessionProperties;
-    private final Optional<PreparedQuery> preparedQuery;
 
-    public QueryAndSessionProperties(String query, Map<String, String> systemSessionProperties, Optional<PreparedQuery> preparedQuery)
+    public QueryAndSessionProperties(Optional<String> query, Map<String, String> systemSessionProperties)
     {
         this.query = query;
         this.systemSessionProperties = systemSessionProperties;
-        this.preparedQuery = preparedQuery;
     }
 
-    public String getQuery()
+    public Optional<String> getQuery()
     {
         return query;
     }
@@ -40,10 +36,5 @@ public class QueryAndSessionProperties
     public Map<String, String> getSystemSessionProperties()
     {
         return systemSessionProperties;
-    }
-
-    public Optional<PreparedQuery> getPreparedQuery()
-    {
-        return preparedQuery;
     }
 }
