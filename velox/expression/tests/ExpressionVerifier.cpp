@@ -310,6 +310,8 @@ ExpressionVerifier::verify(
             if (exceptionCommonPtr && exceptionReference) {
               verificationStates.push_back(VerificationState::kBothPathsThrow);
             } else {
+              verificationStates.push_back(
+                  VerificationState::kReferencePathUnsupported);
               if (!(defaultNull &&
                     referenceQueryRunner_->runnerType() ==
                         ReferenceQueryRunner::RunnerType::kPrestoQueryRunner)) {

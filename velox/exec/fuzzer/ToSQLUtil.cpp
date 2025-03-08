@@ -122,7 +122,8 @@ void toCallInputsSql(
 // operators supported in Presto SQL.
 const std::unordered_map<std::string, std::string>& unaryOperatorMap() {
   static std::unordered_map<std::string, std::string> unaryOperatorMap{
-      {"negate", "-"}};
+      {"negate", "-"},
+  };
   return unaryOperatorMap;
 }
 
@@ -141,6 +142,7 @@ const std::unordered_map<std::string, std::string>& binaryOperatorMap() {
       {"gt", ">"},
       {"lte", "<="},
       {"gte", ">="},
+      {"distinct_from", "is distinct from"},
   };
   return binaryOperatorMap;
 }
@@ -163,6 +165,10 @@ std::string toCallSql(const core::CallTypedExprPtr& call) {
     sql << fmt::format(" {} ", binaryOperators.at(call->name()));
     toCallInputsSql({call->inputs()[1]}, sql);
     sql << ")";
+  } else if (call->name() == "is_null" || call->name() == "not_null") {
+    VELOX_CHECK_EQ(call->inputs().size(), 1);
+    toCallInputsSql({call->inputs()[0]}, sql);
+    sql << fmt::format(" is{} null", call->name() == "not_null" ? " not" : "");
   } else if (call->name() == "in") {
     VELOX_CHECK_GE(call->inputs().size(), 2);
     toCallInputsSql({call->inputs()[0]}, sql);
