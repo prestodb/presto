@@ -66,7 +66,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -1231,7 +1230,7 @@ public class TestPrestoSparkHttpClient
                         TaskId.valueOf(taskId),
                         location,
                         new ArrayList<>(),
-                        new TaskStats(DateTime.now(), null),
+                        new TaskStats(System.currentTimeMillis(), 0L),
                         "dummy-node").withTaskStatus(createTaskStatusDone(location));
                 return new TestingResponse(
                         httpStatus.code(),

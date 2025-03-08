@@ -23,7 +23,6 @@ import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.TaskStats;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -83,7 +82,7 @@ public class StageExecutionStateMachine
     private final StateMachine<Optional<StageExecutionInfo>> finalInfo;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
-    private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
+    private final AtomicReference<Long> schedulingComplete = new AtomicReference<>();
     private final Distribution getSplitDistribution = new Distribution();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
@@ -146,7 +145,7 @@ public class StageExecutionStateMachine
 
     public synchronized boolean transitionToScheduled()
     {
-        schedulingComplete.compareAndSet(null, DateTime.now());
+        schedulingComplete.compareAndSet(null, System.currentTimeMillis());
         return state.setIf(SCHEDULED, currentState -> currentState == PLANNED || currentState == SCHEDULING || currentState == FINISHED_TASK_SCHEDULING || currentState == SCHEDULING_SPLITS);
     }
 
@@ -354,7 +353,7 @@ public class StageExecutionStateMachine
                 state,
                 failureInfo,
                 taskInfos,
-                schedulingComplete.get(),
+                Optional.ofNullable(schedulingComplete.get()).orElse(0L),
                 getSplitDistribution.snapshot(),
                 runtimeStats,
                 peakUserMemory.get(),

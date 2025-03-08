@@ -16,7 +16,6 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.google.common.util.concurrent.ListenableFuture;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -34,7 +33,7 @@ public class TaskStateMachine
 {
     private static final Logger log = Logger.get(TaskStateMachine.class);
 
-    private final DateTime createdTime = DateTime.now();
+    private final long createdTimeInMillis = System.currentTimeMillis();
 
     private final TaskId taskId;
     private final StateMachine<TaskState> taskState;
@@ -54,9 +53,9 @@ public class TaskStateMachine
         });
     }
 
-    public DateTime getCreatedTime()
+    public long getCreatedTimeInMillis()
     {
-        return createdTime;
+        return createdTimeInMillis;
     }
 
     public TaskId getTaskId()

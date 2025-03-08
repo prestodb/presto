@@ -178,12 +178,12 @@ public class GcStatusMonitor
         }).collect(toImmutableList());
         if (!rows.isEmpty()) {
             logInfoTable(ImmutableList.<List<String>>builder().add(
-                    ImmutableList.of(
-                            "Query ID",
-                            "Total Memory Reservation",
-                            "User Memory Reservation",
-                            "System Memory Reservation",
-                            "Revocable Memory Reservation"))
+                            ImmutableList.of(
+                                    "Query ID",
+                                    "Total Memory Reservation",
+                                    "User Memory Reservation",
+                                    "System Memory Reservation",
+                                    "Revocable Memory Reservation"))
                     .addAll(rows)
                     .build());
         }
@@ -210,7 +210,7 @@ public class GcStatusMonitor
                                 task.getQueryContext().getQueryId().toString(),
                                 task.getTaskId().toString(),
                                 taskStatus.getState().toString(),
-                                taskStats.getCreateTime().toString(),
+                                String.valueOf(taskStats.getCreateTimeInMillis()),
                                 Long.toString(taskStats.getUserMemoryReservationInBytes()),
                                 Long.toString(taskStats.getSystemMemoryReservationInBytes()),
                                 Long.toString(taskStats.getRevocableMemoryReservationInBytes()),

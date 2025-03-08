@@ -18,7 +18,6 @@ import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.QueryId;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -30,8 +29,6 @@ import java.util.Set;
 
 import static com.facebook.presto.execution.QueryState.RUNNING;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static org.joda.time.DateTime.now;
-import static org.joda.time.Seconds.secondsBetween;
 
 @ThreadSafe
 public class ClusterMemoryLeakDetector
@@ -40,7 +37,7 @@ public class ClusterMemoryLeakDetector
 
     // It may take some time to remove a query's memory reservations from the worker nodes, that's why
     // we check to see whether some time has passed after the query finishes to claim that it is leaked.
-    private static final int DEFAULT_LEAK_CLAIM_DELTA_SEC = 60;
+    private static final int DEFAULT_LEAK_CLAIM_DELTA_MILLIS = 60_000;
 
     @GuardedBy("this")
     private Set<QueryId> leakedQueries;
@@ -63,7 +60,7 @@ public class ClusterMemoryLeakDetector
         long leakedBytesThisTime = leakedQueryReservations.values().stream().reduce(0L, Long::sum);
         if (!leakedQueryReservations.isEmpty()) {
             log.warn("Memory leak of %s detected. The following queries are already finished, " +
-                    "but they have memory reservations on some worker node(s): %s",
+                            "but they have memory reservations on some worker node(s): %s",
                     DataSize.succinctBytes(leakedBytes), leakedQueryReservations);
         }
 
@@ -82,9 +79,9 @@ public class ClusterMemoryLeakDetector
             return true;
         }
 
-        Optional<DateTime> queryEndTime = queryInfo.flatMap(qi -> Optional.ofNullable(qi.getState() == RUNNING ? null : qi.getQueryStats().getEndTime()));
+        Optional<Long> queryEndTimeInMillis = queryInfo.flatMap(qi -> Optional.ofNullable(qi.getState() == RUNNING ? null : qi.getQueryStats().getEndTimeInMillis()));
 
-        return queryEndTime.map(ts -> secondsBetween(ts, now()).getSeconds() >= DEFAULT_LEAK_CLAIM_DELTA_SEC).orElse(false);
+        return queryEndTimeInMillis.map(ts -> (System.currentTimeMillis() - ts) >= DEFAULT_LEAK_CLAIM_DELTA_MILLIS).orElse(false);
     }
 
     synchronized boolean wasQueryPossiblyLeaked(QueryId queryId)
