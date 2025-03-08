@@ -361,6 +361,12 @@ Property Name                                Description
 ``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
                                              will skip data that may be expected to be part of the table
                                              or partition. Defaults to ``false``.
+
+``hive.s3.web-identity-token-file``          Specifies the file path of the Web Identity token used for
+                                             assuming an IAM role.
+
+``hive.s3.web.identity.auth.enabled``        Enables Web Identity authentication for S3 access.Requires
+                                             ``hive.s3.iam-role`` to be specified.
 ============================================ =================================================================
 
 S3 Credentials
