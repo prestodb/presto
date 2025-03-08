@@ -136,7 +136,7 @@ public final class JsonPrestoQueryPlanFunctions
     {
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
-        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER)));
+        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER.getFunctionAndTypeResolver())));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider, true);
 
         JsonCodec<Map<PlanFragmentId, Map<String, JsonRenderer.JsonRenderedNode>>> planMapCodec = codecFactory.mapJsonCodec(PlanFragmentId.class, mapJsonCodec(String.class, JsonRenderer.JsonRenderedNode.class));
@@ -160,7 +160,7 @@ public final class JsonPrestoQueryPlanFunctions
     {
         JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
-        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER)));
+        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(FUNCTION_AND_TYPE_MANAGER.getFunctionAndTypeResolver())));
         JsonCodecFactory codecFactory = new JsonCodecFactory(provider, true);
         JsonCodec<JsonRenderedNode> planCodec = codecFactory.jsonCodec(JsonRenderedNode.class);
         return planCodec;

@@ -228,7 +228,7 @@ public class TestVerificationManager
                         createChecksumValidator(verifierConfig),
                         PrestoExceptionClassifier.defaultBuilder().build(),
                         verifierConfig,
-                        createTestFunctionAndTypeManager(),
+                        createTestFunctionAndTypeManager().getFunctionAndTypeResolver(),
                         new DeterminismAnalyzerConfig()),
                 SQL_PARSER,
                 ImmutableSet.of(eventClient),

@@ -152,6 +152,6 @@ public class VerifierTestUtil
 
     public static TypeManager createTypeManager()
     {
-        return createTestFunctionAndTypeManager();
+        return createTestFunctionAndTypeManager().getFunctionAndTypeResolver();
     }
 }

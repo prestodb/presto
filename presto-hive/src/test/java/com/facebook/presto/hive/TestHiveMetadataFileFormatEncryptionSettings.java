@@ -69,7 +69,7 @@ import static com.facebook.presto.hive.HiveTableProperties.PARTITIONED_BY_PROPER
 import static com.facebook.presto.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
-import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
+import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_RESOLVER;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_RESOLUTION;
 import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.HIVE_CLIENT_CONFIG;
@@ -111,7 +111,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
         metadataFactory = new HiveMetadataFactory(
                 metastore,
                 HDFS_ENVIRONMENT,
-                new HivePartitionManager(FUNCTION_AND_TYPE_MANAGER, HIVE_CLIENT_CONFIG),
+                new HivePartitionManager(FUNCTION_AND_TYPE_RESOLVER, HIVE_CLIENT_CONFIG),
                 DateTimeZone.forTimeZone(TimeZone.getTimeZone(ZoneId.of(HIVE_CLIENT_CONFIG.getTimeZone()))),
                 true,
                 false,
@@ -122,7 +122,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 HIVE_CLIENT_CONFIG.getMaxPartitionsPerScan(),
                 false,
                 10_000,
-                FUNCTION_AND_TYPE_MANAGER,
+                FUNCTION_AND_TYPE_RESOLVER,
                 new HiveLocationService(HDFS_ENVIRONMENT),
                 FUNCTION_RESOLUTION,
                 ROW_EXPRESSION_SERVICE,
