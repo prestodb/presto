@@ -22,6 +22,7 @@ add_library(
   AssertQueryBuilder.cpp
   ArbitratorTestUtil.cpp
   HiveConnectorTestBase.cpp
+  IndexLookupJoinTestBase.cpp
   LocalExchangeSource.cpp
   OperatorTestBase.cpp
   PlanBuilder.cpp

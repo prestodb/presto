@@ -21,6 +21,7 @@
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
+#include "velox/exec/tests/utils/IndexLookupJoinTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TestIndexStorageConnector.h"
 
@@ -31,7 +32,7 @@ using namespace facebook::velox::common::testutil;
 
 namespace fecebook::velox::exec::test {
 namespace {
-class IndexLookupJoinTest : public HiveConnectorTestBase,
+class IndexLookupJoinTest : public IndexLookupJoinTestBase,
                             public testing::WithParamInterface<bool> {
  protected:
   IndexLookupJoinTest() = default;
@@ -69,272 +70,10 @@ class IndexLookupJoinTest : public HiveConnectorTestBase,
     HiveConnectorTestBase::TearDown();
   }
 
-  struct SequenceTableData {
-    RowVectorPtr keyData;
-    RowVectorPtr valueData;
-    RowVectorPtr tableData;
-    std::vector<int64_t> minKeys;
-    std::vector<int64_t> maxKeys;
-  };
-
-  RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
-    std::vector<std::string> names = a->names();
-    std::vector<TypePtr> types = a->children();
-    names.insert(names.end(), b->names().begin(), b->names().end());
-    types.insert(types.end(), b->children().begin(), b->children().end());
-    return ROW(std::move(names), std::move(types));
-  }
-
   void testSerde(const core::PlanNodePtr& plan) {
     auto serialized = plan->serialize();
-
     auto copy = ISerializable::deserialize<core::PlanNode>(serialized, pool());
-
     ASSERT_EQ(plan->toString(true, true), copy->toString(true, true));
-  }
-
-  template <typename T>
-  void getVectorMinMax(FlatVector<T>* vector, T& min, T& max) {
-    min = std::numeric_limits<T>::max();
-    max = std::numeric_limits<T>::min();
-    for (auto i = 0; i < vector->size(); ++i) {
-      min = std::min(min, vector->valueAt(i));
-      max = std::max(max, vector->valueAt(i));
-    }
-  }
-
-  int getNumRows(const std::vector<int>& cardinalities) {
-    int numRows{1};
-    for (const auto& cardinality : cardinalities) {
-      numRows *= cardinality;
-    }
-    return numRows;
-  }
-
-  // Generate sequence storage table which will be persisted by mock zippydb
-  // client for testing.
-  // @param keyCardinalities: specifies the number of unique keys per each index
-  // column, which also determines the total number of rows stored in the
-  // sequence storage table.
-  // @param tableData: returns the sequence table data stats including the key
-  // vector, value vector, table vector, and the min and max key values for each
-  // index column.
-  void generateIndexTableData(
-      const std::vector<int>& keyCardinalities,
-      SequenceTableData& tableData) {
-    VELOX_CHECK_EQ(keyCardinalities.size(), keyType_->size());
-    const auto numRows = getNumRows(keyCardinalities);
-    VectorFuzzer::Options opts;
-    opts.vectorSize = numRows;
-    opts.nullRatio = 0.0;
-    opts.allowSlice = false;
-    VectorFuzzer fuzzer(opts, pool_.get());
-
-    tableData.keyData = fuzzer.fuzzInputFlatRow(keyType_);
-    tableData.valueData = fuzzer.fuzzInputFlatRow(valueType_);
-
-    VELOX_CHECK_EQ(numRows, tableData.keyData->size());
-    tableData.maxKeys.resize(keyType_->size());
-    tableData.minKeys.resize(keyType_->size());
-    // Set the key column vector to the same value to easy testing with
-    // specified match ratio.
-    for (int i = keyType_->size() - 1, numRepeats = 1; i >= 0;
-         numRepeats *= keyCardinalities[i--]) {
-      int64_t minKey = std::numeric_limits<int64_t>::max();
-      int64_t maxKey = std::numeric_limits<int64_t>::min();
-      int numKeys = keyCardinalities[i];
-      tableData.keyData->childAt(i) =
-          makeFlatVector<int64_t>(tableData.keyData->size(), [&](auto row) {
-            const int64_t keyValue = 1 + (row / numRepeats) % numKeys;
-            minKey = std::min(minKey, keyValue);
-            maxKey = std::max(maxKey, keyValue);
-            return keyValue;
-          });
-      tableData.minKeys[i] = minKey;
-      tableData.maxKeys[i] = maxKey;
-    }
-
-    std::vector<VectorPtr> tableColumns;
-    VELOX_CHECK_EQ(tableType_->size(), keyType_->size() + valueType_->size());
-    tableColumns.reserve(tableType_->size());
-    for (auto i = 0; i < keyType_->size(); ++i) {
-      tableColumns.push_back(tableData.keyData->childAt(i));
-    }
-    for (auto i = 0; i < valueType_->size(); ++i) {
-      tableColumns.push_back(tableData.valueData->childAt(i));
-    }
-    tableData.tableData = makeRowVector(tableType_->names(), tableColumns);
-  }
-
-  // Generate probe input for lookup join.
-  // @param numBatches: number of probe batches.
-  // @param batchSize: number of rows in each probe batch.
-  // @param tableData: contains the sequence table data including key vectors
-  // and min/max key values.
-  // @param probeJoinKeys: the prefix key colums used for equality joins.
-  // @param inColumns: the ordered list of in conditions.
-  // @param betweenColumns: the ordered list of between conditions.
-  // @param equalMatchPct: percentage of rows in the probe input that
-  // matches
-  //                       with the rows in index table.
-  // @param betweenMatchPct: percentage of rows in the probe input that
-  // matches
-  //                         the rows in index table with between
-  //                         conditions.
-  // @param inMatchPct: percentage of rows in the probe input that matches
-  // the
-  //                    rows in index table with in conditions.
-  std::vector<RowVectorPtr> generateProbeInput(
-      size_t numBatches,
-      size_t batchSize,
-      SequenceTableData& tableData,
-      const std::vector<std::string>& probeJoinKeys,
-      const std::vector<std::string> inColumns = {},
-      const std::vector<std::pair<std::string, std::string>>& betweenColumns =
-          {},
-      std::optional<int> equalMatchPct = std::nullopt,
-      std::optional<int> inMatchPct = std::nullopt,
-      std::optional<int> betweenMatchPct = std::nullopt) {
-    VELOX_CHECK_EQ(
-        probeJoinKeys.size() + betweenColumns.size() + inColumns.size(), 3);
-    std::vector<RowVectorPtr> probeInputs;
-    probeInputs.reserve(numBatches);
-    VectorFuzzer::Options opts;
-    opts.vectorSize = batchSize;
-    opts.allowSlice = false;
-    // TODO: add nullable handling later.
-    opts.nullRatio = 0.0;
-    VectorFuzzer fuzzer(opts, pool_.get());
-    for (int i = 0; i < numBatches; ++i) {
-      probeInputs.push_back(fuzzer.fuzzInputRow(probeType_));
-    }
-
-    if (tableData.keyData->size() == 0) {
-      return probeInputs;
-    }
-
-    const auto numTableRows = tableData.keyData->size();
-    std::vector<FlatVectorPtr<int64_t>> tableKeyVectors;
-    for (int i = 0; i < probeJoinKeys.size(); ++i) {
-      auto keyVector = tableData.keyData->childAt(i);
-      keyVector->loadedVector();
-      BaseVector::flattenVector(keyVector);
-      tableKeyVectors.push_back(
-          std::dynamic_pointer_cast<FlatVector<int64_t>>(keyVector));
-    }
-
-    if (equalMatchPct.has_value()) {
-      VELOX_CHECK_GE(equalMatchPct.value(), 0);
-      VELOX_CHECK_LE(equalMatchPct.value(), 100);
-      for (int i = 0, totalRows = 0; i < numBatches; ++i) {
-        std::vector<FlatVectorPtr<int64_t>> probeKeyVectors;
-        for (int j = 0; j < probeJoinKeys.size(); ++j) {
-          probeKeyVectors.push_back(BaseVector::create<FlatVector<int64_t>>(
-              probeType_->findChild(probeJoinKeys[j]),
-              probeInputs[i]->size(),
-              pool_.get()));
-        }
-        for (int row = 0; row < probeInputs[i]->size(); ++row, ++totalRows) {
-          if (totalRows % 100 < equalMatchPct.value()) {
-            const auto matchKeyRow = folly::Random::rand64(numTableRows);
-            for (int j = 0; j < probeJoinKeys.size(); ++j) {
-              probeKeyVectors[j]->set(
-                  row, tableKeyVectors[j]->valueAt(matchKeyRow));
-            }
-          } else {
-            for (int j = 0; j < probeJoinKeys.size(); ++j) {
-              probeKeyVectors[j]->set(
-                  row, tableData.maxKeys[j] + 1 + folly::Random::rand32());
-            }
-          }
-        }
-        for (int j = 0; j < probeJoinKeys.size(); ++j) {
-          probeInputs[i]->childAt(j) = probeKeyVectors[j];
-        }
-      }
-    }
-
-    if (inMatchPct.has_value()) {
-      VELOX_CHECK(!inColumns.empty());
-      VELOX_CHECK_GE(inMatchPct.value(), 0);
-      VELOX_CHECK_LE(inMatchPct.value(), 100);
-      for (int i = 0; i < inColumns.size(); ++i) {
-        const auto inColumnName = inColumns[i];
-        const auto inColumnChannel = probeType_->getChildIdx(inColumnName);
-        auto inColumnType = std::dynamic_pointer_cast<const ArrayType>(
-            probeType_->childAt(inColumnChannel));
-        VELOX_CHECK_NOT_NULL(inColumnType);
-        const auto tableKeyChannel = probeJoinKeys.size() + i;
-        VELOX_CHECK(keyType_->childAt(tableKeyChannel)
-                        ->equivalent(*inColumnType->elementType()));
-        const auto minValue = !inMatchPct.has_value()
-            ? tableData.minKeys[tableKeyChannel] - 1
-            : tableData.minKeys[tableKeyChannel];
-        const auto maxValue = !inMatchPct.has_value()
-            ? minValue
-            : tableData.minKeys[tableKeyChannel] +
-                (tableData.maxKeys[tableKeyChannel] -
-                 tableData.minKeys[tableKeyChannel]) *
-                    inMatchPct.value() / 100;
-        for (int i = 0; i < numBatches; ++i) {
-          probeInputs[i]->childAt(inColumnChannel) = makeArrayVector<int64_t>(
-              probeInputs[i]->size(),
-              [&](auto row) -> vector_size_t {
-                return maxValue - minValue + 1;
-              },
-              [&](auto /*unused*/, auto index) { return minValue + index; });
-        }
-      }
-    }
-
-    if (betweenMatchPct.has_value()) {
-      VELOX_CHECK(!betweenColumns.empty());
-      VELOX_CHECK_GE(betweenMatchPct.value(), 0);
-      VELOX_CHECK_LE(betweenMatchPct.value(), 100);
-      for (int i = 0; i < betweenColumns.size(); ++i) {
-        const auto tableKeyChannel = probeJoinKeys.size() + i;
-        const auto betweenColumn = betweenColumns[i];
-        const auto lowerBoundColumn = betweenColumn.first;
-        std::optional<int32_t> lowerBoundChannel;
-        if (!lowerBoundColumn.empty()) {
-          lowerBoundChannel = probeType_->getChildIdx(lowerBoundColumn);
-          VELOX_CHECK(probeType_->childAt(lowerBoundChannel.value())
-                          ->equivalent(*keyType_->childAt(tableKeyChannel)));
-        }
-        const auto upperBoundColumn = betweenColumn.first;
-        std::optional<int32_t> upperBoundChannel;
-        if (!upperBoundColumn.empty()) {
-          upperBoundChannel = probeType_->getChildIdx(upperBoundColumn);
-          VELOX_CHECK(probeType_->childAt(upperBoundChannel.value())
-                          ->equivalent(*keyType_->childAt(tableKeyChannel)));
-        }
-        for (int i = 0; i < numBatches; ++i) {
-          if (lowerBoundChannel.has_value()) {
-            probeInputs[i]->childAt(lowerBoundChannel.value()) =
-                makeFlatVector<int64_t>(
-                    probeInputs[i]->size(), [&](auto /*unused*/) {
-                      return tableData.minKeys[tableKeyChannel];
-                    });
-          }
-          const auto upperBoundColumn = betweenColumn.second;
-          if (upperBoundChannel.has_value()) {
-            probeInputs[i]->childAt(upperBoundChannel.value()) =
-                makeFlatVector<int64_t>(
-                    probeInputs[i]->size(), [&](auto /*unused*/) -> int64_t {
-                      if (betweenMatchPct.value() == 0) {
-                        return tableData.minKeys[tableKeyChannel] - 1;
-                      } else {
-                        return tableData.minKeys[tableKeyChannel] +
-                            (tableData.maxKeys[tableKeyChannel] -
-                             tableData.minKeys[tableKeyChannel]) *
-                            betweenMatchPct.value() / 100;
-                      }
-                    });
-          }
-        }
-      }
-    }
-    return probeInputs;
   }
 
   // Create index table with the given key and value inputs.
@@ -391,7 +130,6 @@ class IndexLookupJoinTest : public HiveConnectorTestBase,
       decodedVectors.emplace_back(*vector);
     }
 
-    std::vector<char*> rows;
     for (auto row = 0; row < numRows; ++row) {
       auto* newRow = rowContainer->newRow();
 
@@ -406,25 +144,6 @@ class IndexLookupJoinTest : public HiveConnectorTestBase,
         std::move(keyType), std::move(valueType), std::move(table));
   }
 
-  void createDuckDbTable(
-      const std::string& tableName,
-      const std::vector<RowVectorPtr>& data) {
-    // Change each column with prefix 'c' to simplify the duckdb table
-    // column naming.
-    std::vector<std::string> columnNames;
-    columnNames.reserve(data[0]->type()->size());
-    for (int i = 0; i < data[0]->type()->size(); ++i) {
-      columnNames.push_back(fmt::format("c{}", i));
-    }
-    std::vector<RowVectorPtr> duckDbInputs;
-    duckDbInputs.reserve(data.size());
-    for (const auto& dataVector : data) {
-      duckDbInputs.emplace_back(
-          makeRowVector(columnNames, dataVector->children()));
-    }
-    duckDbQueryRunner_.createTable(tableName, duckDbInputs);
-  }
-
   // Makes index table handle with the specified index table and async lookup
   // flag.
   std::shared_ptr<TestIndexTableHandle> makeIndexTableHandle(
@@ -434,81 +153,8 @@ class IndexLookupJoinTest : public HiveConnectorTestBase,
         kTestIndexConnectorName, indexTable, asyncLookup);
   }
 
-  // Makes index table scan node with the specified index table handle.
-  // @param outputType: the output schema of the index table scan node.
-  // @param scanNodeId: returns the plan node id of the index table scan
-  // node.
-  core::TableScanNodePtr makeIndexScanNode(
-      const std::shared_ptr<core::PlanNodeIdGenerator>& planNodeIdGenerator,
-      const std::shared_ptr<TestIndexTableHandle> indexTableHandle,
-      const RowTypePtr& outputType,
-      core::PlanNodeId& scanNodeId) {
-    auto planBuilder = PlanBuilder(planNodeIdGenerator);
-    auto indexTableScan = std::dynamic_pointer_cast<const core::TableScanNode>(
-        PlanBuilder::TableScanBuilder(planBuilder)
-            .tableHandle(indexTableHandle)
-            .outputType(outputType)
-            .endTableScan()
-            .capturePlanNodeId(scanNodeId)
-            .planNode());
-    VELOX_CHECK_NOT_NULL(indexTableScan);
-    return indexTableScan;
-  }
-
-  // Makes output schema from the index table scan node with the specified
-  // column names.
-  RowTypePtr makeScanOutputType(std::vector<std::string> outputNames) {
-    std::vector<TypePtr> types;
-    for (int i = 0; i < outputNames.size(); ++i) {
-      if (valueType_->getChildIdxIfExists(outputNames[i]).has_value()) {
-        types.push_back(valueType_->findChild(outputNames[i]));
-        continue;
-      }
-      types.push_back(keyType_->findChild(outputNames[i]));
-    }
-    return ROW(std::move(outputNames), std::move(types));
-  }
-
-  // Makes lookup join plan with the following parameters:
-  // @param indexScanNode: the index table scan node.
-  // @param probeVectors: the probe input vectors.
-  // @param leftKeys: the left join keys of index lookup join.
-  // @param rightKeys: the right join keys of index lookup join.
-  // @param joinType: the join type of index lookup join.
-  // @param outputColumns: the output column names of index lookup join.
-  // @param joinNodeId: returns the plan node id of the index lookup join
-  // node.
-  core::PlanNodePtr makeLookupPlan(
-      const std::shared_ptr<core::PlanNodeIdGenerator>& planNodeIdGenerator,
-      core::TableScanNodePtr indexScanNode,
-      const std::vector<RowVectorPtr>& probeVectors,
-      const std::vector<std::string>& leftKeys,
-      const std::vector<std::string>& rightKeys,
-      const std::vector<std::string>& joinConditions,
-      core::JoinType joinType,
-      const std::vector<std::string>& outputColumns,
-      core::PlanNodeId& joinNodeId) {
-    VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
-    VELOX_CHECK_LE(leftKeys.size(), keyType_->size());
-    return PlanBuilder(planNodeIdGenerator)
-        .values(probeVectors)
-        .indexLookupJoin(
-            leftKeys,
-            rightKeys,
-            indexScanNode,
-            joinConditions,
-            outputColumns,
-            joinType)
-        .capturePlanNodeId(joinNodeId)
-        .planNode();
-  }
-
   const std::unique_ptr<folly::CPUThreadPoolExecutor> connectorCpuExecutor_{
       std::make_unique<folly::CPUThreadPoolExecutor>(128)};
-  RowTypePtr keyType_;
-  RowTypePtr valueType_;
-  RowTypePtr tableType_;
-  RowTypePtr probeType_;
 };
 
 TEST_P(IndexLookupJoinTest, planNodeAndSerde) {
@@ -1052,11 +698,12 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
     SCOPED_TRACE(testData.debugString());
 
     SequenceTableData tableData;
-    generateIndexTableData(testData.keyCardinalities, tableData);
+    generateIndexTableData(testData.keyCardinalities, tableData, pool_);
     auto probeVectors = generateProbeInput(
         testData.numProbeBatches,
         testData.numRowsPerProbeBatch,
         tableData,
+        pool_,
         {"t0", "t1", "t2"},
         {},
         {},
@@ -1070,11 +717,14 @@ TEST_P(IndexLookupJoinTest, equalJoin) {
     const auto indexTableHandle = makeIndexTableHandle(indexTable, GetParam());
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     core::PlanNodeId indexScanNodeId;
+    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+        columnHandles;
     const auto indexScanNode = makeIndexScanNode(
         planNodeIdGenerator,
         indexTableHandle,
         makeScanOutputType(testData.scanOutputColumns),
-        indexScanNodeId);
+        indexScanNodeId,
+        columnHandles);
 
     core::PlanNodeId joinNodeId;
     auto plan = makeLookupPlan(
@@ -1497,11 +1147,12 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
     SCOPED_TRACE(testData.debugString());
 
     SequenceTableData tableData;
-    generateIndexTableData(testData.keyCardinalities, tableData);
+    generateIndexTableData(testData.keyCardinalities, tableData, pool_);
     auto probeVectors = generateProbeInput(
         testData.numProbeBatches,
         testData.numProbeRowsPerBatch,
         tableData,
+        pool_,
         {"t0", "t1"},
         {},
         {{"t2", "t3"}},
@@ -1517,11 +1168,14 @@ TEST_P(IndexLookupJoinTest, betweenJoinCondition) {
     const auto indexTableHandle = makeIndexTableHandle(indexTable, GetParam());
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     core::PlanNodeId indexScanNodeId;
+    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+        columnHandles;
     const auto indexScanNode = makeIndexScanNode(
         planNodeIdGenerator,
         indexTableHandle,
         makeScanOutputType(testData.lookupOutputColumns),
-        indexScanNodeId);
+        indexScanNodeId,
+        columnHandles);
 
     core::PlanNodeId joinNodeId;
     auto plan = makeLookupPlan(
@@ -1811,11 +1465,12 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
     SCOPED_TRACE(testData.debugString());
 
     SequenceTableData tableData;
-    generateIndexTableData(testData.keyCardinalities, tableData);
+    generateIndexTableData(testData.keyCardinalities, tableData, pool_);
     auto probeVectors = generateProbeInput(
         testData.numProbeBatches,
         testData.numProbeRowsPerBatch,
         tableData,
+        pool_,
         {"t0", "t1"},
         {{"t4"}},
         {},
@@ -1830,11 +1485,14 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
     const auto indexTableHandle = makeIndexTableHandle(indexTable, GetParam());
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     core::PlanNodeId indexScanNodeId;
+    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+        columnHandles;
     const auto indexScanNode = makeIndexScanNode(
         planNodeIdGenerator,
         indexTableHandle,
         makeScanOutputType(testData.lookupOutputColumns),
-        indexScanNodeId);
+        indexScanNodeId,
+        columnHandles);
 
     core::PlanNodeId joinNodeId;
     auto plan = makeLookupPlan(
@@ -1855,9 +1513,9 @@ TEST_P(IndexLookupJoinTest, inJoinCondition) {
 
 DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
   SequenceTableData tableData;
-  generateIndexTableData({100, 1, 1}, tableData);
-  const std::vector<RowVectorPtr> probeVectors =
-      generateProbeInput(20, 100, tableData, {"t0", "t1", "t2"}, {}, {}, 100);
+  generateIndexTableData({100, 1, 1}, tableData, pool_);
+  const std::vector<RowVectorPtr> probeVectors = generateProbeInput(
+      20, 100, tableData, pool_, {"t0", "t1", "t2"}, {}, {}, 100);
 
   const std::string errorMsg{"injectedError"};
   std::atomic_int lookupCount{0};
@@ -1875,11 +1533,14 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
   const auto indexTableHandle = makeIndexTableHandle(indexTable, GetParam());
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId indexScanNodeId;
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      columnHandles;
   const auto indexScanNode = makeIndexScanNode(
       planNodeIdGenerator,
       indexTableHandle,
       makeScanOutputType({"u0", "u1", "u2", "u5"}),
-      indexScanNodeId);
+      indexScanNodeId,
+      columnHandles);
 
   core::PlanNodeId joinNodeId;
   auto plan = makeLookupPlan(
@@ -1898,7 +1559,7 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, connectorError) {
 
 TEST_P(IndexLookupJoinTest, outputBatchSize) {
   SequenceTableData tableData;
-  generateIndexTableData({3'000, 1, 1}, tableData);
+  generateIndexTableData({3'000, 1, 1}, tableData, pool_);
 
   struct {
     int numProbeBatches;
@@ -1932,6 +1593,7 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
         testData.numProbeBatches,
         testData.numRowsPerProbeBatch,
         tableData,
+        pool_,
         {"t0", "t1", "t2"},
         {},
         {},
@@ -1945,11 +1607,14 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
     const auto indexTableHandle = makeIndexTableHandle(indexTable, GetParam());
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     core::PlanNodeId indexScanNodeId;
+    std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+        columnHandles;
     const auto indexScanNode = makeIndexScanNode(
         planNodeIdGenerator,
         indexTableHandle,
         makeScanOutputType({"u0", "u1", "u2", "u5"}),
-        indexScanNodeId);
+        indexScanNodeId,
+        columnHandles);
 
     core::PlanNodeId joinNodeId;
     auto plan = makeLookupPlan(
@@ -1981,9 +1646,9 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
 
 TEST_P(IndexLookupJoinTest, joinFuzzer) {
   SequenceTableData tableData;
-  generateIndexTableData({1024, 1, 1}, tableData);
+  generateIndexTableData({1024, 1, 1}, tableData, pool_);
   const auto probeVectors =
-      generateProbeInput(50, 256, tableData, {"t0", "t1", "t2"});
+      generateProbeInput(50, 256, tableData, pool_, {"t0", "t1", "t2"});
 
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", {tableData.tableData});
@@ -1997,11 +1662,14 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
   std::random_device rd;
   std::mt19937 g(rd());
   std::shuffle(scanOutput.begin(), scanOutput.end(), g);
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      columnHandles;
   const auto indexScanNode = makeIndexScanNode(
       planNodeIdGenerator,
       indexTableHandle,
       makeScanOutputType(scanOutput),
-      indexScanNodeId);
+      indexScanNodeId,
+      columnHandles);
 
   core::PlanNodeId joinNodeId;
   auto plan = makeLookupPlan(
