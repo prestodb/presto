@@ -15,8 +15,6 @@
  */
 #pragma once
 
-#include "velox/functions/Udf.h"
-#include "velox/functions/lib/string/StringCore.h"
 #include "velox/functions/lib/string/StringImpl.h"
 
 namespace facebook::velox::functions {
@@ -41,7 +39,15 @@ struct SplitPart {
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& delimiter,
       const int64_t& index) {
-    return stringImpl::splitPart(result, input, delimiter, index);
+    return stringImpl::splitPart<false>(result, input, delimiter, index);
+  }
+
+  FOLLY_ALWAYS_INLINE bool callAscii(
+      out_type<Varchar>& result,
+      const arg_type<Varchar>& input,
+      const arg_type<Varchar>& delimiter,
+      const int64_t& index) {
+    return stringImpl::splitPart<true>(result, input, delimiter, index);
   }
 };
 

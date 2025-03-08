@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include "velox/expression/Expr.h"
-#include "velox/functions/Udf.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
-#include "velox/parse/Expressions.h"
 
 namespace facebook::velox::functions::test {
 
@@ -56,6 +54,10 @@ TEST_F(SplitPartTest, basic) {
   EXPECT_FALSE(split_part("one,,,four,", ",", 6));
   EXPECT_EQ("", split_part("", ",", 1));
   EXPECT_EQ("abc", split_part("abc", ",", 1));
+  EXPECT_EQ("a", split_part("abc", "", 1));
+  EXPECT_EQ("b", split_part("abc", "", 2));
+  EXPECT_EQ("c", split_part("abc", "", 3));
+  EXPECT_EQ(std::nullopt, split_part("abc", "", 4));
 
   // Non-ascii
   EXPECT_EQ(
@@ -73,12 +75,32 @@ TEST_F(SplitPartTest, basic) {
   EXPECT_FALSE(
       split_part("синяя сливаలేదా赤いトマトలేదా黃苹果లేదాbrown pear", "లేదా", 5)
           .has_value());
+  EXPECT_EQ(
+      "с", split_part("синяя сливаలేదా赤いトマトలేదా黃苹果లేదాbrown pear", "", 1));
+  EXPECT_EQ(
+      "я", split_part("синяя сливаలేదా赤いトマトలేదా黃苹果లేదాbrown pear", "", 4));
+  EXPECT_EQ(
+      std::nullopt,
+      split_part("синяя сливаలేదా赤いトマトలేదా黃苹果లేదాbrown pear", "", 42));
   EXPECT_EQ("зелёное небо", split_part("зелёное небоలేదాలేదాలేదా緑の空లేదా", "లేదా", 1));
   EXPECT_EQ("", split_part("зелёное небоలేదాలేదాలేదా緑の空లేదా", "లేదా", 2));
   EXPECT_EQ("", split_part("зелёное небоలేదాలేదాలేదా緑の空లేదా", "లేదా", 3));
   EXPECT_EQ("緑の空", split_part("зелёное небоలేదాలేదాలేదా緑の空లేదా", "లేదా", 4));
   EXPECT_EQ("", split_part("зелёное небоలేదాలేదాలేదా緑の空లేదా", "లేదా", 5));
   EXPECT_FALSE(split_part("зелёное небоలేదాలేదాలేదా緑の空లేదా", "లేదా", 6));
+
+  // Invalid UTF-8
+  EXPECT_EQ("a", split_part("a\xCEz", "", 1));
+  VELOX_ASSERT_THROW(split_part("a\xCEz", "", 2), "Invalid UTF-8 encoding");
+  VELOX_ASSERT_THROW(split_part("a\xCEz", "", 3), "Invalid UTF-8 encoding");
+  EXPECT_EQ("", split_part("a\xCEz", "a", 1));
+  EXPECT_EQ("\xCEz", split_part("a\xCEz", "a", 2));
+
+  // Invalid index
+  VELOX_ASSERT_THROW(
+      split_part("abcde", "", 0), "Index must be greater than zero");
+  VELOX_ASSERT_THROW(
+      split_part("abcde", "c", -1), "Index must be greater than zero");
 }
 } // namespace
 } // namespace facebook::velox::functions::test
