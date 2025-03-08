@@ -89,4 +89,10 @@ public class ArrayColumnWriter
     {
         elementWriter.reset();
     }
+
+    @Override
+    public void resetChunk()
+    {
+        elementWriter.resetChunk();
+    }
 }

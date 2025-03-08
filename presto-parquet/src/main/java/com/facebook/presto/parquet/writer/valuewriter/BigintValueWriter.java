@@ -18,6 +18,8 @@ import com.facebook.presto.common.type.Type;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public class BigintValueWriter
@@ -25,9 +27,9 @@ public class BigintValueWriter
 {
     private final Type type;
 
-    public BigintValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public BigintValueWriter(Supplier<ValuesWriter> valuesWriterSupplier, Type type, PrimitiveType parquetType)
     {
-        super(parquetType, valuesWriter);
+        super(parquetType, valuesWriterSupplier);
         this.type = requireNonNull(type, "type is null");
     }
 
