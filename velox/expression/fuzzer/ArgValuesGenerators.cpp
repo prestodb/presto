@@ -53,6 +53,44 @@ std::vector<core::TypedExprPtr> JsonParseArgValuesGenerator::generate(
   inputExpressions[0] = std::make_shared<core::FieldAccessTypedExpr>(
       signature.args[0], state.inputRowNames_.back());
   return inputExpressions;
-}
+};
 
+std::vector<core::TypedExprPtr> StringEscapeArgValuesGenerator::generate(
+    const CallableSignature& signature,
+    const VectorFuzzer::Options& options,
+    FuzzerGenerator& rng,
+    ExpressionFuzzerState& state) {
+  VELOX_CHECK_EQ(signature.args.size(), 1);
+  populateInputTypesAndNames(signature, state);
+
+  const auto representedType = facebook::velox::randType(rng, 0);
+  const auto seed = static_cast<size_t>(rand<uint32_t>(rng));
+  const auto nullRatio = options.nullRatio;
+
+  state.customInputGenerators_.emplace_back(
+      std::make_shared<RandomInputGenerator<StringView>>(
+          seed,
+          signature.args[0],
+          nullRatio,
+          20,
+          std::vector<UTF8CharList>{
+              UTF8CharList::ASCII,
+              UTF8CharList::UNICODE_CASE_SENSITIVE,
+              UTF8CharList::EXTENDED_UNICODE,
+              UTF8CharList::MATHEMATICAL_SYMBOLS},
+          RandomStrVariationOptions{
+              0.5, // controlCharacterProbability
+              0.5, // escapeStringProbability
+              0.1, // truncateProbability
+          }));
+
+  // Populate inputExpressions_ for the argument that requires custom
+  // generation. A nullptr should be added at inputExpressions[i] if the i-th
+  // argument does not require custom input generation.
+  std::vector<core::TypedExprPtr> inputExpressions{
+      signature.args.size(), nullptr};
+  inputExpressions[0] = std::make_shared<core::FieldAccessTypedExpr>(
+      signature.args[0], state.inputRowNames_.back());
+  return inputExpressions;
+};
 } // namespace facebook::velox::fuzzer

@@ -139,8 +139,8 @@ folly::dynamic JsonInputGenerator::convertVariantToDynamic(
   }
 }
 
-std::vector<std::string> getControlCharacters() {
-  static std::vector<std::string> controlCharacters = {
+const std::vector<std::string>& getControlCharacters() {
+  static const std::vector<std::string> controlCharacters = {
       "\x00",   "\x01",   "\x02",   "\x03",   "\x04",   "\x05",   "\x06",
       "\x07",   "\x08",   "\x09",   "\x0A",   "\x0B",   "\x0C",   "\x0D",
       "\x0E",   "\x0F",   "\x10",   "\x11",   "\x12",   "\x13",   "\x14",
@@ -155,25 +155,46 @@ std::vector<std::string> getControlCharacters() {
 };
 
 namespace {
-void makeRandomVariationImpl(std::string& input, FuzzerGenerator& rng) {
-  if (coinToss(rng, 0.1)) {
-    const auto controlCharacters = getControlCharacters();
-    const auto index = rand<uint32_t>(rng, 0, controlCharacters.size() - 1);
-    const auto& controlCharacter = controlCharacters[index];
-    const auto indexToInsert = rand<uint32_t>(rng, 0, input.size());
-    input.insert(indexToInsert, controlCharacter);
-  } else if (coinToss(rng, 0.1)) {
-    const auto size = rand<uint32_t>(rng, 0, input.size());
-    input.resize(size);
-  } else if (!input.empty() && coinToss(rng, 0.1)) {
-    const auto start = rand<uint32_t>(rng, 0, input.size() - 1);
-    input = input.substr(start);
-  }
+void insertRandomControlCharacter(std::string& input, FuzzerGenerator& rng) {
+  const auto& controlCharacters = getControlCharacters();
+  const auto index = rand<uint32_t>(rng, 0, controlCharacters.size() - 1);
+  const auto& controlCharacter = controlCharacters[index];
+  const auto indexToInsert = rand<uint32_t>(rng, 0, input.size());
+  input.insert(indexToInsert, controlCharacter);
 }
 } // namespace
 
+void makeRandomStrVariation(
+    std::string& input,
+    FuzzerGenerator& rng,
+    const RandomStrVariationOptions& randOpts) {
+  if (!input.empty() && coinToss(rng, randOpts.truncateProbability)) {
+    // In string truncation, there's a 50% chance to truncate from the
+    // beginning and 50% from the end.
+    if (coinToss(rng, 0.5)) {
+      const auto size = rand<uint32_t>(rng, 0, input.size());
+      input.resize(size);
+    } else {
+      const auto start = rand<uint32_t>(rng, 0, input.size() - 1);
+      input = input.substr(start);
+    }
+  }
+  if (coinToss(rng, randOpts.controlCharacterProbability / 2)) {
+    insertRandomControlCharacter(input, rng);
+  }
+  if (coinToss(rng, randOpts.escapeStringProbability)) {
+    input = folly::cEscape<std::string>(input);
+  }
+  // This helps test the system's ability to handle unexpected control
+  // characters within escaped strings.
+  if (coinToss(rng, randOpts.controlCharacterProbability / 2)) {
+    insertRandomControlCharacter(input, rng);
+  }
+}
+
 void JsonInputGenerator::makeRandomVariation(std::string& json) {
-  return makeRandomVariationImpl(json, rng_);
+  return makeRandomStrVariation(
+      json, rng_, RandomStrVariationOptions{0.1, 0.0, 0.1});
 }
 
 // Utility functions

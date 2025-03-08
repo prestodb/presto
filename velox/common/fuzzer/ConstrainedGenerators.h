@@ -51,6 +51,17 @@ class RandomInputGenerator : public AbstractInputGenerator {
   }
 };
 
+struct RandomStrVariationOptions {
+  double controlCharacterProbability = 0.0;
+  double escapeStringProbability = 0.0;
+  double truncateProbability = 0.0;
+};
+
+void makeRandomStrVariation(
+    std::string& input,
+    FuzzerGenerator& rng,
+    const RandomStrVariationOptions& randomStrVariationOptions);
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 template <typename T>
@@ -66,10 +77,12 @@ class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, StringView>>>
           {UTF8CharList::ASCII,
            UTF8CharList::UNICODE_CASE_SENSITIVE,
            UTF8CharList::EXTENDED_UNICODE,
-           UTF8CharList::MATHEMATICAL_SYMBOLS})
+           UTF8CharList::MATHEMATICAL_SYMBOLS},
+      RandomStrVariationOptions randomStrVariationOptions = {})
       : AbstractInputGenerator(seed, type, nullptr, nullRatio),
         maxLength_{maxLength},
-        encodings_{encodings} {}
+        encodings_{encodings},
+        randomStrVariationOptions_{randomStrVariationOptions} {}
 
   ~RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, StringView>>>()
       override = default;
@@ -82,13 +95,16 @@ class RandomInputGenerator<T, std::enable_if_t<std::is_same_v<T, StringView>>>
     const auto length = rand<size_t>(rng_, 0, maxLength_);
     std::wstring_convert<std::codecvt_utf8<char16_t>, char16_t> converter;
     std::string buf;
-    return variant(randString(rng_, length, encodings_, buf, converter));
+    auto randomStr = randString(rng_, length, encodings_, buf, converter);
+    makeRandomStrVariation(randomStr, rng_, randomStrVariationOptions_);
+    return variant(std::move(randomStr));
   }
 
  private:
   const size_t maxLength_;
 
   std::vector<UTF8CharList> encodings_;
+  RandomStrVariationOptions randomStrVariationOptions_;
 };
 #pragma GCC diagnostic pop
 
@@ -359,5 +375,4 @@ class JsonInputGenerator : public AbstractInputGenerator {
 
   folly::json::serialization_opts opts_;
 };
-
 } // namespace facebook::velox::fuzzer
