@@ -361,11 +361,13 @@
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
             <scope>runtime</scope>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
@@ -436,7 +438,7 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-thrift-api</artifactId>
-            <scope>test</scope>
+            <scope>compile</scope>
         </dependency>
 
         <dependency>
@@ -586,6 +588,9 @@
                     <ignorePackages>
                         <ignorePackage>com.facebook.presto.testing.assertions</ignorePackage>
                     </ignorePackages>
+                    <ignoreClassNamePatterns>
+                        <ignoreClassNamePattern>com.facebook.presto.server.MockHttpServletRequest</ignoreClassNamePattern>
+                    </ignoreClassNamePatterns>
                 </configuration>
             </plugin>
             <plugin>
