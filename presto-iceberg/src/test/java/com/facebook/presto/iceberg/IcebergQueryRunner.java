@@ -72,7 +72,7 @@ public final class IcebergQueryRunner
 
     public static final String ICEBERG_CATALOG = "iceberg";
     public static final String TEST_DATA_DIRECTORY = "iceberg_data";
-    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
+    public static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", Optional.empty(), "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
     private DistributedQueryRunner queryRunner;
     private Map<String, Map<String, String>> icebergCatalogs;
