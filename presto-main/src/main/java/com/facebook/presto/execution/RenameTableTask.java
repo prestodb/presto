@@ -49,7 +49,7 @@ public class RenameTableTask
     @Override
     public ListenableFuture<?> execute(RenameTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getSource(), metadata);
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandle.isPresent()) {
             if (!statement.isExists()) {
@@ -66,12 +66,12 @@ public class RenameTableTask
             return immediateFuture(null);
         }
 
-        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
-        getConnectorIdOrThrow(session, metadata, target.getCatalogName(), statement, targetTableCatalogError);
+        QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget(), metadata);
+        getConnectorIdOrThrow(session, metadata, target.getLegacyCatalogName(), statement, targetTableCatalogError);
         if (metadata.getMetadataResolver(session).getTableHandle(target).isPresent()) {
             throw new SemanticException(TABLE_ALREADY_EXISTS, statement, "Target table '%s' already exists", target);
         }
-        if (!tableName.getCatalogName().equals(target.getCatalogName())) {
+        if (!tableName.getLegacyCatalogName().equals(target.getLegacyCatalogName())) {
             throw new SemanticException(NOT_SUPPORTED, statement, "Table rename across catalogs is not supported");
         }
         accessControl.checkCanRenameTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName, target);

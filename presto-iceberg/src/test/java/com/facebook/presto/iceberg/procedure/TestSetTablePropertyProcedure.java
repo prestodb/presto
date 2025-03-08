@@ -13,8 +13,14 @@
  */
 package com.facebook.presto.iceberg.procedure;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
+import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +39,7 @@ import java.util.Map;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static java.lang.String.format;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE_DEFAULT;
 import static org.testng.Assert.assertEquals;
@@ -160,8 +167,21 @@ public class TestSetTablePropertyProcedure
 
     private Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName);
         Catalog catalog = CatalogUtil.loadCatalog(HadoopCatalog.class.getName(), ICEBERG_CATALOG, getProperties(), new Configuration());
         return catalog.loadTable(TableIdentifier.of(TEST_SCHEMA, tableName));
+    }
+
+    protected String normalizeIdentifier(String name)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+
+        return metadata.normalizeIdentifier(session, connectorId.getCatalogName(),
+                name, identifier(name).isDelimited());
     }
 
     private Map<String, String> getProperties()

@@ -94,6 +94,7 @@ import static com.facebook.presto.iceberg.statistics.KllHistogram.isKllHistogram
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
+import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -577,6 +578,7 @@ public class TestIcebergHiveStatistics
 
     private Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName);
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
         ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
 
@@ -586,6 +588,18 @@ public class TestIcebergHiveStatistics
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 getQueryRunner().getDefaultSession().toConnectorSession(connectorId),
                 SchemaTableName.valueOf("tpch." + tableName));
+    }
+
+    private String normalizeIdentifier(String name)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+
+        return metadata.normalizeIdentifier(session, connectorId.getCatalogName(),
+                name, identifier(name).isDelimited());
     }
 
     protected ExtendedHiveMetastore getFileHiveMetastore()

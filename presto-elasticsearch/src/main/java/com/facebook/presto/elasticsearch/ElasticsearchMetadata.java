@@ -231,7 +231,7 @@ public class ElasticsearchMetadata
         }
 
         for (IndexMetadata.Field field : fields) {
-            result.add(new ColumnMetadata(field.getName(), toPrestoType(field)));
+            result.add(ColumnMetadata.builder().setName(field.getName()).setType(toPrestoType(field)).build());
         }
         return result.build();
     }
