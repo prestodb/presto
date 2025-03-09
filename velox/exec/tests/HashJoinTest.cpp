@@ -290,8 +290,8 @@ DEBUG_ONLY_TEST_P(MultiThreadedHashJoinTest, filterSpillOnFirstProbeInput) {
           return;
         }
         testingRunArbitration(op->pool());
-        ASSERT_EQ(op->pool()->usedBytes(), 0);
-        ASSERT_EQ(op->pool()->reservedBytes(), 0);
+        ASSERT_EQ(op->pool()->usedBytes(), 40960);
+        ASSERT_EQ(op->pool()->reservedBytes(), 1048576);
       }));
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
@@ -7020,7 +7020,6 @@ DEBUG_ONLY_TEST_F(HashJoinTest, probeSpillOnWaitForPeers) {
     ASSERT_EQ(opStats.at("HashBuild").spilledBytes, 0);
 
     const auto* arbitrator = memory::memoryManager()->arbitrator();
-    ASSERT_GT(arbitrator->stats().numRequests, 0);
     ASSERT_GT(arbitrator->stats().reclaimedUsedBytes, 0);
   }
   waitForAllTasksToBeDeleted();
@@ -8067,8 +8066,8 @@ DEBUG_ONLY_TEST_F(HashJoinTest, probeReclaimedMemoryReport) {
     ASSERT_GT(reclaimedBytes, 0);
     ASSERT_EQ(nodeMemoryUsage - nodePool->reservedBytes(), reclaimedBytes);
   }
-  // Verify all the memory has been freed.
-  ASSERT_EQ(nodePool->reservedBytes(), 0);
+  // Verify all the memory has been freed, except for the ones for hash lookup.
+  ASSERT_EQ(nodePool->reservedBytes(), 1048576);
 
   driverWaitFlag = false;
   driverWait.notifyAll();

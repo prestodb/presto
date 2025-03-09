@@ -442,7 +442,8 @@ class HashTableListJoinResultBenchmark : public VectorTestBase {
 
   // Hash probe and list join result.
   int64_t probeTableAndListResult() {
-    auto lookup = std::make_unique<HashLookup>(topTable_->hashers());
+    auto lookup =
+        std::make_unique<HashLookup>(topTable_->hashers(), pool_.get());
     const auto numBatch = params_.probeSize / params_.hashTableSize;
     const auto batchSize = params_.hashTableSize;
     BufferPtr outputRowMapping;
@@ -476,7 +477,8 @@ class HashTableListJoinResultBenchmark : public VectorTestBase {
   }
 
   void eraseTable() {
-    auto lookup = std::make_unique<HashLookup>(topTable_->hashers());
+    auto lookup =
+        std::make_unique<HashLookup>(topTable_->hashers(), pool_.get());
     auto batchSize = 10000;
     auto mode = topTable_->hashMode();
     BufferPtr outputRowMapping;

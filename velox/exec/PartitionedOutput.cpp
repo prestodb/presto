@@ -49,7 +49,8 @@ Destination::Destination(
       serdeOptions_(serdeOptions),
       pool_(pool),
       eagerFlush_(eagerFlush),
-      recordEnqueued_(std::move(recordEnqueued)) {
+      recordEnqueued_(std::move(recordEnqueued)),
+      rows_(raw_vector<vector_size_t>(pool)) {
   setTargetSizePct();
 }
 

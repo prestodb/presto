@@ -84,14 +84,14 @@ TEST_P(MemoryCapExceededTest, singleDriver) {
       "Memory Pool[",
       " AGGREGATE root[",
       "] parent[null] MALLOC track-usage thread-safe]<max capacity 5.00MB "
-      "capacity 5.00MB used 3.71MB available 0B reservation [used 0B, reserved "
+      "capacity 5.00MB used 3.75MB available 0B reservation [used 0B, reserved "
       "5.00MB, min 0B] counters [allocs 0, frees 0, reserves 0, releases 0, "
       "collisions 0])>"};
   std::vector<std::string> expectedDetailedTexts = {
       "node.1 usage 12.00KB reserved 1.00MB peak 1.00MB",
       "op.1.0.0.FilterProject usage 12.00KB reserved 1.00MB peak 12.00KB",
-      "node.2 usage 3.70MB reserved 4.00MB peak 4.00MB",
-      "op.2.0.0.Aggregation usage 3.70MB reserved 4.00MB peak 3.70MB",
+      "node.2 usage 3.74MB reserved 4.00MB peak 4.00MB",
+      "op.2.0.0.Aggregation usage 3.74MB reserved 4.00MB peak 3.74MB",
       "Top 2 leaf memory pool usages:"};
 
   std::vector<RowVectorPtr> data;

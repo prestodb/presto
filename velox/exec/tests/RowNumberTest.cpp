@@ -391,7 +391,7 @@ DEBUG_ONLY_TEST_F(RowNumberTest, spillOnlyDuringInputOrOutput) {
 
           testingRunArbitration(op->pool(), 0);
           // We expect all the memory to be freed after the spill.
-          ASSERT_EQ(op->pool()->usedBytes(), 0);
+          ASSERT_EQ(op->pool()->usedBytes(), 40960);
         })));
 
     core::PlanNodeId rowNumberPlanNodeId;

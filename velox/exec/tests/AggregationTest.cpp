@@ -1248,7 +1248,7 @@ TEST_F(AggregationTest, memoryAllocations) {
   // Verify memory allocations. Aggregation should make 2 allocations: 1 for the
   // RowContainer holding single accumulator and 1 for the result.
   auto planStats = toPlanStats(task->taskStats());
-  ASSERT_EQ(2, planStats.at(aggNodeId).numMemoryAllocations);
+  ASSERT_EQ(5, planStats.at(aggNodeId).numMemoryAllocations);
 
   plan = PlanBuilder()
              .values(data)
@@ -1264,7 +1264,7 @@ TEST_F(AggregationTest, memoryAllocations) {
   // hash table, 1 for the RowContainer holding accumulators, 2 for results (1
   // for values of the grouping key column, 1 for sum column).
   planStats = toPlanStats(task->taskStats());
-  ASSERT_EQ(4, planStats.at(aggNodeId).numMemoryAllocations);
+  ASSERT_EQ(7, planStats.at(aggNodeId).numMemoryAllocations);
 }
 
 TEST_F(AggregationTest, groupingSets) {
@@ -2446,8 +2446,9 @@ DEBUG_ONLY_TEST_F(AggregationTest, reclaimDuringInputProcessing) {
       ASSERT_GT(reclaimerStats_.reclaimExecTimeUs, 0);
       ASSERT_GT(reclaimerStats_.reclaimedBytes, 0);
       reclaimerStats_.reset();
-      // We expect all the memory has been freed from the hash table.
-      ASSERT_EQ(op->pool()->usedBytes(), 0);
+      // We expect all the memory has been freed from the hash table, except for
+      // the ones used by raw_vector.
+      ASSERT_EQ(op->pool()->usedBytes(), 28672);
     } else {
       {
         memory::ScopedMemoryArbitrationContext ctx(op->pool());

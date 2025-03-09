@@ -395,8 +395,8 @@ DEBUG_ONLY_TEST_F(TopNRowNumberTest, memoryUsageCheckAfterReclaim) {
           return;
         }
         testingRunArbitration(op->pool());
-        ASSERT_EQ(op->pool()->usedBytes(), 0);
-        ASSERT_EQ(op->pool()->reservedBytes(), 0);
+        ASSERT_EQ(op->pool()->usedBytes(), 20480);
+        ASSERT_EQ(op->pool()->reservedBytes(), 1048576);
       })));
 
   const vector_size_t size = 10'000;

@@ -54,8 +54,10 @@ HashTable<ignoreNullKeys>::HashTable(
     uint32_t minTableSizeForParallelJoinBuild,
     memory::MemoryPool* pool)
     : BaseHashTable(std::move(hashers)),
+      pool_(pool),
       minTableSizeForParallelJoinBuild_(minTableSizeForParallelJoinBuild),
-      isJoinBuild_(isJoinBuild) {
+      isJoinBuild_(isJoinBuild),
+      buildPartitionBounds_(raw_vector<PartitionBoundIndexType>(pool)) {
   std::vector<TypePtr> keys;
   for (auto& hasher : hashers_) {
     keys.push_back(hasher->type());
@@ -2041,7 +2043,7 @@ int32_t HashTable<false>::listNullKeyRows(
     // Null-aware joins allow only one join key.
     VELOX_CHECK_EQ(hashers_.size(), 1);
     VELOX_CHECK_EQ(hashers_.size(), hashers.size());
-    HashLookup lookup(hashers);
+    HashLookup lookup(hashers, pool_);
     if (hashMode_ == HashMode::kHash) {
       lookup.hashes.push_back(VectorHasher::kNullHash);
     } else {

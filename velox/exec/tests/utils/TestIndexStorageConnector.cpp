@@ -139,7 +139,7 @@ TestIndexSource::lookup(const LookupRequest& request) {
   checkNotFailed();
   const auto numInputRows = request.input->size();
   auto& hashTable = tableHandle_->indexTable()->table;
-  auto lookup = std::make_unique<HashLookup>(hashTable->hashers());
+  auto lookup = std::make_unique<HashLookup>(hashTable->hashers(), pool_.get());
   SelectivityVector activeRows(numInputRows);
   VELOX_CHECK(activeRows.isAllSelected());
   hashTable->prepareForJoinProbe(

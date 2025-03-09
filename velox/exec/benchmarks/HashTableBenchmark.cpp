@@ -416,7 +416,8 @@ class HashTableBenchmark : public VectorTestBase {
   }
 
   void testProbe() {
-    auto lookup = std::make_unique<HashLookup>(topTable_->hashers());
+    auto lookup =
+        std::make_unique<HashLookup>(topTable_->hashers(), pool_.get());
     auto batchSize = batches_[0]->size();
     SelectivityVector rows(batchSize);
     auto mode = topTable_->hashMode();
@@ -493,7 +494,8 @@ class HashTableBenchmark : public VectorTestBase {
 
   // Same as testProbe for normalized keys, uses F14Set instead.
   void testF14Probe() {
-    auto lookup = std::make_unique<HashLookup>(topTable_->hashers());
+    auto lookup =
+        std::make_unique<HashLookup>(topTable_->hashers(), pool_.get());
 
     auto batchSize = batches_[0]->size();
     SelectivityVector rows(batchSize);
@@ -623,7 +625,7 @@ int main(int argc, char** argv) {
   folly::Init init{&argc, &argv};
   memory::MemoryManagerOptions options;
   options.useMmapAllocator = true;
-  options.allocatorCapacity = 10UL << 30;
+  options.allocatorCapacity = 64UL << 30;
   options.useMmapArena = true;
   options.mmapArenaCapacityRatio = 1;
   memory::MemoryManager::initialize(options);
