@@ -31,9 +31,9 @@ public class TestPipelineStats
     public static final PipelineStats EXPECTED = new PipelineStats(
             0,
 
-            new DateTime(100),
-            new DateTime(101),
-            new DateTime(102),
+            100L,
+            101L,
+            102L,
 
             true,
             false,
@@ -90,9 +90,9 @@ public class TestPipelineStats
 
     public static void assertExpectedPipelineStats(PipelineStats actual)
     {
-        assertEquals(actual.getFirstStartTime(), new DateTime(100, UTC));
-        assertEquals(actual.getLastStartTime(), new DateTime(101, UTC));
-        assertEquals(actual.getLastEndTime(), new DateTime(102, UTC));
+        assertEquals(actual.getFirstStartTimeInMillis(), new DateTime(100, UTC).getMillis());
+        assertEquals(actual.getLastStartTimeInMillis(), new DateTime(101, UTC).getMillis());
+        assertEquals(actual.getLastEndTimeInMillis(), new DateTime(102, UTC).getMillis());
         assertEquals(actual.isInputPipeline(), true);
         assertEquals(actual.isOutputPipeline(), false);
 

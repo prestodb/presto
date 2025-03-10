@@ -29,7 +29,6 @@ import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.inject.Inject;
 
@@ -138,10 +137,10 @@ public class TaskSystemTable
 
                     stats.getPhysicalWrittenDataSizeInBytes(),
 
-                    toTimeStamp(stats.getCreateTime()),
-                    toTimeStamp(stats.getFirstStartTime()),
-                    toTimeStamp(taskInfo.getLastHeartbeat()),
-                    toTimeStamp(stats.getEndTime()));
+                    stats.getCreateTimeInMillis(),
+                    stats.getFirstStartTimeInMillis(),
+                    taskInfo.getLastHeartbeatInMillis(),
+                    stats.getEndTimeInMillis());
         }
         return table.build().cursor();
     }
@@ -160,13 +159,5 @@ public class TaskSystemTable
             return null;
         }
         return dataSize.toBytes();
-    }
-
-    private static Long toTimeStamp(DateTime dateTime)
-    {
-        if (dateTime == null) {
-            return null;
-        }
-        return dateTime.getMillis();
     }
 }

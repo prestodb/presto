@@ -34,7 +34,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -60,6 +59,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -411,8 +411,8 @@ public class HeartbeatFailureDetector
         private final DecayCounter recentRequests;
         private final DecayCounter recentFailures;
         private final DecayCounter recentSuccesses;
-        private final AtomicReference<DateTime> lastRequestTime = new AtomicReference<>();
-        private final AtomicReference<DateTime> lastResponseTime = new AtomicReference<>();
+        private final AtomicLong lastRequestTimeInMillis = new AtomicLong();
+        private final AtomicLong lastResponseTimeInMillis = new AtomicLong();
         private final AtomicReference<Exception> lastFailureException = new AtomicReference<>();
 
         @GuardedBy("this")
@@ -429,19 +429,19 @@ public class HeartbeatFailureDetector
         public void recordStart()
         {
             recentRequests.add(1);
-            lastRequestTime.set(new DateTime());
+            lastRequestTimeInMillis.set(System.currentTimeMillis());
         }
 
         public void recordSuccess()
         {
             recentSuccesses.add(1);
-            lastResponseTime.set(new DateTime());
+            lastResponseTimeInMillis.set(System.currentTimeMillis());
         }
 
         public void recordFailure(Exception exception)
         {
             recentFailures.add(1);
-            lastResponseTime.set(new DateTime());
+            lastResponseTimeInMillis.set(System.currentTimeMillis());
             lastFailureException.set(exception);
 
             Throwable cause = exception;
@@ -496,15 +496,15 @@ public class HeartbeatFailureDetector
         }
 
         @JsonProperty
-        public DateTime getLastRequestTime()
+        public long getLastRequestTimeInMillis()
         {
-            return lastRequestTime.get();
+            return lastRequestTimeInMillis.get();
         }
 
         @JsonProperty
-        public DateTime getLastResponseTime()
+        public long getLastResponseTimeInMillis()
         {
-            return lastResponseTime.get();
+            return lastResponseTimeInMillis.get();
         }
 
         @JsonIgnore

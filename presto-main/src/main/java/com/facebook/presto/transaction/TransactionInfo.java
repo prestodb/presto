@@ -21,11 +21,11 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -35,7 +35,7 @@ public class TransactionInfo
     private final IsolationLevel isolationLevel;
     private final boolean readOnly;
     private final boolean autoCommitContext;
-    private final DateTime createTime;
+    private final long createTimeInMillis;
     private final Duration idleTime;
     private final List<ConnectorId> connectorIds;
     private final Optional<ConnectorId> writtenConnectorId;
@@ -46,7 +46,7 @@ public class TransactionInfo
             IsolationLevel isolationLevel,
             boolean readOnly,
             boolean autoCommitContext,
-            DateTime createTime,
+            long createTimeInMillis,
             Duration idleTime,
             List<ConnectorId> connectorIds,
             Optional<ConnectorId> writtenConnectorId)
@@ -55,7 +55,8 @@ public class TransactionInfo
         this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
         this.readOnly = readOnly;
         this.autoCommitContext = autoCommitContext;
-        this.createTime = requireNonNull(createTime, "createTime is null");
+        checkArgument(createTimeInMillis >= 0, "createTimeInMillis is negative");
+        this.createTimeInMillis = createTimeInMillis;
         this.idleTime = requireNonNull(idleTime, "idleTime is null");
         this.connectorIds = ImmutableList.copyOf(requireNonNull(connectorIds, "connectorIds is null"));
         this.writtenConnectorId = requireNonNull(writtenConnectorId, "writtenConnectorId is null");
@@ -86,9 +87,9 @@ public class TransactionInfo
     }
 
     @ThriftField(5)
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return createTime;
+        return createTimeInMillis;
     }
 
     @ThriftField(6)

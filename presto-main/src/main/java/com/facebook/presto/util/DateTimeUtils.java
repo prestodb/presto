@@ -36,6 +36,8 @@ import org.joda.time.format.PeriodFormatter;
 import org.joda.time.format.PeriodFormatterBuilder;
 import org.joda.time.format.PeriodParser;
 
+import javax.annotation.Nullable;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
@@ -151,6 +153,14 @@ public final class DateTimeUtils
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static long toTimeStampInMillis(@Nullable DateTime dateTime)
+    {
+        if (dateTime == null) {
+            return 0L;
+        }
+        return dateTime.getMillis();
     }
 
     /**

@@ -33,6 +33,7 @@ import java.util.OptionalInt;
 
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.server.QueryProgressStats.createQueryProgressStats;
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +45,7 @@ public class QueryStateInfo
     private final Optional<ResourceGroupId> resourceGroupId;
     private final String query;
     private final boolean queryTruncated;
-    private final DateTime createTime;
+    private final long createTimeInMillis;
     private final String user;
     private final boolean authenticated;
     private final Optional<String> source;
@@ -55,6 +56,43 @@ public class QueryStateInfo
     private final Optional<QueryProgressStats> progress;
     private final List<String> warningCodes;
     private final Optional<ErrorCode> errorCode;
+
+    public QueryStateInfo(
+            QueryId queryId,
+            QueryState queryState,
+            Optional<ResourceGroupId> resourceGroupId,
+            String query,
+            boolean queryTruncated,
+            long createTimeInMillis,
+            String user,
+            boolean authenticated,
+            Optional<String> source,
+            Optional<String> clientInfo,
+            Optional<String> catalog,
+            Optional<String> schema,
+            Optional<List<ResourceGroupInfo>> pathToRoot,
+            Optional<QueryProgressStats> progress,
+            List<String> warningCodes,
+            Optional<ErrorCode> errorCode)
+    {
+        this.queryId = requireNonNull(queryId, "queryId is null");
+        this.queryState = requireNonNull(queryState, "queryState is null");
+        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
+        this.query = requireNonNull(query, "query text is null");
+        this.queryTruncated = queryTruncated;
+        this.createTimeInMillis = requireNonNull(createTimeInMillis, "createTime is null");
+        this.user = requireNonNull(user, "user is null");
+        this.authenticated = authenticated;
+        this.source = requireNonNull(source, "source is null");
+        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        requireNonNull(pathToRoot, "pathToRoot is null");
+        this.pathToRoot = pathToRoot.map(ImmutableList::copyOf);
+        this.progress = requireNonNull(progress, "progress is null");
+        this.warningCodes = ImmutableList.copyOf(requireNonNull(warningCodes, "warningCodes is null"));
+        this.errorCode = requireNonNull(errorCode, "errorCode is null");
+    }
 
     @JsonCreator
     @ThriftConstructor
@@ -76,23 +114,22 @@ public class QueryStateInfo
             @JsonProperty("warningCodes") List<String> warningCodes,
             @JsonProperty("errorCode") Optional<ErrorCode> errorCode)
     {
-        this.queryId = requireNonNull(queryId, "queryId is null");
-        this.queryState = requireNonNull(queryState, "queryState is null");
-        this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
-        this.query = requireNonNull(query, "query text is null");
-        this.queryTruncated = queryTruncated;
-        this.createTime = requireNonNull(createTime, "createTime is null");
-        this.user = requireNonNull(user, "user is null");
-        this.authenticated = authenticated;
-        this.source = requireNonNull(source, "source is null");
-        this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
-        this.catalog = requireNonNull(catalog, "catalog is null");
-        this.schema = requireNonNull(schema, "schema is null");
-        requireNonNull(pathToRoot, "pathToRoot is null");
-        this.pathToRoot = pathToRoot.map(ImmutableList::copyOf);
-        this.progress = requireNonNull(progress, "progress is null");
-        this.warningCodes = ImmutableList.copyOf(requireNonNull(warningCodes, "warningCodes is null"));
-        this.errorCode = requireNonNull(errorCode, "errorCode is null");
+        this(queryId,
+                queryState,
+                resourceGroupId,
+                query,
+                queryTruncated,
+                toTimeStampInMillis(createTime),
+                user,
+                authenticated,
+                source,
+                clientInfo,
+                catalog,
+                schema,
+                pathToRoot,
+                progress,
+                warningCodes,
+                errorCode);
     }
 
     public static QueryStateInfo createQueryStateInfo(BasicQueryInfo queryInfo)
@@ -133,7 +170,7 @@ public class QueryStateInfo
                 queryInfo.getResourceGroupId(),
                 query,
                 queryTruncated,
-                queryInfo.getQueryStats().getCreateTime(),
+                queryInfo.getQueryStats().getCreateTimeInMillis(),
                 queryInfo.getSession().getUser(),
                 queryInfo.getSession().getPrincipal().isPresent(),
                 queryInfo.getSession().getSource(),
@@ -234,7 +271,12 @@ public class QueryStateInfo
     @ThriftField(13)
     public DateTime getCreateTime()
     {
-        return createTime;
+        return new DateTime(createTimeInMillis);
+    }
+
+    public long getCreateTimeInMillis()
+    {
+        return createTimeInMillis;
     }
 
     @JsonProperty

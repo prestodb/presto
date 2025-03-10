@@ -21,7 +21,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -38,9 +37,9 @@ public class PipelineStats
 {
     private final int pipelineId;
 
-    private final DateTime firstStartTime;
-    private final DateTime lastStartTime;
-    private final DateTime lastEndTime;
+    private final long firstStartTimeInMillis;
+    private final long lastStartTimeInMillis;
+    private final long lastEndTimeInMillis;
 
     private final boolean inputPipeline;
     private final boolean outputPipeline;
@@ -89,9 +88,9 @@ public class PipelineStats
     public PipelineStats(
             @JsonProperty("pipelineId") int pipelineId,
 
-            @JsonProperty("firstStartTime") DateTime firstStartTime,
-            @JsonProperty("lastStartTime") DateTime lastStartTime,
-            @JsonProperty("lastEndTime") DateTime lastEndTime,
+            @JsonProperty("firstStartTimeInMillis") long firstStartTimeInMillis,
+            @JsonProperty("lastStartTimeInMillis") long lastStartTimeInMillis,
+            @JsonProperty("lastEndTimeInMillis") long lastEndTimeInMillis,
 
             @JsonProperty("inputPipeline") boolean inputPipeline,
             @JsonProperty("outputPipeline") boolean outputPipeline,
@@ -137,9 +136,9 @@ public class PipelineStats
     {
         this.pipelineId = pipelineId;
 
-        this.firstStartTime = firstStartTime;
-        this.lastStartTime = lastStartTime;
-        this.lastEndTime = lastEndTime;
+        this.firstStartTimeInMillis = firstStartTimeInMillis;
+        this.lastStartTimeInMillis = lastStartTimeInMillis;
+        this.lastEndTimeInMillis = lastEndTimeInMillis;
 
         this.inputPipeline = inputPipeline;
         this.outputPipeline = outputPipeline;
@@ -206,25 +205,25 @@ public class PipelineStats
     @Nullable
     @JsonProperty
     @ThriftField(2)
-    public DateTime getFirstStartTime()
+    public long getFirstStartTimeInMillis()
     {
-        return firstStartTime;
+        return firstStartTimeInMillis;
     }
 
     @Nullable
     @JsonProperty
     @ThriftField(3)
-    public DateTime getLastStartTime()
+    public long getLastStartTimeInMillis()
     {
-        return lastStartTime;
+        return lastStartTimeInMillis;
     }
 
     @Nullable
     @JsonProperty
     @ThriftField(4)
-    public DateTime getLastEndTime()
+    public long getLastEndTimeInMillis()
     {
-        return lastEndTime;
+        return lastEndTimeInMillis;
     }
 
     @JsonProperty
@@ -448,9 +447,9 @@ public class PipelineStats
     {
         return new PipelineStats(
                 pipelineId,
-                firstStartTime,
-                lastStartTime,
-                lastEndTime,
+                firstStartTimeInMillis,
+                lastStartTimeInMillis,
+                lastEndTimeInMillis,
                 inputPipeline,
                 outputPipeline,
                 totalDrivers,

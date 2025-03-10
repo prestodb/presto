@@ -21,7 +21,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -175,27 +174,27 @@ public class MockQueryExecution
     }
 
     @Override
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return null;
+        return 0L;
     }
 
     @Override
-    public Optional<DateTime> getExecutionStartTime()
+    public long getExecutionStartTimeInMillis()
     {
-        return Optional.empty();
+        return 0L;
     }
 
     @Override
-    public DateTime getLastHeartbeat()
+    public long getLastHeartbeatInMillis()
     {
-        return null;
+        return 0L;
     }
 
     @Override
-    public Optional<DateTime> getEndTime()
+    public long getEndTimeInMillis()
     {
-        return Optional.empty();
+        return 0L;
     }
 
     @Override
