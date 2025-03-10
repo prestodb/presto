@@ -23,6 +23,7 @@ import com.facebook.airlift.http.server.KerberosConfig;
 import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.presto.server.InternalCommunicationModule;
 import com.facebook.presto.server.security.AuthenticationFilter;
+import com.facebook.presto.server.security.CustomPrestoAuthenticator;
 import com.facebook.presto.server.security.DefaultWebUiAuthenticationManager;
 import com.facebook.presto.server.security.PasswordAuthenticator;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
@@ -39,6 +40,7 @@ import java.util.List;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CERTIFICATE;
+import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.CUSTOM;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.JWT;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.KERBEROS;
 import static com.facebook.presto.server.security.SecurityConfig.AuthenticationType.PASSWORD;
@@ -75,6 +77,9 @@ public class RouterSecurityModule
             else if (authType == JWT) {
                 configBinder(binder).bindConfig(JsonWebTokenConfig.class);
                 authBinder.addBinding().to(JsonWebTokenAuthenticator.class).in(Scopes.SINGLETON);
+            }
+            else if (authType == CUSTOM) {
+                authBinder.addBinding().to(CustomPrestoAuthenticator.class).in(Scopes.SINGLETON);
             }
         }
     }
