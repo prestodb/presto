@@ -58,7 +58,7 @@ public class LarkSheetsColumnHandle
 
     public ColumnMetadata toColumnMetadata()
     {
-        return new ColumnMetadata(name, type);
+        return ColumnMetadata.builder(name, type).build();
     }
 
     @Override

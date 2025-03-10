@@ -117,7 +117,9 @@ public final class RedisTableFieldDescription
 
     ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(getName(), getType(), getComment(), isHidden());
+        return ColumnMetadata.builder(getName(), getType())
+                .setComment(getComment())
+                .setHidden(isHidden()).build();
     }
 
     @Override

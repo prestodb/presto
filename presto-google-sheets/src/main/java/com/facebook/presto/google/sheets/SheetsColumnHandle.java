@@ -63,7 +63,7 @@ public class SheetsColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType);
+        return ColumnMetadata.builder(columnName, columnType).build();
     }
 
     @Override

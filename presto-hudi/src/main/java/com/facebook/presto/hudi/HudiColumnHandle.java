@@ -116,10 +116,8 @@ public class HudiColumnHandle
 
     public ColumnMetadata toColumnMetadata(TypeManager typeManager)
     {
-        return ColumnMetadata.builder()
-                .setName(name)
-                .setType(hiveType.getType(typeManager))
-                .setExtraInfo(getExtraInfo())
+        return ColumnMetadata.builder(name, hiveType.getType(typeManager))
+                .setExtraInfo(getExtraInfo().orElse(null))
                 .build();
     }
 
