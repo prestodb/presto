@@ -123,7 +123,7 @@ void registerPrestoMetrics() {
   // Tracks exchange request num of retris in range of [0, 20] with
   // 20 buckets and reports P50, P90, P99, and P100.
   DEFINE_HISTOGRAM_METRIC(
-      kCounterExchangeRequestNumRetries,
+      kCounterExchangeRequestNumTries,
       1,
       0,
       20,
