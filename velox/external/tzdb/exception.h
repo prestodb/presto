@@ -113,4 +113,27 @@ template <class _Duration>
   throw ambiguous_local_time(__time, __info);
 }
 
+class invalid_time_zone : public std::runtime_error {
+ public:
+  invalid_time_zone(
+      const std::string_view& __tz_name)
+      : runtime_error{__create_message(__tz_name)} {}
+
+  invalid_time_zone(const invalid_time_zone&) = default;
+  invalid_time_zone& operator=(const invalid_time_zone&) = default;
+
+  ~invalid_time_zone() override; // exported as key function
+
+ private:
+  std::string __create_message(
+      const std::string_view& __tz_name) {
+    std::ostringstream os;
+    os << __tz_name << " not found in timezone database";
+    return os.str();
+  }
+};
+
+[[noreturn]] void __throw_invalid_time_zone(
+    [[maybe_unused]] const std::string_view& __tz_name);
+
 } // namespace facebook::velox::tzdb

@@ -75,23 +75,20 @@ TTimeZoneDatabase buildTimeZoneDatabase(
     // available in external/date or this will throw.
     else {
       const tzdb::time_zone* zone;
-      // TODO: Restore in https://github.com/facebookincubator/velox/pull/12475
-      // try {
-      zone = locateZoneImpl(entry.second);
-      // } catch (date::invalid_timezone& err) {
-      //   // When this exception is thrown, it typically means the time zone
-      //   name
-      //   // we are trying to locate cannot be found from OS's time zone
-      //   database.
-      //   // Thus, we just command a "continue;" to skip the creation of the
-      //   // corresponding TimeZone object.
-      //   //
-      //   // Then, once this time zone is requested at runtime, a runtime error
-      //   // will be thrown and caller is expected to handle that error in
-      //   code. LOG(WARNING) << "Unable to load [" << entry.second
-      //                << "] from local timezone database: " << err.what();
-      //   continue;
-      // }
+      try {
+        zone = locateZoneImpl(entry.second);
+      } catch (const tzdb::invalid_time_zone& err) {
+        // When this exception is thrown, it typically means the time zone name
+        // we are trying to locate cannot be found from OS's time zone database.
+        // Thus, we just command a "continue;" to skip the creation of the
+        // corresponding TimeZone object.
+        //
+        // Then, once this time zone is requested at runtime, a runtime error
+        // will be thrown and caller is expected to handle that error in code.
+        LOG(WARNING) << "Invalid time zone [" << entry.second
+                     << "]: " << err.what();
+        continue;
+      }
       timeZonePtr = std::make_unique<TimeZone>(entry.second, entry.first, zone);
     }
     tzDatabase[entry.first] = std::move(timeZonePtr);

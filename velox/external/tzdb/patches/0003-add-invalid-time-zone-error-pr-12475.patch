@@ -1,0 +1,46 @@
+diff --git a/velox/external/tzdb/chrono_exception.cpp b/velox/external/tzdb/chrono_exception.cpp
+--- a/velox/external/tzdb/chrono_exception.cpp
++++ b/velox/external/tzdb/chrono_exception.cpp
+@@ -14,4 +14,11 @@
+ 
+ ambiguous_local_time::~ambiguous_local_time() = default; // key function
+ 
++invalid_time_zone::~invalid_time_zone() = default; // key function
++
++[[noreturn]] void __throw_invalid_time_zone(
++    [[maybe_unused]] const std::string_view& __tz_name) {
++  throw invalid_time_zone(__tz_name);
++}
++
+ } // namespace facebook::velox::tzdb
+diff --git a/velox/external/tzdb/exception.h b/velox/external/tzdb/exception.h
+--- a/velox/external/tzdb/exception.h
++++ b/velox/external/tzdb/exception.h
+@@ -113,4 +113,27 @@
+   throw ambiguous_local_time(__time, __info);
+ }
+ 
++class invalid_time_zone : public std::runtime_error {
++ public:
++  invalid_time_zone(
++      const std::string_view& __tz_name)
++      : runtime_error{__create_message(__tz_name)} {}
++
++  invalid_time_zone(const invalid_time_zone&) = default;
++  invalid_time_zone& operator=(const invalid_time_zone&) = default;
++
++  ~invalid_time_zone() override; // exported as key function
++
++ private:
++  std::string __create_message(
++      const std::string_view& __tz_name) {
++    std::ostringstream os;
++    os << __tz_name << " not found in timezone database";
++    return os.str();
++  }
++};
++
++[[noreturn]] void __throw_invalid_time_zone(
++    [[maybe_unused]] const std::string_view& __tz_name);
++
+ } // namespace facebook::velox::tzdb
