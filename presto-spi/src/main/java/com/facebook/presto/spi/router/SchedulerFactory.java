@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.router.scheduler;
+package com.facebook.presto.spi.router;
 
-public enum SchedulerType
+import java.util.Map;
+
+public interface SchedulerFactory
 {
-    RANDOM_CHOICE,
-    ROUND_ROBIN,
-    USER_HASH,
-    WEIGHTED_RANDOM_CHOICE,
-    CUSTOM_PLUGIN_SCHEDULER
+    String getName();
+
+    Scheduler create(Map<String, String> config);
 }

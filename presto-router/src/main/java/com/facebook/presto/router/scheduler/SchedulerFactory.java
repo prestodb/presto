@@ -21,10 +21,12 @@ import static java.util.Objects.requireNonNull;
 public class SchedulerFactory
 {
     private final SchedulerType schedulerType;
+    private final SchedulerManager schedulerManager;
 
-    public SchedulerFactory(SchedulerType schedulerType)
+    public SchedulerFactory(SchedulerType schedulerType, SchedulerManager schedulerManager)
     {
         this.schedulerType = requireNonNull(schedulerType, "schedulerType is null");
+        this.schedulerManager = requireNonNull(schedulerManager, "schedulerManager is null");
     }
 
     public Scheduler create()
@@ -38,6 +40,8 @@ public class SchedulerFactory
                 return new UserHashScheduler();
             case ROUND_ROBIN:
                 return new RoundRobinScheduler();
+            case CUSTOM_PLUGIN_SCHEDULER:
+                return new CustomPluginScheduler(schedulerManager);
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported router scheduler type " + schedulerType);
     }
