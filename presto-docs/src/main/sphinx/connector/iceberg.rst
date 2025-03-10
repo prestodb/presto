@@ -520,21 +520,16 @@ Manifest File Caching
 As of Iceberg version 1.1.0, Apache Iceberg provides a mechanism to cache the contents of Iceberg manifest files in memory. This feature helps
 to reduce repeated reads of small Iceberg manifest files from remote storage.
 
-.. note::
-
-    Currently, manifest file caching is supported for Hadoop and Nessie catalogs in the Presto Iceberg connector.
-
 The following configuration properties are available:
 
 ====================================================   =============================================================   ============
 Property Name                                          Description                                                     Default
 ====================================================   =============================================================   ============
-``iceberg.io.manifest.cache-enabled``                  Enable or disable the manifest caching feature. This feature    ``false``
-                                                       is only available if ``iceberg.catalog.type`` is ``hadoop``
-                                                       or ``nessie``.
+``iceberg.io.manifest.cache-enabled``                  Enable or disable the manifest caching feature.                 ``true``
 
 ``iceberg.io-impl``                                    Custom FileIO implementation to use in a catalog. It must       ``org.apache.iceberg.hadoop.HadoopFileIO``
-                                                       be set to enable manifest caching.
+                                                       be set to enable manifest caching. This is only needed for
+                                                       Hadoop, Nessie and REST catalogs.
 
 ``iceberg.io.manifest.cache.max-total-bytes``          Maximum size of cache size in bytes.                            ``104857600``
 
