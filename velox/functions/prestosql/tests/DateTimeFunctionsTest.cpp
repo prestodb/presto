@@ -4766,22 +4766,9 @@ TEST_F(DateTimeFunctionsTest, castDateForDateFunction) {
       castDateTest(Timestamp(
           -18297 * kSecondsInDay + kSecondsInDay - 1, kNanosInSecond - 1)));
 
-  // TODO: Address in https://github.com/facebookincubator/velox/pull/12471
-  //   // Trying to convert a very large timestamp should fail as
-  //   velox/external/date
-  //   // can't convert past year 2037. Note that the correct result here should
-  //   be
-  //   // 376358 ('3000-06-08'), and not 376357 ('3000-06-07').
-  //   VELOX_ASSERT_THROW(
-  //       castDateTest(Timestamp(32517359891, 0)), "Unable to convert
-  //       timezone");
-
-  //   // Ensure timezone conversion failures leak through try().
-  //   const auto tryTest = [&](std::optional<Timestamp> timestamp) {
-  //     return evaluateOnce<int32_t>("try(cast(c0 as date))", timestamp);
-  //   };
-  //   VELOX_ASSERT_RUNTIME_THROW(
-  //       tryTest(Timestamp(32517359891, 0)), "Unable to convert timezone");
+  // Timestamps in the distant future in different DST time zones.
+  EXPECT_EQ(376358, castDateTest(Timestamp(32517359891, 0)));
+  EXPECT_EQ(376231, castDateTest(Timestamp(32506387200, 0)));
 }
 
 TEST_F(DateTimeFunctionsTest, currentDateWithTimezone) {

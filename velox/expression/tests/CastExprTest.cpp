@@ -623,11 +623,17 @@ TEST_F(CastExprTest, stringToTimestamp) {
       "1970-01-01 00:00 America/Sao_Paulo",
       "2000-01-01 12:21:56Z",
       "2000-01-01 12:21:56+01:01:01",
+      "2045-12-31 18:00:00",
       // Test going back and forth across DST boundaries.
       "2024-03-10 09:59:59 -00:00:02",
       "2024-03-10 10:00:01 +00:00:02",
       "2024-11-03 08:59:59 -00:00:02",
       "2024-11-03 09:00:01 +00:00:02",
+      // Test going back and forth across DST boundaries in the distant future.
+      "2100-03-14 09:59:59 -00:00:02",
+      "2100-03-14 10:00:01 +00:00:02",
+      "2100-11-07 09:59:59 -00:00:02",
+      "2100-11-07 10:00:01 +00:00:02",
   };
   expected = {
       Timestamp(28800, 0),
@@ -636,10 +642,15 @@ TEST_F(CastExprTest, stringToTimestamp) {
       Timestamp(10800, 0),
       Timestamp(946729316, 0),
       Timestamp(946725655, 0),
+      Timestamp(2398384800, 0),
       Timestamp(1710064801, 0),
       Timestamp(1710064799, 0),
       Timestamp(1730624401, 0),
       Timestamp(1730624399, 0),
+      Timestamp(4108701601, 0),
+      Timestamp(4108701599, 0),
+      Timestamp(4129264801, 0),
+      Timestamp(4129264799, 0),
   };
   testCast<std::string, Timestamp>("timestamp", input, expected);
 
@@ -656,17 +667,6 @@ TEST_F(CastExprTest, stringToTimestamp) {
       (evaluateOnce<Timestamp, std::string>(
           "try_cast(c0 as timestamp)", "201915-04-23 11:46:00.000")),
       "Timepoint is outside of supported year range");
-  // TODO: Address in https://github.com/facebookincubator/velox/pull/12471
-  //   VELOX_ASSERT_THROW(
-  //       (evaluateOnce<Timestamp, std::string>(
-  //           "cast(c0 as timestamp)", "2045-12-31 18:00:00")),
-  //       "Unable to convert timezone 'America/Los_Angeles' past 2037-11-01
-  //       09:00:00");
-  //   VELOX_ASSERT_THROW(
-  //       (evaluateOnce<Timestamp, std::string>(
-  //           "try_cast(c0 as timestamp)", "2045-12-31 18:00:00")),
-  //       "Unable to convert timezone 'America/Los_Angeles' past 2037-11-01
-  //       09:00:00");
   // Only one white space is allowed before the offset string.
   VELOX_ASSERT_THROW(
       (evaluateOnce<Timestamp, std::string>(
@@ -780,6 +780,7 @@ TEST_F(CastExprTest, timestampToString) {
           Timestamp(0, 0),
           Timestamp(946729316, 123),
           Timestamp(-50049331622, 0),
+          Timestamp(253405036800, 0),
           Timestamp(-62480038022, 0),
           std::nullopt,
       },
@@ -787,31 +788,10 @@ TEST_F(CastExprTest, timestampToString) {
           "1969-12-31 16:00:00.000",
           "2000-01-01 04:21:56.000",
           "0384-01-01 00:00:00.000",
+          "10000-02-01 08:00:00.000",
           "-0010-02-01 02:00:00.000",
           std::nullopt,
       });
-
-  // TODO: Address in https://github.com/facebookincubator/velox/pull/12471
-  //   // Ensure external/date throws since it doesn't know how to convert large
-  //   // timestamps.
-  //   auto mustThrow = [&]() {
-  //     return testCast<Timestamp, std::string>(
-  //         "string", {Timestamp(253405036800, 0)}, {"10000-02-01
-  //         08:00:00.000"});
-  //   };
-  //   VELOX_ASSERT_THROW(
-  //       mustThrow(), "Unable to convert timezone 'America/Los_Angeles'
-  //       past");
-
-  //   // try_cast should also throw since it's runtime error.
-  //   auto tryCastMustThrow = [&]() {
-  //     return testTryCast<Timestamp, std::string>(
-  //         "string", {Timestamp(253405036800, 0)}, {"10000-02-01
-  //         08:00:00.000"});
-  //   };
-  //   VELOX_ASSERT_THROW(
-  //       tryCastMustThrow(),
-  //       "Unable to convert timezone 'America/Los_Angeles' past");
 }
 
 TEST_F(CastExprTest, dateToTimestamp) {
@@ -838,6 +818,7 @@ TEST_F(CastExprTest, timestampToDate) {
       Timestamp(0, 0),
       Timestamp(946684800, 0),
       Timestamp(1257724800, 0),
+      Timestamp(2534050368, 0),
       std::nullopt,
   };
 
@@ -848,6 +829,7 @@ TEST_F(CastExprTest, timestampToDate) {
           0,
           10957,
           14557,
+          29329,
           std::nullopt,
       },
       TIMESTAMP(),
@@ -861,30 +843,11 @@ TEST_F(CastExprTest, timestampToDate) {
           -1,
           10956,
           14556,
+          29328,
           std::nullopt,
       },
       TIMESTAMP(),
       DATE());
-
-  // TODO: Address in https://github.com/facebookincubator/velox/pull/12471
-  //   // Ensure external/date throws since it doesn't know how to convert large
-  //   // timestamps.
-  //   auto mustThrow = [&]() {
-  //     return testCast<Timestamp, int32_t>(
-  //         "date", {Timestamp(253405036800, 0)}, {0});
-  //   };
-  //   VELOX_ASSERT_THROW(
-  //       mustThrow(), "Unable to convert timezone 'America/Los_Angeles'
-  //       past");
-
-  //   // try_cast should also throw since it's runtime error.
-  //   auto tryCastMustThrow = [&]() {
-  //     return testTryCast<Timestamp, int32_t>(
-  //         "date", {Timestamp(253405036800, 0)}, {0});
-  //   };
-  //   VELOX_ASSERT_THROW(
-  //       tryCastMustThrow(),
-  //       "Unable to convert timezone 'America/Los_Angeles' past");
 }
 
 TEST_F(CastExprTest, timestampInvalid) {
