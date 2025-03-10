@@ -161,6 +161,11 @@ Generic Configuration
      - Specifies the compression algorithm type to compress the shuffle data to
        trade CPU for network IO efficiency. The supported compression codecs
        are: zlib, snappy, lzo, zstd, lz4 and gzip. none means no compression.
+   * - throw_exception_on_duplicate_map_keys
+     - bool
+     - false
+     - By default, if a key is found in multiple given maps, that key's value in the resulting map comes from the last one of those maps.
+       If true, throws exception when duplicate keys are found. This configuration is needed by Spark functions `CreateMap`, `MapFromArrays`, `MapFromEntries`, `StringToMap`, `MapConcat`, `TransformKeys`.
 
 .. _expression-evaluation-conf:
 

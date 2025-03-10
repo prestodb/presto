@@ -22,7 +22,7 @@ namespace facebook::velox::functions {
 namespace {
 
 // See documentation at https://prestodb.io/docs/current/functions/map.html
-template <bool EmptyForNull>
+template <bool EmptyForNull, bool AllowSingleArg>
 class MapConcatFunction : public exec::VectorFunction {
  public:
   void apply(
@@ -31,7 +31,7 @@ class MapConcatFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    VELOX_CHECK_GE(args.size(), 2);
+    // Ensure all input types and output type are of the same map type.
     const TypePtr& mapType = args[0]->type();
     VELOX_CHECK_EQ(mapType->kind(), TypeKind::MAP);
     for (const VectorPtr& arg : args) {
@@ -39,7 +39,11 @@ class MapConcatFunction : public exec::VectorFunction {
     }
     VELOX_CHECK(mapType->kindEquals(outputType));
 
-    const uint64_t numArgs = args.size();
+    const size_t numArgs = args.size();
+    if constexpr (!AllowSingleArg) {
+      VELOX_CHECK_GE(numArgs, 2);
+    }
+
     exec::DecodedArgs decodedArgs(rows, args, context);
     vector_size_t maxSize = 0;
     for (int i = 0; i < numArgs; i++) {
@@ -109,6 +113,11 @@ class MapConcatFunction : public exec::VectorFunction {
     // Check for duplicate keys
     SelectivityVector uniqueKeys(offset);
     vector_size_t duplicateCnt = 0;
+    bool throwExceptionOnDuplicateMapKeys = false;
+    if (auto* ctx = context.execCtx()->queryCtx()) {
+      throwExceptionOnDuplicateMapKeys =
+          ctx->queryConfig().throwExceptionOnDuplicateMapKeys();
+    }
     rows.applyToSelected([&](vector_size_t row) {
       const int mapOffset = rawOffsets[row];
       const int mapSize = rawSizes[row];
@@ -118,6 +127,11 @@ class MapConcatFunction : public exec::VectorFunction {
       for (vector_size_t i = 1; i < mapSize; i++) {
         if (combinedKeys->equalValueAt(
                 combinedKeys.get(), mapOffset + i, mapOffset + i - 1)) {
+          if (throwExceptionOnDuplicateMapKeys) {
+            const auto duplicateKey = combinedKeys->wrappedVector()->toString(
+                combinedKeys->wrappedIndex(mapOffset + i));
+            VELOX_USER_FAIL("Duplicate map key {} was found.", duplicateKey);
+          }
           duplicateCnt++;
           // "remove" duplicate entry
           uniqueKeys.setValid(mapOffset + i - 1, false);
@@ -172,15 +186,31 @@ class MapConcatFunction : public exec::VectorFunction {
 void registerMapConcatFunction(const std::string& name) {
   exec::registerVectorFunction(
       name,
-      MapConcatFunction</*EmptyForNull=*/false>::signatures(),
-      std::make_unique<MapConcatFunction</*EmptyForNull=*/false>>());
+      MapConcatFunction</*EmptyForNull=*/false, /*AllowSingleArg=*/false>::
+          signatures(),
+      std::make_unique<MapConcatFunction<
+          /*EmptyForNull=*/false,
+          /*AllowSingleArg=*/false>>());
+}
+
+void registerMapConcatAllowSingleArg(const std::string& name) {
+  exec::registerVectorFunction(
+      name,
+      MapConcatFunction</*EmptyForNull=*/false, /*AllowSingleArg=*/true>::
+          signatures(),
+      std::make_unique<MapConcatFunction<
+          /*EmptyForNull=*/false,
+          /*AllowSingleArg=*/true>>());
 }
 
 void registerMapConcatEmptyNullsFunction(const std::string& name) {
   exec::registerVectorFunction(
       name,
-      MapConcatFunction</*EmptyForNull=*/true>::signatures(),
-      std::make_unique<MapConcatFunction</*EmptyForNull=*/true>>(),
+      MapConcatFunction</*EmptyForNull=*/true, /*AllowSingleArg=*/false>::
+          signatures(),
+      std::make_unique<MapConcatFunction<
+          /*EmptyForNull=*/true,
+          /*AllowSingleArg=*/false>>(),
       exec::VectorFunctionMetadataBuilder().defaultNullBehavior(false).build());
 }
 } // namespace facebook::velox::functions

@@ -14,6 +14,19 @@ Map Functions
 
         SELECT map(array(1, 2), array(3, 4)); -- {[1, 2] -> [3, 4]}
 
+.. spark:function:: map_concat(map1(K,V), map2(K,V), ..., mapN(K,V)) -> map(K,V)
+
+    Returns the union of all the given maps. If a key is found in multiple given maps,
+    by default that key's value in the resulting map comes from the last one of those maps.
+    If configuration `throw_exception_on_duplicate_map_keys` is set true, throws exception
+    for duplicate keys. Allows single map input.  ::
+
+        SELECT map_concat(map(1, 'a', 2, 'b'), map(3, 'c')); -- {1 -> 'a', 2 -> 'b', 3 -> 'c'}
+        SELECT map_concat(map(1, 'a', 2, 'b'), map(3, NULL)); -- {1 -> 'a', 2 -> 'b', 3 -> NULL}
+        SELECT map_concat(map(1, 'a', 2, 'b')); -- {1 -> 'a', 2 -> 'b'}
+        SELECT map_concat(map(1, 'a', 2, 'b'), map(3, 'c', 2, 'd')); -- {1 -> 'a', 2 -> 'd', 3 -> 'c'} (LAST_WIN behavior)
+        SELECT map_concat(map(1, 'a', 2, 'b'), map(3, 'c', 2, 'd')); --  "Duplicate map key 2 was found" (EXCEPTION behavior)
+
 .. spark:function:: map_entries(map(K,V)) -> array(row(K,V))
 
     Returns an array of all entries in the given map. ::

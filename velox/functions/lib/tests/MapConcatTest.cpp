@@ -183,6 +183,40 @@ TEST_F(MapConcatTest, nullKeys) {
   }
 }
 
+TEST_F(MapConcatTest, nullMapValue) {
+  auto makeMapVector =
+      [&](const std::vector<
+          std::vector<std::pair<std::string, std::optional<int32_t>>>>& maps) {
+        return vectorMaker_.mapVector<std::string, int32_t>(maps);
+      };
+
+  std::vector<std::pair<std::string, std::optional<int32_t>>> a = {
+      {"a1", 1}, {"a2", std::nullopt}, {"a3", 3}};
+  std::vector<std::pair<std::string, std::optional<int32_t>>> b = {
+      {"b1", 1}, {"b2", 2}, {"b3", 3}, {"b4", std::nullopt}};
+  auto aMap = makeMapVector({a});
+  auto bMap = makeMapVector({b});
+
+  std::vector<std::pair<std::string, std::optional<int32_t>>> expected = {
+      {"a1", 1},
+      {"a2", std::nullopt},
+      {"a3", 3},
+      {"b1", 1},
+      {"b2", 2},
+      {"b3", 3},
+      {"b4", std::nullopt}};
+  auto expectedMap = makeMapVector({expected});
+
+  auto result =
+      evaluate<MapVector>("map_concat(c0, c1)", makeRowVector({aMap, bMap}));
+  ASSERT_EQ(result->size(), expectedMap->size());
+  for (vector_size_t i = 0; i < result->size(); i++) {
+    ASSERT_TRUE(expectedMap->equalValueAt(result.get(), i, i))
+        << "at " << i << ": expected " << expectedMap->toString(i) << ", got "
+        << result->toString(i);
+  }
+}
+
 TEST_F(MapConcatTest, duplicateKeys) {
   vector_size_t size = 1'000;
 

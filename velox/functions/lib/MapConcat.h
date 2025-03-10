@@ -22,6 +22,8 @@ namespace facebook::velox::functions {
 
 void registerMapConcatFunction(const std::string& name);
 
+void registerMapConcatAllowSingleArg(const std::string& name);
+
 void registerMapConcatEmptyNullsFunction(const std::string& name);
 
 } // namespace facebook::velox::functions

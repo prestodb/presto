@@ -505,6 +505,12 @@ class QueryConfig {
   static constexpr const char* kShuffleCompressionKind =
       "shuffle_compression_codec";
 
+  /// If a key is found in multiple given maps, by default that key's value in
+  /// the resulting map comes from the last one of those maps. When true, throw
+  /// exception on duplicate map key.
+  static constexpr const char* kThrowExceptionOnDuplicateMapKeys =
+      "throw_exception_on_duplicate_map_keys";
+
   bool selectiveNimbleReaderEnabled() const {
     return get<bool>(kSelectiveNimbleReaderEnabled, false);
   }
@@ -928,6 +934,10 @@ class QueryConfig {
 
   std::string shuffleCompressionKind() const {
     return get<std::string>(kShuffleCompressionKind, "none");
+  }
+
+  bool throwExceptionOnDuplicateMapKeys() const {
+    return get<bool>(kThrowExceptionOnDuplicateMapKeys, false);
   }
 
   template <typename T>
