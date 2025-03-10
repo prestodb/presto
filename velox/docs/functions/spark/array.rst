@@ -100,8 +100,8 @@ Array Functions
     Returns minimum non-NULL element of the array. Returns NULL if array is empty or all elements are NULL.
     When E is DOUBLE or REAL, NaN value is considered greater than any non-NaN value. ::
 
-        SELECT array_min(array(1, 2, 3）); -- 1
-        SELECT array_min(array(-1, -2, -2）); -- -2
+        SELECT array_min(array(1, 2, 3)); -- 1
+        SELECT array_min(array(-1, -2, -2)); -- -2
         SELECT array_min(array(-1, -2, NULL)); -- -2
         SELECT array_min(array(NULL, NULL)); -- NULL
         SELECT array_min(array()); -- NULL
@@ -159,11 +159,16 @@ Array Functions
 
         SELECT arrays_zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
 
-.. spark:function:: concat(array(E), array(E1), ..., array(En)) -> array(E, E1, ..., En)
+.. spark:function:: concat(array1, array2, ..., arrayN) -> array
 
-    Returns the concatenation of array(E), array(E1), ..., array(En). ::
+    Concatenates the arrays ``array1``, ``array2``, ..., ``arrayN``. All parameters have the same type.
+    This function provides the same functionality as the SQL-standard concatenation operator (``||``).
+    Fails if the result array size exceeds INT_MAX - 15. ::
 
         SELECT concat(array(1, 2, 3), array(4, 5), array(6)); -- [1, 2, 3, 4, 5, 6]
+        SELECT concat(array(1, 2, 3), null); -- NULL
+        SELECT concat(array(1, 2), array(1, 2), array(1, null)); -- [1, 2, 1, 2, 1, NULL]
+        SELECT concat(array(array(1, 2)), array(array(1, null))); -- [[1, 2], [1, NULL]]
 
 .. spark:function:: exists(array(T), function(T, boolean)) → boolean
 
