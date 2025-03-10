@@ -14,11 +14,5 @@
 package com.facebook.presto;
 
 public enum CompressionCodec {
-    NONE,
-    ZLIB,
-    SNAPPY,
-    LZO,
-    ZSTD,
-    LZ4,
-    GZIP,
+    GZIP, LZ4, LZO, SNAPPY, ZLIB, ZSTD, NONE
 }

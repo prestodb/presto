@@ -392,7 +392,7 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8081")
+                        .put("http-server.http.port", "8080")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .putAll(getNativeWorkerSystemProperties())
                         .put("query.cte-partitioning-provider-catalog", "hive")

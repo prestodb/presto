@@ -33,10 +33,10 @@ import java.util.Optional;
 public class TestingPagesSerdeFactory
         extends PagesSerdeFactory
 {
-    public TestingPagesSerdeFactory()
+    public TestingPagesSerdeFactory(CompressionCodec compressionCodec)
     {
         // compression should be enabled in as many tests as possible
-        super(new BlockEncodingManager(), CompressionCodec.LZ4);
+        super(new BlockEncodingManager(), compressionCodec);
     }
 
     public static PagesSerde testingPagesSerde()
