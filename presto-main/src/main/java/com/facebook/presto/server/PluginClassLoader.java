@@ -59,7 +59,7 @@ public class PluginClassLoader
         this.spiResources = ImmutableList.copyOf(spiResources);
     }
 
-    public PluginClassLoader duplicate()
+    public PluginClassLoader clone()
     {
         return new PluginClassLoader(ImmutableList.copyOf(getURLs()), spiClassLoader, spiPackages, spiResources);
     }

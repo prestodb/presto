@@ -72,10 +72,12 @@ public abstract class RemoteState
         }
 
         if (sinceUpdate.toMillis() > 1_000 && future.get() == null) {
-            Request request = prepareGet()
-                    .setUri(remoteUri)
-                    .addHeader("Authorization", "Basic " + System.getenv("ROUTER_USER_CREDENTIALS"))
-                    .build();
+            Request.Builder requestBuilder = prepareGet().setUri(remoteUri);
+            String userCreds = System.getenv("ROUTER_USER_CREDENTIALS");
+            if (userCreds != null) {
+                requestBuilder.addHeader("Authorization", "Basic " + userCreds);
+            }
+            Request request = requestBuilder.build();
 
             HttpClient.HttpResponseFuture<FullJsonResponseHandler.JsonResponse<JsonNode>> responseFuture = httpClient.executeAsync(request, createFullJsonResponseHandler(JSON_CODEC));
             future.compareAndSet(null, responseFuture);
@@ -93,7 +95,6 @@ public abstract class RemoteState
                         }
                         if (result.getStatusCode() != OK.code()) {
                             log.warn("Error fetching node state from %s returned status %d", remoteUri, result.getStatusCode());
-                            return;
                         }
                     }
                 }
