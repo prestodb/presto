@@ -152,9 +152,7 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
         timeZone.has_value()
             ? tzdb::zoned_time(
                   timeZone.value(), std::chrono::system_clock::now())
-                  .get_local_time()
-                  .time_since_epoch()
-            : std::chrono::system_clock::now().time_since_epoch()));
+            : tzdb::zoned_time(std::chrono::system_clock::now())));
   }
 };
 
@@ -4787,7 +4785,6 @@ TEST_F(DateTimeFunctionsTest, castDateForDateFunction) {
 }
 
 TEST_F(DateTimeFunctionsTest, currentDateWithTimezone) {
-  // TODO: Restore in https://github.com/facebookincubator/velox/pull/12469
   // Since the execution of the code is slightly delayed, it is difficult for us
   // to get the correct value of current_date. If you compare directly based on
   // the current time, you may get wrong result at the last second of the day,
@@ -4799,30 +4796,29 @@ TEST_F(DateTimeFunctionsTest, currentDateWithTimezone) {
   auto emptyRowVector = makeRowVector(ROW({}), 1);
   auto tz = "America/Los_Angeles";
   setQueryTimeZone(tz);
-  //   auto dateBefore = getCurrentDate(tz);
+  auto dateBefore = getCurrentDate(tz);
   auto result = evaluateOnce<int32_t>("current_date()", emptyRowVector);
-  //   auto dateAfter = getCurrentDate(tz);
+  auto dateAfter = getCurrentDate(tz);
 
   EXPECT_TRUE(result.has_value());
-  //   EXPECT_LE(dateBefore, result);
-  //   EXPECT_LE(result, dateAfter);
-  //   EXPECT_LE(dateAfter - dateBefore, 1);
+  EXPECT_LE(dateBefore, result);
+  EXPECT_LE(result, dateAfter);
+  EXPECT_LE(dateAfter - dateBefore, 1);
 }
 
 TEST_F(DateTimeFunctionsTest, currentDateWithoutTimezone) {
   auto emptyRowVector = makeRowVector(ROW({}), 1);
 
-  // TODO: Restore in https://github.com/facebookincubator/velox/pull/12469
   // Do not set the timezone, so the timezone obtained from QueryConfig
   // will be nullptr.
-  //   auto dateBefore = getCurrentDate(std::nullopt);
+  auto dateBefore = getCurrentDate(std::nullopt);
   auto result = evaluateOnce<int32_t>("current_date()", emptyRowVector);
-  //   auto dateAfter = getCurrentDate(std::nullopt);
+  auto dateAfter = getCurrentDate(std::nullopt);
 
   EXPECT_TRUE(result.has_value());
-  //   EXPECT_LE(dateBefore, result);
-  //   EXPECT_LE(result, dateAfter);
-  //   EXPECT_LE(dateAfter - dateBefore, 1);
+  EXPECT_LE(dateBefore, result);
+  EXPECT_LE(result, dateAfter);
+  EXPECT_LE(dateAfter - dateBefore, 1);
 }
 
 TEST_F(DateTimeFunctionsTest, timeZoneHour) {
