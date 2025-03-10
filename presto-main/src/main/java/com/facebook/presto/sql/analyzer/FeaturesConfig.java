@@ -292,6 +292,8 @@ public class FeaturesConfig
 
     private boolean setExcludeInvalidWorkerSessionProperties;
     private int eagerPlanValidationThreadPoolSize = 20;
+    private boolean innerJoinPushdownEnabled;
+    private boolean inEqualityJoinPushdownEnabled;
 
     private boolean prestoSparkExecutionEnvironment;
     private boolean singleNodeExecutionEnabled;
@@ -2884,6 +2886,31 @@ public class FeaturesConfig
         return this.eagerPlanValidationThreadPoolSize;
     }
 
+    @Config("optimizer.inner-join-pushdown-enabled")
+    @ConfigDescription("Push down inner join predicates to database")
+    public FeaturesConfig setInnerJoinPushdownEnabled(boolean innerJoinPushdownEnabled)
+    {
+        this.innerJoinPushdownEnabled = innerJoinPushdownEnabled;
+        return this;
+    }
+
+    public boolean isInnerJoinPushdownEnabled()
+    {
+        return innerJoinPushdownEnabled;
+    }
+
+    @Config("optimizer.inequality-join-pushdown-enabled")
+    @ConfigDescription("Push down inner join inequality predicates to database")
+    public FeaturesConfig setInEqualityJoinPushdownEnabled(boolean inEqualityJoinPushdownEnabled)
+    {
+        this.inEqualityJoinPushdownEnabled = inEqualityJoinPushdownEnabled;
+        return this;
+    }
+
+    public boolean isInEqualityJoinPushdownEnabled()
+    {
+        return inEqualityJoinPushdownEnabled;
+    }
     public boolean isPrestoSparkExecutionEnvironment()
     {
         return prestoSparkExecutionEnvironment;
