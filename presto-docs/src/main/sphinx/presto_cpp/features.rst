@@ -186,6 +186,8 @@ file from Linux cgroups V1 or V2. The LinuxMemoryChecker is used for Linux syste
 
 The LinuxMemoryChecker can be enabled by setting the CMake flag ``PRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER``. 
 
+.. _async_data_caching_and_prefetching:
+
 Async Data Cache and Prefetching
 --------------------------------
 
