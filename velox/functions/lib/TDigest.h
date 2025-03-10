@@ -447,11 +447,15 @@ void TDigest<A>::mergeDeserialized(
     tdigest::detail::read(input, sum);
   }
   tdigest::detail::read(input, compression);
-  VELOX_CHECK_EQ(compression, compression_);
+  // If the TDigest is empty, set compression from TDigest being merged.
+  if (weights_.empty()) {
+    setCompression(compression);
+  }
   tdigest::detail::read(input, totalWeight);
   int32_t numNew;
   tdigest::detail::read(input, numNew);
   if (numNew > 0) {
+    VELOX_CHECK_EQ(compression, compression_);
     auto numOld = weights_.size();
     weights_.resize(numOld + numNew);
     auto* weights = weights_.data() + numOld;

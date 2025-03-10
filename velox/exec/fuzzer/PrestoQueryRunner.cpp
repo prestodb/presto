@@ -451,16 +451,17 @@ bool PrestoQueryRunner::isConstantExprSupported(
 bool PrestoQueryRunner::isSupported(const exec::FunctionSignature& signature) {
   // TODO: support queries with these types. Among the types below, hugeint is
   // not a native type in Presto, so fuzzer should not use it as the type of
-  // cast-to or constant literals. Hyperloglog can only be casted from varbinary
-  // and cannot be used as the type of constant literals. Interval year to month
-  // can only be casted from NULL and cannot be used as the type of constant
-  // literals. Json, Ipaddress, Ipprefix, and UUID require special handling,
-  // because Presto requires literals of these types to be valid, and doesn't
-  // allow creating HIVE columns of these types.
+  // cast-to or constant literals. Hyperloglog and TDigest can only be casted
+  // from varbinary and cannot be used as the type of constant literals.
+  // Interval year to month can only be casted from NULL and cannot be used as
+  // the type of constant literals. Json, Ipaddress, Ipprefix, and UUID require
+  // special handling, because Presto requires literals of these types to be
+  // valid, and doesn't allow creating HIVE columns of these types.
   return !(
       usesTypeName(signature, "interval year to month") ||
       usesTypeName(signature, "hugeint") ||
       usesTypeName(signature, "hyperloglog") ||
+      usesTypeName(signature, "tdigest") ||
       usesInputTypeName(signature, "ipaddress") ||
       usesInputTypeName(signature, "ipprefix") ||
       usesInputTypeName(signature, "uuid"));

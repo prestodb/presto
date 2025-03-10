@@ -14,11 +14,22 @@
  * limitations under the License.
  */
 #include "velox/functions/Registerer.h"
+#include "velox/functions/prestosql/TDigestFunctions.h"
 #include "velox/functions/prestosql/types/TDigestRegistration.h"
-
+#include "velox/functions/prestosql/types/TDigestType.h"
 namespace facebook::velox::functions {
 
 void registerTDigestFunctions(const std::string& prefix) {
-  registerTDigestType();
+  facebook::velox::registerTDigestType();
+  registerFunction<
+      ValueAtQuantileFunction,
+      double,
+      SimpleTDigest<double>,
+      double>({prefix + "value_at_quantile"});
+  registerFunction<
+      ValuesAtQuantilesFunction,
+      Array<double>,
+      SimpleTDigest<double>,
+      Array<double>>({prefix + "values_at_quantiles"});
 }
 } // namespace facebook::velox::functions

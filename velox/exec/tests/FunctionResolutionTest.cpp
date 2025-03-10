@@ -24,6 +24,7 @@
 #include "velox/functions/prestosql/types/BingTileType.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TDigestType.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace {
@@ -287,6 +288,21 @@ TEST_F(FunctionResolutionTest, resolveCustomTypeHyperLogLog) {
   auto type =
       exec::simpleFunctions().resolveFunction("f_hyper_log_log", {})->type();
   EXPECT_EQ(type->toString(), HYPERLOGLOG()->toString());
+}
+
+template <typename T>
+struct FuncTDigest {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+  bool call(out_type<SimpleTDigest<double>>&) {
+    return false;
+  }
+};
+
+TEST_F(FunctionResolutionTest, resolveCustomTypeTDigest) {
+  registerFunction<FuncTDigest, SimpleTDigest<double>>({"f_tdigest"});
+
+  auto type = exec::simpleFunctions().resolveFunction("f_tdigest", {})->type();
+  EXPECT_EQ(type->toString(), TDIGEST(DOUBLE())->toString());
 }
 
 template <typename T>
