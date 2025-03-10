@@ -33,6 +33,9 @@ namespace facebook::velox::exec::test {
 // expects all groups to be under 2e.
 class ApproxDistinctResultVerifier : public ResultVerifier {
  public:
+  explicit ApproxDistinctResultVerifier(bool isApproxSet = false)
+      : isApproxSet_(isApproxSet) {}
+
   bool supportsCompare() override {
     return false;
   }
@@ -95,11 +98,21 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
                               .values({expected_})
                               .appendColumns({"'expected' as label"})
                               .planNode();
-
-    auto actualSource = PlanBuilder(planNodeIdGenerator)
-                            .values({result})
-                            .appendColumns({"'actual' as label"})
-                            .planNode();
+    core::PlanNodePtr actualSource;
+    if (isApproxSet_) {
+      auto projectColumns =
+          makeProjectColumnsForApproxSet(asRowType(result->type())->names());
+      actualSource = PlanBuilder(planNodeIdGenerator)
+                         .values({result})
+                         .project(projectColumns)
+                         .appendColumns({"'actual' as label"})
+                         .planNode();
+    } else {
+      actualSource = PlanBuilder(planNodeIdGenerator)
+                         .values({result})
+                         .appendColumns({"'actual' as label"})
+                         .planNode();
+    }
 
     if (verifyWindow_) {
       return verifyWindow(
@@ -122,8 +135,18 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
 
     std::vector<double> largeGaps;
     for (auto i = 0; i < numGroups; ++i) {
-      VELOX_CHECK(!actual->isNullAt(i));
       VELOX_CHECK(!expected->isNullAt(i));
+      // Different behavior between approx_distinct and approx_set.
+      // approx_set(null) returns 0, while cardinality(approx_set(null)) returns
+      // NULL.
+      if (isApproxSet_) {
+        if (actual->isNullAt(i)) {
+          VELOX_CHECK_EQ(expected->valueAt(i), 0);
+          continue;
+        }
+      } else {
+        VELOX_CHECK(!actual->isNullAt(i));
+      }
 
       const auto actualCnt = actual->valueAt(i);
       const auto expectedCnt = expected->valueAt(i);
@@ -296,10 +319,22 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
     return countDistinctCall;
   }
 
+  std::vector<std::string> makeProjectColumnsForApproxSet(
+      const std::vector<std::string>& columnNames) const {
+    std::vector<std::string> projectColumns = columnNames;
+    for (auto& projectColumn : projectColumns) {
+      if (projectColumn == name_) {
+        projectColumn = fmt::format("cardinality({}) as {}", name_, name_);
+      }
+    }
+    return projectColumns;
+  }
+
   RowVectorPtr expected_;
   std::vector<std::string> groupingKeys_;
   std::string name_;
   double error_;
+  bool isApproxSet_;
   bool verifyWindow_{false};
 };
 
