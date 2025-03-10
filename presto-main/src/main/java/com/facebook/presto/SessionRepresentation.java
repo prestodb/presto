@@ -30,6 +30,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.security.TokenAuthenticator;
 import com.facebook.presto.spi.session.ResourceEstimates;
+import com.facebook.presto.tracing.TracingManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
@@ -307,6 +308,8 @@ public final class SessionRepresentation
     {
         return new Session(
                 new QueryId(queryId),
+                TracingManager.getInvalidSpan(),
+                TracingManager.getInvalidSpan(),
                 transactionId,
                 clientTransactionSupport,
                 new Identity(
@@ -335,8 +338,6 @@ public final class SessionRepresentation
                 sessionPropertyManager,
                 preparedStatements,
                 sessionFunctions,
-                Optional.empty(),
-                // we use NOOP to create a session from the representation as worker does not require warning collectors
                 WarningCollector.NOOP,
                 new RuntimeStats(),
                 Optional.empty());
