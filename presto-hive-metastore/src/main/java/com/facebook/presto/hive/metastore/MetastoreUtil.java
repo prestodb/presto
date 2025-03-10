@@ -84,6 +84,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.math.BigInteger;
+import java.security.Principal;
 import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -171,6 +172,7 @@ public class MetastoreUtil
     public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
     public static final String USER_DEFINED_TYPE_ENCODING_ENABLED = "user_defined_type_encoding";
     public static final String DEFAULT_METASTORE_USER = "presto";
+    public static final Optional<Principal> PRINCIPAL = Optional.empty();
 
     @SuppressWarnings("OctalInteger")
     public static final FsPermission ALL_PERMISSIONS = new FsPermission((short) 0777);

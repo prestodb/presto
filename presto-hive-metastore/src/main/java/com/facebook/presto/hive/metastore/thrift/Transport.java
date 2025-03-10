@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
+import java.security.Principal;
 import java.util.Optional;
 
 import static java.net.Proxy.Type.SOCKS;
@@ -38,12 +39,13 @@ public final class Transport
             Optional<HostAndPort> socksProxy,
             int timeoutMillis,
             HiveMetastoreAuthentication authentication,
-            Optional<String> tokenString)
+            Optional<String> tokenString,
+            Optional<Principal> principal)
             throws TTransportException
     {
         try {
             TTransport rawTransport = createRaw(address, sslContext, socksProxy, timeoutMillis);
-            TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost(), tokenString);
+            TTransport authenticatedTransport = authentication.authenticate(rawTransport, address.getHost(), tokenString, principal);
             if (!authenticatedTransport.isOpen()) {
                 authenticatedTransport.open();
             }

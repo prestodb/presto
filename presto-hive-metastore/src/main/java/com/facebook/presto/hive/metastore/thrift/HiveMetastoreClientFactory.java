@@ -22,6 +22,7 @@ import org.apache.thrift.transport.TTransportException;
 import javax.inject.Inject;
 import javax.net.ssl.SSLContext;
 
+import java.security.Principal;
 import java.util.Optional;
 
 import static java.lang.Math.toIntExact;
@@ -52,9 +53,9 @@ public class HiveMetastoreClientFactory
         this(Optional.empty(), Optional.ofNullable(metastoreClientConfig.getMetastoreSocksProxy()), metastoreClientConfig.getMetastoreTimeout(), metastoreAuthentication);
     }
 
-    public HiveMetastoreClient create(HostAndPort address, Optional<String> token)
+    public HiveMetastoreClient create(HostAndPort address, Optional<String> token, Optional<Principal> principal)
             throws TTransportException
     {
-        return new ThriftHiveMetastoreClient(Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, token));
+        return new ThriftHiveMetastoreClient(Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, token, principal));
     }
 }
