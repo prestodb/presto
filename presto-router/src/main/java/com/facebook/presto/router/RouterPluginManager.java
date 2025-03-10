@@ -1,4 +1,3 @@
-package com.facebook.presto.router;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,6 +11,7 @@ package com.facebook.presto.router;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.facebook.presto.router;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.server.PluginClassLoader;
@@ -48,15 +48,17 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class RouterPluginManager
 {
-    // When generating code the AfterBurner module loads classes with *some* classloader.
-    // When the AfterBurner module is configured not to use the value classloader
-    // (e.g., AfterBurner().setUseValueClassLoader(false)) AppClassLoader is used for loading those
-    // classes. Otherwise, the PluginClassLoader is used, which is the default behavior.
-    // Therefore, in the former case Afterburner won't be able to load the connector classes
-    // as AppClassLoader doesn't see them, and in the latter case the PluginClassLoader won't be
-    // able to load the AfterBurner classes themselves. So, our solution is to use the PluginClassLoader
-    // and whitelist the AfterBurner classes here, so that the PluginClassLoader can load the
-    // AfterBurner classes.
+    /*
+     When generating code the AfterBurner module loads classes with *some* classloader.
+     When the AfterBurner module is configured not to use the value classloader
+     (e.g., AfterBurner().setUseValueClassLoader(false)) AppClassLoader is used for loading those
+     classes. Otherwise, the PluginClassLoader is used, which is the default behavior.
+     Therefore, in the former case Afterburner won't be able to load the connector classes
+     as AppClassLoader doesn't see them, and in the latter case the PluginClassLoader won't be
+     able to load the AfterBurner classes themselves. So, our solution is to use the PluginClassLoader
+     and whitelist the AfterBurner classes here, so that the PluginClassLoader can load the
+     AfterBurner classes.
+     */
     private static final String SERVICES_FILE = "META-INF/services/" + Plugin.class.getName();
     private static final ImmutableList<String> SPI_PACKAGES = ImmutableList.<String>builder()
             .add("com.facebook.presto.spi.")
@@ -87,7 +89,7 @@ public class RouterPluginManager
     {
         requireNonNull(config, "config is null");
 
-        installedPluginsDir = config.getInstalledPluginsDir();
+        this.installedPluginsDir = config.getInstalledPluginsDir();
         if (config.getPlugins() == null) {
             this.plugins = ImmutableList.of();
         }
