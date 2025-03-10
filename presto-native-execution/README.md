@@ -115,6 +115,15 @@ follow these steps:
 * For development, use `make debug` to build a non-optimized debug version.
 * Use `make unittest` to build and run tests.
 
+#### Arrow Flight Connector
+To enable Arrow Flight connector support, add to the extra cmake flags:
+`EXTRA_CMAKE_FLAGS = -DPRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR=ON`
+
+The Arrow Flight connector requires the Arrow Flight library. You can install this dependency
+by running the following script from the `presto/presto-native-execution` directory:
+
+`./scripts/setup-adapters.sh arrow_flight`
+
 ### Makefile Targets
 A reminder of the available Makefile targets can be obtained using `make help`
 ```
