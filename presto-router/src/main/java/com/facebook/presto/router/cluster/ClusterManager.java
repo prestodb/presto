@@ -41,23 +41,21 @@ import static java.util.stream.Collectors.toMap;
 
 public class ClusterManager
 {
-    private final Map<String, GroupSpec> groups;
-    private final List<SelectorRuleSpec> groupSelectors;
-    private final SchedulerType schedulerType;
-    private final Scheduler scheduler;
-    private final HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
+    private Map<String, GroupSpec> groups;
+    private List<SelectorRuleSpec> groupSelectors;
+    private SchedulerType schedulerType;
+    private Scheduler scheduler;
+    private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
 
     @Inject
     public ClusterManager(RouterConfig config)
     {
         RouterSpec routerSpec = parseRouterConfig(config)
                 .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
-
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
         this.schedulerType = routerSpec.getSchedulerType();
         this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
-
         this.initializeServerWeights();
     }
 
