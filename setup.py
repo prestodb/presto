@@ -125,9 +125,9 @@ class CMakeBuild(build_ext):
             extdir += os.path.sep
 
         if "DEBUG" in os.environ:
-            cfg = "Debug" if os.environ["DEBUG"] == "1" else "Release"
+            cfg = "Debug" if os.environ["DEBUG"] == "1" else "MinSizeRel"
         else:
-            cfg = "Debug" if self.debug else "Release"
+            cfg = "Debug" if self.debug else "MinSizeRel"
 
         exec_path = sys.executable
 
