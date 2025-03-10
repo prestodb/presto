@@ -299,6 +299,8 @@ public class FeaturesConfig
     private String expressionOptimizerName = DEFAULT_EXPRESSION_OPTIMIZER_NAME;
     private boolean addExchangeBelowPartialAggregationOverGroupId;
 
+    private boolean restrictCatalogEndpointsLocally;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2958,5 +2960,18 @@ public class FeaturesConfig
     public boolean getAddExchangeBelowPartialAggregationOverGroupId()
     {
         return addExchangeBelowPartialAggregationOverGroupId;
+    }
+
+    @Config("restrict-catalog-endpoints-locally")
+    @ConfigDescription("Restrict access to dynamic loading catalog to requests from localhost")
+    public FeaturesConfig setRestrictCatalogEndpointsLocally(boolean restrictCatalogEndpointsLocally)
+    {
+        this.restrictCatalogEndpointsLocally = restrictCatalogEndpointsLocally;
+        return this;
+    }
+
+    public boolean isRestrictCatalogEndpointsLocally()
+    {
+        return restrictCatalogEndpointsLocally;
     }
 }
