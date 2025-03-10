@@ -36,10 +36,12 @@ import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ConfigurationUpdater;
 import com.facebook.presto.hive.s3.S3ConfigurationUpdater;
 import com.facebook.presto.iceberg.delete.DeleteFile;
+import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
@@ -2318,6 +2320,7 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema ='test_schema2'", "VALUES 'iceberg_t3', 'iceberg_t4'");
         //query on non-existing schema
         assertQueryReturnsEmptyResult("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema = 'NON_EXISTING_SCHEMA'");
+        assertQueryReturnsEmptyResult("SELECT table_name FROM iceberg.information_schema.tables WHERE table_schema = 'non_existing_schema'");
 
         assertQuerySucceeds("DROP TABLE ICEBERG.TEST_SCHEMA1.ICEBERG_T1");
         assertQuerySucceeds("DROP TABLE ICEBERG.TEST_SCHEMA1.ICEBERG_T2");
@@ -2525,8 +2528,20 @@ public abstract class IcebergDistributedTestBase
 
     protected Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName);
         Catalog catalog = CatalogUtil.loadCatalog(catalogType.getCatalogImpl(), "test-hive", getProperties(), new Configuration());
         return catalog.loadTable(TableIdentifier.of("tpch", tableName));
+    }
+
+    protected String normalizeIdentifier(String name)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        TransactionId txid = getQueryRunner().getTransactionManager().beginTransaction(false);
+        Session session = getSession().beginTransactionId(txid, getQueryRunner().getTransactionManager(), new AllowAllAccessControl());
+        CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
+        ConnectorId connectorId = catalogManager.getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+
+        return metadata.normalizeIdentifier(session, connectorId.getCatalogName(), name);
     }
 
     protected Map<String, String> getProperties()

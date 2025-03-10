@@ -28,6 +28,7 @@ import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -60,7 +61,7 @@ public class AddColumnTask
     @Override
     public ListenableFuture<?> execute(AddColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName(), metadata);
         Optional<TableHandle> tableHandle = metadata.getMetadataResolver(session).getTableHandle(tableName);
         if (!tableHandle.isPresent()) {
             if (!statement.isTableExists()) {
@@ -77,7 +78,7 @@ public class AddColumnTask
             return immediateFuture(null);
         }
 
-        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getLegacyCatalogName());
 
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
@@ -107,19 +108,21 @@ public class AddColumnTask
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
         Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                 connectorId,
-                tableName.getCatalogName(),
+                tableName.getLegacyCatalogName(),
                 sqlProperties,
                 session,
                 metadata,
                 parameterExtractor(statement, parameters));
 
-        ColumnMetadata column = new ColumnMetadata(
-                element.getName().getValue(),
-                type,
-                element.isNullable(), element.getComment().orElse(null),
-                null,
-                false,
-                columnProperties);
+        Identifier columnIdentifier = element.getName();
+        String name = metadata.normalizeIdentifier(session, tableName.getLegacyCatalogName(), columnIdentifier.getValue());
+
+        ColumnMetadata column = ColumnMetadata.builder()
+                .setName(name)
+                .setType(type)
+                .setNullable(element.isNullable())
+                .setComment(element.getComment().orElse(null))
+                .setProperties(columnProperties).build();
 
         metadata.addColumn(session, tableHandle.get(), column);
 

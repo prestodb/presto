@@ -574,7 +574,7 @@ public class LogicalPlanner
                 metadata,
                 parameters);
 
-        return new ConnectorTableMetadata(toSchemaTableName(table), columns, properties, comment);
+        return new ConnectorTableMetadata(toSchemaTableName(table, metadata, session), columns, properties, comment);
     }
 
     private RowExpression rowExpression(Expression expression, SqlPlannerContext context, Analysis analysis)
@@ -595,7 +595,9 @@ public class LogicalPlanner
         int aliasPosition = 0;
         for (Field field : plan.getDescriptor().getVisibleFields()) {
             String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
-            columns.add(new ColumnMetadata(columnName, field.getType()));
+            columns.add(ColumnMetadata.builder()
+                    .setName(columnName)
+                    .setType(field.getType()).build());
             aliasPosition++;
         }
         return columns.build();

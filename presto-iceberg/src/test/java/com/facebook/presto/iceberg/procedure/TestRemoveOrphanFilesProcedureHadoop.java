@@ -65,7 +65,8 @@ public class TestRemoveOrphanFilesProcedureHadoop
     {
         Catalog catalog = CatalogUtil.loadCatalog(HADOOP.getCatalogImpl(), ICEBERG_CATALOG, getProperties(), new Configuration());
         return catalog.createTable(TableIdentifier.of(TEST_SCHEMA, tableName),
-                toIcebergSchema(ImmutableList.of(new ColumnMetadata("a", INTEGER), new ColumnMetadata("b", VARCHAR))),
+                toIcebergSchema(ImmutableList.of(ColumnMetadata.builder().setName("a").setType(INTEGER).build(),
+                        ColumnMetadata.builder().setName("b").setType(VARCHAR).build())),
                 null,
                 tableProperties);
     }
@@ -73,6 +74,7 @@ public class TestRemoveOrphanFilesProcedureHadoop
     @Override
     Table loadTable(String tableName)
     {
+        tableName = normalizeIdentifier(tableName);
         Catalog catalog = CatalogUtil.loadCatalog(HADOOP.getCatalogImpl(), ICEBERG_CATALOG, getProperties(), new Configuration());
         return catalog.loadTable(TableIdentifier.of(TEST_SCHEMA, tableName));
     }

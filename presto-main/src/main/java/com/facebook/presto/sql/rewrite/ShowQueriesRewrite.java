@@ -111,7 +111,6 @@ import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManage
 import static com.facebook.presto.metadata.MetadataListing.listCatalogs;
 import static com.facebook.presto.metadata.MetadataListing.listSchemas;
 import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
-import static com.facebook.presto.metadata.MetadataUtil.createQualifiedName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -220,7 +219,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowTables(ShowTables showTables, Void context)
         {
-            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema());
+            CatalogSchemaName schema = createCatalogSchemaName(session, showTables, showTables.getSchema(), metadata);
 
             accessControl.checkCanShowTablesMetadata(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
@@ -258,14 +257,14 @@ final class ShowQueriesRewrite
 
             Optional<QualifiedName> tableName = showGrants.getTableName();
             if (tableName.isPresent()) {
-                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+                QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get(), metadata);
 
                 if (!metadataResolver.getView(qualifiedTableName).isPresent() &&
                         !metadataResolver.getTableHandle(qualifiedTableName).isPresent()) {
                     throw new SemanticException(MISSING_TABLE, showGrants, "Table '%s' does not exist", tableName);
                 }
 
-                catalogName = qualifiedTableName.getCatalogName();
+                catalogName = qualifiedTableName.getLegacyCatalogName();
 
                 accessControl.checkCanShowTablesMetadata(
                         session.getRequiredTransactionId(),
@@ -398,7 +397,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
-            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable(), metadata);
 
             if (!metadataResolver.getView(tableName).isPresent() &&
                     !metadataResolver.getTableHandle(tableName).isPresent()) {
@@ -411,7 +410,7 @@ final class ShowQueriesRewrite
                             aliasedName("data_type", "Type"),
                             aliasedNullToEmpty("extra_info", "Extra"),
                             aliasedNullToEmpty("comment", "Comment")),
-                    from(tableName.getCatalogName(), TABLE_COLUMNS),
+                    from(tableName.getLegacyCatalogName(), TABLE_COLUMNS),
                     logicalAnd(
                             equal(identifier("table_schema"), new StringLiteral(tableName.getSchemaName())),
                             equal(identifier("table_name"), new StringLiteral(tableName.getObjectName()))),
@@ -456,7 +455,7 @@ final class ShowQueriesRewrite
         @Override
         protected Node visitShowCreate(ShowCreate node, Void context)
         {
-            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+            QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName(), metadata);
             Optional<ViewDefinition> viewDefinition = metadataResolver.getView(objectName);
             Optional<MaterializedViewDefinition> materializedViewDefinition = metadataResolver.getMaterializedView(objectName);
 
@@ -473,7 +472,7 @@ final class ShowQueriesRewrite
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
                 CreateView.Security security = (viewDefinition.get().isRunAsInvoker()) ? CreateView.Security.INVOKER : CreateView.Security.DEFINER;
-                String sql = formatSql(new CreateView(createQualifiedName(objectName), query, false, Optional.of(security)), Optional.of(parameters)).trim();
+                String sql = formatSql(new CreateView(getQualifiedName(node, objectName), query, false, Optional.of(security)), Optional.of(parameters)).trim();
                 return singleValueQuery("Create View", sql);
             }
 
@@ -499,7 +498,7 @@ final class ShowQueriesRewrite
 
                 CreateMaterializedView createMaterializedView = new CreateMaterializedView(
                         Optional.empty(),
-                        createQualifiedName(objectName),
+                        getQualifiedName(node, objectName),
                         query,
                         false,
                         propertyNodes,
@@ -538,7 +537,7 @@ final class ShowQueriesRewrite
                                     column.getType().getDisplayName(),
                                     column.isNullable() && !notNullColumns.contains(column.getName()),
                                     propertyNodes,
-                                    Optional.ofNullable(column.getComment()));
+                                    Optional.ofNullable(column.getComment().orElse(null)));
                         })
                         .collect(toList());
 
@@ -642,6 +641,16 @@ final class ShowQueriesRewrite
                             .collect(toImmutableList())),
                     aliased(new Values(rows.build()), "functions", ImmutableList.copyOf(columns.keySet())),
                     ordering(ascending("argument_types")));
+        }
+
+        private QualifiedName getQualifiedName(ShowCreate node, QualifiedObjectName objectName)
+        {
+            List<Identifier> parts = node.getName().getOriginalParts();
+            Identifier tableName = (parts.size() > 2) ? parts.get(2) : ((parts.size() > 1) ? parts.get(1) : parts.get(0));
+            Identifier schemaName = (parts.size() > 2) ? parts.get(1) : ((parts.size() > 1) ? parts.get(0) : new Identifier(objectName.getSchemaName()));
+            Identifier catalogName = (parts.size() > 2) ? parts.get(0) : new Identifier(objectName.getCatalogName());
+
+            return QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName));
         }
 
         private List<Property> buildProperties(
