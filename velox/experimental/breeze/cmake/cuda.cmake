@@ -82,7 +82,7 @@ function(breeze_add_cuda_test target source)
     ""
     "FLAGS;LIBS;DEPENDS"
     ${ARGN})
-  list(APPEND arg_FLAGS -I${gtest_SOURCE_DIR}/googletest/include)
+  list(APPEND arg_FLAGS -I${googletest_SOURCE_DIR}/googletest/include)
   list(APPEND arg_FLAGS -I${CMAKE_SOURCE_DIR})
   list(APPEND arg_FLAGS -I${CMAKE_BINARY_DIR})
   breeze_add_cuda_object(

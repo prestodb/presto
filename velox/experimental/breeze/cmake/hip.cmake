@@ -29,7 +29,7 @@ function(breeze_add_hip_test target source)
     OUTPUT ${target}.o
     COMMAND
       ${HIPCC_EXECUTABLE} ${HIP_HIPCC_FLAGS} ${NDEBUG_DEFINE} -DPLATFORM_HIP
-      -I${CMAKE_SOURCE_DIR} -I${gtest_SOURCE_DIR}/googletest/include
+      -I${CMAKE_SOURCE_DIR} -I${googletest_SOURCE_DIR}/googletest/include
       -I${CMAKE_BINARY_DIR} ${CMAKE_CXX_FLAGS} ${COMPILER_WARN_FLAGS}
       ${OPT_FLAGS} -std=c++17 -c ${source} -MD -MF ${target}.o.d -o ${target}.o
     DEPFILE ${target}.o.d
