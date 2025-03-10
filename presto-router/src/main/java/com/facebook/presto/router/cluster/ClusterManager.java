@@ -73,7 +73,6 @@ public class ClusterManager
     public void startConfigReloadTask()
     {
         File routerConfigFile = new File(routerConfig.getConfigFile());
-        //ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             long newConfigUpdateTime = routerConfigFile.lastModified();
             if (lastConfigUpdate.get() != newConfigUpdateTime) {
