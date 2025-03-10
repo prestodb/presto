@@ -14,6 +14,7 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.CompressionCodec;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
@@ -79,7 +80,7 @@ public class FileSingleStreamSpillerFactory
                 spillerStats,
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillerSpillPaths(),
                 requireNonNull(featuresConfig, "featuresConfig is null").getSpillMaxUsedSpaceThreshold(),
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillCompressionEnabled(),
+                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getSpillCompressionCodec(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").isSpillEncryptionEnabled());
     }
 
@@ -90,10 +91,10 @@ public class FileSingleStreamSpillerFactory
             SpillerStats spillerStats,
             List<Path> spillPaths,
             double maxUsedSpaceThreshold,
-            boolean spillCompressionEnabled,
+            CompressionCodec spillCompressionCodec,
             boolean spillEncryptionEnabled)
     {
-        this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), spillCompressionEnabled);
+        this.serdeFactory = new PagesSerdeFactory(requireNonNull(blockEncodingSerde, "blockEncodingSerde is null"), spillCompressionCodec);
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
         requireNonNull(spillPaths, "spillPaths is null");
