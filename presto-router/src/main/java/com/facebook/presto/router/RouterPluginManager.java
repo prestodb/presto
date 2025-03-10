@@ -140,7 +140,7 @@ public class RouterPluginManager
 
         for (Plugin plugin : plugins) {
             log.info("Installing %s", plugin.getClass().getName());
-            installPlugin(plugin, pluginClassLoader::duplicate);
+            installPlugin(plugin, pluginClassLoader::clone);
         }
     }
 
