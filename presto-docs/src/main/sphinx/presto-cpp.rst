@@ -44,16 +44,34 @@ Supported Use Cases
 
 Only specific connectors are supported in the Presto C++ evaluation engine.
 
+Hive Connector
+^^^^^^^^^^^^^^
+
+Hive Table Support
+~~~~~~~~~~~~~~~~~~
+
 * Hive connector for reads and writes, including CTAS, are supported.
 
-* Hive Connector supports Delta Lake table access using Symlink table in Prestissimo.
+* Hive connector supports Delta Lake table access using Symlink table in Presto C++.
   For more information about Symlink tables, see `Presto, Trino, and Athena to Delta Lake integration using
   manifests <https://docs.delta.io/latest/presto-integration.html>`_.
 
-* Iceberg tables are supported only for reads.
+* Supports reading and writing of DWRF and PARQUET file formats.
 
-* Iceberg connector supports both V1 and V2 tables, including tables with delete files.
+* Supports reading ORC file format.
 
-* Supports reading and writing of DWRF and PARQUET file formats, supports reading ORC file format.
+Iceberg Table Support
+~~~~~~~~~~~~~~~~~~~~~
+
+* Iceberg tables use the Hive connector implementation in Velox.
+
+* Only read operations are supported for Iceberg tables.
+
+* The Iceberg connector supports both V1 and V2 tables, including those with positional delete files, but does not support equality delete files.
+
+For more information see :doc:`/connector/iceberg` documentation.
+
+TPCH Connector
+^^^^^^^^^^^^^^
 
 * TPCH connector, with ``tpch.naming=standard`` catalog property.
