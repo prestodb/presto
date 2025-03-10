@@ -331,7 +331,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
                 title="Pending splits" />),
-            selector: (row: Task) => row.stats.queuedSplits,
+            selector: (row: Task) => row.stats.queuedSplits ?? row.stats.queuedDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -340,7 +340,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
                 title="Running splits" />),
-            selector: (row: Task) => row.stats.runningSplits,
+            selector: (row: Task) => row.stats.runningSplits ?? row.stats.runningDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -359,7 +359,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
                 title="Completed splits" />),
-            selector: (row: Task) => row.stats.completedSplits,
+            selector: (row: Task) => row.stats.completedSplits ?? row.stats.completedDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
