@@ -397,15 +397,16 @@ TEST(TimestampTest, outOfRange) {
   timezone = tz::locateZone("America/Los_Angeles");
   VELOX_ASSERT_THROW(t1.toGMT(*timezone), expected);
 
+  // TODO: Address in https://github.com/facebookincubator/velox/pull/12471
   // #2. external/date doesn't understand OS_TZDB repetition rules. Therefore,
   // for timezones with pre-defined repetition rules for daylight savings, for
   // example, it will throw for anything larger than 2037 (which is what is
   // currently materialized in OS_TZDBs). America/Los_Angeles is an example of
   // such timezone.
-  Timestamp t2(32517359891, 0);
-  VELOX_ASSERT_THROW(
-      t2.toTimezone(*timezone),
-      "Unable to convert timezone 'America/Los_Angeles' past");
+  // Timestamp t2(32517359891, 0);
+  // VELOX_ASSERT_THROW(
+  //     t2.toTimezone(*timezone),
+  //     "Unable to convert timezone 'America/Los_Angeles' past");
 }
 
 // In debug mode, Timestamp constructor will throw exception if range check

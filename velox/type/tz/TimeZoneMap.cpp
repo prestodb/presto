@@ -23,7 +23,8 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/testutil/TestValue.h"
-#include "velox/external/date/tz.h"
+#include "velox/external/tzdb/tzdb_list.h"
+#include "velox/external/tzdb/zoned_time.h"
 #include "velox/type/tz/TimeZoneNames.h"
 
 using facebook::velox::common::testutil::TestValue;
@@ -44,9 +45,9 @@ inline std::chrono::minutes getTimeZoneOffset(int16_t tzID) {
   return std::chrono::minutes{(tzID <= 840) ? (tzID - 841) : (tzID - 840)};
 }
 
-const date::time_zone* locateZoneImpl(std::string_view tz_name) {
+const tzdb::time_zone* locateZoneImpl(std::string_view tz_name) {
   TestValue::adjust("facebook::velox::tz::locateZoneImpl", &tz_name);
-  const date::time_zone* zone = date::locate_zone(tz_name);
+  const tzdb::time_zone* zone = tzdb::locate_zone(tz_name);
   return zone;
 }
 
@@ -73,21 +74,24 @@ TTimeZoneDatabase buildTimeZoneDatabase(
     // Every single other time zone entry (outside of offsets) needs to be
     // available in external/date or this will throw.
     else {
-      const date::time_zone* zone;
-      try {
-        zone = locateZoneImpl(entry.second);
-      } catch (date::invalid_timezone& err) {
-        // When this exception is thrown, it typically means the time zone name
-        // we are trying to locate cannot be found from OS's time zone database.
-        // Thus, we just command a "continue;" to skip the creation of the
-        // corresponding TimeZone object.
-        //
-        // Then, once this time zone is requested at runtime, a runtime error
-        // will be thrown and caller is expected to handle that error in code.
-        LOG(WARNING) << "Unable to load [" << entry.second
-                     << "] from local timezone database: " << err.what();
-        continue;
-      }
+      const tzdb::time_zone* zone;
+      // TODO: Restore in https://github.com/facebookincubator/velox/pull/12475
+      // try {
+      zone = locateZoneImpl(entry.second);
+      // } catch (date::invalid_timezone& err) {
+      //   // When this exception is thrown, it typically means the time zone
+      //   name
+      //   // we are trying to locate cannot be found from OS's time zone
+      //   database.
+      //   // Thus, we just command a "continue;" to skip the creation of the
+      //   // corresponding TimeZone object.
+      //   //
+      //   // Then, once this time zone is requested at runtime, a runtime error
+      //   // will be thrown and caller is expected to handle that error in
+      //   code. LOG(WARNING) << "Unable to load [" << entry.second
+      //                << "] from local timezone database: " << err.what();
+      //   continue;
+      // }
       timeZonePtr = std::make_unique<TimeZone>(entry.second, entry.first, zone);
     }
     tzDatabase[entry.first] = std::move(timeZonePtr);
@@ -240,8 +244,8 @@ std::string normalizeTimeZone(const std::string& originalZoneId) {
 template <typename TDuration>
 void validateRangeImpl(time_point<TDuration> timePoint) {
   using namespace velox::date;
-  static constexpr auto kMinYear = date::year::min();
-  static constexpr auto kMaxYear = date::year::max();
+  static constexpr auto kMinYear = year::min();
+  static constexpr auto kMaxYear = year::max();
 
   auto year = year_month_day(floor<days>(timePoint)).year();
 
@@ -257,26 +261,26 @@ void validateRangeImpl(time_point<TDuration> timePoint) {
 }
 
 template <typename TDuration>
-date::zoned_time<TDuration> getZonedTime(
-    const date::time_zone* tz,
+tzdb::zoned_time<TDuration> getZonedTime(
+    const tzdb::time_zone* tz,
     date::local_time<TDuration> timestamp,
     TimeZone::TChoose choose) {
   if (choose == TimeZone::TChoose::kFail) {
     // By default, throws.
-    return date::zoned_time{tz, timestamp};
+    return tzdb::zoned_time{tz, timestamp};
   }
 
   auto dateChoose = (choose == TimeZone::TChoose::kEarliest)
-      ? date::choose::earliest
-      : date::choose::latest;
-  return date::zoned_time{tz, timestamp, dateChoose};
+      ? tzdb::choose::earliest
+      : tzdb::choose::latest;
+  return tzdb::zoned_time{tz, timestamp, dateChoose};
 }
 
 template <typename TDuration>
 TDuration toSysImpl(
     const TDuration& timestamp,
     const TimeZone::TChoose choose,
-    const date::time_zone* tz,
+    const tzdb::time_zone* tz,
     const std::chrono::minutes offset) {
   date::local_time<TDuration> timePoint{timestamp};
   validateRange(date::sys_time<TDuration>{timestamp});
@@ -292,7 +296,7 @@ TDuration toSysImpl(
 template <typename TDuration>
 TDuration toLocalImpl(
     const TDuration& timestamp,
-    const date::time_zone* tz,
+    const tzdb::time_zone* tz,
     const std::chrono::minutes offset) {
   date::sys_time<TDuration> timePoint{timestamp};
   validateRange(timePoint);
@@ -301,14 +305,14 @@ TDuration toLocalImpl(
   if (tz == nullptr) {
     return (timePoint + offset).time_since_epoch();
   }
-  return date::zoned_time{tz, timePoint}.get_local_time().time_since_epoch();
+  return tzdb::zoned_time{tz, timePoint}.get_local_time().time_since_epoch();
 }
 
 template <bool isLongName>
 std::string getName(
     TimeZone::milliseconds timestamp,
     TimeZone::TChoose choose,
-    const date::time_zone* tz,
+    const tzdb::time_zone* tz,
     const std::string& timeZoneName) {
   validateRange(date::sys_time<TimeZone::milliseconds>(timestamp));
 
@@ -469,7 +473,7 @@ TimeZone::seconds TimeZone::correct_nonexistent_time(
 
   const auto localInfo = tz_->get_info(date::local_time<seconds>{timestamp});
 
-  if (localInfo.result != date::local_info::nonexistent) {
+  if (localInfo.result != tzdb::local_info::nonexistent) {
     return timestamp;
   }
 

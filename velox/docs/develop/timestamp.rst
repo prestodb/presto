@@ -73,9 +73,9 @@ used to efficiently represent timezones, preventing the use of inefficient
 timezone string names like ``America/Los_Angeles``. Considering there are about
 2k valid timezone definitions, 12 bits are enough to represent timezone IDs. 
 
-Timezone IDs in Velox are based on the id map used by Presto and are 
-`available here <https://github.com/prestodb/presto/blob/master/presto-common/src/main/resources/com/facebook/presto/common/type/zone-index.properties>`_. 
-They are automatically generated using `this script <https://github.com/facebookincubator/velox/blob/main/velox/type/tz/gen_timezone_database.py>`_. 
+Timezone IDs in Velox are based on the id map used by Presto and are
+`available here <https://github.com/prestodb/presto/blob/master/presto-common/src/main/resources/com/facebook/presto/common/type/zone-index.properties>`_.
+They are automatically generated using `this script <https://github.com/facebookincubator/velox/blob/main/velox/type/tz/gen_timezone_database.py>`_.
 While timezone IDs are an implementation detail and ideally should not leak
 outside of Velox execution, they are exposed if data containing
 TimestampWithTimezones are serialized, for example.
@@ -98,7 +98,7 @@ ID).
 
 However, unpacking/converting a TimestampWithTimezone into an absolute time
 definition requires a
-`timezone conversion <https://github.com/facebookincubator/velox/blob/main/velox/functions/prestosql/DateTimeFunctions.h#L74-L84>`_. 
+`timezone conversion <https://github.com/facebookincubator/velox/blob/main/velox/functions/prestosql/DateTimeFunctions.h#L74-L84>`_.
 
 Conversions Across Timezones
 ----------------------------
@@ -119,7 +119,7 @@ for Linux. 
 In Velox, Timezone conversions are done using std::chrono. Starting in C++20,
 std::chrono `supports conversion of timestamp across timezones <https://en.cppreference.com/w/cpp/chrono/time_zone>`_.
 To support older versions of the C++ standard, in Velox we vendor an
-implementation of this API at `velox/external/date/ <https://github.com/facebookincubator/velox/tree/main/velox/external/date>`_.
+implementation of this API at `velox/external/tzdb/ <https://github.com/facebookincubator/velox/tree/main/velox/external/tzdb>`_.
 This class handles timezone conversions by leveraging APIs provided by the
 operating system, based on the tzdata database installed locally. If systems
 happen to have inconsistent or older versions of the tzdata database, Velox’s
@@ -153,15 +153,15 @@ on the string on not:
 ::
 
   SELECT typeof(TIMESTAMP '1970-01-01 00:00:00'); -- timestamp
-  SELECT typeof(TIMESTAMP '1970-01-01 00:00:00 UTC'); -- timestamp with time zone 
+  SELECT typeof(TIMESTAMP '1970-01-01 00:00:00 UTC'); -- timestamp with time zone
 
 Converting a TimestampWithTimezone into a Timestamp works by dropping the
 timezone information and returning only the timestamp portion:
 
 ::
 
-  SELECT cast(TIMESTAMP '1970-01-01 00:00:00 UTC' as timestamp); -- 1970-01-01 00:00:00.000 
-  SELECT cast(TIMESTAMP '1970-01-01 00:00:00 America/New_York' as timestamp); -- 1970-01-01 00:00:00.000 
+  SELECT cast(TIMESTAMP '1970-01-01 00:00:00 UTC' as timestamp); -- 1970-01-01 00:00:00.000
+  SELECT cast(TIMESTAMP '1970-01-01 00:00:00 America/New_York' as timestamp); -- 1970-01-01 00:00:00.000
 
 To convert a Timestamp into a TimestampWithTimezone, one needs to specify a
 timezone. In Presto, the session timezone is used by default:
@@ -169,7 +169,7 @@ timezone. In Presto, the session timezone is used by default:
 ::
 
   SELECT current_timezone(); -- America/Los_Angeles
-  SELECT cast(TIMESTAMP '1970-01-01 00:00:00' as timestamp with time zone); -- 1970-01-01 00:00:00.000 America/Los_Angeles 
+  SELECT cast(TIMESTAMP '1970-01-01 00:00:00' as timestamp with time zone); -- 1970-01-01 00:00:00.000 America/Los_Angeles
 
 Conversion across TimestampWithTimezone can be done using the AT TIME ZONE
 construct. 
@@ -180,15 +180,15 @@ the clock/calendar read at the target timezone (Los Angeles)?
 
 ::
 
-  SELECT TIMESTAMP '1970-01-01 00:00:00 UTC' AT TIME ZONE 'America/Los_Angeles'; -- 1969-12-31 16:00:00.000 America/Los_Angeles 
-  SELECT TIMESTAMP '1970-01-01 00:00:00 UTC' AT TIME ZONE 'UTC'; -- 1970-01-01 00:00:00.000 UTC 
+  SELECT TIMESTAMP '1970-01-01 00:00:00 UTC' AT TIME ZONE 'America/Los_Angeles'; -- 1969-12-31 16:00:00.000 America/Los_Angeles
+  SELECT TIMESTAMP '1970-01-01 00:00:00 UTC' AT TIME ZONE 'UTC'; -- 1970-01-01 00:00:00.000 UTC
 
 Strings can be converted into Timestamp and TimestampWithTimezone:
 
 ::
 
-  SELECT cast('1970-01-01 00:00:00' as timestamp); -- 1970-01-01 00:00:00.000 
-  SELECT cast('1970-01-01 00:00:00 America/Los_Angeles' as timestamp with time zone); -- 1970-01-01 00:00:00.000 America/Los_Angeles 
+  SELECT cast('1970-01-01 00:00:00' as timestamp); -- 1970-01-01 00:00:00.000
+  SELECT cast('1970-01-01 00:00:00 America/Los_Angeles' as timestamp with time zone); -- 1970-01-01 00:00:00.000 America/Los_Angeles
 
 One can also convert a TimestampWithTimezone into a unix epoch/time. The
 semantic of this operation is: at the absolute point in time described by the
@@ -197,8 +197,8 @@ that unix epoch is the number of seconds since ``1970-01-01 00:00:00`` in UTC:
 
 ::
 
-  SELECT to_unixtime(TIMESTAMP '1970-01-01 00:00:00 UTC'); -- 0.0 
-  SELECT to_unixtime(TIMESTAMP '1970-01-01 00:00:00 America/Los_Angeles'); -- 28800.0 
+  SELECT to_unixtime(TIMESTAMP '1970-01-01 00:00:00 UTC'); -- 0.0
+  SELECT to_unixtime(TIMESTAMP '1970-01-01 00:00:00 America/Los_Angeles'); -- 28800.0
 
 The opposite conversion can be achieved using ``from_unixtime()``. The function
 may take an optional second parameter to specify the timezone, having the same
@@ -206,7 +206,7 @@ semantic as AT TIME ZONE described above:
 
 ::
 
-  SELECT from_unixtime(0); -- 1970-01-01 00:00:00.000 
+  SELECT from_unixtime(0); -- 1970-01-01 00:00:00.000
   SELECT from_unixtime(0, 'UTC'); -- 1970-01-01 00:00:00.000 UTC 
   SELECT from_unixtime(0, 'America/Los_Angeles'); -- 1969-12-31 16:00:00.000 America/Los_Angeles
 
@@ -225,8 +225,8 @@ timestamps have a different semantic:
 ::
 
   SET SESSION legacy_timestamp = true;
-  SELECT cast(TIMESTAMP '1970-01-01 00:00:00 UTC' as timestamp); -- 1969-12-31 16:00:00.000 
-  SELECT cast('1970-01-01 00:00:00 UTC' as timestamp); -- 1969-12-31 16:00:00.000 
+  SELECT cast(TIMESTAMP '1970-01-01 00:00:00 UTC' as timestamp); -- 1969-12-31 16:00:00.000
+  SELECT cast('1970-01-01 00:00:00 UTC' as timestamp); -- 1969-12-31 16:00:00.000
 
 To support the two timestamp semantics, the
 ``core::QueryConfig::kAdjustTimestampToTimezone`` query flag was added to Velox.

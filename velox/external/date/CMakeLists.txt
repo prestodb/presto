@@ -10,7 +10,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-velox_add_library(velox_external_date tz.cpp)
-velox_include_directories(velox_external_date SYSTEM PUBLIC velox/external)
-velox_compile_definitions(velox_external_date PRIVATE USE_OS_TZDB)
+velox_add_library(velox_external_date INTERFACE)
+velox_include_directories(velox_external_date INTERFACE velox/external/date)

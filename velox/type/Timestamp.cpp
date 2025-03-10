@@ -17,7 +17,7 @@
 #include <charconv>
 #include <chrono>
 #include "velox/common/base/CountBits.h"
-#include "velox/external/date/tz.h"
+#include "velox/external/tzdb/exception.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox {
@@ -54,12 +54,12 @@ void Timestamp::toGMT(const tz::TimeZone& zone) {
 
   try {
     sysSeconds = zone.to_sys(std::chrono::seconds(seconds_));
-  } catch (const date::ambiguous_local_time&) {
+  } catch (const tzdb::ambiguous_local_time&) {
     // If the time is ambiguous, pick the earlier possibility to be consistent
     // with Presto.
     sysSeconds = zone.to_sys(
         std::chrono::seconds(seconds_), tz::TimeZone::TChoose::kEarliest);
-  } catch (const date::nonexistent_local_time& error) {
+  } catch (const tzdb::nonexistent_local_time& error) {
     // If the time does not exist, fail the conversion.
     VELOX_USER_FAIL(error.what());
   } catch (const std::invalid_argument& e) {
@@ -95,7 +95,7 @@ const tz::TimeZone& Timestamp::defaultTimezone() {
   static const tz::TimeZone* kDefault = ({
     // TODO: We are hard-coding PST/PDT here to be aligned with the current
     // behavior in DWRF reader/writer.  Once they are fixed, we can use
-    // date::current_zone() here.
+    // tzdb::current_zone() here.
     //
     // See https://github.com/facebookincubator/velox/issues/8127
     auto* tz = tz::locateZone("America/Los_Angeles");

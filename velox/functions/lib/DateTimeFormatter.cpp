@@ -18,11 +18,10 @@
 #include <folly/String.h>
 #include <charconv>
 #include <cstring>
-#include <stdexcept>
 #include "velox/common/base/CountBits.h"
 #include "velox/external/date/date.h"
 #include "velox/external/date/iso_week.h"
-#include "velox/external/date/tz.h"
+#include "velox/external/tzdb/tzdb_list.h"
 #include "velox/functions/lib/DateTimeFormatterBuilder.h"
 #include "velox/type/TimestampConversion.h"
 #include "velox/type/tz/TimeZoneMap.h"
@@ -373,11 +372,15 @@ struct TimeZoneNameMappings {
 };
 
 TimeZoneNameMappings getTimeZoneNameMappings() {
-  // Here we use get_time_zone_names instead of calling get_tzdb and
-  // constructing the list ourselves because there is some unknown issue with
-  // the tz library where the time_zone objects after the first one in the tzdb
-  // will be invalid (contain nullptrs) after the get_tzdb function returns.
-  const std::vector<std::string> timeZoneNames = date::get_time_zone_names();
+  std::vector<std::string> timeZoneNames;
+  const tzdb::tzdb& tzdb = tzdb::get_tzdb();
+  timeZoneNames.reserve(tzdb.zones.size() + tzdb.links.size());
+  for (const auto& zone : tzdb.zones) {
+    timeZoneNames.emplace_back(zone.name());
+  }
+  for (const auto& link : tzdb.links) {
+    timeZoneNames.emplace_back(link.name());
+  }
 
   TimeZoneNameMappings result;
   for (size_t i = 0; i < timeZoneNames.size(); i++) {

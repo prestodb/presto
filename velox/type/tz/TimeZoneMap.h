@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 
-namespace facebook::velox::date {
+namespace facebook::velox::tzdb {
 class time_zone;
 }
 
@@ -29,13 +29,13 @@ namespace facebook::velox::tz {
 /// This library provides time zone management primitives. It maintains an
 /// internal static database which is contructed lazily based on the first
 /// access, based on TimeZoneDatabase.cpp and the local tzdata installed in your
-/// system (through velox/external/date).
+/// system (through velox/external/tzdata).
 ///
 /// It provides functions for one to lookup TimeZone pointers based on time zone
 /// name or ID, and to performance timestamp conversion across time zones.
 ///
 /// This library provides a layer of functionality on top of
-/// velox/external/date, so do not use the external library directly for
+/// velox/external/tzdata, so do not use the external library directly for
 /// time zone routines.
 
 class TimeZone;
@@ -92,7 +92,7 @@ class TimeZone {
   TimeZone(
       std::string_view timeZoneName,
       int16_t timeZoneID,
-      const date::time_zone* tz)
+      const tzdb::time_zone* tz)
       : tz_(tz),
         offset_(0),
         timeZoneName_(timeZoneName),
@@ -125,8 +125,8 @@ class TimeZone {
   ///
   /// Conversions from local time to GMT are non-linear and may be ambiguous
   /// during day light savings transitions, or non existent. By default (kFail),
-  /// `to_sys()` will throw `date::ambiguous_local_time` and
-  /// `date::nonexistent_local_time` in these cases.
+  /// `to_sys()` will throw `tzdb::ambiguous_local_time` and
+  /// `tzdb::nonexistent_local_time` in these cases.
   ///
   /// You can overwrite the behavior in ambiguous conversions by setting the
   /// TChoose flag, but it will still throws in case of nonexistent conversions.
@@ -163,7 +163,7 @@ class TimeZone {
     return timeZoneID_;
   }
 
-  const date::time_zone* tz() const {
+  const tzdb::time_zone* tz() const {
     return tz_;
   }
 
@@ -184,7 +184,7 @@ class TimeZone {
       TChoose choose = TChoose::kFail) const;
 
  private:
-  const date::time_zone* tz_{nullptr};
+  const tzdb::time_zone* tz_{nullptr};
   const std::chrono::minutes offset_{0};
   const std::string timeZoneName_;
   const int16_t timeZoneID_;

@@ -1,0 +1,4464 @@
+diff --git a/fbcode/velox/external/tzdb/chrono_exception.cpp b/fbcode/velox/external/tzdb/chrono_exception.cpp
+--- a/fbcode/velox/external/tzdb/chrono_exception.cpp
++++ b/fbcode/velox/external/tzdb/chrono_exception.cpp
+@@ -6,17 +6,12 @@
+ //
+ //===----------------------------------------------------------------------===//
+ 
+-#include <chrono>
++#include "velox/external/tzdb/exception.h"
+ 
+-_LIBCPP_BEGIN_NAMESPACE_STD
++namespace facebook::velox::tzdb {
+ 
+-namespace chrono {
++nonexistent_local_time::~nonexistent_local_time() = default; // key function
+ 
+-_LIBCPP_AVAILABILITY_TZDB
+-_LIBCPP_EXPORTED_FROM_ABI nonexistent_local_time::~nonexistent_local_time() = default; // key function
+-_LIBCPP_AVAILABILITY_TZDB
+-_LIBCPP_EXPORTED_FROM_ABI ambiguous_local_time::~ambiguous_local_time() = default; // key function
++ambiguous_local_time::~ambiguous_local_time() = default; // key function
+ 
+-} // namespace chrono
+-
+-_LIBCPP_END_NAMESPACE_STD
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/exception.h b/fbcode/velox/external/tzdb/exception.h
+--- a/fbcode/velox/external/tzdb/exception.h
++++ b/fbcode/velox/external/tzdb/exception.h
+@@ -9,127 +9,108 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_EXCEPTION_H
+-#define _LIBCPP___CHRONO_EXCEPTION_H
++#pragma once
+ 
+ #include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
+ 
+-#  include <__chrono/calendar.h>
+-#  include <__chrono/local_info.h>
+-#  include <__chrono/time_point.h>
+-#  include <__config>
+-#  include <__configuration/availability.h>
+-#  include <__verbose_abort>
+-#  include <format>
+-#  include <stdexcept>
+-#  include <string>
++#include <chrono>
++#include <sstream>
++#include <stdexcept>
++#include <string>
++#include "velox/external/date/date.h"
++#include "velox/external/tzdb/local_info.h"
+ 
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
++namespace facebook::velox::tzdb {
+ 
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#  if _LIBCPP_STD_VER >= 20
+-
+-namespace chrono {
+-
+-class nonexistent_local_time : public runtime_error {
+-public:
++class nonexistent_local_time : public std::runtime_error {
++ public:
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI nonexistent_local_time(const local_time<_Duration>& __time, const local_info& __info)
++  nonexistent_local_time(
++      const date::local_time<_Duration>& __time,
++      const local_info& __info)
+       : runtime_error{__create_message(__time, __info)} {
+     // [time.zone.exception.nonexist]/2
+     //   Preconditions: i.result == local_info::nonexistent is true.
+     // The value of __info.result is not used.
+-    _LIBCPP_ASSERT_PEDANTIC(__info.result == local_info::nonexistent,
+-                            "creating an nonexistent_local_time from a local_info that is not non-existent");
++    if (__info.result != local_info::nonexistent) {
++      throw std::runtime_error(
++          "creating an nonexistent_local_time from a local_info that is not non-existent");
++    }
+   }
+ 
+-  _LIBCPP_HIDE_FROM_ABI nonexistent_local_time(const nonexistent_local_time&)            = default;
+-  _LIBCPP_HIDE_FROM_ABI nonexistent_local_time& operator=(const nonexistent_local_time&) = default;
++  nonexistent_local_time(const nonexistent_local_time&) = default;
++  nonexistent_local_time& operator=(const nonexistent_local_time&) = default;
+ 
+-  _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI ~nonexistent_local_time() override; // exported as key function
++  ~nonexistent_local_time() override; // exported as key function
+ 
+-private:
++ private:
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI string __create_message(const local_time<_Duration>& __time, const local_info& __info) {
+-    return std::format(
+-        R"({} is in a gap between
+-{} {} and
+-{} {} which are both equivalent to
+-{} UTC)",
+-        __time,
+-        local_seconds{__info.first.end.time_since_epoch()} + __info.first.offset,
+-        __info.first.abbrev,
+-        local_seconds{__info.second.begin.time_since_epoch()} + __info.second.offset,
+-        __info.second.abbrev,
+-        __info.first.end);
++  std::string __create_message(
++      const date::local_time<_Duration>& __time,
++      const local_info& __info) {
++    using namespace facebook::velox::date;
++
++    std::ostringstream os;
++    os << __time << " is in a gap between\n"
++       << date::local_seconds{__info.first.end.time_since_epoch()} +
++            __info.first.offset
++       << ' ' << __info.first.abbrev << " and\n"
++       << date::local_seconds{__info.second.begin.time_since_epoch()} +
++            __info.second.offset
++       << ' ' << __info.second.abbrev << " which are both equivalent to\n"
++       << __info.first.end << " UTC";
++    return os.str();
+   }
+ };
+ 
+ template <class _Duration>
+-[[noreturn]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI void __throw_nonexistent_local_time(
+-    [[maybe_unused]] const local_time<_Duration>& __time, [[maybe_unused]] const local_info& __info) {
+-#    if _LIBCPP_HAS_EXCEPTIONS
++[[noreturn]] void __throw_nonexistent_local_time(
++    [[maybe_unused]] const date::local_time<_Duration>& __time,
++    [[maybe_unused]] const local_info& __info) {
+   throw nonexistent_local_time(__time, __info);
+-#    else
+-  _LIBCPP_VERBOSE_ABORT("nonexistent_local_time was thrown in -fno-exceptions mode");
+-#    endif
+ }
+ 
+-class ambiguous_local_time : public runtime_error {
+-public:
++class ambiguous_local_time : public std::runtime_error {
++ public:
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI ambiguous_local_time(const local_time<_Duration>& __time, const local_info& __info)
++  ambiguous_local_time(
++      const date::local_time<_Duration>& __time,
++      const local_info& __info)
+       : runtime_error{__create_message(__time, __info)} {
+     // [time.zone.exception.ambig]/2
+     //   Preconditions: i.result == local_info::ambiguous is true.
+     // The value of __info.result is not used.
+-    _LIBCPP_ASSERT_PEDANTIC(__info.result == local_info::ambiguous,
+-                            "creating an ambiguous_local_time from a local_info that is not ambiguous");
++    if (__info.result != local_info::ambiguous) {
++      throw std::runtime_error(
++          "creating an ambiguous_local_time from a local_info that is not ambiguous");
++    }
+   }
+ 
+-  _LIBCPP_HIDE_FROM_ABI ambiguous_local_time(const ambiguous_local_time&)            = default;
+-  _LIBCPP_HIDE_FROM_ABI ambiguous_local_time& operator=(const ambiguous_local_time&) = default;
++  ambiguous_local_time(const ambiguous_local_time&) = default;
++  ambiguous_local_time& operator=(const ambiguous_local_time&) = default;
+ 
+-  _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI ~ambiguous_local_time() override; // exported as key function
++  ~ambiguous_local_time() override; // exported as key function
+ 
+-private:
++ private:
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI string __create_message(const local_time<_Duration>& __time, const local_info& __info) {
+-    return std::format(
+-        // There are two spaces after the full-stop; this has been verified
+-        // in the sources of the Standard.
+-        R"({0} is ambiguous.  It could be
+-{0} {1} == {2} UTC or
+-{0} {3} == {4} UTC)",
+-        __time,
+-        __info.first.abbrev,
+-        __time - __info.first.offset,
+-        __info.second.abbrev,
+-        __time - __info.second.offset);
++  std::string __create_message(
++      const date::local_time<_Duration>& __time,
++      const local_info& __info) {
++    std::ostringstream os;
++    os << __time << " is ambiguous.  It could be\n"
++       << __time << ' ' << __info.first.abbrev
++       << " == " << __time - __info.first.offset << " UTC or\n"
++       << __time << ' ' << __info.second.abbrev
++       << " == " << __time - __info.second.offset << " UTC";
++    return os.str();
+   }
+ };
+ 
+ template <class _Duration>
+-[[noreturn]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI void __throw_ambiguous_local_time(
+-    [[maybe_unused]] const local_time<_Duration>& __time, [[maybe_unused]] const local_info& __info) {
+-#    if _LIBCPP_HAS_EXCEPTIONS
++[[noreturn]] void __throw_ambiguous_local_time(
++    [[maybe_unused]] const date::local_time<_Duration>& __time,
++    [[maybe_unused]] const local_info& __info) {
+   throw ambiguous_local_time(__time, __info);
+-#    else
+-  _LIBCPP_VERBOSE_ABORT("ambiguous_local_time was thrown in -fno-exceptions mode");
+-#    endif
+ }
+ 
+-} // namespace chrono
+-
+-#  endif // _LIBCPP_STD_VER >= 20
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
+-
+-#endif // _LIBCPP___CHRONO_EXCEPTION_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/leap_second.h b/fbcode/velox/external/tzdb/leap_second.h
+--- a/fbcode/velox/external/tzdb/leap_second.h
++++ b/fbcode/velox/external/tzdb/leap_second.h
+@@ -9,123 +9,126 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_LEAP_SECOND_H
+-#define _LIBCPP___CHRONO_LEAP_SECOND_H
++#pragma once
+ 
+-#include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
++#include <chrono>
++#include "velox/external/date/date.h"
+ 
+-#  include <__chrono/duration.h>
+-#  include <__chrono/system_clock.h>
+-#  include <__chrono/time_point.h>
+-#  include <__compare/ordering.h>
+-#  include <__compare/three_way_comparable.h>
+-#  include <__config>
+-#  include <__utility/private_constructor_tag.h>
+-
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#  if _LIBCPP_STD_VER >= 20
+-
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ class leap_second {
+-public:
++ public:
+   [[nodiscard]]
+-  _LIBCPP_HIDE_FROM_ABI explicit constexpr leap_second(__private_constructor_tag, sys_seconds __date, seconds __value)
++  explicit constexpr leap_second(
++      date::sys_seconds __date,
++      std::chrono::seconds __value)
+       : __date_(__date), __value_(__value) {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI leap_second(const leap_second&)            = default;
+-  _LIBCPP_HIDE_FROM_ABI leap_second& operator=(const leap_second&) = default;
++  leap_second(const leap_second&) = default;
++  leap_second& operator=(const leap_second&) = default;
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr sys_seconds date() const noexcept { return __date_; }
++  [[nodiscard]] constexpr date::sys_seconds date() const noexcept {
++    return __date_;
++  }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr seconds value() const noexcept { return __value_; }
++  [[nodiscard]] constexpr std::chrono::seconds value() const noexcept {
++    return __value_;
++  }
+ 
+-private:
+-  sys_seconds __date_;
+-  seconds __value_;
++ private:
++  date::sys_seconds __date_;
++  std::chrono::seconds __value_;
+ 
+   // The function
+   //   template<class Duration>
+   //    requires three_way_comparable_with<sys_seconds, sys_time<Duration>>
+-  //    constexpr auto operator<=>(const leap_second& x, const sys_time<Duration>& y) noexcept;
++  //    constexpr auto operator<=>(const leap_second& x, const
++  //    sys_time<Duration>& y) noexcept;
+   //
+   // Has constraints that are recursive (LWG4139). The proposed resolution is
+   // to make the funcion a hidden friend. For consistency make this change for
+   // all comparison functions.
+ 
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const leap_second& __x, const leap_second& __y) {
++  friend constexpr bool operator==(
++      const leap_second& __x,
++      const leap_second& __y) {
+     return __x.date() == __y.date();
+   }
+ 
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr strong_ordering operator<=>(const leap_second& __x, const leap_second& __y) {
+-    return __x.date() <=> __y.date();
+-  }
++  // friend constexpr strong_ordering operator<=>(const leap_second& __x, const
++  // leap_second& __y) {
++  //   return __x.date() <=> __y.date();
++  // }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator==(const leap_second& __x, const sys_time<_Duration>& __y) {
++  friend constexpr bool operator==(
++      const leap_second& __x,
++      const date::sys_time<_Duration>& __y) {
+     return __x.date() == __y;
+   }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<(const leap_second& __x, const sys_time<_Duration>& __y) {
++  friend constexpr bool operator<(
++      const leap_second& __x,
++      const date::sys_time<_Duration>& __y) {
+     return __x.date() < __y;
+   }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<(const sys_time<_Duration>& __x, const leap_second& __y) {
++  friend constexpr bool operator<(
++      const date::sys_time<_Duration>& __x,
++      const leap_second& __y) {
+     return __x < __y.date();
+   }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>(const leap_second& __x, const sys_time<_Duration>& __y) {
++  friend constexpr bool operator>(
++      const leap_second& __x,
++      const date::sys_time<_Duration>& __y) {
+     return __y < __x;
+   }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>(const sys_time<_Duration>& __x, const leap_second& __y) {
++  friend constexpr bool operator>(
++      const date::sys_time<_Duration>& __x,
++      const leap_second& __y) {
+     return __y < __x;
+   }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<=(const leap_second& __x, const sys_time<_Duration>& __y) {
++  friend constexpr bool operator<=(
++      const leap_second& __x,
++      const date::sys_time<_Duration>& __y) {
+     return !(__y < __x);
+   }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator<=(const sys_time<_Duration>& __x, const leap_second& __y) {
++  friend constexpr bool operator<=(
++      const date::sys_time<_Duration>& __x,
++      const leap_second& __y) {
+     return !(__y < __x);
+   }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>=(const leap_second& __x, const sys_time<_Duration>& __y) {
++  friend constexpr bool operator>=(
++      const leap_second& __x,
++      const date::sys_time<_Duration>& __y) {
+     return !(__x < __y);
+   }
+ 
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr bool operator>=(const sys_time<_Duration>& __x, const leap_second& __y) {
++  friend constexpr bool operator>=(
++      const date::sys_time<_Duration>& __x,
++      const leap_second& __y) {
+     return !(__x < __y);
+   }
+ 
+-  template <class _Duration>
+-    requires three_way_comparable_with<sys_seconds, sys_time<_Duration>>
+-  _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator<=>(const leap_second& __x, const sys_time<_Duration>& __y) {
+-    return __x.date() <=> __y;
+-  }
++  // template <class _Duration>
++  //   requires three_way_comparable_with<sys_seconds, sys_time<_Duration>>
++  // _LIBCPP_HIDE_FROM_ABI friend constexpr auto operator<=>(const leap_second&
++  // __x, const sys_time<_Duration>& __y) {
++  //   return __x.date() <=> __y;
++  // }
+ };
+ 
+-} // namespace chrono
+-
+-#  endif // _LIBCPP_STD_VER >= 20
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
+-
+-#endif // _LIBCPP___CHRONO_LEAP_SECOND_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/local_info.h b/fbcode/velox/external/tzdb/local_info.h
+--- a/fbcode/velox/external/tzdb/local_info.h
++++ b/fbcode/velox/external/tzdb/local_info.h
+@@ -9,42 +9,20 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_LOCAL_INFO_H
+-#define _LIBCPP___CHRONO_LOCAL_INFO_H
++#pragma once
+ 
+-#include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
++#include "velox/external/tzdb/sys_info.h"
+ 
+-#  include <__chrono/sys_info.h>
+-#  include <__config>
+-
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#  if _LIBCPP_STD_VER >= 20
+-
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ struct local_info {
+-  static constexpr int unique      = 0;
++  static constexpr int unique = 0;
+   static constexpr int nonexistent = 1;
+-  static constexpr int ambiguous   = 2;
++  static constexpr int ambiguous = 2;
+ 
+   int result;
+   sys_info first;
+   sys_info second;
+ };
+ 
+-} // namespace chrono
+-
+-#  endif // _LIBCPP_STD_VER >= 20
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
+-
+-#endif // _LIBCPP___CHRONO_LOCAL_INFO_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/sys_info.h b/fbcode/velox/external/tzdb/sys_info.h
+--- a/fbcode/velox/external/tzdb/sys_info.h
++++ b/fbcode/velox/external/tzdb/sys_info.h
+@@ -9,43 +9,20 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_SYS_INFO_H
+-#define _LIBCPP___CHRONO_SYS_INFO_H
++#pragma once
+ 
+-#include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
++#include <chrono>
++#include <string>
++#include "velox/external/date/date.h"
+ 
+-#  include <__chrono/duration.h>
+-#  include <__chrono/system_clock.h>
+-#  include <__chrono/time_point.h>
+-#  include <__config>
+-#  include <string>
+-
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#  if _LIBCPP_STD_VER >= 20
+-
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ struct sys_info {
+-  sys_seconds begin;
+-  sys_seconds end;
+-  seconds offset;
+-  minutes save;
+-  string abbrev;
++  date::sys_seconds begin;
++  date::sys_seconds end;
++  std::chrono::seconds offset;
++  std::chrono::minutes save;
++  std::string abbrev;
+ };
+ 
+-} // namespace chrono
+-
+-#  endif // _LIBCPP_STD_VER >= 20
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
+-
+-#endif // _LIBCPP___CHRONO_SYS_INFO_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/time_zone.cpp b/fbcode/velox/external/tzdb/time_zone.cpp
+--- a/fbcode/velox/external/tzdb/time_zone.cpp
++++ b/fbcode/velox/external/tzdb/time_zone.cpp
+@@ -29,41 +29,20 @@
+ // These quirks often use a 12h interval; this is the scan interval of zdump,
+ // which implies there are no sys_info objects with a duration of less than 12h.
+ 
++#include <fmt/chrono.h>
++#include <fmt/format.h>
++#include <folly/Expected.h>
+ #include <algorithm>
+-#include <cctype>
+-#include <chrono>
+-#include <expected>
+ #include <map>
+-#include <numeric>
+-#include <ranges>
++#include <optional>
+ 
+-#include "include/tzdb/time_zone_private.h"
+-#include "include/tzdb/tzdb_list_private.h"
++#include "velox/external/date/date.h"
++#include "velox/external/tzdb/time_zone_private.h"
++#include "velox/external/tzdb/types_private.h"
+ 
+-// TODO TZDB remove debug printing
+-#ifdef PRINT
+-#  include <print>
+-#endif
++namespace facebook::velox::tzdb {
+ 
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#ifdef PRINT
+-template <>
+-struct formatter<chrono::sys_info, char> {
+-  template <class ParseContext>
+-  constexpr typename ParseContext::iterator parse(ParseContext& ctx) {
+-    return ctx.begin();
+-  }
+-
+-  template <class FormatContext>
+-  typename FormatContext::iterator format(const chrono::sys_info& info, FormatContext& ctx) const {
+-    return std::format_to(
+-        ctx.out(), "[{}, {}) {:%Q%q} {:%Q%q} {}", info.begin, info.end, info.offset, info.save, info.abbrev);
+-  }
+-};
+-#endif
+-
+-namespace chrono {
++using namespace std::chrono_literals;
+ 
+ //===----------------------------------------------------------------------===//
+ //                           Details
+@@ -82,22 +61,23 @@
+ //   current result can be merged with the next result.
+ // - The unexpected result means no sys_info object was found and the time is
+ //   the time to be used for the next search iteration.
+-using __sys_info_result = expected<__sys_info, sys_seconds>;
+-
+-template <ranges::forward_range _Range,
+-          class _Type,
+-          class _Proj                                                                                  = identity,
+-          indirect_strict_weak_order<const _Type*, projected<ranges::iterator_t<_Range>, _Proj>> _Comp = ranges::less>
+-[[nodiscard]] static ranges::borrowed_iterator_t<_Range>
+-__binary_find(_Range&& __r, const _Type& __value, _Comp __comp = {}, _Proj __proj = {}) {
+-  auto __end = ranges::end(__r);
+-  auto __ret = ranges::lower_bound(ranges::begin(__r), __end, __value, __comp, __proj);
++using __sys_info_result = folly::Expected<__sys_info, date::sys_seconds>;
++
++[[nodiscard]] static auto __binary_find(
++    const __rules_storage_type& __rules_db,
++    const std::string& __rule_name) {
++  auto __end = __rules_db.end();
++  auto __ret = std::lower_bound(
++      __rules_db.begin(),
++      __rules_db.end(),
++      __rule_name,
++      [](const auto& rule, const auto& name) { return rule.first < name; });
+   if (__ret == __end)
+     return __end;
+ 
+   // When the value does not match the predicate it's equal and a valid result
+   // was found.
+-  return !std::invoke(__comp, __value, std::invoke(__proj, *__ret)) ? __ret : __end;
++  return __rule_name >= __ret->first ? __ret : __end;
+ }
+ 
+ // Format based on https://data.iana.org/time-zones/tz-how-to.html
+@@ -115,39 +95,51 @@
+ //
+ // Rule 1 is not strictly validated since America/Barbados uses a two letter
+ // abbreviation AT.
+-[[nodiscard]] static string
+-__format(const __tz::__continuation& __continuation, const string& __letters, seconds __save) {
++[[nodiscard]] static std::string __format(
++    const facebook::velox::tzdb::__continuation& __continuation,
++    const std::string& __letters,
++    std::chrono::seconds __save) {
+   bool __shift = false;
+-  string __result;
++  std::string __result;
+   for (char __c : __continuation.__format) {
+     if (__shift) {
+       switch (__c) {
+-      case 's':
+-        std::ranges::copy(__letters, std::back_inserter(__result));
+-        break;
+-
+-      case 'z': {
+-        if (__continuation.__format.size() != 2)
++        case 's':
++          std::copy(
++              __letters.begin(), __letters.end(), std::back_inserter(__result));
++          break;
++
++        case 'z': {
++          if (__continuation.__format.size() != 2)
++            std::__throw_runtime_error(
++                fmt::format(
++                    "corrupt tzdb FORMAT field: %z should be the entire contents, instead contains '{}'",
++                    __continuation.__format)
++                    .c_str());
++          date::hh_mm_ss __offset{__continuation.__stdoff + __save};
++          if (__offset.is_negative()) {
++            __result += '-';
++            __offset = date::hh_mm_ss{-(__continuation.__stdoff + __save)};
++          } else
++            __result += '+';
++
++          if (__offset.minutes() != 0min)
++            fmt::format_to(
++                std::back_inserter(__result),
++                "{:%H}{:%M}",
++                __offset.hours(),
++                __offset.minutes());
++          else
++            fmt::format_to(
++                std::back_inserter(__result), "{:%H}", __offset.hours());
++        } break;
++
++        default:
+           std::__throw_runtime_error(
+-              std::format("corrupt tzdb FORMAT field: %z should be the entire contents, instead contains '{}'",
+-                          __continuation.__format)
++              fmt::format(
++                  "corrupt tzdb FORMAT field: invalid sequence '%{}' found, expected %s or %z",
++                  __c)
+                   .c_str());
+-        chrono::hh_mm_ss __offset{__continuation.__stdoff + __save};
+-        if (__offset.is_negative()) {
+-          __result += '-';
+-          __offset = chrono::hh_mm_ss{-(__continuation.__stdoff + __save)};
+-        } else
+-          __result += '+';
+-
+-        if (__offset.minutes() != 0min)
+-          std::format_to(std::back_inserter(__result), "{:%H%M}", __offset);
+-        else
+-          std::format_to(std::back_inserter(__result), "{:%H}", __offset);
+-      } break;
+-
+-      default:
+-        std::__throw_runtime_error(
+-            std::format("corrupt tzdb FORMAT field: invalid sequence '%{}' found, expected %s or %z", __c).c_str());
+       }
+       __shift = false;
+ 
+@@ -163,14 +155,16 @@
+       __result.push_back(__c);
+     } else {
+       std::__throw_runtime_error(
+-          std::format(
+-              "corrupt tzdb FORMAT field: invalid character '{}' found, expected +, -, or an alphanumeric value", __c)
++          fmt::format(
++              "corrupt tzdb FORMAT field: invalid character '{}' found, expected +, -, or an alphanumeric value",
++              __c)
+               .c_str());
+     }
+   }
+ 
+   if (__shift)
+-    std::__throw_runtime_error("corrupt tzdb FORMAT field: input ended with the start of the escape sequence '%'");
++    std::__throw_runtime_error(
++        "corrupt tzdb FORMAT field: input ended with the start of the escape sequence '%'");
+ 
+   if (__result.empty())
+     std::__throw_runtime_error("corrupt tzdb FORMAT field: result is empty");
+@@ -178,67 +172,84 @@
+   return __result;
+ }
+ 
+-[[nodiscard]] static sys_seconds __to_sys_seconds(year_month_day __ymd, seconds __seconds) {
+-  seconds __result = static_cast<sys_days>(__ymd).time_since_epoch() + __seconds;
+-  return sys_seconds{__result};
++[[nodiscard]] static date::sys_seconds __to_sys_seconds(
++    date::year_month_day __ymd,
++    std::chrono::seconds __seconds) {
++  std::chrono::seconds __result =
++      static_cast<date::sys_days>(__ymd).time_since_epoch() + __seconds;
++  return date::sys_seconds{__result};
+ }
+ 
+-[[nodiscard]] static seconds __at_to_sys_seconds(const __tz::__continuation& __continuation) {
++template <class...>
++struct False : std::bool_constant<false> {};
++
++[[nodiscard]] static std::chrono::seconds __at_to_sys_seconds(
++    const facebook::velox::tzdb::__continuation& __continuation) {
+   switch (__continuation.__at.__clock) {
+-  case __tz::__clock::__local:
+-    return __continuation.__at.__time - __continuation.__stdoff -
+-           std::visit(
+-               [](const auto& __value) {
+-                 using _Tp = decay_t<decltype(__value)>;
+-                 if constexpr (same_as<_Tp, monostate>)
+-                   return chrono::seconds{0};
+-                 else if constexpr (same_as<_Tp, __tz::__save>)
+-                   return chrono::duration_cast<seconds>(__value.__time);
+-                 else if constexpr (same_as<_Tp, std::string>)
+-                   // For a named rule based continuation the SAVE depends on the RULE
+-                   // active at the end. This should be determined separately.
+-                   return chrono::seconds{0};
+-                 else
+-                   static_assert(false);
+-
+-                 std::__libcpp_unreachable();
+-               },
+-               __continuation.__rules);
+-
+-  case __tz::__clock::__universal:
+-    return __continuation.__at.__time;
+-
+-  case __tz::__clock::__standard:
+-    return __continuation.__at.__time - __continuation.__stdoff;
++    case facebook::velox::tzdb::__clock::__local:
++      return __continuation.__at.__time - __continuation.__stdoff -
++          std::visit(
++                 [](const auto& __value) {
++                   using _Tp = std::decay_t<decltype(__value)>;
++                   if constexpr (std::is_same_v<_Tp, std::monostate>)
++                     return std::chrono::seconds{0};
++                   else if constexpr (std::is_same_v<
++                                          _Tp,
++                                          facebook::velox::tzdb::__save>)
++                     return std::chrono::duration_cast<std::chrono::seconds>(
++                         __value.__time);
++                   else if constexpr (std::is_same_v<_Tp, std::string>)
++                     // For a named rule based continuation the SAVE depends on
++                     // the RULE active at the end. This should be determined
++                     // separately.
++                     return std::chrono::seconds{0};
++                   else
++                     static_assert(False<_Tp>::value);
++
++                   throw std::runtime_error("unreachable");
++                 },
++                 __continuation.__rules);
++
++    case facebook::velox::tzdb::__clock::__universal:
++      return __continuation.__at.__time;
++
++    case facebook::velox::tzdb::__clock::__standard:
++      return __continuation.__at.__time - __continuation.__stdoff;
+   }
+-  std::__libcpp_unreachable();
++  throw std::runtime_error("unreachable");
+ }
+ 
+-[[nodiscard]] static year_month_day __to_year_month_day(year __year, month __month, __tz::__on __on) {
++[[nodiscard]] static date::year_month_day __to_year_month_day(
++    date::year __year,
++    date::month __month,
++    facebook::velox::tzdb::__on __on) {
+   return std::visit(
+       [&](const auto& __value) {
+-        using _Tp = decay_t<decltype(__value)>;
+-        if constexpr (same_as<_Tp, chrono::day>)
+-          return year_month_day{__year, __month, __value};
+-        else if constexpr (same_as<_Tp, weekday_last>)
+-          return year_month_day{static_cast<sys_days>(year_month_weekday_last{__year, __month, __value})};
+-        else if constexpr (same_as<_Tp, __tz::__constrained_weekday>)
++        using _Tp = std::decay_t<decltype(__value)>;
++        if constexpr (std::is_same_v<_Tp, date::day>)
++          return date::year_month_day{__year, __month, __value};
++        else if constexpr (std::is_same_v<_Tp, date::weekday_last>)
++          return date::year_month_day{static_cast<date::sys_days>(
++              date::year_month_weekday_last{__year, __month, __value})};
++        else if constexpr (std::is_same_v<_Tp, __constrained_weekday>)
+           return __value(__year, __month);
+         else
+-          static_assert(false);
++         static_assert(False<_Tp>::value);
+ 
+-        std::__libcpp_unreachable();
++        throw std::runtime_error("unreachable");
+       },
+       __on);
+ }
+ 
+-[[nodiscard]] static sys_seconds __until_to_sys_seconds(const __tz::__continuation& __continuation) {
++[[nodiscard]] static date::sys_seconds __until_to_sys_seconds(
++    const facebook::velox::tzdb::__continuation& __continuation) {
+   // Does UNTIL contain the magic value for the last continuation?
+-  if (__continuation.__year == chrono::year::min())
+-    return sys_seconds::max();
++  if (__continuation.__year == date::year::min())
++    return date::sys_seconds::max();
+ 
+-  year_month_day __ymd = chrono::__to_year_month_day(__continuation.__year, __continuation.__in, __continuation.__on);
+-  return chrono::__to_sys_seconds(__ymd, chrono::__at_to_sys_seconds(__continuation));
++  date::year_month_day __ymd = __to_year_month_day(
++      __continuation.__year, __continuation.__in, __continuation.__on);
++  return __to_sys_seconds(__ymd, __at_to_sys_seconds(__continuation));
+ }
+ 
+ // Holds the UNTIL time for a continuation with a named rule.
+@@ -247,9 +258,9 @@
+ // This means when the UNTIL uses the local wall time the actual UNTIL value can
+ // only be determined when the SAVE is known. This class holds that abstraction.
+ class __named_rule_until {
+-public:
+-  explicit __named_rule_until(const __tz::__continuation& __continuation)
+-      : __until_{chrono::__until_to_sys_seconds(__continuation)},
++ public:
++  explicit __named_rule_until(const facebook::velox::tzdb::__continuation& __continuation)
++      : __until_{__until_to_sys_seconds(__continuation)},
+         __needs_adjustment_{
+             // The last continuation of a ZONE has no UNTIL which basically is
+             // until the end of _local_ time. This value is expressed by
+@@ -257,57 +268,75 @@
+             // However SAVE can be negative, which would add a value to maximum
+             // leading to undefined behaviour. In practice this often results in
+             // an overflow to a very small value.
+-            __until_ != sys_seconds::max() && __continuation.__at.__clock == __tz::__clock::__local} {}
++            __until_ != date::sys_seconds::max() &&
++            __continuation.__at.__clock ==
++                facebook::velox::tzdb::__clock::__local} {}
+ 
+   // Gives the unadjusted until value, this is useful when the SAVE is not known
+   // at all.
+-  sys_seconds __until() const noexcept { return __until_; }
++  date::sys_seconds __until() const noexcept {
++    return __until_;
++  }
+ 
+-  bool __needs_adjustment() const noexcept { return __needs_adjustment_; }
++  bool __needs_adjustment() const noexcept {
++    return __needs_adjustment_;
++  }
+ 
+   // Returns the UNTIL adjusted for SAVE.
+-  sys_seconds operator()(seconds __save) const noexcept { return __until_ - __needs_adjustment_ * __save; }
++  date::sys_seconds operator()(std::chrono::seconds __save) const noexcept {
++    return __until_ - __needs_adjustment_ * __save;
++  }
+ 
+-private:
+-  sys_seconds __until_;
++ private:
++  date::sys_seconds __until_;
+   bool __needs_adjustment_;
+ };
+ 
+-[[nodiscard]] static seconds __at_to_seconds(seconds __stdoff, const __tz::__rule& __rule) {
++[[nodiscard]] static std::chrono::seconds __at_to_seconds(
++    std::chrono::seconds __stdoff,
++    const __rule& __rule) {
+   switch (__rule.__at.__clock) {
+-  case __tz::__clock::__local:
+-    // Local time and standard time behave the same. This is not
+-    // correct. Local time needs to adjust for the current saved time.
+-    // To know the saved time the rules need to be known and sorted.
+-    // This needs a time so to avoid the chicken and egg adjust the
+-    // saving of the local time later.
+-    return __rule.__at.__time - __stdoff;
+-
+-  case __tz::__clock::__universal:
+-    return __rule.__at.__time;
+-
+-  case __tz::__clock::__standard:
+-    return __rule.__at.__time - __stdoff;
++    case facebook::velox::tzdb::__clock::__local:
++      // Local time and standard time behave the same. This is not
++      // correct. Local time needs to adjust for the current saved time.
++      // To know the saved time the rules need to be known and sorted.
++      // This needs a time so to avoid the chicken and egg adjust the
++      // saving of the local time later.
++      return __rule.__at.__time - __stdoff;
++
++    case facebook::velox::tzdb::__clock::__universal:
++      return __rule.__at.__time;
++
++    case facebook::velox::tzdb::__clock::__standard:
++      return __rule.__at.__time - __stdoff;
+   }
+-  std::__libcpp_unreachable();
++  throw std::runtime_error("unreachable");
+ }
+ 
+-[[nodiscard]] static sys_seconds __from_to_sys_seconds(seconds __stdoff, const __tz::__rule& __rule, year __year) {
+-  year_month_day __ymd = chrono::__to_year_month_day(__year, __rule.__in, __rule.__on);
++[[nodiscard]] static date::sys_seconds __from_to_sys_seconds(
++    std::chrono::seconds __stdoff,
++    const __rule& __rule,
++    date::year __year) {
++  date::year_month_day __ymd =
++      __to_year_month_day(__year, __rule.__in, __rule.__on);
+ 
+-  seconds __at = chrono::__at_to_seconds(__stdoff, __rule);
+-  return chrono::__to_sys_seconds(__ymd, __at);
++  std::chrono::seconds __at = __at_to_seconds(__stdoff, __rule);
++  return __to_sys_seconds(__ymd, __at);
+ }
+ 
+-[[nodiscard]] static sys_seconds __from_to_sys_seconds(seconds __stdoff, const __tz::__rule& __rule) {
+-  return chrono::__from_to_sys_seconds(__stdoff, __rule, __rule.__from);
++[[nodiscard]] static date::sys_seconds __from_to_sys_seconds(
++    std::chrono::seconds __stdoff,
++    const __rule& __rule) {
++  return __from_to_sys_seconds(__stdoff, __rule, __rule.__from);
+ }
+ 
+-[[nodiscard]] static const vector<__tz::__rule>&
+-__get_rules(const __tz::__rules_storage_type& __rules_db, const string& __rule_name) {
+-  auto __result = chrono::__binary_find(__rules_db, __rule_name, {}, [](const auto& __p) { return __p.first; });
++[[nodiscard]] static const std::vector<__rule>& __get_rules(
++    const __rules_storage_type& __rules_db,
++    const std::string& __rule_name) {
++  auto __result = __binary_find(__rules_db, __rule_name);
+   if (__result == std::end(__rules_db))
+-    std::__throw_runtime_error(("corrupt tzdb: rule '" + __rule_name + " 'does not exist").c_str());
++    std::__throw_runtime_error(
++        ("corrupt tzdb: rule '" + __rule_name + " 'does not exist").c_str());
+ 
+   return __result->second;
+ }
+@@ -326,17 +355,17 @@
+ //   transition with a SAVE of zero.
+ //
+ // This function implements case 2.
+-[[nodiscard]] static string __letters_before_first_rule(const vector<__tz::__rule>& __rules) {
+-  auto __letters =
+-      __rules                                                                                //
+-      | views::filter([](const __tz::__rule& __rule) { return __rule.__save.__time == 0s; }) //
+-      | views::transform([](const __tz::__rule& __rule) { return __rule.__letters; })        //
+-      | views::take(1);
++[[nodiscard]] static std::string __letters_before_first_rule(
++    const std::vector<__rule>& __rules) {
++  for (const auto& __rule : __rules) {
++    if (__rule.__save.__time != 0s) {
++      continue;
++    }
+ 
+-  if (__letters.empty())
+-    std::__throw_runtime_error("corrupt tzdb: rule has zero entries");
++    return __rule.__letters;
++  }
+ 
+-  return __letters.front();
++  std::__throw_runtime_error("corrupt tzdb: rule has zero entries");
+ }
+ 
+ // Determines the information based on the continuation and the rules.
+@@ -356,55 +385,68 @@
+ // after (1) and until (3) no rule entry is associated with the time.
+ 
+ [[nodiscard]] static sys_info __get_sys_info_before_first_rule(
+-    sys_seconds __begin,
+-    sys_seconds __end,
+-    const __tz::__continuation& __continuation,
+-    const vector<__tz::__rule>& __rules) {
++    date::sys_seconds __begin,
++    date::sys_seconds __end,
++    const facebook::velox::tzdb::__continuation& __continuation,
++    const std::vector<__rule>& __rules) {
+   return sys_info{
+       __begin,
+       __end,
+       __continuation.__stdoff,
+-      chrono::minutes(0),
+-      chrono::__format(__continuation, __letters_before_first_rule(__rules), 0s)};
++      std::chrono::minutes(0),
++      __format(__continuation, __letters_before_first_rule(__rules), 0s)};
+ }
+ 
+ // Returns the sys_info object for a time before the first rule.
+ // When this first rule has a SAVE of 0s the sys_info for the time before the
+ // first rule and for the first rule are identical and will be merged.
+ [[nodiscard]] static sys_info __get_sys_info_before_first_rule(
+-    sys_seconds __begin,
+-    sys_seconds __rule_end, // The end used when SAVE != 0s
+-    sys_seconds __next_end, // The end used when SAVE == 0s the times are merged
+-    const __tz::__continuation& __continuation,
+-    const vector<__tz::__rule>& __rules,
+-    vector<__tz::__rule>::const_iterator __rule) {
++    date::sys_seconds __begin,
++    date::sys_seconds __rule_end, // The end used when SAVE != 0s
++    date::sys_seconds
++        __next_end, // The end used when SAVE == 0s the times are merged
++    const facebook::velox::tzdb::__continuation& __continuation,
++    const std::vector<__rule>& __rules,
++    std::vector<__rule>::const_iterator __rule) {
+   if (__rule->__save.__time != 0s)
+-    return __get_sys_info_before_first_rule(__begin, __rule_end, __continuation, __rules);
++    return __get_sys_info_before_first_rule(
++        __begin, __rule_end, __continuation, __rules);
+ 
+   return sys_info{
+-      __begin, __next_end, __continuation.__stdoff, 0min, chrono::__format(__continuation, __rule->__letters, 0s)};
++      __begin,
++      __next_end,
++      __continuation.__stdoff,
++      0min,
++      __format(__continuation, __rule->__letters, 0s)};
+ }
+ 
+-[[nodiscard]] static seconds __at_to_seconds(seconds __stdoff, seconds __save, const __tz::__rule& __rule) {
++[[nodiscard]] static std::chrono::seconds __at_to_seconds(
++    std::chrono::seconds __stdoff,
++    std::chrono::seconds __save,
++    const __rule& __rule) {
+   switch (__rule.__at.__clock) {
+-  case __tz::__clock::__local:
+-    return __rule.__at.__time - __stdoff - __save;
++    case facebook::velox::tzdb::__clock::__local:
++      return __rule.__at.__time - __stdoff - __save;
+ 
+-  case __tz::__clock::__universal:
+-    return __rule.__at.__time;
++    case facebook::velox::tzdb::__clock::__universal:
++      return __rule.__at.__time;
+ 
+-  case __tz::__clock::__standard:
+-    return __rule.__at.__time - __stdoff;
++    case facebook::velox::tzdb::__clock::__standard:
++      return __rule.__at.__time - __stdoff;
+   }
+-  std::__libcpp_unreachable();
++  throw std::runtime_error("unreachable");
+ }
+ 
+-[[nodiscard]] static sys_seconds
+-__rule_to_sys_seconds(seconds __stdoff, seconds __save, const __tz::__rule& __rule, year __year) {
+-  year_month_day __ymd = chrono::__to_year_month_day(__year, __rule.__in, __rule.__on);
++[[nodiscard]] static date::sys_seconds __rule_to_sys_seconds(
++    std::chrono::seconds __stdoff,
++    std::chrono::seconds __save,
++    const __rule& __rule,
++    date::year __year) {
++  date::year_month_day __ymd =
++      __to_year_month_day(__year, __rule.__in, __rule.__on);
+ 
+-  seconds __at = chrono::__at_to_seconds(__stdoff, __save, __rule);
+-  return chrono::__to_sys_seconds(__ymd, __at);
++  std::chrono::seconds __at = __at_to_seconds(__stdoff, __save, __rule);
++  return __to_sys_seconds(__ymd, __at);
+ }
+ 
+ // Returns the first rule after __time.
+@@ -420,32 +462,38 @@
+ //   R So 1945 o - N 18 2s 0 -
+ //
+ // Has 3 rules that are all only active in 1945.
+-[[nodiscard]] static pair<sys_seconds, vector<__tz::__rule>::const_iterator>
+-__next_rule(sys_seconds __time,
+-            seconds __stdoff,
+-            seconds __save,
+-            const vector<__tz::__rule>& __rules,
+-            vector<__tz::__rule>::const_iterator __current) {
+-  year __year = year_month_day{chrono::floor<days>(__time)}.year();
++[[nodiscard]] static std::
++    pair<date::sys_seconds, std::vector<__rule>::const_iterator>
++    __next_rule(
++        date::sys_seconds __time,
++        std::chrono::seconds __stdoff,
++        std::chrono::seconds __save,
++        const std::vector<__rule>& __rules,
++        std::vector<__rule>::const_iterator __current) {
++  date::year __year =
++      date::year_month_day{std::chrono::floor<date::days>(__time)}.year();
+ 
+   // Note it would probably be better to store the pairs in a vector and then
+   // use min() to get the smallest element
+-  map<sys_seconds, vector<__tz::__rule>::const_iterator> __candidates;
++  std::map<date::sys_seconds, std::vector<__rule>::const_iterator> __candidates;
+   // Note this evaluates all rules which is a waste of effort; when the entries
+   // are beyond the current year's "next year" (where "next year" is not always
+   // year + 1) the algorithm should end.
+   for (auto __it = __rules.begin(); __it != __rules.end(); ++__it) {
+-    for (year __y = __it->__from; __y <= __it->__to; ++__y) {
++    for (date::year __y = __it->__from; __y <= __it->__to; ++__y) {
+       // Adding the current entry for the current year may lead to infinite
+       // loops due to the SAVE adjustment. Skip these entries.
+       if (__y == __year && __it == __current)
+         continue;
+ 
+-      sys_seconds __t = chrono::__rule_to_sys_seconds(__stdoff, __save, *__it, __y);
++      date::sys_seconds __t =
++          __rule_to_sys_seconds(__stdoff, __save, *__it, __y);
+       if (__t <= __time)
+         continue;
+ 
+-      _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(!__candidates.contains(__t), "duplicated rule");
++      if (__candidates.count(__t) > 0) {
++        throw std::runtime_error("duplicated rule");
++      }
+       __candidates[__t] = __it;
+       break;
+     }
+@@ -454,9 +502,9 @@
+   if (!__candidates.empty()) [[likely]] {
+     auto __it = __candidates.begin();
+ 
+-    // When no rule is selected the time before the first rule and the first rule
+-    // should not be merged.
+-    if (__time == sys_seconds::min())
++    // When no rule is selected the time before the first rule and the first
++    // rule should not be merged.
++    if (__time == date::sys_seconds::min())
+       return *__it;
+ 
+     // There can be two constitutive rules that are the same. For example,
+@@ -469,14 +517,15 @@
+     // 1974-04-20 18:30:00 R2 becomes active.
+     // Both rules have a SAVE of 1 hour and LETTERS are S for both of them.
+     while (__it != __candidates.end()) {
+-      if (__current->__save.__time != __it->second->__save.__time || __current->__letters != __it->second->__letters)
++      if (__current->__save.__time != __it->second->__save.__time ||
++          __current->__letters != __it->second->__letters)
+         return *__it;
+ 
+       ++__it;
+     }
+   }
+ 
+-  return {sys_seconds::max(), __rules.end()};
++  return {date::sys_seconds::max(), __rules.end()};
+ }
+ 
+ // Returns the first rule of a set of rules.
+@@ -484,23 +533,29 @@
+ //   R Sa 2008 2009 - Mar Su>=8 0 0 -
+ //   R Sa 2007 2008 - O Su>=8 0 1 -
+ // The transition in October 2007 happens before the transition in March 2008.
+-[[nodiscard]] static vector<__tz::__rule>::const_iterator
+-__first_rule(seconds __stdoff, const vector<__tz::__rule>& __rules) {
+-  return chrono::__next_rule(sys_seconds::min(), __stdoff, 0s, __rules, __rules.end()).second;
++[[nodiscard]] static std::vector<__rule>::const_iterator __first_rule(
++    std::chrono::seconds __stdoff,
++    const std::vector<__rule>& __rules) {
++  return __next_rule(
++             date::sys_seconds::min(), __stdoff, 0s, __rules, __rules.end())
++      .second;
+ }
+ 
+ [[nodiscard]] static __sys_info_result __get_sys_info_rule(
+-    sys_seconds __time,
+-    sys_seconds __continuation_begin,
+-    const __tz::__continuation& __continuation,
+-    const vector<__tz::__rule>& __rules) {
+-  auto __rule = chrono::__first_rule(__continuation.__stdoff, __rules);
+-  _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(__rule != __rules.end(), "the set of rules has no first rule");
++    date::sys_seconds __time,
++    date::sys_seconds __continuation_begin,
++    const facebook::velox::tzdb::__continuation& __continuation,
++    const std::vector<__rule>& __rules) {
++  auto __rule = __first_rule(__continuation.__stdoff, __rules);
++  if (__rule == __rules.end()) {
++    throw std::runtime_error("the set of rules has no first rule");
++  }
+ 
+   // Avoid selecting a time before the start of the continuation
+   __time = std::max(__time, __continuation_begin);
+ 
+-  sys_seconds __rule_begin = chrono::__from_to_sys_seconds(__continuation.__stdoff, *__rule);
++  date::sys_seconds __rule_begin =
++      __from_to_sys_seconds(__continuation.__stdoff, *__rule);
+ 
+   // The time sought is very likely inside the current rule.
+   // When the continuation's UNTIL uses the local clock there are edge cases
+@@ -510,7 +565,12 @@
+   //
+   // For now we just walk all the rules TODO TZDB investigate whether a smarter
+   // algorithm would work.
+-  auto __next = chrono::__next_rule(__rule_begin, __continuation.__stdoff, __rule->__save.__time, __rules, __rule);
++  auto __next = __next_rule(
++      __rule_begin,
++      __continuation.__stdoff,
++      __rule->__save.__time,
++      __rules,
++      __rule);
+ 
+   // Ignore small steps, this happens with America/Punta_Arenas for the
+   // transition
+@@ -521,18 +581,29 @@
+   // R x 1927 1931 - S 1 0 1 -
+   // R x 1928 1932 - Ap 1 0 0 -
+   //
+-  // America/Punta_Arenas  Thu Sep  1 04:42:45 1927 UT = Thu Sep  1 00:42:45 1927 -04 isdst=1 gmtoff=-14400
+-  // America/Punta_Arenas  Sun Apr  1 03:59:59 1928 UT = Sat Mar 31 23:59:59 1928 -04 isdst=1 gmtoff=-14400
+-  // America/Punta_Arenas  Sun Apr  1 04:00:00 1928 UT = Sat Mar 31 23:00:00 1928 -05 isdst=0 gmtoff=-18000
++  // America/Punta_Arenas  Thu Sep  1 04:42:45 1927 UT = Thu Sep  1 00:42:45
++  // 1927 -04 isdst=1 gmtoff=-14400 America/Punta_Arenas  Sun Apr  1 03:59:59
++  // 1928 UT = Sat Mar 31 23:59:59 1928 -04 isdst=1 gmtoff=-14400
++  // America/Punta_Arenas  Sun Apr  1 04:00:00 1928 UT = Sat Mar 31 23:00:00
++  // 1928 -05 isdst=0 gmtoff=-18000
+   //
+   // Without this there will be a transition
+   //   [1927-09-01 04:42:45, 1927-09-01 05:00:00) -05:00:00 0min -05
+ 
+-  if (sys_seconds __begin = __rule->__save.__time != 0s ? __rule_begin : __next.first; __time < __begin) {
+-    if (__continuation_begin == sys_seconds::min() || __begin - __continuation_begin > 12h)
+-      return __sys_info{__get_sys_info_before_first_rule(
+-                            __continuation_begin, __rule_begin, __next.first, __continuation, __rules, __rule),
+-                        false};
++  if (date::sys_seconds __begin =
++          __rule->__save.__time != 0s ? __rule_begin : __next.first;
++      __time < __begin) {
++    if (__continuation_begin == date::sys_seconds::min() ||
++        __begin - __continuation_begin > 12h)
++      return __sys_info{
++          __get_sys_info_before_first_rule(
++              __continuation_begin,
++              __rule_begin,
++              __next.first,
++              __continuation,
++              __rules,
++              __rule),
++          false};
+ 
+     // Europe/Berlin
+     // 1 c CE%sT 1945 May 24 2          (C1)
+@@ -544,64 +615,59 @@
+     //
+     // When C2 becomes active the time would be before the first rule R2,
+     // giving a 1 hour sys_info.
+-    seconds __save = __rule->__save.__time;
++    std::chrono::seconds __save = __rule->__save.__time;
+     __named_rule_until __continuation_end{__continuation};
+-    sys_seconds __sys_info_end = std::min(__continuation_end(__save), __next.first);
++    date::sys_seconds __sys_info_end =
++        std::min(__continuation_end(__save), __next.first);
+ 
+     return __sys_info{
+-        sys_info{__continuation_begin,
+-                 __sys_info_end,
+-                 __continuation.__stdoff + __save,
+-                 chrono::duration_cast<minutes>(__save),
+-                 chrono::__format(__continuation, __rule->__letters, __save)},
++        sys_info{
++            __continuation_begin,
++            __sys_info_end,
++            __continuation.__stdoff + __save,
++            std::chrono::duration_cast<std::chrono::minutes>(__save),
++            __format(__continuation, __rule->__letters, __save)},
+         __sys_info_end == __continuation_end(__save)};
+   }
+ 
+   // See above for America/Asuncion
+   if (__rule->__save.__time == 0s && __time < __next.first) {
+     return __sys_info{
+-        sys_info{__continuation_begin,
+-                 __next.first,
+-                 __continuation.__stdoff,
+-                 0min,
+-                 chrono::__format(__continuation, __rule->__letters, 0s)},
++        sys_info{
++            __continuation_begin,
++            __next.first,
++            __continuation.__stdoff,
++            0min,
++            __format(__continuation, __rule->__letters, 0s)},
+         false};
+   }
+ 
+   if (__rule->__save.__time != 0s) {
+     // another fix for America/Punta_Arenas when not at the start of the
+     // sys_info object.
+-    seconds __save = __rule->__save.__time;
+-    if (__continuation_begin >= __rule_begin - __save && __time < __next.first) {
++    std::chrono::seconds __save = __rule->__save.__time;
++    if (__continuation_begin >= __rule_begin - __save &&
++        __time < __next.first) {
+       return __sys_info{
+-          sys_info{__continuation_begin,
+-                   __next.first,
+-                   __continuation.__stdoff + __save,
+-                   chrono::duration_cast<minutes>(__save),
+-                   chrono::__format(__continuation, __rule->__letters, __save)},
++          sys_info{
++              __continuation_begin,
++              __next.first,
++              __continuation.__stdoff + __save,
++              std::chrono::duration_cast<std::chrono::minutes>(__save),
++              __format(__continuation, __rule->__letters, __save)},
+           false};
+     }
+   }
+ 
+   __named_rule_until __continuation_end{__continuation};
+   while (__next.second != __rules.end()) {
+-#ifdef PRINT
+-    std::print(
+-        stderr,
+-        "Rule for {}: [{}, {}) off={} save={} duration={}\n",
+-        __time,
+-        __rule_begin,
+-        __next.first,
+-        __continuation.__stdoff,
+-        __rule->__save.__time,
+-        __next.first - __rule_begin);
+-#endif
+-
+-    sys_seconds __end = __continuation_end(__rule->__save.__time);
++    date::sys_seconds __end = __continuation_end(__rule->__save.__time);
+ 
+-    sys_seconds __sys_info_begin = std::max(__continuation_begin, __rule_begin);
+-    sys_seconds __sys_info_end   = std::min(__end, __next.first);
+-    seconds __diff               = chrono::abs(__sys_info_end - __sys_info_begin);
++    date::sys_seconds __sys_info_begin =
++        std::max(__continuation_begin, __rule_begin);
++    date::sys_seconds __sys_info_end = std::min(__end, __next.first);
++    std::chrono::seconds __diff =
++        std::chrono::abs(__sys_info_end - __sys_info_begin);
+ 
+     if (__diff < 12h) {
+       // Z America/Argentina/Buenos_Aires -3:53:48 - LMT 1894 O 31
+@@ -627,70 +693,98 @@
+       // Looking at the zdump like output in libc++ this generates jumps in
+       // the UTC time.
+ 
+-      __rule         = __next.second;
+-      __next         = __next_rule(__next.first, __continuation.__stdoff, __rule->__save.__time, __rules, __rule);
+-      __end          = __continuation_end(__rule->__save.__time);
++      __rule = __next.second;
++      __next = __next_rule(
++          __next.first,
++          __continuation.__stdoff,
++          __rule->__save.__time,
++          __rules,
++          __rule);
++      __end = __continuation_end(__rule->__save.__time);
+       __sys_info_end = std::min(__end, __next.first);
+     }
+ 
+-    if ((__time >= __rule_begin && __time < __next.first) || __next.first >= __end) {
++    if ((__time >= __rule_begin && __time < __next.first) ||
++        __next.first >= __end) {
+       __sys_info_begin = std::max(__continuation_begin, __rule_begin);
+-      __sys_info_end   = std::min(__end, __next.first);
++      __sys_info_end = std::min(__end, __next.first);
+ 
+       return __sys_info{
+-          sys_info{__sys_info_begin,
+-                   __sys_info_end,
+-                   __continuation.__stdoff + __rule->__save.__time,
+-                   chrono::duration_cast<minutes>(__rule->__save.__time),
+-                   chrono::__format(__continuation, __rule->__letters, __rule->__save.__time)},
++          sys_info{
++              __sys_info_begin,
++              __sys_info_end,
++              __continuation.__stdoff + __rule->__save.__time,
++              std::chrono::duration_cast<std::chrono::minutes>(
++                  __rule->__save.__time),
++              __format(
++                  __continuation, __rule->__letters, __rule->__save.__time)},
+           __sys_info_end == __end};
+     }
+ 
+     __rule_begin = __next.first;
+-    __rule       = __next.second;
+-    __next       = __next_rule(__rule_begin, __continuation.__stdoff, __rule->__save.__time, __rules, __rule);
++    __rule = __next.second;
++    __next = __next_rule(
++        __rule_begin,
++        __continuation.__stdoff,
++        __rule->__save.__time,
++        __rules,
++        __rule);
+   }
+ 
+   return __sys_info{
+-      sys_info{std::max(__continuation_begin, __rule_begin),
+-               __continuation_end(__rule->__save.__time),
+-               __continuation.__stdoff + __rule->__save.__time,
+-               chrono::duration_cast<minutes>(__rule->__save.__time),
+-               chrono::__format(__continuation, __rule->__letters, __rule->__save.__time)},
++      sys_info{
++          std::max(__continuation_begin, __rule_begin),
++          __continuation_end(__rule->__save.__time),
++          __continuation.__stdoff + __rule->__save.__time,
++          std::chrono::duration_cast<std::chrono::minutes>(
++              __rule->__save.__time),
++          __format(__continuation, __rule->__letters, __rule->__save.__time)},
+       true};
+ }
+ 
+ [[nodiscard]] static __sys_info_result __get_sys_info_basic(
+-    sys_seconds __time, sys_seconds __continuation_begin, const __tz::__continuation& __continuation, seconds __save) {
+-  sys_seconds __continuation_end = chrono::__until_to_sys_seconds(__continuation);
++    date::sys_seconds __time,
++    date::sys_seconds __continuation_begin,
++    const facebook::velox::tzdb::__continuation& __continuation,
++    std::chrono::seconds __save) {
++  date::sys_seconds __continuation_end = __until_to_sys_seconds(__continuation);
+   return __sys_info{
+-      sys_info{__continuation_begin,
+-               __continuation_end,
+-               __continuation.__stdoff + __save,
+-               chrono::duration_cast<minutes>(__save),
+-               chrono::__format(__continuation, __continuation.__format, __save)},
++      sys_info{
++          __continuation_begin,
++          __continuation_end,
++          __continuation.__stdoff + __save,
++          std::chrono::duration_cast<std::chrono::minutes>(__save),
++          __format(__continuation, __continuation.__format, __save)},
+       true};
+ }
+ 
+-[[nodiscard]] static __sys_info_result
+-__get_sys_info(sys_seconds __time,
+-               sys_seconds __continuation_begin,
+-               const __tz::__continuation& __continuation,
+-               const __tz::__rules_storage_type& __rules_db) {
++[[nodiscard]] static __sys_info_result __get_sys_info(
++    date::sys_seconds __time,
++    date::sys_seconds __continuation_begin,
++    const facebook::velox::tzdb::__continuation& __continuation,
++    const __rules_storage_type& __rules_db) {
+   return std::visit(
+       [&](const auto& __value) {
+-        using _Tp = decay_t<decltype(__value)>;
+-        if constexpr (same_as<_Tp, std::string>)
+-          return chrono::__get_sys_info_rule(
+-              __time, __continuation_begin, __continuation, __get_rules(__rules_db, __value));
+-        else if constexpr (same_as<_Tp, monostate>)
+-          return chrono::__get_sys_info_basic(__time, __continuation_begin, __continuation, chrono::seconds(0));
+-        else if constexpr (same_as<_Tp, __tz::__save>)
+-          return chrono::__get_sys_info_basic(__time, __continuation_begin, __continuation, __value.__time);
++        using _Tp = std::decay_t<decltype(__value)>;
++        if constexpr (std::is_same_v<_Tp, std::string>)
++          return __get_sys_info_rule(
++              __time,
++              __continuation_begin,
++              __continuation,
++              __get_rules(__rules_db, __value));
++        else if constexpr (std::is_same_v<_Tp, std::monostate>)
++          return __get_sys_info_basic(
++              __time,
++              __continuation_begin,
++              __continuation,
++              std::chrono::seconds(0));
++        else if constexpr (std::is_same_v<_Tp, facebook::velox::tzdb::__save>)
++          return __get_sys_info_basic(
++              __time, __continuation_begin, __continuation, __value.__time);
+         else
+-          static_assert(false);
++          static_assert(False<_Tp>::value);
+ 
+-        std::__libcpp_unreachable();
++        throw std::runtime_error("unreachable");
+       },
+       __continuation.__rules);
+ }
+@@ -711,11 +805,14 @@
+ // Iff the "offsets" are the same '__current.__end' is replaced with
+ // '__next.__end', which effectively merges the two objects in one object. The
+ // function returns true if a merge occurred.
+-[[nodiscard]] bool __merge_continuation(sys_info& __current, const sys_info& __next) {
++[[nodiscard]] bool __merge_continuation(
++    sys_info& __current,
++    const sys_info& __next) {
+   if (__current.end != __next.begin)
+     return false;
+ 
+-  if (__current.offset != __next.offset || __current.abbrev != __next.abbrev || __current.save != __next.save)
++  if (__current.offset != __next.offset || __current.abbrev != __next.abbrev ||
++      __current.save != __next.save)
+     return false;
+ 
+   __current.end = __next.end;
+@@ -726,24 +823,30 @@
+ //                           Public API
+ //===----------------------------------------------------------------------===//
+ 
+-[[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI time_zone time_zone::__create(unique_ptr<time_zone::__impl>&& __p) {
+-  _LIBCPP_ASSERT_NON_NULL(__p != nullptr, "initialized time_zone without a valid pimpl object");
++[[nodiscard]] time_zone time_zone::__create(
++    std::unique_ptr<time_zone::__impl>&& __p) {
++  if (__p == nullptr) {
++    throw std::runtime_error(
++        "initialized time_zone without a valid pimpl object");
++  }
+   time_zone result;
+   result.__impl_ = std::move(__p);
+   return result;
+ }
+ 
+-_LIBCPP_EXPORTED_FROM_ABI time_zone::~time_zone() = default;
++time_zone::~time_zone() = default;
+ 
+-[[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI string_view time_zone::__name() const noexcept { return __impl_->__name(); }
++[[nodiscard]] std::string_view time_zone::__name() const noexcept {
++  return __impl_->__name();
++}
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI sys_info
+-time_zone::__get_info(sys_seconds __time) const {
+-  optional<sys_info> __result;
+-  bool __valid_result = false; // true iff __result.has_value() is true and
+-                               // __result.begin <= __time < __result.end is true.
+-  bool __can_merge                 = false;
+-  sys_seconds __continuation_begin = sys_seconds::min();
++[[nodiscard]] sys_info time_zone::__get_info(date::sys_seconds __time) const {
++  std::optional<sys_info> __result;
++  bool __valid_result =
++      false; // true iff __result.has_value() is true and
++             // __result.begin <= __time < __result.end is true.
++  bool __can_merge = false;
++  date::sys_seconds __continuation_begin = date::sys_seconds::min();
+   // Iterates over the Zone entry and its continuations. Internally the Zone
+   // entry is split in a Zone information and the first continuation. The last
+   // continuation has no UNTIL field. This means the loop should always find a
+@@ -788,15 +891,18 @@
+   // means the period [1928-10-07 00:00:00, 1967-06-03 12:00:00) should be
+   // returned in one sys_info object.
+ 
+-  const auto& __continuations                  = __impl_->__continuations();
+-  const __tz::__rules_storage_type& __rules_db = __impl_->__rules_db();
+-  for (auto __it = __continuations.begin(); __it != __continuations.end(); ++__it) {
+-    const auto& __continuation   = *__it;
+-    __sys_info_result __sys_info = chrono::__get_sys_info(__time, __continuation_begin, __continuation, __rules_db);
++  const auto& __continuations = __impl_->__continuations();
++  const __rules_storage_type& __rules_db = __impl_->__rules_db();
++  for (auto __it = __continuations.begin(); __it != __continuations.end();
++       ++__it) {
++    const auto& __continuation = *__it;
++    __sys_info_result __sys_info = __get_sys_info(
++        __time, __continuation_begin, __continuation, __rules_db);
+ 
+     if (__sys_info) {
+-      _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+-          __sys_info->__info.begin < __sys_info->__info.end, "invalid sys_info range");
++      if (__sys_info->__info.begin >= __sys_info->__info.end) {
++        throw std::runtime_error("invalid sys_info range");
++      }
+ 
+       // Filters out dummy entries
+       // Z America/Argentina/Buenos_Aires -3:53:48 - LMT 1894 O 31
+@@ -816,7 +922,8 @@
+       // by [C2 & R1, C2 & R2) which is the proper range
+       //   "[2000-03-03 03:00:00, 2007-12-30 03:00:00) -02:00:00 60min -02
+ 
+-      if (std::holds_alternative<string>(__continuation.__rules) && __sys_info->__can_merge &&
++      if (std::holds_alternative<std::string>(__continuation.__rules) &&
++          __sys_info->__can_merge &&
+           __sys_info->__info.begin + 12h > __sys_info->__info.end) {
+         __continuation_begin = __sys_info->__info.begin;
+         continue;
+@@ -827,13 +934,14 @@
+         __result = __sys_info->__info;
+ 
+         __valid_result = __time >= __result->begin && __time < __result->end;
+-        __can_merge    = __sys_info->__can_merge;
+-      } else if (__can_merge && chrono::__merge_continuation(*__result, __sys_info->__info)) {
++        __can_merge = __sys_info->__can_merge;
++      } else if (
++          __can_merge && __merge_continuation(*__result, __sys_info->__info)) {
+         // The results are merged, update the result state. This may
+         // "overwrite" a valid sys_info object with another valid sys_info
+         // object.
+         __valid_result = __time >= __result->begin && __time < __result->end;
+-        __can_merge    = __sys_info->__can_merge;
++        __can_merge = __sys_info->__can_merge;
+       } else {
+         // Here things get interesting:
+         // For example, America/Argentina/San_Luis
+@@ -861,10 +969,12 @@
+         if (__valid_result) {
+           return *__result;
+         } else {
+-          _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+-              __it != __continuations.begin(), "the first rule should always seed the result");
++          if (__it == __continuations.begin()) {
++            throw std::runtime_error(
++                "the first rule should always seed the result");
++          }
+           const auto& __last = *(__it - 1);
+-          if (std::holds_alternative<string>(__last.__rules)) {
++          if (std::holds_alternative<std::string>(__last.__rules)) {
+             // Europe/Berlin
+             // 1 c CE%sT 1945 May 24 2          (C1)
+             // 1 So CE%sT 1946                  (C2)
+@@ -873,24 +983,25 @@
+             //
+             // R So 1945 o - May 24 2 2 M       (R2)
+             //
+-            // When C2 becomes active the time would be before the first rule R2,
+-            // giving a 1 hour sys_info. This is not valid and the results need
+-            // merging.
++            // When C2 becomes active the time would be before the first rule
++            // R2, giving a 1 hour sys_info. This is not valid and the results
++            // need merging.
+ 
+             if (__result->end != __sys_info->__info.begin) {
+               // When the UTC gap between the rules is due to the change of
+               // offsets adjust the new time to remove the gap.
+-              sys_seconds __end   = __result->end - __result->offset;
+-              sys_seconds __begin = __sys_info->__info.begin - __sys_info->__info.offset;
++              date::sys_seconds __end = __result->end - __result->offset;
++              date::sys_seconds __begin =
++                  __sys_info->__info.begin - __sys_info->__info.offset;
+               if (__end == __begin) {
+                 __sys_info->__info.begin = __result->end;
+               }
+             }
+           }
+ 
+-          __result       = __sys_info->__info;
++          __result = __sys_info->__info;
+           __valid_result = __time >= __result->begin && __time < __result->end;
+-          __can_merge    = __sys_info->__can_merge;
++          __can_merge = __sys_info->__can_merge;
+         }
+       }
+       __continuation_begin = __result->end;
+@@ -906,20 +1017,28 @@
+ 
+ // Is the "__local_time" present in "__first" and "__second". If so the
+ // local_info has an ambiguous result.
+-[[nodiscard]] static bool
+-__is_ambiguous(local_seconds __local_time, const sys_info& __first, const sys_info& __second) {
+-  std::chrono::local_seconds __end_first{__first.end.time_since_epoch() + __first.offset};
+-  std::chrono::local_seconds __begin_second{__second.begin.time_since_epoch() + __second.offset};
++[[nodiscard]] static bool __is_ambiguous(
++    date::local_seconds __local_time,
++    const sys_info& __first,
++    const sys_info& __second) {
++  date::local_seconds __end_first{
++      __first.end.time_since_epoch() + __first.offset};
++  date::local_seconds __begin_second{
++      __second.begin.time_since_epoch() + __second.offset};
+ 
+   return __local_time < __end_first && __local_time >= __begin_second;
+ }
+ 
+ // Determines the result of the "__local_time". This expects the object
+ // "__first" to be earlier in time than "__second".
+-[[nodiscard]] static local_info
+-__get_info(local_seconds __local_time, const sys_info& __first, const sys_info& __second) {
+-  std::chrono::local_seconds __end_first{__first.end.time_since_epoch() + __first.offset};
+-  std::chrono::local_seconds __begin_second{__second.begin.time_since_epoch() + __second.offset};
++[[nodiscard]] static local_info __get_info(
++    date::local_seconds __local_time,
++    const sys_info& __first,
++    const sys_info& __second) {
++  date::local_seconds __end_first{
++      __first.end.time_since_epoch() + __first.offset};
++  date::local_seconds __begin_second{
++      __second.begin.time_since_epoch() + __second.offset};
+ 
+   if (__local_time < __end_first) {
+     if (__local_time >= __begin_second)
+@@ -946,9 +1065,9 @@
+   return {local_info::unique, __second, sys_info{}};
+ }
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI local_info
+-time_zone::__get_info(local_seconds __local_time) const {
+-  seconds __local_seconds = __local_time.time_since_epoch();
++[[nodiscard]] local_info time_zone::__get_info(
++    date::local_seconds __local_time) const {
++  std::chrono::seconds __local_seconds = __local_time.time_since_epoch();
+ 
+   /* An example of a typical year with a DST switch displayed in local time.
+    *
+@@ -978,7 +1097,7 @@
+   // The code needs to determine the system time for the local time. There is no
+   // information available. Assume the offset between system time and local time
+   // is 0s. This gives an initial estimate.
+-  sys_seconds __guess{__local_seconds};
++  date::sys_seconds __guess{__local_seconds};
+   sys_info __info = __get_info(__guess);
+ 
+   // At this point the offset can be used to determine an estimate for the local
+@@ -986,11 +1105,13 @@
+   // local time is the range [chrono::local_seconds::min(),
+   // chrono::local_seconds::max()).
+   if (__local_seconds < 0s && __info.offset > 0s)
+-    if (__local_seconds - chrono::local_seconds::min().time_since_epoch() < __info.offset)
++    if (__local_seconds - date::local_seconds::min().time_since_epoch() <
++        __info.offset)
+       return {-1, __info, {}};
+ 
+   if (__local_seconds > 0s && __info.offset < 0s)
+-    if (chrono::local_seconds::max().time_since_epoch() - __local_seconds < -__info.offset)
++    if (date::local_seconds::max().time_since_epoch() - __local_seconds <
++        -__info.offset)
+       return {-2, __info, {}};
+ 
+   // Based on the information found in the sys_info, the local time can be
+@@ -1024,17 +1145,19 @@
+   // However the local_info object only has 2 sys_info objects, so this option
+   // is not tested.
+ 
+-  sys_seconds __sys_time{__local_seconds - __info.offset};
++  date::sys_seconds __sys_time{__local_seconds - __info.offset};
+   if (__sys_time < __info.begin)
+     // Case 1 before __info
+-    return chrono::__get_info(__local_time, __get_info(__info.begin - 1s), __info);
++    return facebook::velox::tzdb::__get_info(
++        __local_time, __get_info(__info.begin - 1s), __info);
+ 
+   if (__sys_time >= __info.end)
+     // Case 3 after __info
+-    return chrono::__get_info(__local_time, __info, __get_info(__info.end));
++    return facebook::velox::tzdb::__get_info(
++        __local_time, __info, __get_info(__info.end));
+ 
+   // Case 2 in __info
+-  if (__info.begin != sys_seconds::min()) {
++  if (__info.begin != date::sys_seconds::min()) {
+     // Case 2.1 Not at the beginning, when not ambiguous the result should test
+     // case 2.3.
+     sys_info __prev = __get_info(__info.begin - 1s);
+@@ -1042,14 +1165,13 @@
+       return {local_info::ambiguous, __prev, __info};
+   }
+ 
+-  if (__info.end == sys_seconds::max())
++  if (__info.end == date::sys_seconds::max())
+     // At the end so it's case 2.2
+     return {local_info::unique, __info, sys_info{}};
+ 
+   // This tests case 2.2 or case 2.3.
+-  return chrono::__get_info(__local_time, __info, __get_info(__info.end));
++  return facebook::velox::tzdb::__get_info(
++      __local_time, __info, __get_info(__info.end));
+ }
+ 
+-} // namespace chrono
+-
+-_LIBCPP_END_NAMESPACE_STD
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/time_zone.h b/fbcode/velox/external/tzdb/time_zone.h
+--- a/fbcode/velox/external/tzdb/time_zone.h
++++ b/fbcode/velox/external/tzdb/time_zone.h
+@@ -9,44 +9,26 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_TIME_ZONE_H
+-#define _LIBCPP___CHRONO_TIME_ZONE_H
++#pragma once
+ 
+-#include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
++#include <chrono>
++#include <memory>
++#include <string_view>
++#include <type_traits>
+ 
+-#  include <__chrono/calendar.h>
+-#  include <__chrono/duration.h>
+-#  include <__chrono/exception.h>
+-#  include <__chrono/local_info.h>
+-#  include <__chrono/sys_info.h>
+-#  include <__chrono/system_clock.h>
+-#  include <__compare/strong_order.h>
+-#  include <__config>
+-#  include <__memory/unique_ptr.h>
+-#  include <__type_traits/common_type.h>
+-#  include <string_view>
++#include "velox/external/date/date.h"
++#include "velox/external/tzdb/exception.h"
++#include "velox/external/tzdb/local_info.h"
++#include "velox/external/tzdb/sys_info.h"
+ 
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
+-
+-_LIBCPP_PUSH_MACROS
+-#  include <__undef_macros>
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#  if _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
+-
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ enum class choose { earliest, latest };
+ 
+-class _LIBCPP_AVAILABILITY_TZDB time_zone {
+-  _LIBCPP_HIDE_FROM_ABI time_zone() = default;
++class time_zone {
++  time_zone() = default;
+ 
+-public:
++ public:
+   class __impl; // public so it can be used by make_unique.
+ 
+   // The "constructor".
+@@ -54,132 +36,179 @@
+   // The default constructor is private to avoid the constructor from being
+   // part of the ABI. Instead use an __ugly_named function as an ABI interface,
+   // since that gives us the ability to change it in the future.
+-  [[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI static time_zone __create(unique_ptr<__impl>&& __p);
++  [[nodiscard]] static time_zone __create(std::unique_ptr<__impl>&& __p);
+ 
+-  _LIBCPP_EXPORTED_FROM_ABI ~time_zone();
++  ~time_zone();
+ 
+-  _LIBCPP_HIDE_FROM_ABI time_zone(time_zone&&)            = default;
+-  _LIBCPP_HIDE_FROM_ABI time_zone& operator=(time_zone&&) = default;
++  time_zone(time_zone&&) = default;
++  time_zone& operator=(time_zone&&) = default;
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI string_view name() const noexcept { return __name(); }
++  [[nodiscard]] std::string_view name() const noexcept {
++    return __name();
++  }
+ 
+   template <class _Duration>
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI sys_info get_info(const sys_time<_Duration>& __time) const {
+-    return __get_info(chrono::time_point_cast<seconds>(__time));
++  [[nodiscard]] sys_info get_info(
++      const date::sys_time<_Duration>& __time) const {
++    return __get_info(
++        std::chrono::time_point_cast<std::chrono::seconds>(__time));
+   }
+ 
+   template <class _Duration>
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI local_info get_info(const local_time<_Duration>& __time) const {
+-    return __get_info(chrono::time_point_cast<seconds>(__time));
++  [[nodiscard]] local_info get_info(
++      const date::local_time<_Duration>& __time) const {
++    return __get_info(
++        std::chrono::time_point_cast<std::chrono::seconds>(__time));
+   }
+ 
+   // We don't apply nodiscard here since this function throws on many inputs,
+   // so it could be used as a validation.
+   template <class _Duration>
+-  _LIBCPP_HIDE_FROM_ABI sys_time<common_type_t<_Duration, seconds>> to_sys(const local_time<_Duration>& __time) const {
++  date::sys_time<std::common_type_t<_Duration, std::chrono::seconds>> to_sys(
++      const date::local_time<_Duration>& __time) const {
+     local_info __info = get_info(__time);
+     switch (__info.result) {
+-    case local_info::unique:
+-      return sys_time<common_type_t<_Duration, seconds>>{__time.time_since_epoch() - __info.first.offset};
++      case local_info::unique:
++        return date::sys_time<
++            std::common_type_t<_Duration, std::chrono::seconds>>{
++            __time.time_since_epoch() - __info.first.offset};
+ 
+-    case local_info::nonexistent:
+-      chrono::__throw_nonexistent_local_time(__time, __info);
++      case local_info::nonexistent:
++        __throw_nonexistent_local_time(__time, __info);
+ 
+-    case local_info::ambiguous:
+-      chrono::__throw_ambiguous_local_time(__time, __info);
++      case local_info::ambiguous:
++        __throw_ambiguous_local_time(__time, __info);
+     }
+ 
+     // TODO TZDB The Standard does not specify anything in these cases.
+-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+-        __info.result != -1, "cannot convert the local time; it would be before the minimum system clock value");
+-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+-        __info.result != -2, "cannot convert the local time; it would be after the maximum system clock value");
++    if (__info.result == -1) {
++      throw std::runtime_error(
++          "cannot convert the local time; it would be before the minimum system clock value");
++    }
++    if (__info.result == -2) {
++      throw std::runtime_error(
++          "cannot convert the local time; it would be after the maximum system clock value");
++    }
+ 
+     return {};
+   }
+ 
+   template <class _Duration>
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI sys_time<common_type_t<_Duration, seconds>>
+-  to_sys(const local_time<_Duration>& __time, choose __z) const {
++  [[nodiscard]] date::sys_time<
++      std::common_type_t<_Duration, std::chrono::seconds>>
++  to_sys(const date::local_time<_Duration>& __time, choose __z) const {
+     local_info __info = get_info(__time);
+     switch (__info.result) {
+-    case local_info::unique: // first and second are the same
+-      return sys_time<common_type_t<_Duration, seconds>>{__time.time_since_epoch() - __info.first.offset};
+-
+-    case local_info::nonexistent:
+-      // first and second are the same
+-      // All non-existing values are converted to the same time.
+-      return sys_time<common_type_t<_Duration, seconds>>{__info.first.end};
+-
+-    case local_info::ambiguous:
+-      switch (__z) {
+-      case choose::earliest:
+-        return sys_time<common_type_t<_Duration, seconds>>{__time.time_since_epoch() - __info.first.offset};
+-
+-      case choose::latest:
+-        return sys_time<common_type_t<_Duration, seconds>>{__time.time_since_epoch() - __info.second.offset};
+-
+-        // Note a value out of bounds is not specified.
+-      }
++      case local_info::unique:
++      case local_info::nonexistent: // first and second are the same
++        return date::sys_time<
++            std::common_type_t<_Duration, std::chrono::seconds>>{
++            __time.time_since_epoch() - __info.first.offset};
++
++      case local_info::ambiguous:
++        switch (__z) {
++          case choose::earliest:
++            return date::sys_time<
++                std::common_type_t<_Duration, std::chrono::seconds>>{
++                __time.time_since_epoch() - __info.first.offset};
++
++          case choose::latest:
++            return date::sys_time<
++                std::common_type_t<_Duration, std::chrono::seconds>>{
++                __time.time_since_epoch() - __info.second.offset};
++
++            // Note a value out of bounds is not specified.
++        }
+     }
+ 
+     // TODO TZDB The standard does not specify anything in these cases.
+-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+-        __info.result != -1, "cannot convert the local time; it would be before the minimum system clock value");
+-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+-        __info.result != -2, "cannot convert the local time; it would be after the maximum system clock value");
++    if (__info.result == -1) {
++      throw std::runtime_error(
++          "cannot convert the local time; it would be before the minimum system clock value");
++    }
++    if (__info.result != -2) {
++      throw std::runtime_error(
++          "cannot convert the local time; it would be after the maximum system clock value");
++    }
+ 
+     return {};
+   }
+ 
+   template <class _Duration>
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI local_time<common_type_t<_Duration, seconds>>
+-  to_local(const sys_time<_Duration>& __time) const {
+-    using _Dp = common_type_t<_Duration, seconds>;
++  [[nodiscard]] date::local_time<
++      std::common_type_t<_Duration, std::chrono::seconds>>
++  to_local(const date::sys_time<_Duration>& __time) const {
++    using _Dp = std::common_type_t<_Duration, std::chrono::seconds>;
+ 
+     sys_info __info = get_info(__time);
+ 
+-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+-        __info.offset >= chrono::seconds{0} || __time.time_since_epoch() >= _Dp::min() - __info.offset,
+-        "cannot convert the system time; it would be before the minimum local clock value");
++    if (__info.offset < std::chrono::seconds{0} &&
++        __time.time_since_epoch() < _Dp::min() - __info.offset) {
++      throw std::runtime_error(
++          "cannot convert the system time; it would be before the minimum local clock value");
++    }
+ 
+-    _LIBCPP_ASSERT_ARGUMENT_WITHIN_DOMAIN(
+-        __info.offset <= chrono::seconds{0} || __time.time_since_epoch() <= _Dp::max() - __info.offset,
+-        "cannot convert the system time; it would be after the maximum local clock value");
++    if (__info.offset > std::chrono::seconds{0} &&
++        __time.time_since_epoch() > _Dp::max() - __info.offset) {
++      throw std::runtime_error(
++          "cannot convert the system time; it would be after the maximum local clock value");
++    }
+ 
+-    return local_time<_Dp>{__time.time_since_epoch() + __info.offset};
++    return date::local_time<_Dp>{__time.time_since_epoch() + __info.offset};
+   }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const __impl& __implementation() const noexcept { return *__impl_; }
++  [[nodiscard]] const __impl& __implementation() const noexcept {
++    return *__impl_;
++  }
+ 
+-private:
+-  [[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI string_view __name() const noexcept;
++ private:
++  [[nodiscard]] std::string_view __name() const noexcept;
+ 
+-  [[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI sys_info __get_info(sys_seconds __time) const;
+-  [[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI local_info __get_info(local_seconds __time) const;
++  [[nodiscard]] sys_info __get_info(date::sys_seconds __time) const;
++  [[nodiscard]] local_info __get_info(date::local_seconds __time) const;
+ 
+-  unique_ptr<__impl> __impl_;
++  std::unique_ptr<__impl> __impl_;
+ };
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI inline bool
+-operator==(const time_zone& __x, const time_zone& __y) noexcept {
++[[nodiscard]] inline bool operator==(
++    const time_zone& __x,
++    const time_zone& __y) noexcept {
+   return __x.name() == __y.name();
+ }
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI inline strong_ordering
+-operator<=>(const time_zone& __x, const time_zone& __y) noexcept {
+-  return __x.name() <=> __y.name();
++[[nodiscard]] inline bool operator!=(
++    const time_zone& __x,
++    const time_zone& __y) noexcept {
++  return !(__x.name() == __y.name());
+ }
+ 
+-} // namespace chrono
++[[nodiscard]] inline bool operator<(
++    const time_zone& __x,
++    const time_zone& __y) noexcept {
++  return __x.name() < __y.name();
++}
+ 
+-#  endif // _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM &&
+-         // _LIBCPP_HAS_LOCALIZATION
++[[nodiscard]] inline bool operator>(
++    const time_zone& __x,
++    const time_zone& __y) noexcept {
++  return __x.name() > __y.name();
++}
+ 
+-_LIBCPP_END_NAMESPACE_STD
++[[nodiscard]] inline bool operator<=(
++    const time_zone& __x,
++    const time_zone& __y) noexcept {
++  return !(__x.name() > __y.name());
++}
+ 
+-_LIBCPP_POP_MACROS
++[[nodiscard]] inline bool operator>=(
++    const time_zone& __x,
++    const time_zone& __y) noexcept {
++  return !(__x.name() < __y.name());
++}
+ 
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
++// [[nodiscard]] inline strong_ordering
++// operator<=>(const time_zone& __x, const time_zone& __y) noexcept {
++//   return __x.name() <=> __y.name();
++// }
+ 
+-#endif // _LIBCPP___CHRONO_TIME_ZONE_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/time_zone_link.h b/fbcode/velox/external/tzdb/time_zone_link.h
+--- a/fbcode/velox/external/tzdb/time_zone_link.h
++++ b/fbcode/velox/external/tzdb/time_zone_link.h
+@@ -9,71 +9,76 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_TIME_ZONE_LINK_H
+-#define _LIBCPP___CHRONO_TIME_ZONE_LINK_H
++#pragma once
+ 
+-#include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
++#include <string>
++#include <string_view>
+ 
+-#  include <__compare/strong_order.h>
+-#  include <__config>
+-#  include <__utility/private_constructor_tag.h>
+-#  include <string>
+-#  include <string_view>
+-
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
+-
+-_LIBCPP_PUSH_MACROS
+-#  include <__undef_macros>
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#  if _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
+-
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ class time_zone_link {
+-public:
++ public:
+   [[nodiscard]]
+-  _LIBCPP_HIDE_FROM_ABI explicit time_zone_link(__private_constructor_tag, string_view __name, string_view __target)
++  explicit time_zone_link(std::string_view __name, std::string_view __target)
+       : __name_{__name}, __target_{__target} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI time_zone_link(time_zone_link&&)            = default;
+-  _LIBCPP_HIDE_FROM_ABI time_zone_link& operator=(time_zone_link&&) = default;
++  time_zone_link(time_zone_link&&) = default;
++  time_zone_link& operator=(time_zone_link&&) = default;
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI string_view name() const noexcept { return __name_; }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI string_view target() const noexcept { return __target_; }
++  [[nodiscard]] std::string_view name() const noexcept {
++    return __name_;
++  }
++  [[nodiscard]] std::string_view target() const noexcept {
++    return __target_;
++  }
+ 
+-private:
+-  string __name_;
++ private:
++  std::string __name_;
+   // TODO TZDB instead of the name we can store the pointer to a zone. These
+   // pointers are immutable. This makes it possible to directly return a
+   // pointer in the time_zone in the 'locate_zone' function.
+-  string __target_;
++  std::string __target_;
+ };
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI inline bool
+-operator==(const time_zone_link& __x, const time_zone_link& __y) noexcept {
++[[nodiscard]] inline bool operator==(
++    const time_zone_link& __x,
++    const time_zone_link& __y) noexcept {
+   return __x.name() == __y.name();
+ }
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI inline strong_ordering
+-operator<=>(const time_zone_link& __x, const time_zone_link& __y) noexcept {
+-  return __x.name() <=> __y.name();
++[[nodiscard]] inline bool operator!=(
++    const time_zone_link& __x,
++    const time_zone_link& __y) noexcept {
++  return !(__x.name() == __y.name());
+ }
+ 
+-} // namespace chrono
++[[nodiscard]] inline bool operator<(
++    const time_zone_link& __x,
++    const time_zone_link& __y) noexcept {
++  return __x.name() < __y.name();
++}
+ 
+-#  endif // _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM &&
+-         // _LIBCPP_HAS_LOCALIZATION
++[[nodiscard]] inline bool operator>(
++    const time_zone_link& __x,
++    const time_zone_link& __y) noexcept {
++  return __x.name() > __y.name();
++}
+ 
+-_LIBCPP_END_NAMESPACE_STD
++[[nodiscard]] inline bool operator<=(
++    const time_zone_link& __x,
++    const time_zone_link& __y) noexcept {
++  return !(__x.name() > __y.name());
++}
+ 
+-_LIBCPP_POP_MACROS
++[[nodiscard]] inline bool operator>=(
++    const time_zone_link& __x,
++    const time_zone_link& __y) noexcept {
++  return !(__x.name() < __y.name());
++}
+ 
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
++// [[nodiscard]] inline strong_ordering
++// operator<=>(const time_zone_link& __x, const time_zone_link& __y) noexcept {
++//   return __x.name() <=> __y.name();
++// }
+ 
+-#endif // _LIBCPP___CHRONO_TIME_ZONE_LINK_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/time_zone_private.h b/fbcode/velox/external/tzdb/time_zone_private.h
+--- a/fbcode/velox/external/tzdb/time_zone_private.h
++++ b/fbcode/velox/external/tzdb/time_zone_private.h
+@@ -9,49 +9,48 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP_SRC_INCLUDE_TZDB_TIME_ZONE_PRIVATE_H
+-#define _LIBCPP_SRC_INCLUDE_TZDB_TIME_ZONE_PRIVATE_H
++#pragma once
+ 
+-#include <chrono>
+ #include <string>
+ #include <vector>
+ 
+-#include "types_private.h"
++#include "velox/external/tzdb/time_zone.h"
++#include "velox/external/tzdb/types_private.h"
+ 
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ class time_zone::__impl {
+-public:
+-  explicit _LIBCPP_HIDE_FROM_ABI __impl(string&& __name, const __tz::__rules_storage_type& __rules_db)
++ public:
++  explicit __impl(std::string&& __name, const __rules_storage_type& __rules_db)
+       : __name_(std::move(__name)), __rules_db_(__rules_db) {}
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI string_view __name() const noexcept { return __name_; }
++  [[nodiscard]] std::string_view __name() const noexcept {
++    return __name_;
++  }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI vector<__tz::__continuation>& __continuations() { return __continuations_; }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const vector<__tz::__continuation>& __continuations() const {
++  [[nodiscard]] std::vector<facebook::velox::tzdb::__continuation>& __continuations() {
++    return __continuations_;
++  }
++  [[nodiscard]] const std::vector<facebook::velox::tzdb::__continuation>& __continuations() const {
+     return __continuations_;
+   }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const __tz::__rules_storage_type& __rules_db() const { return __rules_db_; }
++  [[nodiscard]] const __rules_storage_type& __rules_db() const {
++    return __rules_db_;
++  }
+ 
+-private:
+-  string __name_;
++ private:
++  std::string __name_;
+   // Note the first line has a name + __continuation, the other lines
+   // are just __continuations. So there is always at least one item in
+   // the vector.
+-  vector<__tz::__continuation> __continuations_;
++  std::vector<facebook::velox::tzdb::__continuation> __continuations_;
+ 
+   // Continuations often depend on a set of rules. The rules are stored in
+   // parallel data structurs in tzdb_list. From the time_zone it's not possible
+   // to find its associated tzdb entry and thus not possible to find its
+   // associated rules. Therefore a link to the rules in stored in this class.
+-  const __tz::__rules_storage_type& __rules_db_;
++  const __rules_storage_type& __rules_db_;
+ };
+ 
+-} // namespace chrono
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // _LIBCPP_SRC_INCLUDE_TZDB_TIME_ZONE_PRIVATE_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/types_private.h b/fbcode/velox/external/tzdb/types_private.h
+--- a/fbcode/velox/external/tzdb/types_private.h
++++ b/fbcode/velox/external/tzdb/types_private.h
+@@ -1,4 +1,3 @@
+-
+ // -*- C++ -*-
+ //===----------------------------------------------------------------------===//
+ //
+@@ -10,8 +9,7 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef __LIBCPP_SRC_INCLUDE_TZDB_TYPES_PRIVATE_H
+-#define __LIBCPP_SRC_INCLUDE_TZDB_TYPES_PRIVATE_H
++#pragma once
+ 
+ #include <chrono>
+ #include <string>
+@@ -19,7 +17,7 @@
+ #include <variant>
+ #include <vector>
+ 
+-_LIBCPP_BEGIN_NAMESPACE_STD
++#include "velox/external/date/date.h"
+ 
+ // TODO TZDB
+ // The helper classes in this header have no constructor but are loaded with
+@@ -29,14 +27,17 @@
+ // should be reconsidered. (For now the design is kept as is, in case this
+ // header needs to be public for unforseen reasons.)
+ 
+-namespace chrono::__tz {
++namespace facebook::velox::tzdb {
+ 
+ // Sun>=8   first Sunday on or after the eighth
+ // Sun<=25  last Sunday on or before the 25th
+ struct __constrained_weekday {
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI year_month_day operator()(year __year, month __month) const {
+-    auto __result = static_cast<sys_days>(year_month_day{__year, __month, __day});
+-    weekday __wd{static_cast<sys_days>(__result)};
++  [[nodiscard]] date::year_month_day operator()(
++      date::year __year,
++      date::month __month) const {
++    auto __result = static_cast<date::sys_days>(
++        date::year_month_day{__year, __month, __day});
++    date::weekday __wd{static_cast<date::sys_days>(__result)};
+ 
+     if (__comparison == __le)
+       __result -= __wd - __weekday;
+@@ -46,9 +47,9 @@
+     return __result;
+   }
+ 
+-  weekday __weekday;
++  date::weekday __weekday;
+   enum __comparison_t { __le, __ge } __comparison;
+-  day __day;
++  date::day __day;
+ };
+ 
+ // The on field has a few alternative presentations
+@@ -57,38 +58,41 @@
+ //  lastMon  the last Monday in the month
+ //  Sun>=8   first Sunday on or after the eighth
+ //  Sun<=25  last Sunday on or before the 25th
+-using __on = variant<day, weekday_last, __constrained_weekday>;
++using __on = std::variant<date::day, date::weekday_last, __constrained_weekday>;
+ 
+ enum class __clock { __local, __standard, __universal };
+ 
+ struct __at {
+-  seconds __time{0};
+-  __tz::__clock __clock{__tz::__clock::__local};
++  std::chrono::seconds __time{0};
++  facebook::velox::tzdb::__clock __clock{
++      facebook::velox::tzdb::__clock::__local};
+ };
+ 
+ struct __save {
+-  seconds __time;
++  std::chrono::seconds __time;
+   bool __is_dst;
+ };
+ 
+ // The names of the fields match the fields of a Rule.
+ struct __rule {
+-  year __from;
+-  year __to;
+-  month __in;
+-  __tz::__on __on;
+-  __tz::__at __at;
+-  __tz::__save __save;
+-  string __letters;
++  date::year __from;
++  date::year __to;
++  date::month __in;
++  facebook::velox::tzdb::__on __on;
++  facebook::velox::tzdb::__at __at;
++  facebook::velox::tzdb::__save __save;
++  std::string __letters;
+ };
+ 
+-using __rules_storage_type = std::vector<std::pair<string, vector<__tz::__rule>>>; // TODO TZDB use flat_map;
++using __rules_storage_type =
++    std::vector<std::pair<std::string, std::vector<__rule>>>; // TODO TZDB use
++                                                              // flat_map;
+ 
+ struct __continuation {
+   // Non-owning link to the RULE entries.
+-  __tz::__rules_storage_type* __rule_database_;
++  __rules_storage_type* __rule_database_;
+ 
+-  seconds __stdoff;
++  std::chrono::seconds __stdoff;
+ 
+   // The RULES is either a SAVE or a NAME.
+   // The size_t is used as cache. After loading the rules they are
+@@ -97,23 +101,23 @@
+   // If this field contains - then standard time always
+   // applies. This is indicated by the monostate.
+   // TODO TZDB Investigate implantation the size_t based caching.
+-  using __rules_t = variant<monostate, __tz::__save, string /*, size_t*/>;
++  using __rules_t = std::variant<
++      std::monostate,
++      facebook::velox::tzdb::__save,
++      std::string /*, size_t*/>;
+ 
+   __rules_t __rules;
+ 
+-  string __format;
++  std::string __format;
+   // TODO TZDB the until field can contain more than just a year.
+   // Parts of the UNTIL, the optional parts are default initialized
+   //    optional<year> __until_;
+-  year __year = chrono::year::min();
+-  month __in{January};
+-  __tz::__on __on{chrono::day{1}};
+-  __tz::__at __at{chrono::seconds{0}, __tz::__clock::__local};
++  date::year __year = date::year::min();
++  date::month __in{date::January};
++  facebook::velox::tzdb::__on __on{date::day{1}};
++  facebook::velox::tzdb::__at __at{
++      std::chrono::seconds{0},
++      facebook::velox::tzdb::__clock::__local};
+ };
+ 
+-} // namespace chrono::__tz
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // __LIBCPP_SRC_INCLUDE_TZDB_TYPES_PRIVATE_H
+-
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/tzdb.cpp b/fbcode/velox/external/tzdb/tzdb.cpp
+--- a/fbcode/velox/external/tzdb/tzdb.cpp
++++ b/fbcode/velox/external/tzdb/tzdb.cpp
+@@ -1,4 +1,3 @@
+-
+ //===----------------------------------------------------------------------===//
+ //
+ // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+@@ -9,7 +8,8 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#include <__assert>
++#include <sys/stat.h>
++#include <unistd.h>
+ #include <algorithm>
+ #include <cctype>
+ #include <chrono>
+@@ -20,10 +20,11 @@
+ #include <string_view>
+ #include <vector>
+ 
+-#include "include/tzdb/time_zone_private.h"
+-#include "include/tzdb/types_private.h"
+-#include "include/tzdb/tzdb_list_private.h"
+-#include "include/tzdb/tzdb_private.h"
++#include "velox/external/date/date.h"
++#include "velox/external/tzdb/time_zone_private.h"
++#include "velox/external/tzdb/types_private.h"
++#include "velox/external/tzdb/tzdb_list_private.h"
++#include "velox/external/tzdb/tzdb_private.h"
+ 
+ // Contains a parser for the IANA time zone data files.
+ //
+@@ -46,101 +47,141 @@
+ //
+ // TODO TZDB Implement the Windows mapping in tzdb::current_zone
+ 
+-_LIBCPP_BEGIN_NAMESPACE_STD
++namespace facebook::velox::tzdb {
+ 
+-namespace chrono {
++using namespace std::chrono_literals;
+ 
+-// This function is weak so it can be overriden in the tests. The
++// This function is weak so it can be overridden in the tests. The
+ // declaration is in the test header test/support/test_tzdb.h
+-_LIBCPP_WEAK string_view __libcpp_tzdb_directory() {
+-#if defined(__linux__)
+-  return "/usr/share/zoneinfo/";
+-#else
+-#  error "unknown path to the IANA Time Zone Database"
+-#endif
++std::string __libcpp_tzdb_directory() {
++  struct stat sb;
++  using namespace std;
++#if !defined(__APPLE__)
++  CONSTDATA auto tz_dir_default = "/usr/share/zoneinfo";
++  CONSTDATA auto tz_dir_buildroot = "/usr/share/zoneinfo/uclibc";
++
++  // Check special path which is valid for buildroot with uclibc builds
++  if (stat(tz_dir_buildroot, &sb) == 0 && S_ISDIR(sb.st_mode))
++    return tz_dir_buildroot;
++  else if (stat(tz_dir_default, &sb) == 0 && S_ISDIR(sb.st_mode))
++    return tz_dir_default;
++  else
++    throw runtime_error("discover_tz_dir failed to find zoneinfo\n");
++#else // __APPLE__
++  CONSTDATA auto timezone = "/etc/localtime";
++  if (!(lstat(timezone, &sb) == 0 && S_ISLNK(sb.st_mode) && sb.st_size > 0))
++    throw runtime_error("discover_tz_dir failed\n");
++  string result;
++  unique_ptr<char[]> rp(new char[sb.st_size]);
++  const auto rp_length = readlink(timezone, rp.get(), sb.st_size);
++  if (rp_length > 0)
++    result = string(rp.get(), rp_length); // readlink doesn't null-terminate
++  else
++    throw system_error(errno, system_category(), "readlink() failed");
++  auto i = result.find("zoneinfo");
++  if (i == string::npos)
++    throw runtime_error("discover_tz_dir failed to find zoneinfo\n");
++  i = result.find('/', i);
++  if (i == string::npos)
++    throw runtime_error("discover_tz_dir failed to find '/'\n");
++  return result.substr(0, i);
++#endif // __APPLE__
+ }
+ 
+ //===----------------------------------------------------------------------===//
+ //                           Details
+ //===----------------------------------------------------------------------===//
+ 
+-[[nodiscard]] static bool __is_whitespace(int __c) { return __c == ' ' || __c == '\t'; }
++[[nodiscard]] static bool __is_whitespace(int __c) {
++  return __c == ' ' || __c == '\t';
++}
+ 
+-static void __skip_optional_whitespace(istream& __input) {
+-  while (chrono::__is_whitespace(__input.peek()))
++static void __skip_optional_whitespace(std::istream& __input) {
++  while (__is_whitespace(__input.peek()))
+     __input.get();
+ }
+ 
+-static void __skip_mandatory_whitespace(istream& __input) {
+-  if (!chrono::__is_whitespace(__input.get()))
++static void __skip_mandatory_whitespace(std::istream& __input) {
++  if (!__is_whitespace(__input.get()))
+     std::__throw_runtime_error("corrupt tzdb: expected whitespace");
+ 
+-  chrono::__skip_optional_whitespace(__input);
++  __skip_optional_whitespace(__input);
+ }
+ 
+-[[nodiscard]] static bool __is_eol(int __c) { return __c == '\n' || __c == std::char_traits<char>::eof(); }
++[[nodiscard]] static bool __is_eol(int __c) {
++  return __c == '\n' || __c == std::char_traits<char>::eof();
++}
+ 
+-static void __skip_line(istream& __input) {
+-  while (!chrono::__is_eol(__input.peek())) {
++static void __skip_line(std::istream& __input) {
++  while (!__is_eol(__input.peek())) {
+     __input.get();
+   }
+   __input.get();
+ }
+ 
+-static void __skip(istream& __input, char __suffix) {
++static void __skip(std::istream& __input, char __suffix) {
+   if (std::tolower(__input.peek()) == __suffix)
+     __input.get();
+ }
+ 
+-static void __skip(istream& __input, string_view __suffix) {
++static void __skip(std::istream& __input, std::string_view __suffix) {
+   for (auto __c : __suffix)
+     if (std::tolower(__input.peek()) == __c)
+       __input.get();
+ }
+ 
+-static void __matches(istream& __input, char __expected) {
+-  _LIBCPP_ASSERT_INTERNAL(!std::isalpha(__expected) || std::islower(__expected), "lowercase characters only here!");
++static void __matches(std::istream& __input, char __expected) {
++  if (std::isalpha(__expected) && !std::islower(__expected)) {
++    throw std::runtime_error("lowercase characters only here!");
++  }
+   char __c = __input.get();
+   if (std::tolower(__c) != __expected)
+     std::__throw_runtime_error(
+-        (string("corrupt tzdb: expected character '") + __expected + "', got '" + __c + "' instead").c_str());
++        (std::string("corrupt tzdb: expected character '") + __expected +
++         "', got '" + __c + "' instead")
++            .c_str());
+ }
+ 
+-static void __matches(istream& __input, string_view __expected) {
++static void __matches(std::istream& __input, std::string_view __expected) {
+   for (auto __c : __expected) {
+-    _LIBCPP_ASSERT_INTERNAL(!std::isalpha(__c) || std::islower(__c), "lowercase strings only here!");
++    if (std::isalpha(__c) && !std::islower(__c)) {
++      throw std::runtime_error("lowercase strings only here!");
++    }
+     char __actual = __input.get();
+     if (std::tolower(__actual) != __c)
+       std::__throw_runtime_error(
+-          (string("corrupt tzdb: expected character '") + __c + "' from string '" + string(__expected) + "', got '" +
+-           __actual + "' instead")
++          (std::string("corrupt tzdb: expected character '") + __c +
++           "' from string '" + std::string(__expected) + "', got '" + __actual +
++           "' instead")
+               .c_str());
+   }
+ }
+ 
+-[[nodiscard]] static string __parse_string(istream& __input) {
+-  string __result;
++[[nodiscard]] static std::string __parse_string(std::istream& __input) {
++  std::string __result;
+   while (true) {
+     int __c = __input.get();
+     switch (__c) {
+-    case ' ':
+-    case '\t':
+-    case '\n':
+-      __input.unget();
+-      [[fallthrough]];
+-    case istream::traits_type::eof():
+-      if (__result.empty())
+-        std::__throw_runtime_error("corrupt tzdb: expected a string");
++      case ' ':
++      case '\t':
++      case '\n':
++        __input.unget();
++        [[fallthrough]];
++      case std::istream::traits_type::eof():
++        if (__result.empty())
++          std::__throw_runtime_error("corrupt tzdb: expected a string");
+ 
+-      return __result;
++        return __result;
+ 
+-    default:
+-      __result.push_back(__c);
++      default:
++        __result.push_back(__c);
+     }
+   }
+ }
+ 
+-[[nodiscard]] static int64_t __parse_integral(istream& __input, bool __leading_zero_allowed) {
++[[nodiscard]] static int64_t __parse_integral(
++    std::istream& __input,
++    bool __leading_zero_allowed) {
+   int64_t __result = __input.get();
+   if (__leading_zero_allowed) {
+     if (__result < '0' || __result > '9')
+@@ -177,159 +218,161 @@
+ //                          Calendar
+ //===----------------------------------------------------------------------===//
+ 
+-[[nodiscard]] static day __parse_day(istream& __input) {
+-  unsigned __result = chrono::__parse_integral(__input, false);
++[[nodiscard]] static date::day __parse_day(std::istream& __input) {
++  unsigned __result = __parse_integral(__input, false);
+   if (__result > 31)
+     std::__throw_runtime_error("corrupt tzdb day: value too large");
+-  return day{__result};
++  return date::day{__result};
+ }
+ 
+-[[nodiscard]] static weekday __parse_weekday(istream& __input) {
++[[nodiscard]] static date::weekday __parse_weekday(std::istream& __input) {
+   // TZDB allows the shortest unique name.
+   switch (std::tolower(__input.get())) {
+-  case 'f':
+-    chrono::__skip(__input, "riday");
+-    return Friday;
++    case 'f':
++      __skip(__input, "riday");
++      return date::Friday;
+ 
+-  case 'm':
+-    chrono::__skip(__input, "onday");
+-    return Monday;
++    case 'm':
++      __skip(__input, "onday");
++      return date::Monday;
+ 
+-  case 's':
+-    switch (std::tolower(__input.get())) {
+-    case 'a':
+-      chrono::__skip(__input, "turday");
+-      return Saturday;
++    case 's':
++      switch (std::tolower(__input.get())) {
++        case 'a':
++          __skip(__input, "turday");
++          return date::Saturday;
+ 
+-    case 'u':
+-      chrono::__skip(__input, "nday");
+-      return Sunday;
+-    }
+-    break;
++        case 'u':
++          __skip(__input, "nday");
++          return date::Sunday;
++      }
++      break;
+ 
+-  case 't':
+-    switch (std::tolower(__input.get())) {
+-    case 'h':
+-      chrono::__skip(__input, "ursday");
+-      return Thursday;
++    case 't':
++      switch (std::tolower(__input.get())) {
++        case 'h':
++          __skip(__input, "ursday");
++          return date::Thursday;
+ 
+-    case 'u':
+-      chrono::__skip(__input, "esday");
+-      return Tuesday;
+-    }
+-    break;
+-  case 'w':
+-    chrono::__skip(__input, "ednesday");
+-    return Wednesday;
++        case 'u':
++          __skip(__input, "esday");
++          return date::Tuesday;
++      }
++      break;
++    case 'w':
++      __skip(__input, "ednesday");
++      return date::Wednesday;
+   }
+ 
+   std::__throw_runtime_error("corrupt tzdb weekday: invalid name");
+ }
+ 
+-[[nodiscard]] static month __parse_month(istream& __input) {
++[[nodiscard]] static date::month __parse_month(std::istream& __input) {
+   // TZDB allows the shortest unique name.
+   switch (std::tolower(__input.get())) {
+-  case 'a':
+-    switch (std::tolower(__input.get())) {
+-    case 'p':
+-      chrono::__skip(__input, "ril");
+-      return April;
+-
+-    case 'u':
+-      chrono::__skip(__input, "gust");
+-      return August;
+-    }
+-    break;
++    case 'a':
++      switch (std::tolower(__input.get())) {
++        case 'p':
++          __skip(__input, "ril");
++          return date::April;
+ 
+-  case 'd':
+-    chrono::__skip(__input, "ecember");
+-    return December;
++        case 'u':
++          __skip(__input, "gust");
++          return date::August;
++      }
++      break;
+ 
+-  case 'f':
+-    chrono::__skip(__input, "ebruary");
+-    return February;
++    case 'd':
++      __skip(__input, "ecember");
++      return date::December;
+ 
+-  case 'j':
+-    switch (std::tolower(__input.get())) {
+-    case 'a':
+-      chrono::__skip(__input, "nuary");
+-      return January;
++    case 'f':
++      __skip(__input, "ebruary");
++      return date::February;
+ 
+-    case 'u':
++    case 'j':
+       switch (std::tolower(__input.get())) {
+-      case 'n':
+-        chrono::__skip(__input, 'e');
+-        return June;
+-
+-      case 'l':
+-        chrono::__skip(__input, 'y');
+-        return July;
++        case 'a':
++          __skip(__input, "nuary");
++          return date::January;
++
++        case 'u':
++          switch (std::tolower(__input.get())) {
++            case 'n':
++              __skip(__input, 'e');
++              return date::June;
++
++            case 'l':
++              __skip(__input, 'y');
++              return date::July;
++          }
+       }
+-    }
+-    break;
++      break;
+ 
+-  case 'm':
+-    if (std::tolower(__input.get()) == 'a')
+-      switch (std::tolower(__input.get())) {
+-      case 'y':
+-        return May;
++    case 'm':
++      if (std::tolower(__input.get()) == 'a')
++        switch (std::tolower(__input.get())) {
++          case 'y':
++            return date::May;
+ 
+-      case 'r':
+-        chrono::__skip(__input, "ch");
+-        return March;
+-      }
+-    break;
++          case 'r':
++            __skip(__input, "ch");
++            return date::March;
++        }
++      break;
+ 
+-  case 'n':
+-    chrono::__skip(__input, "ovember");
+-    return November;
++    case 'n':
++      __skip(__input, "ovember");
++      return date::November;
+ 
+-  case 'o':
+-    chrono::__skip(__input, "ctober");
+-    return October;
++    case 'o':
++      __skip(__input, "ctober");
++      return date::October;
+ 
+-  case 's':
+-    chrono::__skip(__input, "eptember");
+-    return September;
++    case 's':
++      __skip(__input, "eptember");
++      return date::September;
+   }
+   std::__throw_runtime_error("corrupt tzdb month: invalid name");
+ }
+ 
+-[[nodiscard]] static year __parse_year_value(istream& __input) {
++[[nodiscard]] static date::year __parse_year_value(std::istream& __input) {
+   bool __negative = __input.peek() == '-';
+   if (__negative) [[unlikely]]
+     __input.get();
+ 
+   int64_t __result = __parse_integral(__input, true);
+-  if (__result > static_cast<int>(year::max())) {
++  if (__result > static_cast<int>(date::year::max())) {
+     if (__negative)
+-      std::__throw_runtime_error("corrupt tzdb year: year is less than the minimum");
++      std::__throw_runtime_error(
++          "corrupt tzdb year: year is less than the minimum");
+ 
+-    std::__throw_runtime_error("corrupt tzdb year: year is greater than the maximum");
++    std::__throw_runtime_error(
++        "corrupt tzdb year: year is greater than the maximum");
+   }
+ 
+-  return year{static_cast<int>(__negative ? -__result : __result)};
++  return date::year{static_cast<int>(__negative ? -__result : __result)};
+ }
+ 
+-[[nodiscard]] static year __parse_year(istream& __input) {
++[[nodiscard]] static date::year __parse_year(std::istream& __input) {
+   if (std::tolower(__input.peek()) != 'm') [[likely]]
+-    return chrono::__parse_year_value(__input);
++    return __parse_year_value(__input);
+ 
+   __input.get();
+   switch (std::tolower(__input.peek())) {
+-  case 'i':
+-    __input.get();
+-    chrono::__skip(__input, 'n');
+-    [[fallthrough]];
++    case 'i':
++      __input.get();
++      __skip(__input, 'n');
++      [[fallthrough]];
+ 
+-  case ' ':
+-    // The m is minimum, even when that is ambiguous.
+-    return year::min();
++    case ' ':
++      // The m is minimum, even when that is ambiguous.
++      return date::year::min();
+ 
+-  case 'a':
+-    __input.get();
+-    chrono::__skip(__input, 'x');
+-    return year::max();
++    case 'a':
++      __input.get();
++      __skip(__input, 'x');
++      return date::year::max();
+   }
+ 
+   std::__throw_runtime_error("corrupt tzdb year: expected 'min' or 'max'");
+@@ -339,44 +382,51 @@
+ //                        TZDB fields
+ //===----------------------------------------------------------------------===//
+ 
+-[[nodiscard]] static year __parse_to(istream& __input, year __only) {
++[[nodiscard]] static date::year __parse_to(
++    std::istream& __input,
++    date::year __only) {
+   if (std::tolower(__input.peek()) != 'o')
+-    return chrono::__parse_year(__input);
++    return __parse_year(__input);
+ 
+   __input.get();
+-  chrono::__skip(__input, "nly");
++  __skip(__input, "nly");
+   return __only;
+ }
+ 
+-[[nodiscard]] static __tz::__constrained_weekday::__comparison_t __parse_comparison(istream& __input) {
++[[nodiscard]] static __constrained_weekday::__comparison_t __parse_comparison(
++    std::istream& __input) {
+   switch (__input.get()) {
+-  case '>':
+-    chrono::__matches(__input, '=');
+-    return __tz::__constrained_weekday::__ge;
++    case '>':
++      __matches(__input, '=');
++      return __constrained_weekday::__ge;
+ 
+-  case '<':
+-    chrono::__matches(__input, '=');
+-    return __tz::__constrained_weekday::__le;
++    case '<':
++      __matches(__input, '=');
++      return __constrained_weekday::__le;
+   }
+   std::__throw_runtime_error("corrupt tzdb on: expected '>=' or '<='");
+ }
+ 
+-[[nodiscard]] static __tz::__on __parse_on(istream& __input) {
++[[nodiscard]] static facebook::velox::tzdb::__on __parse_on(
++    std::istream& __input) {
+   if (std::isdigit(__input.peek()))
+-    return chrono::__parse_day(__input);
++    return __parse_day(__input);
+ 
+   if (std::tolower(__input.peek()) == 'l') {
+-    chrono::__matches(__input, "last");
+-    return weekday_last(chrono::__parse_weekday(__input));
++    __matches(__input, "last");
++    return date::weekday_last(__parse_weekday(__input));
+   }
+ 
+-  return __tz::__constrained_weekday{
+-      chrono::__parse_weekday(__input), chrono::__parse_comparison(__input), chrono::__parse_day(__input)};
++  return __constrained_weekday{
++      __parse_weekday(__input),
++      __parse_comparison(__input),
++      __parse_day(__input)};
+ }
+ 
+-[[nodiscard]] static seconds __parse_duration(istream& __input) {
+-  seconds __result{0};
+-  int __c         = __input.peek();
++[[nodiscard]] static std::chrono::seconds __parse_duration(
++    std::istream& __input) {
++  std::chrono::seconds __result{0};
++  int __c = __input.peek();
+   bool __negative = __c == '-';
+   if (__negative) {
+     __input.get();
+@@ -386,17 +436,17 @@
+       return __result;
+   }
+ 
+-  __result += hours(__parse_integral(__input, true));
++  __result += std::chrono::hours(__parse_integral(__input, true));
+   if (__input.peek() != ':')
+     return __negative ? -__result : __result;
+ 
+   __input.get();
+-  __result += minutes(__parse_integral(__input, true));
++  __result += std::chrono::minutes(__parse_integral(__input, true));
+   if (__input.peek() != ':')
+     return __negative ? -__result : __result;
+ 
+   __input.get();
+-  __result += seconds(__parse_integral(__input, true));
++  __result += std::chrono::seconds(__parse_integral(__input, true));
+   if (__input.peek() != '.')
+     return __negative ? -__result : __result;
+ 
+@@ -406,70 +456,78 @@
+   return __negative ? -__result : __result;
+ }
+ 
+-[[nodiscard]] static __tz::__clock __parse_clock(istream& __input) {
++[[nodiscard]] static facebook::velox::tzdb::__clock __parse_clock(
++    std::istream& __input) {
+   switch (__input.get()) { // case sensitive
+-  case 'w':
+-    return __tz::__clock::__local;
+-  case 's':
+-    return __tz::__clock::__standard;
+-
+-  case 'u':
+-  case 'g':
+-  case 'z':
+-    return __tz::__clock::__universal;
++    case 'w':
++      return facebook::velox::tzdb::__clock::__local;
++    case 's':
++      return facebook::velox::tzdb::__clock::__standard;
++
++    case 'u':
++    case 'g':
++    case 'z':
++      return facebook::velox::tzdb::__clock::__universal;
+   }
+ 
+   __input.unget();
+-  return __tz::__clock::__local;
++  return facebook::velox::tzdb::__clock::__local;
+ }
+ 
+-[[nodiscard]] static bool __parse_dst(istream& __input, seconds __offset) {
++[[nodiscard]] static bool __parse_dst(
++    std::istream& __input,
++    std::chrono::seconds __offset) {
+   switch (__input.get()) { // case sensitive
+-  case 's':
+-    return false;
++    case 's':
++      return false;
+ 
+-  case 'd':
+-    return true;
++    case 'd':
++      return true;
+   }
+ 
+   __input.unget();
+   return __offset != 0s;
+ }
+ 
+-[[nodiscard]] static __tz::__at __parse_at(istream& __input) {
++[[nodiscard]] static facebook::velox::tzdb::__at __parse_at(
++    std::istream& __input) {
+   return {__parse_duration(__input), __parse_clock(__input)};
+ }
+ 
+-[[nodiscard]] static __tz::__save __parse_save(istream& __input) {
+-  seconds __time = chrono::__parse_duration(__input);
+-  return {__time, chrono::__parse_dst(__input, __time)};
++[[nodiscard]] static facebook::velox::tzdb::__save __parse_save(
++    std::istream& __input) {
++  std::chrono::seconds __time = __parse_duration(__input);
++  return {__time, __parse_dst(__input, __time)};
+ }
+ 
+-[[nodiscard]] static string __parse_letters(istream& __input) {
+-  string __result = __parse_string(__input);
++[[nodiscard]] static std::string __parse_letters(std::istream& __input) {
++  std::string __result = __parse_string(__input);
+   // Canonicalize "-" to "" since they are equivalent in the specification.
+   return __result != "-" ? __result : "";
+ }
+ 
+-[[nodiscard]] static __tz::__continuation::__rules_t __parse_rules(istream& __input) {
++[[nodiscard]] static __continuation::__rules_t __parse_rules(
++    std::istream& __input) {
+   int __c = __input.peek();
+   // A single -  is not a SAVE but a special case.
+   if (__c == '-') {
+     __input.get();
+-    if (chrono::__is_whitespace(__input.peek()))
+-      return monostate{};
++    if (__is_whitespace(__input.peek()))
++      return std::monostate{};
+     __input.unget();
+-    return chrono::__parse_save(__input);
++    return __parse_save(__input);
+   }
+ 
+   if (std::isdigit(__c) || __c == '+')
+-    return chrono::__parse_save(__input);
++    return __parse_save(__input);
+ 
+-  return chrono::__parse_string(__input);
++  return __parse_string(__input);
+ }
+ 
+-[[nodiscard]] static __tz::__continuation __parse_continuation(__tz::__rules_storage_type& __rules, istream& __input) {
+-  __tz::__continuation __result;
++[[nodiscard]] static facebook::velox::tzdb::__continuation __parse_continuation(
++    __rules_storage_type& __rules,
++    std::istream& __input) {
++  facebook::velox::tzdb::__continuation __result;
+ 
+   __result.__rule_database_ = std::addressof(__rules);
+ 
+@@ -478,29 +536,29 @@
+   // These fields have different suffix letters, these letters seem
+   // not to be used so do not allow any of them.
+ 
+-  __result.__stdoff = chrono::__parse_duration(__input);
+-  chrono::__skip_mandatory_whitespace(__input);
+-  __result.__rules = chrono::__parse_rules(__input);
+-  chrono::__skip_mandatory_whitespace(__input);
+-  __result.__format = chrono::__parse_string(__input);
+-  chrono::__skip_optional_whitespace(__input);
++  __result.__stdoff = __parse_duration(__input);
++  __skip_mandatory_whitespace(__input);
++  __result.__rules = __parse_rules(__input);
++  __skip_mandatory_whitespace(__input);
++  __result.__format = __parse_string(__input);
++  __skip_optional_whitespace(__input);
+ 
+-  if (chrono::__is_eol(__input.peek()))
++  if (__is_eol(__input.peek()))
+     return __result;
+-  __result.__year = chrono::__parse_year(__input);
+-  chrono::__skip_optional_whitespace(__input);
++  __result.__year = __parse_year(__input);
++  __skip_optional_whitespace(__input);
+ 
+-  if (chrono::__is_eol(__input.peek()))
++  if (__is_eol(__input.peek()))
+     return __result;
+-  __result.__in = chrono::__parse_month(__input);
+-  chrono::__skip_optional_whitespace(__input);
++  __result.__in = __parse_month(__input);
++  __skip_optional_whitespace(__input);
+ 
+-  if (chrono::__is_eol(__input.peek()))
++  if (__is_eol(__input.peek()))
+     return __result;
+-  __result.__on = chrono::__parse_on(__input);
+-  chrono::__skip_optional_whitespace(__input);
++  __result.__on = __parse_on(__input);
++  __skip_optional_whitespace(__input);
+ 
+-  if (chrono::__is_eol(__input.peek()))
++  if (__is_eol(__input.peek()))
+     return __result;
+   __result.__at = __parse_at(__input);
+ 
+@@ -511,24 +569,26 @@
+ //                   Time Zone Database entries
+ //===----------------------------------------------------------------------===//
+ 
+-static string __parse_version(istream& __input) {
++static std::string __parse_version(std::istream& __input) {
+   // The first line in tzdata.zi contains
+   //    # version YYYYw
+   // The parser expects this pattern
+   // #\s*version\s*\(.*)
+   // This part is not documented.
+-  chrono::__matches(__input, '#');
+-  chrono::__skip_optional_whitespace(__input);
+-  chrono::__matches(__input, "version");
+-  chrono::__skip_mandatory_whitespace(__input);
+-  return chrono::__parse_string(__input);
++  __matches(__input, '#');
++  __skip_optional_whitespace(__input);
++  __matches(__input, "version");
++  __skip_mandatory_whitespace(__input);
++  return __parse_string(__input);
+ }
+ 
+ [[nodiscard]]
+-static __tz::__rule& __create_entry(__tz::__rules_storage_type& __rules, const string& __name) {
+-  auto __result = [&]() -> __tz::__rule& {
+-    auto& __rule = __rules.emplace_back(__name, vector<__tz::__rule>{});
+-    return __rule.second.emplace_back();
++static __rule& __create_entry(
++    __rules_storage_type& __rules,
++    const std::string& __name) {
++  auto __result = [&]() -> __rule& {
++    auto& rule = __rules.emplace_back(__name, std::vector<__rule>{});
++    return rule.second.emplace_back();
+   };
+ 
+   if (__rules.empty())
+@@ -539,133 +599,155 @@
+   if (__rules.back().first == __name)
+     return __rules.back().second.emplace_back();
+ 
+-  if (auto __it = ranges::find(__rules, __name, [](const auto& __r) { return __r.first; });
+-      __it != ranges::end(__rules))
++  if (auto __it = std::find_if(
++          __rules.begin(),
++          __rules.end(),
++          [&__name](const auto& __r) { return __r.first == __name; });
++      __it != __rules.end())
+     return __it->second.emplace_back();
+ 
+   return __result();
+ }
+ 
+-static void __parse_rule(tzdb& __tzdb, __tz::__rules_storage_type& __rules, istream& __input) {
+-  chrono::__skip_mandatory_whitespace(__input);
+-  string __name = chrono::__parse_string(__input);
+-
+-  __tz::__rule& __rule = __create_entry(__rules, __name);
+-
+-  chrono::__skip_mandatory_whitespace(__input);
+-  __rule.__from = chrono::__parse_year(__input);
+-  chrono::__skip_mandatory_whitespace(__input);
+-  __rule.__to = chrono::__parse_to(__input, __rule.__from);
+-  chrono::__skip_mandatory_whitespace(__input);
+-  chrono::__matches(__input, '-');
+-  chrono::__skip_mandatory_whitespace(__input);
+-  __rule.__in = chrono::__parse_month(__input);
+-  chrono::__skip_mandatory_whitespace(__input);
+-  __rule.__on = chrono::__parse_on(__input);
+-  chrono::__skip_mandatory_whitespace(__input);
++static void __parse_rule(
++    tzdb& __tzdb,
++    __rules_storage_type& __rules,
++    std::istream& __input) {
++  __skip_mandatory_whitespace(__input);
++  std::string __name = __parse_string(__input);
++
++  __rule& __rule = __create_entry(__rules, __name);
++
++  __skip_mandatory_whitespace(__input);
++  __rule.__from = __parse_year(__input);
++  __skip_mandatory_whitespace(__input);
++  __rule.__to = __parse_to(__input, __rule.__from);
++  __skip_mandatory_whitespace(__input);
++  __matches(__input, '-');
++  __skip_mandatory_whitespace(__input);
++  __rule.__in = __parse_month(__input);
++  __skip_mandatory_whitespace(__input);
++  __rule.__on = __parse_on(__input);
++  __skip_mandatory_whitespace(__input);
+   __rule.__at = __parse_at(__input);
+-  chrono::__skip_mandatory_whitespace(__input);
++  __skip_mandatory_whitespace(__input);
+   __rule.__save = __parse_save(__input);
+-  chrono::__skip_mandatory_whitespace(__input);
+-  __rule.__letters = chrono::__parse_letters(__input);
+-  chrono::__skip_line(__input);
++  __skip_mandatory_whitespace(__input);
++  __rule.__letters = __parse_letters(__input);
++  __skip_line(__input);
+ }
+ 
+-static void __parse_zone(tzdb& __tzdb, __tz::__rules_storage_type& __rules, istream& __input) {
+-  chrono::__skip_mandatory_whitespace(__input);
+-  auto __p = std::make_unique<time_zone::__impl>(chrono::__parse_string(__input), __rules);
+-  vector<__tz::__continuation>& __continuations = __p->__continuations();
+-  chrono::__skip_mandatory_whitespace(__input);
++static void __parse_zone(
++    tzdb& __tzdb,
++    __rules_storage_type& __rules,
++    std::istream& __input) {
++  __skip_mandatory_whitespace(__input);
++  auto __p =
++      std::make_unique<time_zone::__impl>(__parse_string(__input), __rules);
++  std::vector<facebook::velox::tzdb::__continuation>& __continuations = __p->__continuations();
++  __skip_mandatory_whitespace(__input);
+ 
+   do {
+     // The first line must be valid, continuations are optional.
+     __continuations.emplace_back(__parse_continuation(__rules, __input));
+-    chrono::__skip_line(__input);
+-    chrono::__skip_optional_whitespace(__input);
++    __skip_line(__input);
++    __skip_optional_whitespace(__input);
+   } while (std::isdigit(__input.peek()) || __input.peek() == '-');
+ 
+   __tzdb.zones.emplace_back(time_zone::__create(std::move(__p)));
+ }
+ 
+-static void __parse_link(tzdb& __tzdb, istream& __input) {
+-  chrono::__skip_mandatory_whitespace(__input);
+-  string __target = chrono::__parse_string(__input);
+-  chrono::__skip_mandatory_whitespace(__input);
+-  string __name = chrono::__parse_string(__input);
+-  chrono::__skip_line(__input);
++static void __parse_link(tzdb& __tzdb, std::istream& __input) {
++  __skip_mandatory_whitespace(__input);
++  std::string __target = __parse_string(__input);
++  __skip_mandatory_whitespace(__input);
++  std::string __name = __parse_string(__input);
++  __skip_line(__input);
+ 
+-  __tzdb.links.emplace_back(std::__private_constructor_tag{}, std::move(__name), std::move(__target));
++  __tzdb.links.emplace_back(std::move(__name), std::move(__target));
+ }
+ 
+-static void __parse_tzdata(tzdb& __db, __tz::__rules_storage_type& __rules, istream& __input) {
++static void __parse_tzdata(
++    tzdb& __db,
++    __rules_storage_type& __rules,
++    std::istream& __input) {
+   while (true) {
+     int __c = std::tolower(__input.get());
+ 
+     switch (__c) {
+-    case istream::traits_type::eof():
+-      return;
++      case std::istream::traits_type::eof():
++        return;
+ 
+-    case ' ':
+-    case '\t':
+-    case '\n':
+-      break;
++      case ' ':
++      case '\t':
++      case '\n':
++        break;
+ 
+-    case '#':
+-      chrono::__skip_line(__input);
+-      break;
++      case '#':
++        __skip_line(__input);
++        break;
+ 
+-    case 'r':
+-      chrono::__skip(__input, "ule");
+-      chrono::__parse_rule(__db, __rules, __input);
+-      break;
++      case 'r':
++        __skip(__input, "ule");
++        __parse_rule(__db, __rules, __input);
++        break;
+ 
+-    case 'z':
+-      chrono::__skip(__input, "one");
+-      chrono::__parse_zone(__db, __rules, __input);
+-      break;
++      case 'z':
++        __skip(__input, "one");
++        __parse_zone(__db, __rules, __input);
++        break;
+ 
+-    case 'l':
+-      chrono::__skip(__input, "ink");
+-      chrono::__parse_link(__db, __input);
+-      break;
++      case 'l':
++        __skip(__input, "ink");
++        __parse_link(__db, __input);
++        break;
+ 
+-    default:
+-      std::__throw_runtime_error("corrupt tzdb: unexpected input");
++      default:
++        std::__throw_runtime_error("corrupt tzdb: unexpected input");
+     }
+   }
+ }
+ 
+-static void __parse_leap_seconds(vector<leap_second>& __leap_seconds, istream&& __input) {
++static void __parse_leap_seconds(
++    std::vector<leap_second>& __leap_seconds,
++    std::istream&& __input) {
+   // The file stores dates since 1 January 1900, 00:00:00, we want
+   // seconds since 1 January 1970.
+-  constexpr auto __offset = sys_days{1970y / January / 1} - sys_days{1900y / January / 1};
++  constexpr auto __offset =
++      date::sys_days{date::year(1970) / date::January / 1} -
++      date::sys_days{date::year(1900) / date::January / 1};
+ 
+   struct __entry {
+-    sys_seconds __timestamp;
+-    seconds __value;
++    __entry(date::sys_seconds __timestamp, std::chrono::seconds __value)
++        : __timestamp(__timestamp), __value(__value) {}
++
++    date::sys_seconds __timestamp;
++    std::chrono::seconds __value;
+   };
+-  vector<__entry> __entries;
++  std::vector<__entry> __entries;
+   [&] {
+     while (true) {
+       switch (__input.peek()) {
+-      case istream::traits_type::eof():
+-        return;
+-
+-      case ' ':
+-      case '\t':
+-      case '\n':
+-        __input.get();
+-        continue;
+-
+-      case '#':
+-        chrono::__skip_line(__input);
+-        continue;
++        case std::istream::traits_type::eof():
++          return;
++
++        case ' ':
++        case '\t':
++        case '\n':
++          __input.get();
++          continue;
++
++        case '#':
++          __skip_line(__input);
++          continue;
+       }
+ 
+-      sys_seconds __date = sys_seconds{seconds{chrono::__parse_integral(__input, false)}} - __offset;
+-      chrono::__skip_mandatory_whitespace(__input);
+-      seconds __value{chrono::__parse_integral(__input, false)};
+-      chrono::__skip_line(__input);
++      date::sys_seconds __date = date::sys_seconds{std::chrono::seconds{
++                                     __parse_integral(__input, false)}} -
++          __offset;
++      __skip_mandatory_whitespace(__input);
++      std::chrono::seconds __value{__parse_integral(__input, false)};
++      __skip_line(__input);
+ 
+       __entries.emplace_back(__date, __value);
+     }
+@@ -673,34 +755,48 @@
+   // The Standard requires the leap seconds to be sorted. The file
+   // leap-seconds.list usually provides them in sorted order, but that is not
+   // guaranteed so we ensure it here.
+-  ranges::sort(__entries, {}, &__entry::__timestamp);
++  std::sort(
++      __entries.begin(),
++      __entries.end(),
++      [](const auto& left_entry, const auto& right_entry) {
++        return left_entry.__timestamp < right_entry.__timestamp;
++      });
+ 
+   // The database should contain the number of seconds inserted by a leap
+   // second (1 or -1). So the difference between the two elements is stored.
+   // std::ranges::views::adjacent has not been implemented yet.
+-  (void)ranges::adjacent_find(__entries, [&](const __entry& __first, const __entry& __second) {
+-    __leap_seconds.emplace_back(
+-        std::__private_constructor_tag{}, __second.__timestamp, __second.__value - __first.__value);
+-    return false;
+-  });
+-}
+-
+-void __init_tzdb(tzdb& __tzdb, __tz::__rules_storage_type& __rules) {
+-  filesystem::path __root = chrono::__libcpp_tzdb_directory();
+-  ifstream __tzdata{__root / "tzdata.zi"};
+-
+-  __tzdb.version = chrono::__parse_version(__tzdata);
+-  chrono::__parse_tzdata(__tzdb, __rules, __tzdata);
+-  ranges::sort(__tzdb.zones);
+-  ranges::sort(__tzdb.links);
+-  ranges::sort(__rules, {}, [](const auto& p) { return p.first; });
++  (void)std::adjacent_find(
++      __entries.begin(),
++      __entries.end(),
++      [&](const __entry& __first, const __entry& __second) {
++        __leap_seconds.emplace_back(
++            __second.__timestamp, __second.__value - __first.__value);
++        return false;
++      });
++}
++
++void __init_tzdb(tzdb& __tzdb, __rules_storage_type& __rules) {
++  std::filesystem::path __root = __libcpp_tzdb_directory();
++  std::ifstream __tzdata{__root / "tzdata.zi"};
++
++  __tzdb.version = __parse_version(__tzdata);
++  __parse_tzdata(__tzdb, __rules, __tzdata);
++  std::sort(__tzdb.zones.begin(), __tzdb.zones.end());
++  std::sort(__tzdb.links.begin(), __tzdb.links.end());
++  std::sort(
++      __rules.begin(),
++      __rules.end(),
++      [](const auto& __left, const auto& __right) {
++        return __left.first < __right.first;
++      });
+ 
+   // There are two files with the leap second information
+   // - leapseconds as specified by zic
+   // - leap-seconds.list the source data
+   // The latter is much easier to parse, it seems Howard shares that
+   // opinion.
+-  chrono::__parse_leap_seconds(__tzdb.leap_seconds, ifstream{__root / "leap-seconds.list"});
++  __parse_leap_seconds(
++      __tzdb.leap_seconds, std::ifstream{__root / "leap-seconds.list"});
+ }
+ 
+ #ifdef _WIN32
+@@ -708,40 +804,7 @@
+   // TODO TZDB Implement this on Windows.
+   std::__throw_runtime_error("unknown time zone");
+ }
+-#else  // ifdef _WIN32
+-
+-[[nodiscard]] static string __current_zone_environment() {
+-  if (const char* __tz = std::getenv("TZ"))
+-    return __tz;
+-
+-  return {};
+-}
+-
+-[[nodiscard]] static string __current_zone_etc_localtime() {
+-  filesystem::path __path = "/etc/localtime";
+-  if (!filesystem::exists(__path) || !filesystem::is_symlink(__path))
+-    return {};
+-
+-  filesystem::path __tz = filesystem::read_symlink(__path);
+-  // The path may be a relative path, in that case convert it to an absolute
+-  // path based on the proper initial directory.
+-  if (__tz.is_relative())
+-    __tz = filesystem::canonical("/etc" / __tz);
+-
+-  return filesystem::relative(__tz, "/usr/share/zoneinfo/");
+-}
+-
+-[[nodiscard]] static string __current_zone_etc_timezone() {
+-  filesystem::path __path = "/etc/timezone";
+-  if (!filesystem::exists(__path))
+-    return {};
+-
+-  ifstream __f(__path);
+-  string __name;
+-  std::getline(__f, __name);
+-  return __name;
+-}
+-
++#else // ifdef _WIN32
+ [[nodiscard]] static const time_zone* __current_zone_posix(const tzdb& tzdb) {
+   // On POSIX systems there are several ways to configure the time zone.
+   // In order of priority they are:
+@@ -760,33 +823,38 @@
+   //
+   // - The time zone name is the target of the symlink /etc/localtime
+   //   relative to /usr/share/zoneinfo/
+-  //
+-  // - The file /etc/timezone. This text file contains the name of the time
+-  //   zone.
+-  //
+-  // On Linux systems it seems /etc/timezone is deprecated and being phased out.
+-  // This file is used when /etc/localtime does not exist, or when it exists but
+-  // is not a symlink. For more information and links see
+-  // https://github.com/llvm/llvm-project/issues/105634
+ 
+-  string __name = chrono::__current_zone_environment();
++  // The algorithm is like this:
++  // - If the environment variable TZ is set and points to a valid
++  //   record use this value.
++  // - Else use the name based on the `/etc/localtime` symlink.
+ 
+-  // Ignore invalid names in the environment.
+-  if (!__name.empty())
+-    if (const time_zone* __result = tzdb.__locate_zone(__name))
++  if (const char* __tz = getenv("TZ"))
++    if (const time_zone* __result = tzdb.__locate_zone(__tz))
+       return __result;
+ 
+-  __name = chrono::__current_zone_etc_localtime();
+-  if (__name.empty())
+-    __name = chrono::__current_zone_etc_timezone();
++  std::filesystem::path __path = "/etc/localtime";
++  if (!std::filesystem::exists(__path))
++    std::__throw_runtime_error(
++        "tzdb: the symlink '/etc/localtime' does not exist");
+ 
+-  if (__name.empty())
+-    std::__throw_runtime_error("tzdb: unable to determine the name of the current time zone");
++  if (!std::filesystem::is_symlink(__path))
++    std::__throw_runtime_error(
++        "tzdb: the path '/etc/localtime' is not a symlink");
+ 
++  std::filesystem::path __tz = std::filesystem::read_symlink(__path);
++  // The path may be a relative path, in that case convert it to an absolute
++  // path based on the proper initial directory.
++  if (__tz.is_relative())
++    __tz = std::filesystem::canonical("/etc" / __tz);
++
++  std::string __name = std::filesystem::relative(__tz, "/usr/share/zoneinfo/");
+   if (const time_zone* __result = tzdb.__locate_zone(__name))
+     return __result;
+ 
+-  std::__throw_runtime_error(("tzdb: the time zone '" + __name + "' is not found in the database").c_str());
++  std::__throw_runtime_error(
++      ("tzdb: the time zone '" + __name + "' is not found in the database")
++          .c_str());
+ }
+ #endif // ifdef _WIN32
+ 
+@@ -794,33 +862,30 @@
+ //                           Public API
+ //===----------------------------------------------------------------------===//
+ 
+-_LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI tzdb_list& get_tzdb_list() {
++tzdb_list& get_tzdb_list() {
+   static tzdb_list __result{new tzdb_list::__impl()};
+   return __result;
+ }
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI const time_zone* tzdb::__current_zone() const {
++[[nodiscard]] const time_zone* tzdb::__current_zone() const {
+ #ifdef _WIN32
+-  return chrono::__current_zone_windows(*this);
++  return __current_zone_windows(*this);
+ #else
+-  return chrono::__current_zone_posix(*this);
++  return __current_zone_posix(*this);
+ #endif
+ }
+ 
+-_LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI const tzdb& reload_tzdb() {
+-  if (chrono::remote_version() == chrono::get_tzdb().version)
+-    return chrono::get_tzdb();
++const tzdb& reload_tzdb() {
++  if (remote_version() == get_tzdb().version)
++    return get_tzdb();
+ 
+-  return chrono::get_tzdb_list().__implementation().__load();
++  return get_tzdb_list().__implementation().__load();
+ }
+ 
+-_LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI string remote_version() {
+-  filesystem::path __root = chrono::__libcpp_tzdb_directory();
+-  ifstream __tzdata{__root / "tzdata.zi"};
+-  return chrono::__parse_version(__tzdata);
++std::string remote_version() {
++  std::filesystem::path __root = __libcpp_tzdb_directory();
++  std::ifstream __tzdata{__root / "tzdata.zi"};
++  return __parse_version(__tzdata);
+ }
+ 
+-} // namespace chrono
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/tzdb.h b/fbcode/velox/external/tzdb/tzdb.h
+--- a/fbcode/velox/external/tzdb/tzdb.h
++++ b/fbcode/velox/external/tzdb/tzdb.h
+@@ -9,49 +9,37 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_TZDB_H
+-#define _LIBCPP___CHRONO_TZDB_H
++#pragma once
+ 
+-#include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
++#include <algorithm>
++#include <memory>
++#include <string>
++#include <string_view>
++#include <vector>
++#include "velox/external/tzdb/leap_second.h"
++#include "velox/external/tzdb/time_zone.h"
++#include "velox/external/tzdb/time_zone_link.h"
+ 
+-#  include <__algorithm/ranges_lower_bound.h>
+-#  include <__chrono/leap_second.h>
+-#  include <__chrono/time_zone.h>
+-#  include <__chrono/time_zone_link.h>
+-#  include <__config>
+-#  include <__memory/addressof.h>
+-#  include <__vector/vector.h>
+-#  include <stdexcept>
+-#  include <string>
+-#  include <string_view>
+-
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
+-
+-_LIBCPP_PUSH_MACROS
+-#  include <__undef_macros>
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#  if _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
+-
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ struct tzdb {
+-  string version;
+-  vector<time_zone> zones;
+-  vector<time_zone_link> links;
++  std::string version;
++  std::vector<time_zone> zones;
++  std::vector<time_zone_link> links;
+ 
+-  vector<leap_second> leap_seconds;
++  std::vector<leap_second> leap_seconds;
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const time_zone* __locate_zone(string_view __name) const {
++  [[nodiscard]] const time_zone* __locate_zone(std::string_view __name) const {
+     if (const time_zone* __result = __find_in_zone(__name))
+       return __result;
+ 
+-    if (auto __it = ranges::lower_bound(links, __name, {}, &time_zone_link::name);
++    if (auto __it = std::lower_bound(
++            links.begin(),
++            links.end(),
++            __name,
++            [](const time_zone_link& link, const std::string_view& name) {
++              return link.name() < name;
++            });
+         __it != links.end() && __it->name() == __name)
+       if (const time_zone* __result = __find_in_zone(__it->target()))
+         return __result;
+@@ -59,38 +47,33 @@
+     return nullptr;
+   }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const time_zone* locate_zone(string_view __name) const {
++  [[nodiscard]] const time_zone* locate_zone(std::string_view __name) const {
+     if (const time_zone* __result = __locate_zone(__name))
+       return __result;
+ 
+     std::__throw_runtime_error("tzdb: requested time zone not found");
+   }
+ 
+-  [[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI const time_zone* current_zone() const {
++  [[nodiscard]] const time_zone* current_zone() const {
+     return __current_zone();
+   }
+ 
+-private:
+-  _LIBCPP_HIDE_FROM_ABI const time_zone* __find_in_zone(string_view __name) const noexcept {
+-    if (auto __it = ranges::lower_bound(zones, __name, {}, &time_zone::name);
++ private:
++  const time_zone* __find_in_zone(std::string_view __name) const noexcept {
++    if (auto __it = std::lower_bound(
++            zones.begin(),
++            zones.end(),
++            __name,
++            [](const time_zone& zone, const std::string_view& name) {
++              return zone.name() < name;
++            });
+         __it != zones.end() && __it->name() == __name)
+       return std::addressof(*__it);
+ 
+     return nullptr;
+   }
+ 
+-  [[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI const time_zone* __current_zone() const;
++  [[nodiscard]] const time_zone* __current_zone() const;
+ };
+ 
+-} // namespace chrono
+-
+-#  endif // _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM &&
+-         // _LIBCPP_HAS_LOCALIZATION
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-_LIBCPP_POP_MACROS
+-
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
+-
+-#endif // _LIBCPP___CHRONO_TZDB_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/tzdb_list.cpp b/fbcode/velox/external/tzdb/tzdb_list.cpp
+--- a/fbcode/velox/external/tzdb/tzdb_list.cpp
++++ b/fbcode/velox/external/tzdb/tzdb_list.cpp
+@@ -1,4 +1,3 @@
+-
+ //===----------------------------------------------------------------------===//
+ //
+ // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+@@ -9,37 +8,34 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#include <chrono>
+-
+-#include "include/tzdb/tzdb_list_private.h"
++#include "velox/external/tzdb/tzdb_list_private.h"
+ 
+-_LIBCPP_BEGIN_NAMESPACE_STD
++namespace facebook::velox::tzdb {
+ 
+-namespace chrono {
+-
+-_LIBCPP_EXPORTED_FROM_ABI tzdb_list::~tzdb_list() { delete __impl_; }
++tzdb_list::~tzdb_list() {
++  delete __impl_;
++}
+ 
+-[[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI const tzdb& tzdb_list::__front() const noexcept { return __impl_->__front(); }
++[[nodiscard]] const tzdb& tzdb_list::__front() const noexcept {
++  return __impl_->__front();
++}
+ 
+-_LIBCPP_EXPORTED_FROM_ABI tzdb_list::const_iterator tzdb_list::__erase_after(const_iterator __p) {
++tzdb_list::const_iterator tzdb_list::__erase_after(const_iterator __p) {
+   return __impl_->__erase_after(__p);
+ }
+ 
+-[[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI tzdb_list::const_iterator tzdb_list::__begin() const noexcept {
++[[nodiscard]] tzdb_list::const_iterator tzdb_list::__begin() const noexcept {
+   return __impl_->__begin();
+ }
+-[[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI tzdb_list::const_iterator tzdb_list::__end() const noexcept {
++[[nodiscard]] tzdb_list::const_iterator tzdb_list::__end() const noexcept {
+   return __impl_->__end();
+ }
+ 
+-[[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI tzdb_list::const_iterator tzdb_list::__cbegin() const noexcept {
++[[nodiscard]] tzdb_list::const_iterator tzdb_list::__cbegin() const noexcept {
+   return __impl_->__begin();
+ }
+-[[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI tzdb_list::const_iterator tzdb_list::__cend() const noexcept {
++[[nodiscard]] tzdb_list::const_iterator tzdb_list::__cend() const noexcept {
+   return __impl_->__end();
+ }
+ 
+-} // namespace chrono
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/tzdb_list.h b/fbcode/velox/external/tzdb/tzdb_list.h
+--- a/fbcode/velox/external/tzdb/tzdb_list.h
++++ b/fbcode/velox/external/tzdb/tzdb_list.h
+@@ -1,4 +1,3 @@
+-
+ // -*- C++ -*-
+ //===----------------------------------------------------------------------===//
+ //
+@@ -10,29 +9,14 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_TZDB_LIST_H
+-#define _LIBCPP___CHRONO_TZDB_LIST_H
+-
+-#include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
+-
+-#  include <__chrono/time_zone.h>
+-#  include <__chrono/tzdb.h>
+-#  include <__config>
+-#  include <__fwd/string.h>
+-#  include <forward_list>
+-#  include <string_view>
+-
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
++#pragma once
+ 
+-#  if _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
++#include <forward_list>
++#include <string_view>
++#include "velox/external/tzdb/time_zone.h"
++#include "velox/external/tzdb/tzdb.h"
+ 
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ // TODO TZDB
+ // Libc++ recently switched to only export __ugly_names from the dylib.
+@@ -40,71 +24,76 @@
+ // should be adapted to this new style. The other tzdb headers should be
+ // evaluated too.
+ 
+-class _LIBCPP_AVAILABILITY_TZDB tzdb_list {
+-public:
++class tzdb_list {
++ public:
+   class __impl; // public to allow construction in dylib
+-  _LIBCPP_HIDE_FROM_ABI explicit tzdb_list(__impl* __p) : __impl_(__p) {
+-    _LIBCPP_ASSERT_NON_NULL(__impl_ != nullptr, "initialized time_zone without a valid pimpl object");
++  explicit tzdb_list(__impl* __p) : __impl_(__p) {
++    // _LIBCPP_ASSERT_NON_NULL(__impl_ != nullptr, "initialized time_zone
++    // without a valid pimpl object");
+   }
+-  _LIBCPP_EXPORTED_FROM_ABI ~tzdb_list();
++  ~tzdb_list();
+ 
+-  tzdb_list(const tzdb_list&)            = delete;
++  tzdb_list(const tzdb_list&) = delete;
+   tzdb_list& operator=(const tzdb_list&) = delete;
+ 
+-  using const_iterator = forward_list<tzdb>::const_iterator;
++  using const_iterator = std::forward_list<tzdb>::const_iterator;
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const tzdb& front() const noexcept { return __front(); }
++  [[nodiscard]] const tzdb& front() const noexcept {
++    return __front();
++  }
+ 
+-  _LIBCPP_HIDE_FROM_ABI const_iterator erase_after(const_iterator __p) { return __erase_after(__p); }
++  const_iterator erase_after(const_iterator __p) {
++    return __erase_after(__p);
++  }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator begin() const noexcept { return __begin(); }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator end() const noexcept { return __end(); }
++  [[nodiscard]] const_iterator begin() const noexcept {
++    return __begin();
++  }
++  [[nodiscard]] const_iterator end() const noexcept {
++    return __end();
++  }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator cbegin() const noexcept { return __cbegin(); }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI const_iterator cend() const noexcept { return __cend(); }
++  [[nodiscard]] const_iterator cbegin() const noexcept {
++    return __cbegin();
++  }
++  [[nodiscard]] const_iterator cend() const noexcept {
++    return __cend();
++  }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI __impl& __implementation() { return *__impl_; }
++  [[nodiscard]] __impl& __implementation() {
++    return *__impl_;
++  }
+ 
+-private:
+-  [[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI const tzdb& __front() const noexcept;
++ private:
++  [[nodiscard]] const tzdb& __front() const noexcept;
+ 
+-  _LIBCPP_EXPORTED_FROM_ABI const_iterator __erase_after(const_iterator __p);
++  const_iterator __erase_after(const_iterator __p);
+ 
+-  [[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI const_iterator __begin() const noexcept;
+-  [[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI const_iterator __end() const noexcept;
++  [[nodiscard]] const_iterator __begin() const noexcept;
++  [[nodiscard]] const_iterator __end() const noexcept;
+ 
+-  [[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI const_iterator __cbegin() const noexcept;
+-  [[nodiscard]] _LIBCPP_EXPORTED_FROM_ABI const_iterator __cend() const noexcept;
++  [[nodiscard]] const_iterator __cbegin() const noexcept;
++  [[nodiscard]] const_iterator __cend() const noexcept;
+ 
+   __impl* __impl_;
+ };
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI tzdb_list& get_tzdb_list();
++[[nodiscard]] tzdb_list& get_tzdb_list();
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI inline const tzdb& get_tzdb() {
++[[nodiscard]] inline const tzdb& get_tzdb() {
+   return get_tzdb_list().front();
+ }
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI inline const time_zone* locate_zone(string_view __name) {
++[[nodiscard]] inline const time_zone* locate_zone(std::string_view __name) {
+   return get_tzdb().locate_zone(__name);
+ }
+ 
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_HIDE_FROM_ABI inline const time_zone* current_zone() {
++[[nodiscard]] inline const time_zone* current_zone() {
+   return get_tzdb().current_zone();
+ }
+ 
+-_LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI const tzdb& reload_tzdb();
+-
+-[[nodiscard]] _LIBCPP_AVAILABILITY_TZDB _LIBCPP_EXPORTED_FROM_ABI string remote_version();
+-
+-} // namespace chrono
+-
+-#  endif // _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM &&
+-         // _LIBCPP_HAS_LOCALIZATION
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
++const tzdb& reload_tzdb();
+ 
+-#endif // _LIBCPP___CHRONO_TZDB_LIST_H
++[[nodiscard]] std::string remote_version();
+ 
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/tzdb_list_private.h b/fbcode/velox/external/tzdb/tzdb_list_private.h
+--- a/fbcode/velox/external/tzdb/tzdb_list_private.h
++++ b/fbcode/velox/external/tzdb/tzdb_list_private.h
+@@ -1,4 +1,3 @@
+-
+ //===----------------------------------------------------------------------===//
+ //
+ // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+@@ -9,26 +8,18 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP_SRC_INCLUDE_TZDB_TZDB_LIST_PRIVATE_H
+-#define _LIBCPP_SRC_INCLUDE_TZDB_TZDB_LIST_PRIVATE_H
++#pragma once
+ 
+-#include <__mutex/unique_lock.h>
+ #include <forward_list>
++#include "velox/external/tzdb/types_private.h"
++#include "velox/external/tzdb/tzdb_list.h"
++#include "velox/external/tzdb/tzdb_private.h"
+ 
+-// When threads are not available the locking is not required.
+-// When threads are available, we use std::mutex over std::shared_mutex
+-// due to the increased overhead of std::shared_mutex.
+-// See shared_mutex_vs_mutex.bench.cpp
+ #if _LIBCPP_HAS_THREADS
+-#  include <mutex>
++#include <mutex>
+ #endif
+ 
+-#include "types_private.h"
+-#include "tzdb_private.h"
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-namespace chrono {
++namespace facebook::velox::tzdb {
+ 
+ //===----------------------------------------------------------------------===//
+ //                          Private API
+@@ -45,8 +36,10 @@
+ // Since the nodes of a forward_list are stable it's possible to store pointers
+ // and references to these nodes.
+ class tzdb_list::__impl {
+-public:
+-  __impl() { __load_no_lock(); }
++ public:
++  __impl() {
++    __load_no_lock();
++  }
+ 
+   [[nodiscard]] const tzdb& __load() {
+ #if _LIBCPP_HAS_THREADS
+@@ -70,7 +63,8 @@
+     unique_lock __lock{__mutex_};
+ #endif
+ 
+-    __rules_.erase_after(std::next(__rules_.cbegin(), std::distance(__tzdb_.cbegin(), __p)));
++    __rules_.erase_after(
++        std::next(__rules_.cbegin(), std::distance(__tzdb_.cbegin(), __p)));
+     return __tzdb_.erase_after(__p);
+   }
+ 
+@@ -81,26 +75,24 @@
+     return __tzdb_.begin();
+   }
+   const_iterator __end() const noexcept {
+-    //  forward_list<T>::end does not access the list, so no need to take a lock.
++    //  forward_list<T>::end does not access the list, so no need to take a
++    //  lock.
+     return __tzdb_.end();
+   }
+ 
+-private:
++ private:
+   // Loads the tzdbs
+   // pre: The caller ensures the locking, if needed, is done.
+-  void __load_no_lock() { chrono::__init_tzdb(__tzdb_.emplace_front(), __rules_.emplace_front()); }
++  void __load_no_lock() {
++    __init_tzdb(__tzdb_.emplace_front(), __rules_.emplace_front());
++  }
+ 
+ #if _LIBCPP_HAS_THREADS
+   mutable mutex __mutex_;
+ #endif
+-  forward_list<tzdb> __tzdb_;
++  std::forward_list<tzdb> __tzdb_;
+ 
+-  forward_list<__tz::__rules_storage_type> __rules_;
++  std::forward_list<__rules_storage_type> __rules_;
+ };
+ 
+-} // namespace chrono
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // _LIBCPP_SRC_INCLUDE_TZDB_TZDB_LIST_PRIVATE_H
+-
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/tzdb_private.h b/fbcode/velox/external/tzdb/tzdb_private.h
+--- a/fbcode/velox/external/tzdb/tzdb_private.h
++++ b/fbcode/velox/external/tzdb/tzdb_private.h
+@@ -8,21 +8,13 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP_SRC_INCLUDE_TZDB_TZ_PRIVATE_H
+-#define _LIBCPP_SRC_INCLUDE_TZDB_TZ_PRIVATE_H
++#pragma once
+ 
+-#include <chrono>
++#include "velox/external/tzdb/types_private.h"
++#include "velox/external/tzdb/tzdb.h"
+ 
+-#include "types_private.h"
++namespace facebook::velox::tzdb {
+ 
+-_LIBCPP_BEGIN_NAMESPACE_STD
++void __init_tzdb(tzdb& __tzdb, __rules_storage_type& __rules);
+ 
+-namespace chrono {
+-
+-void __init_tzdb(tzdb& __tzdb, __tz::__rules_storage_type& __rules);
+-
+-} // namespace chrono
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-#endif // _LIBCPP_SRC_INCLUDE_TZDB_TZ_PRIVATE_H
++} // namespace facebook::velox::tzdb
+diff --git a/fbcode/velox/external/tzdb/zoned_time.h b/fbcode/velox/external/tzdb/zoned_time.h
+--- a/fbcode/velox/external/tzdb/zoned_time.h
++++ b/fbcode/velox/external/tzdb/zoned_time.h
+@@ -9,154 +9,125 @@
+ 
+ // For information see https://libcxx.llvm.org/DesignDocs/TimeZone.html
+ 
+-#ifndef _LIBCPP___CHRONO_ZONED_TIME_H
+-#define _LIBCPP___CHRONO_ZONED_TIME_H
+-
+-#include <version>
+-// Enable the contents of the header only when libc++ was built with experimental features enabled.
+-#if _LIBCPP_HAS_EXPERIMENTAL_TZDB
+-
+-#  include <__chrono/calendar.h>
+-#  include <__chrono/duration.h>
+-#  include <__chrono/sys_info.h>
+-#  include <__chrono/system_clock.h>
+-#  include <__chrono/time_zone.h>
+-#  include <__chrono/tzdb_list.h>
+-#  include <__concepts/constructible.h>
+-#  include <__config>
+-#  include <__type_traits/common_type.h>
+-#  include <__type_traits/conditional.h>
+-#  include <__type_traits/remove_cvref.h>
+-#  include <__utility/declval.h>
+-#  include <__utility/move.h>
+-#  include <string_view>
+-
+-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#    pragma GCC system_header
+-#  endif
+-
+-_LIBCPP_PUSH_MACROS
+-#  include <__undef_macros>
+-
+-_LIBCPP_BEGIN_NAMESPACE_STD
+-
+-#  if _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM && _LIBCPP_HAS_LOCALIZATION
+-
+-namespace chrono {
++#pragma once
++#include <folly/Traits.h>
++#include <chrono>
++#include <string_view>
++#include <type_traits>
++#include <utility>
++#include "velox/external/date/date.h"
++#include "velox/external/tzdb/sys_info.h"
++#include "velox/external/tzdb/time_zone.h"
++#include "velox/external/tzdb/tzdb_list.h"
++
++namespace facebook::velox::tzdb {
+ 
+ template <class>
+ struct zoned_traits {};
+ 
+ template <>
+ struct zoned_traits<const time_zone*> {
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static const time_zone* default_zone() { return chrono::locate_zone("UTC"); }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI static const time_zone* locate_zone(string_view __name) {
+-    return chrono::locate_zone(__name);
++  [[nodiscard]] static const time_zone* default_zone() {
++    return locate_zone("UTC");
++  }
++  [[nodiscard]] static const time_zone* locate_zone(std::string_view __name) {
++    return facebook::velox::tzdb::locate_zone(__name);
+   }
+ };
+ 
+ template <class _Duration, class _TimeZonePtr = const time_zone*>
+ class zoned_time {
+   // [time.zone.zonedtime.ctor]/2
+-  static_assert(__is_duration_v<_Duration>,
+-                "the program is ill-formed since _Duration is not a specialization of std::chrono::duration");
++  // static_assert(__is_duration_v<_Duration>,
++  //               "the program is ill-formed since _Duration is not a
++  //               specialization of std::chrono::duration");
+ 
+   // The wording uses the constraints like
+-  //   constructible_from<zoned_time, decltype(__traits::locate_zone(string_view{}))>
++  //   constructible_from<zoned_time,
++  //   decltype(__traits::locate_zone(string_view{}))>
+   // Using these constraints in the code causes the compiler to give an
+   // error that the constraint depends on itself. To avoid that issue use
+   // the fact it is possible to create this object from a _TimeZonePtr.
+-  using __traits _LIBCPP_NODEBUG = zoned_traits<_TimeZonePtr>;
++  using __traits = zoned_traits<_TimeZonePtr>;
+ 
+-public:
+-  using duration = common_type_t<_Duration, seconds>;
++ public:
++  using duration = std::common_type_t<_Duration, std::chrono::seconds>;
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time()
+-    requires requires { __traits::default_zone(); }
+-      : __zone_{__traits::default_zone()}, __tp_{} {}
++  zoned_time() : __zone_{__traits::default_zone()}, __tp_{} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(const zoned_time&)            = default;
+-  _LIBCPP_HIDE_FROM_ABI zoned_time& operator=(const zoned_time&) = default;
++  zoned_time(const zoned_time&) = default;
++  zoned_time& operator=(const zoned_time&) = default;
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(const sys_time<_Duration>& __tp)
+-    requires requires { __traits::default_zone(); }
++  zoned_time(const date::sys_time<_Duration>& __tp)
+       : __zone_{__traits::default_zone()}, __tp_{__tp} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI explicit zoned_time(_TimeZonePtr __zone) : __zone_{std::move(__zone)}, __tp_{} {}
++  explicit zoned_time(_TimeZonePtr __zone)
++      : __zone_{std::move(__zone)}, __tp_{} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI explicit zoned_time(string_view __name)
+-    requires(requires { __traits::locate_zone(string_view{}); } &&
+-             constructible_from<_TimeZonePtr, decltype(__traits::locate_zone(string_view{}))>)
++  explicit zoned_time(std::string_view __name)
+       : __zone_{__traits::locate_zone(__name)}, __tp_{} {}
+ 
+   template <class _Duration2>
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(const zoned_time<_Duration2, _TimeZonePtr>& __zt)
+-    requires is_convertible_v<sys_time<_Duration2>, sys_time<_Duration>>
++  zoned_time(const zoned_time<_Duration2, _TimeZonePtr>& __zt)
+       : __zone_{__zt.get_time_zone()}, __tp_{__zt.get_sys_time()} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(_TimeZonePtr __zone, const sys_time<_Duration>& __tp)
++  zoned_time(_TimeZonePtr __zone, const date::sys_time<_Duration>& __tp)
+       : __zone_{std::move(__zone)}, __tp_{__tp} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(string_view __name, const sys_time<_Duration>& __tp)
+-    requires requires { _TimeZonePtr{__traits::locate_zone(string_view{})}; }
++  zoned_time(std::string_view __name, const date::sys_time<_Duration>& __tp)
+       : zoned_time{__traits::locate_zone(__name), __tp} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(_TimeZonePtr __zone, const local_time<_Duration>& __tp)
+-    requires(is_convertible_v<decltype(std::declval<_TimeZonePtr&>() -> to_sys(local_time<_Duration>{})),
+-                              sys_time<duration>>)
++  zoned_time(_TimeZonePtr __zone, const date::local_time<_Duration>& __tp)
+       : __zone_{std::move(__zone)}, __tp_{__zone_->to_sys(__tp)} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(string_view __name, const local_time<_Duration>& __tp)
+-    requires(requires {
+-      _TimeZonePtr{__traits::locate_zone(string_view{})};
+-    } && is_convertible_v<decltype(std::declval<_TimeZonePtr&>() -> to_sys(local_time<_Duration>{})),
+-                          sys_time<duration>>)
++  zoned_time(std::string_view __name, const date::local_time<_Duration>& __tp)
+       : zoned_time{__traits::locate_zone(__name), __tp} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(_TimeZonePtr __zone, const local_time<_Duration>& __tp, choose __c)
+-    requires(is_convertible_v<
+-                decltype(std::declval<_TimeZonePtr&>() -> to_sys(local_time<_Duration>{}, choose::earliest)),
+-                sys_time<duration>>)
++  zoned_time(
++      _TimeZonePtr __zone,
++      const date::local_time<_Duration>& __tp,
++      choose __c)
+       : __zone_{std::move(__zone)}, __tp_{__zone_->to_sys(__tp, __c)} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(string_view __name, const local_time<_Duration>& __tp, choose __c)
+-    requires(requires {
+-      _TimeZonePtr{__traits::locate_zone(string_view{})};
+-    } && is_convertible_v<decltype(std::declval<_TimeZonePtr&>() -> to_sys(local_time<_Duration>{}, choose::earliest)),
+-                          sys_time<duration>>)
++  zoned_time(
++      std::string_view __name,
++      const date::local_time<_Duration>& __tp,
++      choose __c)
+       : zoned_time{__traits::locate_zone(__name), __tp, __c} {}
+ 
+   template <class _Duration2, class _TimeZonePtr2>
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(_TimeZonePtr __zone, const zoned_time<_Duration2, _TimeZonePtr2>& __zt)
+-    requires is_convertible_v<sys_time<_Duration2>, sys_time<_Duration>>
++  zoned_time(
++      _TimeZonePtr __zone,
++      const zoned_time<_Duration2, _TimeZonePtr2>& __zt)
+       : __zone_{std::move(__zone)}, __tp_{__zt.get_sys_time()} {}
+ 
+   // per wording choose has no effect
+   template <class _Duration2, class _TimeZonePtr2>
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(_TimeZonePtr __zone, const zoned_time<_Duration2, _TimeZonePtr2>& __zt, choose)
+-    requires is_convertible_v<sys_time<_Duration2>, sys_time<_Duration>>
++  zoned_time(
++      _TimeZonePtr __zone,
++      const zoned_time<_Duration2, _TimeZonePtr2>& __zt,
++      choose)
+       : __zone_{std::move(__zone)}, __tp_{__zt.get_sys_time()} {}
+ 
+   template <class _Duration2, class _TimeZonePtr2>
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(string_view __name, const zoned_time<_Duration2, _TimeZonePtr2>& __zt)
+-    requires(requires {
+-      _TimeZonePtr{__traits::locate_zone(string_view{})};
+-    } && is_convertible_v<sys_time<_Duration2>, sys_time<_Duration>>)
++  zoned_time(
++      std::string_view __name,
++      const zoned_time<_Duration2, _TimeZonePtr2>& __zt)
+       : zoned_time{__traits::locate_zone(__name), __zt} {}
+ 
+   template <class _Duration2, class _TimeZonePtr2>
+-  _LIBCPP_HIDE_FROM_ABI zoned_time(string_view __name, const zoned_time<_Duration2, _TimeZonePtr2>& __zt, choose __c)
+-    requires(requires {
+-      _TimeZonePtr{__traits::locate_zone(string_view{})};
+-    } && is_convertible_v<sys_time<_Duration2>, sys_time<_Duration>>)
++  zoned_time(
++      std::string_view __name,
++      const zoned_time<_Duration2, _TimeZonePtr2>& __zt,
++      choose __c)
+       : zoned_time{__traits::locate_zone(__name), __zt, __c} {}
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time& operator=(const sys_time<_Duration>& __tp) {
++  zoned_time& operator=(const date::sys_time<_Duration>& __tp) {
+     __tp_ = __tp;
+     return *this;
+   }
+ 
+-  _LIBCPP_HIDE_FROM_ABI zoned_time& operator=(const local_time<_Duration>& __tp) {
++  zoned_time& operator=(const date::local_time<_Duration>& __tp) {
+     // TODO TZDB This seems wrong.
+     // Assigning a non-existent or ambiguous time will throw and not satisfy
+     // the post condition. This seems quite odd; I constructed an object with
+@@ -167,62 +138,81 @@
+     return *this;
+   }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI operator sys_time<duration>() const { return get_sys_time(); }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI explicit operator local_time<duration>() const { return get_local_time(); }
++  [[nodiscard]] operator date::sys_time<duration>() const {
++    return get_sys_time();
++  }
++  [[nodiscard]] explicit operator date::local_time<duration>() const {
++    return get_local_time();
++  }
+ 
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI _TimeZonePtr get_time_zone() const { return __zone_; }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI local_time<duration> get_local_time() const { return __zone_->to_local(__tp_); }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI sys_time<duration> get_sys_time() const { return __tp_; }
+-  [[nodiscard]] _LIBCPP_HIDE_FROM_ABI sys_info get_info() const { return __zone_->get_info(__tp_); }
++  [[nodiscard]] _TimeZonePtr get_time_zone() const {
++    return __zone_;
++  }
++  [[nodiscard]] date::local_time<duration> get_local_time() const {
++    return __zone_->to_local(__tp_);
++  }
++  [[nodiscard]] date::sys_time<duration> get_sys_time() const {
++    return __tp_;
++  }
++  [[nodiscard]] sys_info get_info() const {
++    return __zone_->get_info(__tp_);
++  }
+ 
+-private:
++ private:
+   _TimeZonePtr __zone_;
+-  sys_time<duration> __tp_;
++  date::sys_time<duration> __tp_;
+ };
+ 
+-zoned_time() -> zoned_time<seconds>;
++zoned_time() -> zoned_time<std::chrono::seconds>;
+ 
+ template <class _Duration>
+-zoned_time(sys_time<_Duration>) -> zoned_time<common_type_t<_Duration, seconds>>;
++zoned_time(date::sys_time<_Duration>)
++    -> zoned_time<std::common_type_t<_Duration, std::chrono::seconds>>;
+ 
+ template <class _TimeZonePtrOrName>
+-using __time_zone_representation _LIBCPP_NODEBUG =
+-    conditional_t<is_convertible_v<_TimeZonePtrOrName, string_view>,
+-                  const time_zone*,
+-                  remove_cvref_t<_TimeZonePtrOrName>>;
++using __time_zone_representation = std::conditional_t<
++    std::is_convertible_v<_TimeZonePtrOrName, std::string_view>,
++    const time_zone*,
++    folly::remove_cvref_t<_TimeZonePtrOrName>>;
+ 
+ template <class _TimeZonePtrOrName>
+-zoned_time(_TimeZonePtrOrName&&) -> zoned_time<seconds, __time_zone_representation<_TimeZonePtrOrName>>;
++zoned_time(_TimeZonePtrOrName&&)
++    -> zoned_time<
++        std::chrono::seconds,
++        __time_zone_representation<_TimeZonePtrOrName>>;
+ 
+ template <class _TimeZonePtrOrName, class _Duration>
+-zoned_time(_TimeZonePtrOrName&&, sys_time<_Duration>)
+-    -> zoned_time<common_type_t<_Duration, seconds>, __time_zone_representation<_TimeZonePtrOrName>>;
++zoned_time(_TimeZonePtrOrName&&, date::sys_time<_Duration>)
++    -> zoned_time<
++        std::common_type_t<_Duration, std::chrono::seconds>,
++        __time_zone_representation<_TimeZonePtrOrName>>;
+ 
+ template <class _TimeZonePtrOrName, class _Duration>
+-zoned_time(_TimeZonePtrOrName&&, local_time<_Duration>, choose = choose::earliest)
+-    -> zoned_time<common_type_t<_Duration, seconds>, __time_zone_representation<_TimeZonePtrOrName>>;
++zoned_time(
++    _TimeZonePtrOrName&&,
++    date::local_time<_Duration>,
++    choose = choose::earliest)
++    -> zoned_time<
++        std::common_type_t<_Duration, std::chrono::seconds>,
++        __time_zone_representation<_TimeZonePtrOrName>>;
+ 
+ template <class _Duration, class _TimeZonePtrOrName, class _TimeZonePtr2>
+-zoned_time(_TimeZonePtrOrName&&, zoned_time<_Duration, _TimeZonePtr2>, choose = choose::earliest)
+-    -> zoned_time<common_type_t<_Duration, seconds>, __time_zone_representation<_TimeZonePtrOrName>>;
++zoned_time(
++    _TimeZonePtrOrName&&,
++    zoned_time<_Duration, _TimeZonePtr2>,
++    choose = choose::earliest)
++    -> zoned_time<
++        std::common_type_t<_Duration, std::chrono::seconds>,
++        __time_zone_representation<_TimeZonePtrOrName>>;
+ 
+-using zoned_seconds = zoned_time<seconds>;
++using zoned_seconds = zoned_time<std::chrono::seconds>;
+ 
+ template <class _Duration1, class _Duration2, class _TimeZonePtr>
+-_LIBCPP_HIDE_FROM_ABI bool
+-operator==(const zoned_time<_Duration1, _TimeZonePtr>& __lhs, const zoned_time<_Duration2, _TimeZonePtr>& __rhs) {
+-  return __lhs.get_time_zone() == __rhs.get_time_zone() && __lhs.get_sys_time() == __rhs.get_sys_time();
++bool operator==(
++    const zoned_time<_Duration1, _TimeZonePtr>& __lhs,
++    const zoned_time<_Duration2, _TimeZonePtr>& __rhs) {
++  return __lhs.get_time_zone() == __rhs.get_time_zone() &&
++      __lhs.get_sys_time() == __rhs.get_sys_time();
+ }
+ 
+-} // namespace chrono
+-
+-#  endif // _LIBCPP_STD_VER >= 20 && _LIBCPP_HAS_TIME_ZONE_DATABASE && _LIBCPP_HAS_FILESYSTEM &&
+-         // _LIBCPP_HAS_LOCALIZATION
+-
+-_LIBCPP_END_NAMESPACE_STD
+-
+-_LIBCPP_POP_MACROS
+-
+-#endif // _LIBCPP_HAS_EXPERIMENTAL_TZDB
+-
+-#endif // _LIBCPP___CHRONO_ZONED_TIME_H
++} // namespace facebook::velox::tzdb

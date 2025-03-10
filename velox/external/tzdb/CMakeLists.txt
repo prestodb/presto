@@ -1,5 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,22 +9,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
-velox_add_library(
-  velox_type_tz
-  TimeZoneMap.h
-  TimeZoneDatabase.cpp
-  TimeZoneLinks.cpp
-  TimeZoneMap.cpp
-  TimeZoneNames.h
-  TimeZoneNames.cpp)
+
+
+velox_add_library(velox_external_tzdb chrono_exception.cpp time_zone.cpp
+tzdb_list.cpp tzdb.cpp)
 
 velox_link_libraries(
-  velox_type_tz
-  velox_exception
   velox_external_tzdb
-  Boost::regex
-  fmt::fmt
-  Folly::folly)
+  velox_external_date
+  Folly::folly
+  fmt::fmt)
