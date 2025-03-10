@@ -376,6 +376,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitShowCreateSchema(SqlBaseParser.ShowCreateSchemaContext context)
+    {
+        return new ShowCreate(getLocation(context), ShowCreate.Type.SCHEMA, getQualifiedName(context.qualifiedName()));
+    }
+
+    @Override
     public Node visitShowCreateFunction(SqlBaseParser.ShowCreateFunctionContext context)
     {
         Optional<List<String>> parameterTypes = context.types() == null ? Optional.empty() : Optional.of(getTypes(context.types()));
