@@ -23,6 +23,8 @@
 #include "velox/functions/prestosql/types/IPPrefixType.h"
 #include "velox/functions/prestosql/types/JsonRegistration.h"
 #include "velox/functions/prestosql/types/JsonType.h"
+#include "velox/functions/prestosql/types/TDigestType.h"
+#include "velox/functions/prestosql/types/TDigestRegistration.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneRegistration.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/types/UuidRegistration.h"
@@ -56,6 +58,7 @@ class PrestoToVeloxQueryPlanTest : public ::testing::Test {
     registerIPAddressType();
     registerIPPrefixType();
     registerJsonType();
+    registerTDigestType();
     registerTimestampWithTimeZoneType();
     registerUuidType();
   }
@@ -117,7 +120,7 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleAllComplexTypes) {
   std::string str = R"(
         {
           "@type": "json_file",
-          "functionId": "json_file.test.all_complex_types;row(map(hugeint, ipaddress), ipprefix);row(array(varbinary), timestamp, date, json, hyperloglog, timestamp with time zone, interval year to month, interval day to second);function(double, boolean);uuid",
+          "functionId": "json_file.test.all_complex_types;row(map(hugeint, ipaddress), ipprefix);row(array(varbinary), timestamp, date, json, hyperloglog, tdigest(double), timestamp with time zone, interval year to month, interval day to second);function(double, boolean);uuid",
           "version": "1"
         }
     )";
@@ -135,6 +138,7 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleAllComplexTypes) {
            DATE(),
            JSON(),
            HYPERLOGLOG(),
+           TDIGEST(DOUBLE()),
            TIMESTAMP_WITH_TIME_ZONE(),
            INTERVAL_YEAR_MONTH(),
            INTERVAL_DAY_TIME()}),
