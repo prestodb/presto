@@ -18,6 +18,50 @@
         <scala.version>2.12.2</scala.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.14.0</version>
+            </dependency>
+            <!-- tempto-runner and kafka rely on different versions. Pull up to the highest one -->
+            <dependency>
+                <groupId>commons-cli</groupId>
+                <artifactId>commons-cli</artifactId>
+                <version>1.4</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <profiles>
+        <profile>
+            <id>java17</id>
+            <activation>
+                <jdk>17</jdk>
+            </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>
+                    --add-opens java.base/java.io=ALL-UNNAMED
+                    --add-opens java.base/java.lang=ALL-UNNAMED
+                    --add-opens java.base/java.lang.ref=ALL-UNNAMED
+                    --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                    --add-opens java.base/java.net=ALL-UNNAMED
+                    --add-opens java.base/java.nio=ALL-UNNAMED
+                    --add-opens java.base/java.security=ALL-UNNAMED
+                    --add-opens java.base/javax.security.auth=ALL-UNNAMED
+                    --add-opens java.base/javax.security.auth.login=ALL-UNNAMED
+                    --add-opens java.base/java.text=ALL-UNNAMED
+                    --add-opens java.base/java.util=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED
+                    --add-opens java.base/java.util.regex=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.loader=ALL-UNNAMED
+                    --add-opens java.base/sun.security.action=ALL-UNNAMED
+                </air.test.jvm.additional-arguments>
+            </properties>
+        </profile>
+    </profiles>
     <dependencies>
         <dependency>
             <groupId>org.apache.avro</groupId>
@@ -136,10 +180,18 @@
             <groupId>com.datastax.cassandra</groupId>
             <artifactId>cassandra-driver-core</artifactId>
             <version>3.11.5</version>
+            <!--https://docs.datastax.com/en/developer/java-driver/3.11/manual/shaded_jar/index.html-->
+            <classifier>shaded</classifier>
+            <!-- Because the shaded JAR uses the original POM, you still need
+            to exclude this dependency explicitly: -->
             <exclusions>
                 <exclusion>
                     <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.dropwizard.metrics</groupId>
+                    <artifactId>metrics-core</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -179,6 +231,14 @@
         </resources>
 
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>${project.build.targetJdk}</source>
+                    <target>${project.build.targetJdk}</target>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>

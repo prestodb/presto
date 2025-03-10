@@ -22,7 +22,6 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -59,7 +58,7 @@ public class PartitionedOutputBuffer
             String taskInstanceId,
             StateMachine<BufferState> state,
             OutputBuffers outputBuffers,
-            DataSize maxBufferSize,
+            long maxBufferSizeInBytes,
             Supplier<LocalMemoryContext> systemMemoryContextSupplier,
             Executor notificationExecutor)
     {
@@ -70,8 +69,9 @@ public class PartitionedOutputBuffer
         checkArgument(outputBuffers.isNoMoreBufferIds(), "Expected a final output buffer descriptor");
         this.outputBuffers = outputBuffers;
 
+        checkArgument(maxBufferSizeInBytes > 0, "maxBufferSizeInBytes must be at least 1 byte");
         this.memoryManager = new OutputBufferMemoryManager(
-                requireNonNull(maxBufferSize, "maxBufferSize is null").toBytes(),
+                maxBufferSizeInBytes,
                 requireNonNull(systemMemoryContextSupplier, "systemMemoryContextSupplier is null"),
                 requireNonNull(notificationExecutor, "notificationExecutor is null"));
         this.pageTracker = new LifespanSerializedPageTracker(memoryManager);
@@ -230,12 +230,12 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> get(OutputBufferId outputBufferId, long startingSequenceId, long maxSizeInBytes)
     {
         requireNonNull(outputBufferId, "outputBufferId is null");
-        checkArgument(maxSize.toBytes() > 0, "maxSize must be at least 1 byte");
+        checkArgument(maxSizeInBytes > 0, "maxSize must be at least 1 byte");
 
-        return partitions.get(outputBufferId.getId()).getPages(startingSequenceId, maxSize);
+        return partitions.get(outputBufferId.getId()).getPages(startingSequenceId, maxSizeInBytes);
     }
 
     @Override

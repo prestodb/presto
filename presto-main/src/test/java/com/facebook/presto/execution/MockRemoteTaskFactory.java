@@ -92,7 +92,6 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DI
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.addExact;
@@ -240,7 +239,7 @@ public class MockRemoteTaskFactory
                     taskId,
                     TASK_INSTANCE_ID.toString(),
                     executor,
-                    new DataSize(1, BYTE),
+                    1L,
                     () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
                     new SpoolingOutputBufferFactory(new FeaturesConfig()));
 
@@ -444,9 +443,9 @@ public class MockRemoteTaskFactory
             noMoreSplits.add(sourceId);
 
             boolean allSourcesComplete = Stream.concat(
-                    fragment.getTableScanSchedulingOrder().stream(),
-                    fragment.getRemoteSourceNodes().stream()
-                            .map(PlanNode::getId))
+                            fragment.getTableScanSchedulingOrder().stream(),
+                            fragment.getRemoteSourceNodes().stream()
+                                    .map(PlanNode::getId))
                     .allMatch(noMoreSplits::contains);
 
             if (allSourcesComplete) {

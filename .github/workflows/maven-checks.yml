@@ -12,10 +12,14 @@ env:
 
 jobs:
   maven-checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ 8, 17.0.13 ]
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
-      group: ${{ github.workflow }}-maven-checks-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-maven-checks-${{ github.event.pull_request.number }}-${{ matrix.java }}
       cancel-in-progress: true
     steps:
       - name: Free Disk Space
@@ -29,7 +33,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 8
+          java-version: ${{ matrix.java }}
           cache: 'maven'
       - name: Download nodejs to maven cache
         run: .github/bin/download_nodejs

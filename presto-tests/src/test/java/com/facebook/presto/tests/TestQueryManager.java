@@ -364,15 +364,15 @@ public class TestQueryManager
         }
 
         @Override
-        public DataSize getRawInputDataSize()
+        public long getRawInputDataSizeInBytes()
         {
-            return info.getQueryStats().getRawInputDataSize();
+            return info.getQueryStats().getRawInputDataSize().toBytes();
         }
 
         @Override
-        public DataSize getOutputDataSize()
+        public long getOutputDataSizeInBytes()
         {
-            return info.getQueryStats().getOutputDataSize();
+            return info.getQueryStats().getOutputDataSize().toBytes();
         }
 
         @Override

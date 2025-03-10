@@ -19,7 +19,6 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.airlift.units.DataSize;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -173,18 +172,18 @@ class ClientBuffer
         return bufferedBytes.addAndGet(bytesAdded);
     }
 
-    public ListenableFuture<BufferResult> getPages(long sequenceId, DataSize maxSize)
+    public ListenableFuture<BufferResult> getPages(long sequenceId, long maxSizeInBytes)
     {
-        return getPages(sequenceId, maxSize, Optional.empty());
+        return getPages(sequenceId, maxSizeInBytes, Optional.empty());
     }
 
-    public ListenableFuture<BufferResult> getPages(long sequenceId, DataSize maxSize, Optional<PagesSupplier> pagesSupplier)
+    public ListenableFuture<BufferResult> getPages(long sequenceId, long maxSizeInBytes, Optional<PagesSupplier> pagesSupplier)
     {
         // acknowledge pages first, out side of locks to not trigger callbacks while holding the lock
         acknowledgePages(sequenceId);
 
         // attempt to load some data before processing the read
-        pagesSupplier.ifPresent(supplier -> loadPagesIfNecessary(supplier, maxSize));
+        pagesSupplier.ifPresent(supplier -> loadPagesIfNecessary(supplier, maxSizeInBytes));
 
         PendingRead oldPendingRead = null;
         try {
@@ -196,11 +195,11 @@ class ClientBuffer
                 // Return results immediately if we have data, there will be no more data, or this is
                 // an out of order request
                 if (!pages.isEmpty() || noMorePages || sequenceId != currentSequenceId.get()) {
-                    return immediateFuture(processRead(sequenceId, maxSize, bufferedBytes.get()));
+                    return immediateFuture(processRead(sequenceId, maxSizeInBytes, bufferedBytes.get()));
                 }
 
                 // otherwise, wait for more data to arrive
-                pendingRead = new PendingRead(taskInstanceId, sequenceId, maxSize);
+                pendingRead = new PendingRead(taskInstanceId, sequenceId, maxSizeInBytes);
                 return pendingRead.getResultFuture();
             }
         }
@@ -243,17 +242,17 @@ class ClientBuffer
         // Get the max size from the current pending read, which may not be the
         // same pending read instance by the time pages are loaded but this is
         // safe since the size is rechecked before returning pages.
-        DataSize maxSize;
+        long maxSizeInByte;
         long bufferedBytes;
         synchronized (this) {
             if (pendingRead == null) {
                 return;
             }
-            maxSize = pendingRead.getMaxSize();
+            maxSizeInByte = pendingRead.getMaxSizeInBytes();
             bufferedBytes = this.bufferedBytes.get();
         }
 
-        boolean dataAddedOrNoMorePages = loadPagesIfNecessary(pagesSupplier, maxSize);
+        boolean dataAddedOrNoMorePages = loadPagesIfNecessary(pagesSupplier, maxSizeInByte);
 
         if (dataAddedOrNoMorePages) {
             PendingRead pendingRead;
@@ -269,7 +268,7 @@ class ClientBuffer
     /**
      * If there no data, attempt to load some from the pages supplier.
      */
-    private boolean loadPagesIfNecessary(PagesSupplier pagesSupplier, DataSize maxSize)
+    private boolean loadPagesIfNecessary(PagesSupplier pagesSupplier, long maxSizeInBytes)
     {
         checkState(!Thread.holdsLock(this), "Can not load pages while holding a lock on this");
 
@@ -287,7 +286,7 @@ class ClientBuffer
             // The page supplier has incremented the page reference count, and addPages below also increments
             // the reference count, so we need to drop the page supplier reference. The call dereferencePage
             // is performed outside of synchronized to avoid making a callback while holding a lock.
-            pageReferences = pagesSupplier.getPages(maxSize);
+            pageReferences = pagesSupplier.getPages(maxSizeInBytes);
 
             // add the pages to this buffer, which will increase the reference count
             addPages(pageReferences);
@@ -313,14 +312,14 @@ class ClientBuffer
             return;
         }
 
-        BufferResult bufferResult = processRead(pendingRead.getSequenceId(), pendingRead.getMaxSize(), bufferedBytes);
+        BufferResult bufferResult = processRead(pendingRead.getSequenceId(), pendingRead.getMaxSizeInBytes(), bufferedBytes);
         pendingRead.getResultFuture().set(bufferResult);
     }
 
     /**
      * @return a result with at least one page if we have pages in buffer, empty result otherwise
      */
-    private synchronized BufferResult processRead(long sequenceId, DataSize maxSize, long bufferedBytes)
+    private synchronized BufferResult processRead(long sequenceId, long maxSizeInBytes, long bufferedBytes)
     {
         // When pages are added to the partition buffer they are effectively
         // assigned an id starting from zero. When a read is processed, the
@@ -364,14 +363,13 @@ class ClientBuffer
         verify(sequenceId == currentSequenceId.get(), "Invalid sequence id");
 
         // read the new pages
-        long maxBytes = maxSize.toBytes();
         List<SerializedPage> result = new ArrayList<>();
         long bytesReturned = 0;
 
         for (SerializedPageReference page : pages) {
             bytesReturned += page.getRetainedSizeInBytes();
             // break (and don't add) if this page would exceed the limit
-            if (!result.isEmpty() && bytesReturned > maxBytes) {
+            if (!result.isEmpty() && bytesReturned > maxSizeInBytes) {
                 break;
             }
             result.add(page.getSerializedPage());
@@ -444,14 +442,14 @@ class ClientBuffer
     {
         private final String taskInstanceId;
         private final long sequenceId;
-        private final DataSize maxSize;
+        private final long maxSizeInBytes;
         private final SettableFuture<BufferResult> resultFuture = SettableFuture.create();
 
-        private PendingRead(String taskInstanceId, long sequenceId, DataSize maxSize)
+        private PendingRead(String taskInstanceId, long sequenceId, long maxSizeInBytes)
         {
             this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
             this.sequenceId = sequenceId;
-            this.maxSize = maxSize;
+            this.maxSizeInBytes = maxSizeInBytes;
         }
 
         public long getSequenceId()
@@ -459,9 +457,9 @@ class ClientBuffer
             return sequenceId;
         }
 
-        public DataSize getMaxSize()
+        public long getMaxSizeInBytes()
         {
-            return maxSize;
+            return maxSizeInBytes;
         }
 
         public SettableFuture<BufferResult> getResultFuture()
@@ -480,7 +478,7 @@ class ClientBuffer
         /**
          * Gets pages up to the specified size limit or a single page that exceeds the size limit.
          */
-        List<SerializedPageReference> getPages(DataSize maxSize);
+        List<SerializedPageReference> getPages(long maxSizeInBytes);
 
         /**
          * @return true if more pages may be produced; false otherwise

@@ -965,7 +965,7 @@ public class TestOptimizedPartitionedOutputOperator
                 Supplier<LocalMemoryContext> systemMemoryContextSupplier,
                 Executor notificationExecutor)
         {
-            super(taskInstanceId, state, outputBuffers, maxBufferSize, systemMemoryContextSupplier, notificationExecutor);
+            super(taskInstanceId, state, outputBuffers, maxBufferSize.toBytes(), systemMemoryContextSupplier, notificationExecutor);
         }
 
         @Override
