@@ -58,6 +58,10 @@ type TaskStats = {
     blockedDrivers: number;
     totalDrivers: number;
     completedDrivers: number;
+    queuedSplits: number;
+    runningSplits: number;
+    totalSplits: number;
+    completedSplits: number;
     rawInputPositions: number;
     rawInputDataSizeInBytes: number;
     totalScheduledTimeInNanos: number;
@@ -327,7 +331,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             name: (<span className="bi bi-pause-circle-fill" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
                 title="Pending splits" />),
-            selector: (row: Task) => row.stats.queuedDrivers,
+            selector: (row: Task) => row.stats.queuedSplits ?? row.stats.queuedDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -336,7 +340,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             name: (<span className="bi bi-play-circle-fill" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
                 title="Running splits" />),
-            selector: (row: Task) => row.stats.runningDrivers,
+            selector: (row: Task) => row.stats.runningSplits ?? row.stats.runningDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
@@ -355,7 +359,7 @@ function TaskList({ tasks }: { tasks: Task[] }) : React.Node {
             name: (<span className="bi bi-check-lg" style={GLYPHICON_HIGHLIGHT}
                 data-bs-toggle="tooltip" data-placement="top"
                 title="Completed splits" />),
-            selector: (row: Task) => row.stats.completedDrivers,
+            selector: (row: Task) => row.stats.completedSplits ?? row.stats.completedDrivers,
             sortable: true,
             maxWidth: '50px',
             minWidth: '40px',
