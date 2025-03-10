@@ -49,8 +49,8 @@ constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
 
 constexpr folly::StringPiece kCounterExchangeRequestDuration{
     "presto_cpp.exchange.request.duration"};
-constexpr folly::StringPiece kCounterExchangeRequestNumRetries{
-    "presto_cpp.exchange.request.num_retries"};
+constexpr folly::StringPiece kCounterExchangeRequestNumTries{
+    "presto_cpp.exchange.request.num_tries"};
 
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};

@@ -258,7 +258,7 @@ void PrestoExchangeSource::processDataResponse(
   RECORD_HISTOGRAM_METRIC_VALUE(
       kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
   RECORD_HISTOGRAM_METRIC_VALUE(
-      kCounterExchangeRequestNumRetries, dataRequestRetryState_.numTries());
+      kCounterExchangeRequestNumTries, dataRequestRetryState_.numTries());
   if (closed_.load()) {
     // If PrestoExchangeSource is already closed, just free all buffers
     // allocated without doing any processing. This can happen when a super slow
