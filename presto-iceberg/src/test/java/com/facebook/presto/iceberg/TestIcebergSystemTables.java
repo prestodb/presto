@@ -255,15 +255,25 @@ public class TestIcebergSystemTables
         }
     }
 
+    protected void checkTableProperties(String schemaName, String tableName, String deleteMode, String dataWriteLocation)
+    {
+        checkTableProperties(schemaName, tableName, deleteMode, 10, ImmutableMap.of("write.data.path", dataWriteLocation));
+    }
+
     protected void checkTableProperties(String tableName, String deleteMode)
     {
-        assertQuery(String.format("SHOW COLUMNS FROM test_schema.\"%s$properties\"", tableName),
-                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery(String.format("SELECT COUNT(*) FROM test_schema.\"%s$properties\"", tableName), "VALUES 9");
-        List<MaterializedRow> materializedRows = computeActual(getSession(),
-                String.format("SELECT * FROM test_schema.\"%s$properties\"", tableName)).getMaterializedRows();
+        checkTableProperties("test_schema", tableName, deleteMode, 9, ImmutableMap.of());
+    }
 
-        assertThat(materializedRows).hasSize(9);
+    protected void checkTableProperties(String schemaName, String tableName, String deleteMode, int propertiesCount, Map<String, String> additionalValidateProperties)
+    {
+        assertQuery(String.format("SHOW COLUMNS FROM %s.\"%s$properties\"", schemaName, tableName),
+                "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
+        assertQuery(String.format("SELECT COUNT(*) FROM %s.\"%s$properties\"", schemaName, tableName), "VALUES " + propertiesCount);
+        List<MaterializedRow> materializedRows = computeActual(getSession(),
+                String.format("SELECT * FROM %s.\"%s$properties\"", schemaName, tableName)).getMaterializedRows();
+
+        assertThat(materializedRows).hasSize(propertiesCount);
         assertThat(materializedRows)
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.delete.mode", deleteMode)))
@@ -283,6 +293,11 @@ public class TestIcebergSystemTables
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.metadata.metrics.max-inferred-column-defaults", "100")))
                 .anySatisfy(row -> assertThat(row)
                         .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, IcebergTableProperties.TARGET_SPLIT_SIZE, Long.toString(DataSize.valueOf("128MB").toBytes()))));
+
+        additionalValidateProperties.entrySet().stream()
+                .forEach(entry -> assertThat(materializedRows)
+                        .anySatisfy(row -> assertThat(row)
+                                .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, entry.getKey(), entry.getValue()))));
     }
 
     protected void checkORCFormatTableProperties(String tableName, String deleteMode)

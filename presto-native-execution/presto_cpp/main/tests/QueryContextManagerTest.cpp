@@ -77,6 +77,25 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_EQ(queryCtx->queryConfig().exprMaxCompiledRegexes(), 54321);
 }
 
+TEST_F(QueryContextManagerTest, nativeConnectorSessionProperties) {
+  protocol::TaskId taskId = "scan.0.0.1.0";
+  protocol::SessionRepresentation session;
+  std::map<std::string, std::string> hiveSessions{
+      {"native_stats_based_filter_reorder_disabled", "true"},
+      {"orc_max_merge_distance", "512kB"}};
+  session.catalogProperties.emplace("hive", hiveSessions);
+  auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
+      taskId, session);
+  EXPECT_EQ(
+      queryCtx->connectorSessionProperties().at("hive")->get<std::string>(
+          "orc_max_merge_distance"),
+      "512kB");
+  EXPECT_EQ(
+      queryCtx->connectorSessionProperties().at("hive")->get<std::string>(
+          "stats_based_filter_reorder_disabled"),
+      "true");
+}
+
 TEST_F(QueryContextManagerTest, defaultSessionProperties) {
   const std::unordered_map<std::string, std::string> values;
   auto defaultQC = std::make_shared<velox::core::QueryConfig>(values);

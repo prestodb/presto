@@ -40,7 +40,6 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static java.lang.Math.min;
@@ -288,11 +287,11 @@ public class QueryStats
             Optional<StageInfo> rootStage,
             List<StageInfo> allStages,
             int peakRunningTasks,
-            DataSize peakUserMemoryReservation,
-            DataSize peakTotalMemoryReservation,
-            DataSize peakTaskUserMemory,
-            DataSize peakTaskTotalMemory,
-            DataSize peakNodeTotalMemory,
+            long peakUserMemoryReservation,
+            long peakTotalMemoryReservation,
+            long peakTaskUserMemory,
+            long peakTaskTotalMemory,
+            long peakNodeTotalMemory,
             RuntimeStats runtimeStats)
     {
         int totalTasks = 0;
@@ -356,8 +355,8 @@ public class QueryStats
 
             cumulativeUserMemory += stageExecutionStats.getCumulativeUserMemory();
             cumulativeTotalMemory += stageExecutionStats.getCumulativeTotalMemory();
-            userMemoryReservation += stageExecutionStats.getUserMemoryReservation().toBytes();
-            totalMemoryReservation += stageExecutionStats.getTotalMemoryReservation().toBytes();
+            userMemoryReservation += stageExecutionStats.getUserMemoryReservationInBytes();
+            totalMemoryReservation += stageExecutionStats.getTotalMemoryReservationInBytes();
             totalScheduledTime += stageExecutionStats.getTotalScheduledTime().roundTo(MILLISECONDS);
             totalCpuTime += stageExecutionStats.getTotalCpuTime().roundTo(MILLISECONDS);
             retriedCpuTime += computeRetriedCpuTime(stageInfo);
@@ -367,7 +366,7 @@ public class QueryStats
                 blockedReasons.addAll(stageExecutionStats.getBlockedReasons());
             }
 
-            totalAllocation += stageExecutionStats.getTotalAllocation().toBytes();
+            totalAllocation += stageExecutionStats.getTotalAllocationInBytes();
 
             if (stageInfo.getPlan().isPresent()) {
                 PlanFragment plan = stageInfo.getPlan().get();
@@ -376,14 +375,14 @@ public class QueryStats
                     String operatorType = operatorStats.getOperatorType();
                     if (operatorType.equals(ExchangeOperator.class.getSimpleName()) || operatorType.equals(MergeOperator.class.getSimpleName())) {
                         shuffledPositions += operatorStats.getRawInputPositions();
-                        shuffledDataSize += operatorStats.getRawInputDataSize().toBytes();
+                        shuffledDataSize += operatorStats.getRawInputDataSizeInBytes();
                     }
                     else if (operatorType.equals(TableScanOperator.class.getSimpleName()) || operatorType.equals(ScanFilterAndProjectOperator.class.getSimpleName())) {
-                        rawInputDataSize += operatorStats.getRawInputDataSize().toBytes();
+                        rawInputDataSize += operatorStats.getRawInputDataSizeInBytes();
                         rawInputPositions += operatorStats.getRawInputPositions();
                     }
                 }
-                processedInputDataSize += stageExecutionStats.getProcessedInputDataSize().toBytes();
+                processedInputDataSize += stageExecutionStats.getProcessedInputDataSizeInBytes();
                 processedInputPositions += stageExecutionStats.getProcessedInputPositions();
 
                 if (plan.isOutputTableWriterFragment()) {
@@ -393,12 +392,12 @@ public class QueryStats
                             .sum();
                     writtenOutputLogicalDataSize += stageExecutionStats.getOperatorSummaries().stream()
                             .filter(stats -> stats.getOperatorType().equals(TableWriterOperator.OPERATOR_TYPE))
-                            .mapToLong(stats -> stats.getInputDataSize().toBytes())
+                            .mapToLong(OperatorStats::getInputDataSizeInBytes)
                             .sum();
-                    writtenOutputPhysicalDataSize += stageExecutionStats.getPhysicalWrittenDataSize().toBytes();
+                    writtenOutputPhysicalDataSize += stageExecutionStats.getPhysicalWrittenDataSizeInBytes();
                 }
                 else {
-                    writtenIntermediatePhysicalDataSize += stageExecutionStats.getPhysicalWrittenDataSize().toBytes();
+                    writtenIntermediatePhysicalDataSize += stageExecutionStats.getPhysicalWrittenDataSizeInBytes();
                 }
             }
 
@@ -415,7 +414,7 @@ public class QueryStats
 
         if (rootStage.isPresent()) {
             StageExecutionStats outputStageStats = rootStage.get().getLatestAttemptExecutionInfo().getStats();
-            outputDataSize += outputStageStats.getOutputDataSize().toBytes();
+            outputDataSize += outputStageStats.getOutputDataSizeInBytes();
             outputPositions += outputStageStats.getOutputPositions();
         }
 
@@ -457,11 +456,11 @@ public class QueryStats
                 cumulativeTotalMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
-                peakUserMemoryReservation,
-                peakTotalMemoryReservation,
-                peakTaskUserMemory,
-                peakTaskTotalMemory,
-                peakNodeTotalMemory,
+                succinctBytes(peakUserMemoryReservation),
+                succinctBytes(peakTotalMemoryReservation),
+                succinctBytes(peakTaskUserMemory),
+                succinctBytes(peakTaskTotalMemory),
+                succinctBytes(peakNodeTotalMemory),
 
                 isScheduled,
 
@@ -534,13 +533,13 @@ public class QueryStats
                 0,
                 0,
                 0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
                 false,
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
@@ -548,19 +547,19 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 false,
                 ImmutableSet.of(),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                succinctBytes(0),
+                succinctBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                succinctBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                succinctBytes(0),
                 0,
-                new DataSize(0, BYTE),
+                succinctBytes(0),
                 0,
                 0,
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
-                new DataSize(0, BYTE),
+                succinctBytes(0),
+                succinctBytes(0),
+                succinctBytes(0),
                 ImmutableList.of(),
                 ImmutableList.of(),
                 new RuntimeStats());
@@ -910,7 +909,7 @@ public class QueryStats
     public DataSize getSpilledDataSize()
     {
         return succinctBytes(operatorSummaries.stream()
-                .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
+                .mapToLong(OperatorStats::getSpilledDataSizeInBytes)
                 .sum());
     }
 

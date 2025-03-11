@@ -93,12 +93,16 @@ import org.weakref.jmx.MBeanExporter;
 
 import javax.inject.Singleton;
 
+import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.common.Utils.checkArgument;
+import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.orc.StripeMetadataSource.CacheableRowGroupIndices;
 import static com.facebook.presto.orc.StripeMetadataSource.CacheableSlice;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -141,6 +145,9 @@ public class IcebergCommonModule
         binder.bind(IcebergCatalogName.class).toInstance(new IcebergCatalogName(connectorId));
 
         configBinder(binder).bindConfig(IcebergConfig.class);
+
+        IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
+        checkArgument(icebergConfig.getCatalogType().equals(HADOOP) || icebergConfig.getCatalogWarehouseDataDir() == null, "'iceberg.catalog.hadoop.warehouse.datadir' can only be specified in Hadoop catalog");
 
         binder.bind(IcebergSessionProperties.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IcebergNessieConfig.class);  // bind optional Nessie config to IcebergSessionProperties
@@ -206,6 +213,26 @@ public class IcebergCommonModule
         StatisticsFileCache statisticsFileCache = new StatisticsFileCache(delegate);
         exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), statisticsFileCache);
         return statisticsFileCache;
+    }
+
+    @Singleton
+    @Provides
+    public ManifestFileCache createManifestFileCache(IcebergConfig config, MBeanExporter exporter)
+    {
+        CacheBuilder<ManifestFileCacheKey, ManifestFileCachedContent> delegate = CacheBuilder.newBuilder()
+                .maximumWeight(config.getMaxManifestCacheSize())
+                .<ManifestFileCacheKey, ManifestFileCachedContent>weigher((key, entry) -> (int) entry.getData().stream().mapToLong(ByteBuffer::capacity).sum())
+                .recordStats();
+        if (config.getManifestCacheExpireDuration() > 0) {
+            delegate.expireAfterWrite(Duration.ofMillis(config.getManifestCacheExpireDuration()));
+        }
+        ManifestFileCache manifestFileCache = new ManifestFileCache(
+                delegate.build(),
+                config.getManifestCachingEnabled(),
+                config.getManifestCacheMaxContentLength(),
+                config.getManifestCacheMaxChunkSize().toBytes());
+        exporter.export(generatedNameOf(ManifestFileCache.class, connectorId), manifestFileCache);
+        return manifestFileCache;
     }
 
     @ForCachingHiveMetastore

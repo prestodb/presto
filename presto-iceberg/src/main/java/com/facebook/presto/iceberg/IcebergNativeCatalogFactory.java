@@ -52,6 +52,7 @@ public class IcebergNativeCatalogFactory
     private final String catalogName;
     protected final CatalogType catalogType;
     private final String catalogWarehouse;
+    private final String catalogWarehouseDataDir;
     protected final IcebergConfig icebergConfig;
 
     private final List<String> hadoopConfigResources;
@@ -69,6 +70,7 @@ public class IcebergNativeCatalogFactory
         this.icebergConfig = requireNonNull(config, "config is null");
         this.catalogType = config.getCatalogType();
         this.catalogWarehouse = config.getCatalogWarehouse();
+        this.catalogWarehouseDataDir = config.getCatalogWarehouseDataDir();
         this.hadoopConfigResources = icebergConfig.getHadoopConfigResources();
         this.s3ConfigurationUpdater = requireNonNull(s3ConfigurationUpdater, "s3ConfigurationUpdater is null");
         this.gcsConfigurationInitialize = requireNonNull(gcsConfigurationInitialize, "gcsConfigurationInitialize is null");
@@ -88,6 +90,11 @@ public class IcebergNativeCatalogFactory
             throwIfUnchecked(e);
             throw new UncheckedExecutionException(e);
         }
+    }
+
+    public String getCatalogWarehouseDataDir()
+    {
+        return this.catalogWarehouseDataDir;
     }
 
     public SupportsNamespaces getNamespaces(ConnectorSession session)
@@ -121,7 +128,7 @@ public class IcebergNativeCatalogFactory
     {
         Map<String, String> properties = new HashMap<>();
         if (icebergConfig.getManifestCachingEnabled()) {
-            loadCachingProperties(properties, icebergConfig);
+            properties.putAll(loadCachingProperties(icebergConfig));
         }
         if (icebergConfig.getFileIOImpl() != null) {
             properties.put(FILE_IO_IMPL, icebergConfig.getFileIOImpl());

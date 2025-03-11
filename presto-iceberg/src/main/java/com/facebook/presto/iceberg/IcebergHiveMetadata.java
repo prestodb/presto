@@ -59,6 +59,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -124,7 +125,6 @@ import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewPropertie
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
@@ -164,6 +164,7 @@ public class IcebergHiveMetadata
     private final IcebergHiveTableOperationsConfig hiveTableOeprationsConfig;
     private final Cache<SchemaTableName, Optional<Table>> tableCache;
     private final String catalogName;
+    private final ManifestFileCache manifestFileCache;
 
     public IcebergHiveMetadata(
             ExtendedHiveMetastore metastore,
@@ -177,6 +178,7 @@ public class IcebergHiveMetadata
             IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
             StatisticsFileCache statisticsFileCache,
             String catalogName)
+            ManifestFileCache manifestFileCache)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -184,11 +186,18 @@ public class IcebergHiveMetadata
         this.hiveTableOeprationsConfig = requireNonNull(hiveTableOeprationsConfig, "hiveTableOperationsConfig is null");
         this.tableCache = CacheBuilder.newBuilder().maximumSize(MAXIMUM_PER_QUERY_TABLE_CACHE_SIZE).build();
         this.catalogName = catalogName;
+        this.manifestFileCache = requireNonNull(manifestFileCache, "manifestFileCache is null");
     }
 
     public ExtendedHiveMetastore getMetastore()
     {
         return metastore;
+    }
+
+    @VisibleForTesting
+    public ManifestFileCache getManifestFileCache()
+    {
+        return manifestFileCache;
     }
 
     @Override
@@ -201,7 +210,7 @@ public class IcebergHiveMetadata
     @Override
     protected org.apache.iceberg.Table getRawIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, session, schemaTableName, catalogName);
+        return getHiveIcebergTable(metastore, hdfsEnvironment, hiveTableOeprationsConfig, manifestFileCache, session, schemaTableName, catalogName);
     }
 
     @Override
@@ -355,6 +364,7 @@ public class IcebergHiveMetadata
                 hdfsContext,
                 hiveTableOeprationsConfig,
                 catalogName,
+                manifestFileCache,
                 schemaName,
                 tableName,
                 session.getUser(),
@@ -634,7 +644,7 @@ public class IcebergHiveMetadata
         InputFile inputFile = new HdfsInputFile(metadataLocation, hdfsEnvironment, hdfsContext);
         TableMetadata tableMetadata;
         try {
-            tableMetadata = TableMetadataParser.read(new HdfsFileIO(hdfsEnvironment, hdfsContext), inputFile);
+            tableMetadata = TableMetadataParser.read(new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext), inputFile);
         }
         catch (Exception e) {
             throw new PrestoException(ICEBERG_INVALID_METADATA, String.format("Unable to read metadata file %s", metadataLocation), e);

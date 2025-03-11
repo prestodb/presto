@@ -1,6 +1,6 @@
-===========================
+================
 Sketch Functions
-===========================
+================
 
 Sketches are data structures that can approximately answer particular questions
 about a dataset when full accuracy is not required. The benefit of approximate

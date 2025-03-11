@@ -199,7 +199,7 @@ public class PipelineContext
 
         totalBlockedTime.getAndAdd(driverStats.getTotalBlockedTime().roundTo(NANOSECONDS));
 
-        totalAllocation.getAndAdd(driverStats.getTotalAllocation().toBytes());
+        totalAllocation.getAndAdd(driverStats.getTotalAllocationInBytes());
 
         List<OperatorStats> operators = driverStats.getOperatorStats();
         for (OperatorStats operator : operators) {
@@ -207,16 +207,16 @@ public class PipelineContext
                     (operatorId, summaryStats) -> summaryStats == null ? operator : OperatorStats.merge(ImmutableList.of(operator, summaryStats)).orElse(null));
         }
 
-        rawInputDataSize.update(driverStats.getRawInputDataSize().toBytes());
+        rawInputDataSize.update(driverStats.getRawInputDataSizeInBytes());
         rawInputPositions.update(driverStats.getRawInputPositions());
 
-        processedInputDataSize.update(driverStats.getProcessedInputDataSize().toBytes());
+        processedInputDataSize.update(driverStats.getProcessedInputDataSizeInBytes());
         processedInputPositions.update(driverStats.getProcessedInputPositions());
 
-        outputDataSize.update(driverStats.getOutputDataSize().toBytes());
+        outputDataSize.update(driverStats.getOutputDataSizeInBytes());
         outputPositions.update(driverStats.getOutputPositions());
 
-        physicalWrittenDataSize.getAndAdd(driverStats.getPhysicalWrittenDataSize().toBytes());
+        physicalWrittenDataSize.getAndAdd(driverStats.getPhysicalWrittenDataSizeInBytes());
     }
 
     public void start()
@@ -403,22 +403,22 @@ public class PipelineContext
             totalCpuTime += driverStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += driverStats.getTotalBlockedTime().roundTo(NANOSECONDS);
 
-            totalAllocation += driverStats.getTotalAllocation().toBytes();
+            totalAllocation += driverStats.getTotalAllocationInBytes();
 
             for (OperatorStats operatorStats : driverStats.getOperatorStats()) {
                 operatorStatsById.computeIfAbsent(operatorStats.getOperatorId(), k -> new ArrayList<>()).add(operatorStats);
             }
 
-            rawInputDataSize += driverStats.getRawInputDataSize().toBytes();
+            rawInputDataSize += driverStats.getRawInputDataSizeInBytes();
             rawInputPositions += driverStats.getRawInputPositions();
 
-            processedInputDataSize += driverStats.getProcessedInputDataSize().toBytes();
+            processedInputDataSize += driverStats.getProcessedInputDataSizeInBytes();
             processedInputPositions += driverStats.getProcessedInputPositions();
 
-            outputDataSize += driverStats.getOutputDataSize().toBytes();
+            outputDataSize += driverStats.getOutputDataSizeInBytes();
             outputPositions += driverStats.getOutputPositions();
 
-            physicalWrittenDataSize += driverStats.getPhysicalWrittenDataSize().toBytes();
+            physicalWrittenDataSize += driverStats.getPhysicalWrittenDataSizeInBytes();
         }
 
         PipelineStatus pipelineStatus = pipelineStatusBuilder.build();

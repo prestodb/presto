@@ -1,6 +1,6 @@
-====================
+==============
 HANA Connector
-====================
+==============
 
 The HANA connector allows querying and creating tables in an
 external HANA database. This can be used to join data between

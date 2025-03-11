@@ -42,6 +42,12 @@ Property Name                           Description                             
                                         the metastore.
 ======================================= ============================================= ===========
 
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+
 SQL Support
 -----------
 

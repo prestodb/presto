@@ -11,8 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <filesystem>
 #include <gtest/gtest.h>
+#include <filesystem>
 #include <unordered_set>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
@@ -217,7 +217,7 @@ TEST_F(ConfigTest, optionalNodeConfigs) {
 TEST_F(ConfigTest, optionalSystemConfigsWithDefault) {
   SystemConfig config;
   init(config, {});
-  ASSERT_EQ(config.maxDriversPerTask(), 16);
+  ASSERT_EQ(config.maxDriversPerTask(), std::thread::hardware_concurrency());
   init(config, {{std::string(SystemConfig::kMaxDriversPerTask), "1024"}});
   ASSERT_EQ(config.maxDriversPerTask(), 1024);
 }

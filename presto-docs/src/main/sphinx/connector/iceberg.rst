@@ -32,6 +32,12 @@ as a Hive connector.
     hive.metastore.uri=hostname:port
     iceberg.catalog.type=hive
 
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+
 Glue catalog
 ^^^^^^^^^^^^
 
@@ -257,14 +263,51 @@ Property Name                                           Description             
 ======================================================= ============================================================= ============
 ``iceberg.catalog.warehouse``                           The catalog warehouse root path for Iceberg tables.
 
+                                                        The Hadoop catalog requires a file system that supports
+                                                        an atomic rename operation, such as HDFS, to maintain
+                                                        metadata files in order to implement an atomic transaction
+                                                        commit.
+
                                                         Example: ``hdfs://nn:8020/warehouse/path``
+
+                                                        Do not set ``iceberg.catalog.warehouse`` to a path in object
+                                                        stores or local file systems in the production environment.
+
                                                         This property is required if the ``iceberg.catalog.type`` is
                                                         ``hadoop``. Otherwise, it will be ignored.
+
+``iceberg.catalog.hadoop.warehouse.datadir``            The catalog warehouse root data path for Iceberg tables.
+                                                        It is only supported with the Hadoop catalog.
+
+                                                        Example: ``s3://iceberg_bucket/warehouse``.
+
+                                                        This optional property can be set to a path in object
+                                                        stores or HDFS.
+                                                        If set, all tables in this Hadoop catalog default to saving
+                                                        their data and delete files in the specified root
+                                                        data directory.
 
 ``iceberg.catalog.cached-catalog-num``                  The number of Iceberg catalogs to cache. This property is     ``10``
                                                         required if the ``iceberg.catalog.type`` is ``hadoop``.
                                                         Otherwise, it will be ignored.
 ======================================================= ============================================================= ============
+
+Configure the `Amazon S3 <https://prestodb.io/docs/current/connector/hive.html#amazon-s3-configuration>`_
+properties to specify a S3 location as the warehouse data directory for the Hadoop catalog. This way,
+the data and delete files of Iceberg tables are stored in S3. An example configuration includes:
+
+.. code-block:: none
+
+    connector.name=iceberg
+    iceberg.catalog.type=hadoop
+    iceberg.catalog.warehouse=hdfs://nn:8020/warehouse/path
+    iceberg.catalog.hadoop.warehouse.datadir=s3://iceberg_bucket/warehouse
+
+    hive.s3.use-instance-credentials=false
+    hive.s3.aws-access-key=accesskey
+    hive.s3.aws-secret-key=secretkey
+    hive.s3.endpoint=http://192.168.0.103:9878
+    hive.s3.path-style-access=true
 
 Configuration Properties
 ------------------------
@@ -371,6 +414,12 @@ Property Name                             Description                           
 ``location``                               Optionally specifies the file system location URI for
                                            the table.
 
+``write.data.path``                        Optionally specifies the file system location URI for
+                                           storing the data and delete files of the table. This only
+                                           applies to files written after this property is set. Files
+                                           previously written aren't relocated to reflect this
+                                           parameter.
+
 ``format_version``                         Optionally specifies the format version of the Iceberg           ``2``
                                            specification to use for new tables, either ``1`` or ``2``.
 
@@ -426,7 +475,7 @@ Property Name                                         Description
 ``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
                                                       ``iceberg.rows-for-metadata-optimization-threshold`` in the current
                                                       session.
-``iceberg.target_split_size``                         Overrides the target split size for all tables in a query in bytes.
+``iceberg.target_split_size_bytes``                   Overrides the target split size for all tables in a query in bytes.
                                                       Set to 0 to use the value in each Iceberg table's
                                                       ``read.split.target-size`` property.
 ``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or
@@ -467,7 +516,8 @@ Property Name                                          Description              
 ``iceberg.io.manifest.cache.max-total-bytes``          Maximum size of cache size in bytes.                            ``104857600``
 
 ``iceberg.io.manifest.cache.expiration-interval-ms``   Maximum time duration in milliseconds for which an entry        ``60000``
-                                                       stays in the manifest cache.
+                                                       stays in the manifest cache. Set to 0 to disable entry
+                                                       expiration.
 
 ``iceberg.io.manifest.cache.max-content-length``       Maximum length of a manifest file to be considered for          ``8388608``
                                                        caching in bytes. Manifest files with a length exceeding

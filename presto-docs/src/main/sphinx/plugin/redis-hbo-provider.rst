@@ -1,6 +1,6 @@
-=======================
+==================
 Redis HBO Provider
-=======================
+==================
 
 Redis HBO Provider supports loading a custom configured Redis Client for storing and retrieving historical stats for Historical Based Optimization (HBO). The Redis client is stateful and is based on
 `Lettuce <https://github.com/lettuce-io/lettuce-core>`_. Both RedisClient and RedisClusterClient are supported, RedisClusterAsyncCommandsFactory is meant to be extended by the user for custom configurations.

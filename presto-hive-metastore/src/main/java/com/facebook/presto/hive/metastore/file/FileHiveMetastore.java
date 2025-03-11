@@ -68,7 +68,6 @@ import org.apache.hadoop.fs.Path;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
@@ -266,9 +265,19 @@ public class FileHiveMetastore
         }
 
         if (!table.getTableType().equals(VIRTUAL_VIEW)) {
-            File location = new File(new Path(table.getStorage().getLocation()).toUri());
-            checkArgument(location.isDirectory(), "Table location is not a directory: %s", location);
-            checkArgument(location.exists(), "Table directory does not exist: %s", location);
+            try {
+                Path tableLocation = new Path(table.getStorage().getLocation());
+                FileSystem fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, tableLocation);
+                if (!fileSystem.isDirectory(tableLocation)) {
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "Table location is not a directory: " + tableLocation);
+                }
+                if (!fileSystem.exists(tableLocation)) {
+                    throw new PrestoException(HIVE_METASTORE_ERROR, "Table directory does not exist: " + tableLocation);
+                }
+            }
+            catch (IOException e) {
+                throw new PrestoException(HIVE_METASTORE_ERROR, "Could not validate table location", e);
+            }
         }
 
         writeSchemaFile("table", tableMetadataDirectory, tableCodec, new TableMetadata(table), false);
@@ -1189,25 +1198,13 @@ public class FileHiveMetastore
         requireNonNull(tableName, "tableName is null");
         requireNonNull(privileges, "privileges is null");
 
-        try {
-            Table table = getRequiredTable(metastoreContext, databaseName, tableName);
+        Table table = getRequiredTable(metastoreContext, databaseName, tableName);
 
-            Path permissionsDirectory = getPermissionsDirectory(table);
-
-            metadataFileSystem.mkdirs(permissionsDirectory);
-            if (!metadataFileSystem.isDirectory(permissionsDirectory)) {
-                throw new PrestoException(HIVE_METASTORE_ERROR, "Could not create permissions directory");
-            }
-
-            Path permissionFilePath = getPermissionsPath(permissionsDirectory, grantee);
-            List<PermissionMetadata> permissions = privileges.stream()
-                    .map(PermissionMetadata::new)
-                    .collect(toList());
-            writeFile("permissions", permissionFilePath, permissionsCodec, permissions, true);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
-        }
+        Path permissionFilePath = getPermissionsPath(getPermissionsDirectory(table), grantee);
+        List<PermissionMetadata> permissions = privileges.stream()
+                .map(PermissionMetadata::new)
+                .collect(toList());
+        writeFile("permissions", permissionFilePath, permissionsCodec, permissions, true);
     }
 
     private Set<TableConstraint> readConstraintsFile(String databaseName, String tableName)

@@ -1,6 +1,6 @@
-*******
+=======
 Tableau
-*******
+=======
 
 The Presto web connector for Tableau lets users run queries from Tableau against Presto.
 It implements the functions in the

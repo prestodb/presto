@@ -1,6 +1,6 @@
-=======================
-Lark Sheets connector
-=======================
+=====================
+Lark Sheets Connector
+=====================
 
 The Lark Sheets connector allows reading `Lark Sheets <https://www.larksuite.com/en_us/>`_ spreadsheets in Presto.
 

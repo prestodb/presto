@@ -104,10 +104,6 @@ To update Presto Console after making changes, run:
 
     yarn --cwd presto-ui/src install
 
-If no JavaScript dependencies have changed (i.e., no changes to `package.json`), it is faster to run:
-
-    yarn --cwd presto-ui/src run package
-
 To simplify iteration, you can also run in `watch` mode, which automatically re-compiles when
 changes to source files are detected:
 

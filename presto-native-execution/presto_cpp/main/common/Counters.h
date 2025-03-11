@@ -47,6 +47,11 @@ constexpr folly::StringPiece kCounterHTTPClientTransactionCreateDelay{
 constexpr folly::StringPiece kCounterExchangeSourcePeakQueuedBytes{
     "presto_cpp.exchange_source_peak_queued_bytes"};
 
+constexpr folly::StringPiece kCounterExchangeRequestDuration{
+    "presto_cpp.exchange.request.duration"};
+constexpr folly::StringPiece kCounterExchangeRequestNumTries{
+    "presto_cpp.exchange.request.num_tries"};
+
 constexpr folly::StringPiece kCounterNumQueryContexts{
     "presto_cpp.num_query_contexts"};
 

@@ -37,6 +37,15 @@ std::string bool2String(bool value) {
   return value ? "true" : "false";
 }
 
+int getThreadCount() {
+  auto numThreads = std::thread::hardware_concurrency();
+  // The spec says std::thread::hardware_concurrency() might return 0.
+  // But we depend on std::thread::hardware_concurrency() to create executors.
+  // Check to ensure numThreads is > 0.
+  VELOX_CHECK_GT(numThreads, 0);
+  return numThreads;
+}
+
 #define STR_PROP(_key_, _val_) \
   { std::string(_key_), std::string(_val_) }
 #define NUM_PROP(_key_, _val_) \
@@ -138,7 +147,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kHttpServerReusePort, false),
           BOOL_PROP(kHttpServerBindToNodeInternalAddressOnlyEnabled, false),
           NONE_PROP(kDiscoveryUri),
-          NUM_PROP(kMaxDriversPerTask, 16),
+          NUM_PROP(kMaxDriversPerTask, getThreadCount()),
           NONE_PROP(kTaskWriterCount),
           NONE_PROP(kTaskPartitionedWriterCount),
           NUM_PROP(kConcurrentLifespansPerTask, 1),
@@ -168,9 +177,9 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSpillerDirectoryCreateConfig, ""),
           NONE_PROP(kSpillerSpillPath),
           NUM_PROP(kShutdownOnsetSec, 10),
-          NUM_PROP(kSystemMemoryGb, 40),
+          NUM_PROP(kSystemMemoryGb, 57),
           BOOL_PROP(kSystemMemPushbackEnabled, false),
-          NUM_PROP(kSystemMemLimitGb, 55),
+          NUM_PROP(kSystemMemLimitGb, 60),
           NUM_PROP(kSystemMemShrinkGb, 8),
           BOOL_PROP(kMallocMemHeapDumpEnabled, false),
           BOOL_PROP(kSystemMemPushbackAbortEnabled, false),
@@ -292,14 +301,16 @@ std::string SystemConfig::prestoVersion() const {
 }
 
 std::string SystemConfig::poolType() const {
-    static const std::unordered_set<std::string> kPoolTypes = {"LEAF", "INTERMEDIATE", "DEFAULT"};
-    static constexpr std::string_view kPoolTypeDefault = "DEFAULT";
-    auto value = optionalProperty<std::string>(kPoolType).value_or(std::string(kPoolTypeDefault));
-    VELOX_USER_CHECK(
-        kPoolTypes.count(value),
-        "{} must be one of 'LEAF', 'INTERMEDIATE', or 'DEFAULT'",
-        kPoolType);
-    return value;
+  static const std::unordered_set<std::string> kPoolTypes = {
+      "LEAF", "INTERMEDIATE", "DEFAULT"};
+  static constexpr std::string_view kPoolTypeDefault = "DEFAULT";
+  auto value = optionalProperty<std::string>(kPoolType).value_or(
+      std::string(kPoolTypeDefault));
+  VELOX_USER_CHECK(
+      kPoolTypes.count(value),
+      "{} must be one of 'LEAF', 'INTERMEDIATE', or 'DEFAULT'",
+      kPoolType);
+  return value;
 }
 
 bool SystemConfig::mutableConfig() const {
