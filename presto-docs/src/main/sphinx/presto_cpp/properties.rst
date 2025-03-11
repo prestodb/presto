@@ -310,12 +310,12 @@ The configuration properties of AsyncDataCache and SSD cache are described here.
   In-memory cache.
 
 ``async-cache-ssd-gb``
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``integer``
 * **Default value:** ``0``
 
-  The size of the SSD. Unit is in GiB (gibibytes).
+  The size of the SSD. Unit is in GiB (gibibytes). 
 
 ``async-cache-ssd-path``
 ^^^^^^^^^^^^^^^^^^^^^^^^
