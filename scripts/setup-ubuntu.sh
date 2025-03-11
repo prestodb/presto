@@ -293,7 +293,11 @@ function install_cuda {
     $SUDO apt update
   fi
   local dashed="$(echo $1 | tr '.' '-')"
-  $SUDO apt install -y cuda-nvcc-$dashed cuda-cudart-dev-$dashed cuda-nvrtc-dev-$dashed cuda-driver-dev-$dashed
+  $SUDO apt install -y \
+    cuda-compat-$dashed \
+    cuda-driver-dev-$dashed \
+    cuda-minimal-build-$dashed \
+    cuda-nvrtc-dev-$dashed
 }
 
 function install_geos {

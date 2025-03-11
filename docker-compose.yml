@@ -52,12 +52,47 @@ services:
     environment:
       NUM_THREADS: 8 # default value for NUM_THREADS
       CCACHE_DIR: "/velox/.ccache"
-      EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_PARQUET=ON 
+      EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_PARQUET=ON
                          -DVELOX_ENABLE_S3=ON
     volumes:
       - .:/velox:delegated
     working_dir: /velox
     command: /velox/scripts/docker-command.sh
+
+  adapters-cuda:
+    # Usage:
+    #   docker-compose pull adapters-cuda or docker-compose build adapters-cuda
+    #   or
+    #   docker-compose run --rm adapters-cuda
+    #   or
+    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm adapters-cuda
+    #   to set the number of threads used during compilation
+    # scripts/adapters.dockerfile uses SHELL which is not supported for OCI image format.
+    # podman users must specify "--podman-build-args='--format docker'" argument.
+    image: ghcr.io/facebookincubator/velox-dev:adapters
+    build:
+      context: .
+      dockerfile: scripts/adapters.dockerfile
+      args:
+        image: ghcr.io/facebookincubator/velox-dev:centos9
+    environment:
+      NUM_THREADS: 8 # default value for NUM_THREADS
+      CCACHE_DIR: "/velox/.ccache"
+      EXTRA_CMAKE_FLAGS: -DVELOX_ENABLE_PARQUET=ON
+                         -DVELOX_ENABLE_S3=ON
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - .:/velox:delegated
+    working_dir: /velox
+    command: /velox/scripts/docker-command.sh
+
 
   centos-cpp:
     # Usage:

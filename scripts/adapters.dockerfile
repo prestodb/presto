@@ -17,8 +17,23 @@ FROM $image
 
 COPY scripts/setup-helper-functions.sh /
 COPY scripts/setup-adapters.sh /
-RUN mkdir build && ( cd build &&  source /opt/rh/gcc-toolset-12/enable && \
-    bash /setup-adapters.sh ) && rm -rf build && dnf remove -y conda && dnf clean all
+COPY scripts/setup-centos9.sh /
+RUN mkdir build && \
+    ( \
+      cd build && \
+      source /opt/rh/gcc-toolset-12/enable && \
+      bash /setup-adapters.sh && \
+      source /setup-centos9.sh && \
+      install_cuda 12.8 \
+    ) && \
+    rm -rf build && dnf remove -y conda && dnf clean all
+
+# put CUDA binaries on the PATH
+ENV PATH /usr/local/cuda/bin:${PATH}
+
+# configuration for nvidia-container-toolkit
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 
 # install miniforge
 RUN curl -L -o /tmp/miniforge.sh https://github.com/conda-forge/miniforge/releases/download/23.11.0-0/Mambaforge-23.11.0-0-Linux-x86_64.sh && \

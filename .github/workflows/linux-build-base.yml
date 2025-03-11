@@ -40,7 +40,7 @@ jobs:
       simdjson_SOURCE: BUNDLED
       xsimd_SOURCE: BUNDLED
       geos_SOURCE: BUNDLED
-      CUDA_VERSION: "12.4"
+      CUDA_VERSION: "12.8"
       USE_CLANG: "${{ inputs.use-clang && 'true' || 'false' }}"
     steps:
       - uses: actions/checkout@v4

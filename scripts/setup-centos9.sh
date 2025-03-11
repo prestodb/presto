@@ -234,7 +234,11 @@ function install_cuda {
   # See https://developer.nvidia.com/cuda-downloads
   dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo
   local dashed="$(echo $1 | tr '.' '-')"
-  dnf install -y cuda-nvcc-$dashed cuda-cudart-devel-$dashed cuda-nvrtc-devel-$dashed cuda-driver-devel-$dashed
+  dnf install -y \
+    cuda-compat-$dashed \
+    cuda-driver-devel-$dashed \
+    cuda-minimal-build-$dashed \
+    cuda-nvrtc-devel-$dashed
 }
 
 function install_geos {
