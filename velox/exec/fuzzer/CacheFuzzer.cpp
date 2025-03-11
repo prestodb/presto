@@ -66,7 +66,7 @@ DEFINE_int32(
     -1,
     "Number of SSD cache shards. When set to -1, a random value from 1 to 4 will be used, inclusively.");
 
-DEFINE_bool(ssd_odirect, true, "Use O_DIRECT for SSD cache IO");
+DECLARE_bool(velox_ssd_odirect);
 
 DEFINE_int64(
     ssd_checkpoint_interval_bytes,
@@ -505,7 +505,7 @@ void CacheFuzzer::go() {
   // filesystem and kernel version.
   //
   // TODO: add this support if needed later.
-  FLAGS_ssd_odirect = false;
+  FLAGS_velox_ssd_odirect = false;
   auto startTime = std::chrono::system_clock::now();
   size_t iteration = 0;
 
