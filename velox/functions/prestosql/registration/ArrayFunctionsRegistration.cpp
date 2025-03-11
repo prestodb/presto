@@ -200,6 +200,7 @@ void registerArrayFunctions(const std::string& prefix) {
   registerArrayJoinFunctions<Timestamp>(prefix);
   registerArrayJoinFunctions<Date>(prefix);
   registerArrayJoinFunctions<Json>(prefix);
+  registerArrayJoinFunctions<UnknownValue>(prefix);
 
   registerFunction<ArrayAverageFunction, double, Array<double>>(
       {prefix + "array_average"});

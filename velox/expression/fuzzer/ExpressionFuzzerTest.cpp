@@ -113,7 +113,8 @@ int main(int argc, char** argv) {
       // from_unixtime can generate timestamps out of the supported range that
       // make other functions throw VeloxRuntimeErrors.
       "from_unixtime",
-  };
+      // JSON not supported, Real doesn't match exactly, etc.
+      "array_join"};
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 
   std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>

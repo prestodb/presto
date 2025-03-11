@@ -268,4 +268,16 @@ TEST_F(ArrayJoinTest, jsonTest) {
       false,
       true);
 }
+
+TEST_F(ArrayJoinTest, unknownTest) {
+  testArrayJoinNoReplacement<UnknownValue>(
+      {std::nullopt, std::nullopt, std::nullopt}, ","_sv, ""_sv);
+
+  testArrayJoinReplacement<UnknownValue>(
+      {std::nullopt, std::nullopt, std::nullopt},
+      ","_sv,
+      "null"_sv,
+      "null,null,null"_sv);
+}
+
 } // namespace
