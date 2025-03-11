@@ -143,22 +143,27 @@ public class TestClusterManager
         Path configFilePath = configFile.toPath();
         assertEquals(clusterManager.getAllClusters().size(), 3);
 
+        System.out.println(configFilePath);
+
         String originalConfigContent = new String(Files.readAllBytes(configFilePath));
         String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
 
         FileOutputStream fos = new FileOutputStream(configFile, false);
-
         fos.write(modifiedConfigContent.getBytes());
         fos.flush();
         fos.getFD().sync();
-        Thread.sleep(500);
+        fos.close();
+        // can use cyclic barrier instead
+        Thread.sleep(3000);
 
         assertEquals(clusterManager.getAllClusters().size(), 0);
 
+        fos = new FileOutputStream(configFile, false);
         fos.write(originalConfigContent.getBytes());
         fos.flush();
         fos.getFD().sync();
-        Thread.sleep(500);
+        fos.close();
+        Thread.sleep(3000);
 
         assertEquals(clusterManager.getAllClusters().size(), 3);
     }

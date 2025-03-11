@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.sun.nio.file.SensitivityWatchEventModifier;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
@@ -112,12 +113,15 @@ public class ClusterManager
         CompletableFuture.supplyAsync(() -> {
             try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
                 File routerConfigFile = new File(routerConfig.getConfigFile());
+                log.info(routerConfig.getConfigFile());
                 Path parentDir = routerConfigFile.toPath().getParent();
                 parentDir.register(
                         watchService,
-                        StandardWatchEventKinds.ENTRY_MODIFY,
-                        StandardWatchEventKinds.ENTRY_CREATE,
-                        StandardWatchEventKinds.ENTRY_DELETE);
+                        new WatchEvent.Kind[] {
+                                StandardWatchEventKinds.ENTRY_MODIFY,
+                                StandardWatchEventKinds.ENTRY_CREATE,
+                                StandardWatchEventKinds.ENTRY_DELETE},
+                        SensitivityWatchEventModifier.HIGH);
 
                 while (true) {
                     WatchKey key = watchService.take();
