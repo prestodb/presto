@@ -46,7 +46,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.tree.CreateView;
-import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -246,7 +245,6 @@ public final class SystemSessionProperties
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
     public static final String HEAP_DUMP_ON_EXCEEDED_MEMORY_LIMIT_ENABLED = "heap_dump_on_exceeded_memory_limit_enabled";
     public static final String EXCEEDED_MEMORY_LIMIT_HEAP_DUMP_FILE_DIRECTORY = "exceeded_memory_limit_heap_dump_file_directory";
-    public static final String DISTRIBUTED_TRACING_MODE = "distributed_tracing_mode";
     public static final String VERBOSE_RUNTIME_STATS_ENABLED = "verbose_runtime_stats_enabled";
     public static final String OPTIMIZERS_TO_ENABLE_VERBOSE_RUNTIME_STATS = "optimizers_to_enable_verbose_runtime_stats";
     public static final String VERBOSE_OPTIMIZER_INFO_ENABLED = "verbose_optimizer_info_enabled";
@@ -354,7 +352,6 @@ public final class SystemSessionProperties
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig(),
                 new CompilerConfig(),
                 new HistoryBasedOptimizationConfig());
     }
@@ -370,7 +367,6 @@ public final class SystemSessionProperties
             WarningCollectorConfig warningCollectorConfig,
             NodeSchedulerConfig nodeSchedulerConfig,
             NodeSpillConfig nodeSpillConfig,
-            TracingConfig tracingConfig,
             CompilerConfig compilerConfig,
             HistoryBasedOptimizationConfig historyBasedOptimizationConfig)
     {
@@ -1320,11 +1316,6 @@ public final class SystemSessionProperties
                         "Enable query optimization with materialized view",
                         featuresConfig.isQueryOptimizationWithMaterializedViewEnabled(),
                         true),
-                stringProperty(
-                        DISTRIBUTED_TRACING_MODE,
-                        "Mode for distributed tracing. NO_TRACE, ALWAYS_TRACE, or SAMPLE_BASED",
-                        tracingConfig.getDistributedTracingMode().name(),
-                        false),
                 booleanProperty(
                         VERBOSE_RUNTIME_STATS_ENABLED,
                         "Enable logging all runtime stats",

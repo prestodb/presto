@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
+import com.facebook.presto.common.telemetry.tracing.TracingEnum;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.buffer.BufferState;
@@ -30,7 +31,9 @@ import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
+import com.facebook.presto.spi.tracing.BaseSpan;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
+import com.facebook.presto.tracing.TracingManager;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -70,6 +73,7 @@ import static com.facebook.presto.execution.SqlTaskExecution.SplitsState.ADDING_
 import static com.facebook.presto.execution.SqlTaskExecution.SplitsState.FINISHED;
 import static com.facebook.presto.execution.SqlTaskExecution.SplitsState.NO_MORE_SPLITS;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static com.facebook.presto.tracing.TracingManager.addEvent;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -130,6 +134,7 @@ public class SqlTaskExecution
     // guarded for update only
     @GuardedBy("this")
     private final ConcurrentMap<PlanNodeId, TaskSource> remoteSources = new ConcurrentHashMap<>();
+    private static BaseSpan taskSpan;
 
     @GuardedBy("this")
     private long maxAcknowledgedSplit = Long.MIN_VALUE;
@@ -150,7 +155,8 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             Executor notificationExecutor,
-            SplitMonitor queryMonitor)
+            SplitMonitor queryMonitor,
+            BaseSpan taskSpan)
     {
         SqlTaskExecution task = new SqlTaskExecution(
                 taskStateMachine,
@@ -159,7 +165,11 @@ public class SqlTaskExecution
                 localExecutionPlan,
                 taskExecutor,
                 queryMonitor,
-                notificationExecutor);
+                notificationExecutor,
+                taskSpan);
+
+        taskExecutor.setTaskId(task.taskId);
+
         try (SetThreadName ignored = new SetThreadName("Task-%s", task.getTaskId())) {
             // The scheduleDriversForTaskLifeCycle method calls enqueueDriverSplitRunner, which registers a callback with access to this object.
             // The call back is accessed from another thread, so this code can not be placed in the constructor.
@@ -176,7 +186,8 @@ public class SqlTaskExecution
             LocalExecutionPlan localExecutionPlan,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
-            Executor notificationExecutor)
+            Executor notificationExecutor,
+            BaseSpan taskSpan)
     {
         this.taskStateMachine = requireNonNull(taskStateMachine, "taskStateMachine is null");
         this.taskId = taskStateMachine.getTaskId();
@@ -558,6 +569,7 @@ public class SqlTaskExecution
 
             // record new driver
             status.incrementRemainingDriver(splitRunner.getLifespan());
+            BaseSpan pipelineSpan = splitRunner.getPipelineSpan();
 
             Futures.addCallback(finishedFuture, new FutureCallback<Object>()
             {
@@ -570,7 +582,7 @@ public class SqlTaskExecution
 
                         checkTaskCompletion();
 
-                        splitMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        splitMonitor.splitCompletedEvent(taskId, getDriverStats(), pipelineSpan);
                     }
                 }
 
@@ -584,7 +596,7 @@ public class SqlTaskExecution
                         status.decrementRemainingDriver(splitRunner.getLifespan());
 
                         // fire failed event with cause
-                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
+                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause, pipelineSpan);
                     }
                 }
 
@@ -920,11 +932,15 @@ public class SqlTaskExecution
         private final DriverFactory driverFactory;
         private final PipelineContext pipelineContext;
         private boolean closed;
+        private final BaseSpan pipelineSpan;
+        private final int pipelineId;
 
         private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned)
         {
             this.driverFactory = driverFactory;
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
+            this.pipelineId = pipelineContext.getPipelineId();
+            this.pipelineSpan = TracingManager.getSpan(taskSpan, TracingEnum.PIPELINE.getName(), ImmutableMap.of("QUERY_ID", taskId.getQueryId().toString(), "STAGE_ID", taskId.getStageId().toString(), "TASK_ID", taskId.toString(), "PIPELINE_ID", taskId.getStageId() + "-" + pipelineContext.getPipelineId()));
         }
 
         // TODO: split this method into two: createPartitionedDriverRunner and createUnpartitionedDriverRunner.
@@ -993,6 +1009,7 @@ public class SqlTaskExecution
                 return;
             }
             driverFactory.noMoreDrivers();
+            addEvent(pipelineSpan, "query_state", "driver-factory-closed");
             closed = true;
         }
 
@@ -1047,6 +1064,12 @@ public class SqlTaskExecution
         public Lifespan getLifespan()
         {
             return lifespan;
+        }
+
+        @Override
+        public BaseSpan getPipelineSpan()
+        {
+            return driverSplitRunnerFactory.pipelineSpan;
         }
 
         @Override

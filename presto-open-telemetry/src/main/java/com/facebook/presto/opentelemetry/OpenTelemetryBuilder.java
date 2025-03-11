@@ -13,58 +13,76 @@
  */
 package com.facebook.presto.opentelemetry;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.TelemetryConfig;
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.baggage.propagation.W3CBaggagePropagator;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator;
 import io.opentelemetry.context.propagation.ContextPropagators;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
-import io.opentelemetry.extension.trace.propagation.B3Propagator;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
-import io.opentelemetry.semconv.resource.attributes.ResourceAttributes;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
+import io.opentelemetry.sdk.trace.samplers.Sampler;
+
+import java.util.concurrent.TimeUnit;
 
 public final class OpenTelemetryBuilder
 {
+    private static final Logger log = Logger.get(OpenTelemetryBuilder.class);
+
     private OpenTelemetryBuilder()
     {
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated.");
     }
 
-    /**
-     * Get instance of propagator.
-     * Currently, only B3_SINGLE_HEADER can be passed in.
-     */
-    private static TextMapPropagator getPropagatorInstance(String contextPropagator)
+    public static OpenTelemetry build()
     {
-        TextMapPropagator propagator;
-        if (contextPropagator.equals(OpenTelemetryContextPropagator.W3C)) {
-            propagator = W3CTraceContextPropagator.getInstance();
-        }
-        else if (contextPropagator.equals(OpenTelemetryContextPropagator.B3_SINGLE_HEADER)) {
-            propagator = B3Propagator.injectingSingleHeader();
+        TelemetryConfig telemetryConfig = TelemetryConfig.getTelemetryConfig();
+        OpenTelemetry openTelemetry = OpenTelemetry.noop(); //default instance for tracing disabled case
+
+        if (TelemetryConfig.getTracingEnabled()) {
+            log.debug("telemetry tracing is enabled");
+            Resource resource = Resource.create(Attributes.of(AttributeKey.stringKey("service.name"), "Presto"));
+
+            SpanExporter spanExporter = OtlpGrpcSpanExporter.builder()
+                    .setEndpoint(telemetryConfig.getTracingBackendUrl())
+                    .setTimeout(10, TimeUnit.SECONDS)
+                    .build();
+            log.debug("telemetry span exporter configured");
+
+            SpanProcessor spanProcessor = BatchSpanProcessor.builder(spanExporter)
+                    .setMaxExportBatchSize(telemetryConfig.getMaxExporterBatchSize())
+                    .setMaxQueueSize(telemetryConfig.getMaxQueueSize())
+                    .setScheduleDelay(telemetryConfig.getScheduleDelay(), TimeUnit.MILLISECONDS)
+                    .setExporterTimeout(telemetryConfig.getExporterTimeout(), TimeUnit.MILLISECONDS)
+                    .build();
+            log.debug("telemetry span processor configured");
+
+            SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
+                    .setSampler(Sampler.traceIdRatioBased(telemetryConfig.getSamplingRatio()))
+                    .addSpanProcessor(spanProcessor)
+                    .setResource(resource)
+                    .build();
+            log.debug("telemetry tracer provider set");
+
+            openTelemetry = OpenTelemetrySdk.builder()
+                    .setTracerProvider(tracerProvider)
+                    .setPropagators(ContextPropagators.create(
+                            TextMapPropagator.composite(W3CTraceContextPropagator.getInstance(), W3CBaggagePropagator.getInstance())))
+                    .build();
+            log.debug("opentelemetry instance created");
         }
         else {
-            propagator = B3Propagator.injectingMultiHeaders();
+            log.debug("telemetry tracing is disabled");
         }
-        return propagator;
-    }
 
-    public static OpenTelemetry build(String contextPropagator)
-    {
-        Resource resource = Resource.getDefault()
-                .merge(Resource.create(Attributes.of(ResourceAttributes.SERVICE_NAME, "presto")));
-
-        SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder()
-                .addSpanProcessor(BatchSpanProcessor.builder(OtlpGrpcSpanExporter.builder().setEndpoint(System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")).build()).build())
-                .setResource(resource)
-                .build();
-
-        return OpenTelemetrySdk.builder()
-                .setTracerProvider(sdkTracerProvider)
-                .setPropagators(ContextPropagators.create(OpenTelemetryBuilder.getPropagatorInstance(contextPropagator)))
-                .buildAndRegisterGlobal();
+        return openTelemetry;
     }
 }
