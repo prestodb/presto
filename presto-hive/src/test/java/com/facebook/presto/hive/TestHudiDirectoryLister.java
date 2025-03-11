@@ -117,6 +117,7 @@ public class TestHudiDirectoryLister
     private Table getMockMORTableWithPartition()
     {
         return new Table(
+                Optional.empty(),
                 "schema",
                 "hudi_mor_part_update",
                 "user",

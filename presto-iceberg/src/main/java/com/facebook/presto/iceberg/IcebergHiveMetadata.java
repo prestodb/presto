@@ -177,7 +177,7 @@ public class IcebergHiveMetadata
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig hiveTableOeprationsConfig,
             StatisticsFileCache statisticsFileCache,
-            String catalogName)
+            String catalogName,
             ManifestFileCache manifestFileCache)
     {
         super(typeManager, functionResolution, rowExpressionService, commitTaskCodec, nodeVersion, filterStatsCalculatorService, statisticsFileCache);
