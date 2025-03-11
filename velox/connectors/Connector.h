@@ -190,6 +190,10 @@ class DataSink {
     uint64_t numWrittenBytes{0};
     uint32_t numWrittenFiles{0};
     uint64_t writeIOTimeUs{0};
+    uint64_t numCompressedBytes{0};
+    uint64_t wallRecodeTimeNs{0};
+    uint64_t compressionTimeNs{0};
+
     common::SpillStats spillStats;
 
     bool empty() const;

@@ -293,6 +293,17 @@ void TableWriter::updateStats(const connector::DataSink::Stats& stats) {
         "writeIOTime",
         RuntimeCounter(
             stats.writeIOTimeUs * 1000, RuntimeCounter::Unit::kNanos));
+    if (stats.wallRecodeTimeNs != 0) {
+      lockedStats->addRuntimeStat(
+          "wallRecodeTime",
+          RuntimeCounter(stats.wallRecodeTimeNs, RuntimeCounter::Unit::kNanos));
+    }
+    if (stats.compressionTimeNs != 0) {
+      lockedStats->addRuntimeStat(
+          "compressionTime",
+          RuntimeCounter(
+              stats.compressionTimeNs, RuntimeCounter::Unit::kNanos));
+    }
   }
   if (!stats.spillStats.empty()) {
     *spillStats_.wlock() += stats.spillStats;
