@@ -24,6 +24,7 @@ import java.net.URI;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -32,7 +33,7 @@ public class PageBufferClientStatus
 {
     private final URI uri;
     private final String state;
-    private final DateTime lastUpdate;
+    private final long lastUpdateInMillis;
     private final long rowsReceived;
     private final int pagesReceived;
     // use optional to keep the output size down, since this renders for every destination
@@ -42,6 +43,32 @@ public class PageBufferClientStatus
     private final int requestsCompleted;
     private final int requestsFailed;
     private final String httpRequestState;
+
+    public PageBufferClientStatus(
+            URI uri,
+            String state,
+            long lastUpdateInMillis,
+            long rowsReceived,
+            int pagesReceived,
+            OptionalLong rowsRejected,
+            OptionalInt pagesRejected,
+            int requestsScheduled,
+            int requestsCompleted,
+            int requestsFailed,
+            String httpRequestState)
+    {
+        this.uri = uri;
+        this.state = state;
+        this.lastUpdateInMillis = lastUpdateInMillis;
+        this.rowsReceived = rowsReceived;
+        this.pagesReceived = pagesReceived;
+        this.rowsRejected = requireNonNull(rowsRejected, "rowsRejected is null");
+        this.pagesRejected = requireNonNull(pagesRejected, "pagesRejected is null");
+        this.requestsScheduled = requestsScheduled;
+        this.requestsCompleted = requestsCompleted;
+        this.requestsFailed = requestsFailed;
+        this.httpRequestState = httpRequestState;
+    }
 
     @JsonCreator
     @ThriftConstructor
@@ -57,17 +84,17 @@ public class PageBufferClientStatus
             @JsonProperty("requestsFailed") int requestsFailed,
             @JsonProperty("httpRequestState") String httpRequestState)
     {
-        this.uri = uri;
-        this.state = state;
-        this.lastUpdate = lastUpdate;
-        this.rowsReceived = rowsReceived;
-        this.pagesReceived = pagesReceived;
-        this.rowsRejected = requireNonNull(rowsRejected, "rowsRejected is null");
-        this.pagesRejected = requireNonNull(pagesRejected, "pagesRejected is null");
-        this.requestsScheduled = requestsScheduled;
-        this.requestsCompleted = requestsCompleted;
-        this.requestsFailed = requestsFailed;
-        this.httpRequestState = httpRequestState;
+        this(uri,
+                state,
+                toTimeStampInMillis(lastUpdate),
+                rowsReceived,
+                pagesReceived,
+                rowsRejected,
+                pagesRejected,
+                requestsScheduled,
+                requestsCompleted,
+                requestsFailed,
+                httpRequestState);
     }
 
     @JsonProperty
@@ -88,7 +115,12 @@ public class PageBufferClientStatus
     @ThriftField(3)
     public DateTime getLastUpdate()
     {
-        return lastUpdate;
+        return new DateTime(lastUpdateInMillis);
+    }
+
+    public long getLastUpdateInMillis()
+    {
+        return lastUpdateInMillis;
     }
 
     @JsonProperty
@@ -153,7 +185,7 @@ public class PageBufferClientStatus
         return toStringHelper(this)
                 .add("uri", uri)
                 .add("state", state)
-                .add("lastUpdate", lastUpdate)
+                .add("lastUpdateInMillis", lastUpdateInMillis)
                 .add("rowsReceived", rowsReceived)
                 .add("pagesReceived", pagesReceived)
                 .add("httpRequestState", httpRequestState)

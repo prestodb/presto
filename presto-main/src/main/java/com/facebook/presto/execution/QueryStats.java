@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
 
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
@@ -48,11 +49,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class QueryStats
 {
-    private final DateTime createTime;
+    private final long createTimeInMillis;
 
-    private final DateTime executionStartTime;
-    private final DateTime lastHeartbeat;
-    private final DateTime endTime;
+    private final long executionStartTimeInMillis;
+    private final long lastHeartbeatInMillis;
+    private final long endTimeInMillis;
 
     private final Duration elapsedTime;
     private final Duration waitingForPrerequisitesTime;
@@ -122,84 +123,85 @@ public class QueryStats
     // RuntimeStats aggregated at the query level including the metrics exposed in every task and every operator.
     private final RuntimeStats runtimeStats;
 
-    @JsonCreator
     public QueryStats(
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("executionStartTime") DateTime executionStartTime,
-            @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
-            @JsonProperty("endTime") DateTime endTime,
+            long createTimeInMillis,
+            long executionStartTimeInMillis,
+            long lastHeartbeatInMillis,
+            long endTimeInMillis,
 
-            @JsonProperty("elapsedTime") Duration elapsedTime,
-            @JsonProperty("waitingForPrerequisitesTime") Duration waitingForPrerequisitesTime,
-            @JsonProperty("queuedTime") Duration queuedTime,
-            @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
-            @JsonProperty("semanticAnalyzingTime") Duration semanticAnalyzingTime,
-            @JsonProperty("columnAccessPermissionCheckingTime") Duration columnAccessPermissionCheckingTime,
-            @JsonProperty("dispatchingTime") Duration dispatchingTime,
-            @JsonProperty("executionTime") Duration executionTime,
-            @JsonProperty("analysisTime") Duration analysisTime,
-            @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
-            @JsonProperty("finishingTime") Duration finishingTime,
+            Duration elapsedTime,
+            Duration waitingForPrerequisitesTime,
+            Duration queuedTime,
+            Duration resourceWaitingTime,
+            Duration semanticAnalyzingTime,
+            Duration columnAccessPermissionCheckingTime,
+            Duration dispatchingTime,
+            Duration executionTime,
+            Duration analysisTime,
+            Duration totalPlanningTime,
+            Duration finishingTime,
 
-            @JsonProperty("totalTasks") int totalTasks,
-            @JsonProperty("runningTasks") int runningTasks,
-            @JsonProperty("peakRunningTasks") int peakRunningTasks,
-            @JsonProperty("completedTasks") int completedTasks,
+            int totalTasks,
+            int runningTasks,
+            int peakRunningTasks,
+            int completedTasks,
 
-            @JsonProperty("totalDrivers") int totalDrivers,
-            @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("blockedDrivers") int blockedDrivers,
-            @JsonProperty("completedDrivers") int completedDrivers,
+            int totalDrivers,
+            int queuedDrivers,
+            int runningDrivers,
+            int blockedDrivers,
+            int completedDrivers,
 
-            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
-            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
-            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
-            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
-            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
-            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
-            @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
-            @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
-            @JsonProperty("peakNodeTotalMemory") DataSize peakNodeTotalMemory,
+            double cumulativeUserMemory,
+            double cumulativeTotalMemory,
+            DataSize userMemoryReservation,
+            DataSize totalMemoryReservation,
+            DataSize peakUserMemoryReservation,
+            DataSize peakTotalMemoryReservation,
+            DataSize peakTaskUserMemory,
+            DataSize peakTaskTotalMemory,
+            DataSize peakNodeTotalMemory,
 
-            @JsonProperty("scheduled") boolean scheduled,
-            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
-            @JsonProperty("totalCpuTime") Duration totalCpuTime,
-            @JsonProperty("retriedCpuTime") Duration retriedCpuTime,
-            @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
-            @JsonProperty("fullyBlocked") boolean fullyBlocked,
-            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+            boolean scheduled,
+            Duration totalScheduledTime,
+            Duration totalCpuTime,
+            Duration retriedCpuTime,
+            Duration totalBlockedTime,
+            boolean fullyBlocked,
+            Set<BlockedReason> blockedReasons,
 
-            @JsonProperty("totalAllocation") DataSize totalAllocation,
+            DataSize totalAllocation,
 
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
+            DataSize rawInputDataSize,
+            long rawInputPositions,
 
-            @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
-            @JsonProperty("processedInputPositions") long processedInputPositions,
+            DataSize processedInputDataSize,
+            long processedInputPositions,
 
-            @JsonProperty("shuffledDataSize") DataSize shuffledDataSize,
-            @JsonProperty("shuffledPositions") long shuffledPositions,
+            DataSize shuffledDataSize,
+            long shuffledPositions,
 
-            @JsonProperty("outputDataSize") DataSize outputDataSize,
-            @JsonProperty("outputPositions") long outputPositions,
+            DataSize outputDataSize,
+            long outputPositions,
 
-            @JsonProperty("writtenOutputPositions") long writtenOutputPositions,
-            @JsonProperty("writtenOutputLogicalDataSize") DataSize writtenOutputLogicalDataSize,
-            @JsonProperty("writtenOutputPhysicalDataSize") DataSize writtenOutputPhysicalDataSize,
+            long writtenOutputPositions,
+            DataSize writtenOutputLogicalDataSize,
+            DataSize writtenOutputPhysicalDataSize,
 
-            @JsonProperty("writtenIntermediatePhysicalDataSize") DataSize writtenIntermediatePhysicalDataSize,
+            DataSize writtenIntermediatePhysicalDataSize,
 
-            @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
+            List<StageGcStatistics> stageGcStatistics,
 
-            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
+            List<OperatorStats> operatorSummaries,
 
-            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
+            RuntimeStats runtimeStats)
     {
-        this.createTime = requireNonNull(createTime, "createTime is null");
-        this.executionStartTime = executionStartTime;
-        this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
-        this.endTime = endTime;
+        checkArgument(createTimeInMillis >= 0, "createTimeInMillis is negative");
+        this.createTimeInMillis = createTimeInMillis;
+        this.executionStartTimeInMillis = executionStartTimeInMillis;
+        checkArgument(lastHeartbeatInMillis >= 0, "lastHeartbeatInMillis is negative");
+        this.lastHeartbeatInMillis = lastHeartbeatInMillis;
+        this.endTimeInMillis = endTimeInMillis;
 
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
         this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
@@ -280,6 +282,152 @@ public class QueryStats
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
 
         this.runtimeStats = (runtimeStats == null) ? new RuntimeStats() : runtimeStats;
+    }
+
+    @JsonCreator
+    public QueryStats(
+            @JsonProperty("createTime") DateTime createTime,
+            @JsonProperty("executionStartTime") DateTime executionStartTime,
+            @JsonProperty("lastHeartbeat") DateTime lastHeartbeat,
+            @JsonProperty("endTime") DateTime endTime,
+
+            @JsonProperty("elapsedTime") Duration elapsedTime,
+            @JsonProperty("waitingForPrerequisitesTime") Duration waitingForPrerequisitesTime,
+            @JsonProperty("queuedTime") Duration queuedTime,
+            @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
+            @JsonProperty("semanticAnalyzingTime") Duration semanticAnalyzingTime,
+            @JsonProperty("columnAccessPermissionCheckingTime") Duration columnAccessPermissionCheckingTime,
+            @JsonProperty("dispatchingTime") Duration dispatchingTime,
+            @JsonProperty("executionTime") Duration executionTime,
+            @JsonProperty("analysisTime") Duration analysisTime,
+            @JsonProperty("totalPlanningTime") Duration totalPlanningTime,
+            @JsonProperty("finishingTime") Duration finishingTime,
+
+            @JsonProperty("totalTasks") int totalTasks,
+            @JsonProperty("runningTasks") int runningTasks,
+            @JsonProperty("peakRunningTasks") int peakRunningTasks,
+            @JsonProperty("completedTasks") int completedTasks,
+
+            @JsonProperty("totalDrivers") int totalDrivers,
+            @JsonProperty("queuedDrivers") int queuedDrivers,
+            @JsonProperty("runningDrivers") int runningDrivers,
+            @JsonProperty("blockedDrivers") int blockedDrivers,
+            @JsonProperty("completedDrivers") int completedDrivers,
+
+            @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
+            @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
+            @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
+            @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
+            @JsonProperty("peakTotalMemoryReservation") DataSize peakTotalMemoryReservation,
+            @JsonProperty("peakTaskUserMemory") DataSize peakTaskUserMemory,
+            @JsonProperty("peakTaskTotalMemory") DataSize peakTaskTotalMemory,
+            @JsonProperty("peakNodeTotalMemory") DataSize peakNodeTotalMemory,
+
+            @JsonProperty("scheduled") boolean scheduled,
+            @JsonProperty("totalScheduledTime") Duration totalScheduledTime,
+            @JsonProperty("totalCpuTime") Duration totalCpuTime,
+            @JsonProperty("retriedCpuTime") Duration retriedCpuTime,
+            @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
+            @JsonProperty("fullyBlocked") boolean fullyBlocked,
+            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+
+            @JsonProperty("totalAllocation") DataSize totalAllocation,
+
+            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
+            @JsonProperty("rawInputPositions") long rawInputPositions,
+
+            @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
+            @JsonProperty("processedInputPositions") long processedInputPositions,
+
+            @JsonProperty("shuffledDataSize") DataSize shuffledDataSize,
+            @JsonProperty("shuffledPositions") long shuffledPositions,
+
+            @JsonProperty("outputDataSize") DataSize outputDataSize,
+            @JsonProperty("outputPositions") long outputPositions,
+
+            @JsonProperty("writtenOutputPositions") long writtenOutputPositions,
+            @JsonProperty("writtenOutputLogicalDataSize") DataSize writtenOutputLogicalDataSize,
+            @JsonProperty("writtenOutputPhysicalDataSize") DataSize writtenOutputPhysicalDataSize,
+
+            @JsonProperty("writtenIntermediatePhysicalDataSize") DataSize writtenIntermediatePhysicalDataSize,
+
+            @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
+
+            @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries,
+
+            @JsonProperty("runtimeStats") RuntimeStats runtimeStats)
+    {
+        this(toTimeStampInMillis(createTime),
+                toTimeStampInMillis(executionStartTime),
+                toTimeStampInMillis(lastHeartbeat),
+                toTimeStampInMillis(endTime),
+
+                elapsedTime,
+                waitingForPrerequisitesTime,
+                queuedTime,
+                resourceWaitingTime,
+                semanticAnalyzingTime,
+                columnAccessPermissionCheckingTime,
+                dispatchingTime,
+                executionTime,
+                analysisTime,
+                totalPlanningTime,
+                finishingTime,
+
+                totalTasks,
+                runningTasks,
+                peakRunningTasks,
+                completedTasks,
+
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                blockedDrivers,
+                completedDrivers,
+
+                cumulativeUserMemory,
+                cumulativeTotalMemory,
+                userMemoryReservation,
+                totalMemoryReservation,
+                peakUserMemoryReservation,
+                peakTotalMemoryReservation,
+                peakTaskUserMemory,
+                peakTaskTotalMemory,
+                peakNodeTotalMemory,
+
+                scheduled,
+                totalScheduledTime,
+                totalCpuTime,
+                retriedCpuTime,
+                totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
+
+                totalAllocation,
+
+                rawInputDataSize,
+                rawInputPositions,
+
+                processedInputDataSize,
+                processedInputPositions,
+
+                shuffledDataSize,
+                shuffledPositions,
+
+                outputDataSize,
+                outputPositions,
+
+                writtenOutputPositions,
+                writtenOutputLogicalDataSize,
+                writtenOutputPhysicalDataSize,
+
+                writtenIntermediatePhysicalDataSize,
+
+                stageGcStatistics,
+                operatorSummaries,
+
+                runtimeStats);
     }
 
     public static QueryStats create(
@@ -424,10 +572,10 @@ public class QueryStats
                 .allMatch(state -> (state == StageExecutionState.RUNNING) || state.isDone());
 
         return new QueryStats(
-                queryStateTimer.getCreateTime(),
-                queryStateTimer.getExecutionStartTime().orElse(null),
-                queryStateTimer.getLastHeartbeat(),
-                queryStateTimer.getEndTime().orElse(null),
+                queryStateTimer.getCreateTimeInMillis(),
+                queryStateTimer.getExecutionStartTimeInMillis(),
+                queryStateTimer.getLastHeartbeatInMillis(),
+                queryStateTimer.getEndTimeInMillis(),
 
                 queryStateTimer.getElapsedTime(),
                 queryStateTimer.getWaitingForPrerequisitesTime(),
@@ -505,7 +653,7 @@ public class QueryStats
 
     public static QueryStats immediateFailureQueryStats()
     {
-        DateTime now = DateTime.now();
+        long now = System.currentTimeMillis();
         return new QueryStats(
                 now,
                 now,
@@ -568,26 +716,46 @@ public class QueryStats
     @JsonProperty
     public DateTime getCreateTime()
     {
-        return createTime;
+        return new DateTime(createTimeInMillis);
+    }
+
+    public long getCreateTimeInMillis()
+    {
+        return createTimeInMillis;
     }
 
     @JsonProperty
     public DateTime getExecutionStartTime()
     {
-        return executionStartTime;
+        return new DateTime(executionStartTimeInMillis);
+    }
+
+    public long getExecutionStartTimeInMillis()
+    {
+        return executionStartTimeInMillis;
     }
 
     @JsonProperty
     public DateTime getLastHeartbeat()
     {
-        return lastHeartbeat;
+        return new DateTime(lastHeartbeatInMillis);
+    }
+
+    public long getLastHeartbeatInMillis()
+    {
+        return lastHeartbeatInMillis;
     }
 
     @Nullable
     @JsonProperty
     public DateTime getEndTime()
     {
-        return endTime;
+        return new DateTime(endTimeInMillis);
+    }
+
+    public long getEndTimeInMillis()
+    {
+        return endTimeInMillis;
     }
 
     @JsonProperty

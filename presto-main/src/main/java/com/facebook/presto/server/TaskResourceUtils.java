@@ -54,7 +54,7 @@ public class TaskResourceUtils
         return new TaskInfo(
                 taskInfo.getTaskId(),
                 taskInfo.getTaskStatus(),
-                taskInfo.getLastHeartbeat(),
+                taskInfo.getLastHeartbeatInMillis(),
                 taskInfo.getOutputBuffers(),
                 taskInfo.getNoMoreSplits(),
                 convertToThriftTaskStats(taskInfo.getStats()),
@@ -70,11 +70,11 @@ public class TaskResourceUtils
         }
 
         return new TaskStats(
-                taskStats.getCreateTime(),
-                taskStats.getFirstStartTime(),
-                taskStats.getLastStartTime(),
-                taskStats.getLastEndTime(),
-                taskStats.getEndTime(),
+                taskStats.getCreateTimeInMillis(),
+                taskStats.getFirstStartTimeInMillis(),
+                taskStats.getLastStartTimeInMillis(),
+                taskStats.getLastEndTimeInMillis(),
+                taskStats.getEndTimeInMillis(),
                 taskStats.getElapsedTimeInNanos(),
                 taskStats.getQueuedTimeInNanos(),
                 taskStats.getTotalDrivers(),
@@ -128,9 +128,9 @@ public class TaskResourceUtils
 
         return new PipelineStats(
                 pipelineStats.getPipelineId(),
-                pipelineStats.getFirstStartTime(),
-                pipelineStats.getLastStartTime(),
-                pipelineStats.getLastEndTime(),
+                pipelineStats.getFirstStartTimeInMillis(),
+                pipelineStats.getLastStartTimeInMillis(),
+                pipelineStats.getLastEndTimeInMillis(),
                 pipelineStats.isInputPipeline(),
                 pipelineStats.isOutputPipeline(),
                 pipelineStats.getTotalDrivers(),
@@ -175,9 +175,9 @@ public class TaskResourceUtils
     {
         return new DriverStats(
                 driverStats.getLifespan(),
-                driverStats.getCreateTime(),
-                driverStats.getStartTime(),
-                driverStats.getEndTime(),
+                driverStats.getCreateTimeInMillis(),
+                driverStats.getStartTimeInMillis(),
+                driverStats.getEndTimeInMillis(),
                 driverStats.getQueuedTime(),
                 driverStats.getElapsedTime(),
                 driverStats.getUserMemoryReservationInBytes(),
@@ -293,7 +293,7 @@ public class TaskResourceUtils
         return new TaskInfo(
                 thriftTaskInfo.getTaskId(),
                 thriftTaskInfo.getTaskStatus(),
-                thriftTaskInfo.getLastHeartbeat(),
+                thriftTaskInfo.getLastHeartbeatInMillis(),
                 thriftTaskInfo.getOutputBuffers(),
                 thriftTaskInfo.getNoMoreSplits(),
                 convertFromThriftTaskStats(thriftTaskInfo.getStats()),
@@ -309,11 +309,11 @@ public class TaskResourceUtils
         }
 
         return new TaskStats(
-                thriftTaskStats.getCreateTime(),
-                thriftTaskStats.getFirstStartTime(),
-                thriftTaskStats.getLastStartTime(),
-                thriftTaskStats.getLastEndTime(),
-                thriftTaskStats.getEndTime(),
+                thriftTaskStats.getCreateTimeInMillis(),
+                thriftTaskStats.getFirstStartTimeInMillis(),
+                thriftTaskStats.getLastStartTimeInMillis(),
+                thriftTaskStats.getLastEndTimeInMillis(),
+                thriftTaskStats.getEndTimeInMillis(),
                 thriftTaskStats.getElapsedTimeInNanos(),
                 thriftTaskStats.getQueuedTimeInNanos(),
                 thriftTaskStats.getTotalDrivers(),
@@ -367,9 +367,9 @@ public class TaskResourceUtils
 
         return new PipelineStats(
                 thriftPipelineStats.getPipelineId(),
-                thriftPipelineStats.getFirstStartTime(),
-                thriftPipelineStats.getLastStartTime(),
-                thriftPipelineStats.getLastEndTime(),
+                thriftPipelineStats.getFirstStartTimeInMillis(),
+                thriftPipelineStats.getLastStartTimeInMillis(),
+                thriftPipelineStats.getLastEndTimeInMillis(),
                 thriftPipelineStats.isInputPipeline(),
                 thriftPipelineStats.isOutputPipeline(),
                 thriftPipelineStats.getTotalDrivers(),
@@ -414,9 +414,9 @@ public class TaskResourceUtils
     {
         return new DriverStats(
                 thriftDriverStats.getLifespan(),
-                thriftDriverStats.getCreateTime(),
-                thriftDriverStats.getStartTime(),
-                thriftDriverStats.getEndTime(),
+                thriftDriverStats.getCreateTimeInMillis(),
+                thriftDriverStats.getStartTimeInMillis(),
+                thriftDriverStats.getEndTimeInMillis(),
                 thriftDriverStats.getQueuedTime(),
                 thriftDriverStats.getElapsedTime(),
                 thriftDriverStats.getUserMemoryReservationInBytes(),

@@ -71,8 +71,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -205,19 +203,19 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-        assertNull(taskInfo.getStats().getEndTime());
+        assertEquals(taskInfo.getStats().getEndTimeInMillis(), 0);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-        assertNull(taskInfo.getStats().getEndTime());
+        assertEquals(taskInfo.getStats().getEndTimeInMillis(), 0);
 
         taskInfo = sqlTask.cancel();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
-        assertNotNull(taskInfo.getStats().getEndTime());
+        assertTrue(taskInfo.getStats().getEndTimeInMillis() > 0);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
-        assertNotNull(taskInfo.getStats().getEndTime());
+        assertTrue(taskInfo.getStats().getEndTimeInMillis() > 0);
     }
 
     @Test

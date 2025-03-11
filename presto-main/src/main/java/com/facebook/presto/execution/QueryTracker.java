@@ -23,7 +23,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -54,6 +53,7 @@ import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
@@ -227,9 +227,9 @@ public class QueryTracker<T extends TrackedQuery>
                     query.getResourceGroupQueryLimits()
                             .flatMap(ResourceGroupQueryLimits::getExecutionTimeLimit)
                             .map(rgLimit -> createDurationLimit(rgLimit, RESOURCE_GROUP)).orElse(null));
-            Optional<DateTime> executionStartTime = query.getExecutionStartTime();
-            DateTime createTime = query.getCreateTime();
-            if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.getLimit().toMillis()).isBeforeNow()) {
+            long executionStartTime = query.getExecutionStartTimeInMillis();
+            long createTimeInMillis = query.getCreateTimeInMillis();
+            if (executionStartTime > 0 && (executionStartTime + queryMaxExecutionTime.getLimit().toMillis()) < currentTimeMillis()) {
                 query.fail(
                         new PrestoException(EXCEEDED_TIME_LIMIT,
                                 format(
@@ -237,7 +237,7 @@ public class QueryTracker<T extends TrackedQuery>
                                         queryMaxExecutionTime.getLimit(),
                                         queryMaxExecutionTime.getLimitSource().name())));
             }
-            if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
+            if (createTimeInMillis + queryMaxRunTime.toMillis() < currentTimeMillis()) {
                 query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
         }
@@ -328,7 +328,7 @@ public class QueryTracker<T extends TrackedQuery>
      */
     private void removeExpiredQueries()
     {
-        DateTime timeHorizon = DateTime.now().minus(minQueryExpireAge.toMillis());
+        long timeHorizonInMillis = currentTimeMillis() - minQueryExpireAge.toMillis();
 
         // we're willing to keep queries beyond timeHorizon as long as we have fewer than maxQueryHistory
         while (expirationQueue.size() > maxQueryHistory) {
@@ -339,12 +339,12 @@ public class QueryTracker<T extends TrackedQuery>
 
             // expirationQueue is FIFO based on query end time. Stop when we see the
             // first query that's too young to expire
-            Optional<DateTime> endTime = query.getEndTime();
-            if (!endTime.isPresent()) {
+            long endTimeInMillis = query.getEndTimeInMillis();
+            if (endTimeInMillis == 0) {
                 // this shouldn't happen but it is better to be safe here
                 continue;
             }
-            if (endTime.get().isAfter(timeHorizon)) {
+            if (endTimeInMillis > timeHorizonInMillis) {
                 return;
             }
 
@@ -370,10 +370,10 @@ public class QueryTracker<T extends TrackedQuery>
                     log.info("Failing abandoned query %s", query.getQueryId());
                     query.fail(new PrestoException(
                             ABANDONED_QUERY,
-                            format("Query %s has not been accessed since %s: currentTime %s",
+                            format("Query %s has not been accessed since %sms: currentTime %sms",
                                     query.getQueryId(),
-                                    query.getLastHeartbeat(),
-                                    DateTime.now())));
+                                    query.getLastHeartbeatInMillis(),
+                                    currentTimeMillis())));
                 }
             }
             catch (RuntimeException e) {
@@ -384,10 +384,10 @@ public class QueryTracker<T extends TrackedQuery>
 
     private boolean isAbandoned(T query)
     {
-        DateTime oldestAllowedHeartbeat = DateTime.now().minus(clientTimeout.toMillis());
-        DateTime lastHeartbeat = query.getLastHeartbeat();
+        long oldestAllowedHeartbeatInMillis = currentTimeMillis() - clientTimeout.toMillis();
+        long lastHeartbeat = query.getLastHeartbeatInMillis();
 
-        return lastHeartbeat != null && lastHeartbeat.isBefore(oldestAllowedHeartbeat);
+        return lastHeartbeat > 0 && lastHeartbeat < oldestAllowedHeartbeatInMillis;
     }
 
     public interface TrackedQuery
@@ -398,13 +398,13 @@ public class QueryTracker<T extends TrackedQuery>
 
         Session getSession();
 
-        DateTime getCreateTime();
+        long getCreateTimeInMillis();
 
-        Optional<DateTime> getExecutionStartTime();
+        long getExecutionStartTimeInMillis();
 
-        DateTime getLastHeartbeat();
+        long getLastHeartbeatInMillis();
 
-        Optional<DateTime> getEndTime();
+        long getEndTimeInMillis();
 
         Optional<ResourceGroupQueryLimits> getResourceGroupQueryLimits();
 

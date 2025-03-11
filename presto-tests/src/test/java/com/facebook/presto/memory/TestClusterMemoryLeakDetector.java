@@ -82,8 +82,8 @@ public class TestClusterMemoryLeakDetector
                 URI.create("1"),
                 "",
                 new BasicQueryStats(
-                        DateTime.parse("1991-09-06T05:00-05:30"),
-                        DateTime.parse("1991-09-06T05:01-05:30"),
+                        DateTime.parse("1991-09-06T05:00-05:30").getMillis(),
+                        DateTime.parse("1991-09-06T05:01-05:30").getMillis(),
                         Duration.valueOf("4m"),
                         Duration.valueOf("8m"),
                         Duration.valueOf("7m"),

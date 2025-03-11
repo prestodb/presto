@@ -747,8 +747,8 @@ public class TestResourceManagerClusterStateProvider
                 URI.create("1"),
                 "",
                 new BasicQueryStats(
-                        DateTime.parse("1991-09-06T05:00-05:30"),
-                        DateTime.parse("1991-09-06T05:01-05:30"),
+                        new DateTime("1991-09-06T05:00").getMillis(),
+                        new DateTime("1991-09-06T05:01").getMillis(),
                         Duration.valueOf("6m"),
                         Duration.valueOf("8m"),
                         Duration.valueOf("7m"),

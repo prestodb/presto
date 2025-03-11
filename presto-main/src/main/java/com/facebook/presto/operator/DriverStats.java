@@ -22,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -31,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -40,9 +40,9 @@ public class DriverStats
 {
     private final Lifespan lifespan;
 
-    private final DateTime createTime;
-    private final DateTime startTime;
-    private final DateTime endTime;
+    private final long createTimeInMillis;
+    private final long startTimeInMillis;
+    private final long endTimeInMillis;
 
     private final Duration queuedTime;
     private final Duration elapsedTime;
@@ -77,9 +77,9 @@ public class DriverStats
     {
         this.lifespan = null;
 
-        this.createTime = DateTime.now();
-        this.startTime = null;
-        this.endTime = null;
+        this.createTimeInMillis = currentTimeMillis();
+        this.startTimeInMillis = 0L;
+        this.endTimeInMillis = 0L;
         this.queuedTime = new Duration(0, MILLISECONDS);
         this.elapsedTime = new Duration(0, MILLISECONDS);
 
@@ -115,9 +115,9 @@ public class DriverStats
     public DriverStats(
             @JsonProperty("lifespan") Lifespan lifespan,
 
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("startTime") DateTime startTime,
-            @JsonProperty("endTime") DateTime endTime,
+            @JsonProperty("createTimeInMillis") long createTimeInMillis,
+            @JsonProperty("startTimeInMillis") long startTimeInMillis,
+            @JsonProperty("endTimeInMillis") long endTimeInMillis,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("elapsedTime") Duration elapsedTime,
 
@@ -149,9 +149,10 @@ public class DriverStats
     {
         this.lifespan = lifespan;
 
-        this.createTime = requireNonNull(createTime, "createTime is null");
-        this.startTime = startTime;
-        this.endTime = endTime;
+        checkArgument(createTimeInMillis >= 0, "createTimeInMillis is negative");
+        this.createTimeInMillis = createTimeInMillis;
+        this.startTimeInMillis = startTimeInMillis;
+        this.endTimeInMillis = endTimeInMillis;
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
 
@@ -205,25 +206,25 @@ public class DriverStats
 
     @JsonProperty
     @ThriftField(2)
-    public DateTime getCreateTime()
+    public long getCreateTimeInMillis()
     {
-        return createTime;
+        return createTimeInMillis;
     }
 
     @Nullable
     @JsonProperty
     @ThriftField(3)
-    public DateTime getStartTime()
+    public long getStartTimeInMillis()
     {
-        return startTime;
+        return startTimeInMillis;
     }
 
     @Nullable
     @JsonProperty
     @ThriftField(4)
-    public DateTime getEndTime()
+    public long getEndTimeInMillis()
     {
-        return endTime;
+        return endTimeInMillis;
     }
 
     @JsonProperty

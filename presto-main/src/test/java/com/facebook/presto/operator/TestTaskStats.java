@@ -27,11 +27,11 @@ import static org.testng.Assert.assertEquals;
 public class TestTaskStats
 {
     private static final TaskStats EXPECTED = new TaskStats(
-            new DateTime(1),
-            new DateTime(2),
-            new DateTime(100),
-            new DateTime(101),
-            new DateTime(3),
+            1L,
+            2L,
+            100L,
+            101L,
+            3L,
             4,
             5,
 
@@ -91,11 +91,11 @@ public class TestTaskStats
 
     public static void assertExpectedTaskStats(TaskStats actual)
     {
-        assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
-        assertEquals(actual.getFirstStartTime(), new DateTime(2, UTC));
-        assertEquals(actual.getLastStartTime(), new DateTime(100, UTC));
-        assertEquals(actual.getLastEndTime(), new DateTime(101, UTC));
-        assertEquals(actual.getEndTime(), new DateTime(3, UTC));
+        assertEquals(actual.getCreateTimeInMillis(), new DateTime(1, UTC).getMillis());
+        assertEquals(actual.getFirstStartTimeInMillis(), new DateTime(2, UTC).getMillis());
+        assertEquals(actual.getLastStartTimeInMillis(), new DateTime(100, UTC).getMillis());
+        assertEquals(actual.getLastEndTimeInMillis(), new DateTime(101, UTC).getMillis());
+        assertEquals(actual.getEndTimeInMillis(), new DateTime(3, UTC).getMillis());
         assertEquals(actual.getElapsedTimeInNanos(), 4);
         assertEquals(actual.getQueuedTimeInNanos(), 5);
 

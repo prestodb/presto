@@ -35,7 +35,10 @@ import java.util.Set;
 import static com.facebook.presto.execution.TaskStatus.initialTaskStatus;
 import static com.facebook.presto.execution.buffer.BufferState.OPEN;
 import static com.facebook.presto.metadata.MetadataUpdates.DEFAULT_METADATA_UPDATES;
+import static com.facebook.presto.util.DateTimeUtils.toTimeStampInMillis;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -44,7 +47,7 @@ public class TaskInfo
 {
     private final TaskId taskId;
     private final TaskStatus taskStatus;
-    private final DateTime lastHeartbeat;
+    private final long lastHeartbeatInMillis;
     private final OutputBufferInfo outputBuffers;
     private final Set<PlanNodeId> noMoreSplits;
     private final TaskStats stats;
@@ -52,6 +55,29 @@ public class TaskInfo
     private final boolean needsPlan;
     private final MetadataUpdates metadataUpdates;
     private final String nodeId;
+
+    public TaskInfo(TaskId taskId,
+            TaskStatus taskStatus,
+            long lastHeartbeatInMillis,
+            OutputBufferInfo outputBuffers,
+            Set<PlanNodeId> noMoreSplits,
+            TaskStats stats,
+            boolean needsPlan,
+            MetadataUpdates metadataUpdates,
+            String nodeId)
+    {
+        this.taskId = requireNonNull(taskId, "taskId is null");
+        this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
+        checkArgument(lastHeartbeatInMillis >= 0, "lastHeartbeat is negative");
+        this.lastHeartbeatInMillis = lastHeartbeatInMillis;
+        this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
+        this.noMoreSplits = requireNonNull(noMoreSplits, "noMoreSplits is null");
+        this.stats = requireNonNull(stats, "stats is null");
+
+        this.needsPlan = needsPlan;
+        this.metadataUpdates = metadataUpdates;
+        this.nodeId = requireNonNull(nodeId, "nodeId is null");
+    }
 
     @JsonCreator
     @ThriftConstructor
@@ -66,16 +92,15 @@ public class TaskInfo
             @JsonProperty("metadataUpdates") MetadataUpdates metadataUpdates,
             @JsonProperty("nodeId") String nodeId)
     {
-        this.taskId = requireNonNull(taskId, "taskId is null");
-        this.taskStatus = requireNonNull(taskStatus, "taskStatus is null");
-        this.lastHeartbeat = requireNonNull(lastHeartbeat, "lastHeartbeat is null");
-        this.outputBuffers = requireNonNull(outputBuffers, "outputBuffers is null");
-        this.noMoreSplits = requireNonNull(noMoreSplits, "noMoreSplits is null");
-        this.stats = requireNonNull(stats, "stats is null");
-
-        this.needsPlan = needsPlan;
-        this.metadataUpdates = metadataUpdates;
-        this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        this(taskId,
+                taskStatus,
+                toTimeStampInMillis(lastHeartbeat),
+                outputBuffers,
+                noMoreSplits,
+                stats,
+                needsPlan,
+                metadataUpdates,
+                nodeId);
     }
 
     @JsonProperty
@@ -96,7 +121,12 @@ public class TaskInfo
     @ThriftField(3)
     public DateTime getLastHeartbeat()
     {
-        return lastHeartbeat;
+        return new DateTime(lastHeartbeatInMillis);
+    }
+
+    public long getLastHeartbeatInMillis()
+    {
+        return lastHeartbeatInMillis;
     }
 
     @JsonProperty
@@ -147,7 +177,7 @@ public class TaskInfo
             return new TaskInfo(
                     taskId,
                     taskStatus,
-                    lastHeartbeat,
+                    lastHeartbeatInMillis,
                     outputBuffers.summarize(),
                     noMoreSplits,
                     stats.summarizeFinal(),
@@ -158,7 +188,7 @@ public class TaskInfo
         return new TaskInfo(
                 taskId,
                 taskStatus,
-                lastHeartbeat,
+                lastHeartbeatInMillis,
                 outputBuffers.summarize(),
                 noMoreSplits,
                 stats.summarize(),
@@ -181,7 +211,7 @@ public class TaskInfo
         return new TaskInfo(
                 taskId,
                 initialTaskStatus(location),
-                DateTime.now(),
+                currentTimeMillis(),
                 new OutputBufferInfo("UNINITIALIZED", OPEN, true, true, 0, 0, 0, 0, bufferStates),
                 ImmutableSet.of(),
                 taskStats,
@@ -192,6 +222,6 @@ public class TaskInfo
 
     public TaskInfo withTaskStatus(TaskStatus newTaskStatus)
     {
-        return new TaskInfo(taskId, newTaskStatus, lastHeartbeat, outputBuffers, noMoreSplits, stats, needsPlan, metadataUpdates, nodeId);
+        return new TaskInfo(taskId, newTaskStatus, lastHeartbeatInMillis, outputBuffers, noMoreSplits, stats, needsPlan, metadataUpdates, nodeId);
     }
 }

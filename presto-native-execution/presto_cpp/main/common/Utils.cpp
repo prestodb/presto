@@ -19,7 +19,7 @@
 
 namespace facebook::presto::util {
 
-protocol::DateTime toISOTimestamp(uint64_t timeMilli) {
+DateTime toISOTimestamp(uint64_t timeMilli) {
   char buf[80];
   time_t timeSecond = timeMilli / 1000;
   tm gmtTime;

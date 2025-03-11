@@ -92,7 +92,7 @@ public class TransactionsSystemTable
                     info.getIsolationLevel().toString(),
                     info.isReadOnly(),
                     info.isAutoCommitContext(),
-                    info.getCreateTime().getMillis(),
+                    info.getCreateTimeInMillis(),
                     (long) info.getIdleTime().getValue(TimeUnit.SECONDS),
                     info.getWrittenConnectorId().map(ConnectorId::getCatalogName).orElse(null),
                     createStringsBlock(info.getConnectorIds()));

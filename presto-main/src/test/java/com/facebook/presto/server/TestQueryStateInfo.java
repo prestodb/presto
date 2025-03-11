@@ -164,7 +164,7 @@ public class TestQueryStateInfo
         assertEquals(queryStateInfo.getQueryState(), queryInfo.getState());
         assertEquals(queryStateInfo.getResourceGroupId(), queryInfo.getResourceGroupId());
         assertEquals(queryStateInfo.getQuery(), queryInfo.getQuery());
-        assertEquals(queryStateInfo.getCreateTime(), queryInfo.getQueryStats().getCreateTime());
+        assertEquals(queryStateInfo.getCreateTime().getMillis(), queryInfo.getQueryStats().getCreateTimeInMillis());
         assertEquals(queryStateInfo.getUser(), queryInfo.getSession().getUser());
         assertEquals(queryStateInfo.isAuthenticated(), queryInfo.getSession().getPrincipal().isPresent());
         assertEquals(queryStateInfo.getSource(), queryInfo.getSession().getSource());
@@ -217,10 +217,10 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 Optional.empty(),
                 new QueryStats(
-                        DateTime.parse("1991-09-06T05:00-05:30"),
-                        DateTime.parse("1991-09-06T05:01-05:30"),
-                        DateTime.parse("1991-09-06T05:02-05:30"),
-                        DateTime.parse("1991-09-06T06:00-05:30"),
+                        new DateTime("1991-09-06T05:00").getMillis(),
+                        new DateTime("1991-09-06T05:01").getMillis(),
+                        new DateTime("1991-09-06T05:02").getMillis(),
+                        new DateTime("1991-09-06T06:00").getMillis(),
                         Duration.valueOf("8m"),
                         Duration.valueOf("5m"),
                         Duration.valueOf("7m"),

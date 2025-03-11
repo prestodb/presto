@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.joda.time.DateTime;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -124,8 +123,8 @@ public class MockManagedQueryExecution
                 URI.create("http://test"),
                 "SELECT 1",
                 new BasicQueryStats(
-                        new DateTime(1),
-                        new DateTime(2),
+                        1L,
+                        2L,
                         new Duration(2, NANOSECONDS),
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),

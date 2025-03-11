@@ -149,7 +149,7 @@ public class TestOperatorInfoUnionSerde
                 ImmutableList.of(new PageBufferClientStatus(
                         URI.create("http://fake"),
                         "running",
-                        new DateTime(2022, 10, 28, 16, 7, 15, 0),
+                        new DateTime(2022, 10, 28, 16, 7, 15, 0).getMillis(),
                         7174L,
                         612,
                         OptionalLong.of(93L),
