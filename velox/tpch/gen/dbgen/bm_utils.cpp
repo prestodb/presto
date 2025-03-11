@@ -116,7 +116,7 @@ void permute_dist(distribution* d, seed_t* seed);
 const char* tpch_env_config(const char* var, const char* dflt) {
   static char* evar;
 
-  if ((evar = getenv(var)) != NULL)
+  if ((evar = getenv(var)) != nullptr)
     return (evar);
   else
     return (dflt);
@@ -252,9 +252,9 @@ void read_dist(const char* path, const char* name, distribution* target) {
   long weight, count = 0, name_set = 0;
 
   while (read_line_into_buffer(line, sizeof(line), &src)) {
-    if ((c = strchr(line, '\n')) != NULL)
+    if ((c = strchr(line, '\n')) != nullptr)
       *c = '\0';
-    if ((c = strchr(line, '#')) != NULL)
+    if ((c = strchr(line, '#')) != nullptr)
       *c = '\0';
     if (*line == '\0')
       continue;
@@ -262,7 +262,7 @@ void read_dist(const char* path, const char* name, distribution* target) {
     if (!name_set) {
       if (dsscasecmp(strtok(line, "\n\t "), "BEGIN"))
         continue;
-      if (dsscasecmp(strtok(NULL, "\n\t "), name))
+      if (dsscasecmp(strtok(nullptr, "\n\t "), name))
         continue;
       name_set = 1;
       continue;
