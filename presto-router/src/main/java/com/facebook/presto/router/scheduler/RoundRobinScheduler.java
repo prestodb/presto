@@ -38,14 +38,12 @@ public class RoundRobinScheduler
     public Optional<URI> getDestination(String user)
     {
         try {
-            if (!candidateIndexByGroup.containsKey(candidateGroupName) ||
-                    candidateIndexByGroup.get(candidateGroupName) + 1 >= candidates.size()) {
-                candidateIndexByGroup.put(candidateGroupName, 0);
-            }
-            else {
-                candidateIndexByGroup.put(candidateGroupName, candidateIndexByGroup.get(candidateGroupName) + 1);
-            }
-            return Optional.of(candidates.get(candidateIndexByGroup.get(candidateGroupName)));
+            return Optional.of(candidates.get(candidateIndexByGroup.compute(candidateGroupName, (key, oldValue) -> {
+                if (oldValue == null || oldValue + 1 >= candidates.size()) {
+                    return 0;
+                }
+                return oldValue + 1;
+            })));
         }
         catch (IllegalArgumentException e) {
             log.warn(e, "Error getting destination for user " + user);
