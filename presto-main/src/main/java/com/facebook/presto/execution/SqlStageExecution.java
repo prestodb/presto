@@ -42,7 +42,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -84,7 +83,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
-import static io.airlift.units.DataSize.Unit.BYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -348,26 +346,24 @@ public final class SqlStageExecution
         return new Duration(millis, TimeUnit.MILLISECONDS);
     }
 
-    public synchronized DataSize getRawInputDataSize()
+    public synchronized long getRawInputDataSize()
     {
         if (planFragment.getTableScanSchedulingOrder().isEmpty()) {
-            return new DataSize(0, BYTE);
+            return 0L;
         }
-        long datasize = getAllTasks().stream()
+        return getAllTasks().stream()
                 .mapToLong(task -> task.getTaskInfo().getStats().getRawInputDataSizeInBytes())
                 .sum();
-        return DataSize.succinctBytes(datasize);
     }
 
-    public synchronized DataSize getWrittenIntermediateDataSize()
+    public synchronized long getWrittenIntermediateDataSize()
     {
-        long datasize = getAllTasks().stream()
+        return getAllTasks().stream()
                 .filter(remoteTask -> remoteTask instanceof HttpRemoteTask)
                 .map(remoteTask -> (HttpRemoteTask) remoteTask)
                 .filter(httpRemoteTask -> !httpRemoteTask.getPlanFragment().isOutputTableWriterFragment())
                 .mapToLong(task -> task.getTaskInfo().getStats().getPhysicalWrittenDataSizeInBytes())
                 .sum();
-        return DataSize.succinctBytes(datasize);
     }
 
     public BasicStageExecutionStats getBasicStageStats()

@@ -89,7 +89,7 @@ public class SplitMonitor
                                     ofMillis(driverStats.getQueuedTime().toMillis()),
                                     ofMillis(driverStats.getRawInputReadTime().toMillis()),
                                     driverStats.getRawInputPositions(),
-                                    driverStats.getRawInputDataSize().toBytes(),
+                                    driverStats.getRawInputDataSizeInBytes(),
                                     timeToStart,
                                     timeToEnd),
                             splitFailureMetadata,

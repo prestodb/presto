@@ -20,7 +20,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -67,11 +66,11 @@ public class MockQueryExecution
 
     @Override
     public void addStateChangeListener(StateMachine.StateChangeListener<QueryState> stateChangeListener)
-    { }
+    {}
 
     @Override
     public void addOutputInfoListener(Consumer<QueryOutputInfo> listener)
-    { }
+    {}
 
     @Override
     public Plan getQueryPlan()
@@ -110,15 +109,15 @@ public class MockQueryExecution
     }
 
     @Override
-    public DataSize getRawInputDataSize()
+    public long getRawInputDataSizeInBytes()
     {
-        return null;
+        return 0;
     }
 
     @Override
-    public DataSize getWrittenIntermediateDataSize()
+    public long getWrittenIntermediateDataSizeInBytes()
     {
-        return null;
+        return 0;
     }
 
     @Override
@@ -128,9 +127,9 @@ public class MockQueryExecution
     }
 
     @Override
-    public DataSize getOutputDataSize()
+    public long getOutputDataSizeInBytes()
     {
-        return null;
+        return 0;
     }
 
     @Override
@@ -140,15 +139,15 @@ public class MockQueryExecution
     }
 
     @Override
-    public DataSize getUserMemoryReservation()
+    public long getUserMemoryReservationInBytes()
     {
-        return null;
+        return 0;
     }
 
     @Override
-    public DataSize getTotalMemoryReservation()
+    public long getTotalMemoryReservationInBytes()
     {
-        return null;
+        return 0;
     }
 
     @Override
@@ -218,37 +217,37 @@ public class MockQueryExecution
 
     @Override
     public void pruneExpiredQueryInfo()
-    { }
+    {}
 
     @Override
     public void pruneFinishedQueryInfo()
-    { }
+    {}
 
     @Override
     public void setResourceGroupQueryLimits(ResourceGroupQueryLimits resourceGroupQueryLimits)
-    { }
+    {}
 
     @Override
     public void setMemoryPool(VersionedMemoryPoolId poolId)
-    { }
+    {}
 
     @Override
     public void start()
-    { }
+    {}
 
     @Override
     public void cancelQuery()
-    { }
+    {}
 
     @Override
     public void cancelStage(StageId stageId)
-    { }
+    {}
 
     @Override
     public void recordHeartbeat()
-    { }
+    {}
 
     @Override
     public void addFinalQueryInfoListener(StateMachine.StateChangeListener<QueryInfo> stateChangeListener)
-    { }
+    {}
 }

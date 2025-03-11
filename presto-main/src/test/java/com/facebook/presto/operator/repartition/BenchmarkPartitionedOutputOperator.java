@@ -377,7 +377,7 @@ public class BenchmarkPartitionedOutputOperator
                     Supplier<LocalMemoryContext> systemMemoryContextSupplier,
                     Executor notificationExecutor)
             {
-                super(taskInstanceId, state, outputBuffers, maxBufferSize, systemMemoryContextSupplier, notificationExecutor);
+                super(taskInstanceId, state, outputBuffers, maxBufferSize.toBytes(), systemMemoryContextSupplier, notificationExecutor);
             }
 
             // Use a dummy enqueue method to avoid OutOfMemory error

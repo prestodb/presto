@@ -20,6 +20,7 @@ import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.HiveFileIterator;
 import com.facebook.presto.spi.ConnectorSession;
+import com.google.common.base.Splitter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
@@ -30,32 +31,44 @@ import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.fs.FSUtils;
+import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieBaseFile;
+import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.timeline.HoodieInstant;
+import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
+import org.apache.hudi.common.util.Option;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
+import static com.facebook.presto.hive.HiveSessionProperties.getHudiTablesUseMergedView;
 import static com.facebook.presto.hive.HiveSessionProperties.isHudiMetadataEnabled;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DEFAULT_PORT;
+import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
 
 public class HudiDirectoryLister
         implements DirectoryLister
 {
     private static final Logger log = Logger.get(HudiDirectoryLister.class);
+    private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private final HoodieTableFileSystemView fileSystemView;
     private final HoodieTableMetaClient metaClient;
     private final boolean metadataEnabled;
+    private final String latestInstant;
+    private final boolean shouldUseMergedView;
 
     public HudiDirectoryLister(Configuration conf, ConnectorSession session, Table table)
     {
         log.info("Using Hudi Directory Lister.");
         this.metadataEnabled = isHudiMetadataEnabled(session);
+        this.shouldUseMergedView = SPLITTER.splitToList(getHudiTablesUseMergedView(session)).contains(table.getSchemaTableName().toString());
         Configuration actualConfig = ((CachingJobConf) conf).getConfig();
         /*
         WrapperJobConf acts as a wrapper on top of the actual Configuration object. If `hive.copy-on-first-write-configuration-enabled`
@@ -68,6 +81,16 @@ public class HudiDirectoryLister
                 .setConf(actualConfig)
                 .setBasePath(table.getStorage().getLocation())
                 .build();
+        this.latestInstant = metaClient.getActiveTimeline()
+                .getCommitsAndCompactionTimeline()
+                .filterCompletedInstants()
+                .filter(instant -> MERGE_ON_READ.equals(metaClient.getTableType()) && instant.getAction().equals(HoodieTimeline.COMPACTION_ACTION))
+                .lastInstant()
+                .map(HoodieInstant::getTimestamp).orElseGet(() -> metaClient.getActiveTimeline()
+                        .getCommitsTimeline()
+                        .filterCompletedInstants()
+                        .lastInstant()
+                        .map(HoodieInstant::getTimestamp).orElseThrow(() -> new RuntimeException("No active instant found")));
         HoodieEngineContext engineContext = new HoodieLocalEngineContext(actualConfig);
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
                 .enable(metadataEnabled)
@@ -96,7 +119,10 @@ public class HudiDirectoryLister
                         fileSystemView,
                         metadataEnabled ? Optional.empty() : Optional.of(fileSystem.listStatus(p)),
                         table.getStorage().getLocation(),
-                        p),
+                        p,
+                        metaClient.getTableType(),
+                        latestInstant,
+                        shouldUseMergedView),
                 namenodeStats,
                 hiveDirectoryContext.getNestedDirectoryPolicy(),
                 hiveDirectoryContext.isSkipEmptyFilesEnabled());
@@ -111,7 +137,10 @@ public class HudiDirectoryLister
                 HoodieTableFileSystemView fileSystemView,
                 Optional<FileStatus[]> fileStatuses,
                 String tablePath,
-                Path directory)
+                Path directory,
+                HoodieTableType tableType,
+                String latestInstant,
+                boolean shouldUseMergedView)
         {
             String partition = FSUtils.getRelativePartitionPath(new Path(tablePath), directory);
             if (fileStatuses.isPresent()) {
@@ -119,7 +148,15 @@ public class HudiDirectoryLister
                 this.hoodieBaseFileIterator = fileSystemView.fetchLatestBaseFiles(partition).iterator();
             }
             else {
-                this.hoodieBaseFileIterator = fileSystemView.getLatestBaseFiles(partition).iterator();
+                if (shouldUseMergedView) {
+                    Stream<FileSlice> fileSlices = MERGE_ON_READ.equals(tableType) ?
+                            fileSystemView.getLatestMergedFileSlicesBeforeOrOn(partition, latestInstant) :
+                            fileSystemView.getLatestFileSlicesBeforeOrOn(partition, latestInstant, false);
+                    this.hoodieBaseFileIterator = fileSlices.map(FileSlice::getBaseFile).filter(Option::isPresent).map(Option::get).iterator();
+                }
+                else {
+                    this.hoodieBaseFileIterator = fileSystemView.getLatestBaseFiles(partition).iterator();
+                }
             }
         }
 

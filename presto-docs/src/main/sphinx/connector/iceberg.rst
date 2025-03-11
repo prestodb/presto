@@ -32,6 +32,12 @@ as a Hive connector.
     hive.metastore.uri=hostname:port
     iceberg.catalog.type=hive
 
+File-Based Metastore
+^^^^^^^^^^^^^^^^^^^^
+
+For testing or development purposes, this connector can be configured to use a local 
+filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
+
 Glue catalog
 ^^^^^^^^^^^^
 
@@ -468,7 +474,7 @@ Property Name                                         Description
 ``iceberg.rows_for_metadata_optimization_threshold``  Overrides the behavior of the connector property
                                                       ``iceberg.rows-for-metadata-optimization-threshold`` in the current
                                                       session.
-``iceberg.target_split_size``                         Overrides the target split size for all tables in a query in bytes.
+``iceberg.target_split_size_bytes``                   Overrides the target split size for all tables in a query in bytes.
                                                       Set to 0 to use the value in each Iceberg table's
                                                       ``read.split.target-size`` property.
 ``iceberg.affinity_scheduling_file_section_size``     When the ``node_selection_strategy`` or
@@ -509,7 +515,8 @@ Property Name                                          Description              
 ``iceberg.io.manifest.cache.max-total-bytes``          Maximum size of cache size in bytes.                            ``104857600``
 
 ``iceberg.io.manifest.cache.expiration-interval-ms``   Maximum time duration in milliseconds for which an entry        ``60000``
-                                                       stays in the manifest cache.
+                                                       stays in the manifest cache. Set to 0 to disable entry
+                                                       expiration.
 
 ``iceberg.io.manifest.cache.max-content-length``       Maximum length of a manifest file to be considered for          ``8388608``
                                                        caching in bytes. Manifest files with a length exceeding

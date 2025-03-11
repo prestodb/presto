@@ -519,6 +519,82 @@ public class TestUtilizedColumnsAnalyzer
                 ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
     }
 
+    @Test
+    public void testCteWithExpressionInSelect()
+    {
+        assertUtilizedTableColumns(
+                "with cte as (select x as c1, y as c2, z + 1 as c3 from t13) select c1, c3 from (select * from cte)",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x", "z")));
+    }
+
+    @Test
+    public void testMultipleCtes()
+    {
+        assertUtilizedTableColumns(
+                "with cte1 as (select x as c1, y as c2, z + 1 as c3 from t13), cte2 as (select c1 + 1 as a, c3 as b from cte1) select a, b from (select * from cte2)",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x", "z")));
+        assertUtilizedTableColumns(
+                "with cte1 as (select x as c1, z + 1 as c2, y from t13), cte2 as (select c1 + 1 c3, c2 +1 as c4 from cte1) select c3 from cte2",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x")));
+    }
+
+    @Test
+    public void testMultipleCtesUsingSameTable()
+    {
+        assertUtilizedTableColumns(
+                "with cte1 as (select x + 1 as c1, y as c2, z + 1 as c3 from t13), cte2 as (with cte1 AS (select y +1 as c1 from t13) select * from cte1) SELECT cte1.c1, cte2.c1 from cte1 join cte2 on cte1.c1=cte2.c1",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x", "y")));
+    }
+
+    @Test
+    public void testMultipleCtesSameNameSameTable()
+    {
+        // TODO(kevintang2022): Fix visitWithQuery so that it looks up relation properly.
+        // Currently, it just looks the relations using the name (string) of the CTE
+        assertUtilizedTableColumns(
+                "with cte1 as (select x + 1 as c1 from t13), cte2 as (with cte1 as (select x + 1 as c2, y + 1 as c3, z as c4 from t13) select * from cte1) select cte1.c1, cte2.c3 from cte1 join cte2 on true",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x", "y", "z")));
+    }
+
+    @Test
+    public void testMultipleCtesSameNameDifferentTable()
+    {
+        // This happens because the two CTE1s having the same name, and the CTE1 of t13 has its first column utilized, so the CTE1 of t1 will also have its first column added.
+        assertUtilizedTableColumns(
+                "with cte1 as (select x + 1 as c1 from t13), cte2 as (with cte1 as (select a + 1 as c2, b + 1 as c3, c as c4 from t1) select * from cte1) select cte1.c1 from cte1 join cte2 on true",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x"),
+                        QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a")));
+    }
+
+    @Test
+    public void testMultipleCtesDifferentNameSameTable()
+    {
+        assertUtilizedTableColumns(
+                "with cte1 as (select x + 1 as c1 from t13), cte2 as (with cte3 as (select x + 1 as c2, y + 1 as c3, z as c4 from t13) select * from cte3) select cte1.c1, cte2.c3 from cte1 join cte2 on true",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x", "y")));
+    }
+
+    @Test
+    public void testMultipleCtesDifferentNameDifferentTable()
+    {
+        // This is the same behavior for join queries like "select t1.a from t1 join t13 on true" regardless of wrapping in CTE
+        assertUtilizedTableColumns(
+                "with cte1 as (select x + 1 as c1 from t13), cte2 as (with cte3 as (select a + 1 as c2, b + 1 as c3, c as c4 from t1) select * from cte3) select cte1.c1 from cte1 join cte2 on true",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x"),
+                        QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of()));
+    }
+
+    @Test
+    public void testMultipleCtesSameNameDifferentTableMultipleColumnsUtilized()
+    {
+        // This will fallback to checking all utilized columns on t1 because CTE1 of t13 only has one item in the select expression, but CTE1 of t1 has 3, so there's a mismatch.
+        // It's trying to add the third column of CTE1 of t1 but it does not exist.
+        assertUtilizedTableColumns(
+                "with cte1 as (select x + 1 as c1 from t13), cte2 as (with cte1 as (select a + 1 as c2, b + 1 as c3, c as c4 from t1) select * from cte1) select cte1.c1, cte2.c4 from cte1 join cte2 on true",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t13"), ImmutableSet.of("x"),
+                        QualifiedObjectName.valueOf("tpch.s1.t1"), ImmutableSet.of("a", "b", "c")));
+    }
+
     private void assertUtilizedTableColumns(@Language("SQL") String query, Map<QualifiedObjectName, Set<String>> expected)
     {
         transaction(transactionManager, accessControl)

@@ -164,7 +164,7 @@ public class TestSpoolingOutputBuffer
         // second file removed from storage
         compareTotalBuffered(buffer, 1);
 
-        ListenableFuture<BufferResult> pendingRead = buffer.get(BUFFER_ID, 9, sizeOfPages(1));
+        ListenableFuture<BufferResult> pendingRead = buffer.get(BUFFER_ID, 9, sizeOfPages(1).toBytes());
         assertFalse(pendingRead.isDone());
 
         // in memory page removed
@@ -229,7 +229,7 @@ public class TestSpoolingOutputBuffer
         SpoolingOutputBuffer buffer = createSpoolingOutputBuffer();
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.get(BUFFER_ID, 0, sizeOfPages(2));
+        ListenableFuture<BufferResult> future = buffer.get(BUFFER_ID, 0, sizeOfPages(2).toBytes());
         assertFalse(future.isDone());
 
         // add three pages
@@ -255,7 +255,7 @@ public class TestSpoolingOutputBuffer
         compareTotalBuffered(buffer, 0);
 
         // attempt to read, but nothing can be read
-        future = buffer.get(BUFFER_ID, 3, sizeOfPages(3));
+        future = buffer.get(BUFFER_ID, 3, sizeOfPages(3).toBytes());
         assertFalse(future.isDone());
     }
 
@@ -265,10 +265,10 @@ public class TestSpoolingOutputBuffer
         SpoolingOutputBuffer buffer = createSpoolingOutputBuffer();
 
         // attempt to get a page
-        ListenableFuture<BufferResult> oldPendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(3));
+        ListenableFuture<BufferResult> oldPendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(3).toBytes());
         assertFalse(oldPendingRead.isDone());
 
-        ListenableFuture<BufferResult> newPendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(3));
+        ListenableFuture<BufferResult> newPendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(3).toBytes());
         assertFalse(newPendingRead.isDone());
         assertTrue(oldPendingRead.isDone());
 
@@ -288,7 +288,7 @@ public class TestSpoolingOutputBuffer
     {
         SpoolingOutputBuffer buffer = createSpoolingOutputBuffer();
 
-        ListenableFuture<BufferResult> pendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(5));
+        ListenableFuture<BufferResult> pendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(5).toBytes());
         assertFalse(pendingRead.isDone());
 
         List<Page> pages = new LinkedList<>();
@@ -315,7 +315,7 @@ public class TestSpoolingOutputBuffer
     {
         SpoolingOutputBuffer buffer = createSpoolingOutputBuffer();
 
-        ListenableFuture<BufferResult> pendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(5));
+        ListenableFuture<BufferResult> pendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(5).toBytes());
         assertFalse(pendingRead.isDone());
 
         buffer.setNoMorePages();
@@ -328,7 +328,7 @@ public class TestSpoolingOutputBuffer
     {
         SpoolingOutputBuffer buffer = createSpoolingOutputBuffer();
 
-        ListenableFuture<BufferResult> pendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(5));
+        ListenableFuture<BufferResult> pendingRead = buffer.get(BUFFER_ID, 0, sizeOfPages(5).toBytes());
         assertFalse(pendingRead.isDone());
 
         buffer.destroy();

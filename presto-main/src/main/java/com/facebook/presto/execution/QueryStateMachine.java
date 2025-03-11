@@ -389,13 +389,13 @@ public class QueryStateMachine
                 stageStats.getRunningDrivers(),
                 stageStats.getCompletedDrivers(),
 
-                stageStats.getRawInputDataSize(),
+                succinctBytes(stageStats.getRawInputDataSizeInBytes()),
                 stageStats.getRawInputPositions(),
 
                 stageStats.getCumulativeUserMemory(),
                 stageStats.getCumulativeTotalMemory(),
-                stageStats.getUserMemoryReservation(),
-                stageStats.getTotalMemoryReservation(),
+                succinctBytes(stageStats.getUserMemoryReservationInBytes()),
+                succinctBytes(stageStats.getTotalMemoryReservationInBytes()),
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
                 succinctBytes(getPeakTaskTotalMemory()),
@@ -407,7 +407,7 @@ public class QueryStateMachine
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),
 
-                stageStats.getTotalAllocation(),
+                succinctBytes(stageStats.getTotalAllocationInBytes()),
 
                 stageStats.getProgressPercentage());
 
@@ -515,11 +515,11 @@ public class QueryStateMachine
                 rootStage,
                 allStages,
                 getPeakRunningTaskCount(),
-                succinctBytes(getPeakUserMemoryInBytes()),
-                succinctBytes(getPeakTotalMemoryInBytes()),
-                succinctBytes(getPeakTaskUserMemory()),
-                succinctBytes(getPeakTaskTotalMemory()),
-                succinctBytes(getPeakNodeTotalMemory()),
+                getPeakUserMemoryInBytes(),
+                getPeakTotalMemoryInBytes(),
+                getPeakTaskUserMemory(),
+                getPeakTaskTotalMemory(),
+                getPeakNodeTotalMemory(),
                 session.getRuntimeStats());
     }
 

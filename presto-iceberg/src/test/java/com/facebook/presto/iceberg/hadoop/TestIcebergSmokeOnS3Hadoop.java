@@ -69,7 +69,7 @@ public class TestIcebergSmokeOnS3Hadoop
     {
         super(HADOOP);
         bucketName = "forhadoop-" + randomTableSuffix();
-        catalogWarehouseDir = createTempDirectory(bucketName).toUri().toString();
+        catalogWarehouseDir = new Path(createTempDirectory(bucketName).toUri()).toString();
     }
 
     protected QueryRunner createQueryRunner()
@@ -453,7 +453,7 @@ public class TestIcebergSmokeOnS3Hadoop
     protected String getLocation(String schema, String table)
     {
         Path tempLocation = getCatalogDirectory();
-        return format("%s/%s/%s", tempLocation.toUri(), schema, table);
+        return format("%s/%s/%s", tempLocation.toString(), schema, table);
     }
 
     @Override

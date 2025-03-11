@@ -98,7 +98,7 @@ public final class BufferTestUtils
 
     static BufferResult getBufferResult(OutputBuffer buffer, OutputBufferId bufferId, long sequenceId, DataSize maxSize, Duration maxWait)
     {
-        ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize);
+        ListenableFuture<BufferResult> future = buffer.get(bufferId, sequenceId, maxSize.toBytes());
         return getFuture(future, maxWait);
     }
 

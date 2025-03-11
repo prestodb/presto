@@ -56,18 +56,18 @@
         <!-- Changing joda version changes tzdata which must match deployed JVM tzdata
              Do not change this without also making sure it matches -->
         <dep.joda.version>2.12.7</dep.joda.version>
-        <dep.tempto.version>1.53</dep.tempto.version>
+        <dep.tempto.version>1.54</dep.tempto.version>
         <dep.testng.version>7.5</dep.testng.version>
         <dep.lucene.version>8.10.0</dep.lucene.version>
         <dep.assertj-core.version>3.8.0</dep.assertj-core.version>
         <dep.logback.version>1.2.13</dep.logback.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.nexus-staging-plugin.version>1.6.8</dep.nexus-staging-plugin.version>
-        <dep.asm.version>9.2</dep.asm.version>
+        <dep.asm.version>9.7.1</dep.asm.version>
         <dep.gcs.version>1.9.17</dep.gcs.version>
         <dep.alluxio.version>313</dep.alluxio.version>
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
-        <dep.kafka.version>2.3.1</dep.kafka.version>
+        <dep.kafka.version>3.9.0</dep.kafka.version>
         <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>30.0.1</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
@@ -83,7 +83,7 @@
         <dep.avro.version>1.11.4</dep.avro.version>
         <dep.commons.compress.version>1.26.2</dep.commons.compress.version>
         <dep.protobuf-java.version>3.25.5</dep.protobuf-java.version>
-        <dep.netty.version>4.1.115.Final</dep.netty.version>
+        <dep.netty.version>4.1.118.Final</dep.netty.version>
         <dep.snakeyaml.version>2.0</dep.snakeyaml.version>
         <dep.jetty.version>9.4.56.v20240826</dep.jetty.version>
         <dep.gson.version>2.11.0</dep.gson.version>
@@ -103,8 +103,6 @@
         <air.test.thread-count>2</air.test.thread-count>
         <air.test.jvmsize>4g</air.test.jvmsize>
         <grpc.version>1.68.0</grpc.version>
-        <dep.log4j.version>2.24.3</dep.log4j.version>
-
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
 
@@ -235,17 +233,9 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-api</artifactId>
-                <version>${dep.log4j.version}</version>
-                <scope>runtime</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.logging.log4j</groupId>
-                <artifactId>log4j-core</artifactId>
-                <version>${dep.log4j.version}</version>
-                <scope>runtime</scope>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-transport</artifactId>
+                <version>${dep.netty.version}</version>
             </dependency>
 
             <dependency>
@@ -922,6 +912,12 @@
             </dependency>
 
             <dependency>
+                <groupId>net.minidev</groupId>
+                <artifactId>json-smart</artifactId>
+                <version>2.5.2</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
                 <version>2.7.4-12</version>
@@ -1373,7 +1369,7 @@
             <dependency>
                 <groupId>org.pcollections</groupId>
                 <artifactId>pcollections</artifactId>
-                <version>2.1.2</version>
+                <version>4.0.2</version>
             </dependency>
 
             <dependency>
@@ -2184,6 +2180,10 @@
                         <groupId>com.google.inject.extensions</groupId>
                         <artifactId>guice-multibindings</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2195,6 +2195,10 @@
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2212,6 +2216,10 @@
                         <groupId>org.slf4j</groupId>
                         <artifactId>slf4j-log4j12</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
+                    </exclusion>
                 </exclusions>
             </dependency>
 
@@ -2223,6 +2231,10 @@
                     <exclusion>
                         <groupId>com.datastax.cassandra</groupId>
                         <artifactId>cassandra-driver-core</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.testng</groupId>
+                        <artifactId>testng</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -2718,6 +2730,46 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>java17</id>
+            <activation>
+                <jdk>17</jdk>
+            </activation>
+            <properties>
+                <air.test.jvm.additional-arguments>
+                    --add-opens java.base/java.io=ALL-UNNAMED
+                    --add-opens java.base/java.lang=ALL-UNNAMED
+                    --add-opens java.base/java.lang.ref=ALL-UNNAMED
+                    --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                    --add-opens java.base/java.net=ALL-UNNAMED
+                    --add-opens java.base/java.nio=ALL-UNNAMED
+                    --add-opens java.base/java.security=ALL-UNNAMED
+                    --add-opens java.base/javax.security.auth=ALL-UNNAMED
+                    --add-opens java.base/javax.security.auth.login=ALL-UNNAMED
+                    --add-opens java.base/java.text=ALL-UNNAMED
+                    --add-opens java.base/java.util=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED
+                    --add-opens java.base/java.util.regex=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.loader=ALL-UNNAMED
+                    --add-opens java.base/sun.security.action=ALL-UNNAMED
+                    --add-opens java.base/sun.security.util=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.module=ALL-UNNAMED
+                    --add-opens java.base/java.lang.module=ALL-UNNAMED
+                    --add-opens java.base/java.util.jar=ALL-UNNAMED
+                    --add-opens java.base/java.util.zip=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.util.jar=ALL-UNNAMED
+                    --add-opens java.base/sun.reflect.annotation=ALL-UNNAMED
+                    --add-opens java.base/sun.nio.fs=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.ref=ALL-UNNAMED
+                    --add-opens java.base/java.nio.charset=ALL-UNNAMED
+                    --add-opens java.base/java.nio.file.attribute=ALL-UNNAMED
+                    --add-opens java.base/java.lang.invoke=ALL-UNNAMED
+                    --add-opens java.base/sun.net.www.protocol.jar=ALL-UNNAMED
+                    --add-opens java.base/jdk.internal.perf=ALL-UNNAMED
+                </air.test.jvm.additional-arguments>
+            </properties>
+        </profile>
         <profile>
             <id>ui</id>
             <activation>

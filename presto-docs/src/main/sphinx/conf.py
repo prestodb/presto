@@ -61,7 +61,7 @@ def get_version():
 # -- General configuration -----------------------------------------------------
 
 
-needs_sphinx = '7.2.6'
+needs_sphinx = '8.2.1'
 
 extensions = [
     'sphinx_immaterial', 'sphinx_copybutton', 'download', 'issue', 'pr', 'sphinx.ext.autosectionlabel'

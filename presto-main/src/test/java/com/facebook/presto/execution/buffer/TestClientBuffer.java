@@ -21,7 +21,6 @@ import com.facebook.presto.execution.buffer.OutputBuffers.OutputBufferId;
 import com.facebook.presto.execution.buffer.SerializedPageReference.PagesReleasedListener;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
@@ -72,12 +71,12 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 3, 0);
 
         // get the pages elements from the buffer
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10).toBytes(), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 3, 0);
 
         // acknowledge first three pages in the buffer
-        buffer.getPages(3, sizeOfPages(10)).cancel(true);
+        buffer.getPages(3, sizeOfPages(10).toBytes()).cancel(true);
         // pages now acknowledged
         assertBufferInfo(buffer, 0, 3);
 
@@ -88,7 +87,7 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 3, 3);
 
         // remove a page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 3, sizeOfPages(1), NO_WAIT), bufferResult(3, createPage(3)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 3, sizeOfPages(1).toBytes(), NO_WAIT), bufferResult(3, createPage(3)));
         // page not acknowledged yet so sent count is the same
         assertBufferInfo(buffer, 3, 3);
 
@@ -98,15 +97,15 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 3, 3);
 
         // remove a page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 4, sizeOfPages(1).toBytes(), NO_WAIT), bufferResult(4, createPage(4)));
         assertBufferInfo(buffer, 2, 4);
 
         // remove last pages from, should not be finished
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 5, sizeOfPages(30), NO_WAIT), bufferResult(5, createPage(5)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 5, sizeOfPages(30).toBytes(), NO_WAIT), bufferResult(5, createPage(5)));
         assertBufferInfo(buffer, 1, 5);
 
         // acknowledge all pages from the buffer, should return a finished buffer result
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 6, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 6, sizeOfPages(10).toBytes(), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
         assertBufferInfo(buffer, 0, 6);
 
         // buffer is not destroyed until explicitly destroyed
@@ -127,13 +126,13 @@ public class TestClientBuffer
         assertEquals(supplier.getBufferedPages(), 3);
 
         // get the pages elements from the buffer
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 0, sizeOfPages(10).toBytes(), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // 3 pages are moved to the client buffer, but not acknowledged yet
         assertEquals(supplier.getBufferedPages(), 0);
         assertBufferInfo(buffer, 3, 0);
 
         // acknowledge first three pages in the buffer
-        ListenableFuture<BufferResult> pendingRead = buffer.getPages(3, sizeOfPages(1));
+        ListenableFuture<BufferResult> pendingRead = buffer.getPages(3, sizeOfPages(1).toBytes());
         // pages now acknowledged
         assertEquals(supplier.getBufferedPages(), 0);
         assertBufferInfo(buffer, 0, 3);
@@ -159,17 +158,17 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 1, 3);
 
         // remove a page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 4, sizeOfPages(1).toBytes(), NO_WAIT), bufferResult(4, createPage(4)));
         assertBufferInfo(buffer, 1, 4);
         assertEquals(supplier.getBufferedPages(), 1);
 
         // remove last pages from, should not be finished
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 5, sizeOfPages(30), NO_WAIT), bufferResult(5, createPage(5)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 5, sizeOfPages(30).toBytes(), NO_WAIT), bufferResult(5, createPage(5)));
         assertBufferInfo(buffer, 1, 5);
         assertEquals(supplier.getBufferedPages(), 0);
 
         // acknowledge all pages from the buffer, should return a finished buffer result
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 6, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 6, sizeOfPages(10).toBytes(), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
         assertBufferInfo(buffer, 0, 6);
         assertEquals(supplier.getBufferedPages(), 0);
 
@@ -193,7 +192,7 @@ public class TestClientBuffer
         // Everything buffered
         assertBufferInfo(buffer, 3, 0, totalSizeOfPagesInBytes);
 
-        BufferResult bufferResult = getBufferResult(buffer, 0, sizeOfPages(1), NO_WAIT);
+        BufferResult bufferResult = getBufferResult(buffer, 0, sizeOfPages(1).toBytes(), NO_WAIT);
         long remainingBytes = totalSizeOfPagesInBytes - bufferResult.getBufferedBytes();
         assertEquals(bufferResult.getBufferedBytes(), sizeOfPages(1).toBytes());
         assertBufferInfo(buffer, 3, 0, totalSizeOfPagesInBytes);
@@ -214,20 +213,20 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 3, 0);
 
         // get the three pages
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10).toBytes(), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 3, 0);
 
         // get the three pages again
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10).toBytes(), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 3, 0);
 
         // acknowledge the pages
-        buffer.getPages(3, sizeOfPages(10)).cancel(true);
+        buffer.getPages(3, 10L).cancel(true);
 
         // attempt to get the three elements again, which will return an empty result
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(10).toBytes(), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, false));
         // pages not acknowledged yet so state is the same
         assertBufferInfo(buffer, 0, 3);
     }
@@ -264,14 +263,14 @@ public class TestClientBuffer
         buffer.setNoMorePages();
 
         // read a page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(1), NO_WAIT), bufferResult(0, createPage(0)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(1).toBytes(), NO_WAIT), bufferResult(0, createPage(0)));
 
         // destroy without acknowledgement
         buffer.destroy();
         assertBufferDestroyed(buffer, 0);
 
         // follow token from previous read, which should return a finished result
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPages(1), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPages(1).toBytes(), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 0, true));
     }
 
     @Test
@@ -280,7 +279,7 @@ public class TestClientBuffer
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10).toBytes());
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -292,7 +291,7 @@ public class TestClientBuffer
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.getPages(1, sizeOfPages(10));
+        future = buffer.getPages(1, sizeOfPages(10).toBytes());
         assertFalse(future.isDone());
 
         // finish the buffer
@@ -309,7 +308,7 @@ public class TestClientBuffer
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
 
         // attempt to get a page
-        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
+        ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10).toBytes());
 
         // verify we are waiting for a page
         assertFalse(future.isDone());
@@ -322,7 +321,7 @@ public class TestClientBuffer
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
-        future = buffer.getPages(1, sizeOfPages(10));
+        future = buffer.getPages(1, sizeOfPages(10).toBytes());
         assertFalse(future.isDone());
 
         // destroy the buffer
@@ -342,7 +341,7 @@ public class TestClientBuffer
         ClientBuffer buffer = new ClientBuffer(TASK_INSTANCE_ID, BUFFER_ID, NOOP_RELEASE_LISTENER);
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(1));
-        buffer.getPages(1, sizeOfPages(10)).cancel(true);
+        buffer.getPages(1, sizeOfPages(10).toBytes()).cancel(true);
         assertBufferInfo(buffer, 1, 1);
 
         // request negative token
@@ -370,12 +369,12 @@ public class TestClientBuffer
         assertBufferInfo(buffer, 2, 0);
 
         // read one page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(0), NO_WAIT), bufferResult(0, createPage(0)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(0).toBytes(), NO_WAIT), bufferResult(0, createPage(0)));
         assertEquals(releasedPages.get(), 0);
         assertBufferInfo(buffer, 2, 0);
 
         // acknowledge first page
-        assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPages(1), NO_WAIT), bufferResult(1, createPage(1)));
+        assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPages(1).toBytes(), NO_WAIT), bufferResult(1, createPage(1)));
         assertEquals(releasedPages.get(), 1);
         assertBufferInfo(buffer, 1, 1);
 
@@ -388,7 +387,7 @@ public class TestClientBuffer
     private static void assertInvalidSequenceId(ClientBuffer buffer, int sequenceId)
     {
         try {
-            buffer.getPages(sequenceId, sizeOfPages(10));
+            buffer.getPages(sequenceId, sizeOfPages(10).toBytes());
             fail("Expected " + INVALID_SEQUENCE_ID);
         }
         catch (IllegalArgumentException e) {
@@ -396,15 +395,15 @@ public class TestClientBuffer
         }
     }
 
-    private static BufferResult getBufferResult(ClientBuffer buffer, long sequenceId, DataSize maxSize, Duration maxWait)
+    private static BufferResult getBufferResult(ClientBuffer buffer, long sequenceId, long maxSizeInBytes, Duration maxWait)
     {
-        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize);
+        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSizeInBytes);
         return getFuture(future, maxWait);
     }
 
-    private static BufferResult getBufferResult(ClientBuffer buffer, PagesSupplier supplier, long sequenceId, DataSize maxSize, Duration maxWait)
+    private static BufferResult getBufferResult(ClientBuffer buffer, PagesSupplier supplier, long sequenceId, long maxSizeInBytes, Duration maxWait)
     {
-        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSize, Optional.of(supplier));
+        ListenableFuture<BufferResult> future = buffer.getPages(sequenceId, maxSizeInBytes, Optional.of(supplier));
         return getFuture(future, maxWait);
     }
 
@@ -517,9 +516,8 @@ public class TestClientBuffer
         }
 
         @Override
-        public synchronized List<SerializedPageReference> getPages(DataSize maxSize)
+        public synchronized List<SerializedPageReference> getPages(long maxSizeInBytes)
         {
-            long maxBytes = maxSize.toBytes();
             List<SerializedPageReference> pages = new ArrayList<>();
             long bytesRemoved = 0;
 
@@ -530,7 +528,7 @@ public class TestClientBuffer
                 }
                 bytesRemoved += page.getRetainedSizeInBytes();
                 // break (and don't add) if this page would exceed the limit
-                if (!pages.isEmpty() && bytesRemoved > maxBytes) {
+                if (!pages.isEmpty() && bytesRemoved > maxSizeInBytes) {
                     break;
                 }
                 // this should not happen since we have a lock
