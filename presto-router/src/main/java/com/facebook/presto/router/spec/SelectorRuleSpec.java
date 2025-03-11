@@ -84,7 +84,7 @@ public class SelectorRuleSpec
             }
         }
 
-        if (clientTags.isPresent() && requestInfo.getClientTags().containsAll(clientTags.get())) {
+        if (clientTags.isPresent() && !requestInfo.getClientTags().containsAll(clientTags.get())) {
             return Optional.empty();
         }
 
