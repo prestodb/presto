@@ -135,7 +135,9 @@ simdjson::error_code SIMDJsonExtractor::extract(
       return consumer(jsonDoc);
     }
     VELOX_CHECK_GT(tokens_.size(), 0);
-    if (tokens_[0].selector == JsonPathTokenizer::Selector::WILDCARD) {
+    auto& selector = tokens_[0].selector;
+    if (tokens_[0].selector == JsonPathTokenizer::Selector::WILDCARD ||
+        selector == JsonPathTokenizer::Selector::RECURSIVE) {
       isDefinitePath = false;
     }
     return simdjson::SUCCESS;

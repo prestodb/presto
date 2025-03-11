@@ -1035,11 +1035,19 @@ TEST_F(JsonFunctionsTest, jsonExtract) {
   EXPECT_EQ(std::nullopt, jsonExtract("null", "$.foo"));
   EXPECT_EQ(std::nullopt, jsonExtract("null", "$.[0]"));
 
-  // Recurssive opearator
+  // Recursive opearator
   EXPECT_EQ("[8.95,12.99,8.99,22.99,19.95]", jsonExtract(kJson, "$..price"));
   EXPECT_EQ(
       "[8.95,12.99,8.99,22.99,19.95,8.95,12.99,8.99,22.99,19.95,8.95,12.99,8.99,22.99]",
       jsonExtract(kJson, "$..*..price"));
+  EXPECT_EQ("[]", jsonExtract(kJson, "$..nonExistentKey"));
+  EXPECT_EQ(std::nullopt, jsonExtract(kJson, "$.nonExistentKey..price"));
+  EXPECT_EQ(
+      std::nullopt, jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a.c..[0]"));
+
+  // Calling Recursive opearator on a scalar
+  EXPECT_EQ("[]", jsonExtract(R"({"a": {"b": [123, 456]}})", "$.a.b.[0]..[0]"));
+  EXPECT_EQ("[]", jsonExtract("1", "$..key"));
 
   // non-definite paths that end up being evaluated vs. not evaluated
   EXPECT_EQ(
