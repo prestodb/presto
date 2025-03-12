@@ -15,9 +15,9 @@
  */
 #pragma once
 
+#include <boost/numeric/conversion/cast.hpp>
 #include <chrono>
 #include <optional>
-
 #include "velox/common/base/Doubles.h"
 #include "velox/external/date/date.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
@@ -470,4 +470,35 @@ int64_t diffDate(
       Timestamp((int64_t)fromDate * util::kSecsPerDay, 0),
       Timestamp((int64_t)toDate * util::kSecsPerDay, 0));
 }
+
+FOLLY_ALWAYS_INLINE int64_t
+valueOfTimeUnitToMillis(const double value, std::string_view unit) {
+  double convertedValue = value;
+  if (unit == "ns") {
+    convertedValue = convertedValue * std::milli::den / std::nano::den;
+  } else if (unit == "us") {
+    convertedValue = convertedValue * std::milli::den / std::micro::den;
+  } else if (unit == "ms") {
+  } else if (unit == "s") {
+    convertedValue = convertedValue * std::milli::den;
+  } else if (unit == "m") {
+    convertedValue = convertedValue * 60 * std::milli::den;
+  } else if (unit == "h") {
+    convertedValue = convertedValue * 3600 * std::milli::den;
+  } else if (unit == "d") {
+    convertedValue = convertedValue * 86400 * std::milli::den;
+  } else {
+    VELOX_USER_FAIL("Unknown time unit: {}", unit);
+  }
+  try {
+    return boost::numeric_cast<int64_t>(std::round(convertedValue));
+  } catch (const boost::bad_numeric_cast&) {
+    VELOX_USER_FAIL(
+        "Value in {} unit is too large to be represented in ms unit as an int64_t",
+        unit,
+        value);
+  }
+  VELOX_UNREACHABLE();
+}
+
 } // namespace facebook::velox::functions
