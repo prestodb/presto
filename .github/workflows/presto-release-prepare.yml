@@ -1,4 +1,4 @@
-name: Presto Stable - Prepare Release
+name: Presto Stable Release - Prepare
 
 on:
   workflow_dispatch:
@@ -53,7 +53,6 @@ jobs:
             -Dexpression=project.version -q -ntp -DforceStdout | tail -n 1)
           echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION" >> $GITHUB_ENV
           echo "PRESTO_RELEASE_VERSION=$PRESTO_RELEASE_VERSION"
-          echo "In case cut release failed, please delete the tag ${PRESTO_RELEASE_VERSION} and the branch release-${PRESTO_RELEASE_VERSION} manually, then re-run this action."
 
       - name: Update version in master
         run: |
@@ -73,6 +72,11 @@ jobs:
           git switch -c release-${{ env.PRESTO_RELEASE_VERSION }}
           git log --pretty="format:%ce: %s" -3
           git push origin release-${{ env.PRESTO_RELEASE_VERSION }}
+          echo "In case cut release failed, please fix manually by running the following commands:"
+          echo "git clone ${{ github.server_url }}/${{ github.repository }}.git"
+          echo "git checkout ${{ env.PRESTO_RELEASE_VERSION }}"
+          echo "git switch -c release-${{ env.PRESTO_RELEASE_VERSION }}"
+          echo "git push origin release-${{ env.PRESTO_RELEASE_VERSION }}"
 
   release-notes:
     needs: [cut-release]
