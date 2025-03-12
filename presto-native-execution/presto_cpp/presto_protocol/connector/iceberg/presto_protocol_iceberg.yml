@@ -37,6 +37,11 @@ AbstractClasses:
     subclasses:
       - { name: IcebergInsertTableHandle,       key: hive-iceberg }
 
+  ConnectorDeleteTableHandle:
+    super: JsonEncodedSubclass
+    subclasses:
+      - { name: IcebergTableHandle,       key: hive-iceberg }
+
   ConnectorTableLayoutHandle:
     super: JsonEncodedSubclass
     subclasses:
@@ -74,3 +79,5 @@ JavaClasses:
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/delete/DeleteFile.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogOperation.java
   - presto-iceberg/src/main/java/com/facebook/presto/iceberg/changelog/ChangelogSplitInfo.java
+  - presto-iceberg/src/main/java/com/facebook/presto/iceberg/SortField.java
+  

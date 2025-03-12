@@ -27,6 +27,7 @@ using IcebergConnectorProtocol = ConnectorProtocolTemplate<
     IcebergSplit,
     NotImplemented,
     hive::HiveTransactionHandle,
+    NotImplemented,
     NotImplemented>;
 
 } // namespace facebook::presto::protocol::iceberg
