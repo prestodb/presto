@@ -73,6 +73,21 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   // in subclasses.
   RowSet applyFilter(const RowSet& rows);
 
+  vector_size_t prunedLengthAt(vector_size_t i) const {
+    return std::min(scanSpec_->maxArrayElementsCount(), allLengths_[i]);
+  }
+
+  static vector_size_t
+  advanceNestedRows(const RowSet& rows, vector_size_t i, vector_size_t last) {
+    while (i + 16 < rows.size() && rows[i + 16] < last) {
+      i += 16;
+    }
+    while (i < rows.size() && rows[i] < last) {
+      ++i;
+    }
+    return i;
+  }
+
   BufferPtr allLengthsHolder_;
   vector_size_t* allLengths_;
   RowSet nestedRows_;

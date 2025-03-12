@@ -75,17 +75,6 @@ void prepareResult(
   // makeOffsetsAndSizes.  Child vectors are handled in child column readers.
 }
 
-vector_size_t
-advanceNestedRows(const RowSet& rows, vector_size_t i, vector_size_t last) {
-  while (i + 16 < rows.size() && rows[i + 16] < last) {
-    i += 16;
-  }
-  while (i < rows.size() && rows[i] < last) {
-    ++i;
-  }
-  return i;
-}
-
 } // namespace
 
 void SelectiveRepeatedColumnReader::makeNestedRowSet(
@@ -103,8 +92,7 @@ void SelectiveRepeatedColumnReader::makeNestedRowSet(
   vector_size_t nestedLength{0};
   for (auto row : rows) {
     if (!nulls || !bits::isBitNull(nulls, row)) {
-      nestedLength +=
-          std::min(scanSpec_->maxArrayElementsCount(), allLengths_[row]);
+      nestedLength += prunedLengthAt(row);
     }
   }
   nestedRowsHolder_.resize(nestedLength);
@@ -121,8 +109,7 @@ void SelectiveRepeatedColumnReader::makeNestedRowSet(
     if (nulls && bits::isBitNull(nulls, row)) {
       continue;
     }
-    const auto lengthAtRow =
-        std::min(scanSpec_->maxArrayElementsCount(), allLengths_[row]);
+    const auto lengthAtRow = prunedLengthAt(row);
     std::iota(
         nestedRowsHolder_.data() + nestedRow,
         nestedRowsHolder_.data() + nestedRow + lengthAtRow,
