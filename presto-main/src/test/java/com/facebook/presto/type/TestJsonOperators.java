@@ -39,6 +39,7 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -178,6 +179,11 @@ public class TestJsonOperators
         assertFunction("JSON '[null]'", JSON, "[null]");
         assertFunction("JSON '[13,null,42]'", JSON, "[13,null,42]");
         assertFunction("JSON '{\"x\": null}'", JSON, "{\"x\":null}");
+        assertInvalidFunction("JSON '{}{'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON '{} \"a\"'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON '{}{abc'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON '{}abc'", INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("JSON ''", INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
