@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeSplitSource;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.IncrementalChangelogScan;
@@ -54,6 +55,7 @@ public class IcebergSplitManager
     private final TypeManager typeManager;
     private final ExecutorService executor;
     private final ThreadPoolExecutorMBean executorServiceMBean;
+    private final ClassLoader classLoader;
 
     @Inject
     public IcebergSplitManager(
@@ -65,6 +67,7 @@ public class IcebergSplitManager
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.executorServiceMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
+        this.classLoader = getClass().getClassLoader();
     }
 
     @Override
@@ -93,7 +96,7 @@ public class IcebergSplitManager
             IncrementalChangelogScan scan = icebergTable.newIncrementalChangelogScan()
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
-            return new ChangelogSplitSource(session, typeManager, icebergTable, scan);
+            return new ClassLoaderSafeSplitSource(classLoader, new ChangelogSplitSource(session, typeManager, icebergTable, scan));
         }
         else if (table.getIcebergTableName().getTableType() == EQUALITY_DELETES) {
             CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
@@ -102,7 +105,7 @@ public class IcebergSplitManager
                     table.getPartitionSpecId(),
                     table.getEqualityFieldIds());
 
-            return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
+            return new ClassLoaderSafeSplitSource(classLoader, new EqualityDeletesSplitSource(session, icebergTable, deleteFiles));
         }
         else {
             TableScan tableScan = icebergTable.newScan()
@@ -116,7 +119,7 @@ public class IcebergSplitManager
                     session,
                     tableScan,
                     getMetadataColumnConstraints(layoutHandle.getValidPredicate()));
-            return splitSource;
+            return new ClassLoaderSafeSplitSource(classLoader, splitSource);
         }
     }
 
