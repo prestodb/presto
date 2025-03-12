@@ -52,7 +52,6 @@ public class PrestoS3ConfigurationUpdater
     private final String userAgentPrefix;
     private final PrestoS3AclType aclType;
     private boolean skipGlacierObjects;
-    private final String webIdentityTokenFile;
     private final boolean webIdentityEnabled;
 
     @Inject
@@ -86,7 +85,6 @@ public class PrestoS3ConfigurationUpdater
         this.userAgentPrefix = config.getS3UserAgentPrefix();
         this.aclType = config.getS3AclType();
         this.skipGlacierObjects = config.isSkipGlacierObjects();
-        this.webIdentityTokenFile = config.getS3WebIdentityTokenFile();
         this.webIdentityEnabled = config.isS3WebIdentityEnabled();
     }
 
@@ -129,8 +127,9 @@ public class PrestoS3ConfigurationUpdater
             config.set(S3_SSE_KMS_KEY_ID, sseKmsKeyId);
         }
         config.setBoolean(S3_WEB_IDENTITY_ENABLED, webIdentityEnabled);
+        String webIdentityTokenFile = System.getenv("AWS_WEB_IDENTITY_TOKEN_FILE");
         if (webIdentityEnabled && webIdentityTokenFile != null) {
-            config.set(S3_WEB_IDENTITY_TOKEN_FILE, webIdentityTokenFile);
+            config.set("S3_WEB_IDENTITY_TOKEN_FILE", webIdentityTokenFile);
         }
         config.setInt(S3_MAX_CLIENT_RETRIES, maxClientRetries);
         config.setInt(S3_MAX_ERROR_RETRIES, maxErrorRetries);

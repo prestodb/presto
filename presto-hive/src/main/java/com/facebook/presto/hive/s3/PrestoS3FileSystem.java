@@ -138,7 +138,6 @@ import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_P
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USER_AGENT_SUFFIX;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_USE_INSTANCE_CREDENTIALS;
 import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_WEB_IDENTITY_ENABLED;
-import static com.facebook.presto.hive.s3.S3ConfigurationUpdater.S3_WEB_IDENTITY_TOKEN_FILE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -200,7 +199,6 @@ public class PrestoS3FileSystem
     private boolean skipGlacierObjects;
     private PrestoS3StorageClass s3StorageClass;
     private boolean webIdentityEnabled;
-    private String webIdentityTokenFile;
 
     @Override
     public void initialize(URI uri, Configuration conf)
@@ -243,7 +241,6 @@ public class PrestoS3FileSystem
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.s3StorageClass = conf.getEnum(S3_STORAGE_CLASS, defaults.getS3StorageClass());
         this.webIdentityEnabled = conf.getBoolean(S3_WEB_IDENTITY_ENABLED, false);
-        this.webIdentityTokenFile = conf.get(S3_WEB_IDENTITY_TOKEN_FILE);
         checkArgument(!(webIdentityEnabled && (s3IamRole.isEmpty() || s3IamRole == null)), "Invalid configuration: s3IamRole must be provided when webIdentityEnabled is set to true");
         ClientConfiguration configuration = new ClientConfiguration()
                 .withMaxErrorRetry(maxErrorRetries)
@@ -867,9 +864,13 @@ public class PrestoS3FileSystem
                 WebIdentityTokenCredentialsProvider.Builder providerBuilder = WebIdentityTokenCredentialsProvider.builder()
                         .roleArn(s3IamRole)
                         .roleSessionName(s3IamRoleSessionName);
-
+                String webIdentityTokenFile = System.getenv("AWS_WEB_IDENTITY_TOKEN_FILE");
+                String awsRegion = System.getenv("AWS_REGION");
                 if (!isNullOrEmpty(webIdentityTokenFile)) {
                     providerBuilder.webIdentityTokenFile(webIdentityTokenFile);
+                }
+                if (!isNullOrEmpty(awsRegion)) {
+                    System.setProperty("aws.region", awsRegion);
                 }
                 return providerBuilder.build();
             }

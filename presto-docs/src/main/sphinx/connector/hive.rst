@@ -362,11 +362,12 @@ Property Name                                Description
                                              will skip data that may be expected to be part of the table
                                              or partition. Defaults to ``false``.
 
-``hive.s3.web-identity-token-file``          Specifies the file path of the Web Identity token used for
-                                             assuming an IAM role.
-
 ``hive.s3.web.identity.auth.enabled``        Enables Web Identity authentication for S3 access.Requires
-                                             ``hive.s3.iam-role`` to be specified.
+                                             ``hive.s3.iam-role`` to be specified.Additionally, ensure that
+                                             the environment variables ``AWS_WEB_IDENTITY_TOKEN_FILE`` and
+                                             ``AWS_REGION`` are set for proper authentication. Since this
+                                             implementation uses AWS SDK 1.x, setting these environment
+                                             variables is necessary.
 ============================================ =================================================================
 
 S3 Credentials

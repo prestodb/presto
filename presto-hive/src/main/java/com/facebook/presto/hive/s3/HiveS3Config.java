@@ -77,19 +77,6 @@ public class HiveS3Config
         return this;
     }
 
-    public String getS3WebIdentityTokenFile()
-    {
-        return s3WebIdentityTokenFile;
-    }
-
-    @Config("hive.s3.web-identity-token-file")
-    @ConfigDescription("Path to the web identity token file for assuming an AWS IAM role")
-    public HiveS3Config setS3WebIdentityTokenFile(String s3WebIdentityTokenFile)
-    {
-        this.s3WebIdentityTokenFile = s3WebIdentityTokenFile;
-        return this;
-    }
-
     public String getS3AwsAccessKey()
     {
         return s3AwsAccessKey;
