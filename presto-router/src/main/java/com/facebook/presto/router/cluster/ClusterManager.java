@@ -113,7 +113,7 @@ public class ClusterManager
         CompletableFuture.supplyAsync(() -> {
             try (WatchService watchService = FileSystems.getDefault().newWatchService()) {
                 File routerConfigFile = new File(routerConfig.getConfigFile());
-                log.info(routerConfig.getConfigFile());
+                log.info(String.format("Router config watch service monitoring %s", routerConfig.getConfigFile()));
                 Path parentDir = routerConfigFile.toPath().getParent();
                 parentDir.register(
                         watchService,

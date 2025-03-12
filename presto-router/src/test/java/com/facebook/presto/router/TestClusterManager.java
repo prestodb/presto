@@ -153,7 +153,6 @@ public class TestClusterManager
         fos.flush();
         fos.getFD().sync();
         fos.close();
-        // can use cyclic barrier instead
         Thread.sleep(3000);
 
         assertEquals(clusterManager.getAllClusters().size(), 0);
