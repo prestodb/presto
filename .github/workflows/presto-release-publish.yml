@@ -1,0 +1,367 @@
+name: Presto Stable Release - Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      RELEASE_VERSION:
+        description: 'Release version (e.g., 0.290)'
+        required: true
+      create_release_tag:
+        description: 'Create release tag'
+        type: boolean
+        default: true
+        required: false
+      release-notes-commit:
+        description: 'Commit SHA of release notes(required when create_release_tag is checked)'
+        required: false
+      publish_maven:
+        description: 'Publish Maven artifacts'
+        type: boolean
+        default: true
+        required: false
+      publish_docker:
+        description: 'Publish Docker images'
+        type: boolean
+        default: true
+        required: false
+      publish_native_docker:
+        description: 'Publish Native Docker images'
+        type: boolean
+        default: true
+        required: false
+      tag_image_as_latest:
+        description: 'Tag the image as latest version'
+        type: boolean
+        default: true
+        required: false
+      dependency_image:
+        description: 'Dependency image(e.g., prestodb/presto-native-dependency:0.290-20241014120930-e1fc090)'
+        required: false
+        default: ''
+
+env:
+  VERSION: ${{ github.event.inputs.RELEASE_VERSION }}
+  DOCKER_REPO: ${{ github.repository }}
+  ORG_NAME: ${{ github.repository_owner }}
+  IMAGE_NAME: presto-native
+  RELEASE_BRANCH: release-${{ github.event.inputs.RELEASE_VERSION }}
+  RELEASE_TAG: ${{ github.event.inputs.RELEASE_VERSION }}
+  RELEASE_NOTES_COMMIT: ${{ github.event.inputs.release-notes-commit }}
+
+jobs:
+  tag-release:
+    if: ${{ github.event.inputs.create_release_tag == 'true' }}
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Validate release notes commit
+        if: ${{ github.event.inputs.release-notes-commit == '' }}
+        run: |
+          echo "Error: release-notes-commit is required when create_release_tag is true"
+          exit 1
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_BRANCH }}
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          fetch-depth: 0
+          fetch-tags: true
+          show-progress: false
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "ci@lists.prestodb.io"
+          git config --global user.name "prestodb-ci"
+          git config pull.rebase false
+
+      - name: Cherry-pick release notes
+        run: |
+          git cherry-pick ${{ env.RELEASE_NOTES_COMMIT }}
+
+      - name: Delete existing release tag
+        run: |
+          git push origin :${{ env.RELEASE_TAG }} || true
+          git tag -d ${{ env.RELEASE_TAG }} || true
+
+      - name: Create new release tag
+        run: |
+          git tag -a ${{ env.RELEASE_TAG }} -m "release ${{ env.RELEASE_TAG }}"
+          git push origin ${{ env.RELEASE_BRANCH }} --tags
+
+  publish-maven-artifacts:
+    needs: tag-release
+    if: |
+      (github.event.inputs.publish_maven == 'true' || github.event.inputs.publish_docker == 'true') &&
+      (github.event.inputs.create_release_tag != 'true' || success())
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 60
+
+    env:
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+
+    steps:
+      - name: Setup JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          overwrite-settings: true
+          gpg-private-key: ${{ secrets.GPG_SECRET }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git gpg python3 python3-venv
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERSION }}
+          token: ${{ secrets.PRESTODB_CI_TOKEN }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "ci@lists.prestodb.io"
+          git config --global user.name "prestodb-ci"
+          git config pull.rebase false
+
+      - name: Create Maven Settings
+        run: |
+          cat > ${{ github.workspace }}/settings.xml << 'EOL'
+          <settings>
+            <servers>
+              <server>
+                <id>sonatype-nexus-snapshots</id>
+                <username>${env.NEXUS_USERNAME}</username>
+                <password>${env.NEXUS_PASSWORD}</password>
+              </server>
+              <server>
+                <id>sonatype.snapshots</id>
+                <username>${env.NEXUS_USERNAME}</username>
+                <password>${env.NEXUS_PASSWORD}</password>
+              </server>
+              <server>
+                <id>ossrh</id>
+                <username>${env.NEXUS_USERNAME}</username>
+                <password>${env.NEXUS_PASSWORD}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>nexus</id>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>nexus</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOL
+
+      - name: Maven build
+        run: mvn clean install -DskipTests
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: presto-artifacts-${{ env.VERSION }}
+          retention-days: 1
+          path: |
+            presto-server/target/presto-server-*.tar.gz
+            presto-cli/target/presto-cli-*-executable.jar
+
+      - name: Set up GPG key
+        run: |
+          echo "${{ secrets.GPG_SECRET }}" > ${{ env.GPG_KEY_FILE }}
+          chmod 600 ${{ env.GPG_KEY_FILE }}
+          gpg --import --batch ${{ env.GPG_KEY_FILE }}
+          gpg --batch --yes --pinentry-mode loopback --passphrase "${{ secrets.GPG_PASSPHRASE }}" --sign ${{ env.GPG_KEY_FILE }}
+        env:
+          GPG_TTY: $(tty)
+          GPG_KEY_FILE: /tmp/gpg-key.txt
+
+      - name: Release Maven Artifacts
+        if: ${{ github.event.inputs.publish_maven == 'true' }}
+        run: |
+          unset MAVEN_CONFIG
+          ./mvnw -s ${{ github.workspace }}/settings.xml -V -B -U -e -T1C deploy \
+            -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
+            -Dmaven.wagon.http.retryHandler.count=8 \
+            -DskipTests \
+            -DstagingProfileId=28a0d8c4350ed \
+            -DkeepStagingRepositoryOnFailure=true \
+            -DkeepStagingRepositoryOnCloseRuleFailure=true \
+            -DautoReleaseAfterClose=true \
+            -DstagingProgressTimeoutMinutes=60 \
+            -Poss-release \
+            -Pdeploy-to-ossrh \
+            -pl '!presto-test-coverage'
+        env:
+          GPG_TTY: $(tty)
+
+  publish-docker-images:
+    if: ${{ github.event.inputs.publish_docker == 'true' && always() }}
+    needs: publish-maven-artifacts
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 150
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERSION }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: presto-artifacts-${{ env.VERSION }}
+          path: ./
+
+      - name: Login to dockerhub
+        uses: docker/login-action@v3.3.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to gitHub container registry
+        uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PRESTODB_CI_TOKEN }}
+
+      - name: Set up qemu
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up docker buildx
+        uses: docker/setup-buildx-action@v3.9.0
+
+      - name: Create and use builder
+        run: |
+          docker buildx create --name container --use
+          docker buildx inspect --bootstrap
+
+      - name: Move artifacts to docker directory
+        run: |
+          mv ./presto-server/target/presto-server-*.tar.gz docker/
+          mv ./presto-cli/target/presto-cli-*-executable.jar docker/
+
+      - name: Build docker image and publish
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          platforms: linux/amd64,linux/arm64,linux/ppc64le
+          file: docker/Dockerfile
+          push: true
+          build-args: |
+            PRESTO_VERSION=${{ env.VERSION }}
+            JMX_PROMETHEUS_JAVAAGENT_VERSION=0.20.0
+          tags: |
+            ${{ env.DOCKER_REPO }}:${{ env.VERSION }}
+            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('{0}:latest', env.DOCKER_REPO) || '' }}
+            ghcr.io/${{ github.repository }}:${{ env.VERSION }}
+            ${{ github.event.inputs.tag_image_as_latest == 'true' && format('ghcr.io/{0}:latest', github.repository) || '' }}
+
+  publish-native-images:
+    needs: tag-release
+    if: |
+      github.event.inputs.publish_native_docker == 'true' &&
+      (github.event.inputs.create_release_tag != 'true' || success())
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    environment: release
+    timeout-minutes: 300
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VERSION }}
+          submodules: true
+
+      - name: Initialize Prestissimo submodules
+        run: |
+          cd presto-native-execution && make submodules
+          echo "COMMIT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3.3.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set dependency image tag
+        run: |
+          if [[ -n "${{ github.event.inputs.dependency_image }}" ]]; then
+            echo "DEPENDENCY_IMAGE=${{ github.event.inputs.dependency_image }}" >> $GITHUB_ENV
+          else
+            echo "DEPENDENCY_IMAGE=ghcr.io/${{ github.repository_owner }}/presto-native-dependency:${{ env.VERSION }}-${{ env.COMMIT_SHA }}" >> $GITHUB_ENV
+          fi
+
+      - name: Build Dependency Image
+        working-directory: presto-native-execution
+        run: |
+          if docker pull ${{ env.DEPENDENCY_IMAGE }}; then
+            echo "Using dependency image ${{ env.DEPENDENCY_IMAGE }}"
+            docker tag ${{ env.DEPENDENCY_IMAGE }} presto/prestissimo-dependency:centos9
+          else
+            echo "Building new depedency image"
+            docker compose build centos-native-dependency
+            docker tag presto/prestissimo-dependency:centos9 ghcr.io/${{ github.repository_owner }}/presto-native-dependency:${{ env.VERSION }}-${{ env.COMMIT_SHA }}
+            docker push ghcr.io/${{ github.repository_owner }}/presto-native-dependency:${{ env.VERSION }}-${{ env.COMMIT_SHA }}
+          fi
+          docker images
+
+      - name: Build Runtime Image
+        working-directory: presto-native-execution
+        run: |
+          if docker pull ghcr.io/${{ github.repository_owner }}/presto-native:${{ env.VERSION }}-${{ env.COMMIT_SHA }}; then
+            docker tag ghcr.io/${{ github.repository_owner }}/presto-native:${{ env.VERSION }}-${{ env.COMMIT_SHA }} docker.io/presto/prestissimo-runtime:centos9
+          else
+            docker compose build centos-native-runtime
+            docker tag presto/prestissimo-runtime:centos9 ghcr.io/${{ github.repository_owner }}/presto-native:${{ env.VERSION }}-${{ env.COMMIT_SHA }}
+            docker push ghcr.io/${{ github.repository_owner }}/presto-native:${{ env.VERSION }}-${{ env.COMMIT_SHA }}
+          fi
+
+      - name: Add release tag
+        working-directory: presto-native-execution
+        run: |
+          docker tag presto/prestissimo-runtime:centos9 ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          if [[ "${{ github.event.inputs.tag_image_as_latest }}" == "true" ]]; then
+            docker tag presto/prestissimo-runtime:centos9 ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:latest
+          fi
+
+      - name: Push to DockerHub
+        run: |
+          docker push ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          if [[ "${{ github.event.inputs.tag_image_as_latest }}" == "true" ]]; then
+            docker tag ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }} ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:latest
+            docker push ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:latest
+          fi
+
+      - name: Tag and push to GitHub Packages
+        run: |
+          docker tag ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }} ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          docker push ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          if [[ "${{ github.event.inputs.tag_image_as_latest }}" == "true" ]]; then
+            docker tag ${{ env.ORG_NAME }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }} ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+            docker push ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
+          fi
