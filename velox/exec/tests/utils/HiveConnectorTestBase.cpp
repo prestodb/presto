@@ -121,6 +121,25 @@ void HiveConnectorTestBase::writeToFile(
   writer.close();
 }
 
+void HiveConnectorTestBase::createDirectory(const std::string& directoryPath) {
+  auto fs = filesystems::getFileSystem(directoryPath, {});
+  fs->mkdir(directoryPath);
+}
+
+void HiveConnectorTestBase::removeDirectory(const std::string& directoryPath) {
+  auto fs = filesystems::getFileSystem(directoryPath, {});
+  if (fs->exists(directoryPath)) {
+    fs->rmdir(directoryPath);
+  }
+}
+
+void HiveConnectorTestBase::removeFile(const std::string& filePath) {
+  auto fs = filesystems::getFileSystem(filePath, {});
+  if (fs->exists(filePath)) {
+    fs->remove(filePath);
+  }
+}
+
 std::vector<RowVectorPtr> HiveConnectorTestBase::makeVectors(
     const RowTypePtr& rowType,
     int32_t numVectors,

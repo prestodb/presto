@@ -61,6 +61,18 @@ class HiveConnectorTestBase : public OperatorTestBase {
       const std::function<std::unique_ptr<dwrf::DWRFFlushPolicy>()>&
           flushPolicyFactory = nullptr);
 
+  // Creates a directory using matching file system based on directoryPath.
+  // No throw when directory already exists.
+  void createDirectory(const std::string& directoryPath);
+
+  // Removes a directory using matching file system based on directoryPath.
+  // No op when directory does not exist.
+  void removeDirectory(const std::string& directoryPath);
+
+  // Removes a file using matching file system based on filePath.
+  // No op when file does not exist.
+  void removeFile(const std::string& filePath);
+
   std::vector<RowVectorPtr> makeVectors(
       const RowTypePtr& rowType,
       int32_t numVectors,
