@@ -352,10 +352,20 @@ class AlignedBuffer : public Buffer {
   static BufferPtr allocate(
       size_t numElements,
       velox::memory::MemoryPool* pool,
-      const std::optional<T>& initValue = std::nullopt) {
+      const std::optional<T>& initValue = std::nullopt,
+      bool allocateExact = false) {
     size_t size = checkedMultiply(numElements, sizeof(T));
-    size_t preferredSize =
-        pool->preferredSize(checkedPlus<size_t>(size, kPaddedSize));
+    size_t preferredSize = 0;
+    if (allocateExact) {
+      const size_t tSize = (size / kSizeofAlignedBuffer) * kSizeofAlignedBuffer;
+
+      preferredSize =
+          checkedPlus<size_t>(tSize, kSizeofAlignedBuffer + kPaddedSize);
+    } else {
+      preferredSize =
+          pool->preferredSize(checkedPlus<size_t>(size, kPaddedSize));
+    }
+
     void* memory = pool->allocate(preferredSize);
     auto* buffer = new (memory) ImplClass<T>(pool, preferredSize - kPaddedSize);
     // set size explicitly instead of setSize because `fillNewMemory` already
@@ -541,11 +551,13 @@ template <>
 inline BufferPtr AlignedBuffer::allocate<bool>(
     size_t numElements,
     velox::memory::MemoryPool* pool,
-    const std::optional<bool>& initValue) {
+    const std::optional<bool>& initValue,
+    bool allocateExact) {
   return allocate<char>(
       bits::nbytes(numElements),
       pool,
-      initValue ? std::optional<char>(*initValue ? -1 : 0) : std::nullopt);
+      initValue ? std::optional<char>(*initValue ? -1 : 0) : std::nullopt,
+      allocateExact);
 }
 
 template <>

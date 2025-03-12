@@ -98,6 +98,51 @@ TEST_F(BufferTest, testAlignedBuffer) {
   EXPECT_EQ(pool_->usedBytes(), 0);
 }
 
+TEST_F(BufferTest, testAlignedBufferExact) {
+  const int32_t oneMBMinusPad = 1024 * 1024 - AlignedBuffer::kPaddedSize;
+
+  // Note logic in MemoryPool::preferredSize attempts to get to nearest power of
+  // 2 that fits the buffer size
+  LOG(INFO) << "oneMBMinusPad: " << oneMBMinusPad;
+  // oneMBMinusPad - 1
+  BufferPtr buffer = AlignedBuffer::allocate<char>(
+      oneMBMinusPad - 1, pool_.get(), std::nullopt, false /*allocateExact=*/);
+
+  EXPECT_EQ(buffer->size(), oneMBMinusPad - 1);
+
+  // 6291360 = (1024*1024)*4 + kPaddedSize (96)
+  EXPECT_GE(buffer->capacity(), oneMBMinusPad - 1);
+
+  // oneMBMinusPad
+  BufferPtr buffer2 = AlignedBuffer::allocate<char>(
+      oneMBMinusPad, pool_.get(), std::nullopt, false /*allocateExact=*/);
+
+  EXPECT_EQ(buffer2->size(), oneMBMinusPad);
+  EXPECT_GE(buffer2->capacity(), oneMBMinusPad);
+
+  // oneMBMinusPad + 1
+  // This will result in an additional 524,287 bytes allocated (1,572,768)
+  //   requestedSize = oneMBMinusPad + 1 =  1048481
+  //   requestedSize + kPaddedSize = 1048481 + 96 = 1048577
+  // MemoryPool::preferredSize ->
+  //   leading zeros = 20
+  //   2^20 = 1048576 (lower)
+  //   lower + lower/2 = 1048576 + 524288 = 1,572,864
+  BufferPtr buffer3 = AlignedBuffer::allocate<char>(
+      oneMBMinusPad + 1, pool_.get(), std::nullopt, false /*allocateExact=*/);
+  EXPECT_EQ(buffer3->size(), oneMBMinusPad + 1);
+
+  EXPECT_EQ(
+      buffer3->capacity(), (1ULL << 20) * 1.5 - AlignedBuffer::kPaddedSize);
+
+  // oneMBMinusPad + 1 - Exact
+  BufferPtr buffer4 = AlignedBuffer::allocate<char>(
+      oneMBMinusPad + 1, pool_.get(), std::nullopt, true /*allocateExact=*/);
+
+  EXPECT_EQ(buffer4->size(), oneMBMinusPad + 1);
+  EXPECT_GE(buffer4->capacity(), oneMBMinusPad + 1);
+}
+
 TEST_F(BufferTest, testAsRange) {
   // Simple 2 element vector.
   std::vector<uint8_t> testData({5, 255});
