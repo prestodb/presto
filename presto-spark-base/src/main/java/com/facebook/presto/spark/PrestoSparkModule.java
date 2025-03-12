@@ -121,7 +121,6 @@ import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionVeloxConfig;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleReadInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkLocalShuffleWriteInfo;
-import com.facebook.presto.spark.execution.task.PrestoSparkNativeTaskExecutorFactory;
 import com.facebook.presto.spark.execution.task.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
@@ -549,7 +548,6 @@ public class PrestoSparkModule
         binder.bind(PrestoSparkAccessControlChecker.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkPlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkRddFactory.class).in(Scopes.SINGLETON);
-        binder.bind(PrestoSparkNativeTaskExecutorFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkTaskExecutorFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkService.class).in(Scopes.SINGLETON);

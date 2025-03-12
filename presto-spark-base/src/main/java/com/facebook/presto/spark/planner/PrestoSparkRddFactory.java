@@ -23,7 +23,6 @@ import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
 import com.facebook.presto.spark.classloader_interface.MutablePartitionId;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
-import com.facebook.presto.spark.classloader_interface.PrestoSparkNativeTaskRdd;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
@@ -43,7 +42,6 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.split.SplitSource;
-import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SplitSourceFactory;
@@ -101,21 +99,18 @@ public class PrestoSparkRddFactory
     private final PartitioningProviderManager partitioningProviderManager;
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final Codec<TaskSource> taskSourceCodec;
-    private final FeaturesConfig featuresConfig;
 
     @Inject
     public PrestoSparkRddFactory(
             SplitManager splitManager,
             PartitioningProviderManager partitioningProviderManager,
             JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec,
-            Codec<TaskSource> taskSourceCodec,
-            FeaturesConfig featuresConfig)
+            Codec<TaskSource> taskSourceCodec)
     {
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.taskDescriptorJsonCodec = requireNonNull(taskDescriptorJsonCodec, "taskDescriptorJsonCodec is null");
         this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
-        this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
     }
 
     public <T extends PrestoSparkTaskOutput> JavaPairRDD<MutablePartitionId, T> createSparkRdd(
@@ -255,26 +250,14 @@ public class PrestoSparkRddFactory
             taskSourceRdd = Optional.empty();
         }
 
-        if (featuresConfig.isNativeExecutionEnabled()) {
-            return JavaPairRDD.fromRDD(
-                    PrestoSparkNativeTaskRdd.create(
-                            sparkContext.sc(),
-                            taskSourceRdd,
-                            shuffleInputRddMap,
-                            taskProcessor).setName(getRDDName(fragment.getId().getId())),
-                    classTag(MutablePartitionId.class),
-                    classTag(outputType));
-        }
-        else {
-            return JavaPairRDD.fromRDD(
-                    PrestoSparkTaskRdd.create(
-                            sparkContext.sc(),
-                            taskSourceRdd,
-                            shuffleInputRddMap,
-                            taskProcessor).setName(getRDDName(fragment.getId().getId())),
-                    classTag(MutablePartitionId.class),
-                    classTag(outputType));
-        }
+        return JavaPairRDD.fromRDD(
+                PrestoSparkTaskRdd.create(
+                        sparkContext.sc(),
+                        taskSourceRdd,
+                        shuffleInputRddMap,
+                        taskProcessor).setName(getRDDName(fragment.getId().getId())),
+                classTag(MutablePartitionId.class),
+                classTag(outputType));
     }
 
     private PrestoSparkTaskSourceRdd createTaskSourcesRdd(
