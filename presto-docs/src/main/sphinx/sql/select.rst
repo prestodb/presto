@@ -136,7 +136,7 @@ Presto also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
 and ``ROLLUP`` syntax. This syntax allows users to perform analysis that requires
 aggregation on multiple sets of columns in a single query. Complex grouping
 operations do not support grouping on expressions composed of input columns.
-Only column names or ordinals are allowed.
+Only column names can be used as column references.
 
 Complex grouping operations are often equivalent to a ``UNION ALL`` of simple
 ``GROUP BY`` expressions, as shown in the following examples. This equivalence
