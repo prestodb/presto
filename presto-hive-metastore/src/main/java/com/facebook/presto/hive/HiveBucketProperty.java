@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBucketFunctionType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveBucketProperty;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.PrestoException;
@@ -24,6 +28,7 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.BucketFunctionType.PRESTO_NATIVE;
@@ -40,6 +45,28 @@ public class HiveBucketProperty
     private final List<SortingColumn> sortedBy;
     private final BucketFunctionType bucketFunctionType;
     private final Optional<List<Type>> types;
+
+    public HiveBucketProperty(ThriftHiveBucketProperty thriftProperty)
+    {
+        this(thriftProperty.getBucketedBy(),
+                thriftProperty.getBucketCount(),
+                thriftProperty.getSortedBy().stream().map(SortingColumn::new).collect(toImmutableList()),
+                BucketFunctionType.valueOf(thriftProperty.getBucketFunctionType().name()),
+                thriftProperty.getTypes().map(types -> types.stream().map(type -> (Type) TypeAdapter.fromThrift(type)).collect(Collectors.toList())));
+    }
+
+    public ThriftHiveBucketProperty toThrift()
+    {
+        ThriftHiveBucketProperty property = new ThriftHiveBucketProperty(
+                bucketedBy,
+                bucketCount,
+                sortedBy.stream().map(SortingColumn::toThrift).collect(Collectors.toList()),
+                ThriftBucketFunctionType.valueOf(bucketFunctionType.name()));
+        types.ifPresent(typeList -> property.setTypes(typeList.stream().map(type -> {
+            return (ThriftType) type.toThriftInterface();
+        }).collect(toImmutableList())));
+        return property;
+    }
 
     @JsonCreator
     public HiveBucketProperty(

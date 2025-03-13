@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftStorage;
 import com.facebook.presto.hive.HiveBucketProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -36,6 +37,23 @@ public class Storage
     private final boolean skewed;
     private final Map<String, String> serdeParameters;
     private final Map<String, String> parameters;
+
+    public Storage(ThriftStorage thriftStorage)
+    {
+        this(new StorageFormat(thriftStorage.getStorageFormat()),
+                thriftStorage.getLocation(),
+                thriftStorage.getBucketProperty().map(HiveBucketProperty::new),
+                thriftStorage.isSkewed(),
+                thriftStorage.getSerdeParameters(),
+                thriftStorage.getParameters());
+    }
+
+    public ThriftStorage toThrift()
+    {
+        ThriftStorage storage = new ThriftStorage(storageFormat.toThrift(), location, skewed, serdeParameters, parameters);
+        bucketProperty.ifPresent(hiveBucketProperty -> storage.setBucketProperty(hiveBucketProperty.toThrift()));
+        return storage;
+    }
 
     @JsonCreator
     public Storage(

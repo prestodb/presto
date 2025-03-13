@@ -14,7 +14,13 @@
 package com.facebook.presto.common.type;
 
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBigintType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 
@@ -22,6 +28,37 @@ public final class BigintType
         extends AbstractLongType
 {
     public static final BigintType BIGINT = new BigintType();
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(BigintType.class, BigintType::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(BigintType.class, null, BigintType::singletonDeseriaize, null);
+    }
+
+    public BigintType(ThriftBigintType thriftBigintType)
+    {
+        this();
+    }
+
+    @Override
+    public ThriftBigintType toThrift()
+    {
+        return new ThriftBigintType();
+    }
+
+    @Override
+    public ThriftType toThriftInterface()
+    {
+        ThriftType thriftType = new ThriftType();
+        thriftType.setType(getImplementationType());
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            thriftType.setSerializedData(serializer.serialize(this.toThrift()));
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+        return thriftType;
+    }
 
     private BigintType()
     {
@@ -49,5 +86,10 @@ public final class BigintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    public static BigintType singletonDeseriaize(byte[] bytes)
+    {
+        return BIGINT;
     }
 }

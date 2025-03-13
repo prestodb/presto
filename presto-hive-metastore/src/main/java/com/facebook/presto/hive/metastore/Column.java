@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftColumn;
 import com.facebook.presto.hive.HiveType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,6 +36,22 @@ public class Column
     private final HiveType type;
     private final Optional<String> comment;
     private final Optional<String> typeMetadata;
+
+    public Column(ThriftColumn thriftColumn)
+    {
+        this(thriftColumn.getName(),
+                new HiveType(thriftColumn.getType()),
+                thriftColumn.getComment(),
+                thriftColumn.getTypeMetadata());
+    }
+
+    public ThriftColumn toThrift()
+    {
+        ThriftColumn thriftColumn = new ThriftColumn(name, type.toThrift());
+        comment.ifPresent(thriftColumn::setComment);
+        typeMetadata.ifPresent(thriftColumn::setTypeMetadata);
+        return thriftColumn;
+    }
 
     @JsonCreator
     public Column(

@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorOutputTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveOutputTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveWritableTableHandle;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -20,11 +24,18 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.thrift.TBase;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.metastore.HivePageSinkMetadata.createHivePageSinkMetadata;
 import static java.util.Objects.requireNonNull;
 
 public class HiveOutputTableHandle
@@ -34,6 +45,30 @@ public class HiveOutputTableHandle
     private final List<String> partitionedBy;
     private final String tableOwner;
     private final Map<String, String> additionalTableParameters;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(HiveOutputTableHandle.class, HiveOutputTableHandle::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(HiveOutputTableHandle.class, ThriftHiveOutputTableHandle.class, HiveOutputTableHandle::deserialize, null);
+    }
+
+    public HiveOutputTableHandle(ThriftHiveOutputTableHandle thriftHandle)
+    {
+        this(thriftHandle.getHiveWritableTableHandle().getSchemaName(),
+                thriftHandle.getHiveWritableTableHandle().getTableName(),
+                thriftHandle.getHiveWritableTableHandle().getInputColumns().stream().map(HiveColumnHandle::new).collect(Collectors.toList()),
+                createHivePageSinkMetadata(thriftHandle.getHiveWritableTableHandle().getPageSinkMetadata()),
+                new LocationHandle(thriftHandle.getHiveWritableTableHandle().getLocationHandle()),
+                HiveStorageFormat.valueOf(thriftHandle.getHiveWritableTableHandle().getTableStorageFormat().name()),
+                HiveStorageFormat.valueOf(thriftHandle.getHiveWritableTableHandle().getPartitionStorageFormat().name()),
+                HiveStorageFormat.valueOf(thriftHandle.getHiveWritableTableHandle().getActualStorageFormat().name()),
+                HiveCompressionCodec.valueOf(thriftHandle.getHiveWritableTableHandle().getCompressionCodec().name()),
+                thriftHandle.getPartitionedBy(),
+                thriftHandle.getHiveWritableTableHandle().getBucketProperty().map(HiveBucketProperty::new),
+                thriftHandle.getHiveWritableTableHandle().getPreferredOrderingColumns().stream().map(SortingColumn::new).collect(Collectors.toList()),
+                thriftHandle.getTableOwner(),
+                thriftHandle.getAdditionalTableParameters(),
+                thriftHandle.getHiveWritableTableHandle().getEncryptionInformation().map(EncryptionInformation::new));
+    }
 
     @JsonCreator
     public HiveOutputTableHandle(
@@ -88,5 +123,52 @@ public class HiveOutputTableHandle
     public Map<String, String> getAdditionalTableParameters()
     {
         return additionalTableParameters;
+    }
+
+    @Override
+    public ThriftHiveOutputTableHandle toThrift()
+    {
+        TBase base = super.toThrift();
+        ThriftHiveWritableTableHandle thriftBase = (ThriftHiveWritableTableHandle) base;
+        return new ThriftHiveOutputTableHandle(partitionedBy, tableOwner, additionalTableParameters, thriftBase);
+    }
+
+    @Override
+    public ThriftConnectorOutputTableHandle toThriftInterface()
+    {
+        ThriftConnectorOutputTableHandle thriftHandle = new ThriftConnectorOutputTableHandle();
+        thriftHandle.setType(this.getClass().getName());
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            thriftHandle.setSerializedOutputTableHandle(serializer.serialize(this.toThrift()));
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+        return thriftHandle;
+    }
+
+    public static byte[] serialize(HiveOutputTableHandle obj)
+    {
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            return serializer.serialize(obj.toThrift());
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static HiveOutputTableHandle deserialize(byte[] bytes)
+    {
+        try {
+            ThriftHiveOutputTableHandle thriftHandle = new ThriftHiveOutputTableHandle();
+            TDeserializer deserializer = new TDeserializer(new TJSONProtocol.Factory());
+            deserializer.deserialize(thriftHandle, bytes);
+            return new HiveOutputTableHandle(thriftHandle);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -17,6 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTimeZoneKey;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -156,6 +157,16 @@ public final class TimeZoneKey
     private final String id;
 
     private final short key;
+
+    public TimeZoneKey(ThriftTimeZoneKey thriftKey)
+    {
+        this(thriftKey.getId(), thriftKey.getKey());
+    }
+
+    public ThriftTimeZoneKey toThrift()
+    {
+        return new ThriftTimeZoneKey(this.id, this.key);
+    }
 
     @ThriftConstructor
     public TimeZoneKey(String id, short key)

@@ -13,16 +13,26 @@
  */
 package com.facebook.presto.common.block;
 
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBlock;
+import com.facebook.presto.common.experimental.auto_gen.ThriftLongArrayBlock;
 import io.airlift.slice.SliceOutput;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.array.Arrays.ExpansionFactor.SMALL;
 import static com.facebook.presto.common.array.Arrays.ExpansionOption.PRESERVE;
@@ -49,6 +59,50 @@ public class LongArrayBlock
     private final long[] values;
 
     private final long retainedSizeInBytes;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(LongArrayBlock.class, LongArrayBlock::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(LongArrayBlock.class, ThriftLongArrayBlock.class, LongArrayBlock::deserialize, null);
+    }
+
+    public LongArrayBlock(ThriftLongArrayBlock thriftBlock)
+    {
+        this(thriftBlock.getPositionCount(), thriftBlock.getValueIsNull().map(list -> {
+            boolean[] valueIsNull = new boolean[list.size()];
+            for (int i = 0; i < list.size(); i++) {
+                Boolean value = list.get(i);
+                valueIsNull[i] = value != null && value;
+            }
+            return valueIsNull;
+        }), thriftBlock.getValues().stream().mapToLong(Long::longValue).toArray());
+    }
+
+    public ThriftLongArrayBlock toThrift()
+    {
+        ThriftLongArrayBlock thriftBlock = new ThriftLongArrayBlock(positionCount, Arrays.stream(values).boxed().collect(Collectors.toList()));
+        if (valueIsNull != null) {
+            List<Boolean> thriftValueIsNull = new ArrayList<>();
+            for (boolean value : valueIsNull) {
+                thriftValueIsNull.add(value);
+            }
+            thriftBlock.setValueIsNull(thriftValueIsNull);
+        }
+        return thriftBlock;
+    }
+
+    public ThriftBlock toThriftInterface()
+    {
+        try {
+            ThriftBlock thriftBlock = new ThriftBlock();
+            thriftBlock.setType(this.getClass().getName());
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            thriftBlock.setSerializedBlock(serializer.serialize(this.toThrift()));
+            return thriftBlock;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public LongArrayBlock(int positionCount, Optional<boolean[]> valueIsNull, long[] values)
     {
@@ -344,5 +398,18 @@ public class LongArrayBlock
                 Arrays.hashCode(valueIsNull),
                 Arrays.hashCode(values),
                 retainedSizeInBytes);
+    }
+
+    public static LongArrayBlock deserialize(byte[] bytes)
+    {
+        try {
+            TDeserializer deserializer = new TDeserializer(new TJSONProtocol.Factory());
+            ThriftLongArrayBlock thriftLongArrayBlock = new ThriftLongArrayBlock();
+            deserializer.deserialize(thriftLongArrayBlock, bytes);
+            return new LongArrayBlock(thriftLongArrayBlock);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

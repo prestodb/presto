@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftSourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,6 +23,16 @@ public class SourceLocation
 {
     private final int line;
     private final int column;
+
+    public SourceLocation(ThriftSourceLocation thriftSourceLocation)
+    {
+        this(thriftSourceLocation.getLine(), thriftSourceLocation.getColumn());
+    }
+
+    public ThriftSourceLocation toThrift()
+    {
+        return new ThriftSourceLocation(line, column);
+    }
 
     @JsonCreator
     public SourceLocation(

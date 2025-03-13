@@ -13,21 +13,30 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveCompressionCodec;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveStorageFormat;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveWritableTableHandle;
 import com.facebook.presto.hive.metastore.HivePageSinkMetadata;
 import com.facebook.presto.hive.metastore.SortingColumn;
+import com.facebook.presto.hive.util.TypeInfoRegister;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.apache.thrift.TBase;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.hive.metastore.HivePageSinkMetadata.createHivePageSinkMetadata;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class HiveWritableTableHandle
+        implements ThriftSerializable
 {
     private final String schemaName;
     private final String tableName;
@@ -41,6 +50,43 @@ public class HiveWritableTableHandle
     private final HiveStorageFormat actualStorageFormat;
     private final HiveCompressionCodec compressionCodec;
     private final Optional<EncryptionInformation> encryptionInformation;
+
+    private final TypeInfoRegister typeInfoRegister = new TypeInfoRegister();
+
+    public HiveWritableTableHandle(ThriftHiveWritableTableHandle thriftHandle)
+    {
+        this(
+                thriftHandle.getSchemaName(),
+                thriftHandle.getTableName(),
+                thriftHandle.getInputColumns().stream().map(HiveColumnHandle::new).collect(Collectors.toList()),
+                createHivePageSinkMetadata(thriftHandle.getPageSinkMetadata()),
+                new LocationHandle(thriftHandle.getLocationHandle()),
+                thriftHandle.getBucketProperty().map(HiveBucketProperty::new),
+                thriftHandle.getPreferredOrderingColumns().stream().map(SortingColumn::new).collect(Collectors.toList()),
+                HiveStorageFormat.valueOf(thriftHandle.getTableStorageFormat().name()),
+                HiveStorageFormat.valueOf(thriftHandle.getPartitionStorageFormat().name()),
+                HiveStorageFormat.valueOf(thriftHandle.getActualStorageFormat().name()),
+                HiveCompressionCodec.valueOf(thriftHandle.getCompressionCodec().name()),
+                thriftHandle.getEncryptionInformation().map(EncryptionInformation::new));
+    }
+
+    @Override
+    public TBase toThrift()
+    {
+        ThriftHiveWritableTableHandle thriftHandle = new ThriftHiveWritableTableHandle(
+                schemaName, tableName,
+                inputColumns.stream().map(HiveColumnHandle::toThrift).collect(Collectors.toList()),
+                pageSinkMetadata.toThrift(),
+                locationHandle.toThrift(),
+                preferredOrderingColumns.stream().map(SortingColumn::toThrift).collect(Collectors.toList()),
+                ThriftHiveStorageFormat.valueOf(tableStorageFormat.name()),
+                ThriftHiveStorageFormat.valueOf(partitionStorageFormat.name()),
+                ThriftHiveStorageFormat.valueOf(actualStorageFormat.name()),
+                ThriftHiveCompressionCodec.valueOf(compressionCodec.name()));
+        bucketProperty.ifPresent(property -> thriftHandle.setBucketProperty(property.toThrift()));
+        encryptionInformation.ifPresent(info -> thriftHandle.setEncryptionInformation(info.toThrift()));
+        return thriftHandle;
+    }
 
     public HiveWritableTableHandle(
             String schemaName,
@@ -68,6 +114,19 @@ public class HiveWritableTableHandle
         this.actualStorageFormat = requireNonNull(actualStorageFormat, "actualStorageFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.encryptionInformation = requireNonNull(encryptionInformation, "encryptionInformation is null");
+
+//        this.schemaName = schemaName;
+//        this.tableName = tableName;
+//        this.inputColumns = ImmutableList.copyOf(inputColumns);
+//        this.pageSinkMetadata = pageSinkMetadata;
+//        this.locationHandle = locationHandle;
+//        this.bucketProperty = bucketProperty;
+//        this.preferredOrderingColumns = preferredOrderingColumns;
+//        this.tableStorageFormat = tableStorageFormat;
+//        this.partitionStorageFormat = partitionStorageFormat;
+//        this.encryptionInformation = encryptionInformation;
+//        this.actualStorageFormat = actualStorageFormat;
+//        this.compressionCodec = compressionCodec;
 
         if (!compressionCodec.isSupportedStorageFormat(actualStorageFormat)) {
             throw new PrestoException(GENERIC_USER_ERROR, String.format("%s compression is not supported with %s", compressionCodec.name(), actualStorageFormat.name()));

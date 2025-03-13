@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftTpchTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,6 +28,16 @@ public class TpchTableHandle
 {
     private final String tableName;
     private final double scaleFactor;
+
+    public TpchTableHandle(ThriftTpchTableHandle thrifHandle)
+    {
+        this(thrifHandle.getTableName(), thrifHandle.getScaleFactor());
+    }
+
+    public ThriftTpchTableHandle toThrift()
+    {
+        return new ThriftTpchTableHandle(tableName, scaleFactor);
+    }
 
     @JsonCreator
     public TpchTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)

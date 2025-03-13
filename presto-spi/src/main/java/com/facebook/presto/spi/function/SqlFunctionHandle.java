@@ -14,6 +14,7 @@
 package com.facebook.presto.spi.function;
 
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSqlFunctionHandle;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.api.Experimental;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -31,6 +32,16 @@ public class SqlFunctionHandle
 {
     private final SqlFunctionId functionId;
     private final String version;
+
+    public SqlFunctionHandle(ThriftSqlFunctionHandle thriftHandle)
+    {
+        this(new SqlFunctionId(thriftHandle.getFunctionId()), thriftHandle.getVersion());
+    }
+
+    public ThriftSqlFunctionHandle toThrift()
+    {
+        return new ThriftSqlFunctionHandle(functionId.toThrift(), version);
+    }
 
     @JsonCreator
     public SqlFunctionHandle(

@@ -13,17 +13,19 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 
 import java.util.Optional;
 
 public interface ConnectorTableLayoutHandle
+        extends ThriftSerializable
 {
     /**
      * Identifier is used to identify if the table layout is providing the same set of data.
-     *
+     * <p>
      * Split is used to update the identifier based on runtime information.
-     *
+     * <p>
      * Returns an identifier with consistent representation according to canonicalizationStrategy
      */
     default Object getIdentifier(Optional<ConnectorSplit> split, PlanCanonicalizationStrategy canonicalizationStrategy)

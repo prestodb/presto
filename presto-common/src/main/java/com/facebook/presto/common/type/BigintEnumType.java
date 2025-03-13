@@ -17,9 +17,12 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.experimental.auto_gen.ThriftLongEnumMap;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Comparator;
 import java.util.Map;
@@ -87,6 +90,16 @@ public class BigintEnumType
         private final String typeName;
         private final Map<String, Long> enumMap;
         private final Map<Long, String> flippedEnumMap;
+
+        public LongEnumMap(@NotNull ThriftLongEnumMap thriftLongEnumMap)
+        {
+            this(thriftLongEnumMap.getTypeName(), thriftLongEnumMap.getEnumMap());
+        }
+
+        public ThriftLongEnumMap toThrift()
+        {
+            return new ThriftLongEnumMap(this.typeName, this.enumMap);
+        }
 
         @ThriftConstructor
         @JsonCreator

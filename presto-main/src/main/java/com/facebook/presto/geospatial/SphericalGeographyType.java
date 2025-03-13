@@ -18,9 +18,8 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
 import io.airlift.slice.Slice;
-
-import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserialize;
 
 public class SphericalGeographyType
         extends AbstractVariableWidthType
@@ -75,6 +74,6 @@ public class SphericalGeographyType
             return null;
         }
         Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
-        return deserialize(slice).asText();
+        return EsriGeometrySerde.deserialize(slice).asText();
     }
 }

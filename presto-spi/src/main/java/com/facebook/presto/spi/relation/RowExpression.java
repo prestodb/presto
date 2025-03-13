@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.SourceLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,6 +36,7 @@ import java.util.Optional;
         @JsonSubTypes.Type(value = VariableReferenceExpression.class, name = "variable"),
         @JsonSubTypes.Type(value = ConstantExpression.class, name = "constant")})
 public abstract class RowExpression
+        implements ThriftSerializable
 {
     private final Optional<SourceLocation> sourceLocation;
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftPartition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +49,40 @@ public class Partition
     private final int createTime;
     private final long lastDataCommitTime;
     private final Optional<byte[]> rowIdPartitionComponent;
+
+    public Partition(ThriftPartition thriftPartition)
+    {
+        this(thriftPartition.getDatabaseName(),
+                thriftPartition.getTableName(),
+                thriftPartition.getValues(),
+                new Storage(thriftPartition.getStorage()),
+                thriftPartition.getColumns().stream().map(Column::new).collect(Collectors.toList()),
+                thriftPartition.getParameters(),
+                thriftPartition.getPartitionVersion(),
+                thriftPartition.isEligibleToIgnore(),
+                thriftPartition.isSealedPartition(),
+                thriftPartition.getCreateTime(),
+                thriftPartition.getLastDataCommitTime(),
+                Optional.ofNullable(thriftPartition.getRowIdPartitionComponent()));
+    }
+
+    public ThriftPartition toThrift()
+    {
+        ThriftPartition thriftPartition = new ThriftPartition(
+                databaseName,
+                tableName,
+                values,
+                storage.toThrift(),
+                columns.stream().map(Column::toThrift).collect(Collectors.toList()),
+                parameters,
+                eligibleToIgnore,
+                sealedPartition,
+                createTime,
+                lastDataCommitTime);
+        partitionVersion.ifPresent(thriftPartition::setPartitionVersion);
+        rowIdPartitionComponent.ifPresent(thriftPartition::setRowIdPartitionComponent);
+        return thriftPartition;
+    }
 
     @JsonCreator
     public Partition(

@@ -16,14 +16,18 @@ package com.facebook.presto.common.type;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTypeSignatureParameter;
 import com.facebook.presto.common.type.BigintEnumType.LongEnumMap;
 import com.facebook.presto.common.type.VarcharEnumType.VarcharEnumMap;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignatureParameterUnion.convertToTypeSignatureParameterUnion;
 import static com.facebook.presto.common.type.TypeSignatureParameterUnion.convertToValue;
+import static com.facebook.presto.common.type.TypeSignatureParameterUnion.createTypeSignatureParameterUnion;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -72,6 +76,19 @@ public class TypeSignatureParameter
     {
         this.kind = requireNonNull(kind, "kind is null");
         this.value = convertToTypeSignatureParameterUnion(requireNonNull(value, "value is null"));
+    }
+
+    public TypeSignatureParameter(@NotNull ThriftTypeSignatureParameter thriftTypeSignatureParameter)
+    {
+        this.kind = ParameterKind.createParameterKind(thriftTypeSignatureParameter.getKind());
+        this.value = createTypeSignatureParameterUnion(thriftTypeSignatureParameter.getThriftTypeSignatureParameterUnion());
+    }
+
+    public ThriftTypeSignatureParameter toThrift()
+    {
+        return new ThriftTypeSignatureParameter(
+                this.getKind().toThrift(),
+                this.getValue().toThrift());
     }
 
     @ThriftConstructor
