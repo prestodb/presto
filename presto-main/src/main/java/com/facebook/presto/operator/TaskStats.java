@@ -362,7 +362,6 @@ public class TaskStats
             @JsonProperty("runningSplits") int runningSplits,
             @JsonProperty("completedSplits") int completedSplits,
 
-
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
             @JsonProperty("userMemoryReservationInBytes") long userMemoryReservationInBytes,
