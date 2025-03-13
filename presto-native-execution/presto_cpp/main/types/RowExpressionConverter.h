@@ -15,9 +15,7 @@
 
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
-#include "velox/expression/ConstantExpr.h"
-#include "velox/expression/Expr.h"
-#include "velox/expression/SwitchExpr.h"
+#include "velox/core/Expressions.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 using namespace facebook::velox;
@@ -58,14 +56,15 @@ class RowExpressionConverter {
 
   /// Converts a velox constant expression `constantExpr` to a Presto protocol
   /// ConstantExpression.
-  json getConstantRowExpression(
-      const std::shared_ptr<const exec::ConstantExpr>& constantExpr);
+  json getConstantRowExpression(const core::ConstantTypedExprPtr& constantExpr);
+
+  //  json getConstantRowExpression(const core::TypedExprPtr& constantExpr);
 
   /// Converts a velox expression `expr` to a Presto protocol RowExpression.
   /// Argument `inputRowExpr` is the input Presto protocol RowExpression before
   /// it is constant folded in velox.
   json veloxToPrestoRowExpression(
-      const exec::ExprPtr& expr,
+      const core::TypedExprPtr& expr,
       const RowExpressionPtr& inputRowExpr);
 
  private:
@@ -90,22 +89,24 @@ class RowExpressionConverter {
   /// Helper function to get arguments for Presto protocol SpecialFormExpression
   /// of type SWITCH.
   RowExpressionConverter::SwitchFormArguments getSwitchSpecialFormArgs(
-      const exec::SwitchExpr* switchExpr,
+      const core::CallTypedExprPtr& switchExpr,
       const std::vector<RowExpressionPtr>& arguments);
 
   /// Helper function to construct a Presto protocol SpecialFormExpression from
   /// a velox expression `expr`.
-  json getSpecialForm(const exec::ExprPtr& expr, const RowExpressionPtr& input);
+  json getSpecialForm(
+      const core::CallTypedExprPtr& expr,
+      const RowExpressionPtr& input);
 
   /// Helper function to construct a Presto protocol SpecialFormExpression of
   /// type ROW_CONSTRUCTOR from a velox constant expression `constantExpr`.
   json getRowConstructorSpecialForm(
-      std::shared_ptr<const exec::ConstantExpr>& constantExpr);
+      const core::ConstantTypedExprPtr& constantExpr);
 
   /// Helper function to construct a Presto protocol CallExpression from a velox
   /// expression `expr`.
   json toCallRowExpression(
-      const exec::ExprPtr& expr,
+      const core::CallTypedExprPtr& expr,
       const RowExpressionPtr& input);
 
   memory::MemoryPool* pool_;

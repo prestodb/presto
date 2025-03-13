@@ -12,7 +12,8 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/types/RowExpressionOptimizer.h"
-#include "velox/expression/Expr.h"
+#include "velox/expression/ConstantExpr.h"
+#include "velox/expression/FieldReference.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -26,7 +27,7 @@ const std::string kOptimizerLevelHeader = "X-Presto-Expression-Optimizer-Level";
 const std::string kEvaluated = "EVALUATED";
 
 template <TypeKind KIND>
-std::shared_ptr<exec::ConstantExpr> getConstantExpr(
+std::shared_ptr<const core::ConstantTypedExpr> getConstantExpr(
     const TypePtr& type,
     const DecodedVector& decoded,
     memory::MemoryPool* pool) {
@@ -38,16 +39,38 @@ std::shared_ptr<exec::ConstantExpr> getConstantExpr(
     using T = typename TypeTraits<KIND>::NativeType;
     auto constVector = std::make_shared<ConstantVector<T>>(
         pool, decoded.size(), decoded.isNullAt(0), type, decoded.valueAt<T>(0));
-    return std::make_shared<exec::ConstantExpr>(constVector);
+    return std::make_shared<core::ConstantTypedExpr>(constVector);
+  }
+}
+
+core::TypedExprPtr exprToTypedExpr(const exec::ExprPtr& expr) {
+  if (expr->isConstant()) {
+    auto constantExpr =
+        std::dynamic_pointer_cast<const exec::ConstantExpr>(expr);
+    VELOX_CHECK_NOT_NULL(constantExpr);
+    return std::make_shared<core::ConstantTypedExpr>(constantExpr->value());
+  } else if (
+      auto field =
+          std::dynamic_pointer_cast<const exec::FieldReference>(expr)) {
+    return std::make_shared<core::FieldAccessTypedExpr>(
+        field->type(), field->name());
+  } else {
+    std::vector<core::TypedExprPtr> typedExprInputs;
+    for (const auto& input : expr->inputs()) {
+      typedExprInputs.push_back(exprToTypedExpr(input));
+    }
+    return std::make_shared<core::CallTypedExpr>(
+        expr->type(), typedExprInputs, expr->name());
   }
 }
 } // namespace
 
-exec::ExprPtr RowExpressionOptimizer::compileExpression(
+core::TypedExprPtr RowExpressionOptimizer::compileExpression(
     const std::shared_ptr<protocol::RowExpression>& inputRowExpr) {
   auto typedExpr = veloxExprConverter_.toVeloxExpr(inputRowExpr);
   exec::ExprSet exprSet{{typedExpr}, execCtx_.get(), true};
-  return exprSet.expr(0);
+  const auto& folded = exprSet.expr(0);
+  return exprToTypedExpr(folded);
 }
 
 RowExpressionPtr RowExpressionOptimizer::optimizeIfSpecialForm(
@@ -71,8 +94,8 @@ RowExpressionPtr RowExpressionOptimizer::optimizeIsNullSpecialForm(
     const SpecialFormExpressionPtr& specialFormExpr) {
   auto expr = compileExpression(specialFormExpr);
   if (auto constantExpr =
-          std::dynamic_pointer_cast<const exec::ConstantExpr>(expr)) {
-    if (constantExpr->value()->isNullAt(0)) {
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr)) {
+    if (constantExpr->valueVector()->isNullAt(0)) {
       return rowExpressionConverter_.getConstantRowExpression(constantExpr);
     }
   }
@@ -88,11 +111,11 @@ RowExpressionPtr RowExpressionOptimizer::optimizeAndSpecialForm(
   bool leftValue = false;
 
   if (auto constantExpr =
-          std::dynamic_pointer_cast<const exec::ConstantExpr>(leftExpr)) {
-    isLeftNull = constantExpr->value()->isNullAt(0);
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(leftExpr)) {
+    isLeftNull = constantExpr->valueVector()->isNullAt(0);
     if (!isLeftNull) {
       if (auto constVector =
-              constantExpr->value()->as<ConstantVector<bool>>()) {
+              constantExpr->valueVector()->as<ConstantVector<bool>>()) {
         if (!constVector->valueAt(0)) {
           return rowExpressionConverter_.getConstantRowExpression(constantExpr);
         } else {
@@ -104,11 +127,12 @@ RowExpressionPtr RowExpressionOptimizer::optimizeAndSpecialForm(
 
   auto rightExpr = compileExpression(right);
   if (auto constantExpr =
-          std::dynamic_pointer_cast<const exec::ConstantExpr>(rightExpr)) {
-    if (constantExpr->value()->isNullAt(0) && (isLeftNull || leftValue)) {
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(rightExpr)) {
+    if (constantExpr->valueVector()->isNullAt(0) && (isLeftNull || leftValue)) {
       return rowExpressionConverter_.getConstantRowExpression(constantExpr);
     }
-    if (auto constVector = constantExpr->value()->as<ConstantVector<bool>>()) {
+    if (auto constVector =
+            constantExpr->valueVector()->as<ConstantVector<bool>>()) {
       if (constVector->valueAt(0)) {
         return left;
       } else {
@@ -131,11 +155,11 @@ RowExpressionPtr RowExpressionOptimizer::optimizeOrSpecialForm(
   bool leftValue = true;
 
   if (auto constantExpr =
-          std::dynamic_pointer_cast<const exec::ConstantExpr>(leftExpr)) {
-    isLeftNull = constantExpr->value()->isNullAt(0);
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(leftExpr)) {
+    isLeftNull = constantExpr->valueVector()->isNullAt(0);
     if (!isLeftNull) {
       if (auto constVector =
-              constantExpr->value()->as<ConstantVector<bool>>()) {
+              constantExpr->valueVector()->as<ConstantVector<bool>>()) {
         if (constVector->valueAt(0)) {
           return rowExpressionConverter_.getConstantRowExpression(constantExpr);
         } else {
@@ -147,11 +171,13 @@ RowExpressionPtr RowExpressionOptimizer::optimizeOrSpecialForm(
 
   auto rightExpr = compileExpression(right);
   if (auto constantExpr =
-          std::dynamic_pointer_cast<const exec::ConstantExpr>(rightExpr)) {
-    if (constantExpr->value()->isNullAt(0) && (isLeftNull || !leftValue)) {
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(rightExpr)) {
+    if (constantExpr->valueVector()->isNullAt(0) &&
+        (isLeftNull || !leftValue)) {
       return rowExpressionConverter_.getConstantRowExpression(constantExpr);
     }
-    if (auto constVector = constantExpr->value()->as<ConstantVector<bool>>()) {
+    if (auto constVector =
+            constantExpr->valueVector()->as<ConstantVector<bool>>()) {
       if (!constVector->valueAt(0)) {
         return left;
       } else {
@@ -165,62 +191,64 @@ RowExpressionPtr RowExpressionOptimizer::optimizeOrSpecialForm(
   return specialFormExpr;
 }
 
-RowExpressionPtr RowExpressionOptimizer::optimizeCoalesceSpecialForm(
-    const SpecialFormExpressionPtr& specialFormExpr) {
-  auto argsNoNulls = specialFormExpr->arguments;
-  argsNoNulls.erase(
-      std::remove_if(
-          argsNoNulls.begin(),
-          argsNoNulls.end(),
-          [&](const auto& arg) {
-            auto compiledExpr = compileExpression(arg);
-            if (auto constantExpr =
-                    std::dynamic_pointer_cast<const exec::ConstantExpr>(
-                        compiledExpr)) {
-              if (constantExpr->value()->isNullAt(0)) {
-                return true;
-              }
-            }
-            return false;
-          }),
-      argsNoNulls.end());
-  if (argsNoNulls.size() < specialFormExpr->arguments.size()) {
-    specialFormExpr->arguments = argsNoNulls;
-  }
-  /*
-    struct RowExpressionComparator {
-      using is_transparent = void;  // important
-
-      bool operator()(const std::shared_ptr<RowExpressionPtr>& a, const
-    std::shared_ptr<RowExpressionPtr>& b) const { return *a < *b;
+RowExpressionPtr RowExpressionOptimizer::addCoalesceArgument(
+    const RowExpressionPtr& input,
+    std::set<core::TypedExprPtr, TypedExprComparator>& optimizedTypedExprs,
+    std::vector<RowExpressionPtr>& optimizedRowExpressions) {
+  auto compiledExpr = compileExpression(input);
+  // First non-NULL constant input to COALESCE returns non-NULL value.
+  if (auto constantExpr =
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
+              compiledExpr)) {
+    if (!constantExpr->valueVector()->isNullAt(0)) {
+      if (optimizedTypedExprs.find(compiledExpr) == optimizedTypedExprs.end()) {
+        optimizedTypedExprs.insert(compiledExpr);
+        optimizedRowExpressions.push_back(input);
       }
-    };
-    auto cmp = [](RowExpressionPtr a, RowExpressionPtr b) {
-      return (*a->sourceLocation == *b->sourceLocation);
-    };
-    std::unordered_set<RowExpressionPtr, decltype(cmp)> dedupArgs;
-    for (const auto& arg: specialFormExpr->arguments) {
-      if (dedupArgs.find(arg) == dedupArgs.end()) {
-        dedupArgs.insert(arg);
-      }
+      return input;
     }
-    if (dedupArgs.size() < specialFormExpr->arguments.size()) {
-      specialFormExpr->arguments.clear();
-      for (const auto& arg : dedupArgs) {
-        specialFormExpr->arguments.push_back(arg);
-      }
-    }*/
-
-  if (argsNoNulls.empty()) {
-    return specialFormExpr->arguments[0];
-  } else if (argsNoNulls.size() == 1) {
-    return argsNoNulls[0];
+  } else if (
+      optimizedTypedExprs.find(compiledExpr) == optimizedTypedExprs.end()) {
+    optimizedTypedExprs.insert(compiledExpr);
+    optimizedRowExpressions.push_back(input);
   }
-  return specialFormExpr;
+
+  return nullptr;
+}
+
+RowExpressionPtr RowExpressionOptimizer::optimizeCoalesceSpecialForm(
+    const SpecialFormExpressionPtr& specialFormExpr,
+    std::set<core::TypedExprPtr, TypedExprComparator>& optimizedTypedExprSet,
+    std::vector<RowExpressionPtr>& optimizedRowExpressions) {
+  auto inputArgs = specialFormExpr->arguments;
+  for (auto& inputRowExpr : inputArgs) {
+    // If the argument is a COALESCE expression, the arguments of inner COALESCE
+    // can be combined with the arguments of outer COALESCE expression.
+    if (const auto special =
+            std::dynamic_pointer_cast<protocol::SpecialFormExpression>(
+                inputRowExpr)) {
+      if (special->form == protocol::Form::COALESCE) {
+        // If the inner COALESCE has a constant expression, return.
+        if (auto optimizedCoalesceSubExpr = optimizeCoalesceSpecialForm(
+                special, optimizedTypedExprSet, optimizedRowExpressions)) {
+          return optimizedCoalesceSubExpr;
+        }
+      } else if (
+          auto optimized = addCoalesceArgument(
+              inputRowExpr, optimizedTypedExprSet, optimizedRowExpressions)) {
+        return optimized;
+      }
+    } else if (
+        auto optimized = addCoalesceArgument(
+            inputRowExpr, optimizedTypedExprSet, optimizedRowExpressions)) {
+      return optimized;
+    }
+  }
+  return nullptr;
 }
 
 RowExpressionPtr RowExpressionOptimizer::optimizeSpecialForm(
-    const std::shared_ptr<protocol::SpecialFormExpression>& specialFormExpr) {
+    const SpecialFormExpressionPtr& specialFormExpr) {
   switch (specialFormExpr->form) {
     case protocol::Form::NULL_IF:
       VELOX_USER_FAIL("NULL_IF specialForm not supported");
@@ -233,8 +261,21 @@ RowExpressionPtr RowExpressionOptimizer::optimizeSpecialForm(
       return optimizeAndSpecialForm(specialFormExpr);
     case protocol::Form::OR:
       return optimizeOrSpecialForm(specialFormExpr);
-    case protocol::Form::COALESCE:
-      return optimizeCoalesceSpecialForm(specialFormExpr);
+    case protocol::Form::COALESCE: {
+      std::set<core::TypedExprPtr, TypedExprComparator> optimizedTypedExprSet;
+      std::vector<RowExpressionPtr> optimizedRowExpressions;
+      optimizeCoalesceSpecialForm(
+          specialFormExpr, optimizedTypedExprSet, optimizedRowExpressions);
+
+      if (optimizedRowExpressions.empty()) {
+        return specialFormExpr->arguments.front();
+      } else if (optimizedRowExpressions.size() == 1) {
+        return optimizedRowExpressions.front();
+      } else {
+        specialFormExpr->arguments.clear();
+        specialFormExpr->arguments = optimizedRowExpressions;
+      }
+    }
     case protocol::Form::IN:
     case protocol::Form::DEREFERENCE:
     case protocol::Form::SWITCH:
@@ -276,9 +317,9 @@ json RowExpressionOptimizer::evaluateNonDeterministicConstantExpr(
   exprSet.eval(rows, evalCtx, results);
   auto res = results.front();
   DecodedVector decoded(*res, rows);
-  const auto constExpr = VELOX_DYNAMIC_TYPE_DISPATCH(
+  const auto constantExpr = VELOX_DYNAMIC_TYPE_DISPATCH(
       getConstantExpr, res->typeKind(), res->type(), decoded, pool_);
-  return rowExpressionConverter_.getConstantRowExpression(constExpr);
+  return rowExpressionConverter_.getConstantRowExpression(constantExpr);
 }
 
 json::array_t RowExpressionOptimizer::optimizeExpressions(
@@ -293,16 +334,20 @@ json::array_t RowExpressionOptimizer::optimizeExpressions(
             std::dynamic_pointer_cast<protocol::SpecialFormExpression>(
                 inputRowExpr)) {
       inputRowExpr = optimizeSpecialForm(special);
+      json sj;
+      protocol::to_json(sj, inputRowExpr);
+      VLOG(2) << "Optimized SpecialFormExpression JSON: " << sj.dump();
     }
 
     auto typedExpr = veloxExprConverter_.toVeloxExpr(inputRowExpr);
     exec::ExprSet exprSet{{typedExpr}, execCtx_.get(), true};
-    auto constantFolded = exprSet.expr(0);
+    const auto& folded = exprSet.expr(0);
+    auto constantFoldedTypedExpr = exprToTypedExpr(folded);
     json resultJson;
     if (optimizerLevel == kEvaluated) {
-      if (constantFolded->isConstant()) {
+      if (folded->isConstant()) {
         resultJson = rowExpressionConverter_.veloxToPrestoRowExpression(
-            constantFolded, input[i]);
+            constantFoldedTypedExpr, inputRowExpr);
       } else {
         // Velox does not evaluate expressions that are non-deterministic
         // during compilation with constant folding enabled. Presto might
@@ -312,12 +357,14 @@ json::array_t RowExpressionOptimizer::optimizeExpressions(
         // the native sidecar. When this field is set to 'EVALUATED',
         // non-deterministic expressions with constant inputs are also
         // evaluated.
-        exec::ExprSet exprSet{{typedExpr}, execCtx_.get(), true};
-        resultJson = evaluateNonDeterministicConstantExpr(exprSet);
+        exec::ExprSet nonDeterministicExprSet{
+            {typedExpr}, execCtx_.get(), true};
+        resultJson =
+            evaluateNonDeterministicConstantExpr(nonDeterministicExprSet);
       }
     } else {
       resultJson = rowExpressionConverter_.veloxToPrestoRowExpression(
-          constantFolded, input[i]);
+          constantFoldedTypedExpr, inputRowExpr);
     }
 
     VLOG(2) << "Optimized Presto RowExpression JSON: " << resultJson.dump();

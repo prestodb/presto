@@ -12,8 +12,9 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/types/RowExpressionConverter.h"
+#include <boost/algorithm/string.hpp>
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
-#include "velox/expression/FieldReference.h"
+#include "velox/vector/ConstantVector.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -21,8 +22,6 @@ using namespace facebook::velox;
 namespace facebook::presto::expression {
 
 namespace {
-const std::string kConstant = "constant";
-const std::string kBoolean = "boolean";
 const std::string kVariable = "variable";
 const std::string kCall = "call";
 const std::string kStatic = "$static";
@@ -33,43 +32,41 @@ const std::string kSwitch = "SWITCH";
 const std::string kWhen = "WHEN";
 
 protocol::TypeSignature getTypeSignature(const TypePtr& type) {
-  std::string typeSignature;
   if (type->isPrimitiveType()) {
-    typeSignature = type->toString();
-    boost::algorithm::to_lower(typeSignature);
-  } else {
-    std::string complexTypeString;
-    std::vector<TypePtr> childTypes;
-    if (type->isRow()) {
-      complexTypeString = "row";
-      childTypes = asRowType(type)->children();
-    } else if (type->isArray()) {
-      complexTypeString = "array";
-      childTypes = type->asArray().children();
-    } else if (type->isMap()) {
-      complexTypeString = "map";
-      const auto mapType = type->asMap();
-      childTypes = {mapType.keyType(), mapType.valueType()};
-    } else {
-      VELOX_USER_FAIL("Invalid type {}", type->toString());
-    }
-
-    typeSignature = complexTypeString + "(";
-    if (!childTypes.empty()) {
-      auto numChildren = childTypes.size();
-      for (auto i = 0; i < numChildren - 1; i++) {
-        typeSignature += fmt::format("{},", getTypeSignature(childTypes[i]));
-      }
-      typeSignature += getTypeSignature(childTypes[numChildren - 1]);
-    }
-    typeSignature += ")";
+    return boost::algorithm::to_lower_copy(type->toString());
   }
+
+  std::string typeSignature;
+  std::string complexTypeString;
+  std::vector<TypePtr> childTypes;
+  if (type->isRow()) {
+    complexTypeString = "row";
+    childTypes = asRowType(type)->children();
+  } else if (type->isArray()) {
+    complexTypeString = "array";
+    childTypes = type->asArray().children();
+  } else if (type->isMap()) {
+    complexTypeString = "map";
+    const auto mapType = type->asMap();
+    childTypes = {mapType.keyType(), mapType.valueType()};
+  } else {
+    VELOX_USER_FAIL("Invalid type {}", type->toString());
+  }
+
+  typeSignature = complexTypeString + "(";
+  if (!childTypes.empty()) {
+    auto numChildren = childTypes.size();
+    for (auto i = 0; i < numChildren - 1; i++) {
+      typeSignature += fmt::format("{},", getTypeSignature(childTypes[i]));
+    }
+    typeSignature += getTypeSignature(childTypes[numChildren - 1]);
+  }
+  typeSignature += ")";
 
   return typeSignature;
 }
 
-json toVariableReferenceExpression(
-    const std::shared_ptr<const exec::FieldReference>& field) {
+json toVariableReferenceExpression(const core::FieldAccessTypedExprPtr& field) {
   protocol::VariableReferenceExpression vexpr;
   vexpr.name = field->name();
   vexpr._type = kVariable;
@@ -145,10 +142,10 @@ std::string RowExpressionConverter::getValueBlock(
 }
 
 json RowExpressionConverter::getConstantRowExpression(
-    const std::shared_ptr<const exec::ConstantExpr>& constantExpr) {
+    const core::ConstantTypedExprPtr& constantExpr) {
   protocol::ConstantExpression cexpr;
   cexpr.type = getTypeSignature(constantExpr->type());
-  cexpr.valueBlock.data = getValueBlock(constantExpr->value());
+  cexpr.valueBlock.data = getValueBlock(constantExpr->valueVector());
   json result;
   protocol::to_json(result, cexpr);
   return result;
@@ -156,10 +153,10 @@ json RowExpressionConverter::getConstantRowExpression(
 
 RowExpressionConverter::SwitchFormArguments
 RowExpressionConverter::getSwitchSpecialFormArgs(
-    const exec::SwitchExpr* switchExpr,
+    const core::CallTypedExprPtr& switchExpr,
     const std::vector<RowExpressionPtr>& arguments) {
   SwitchFormArguments result;
-  // Consider the following Presto query with simple form switch expression:
+  // Consider the following Presto query with CASE conditional expression:
   // SELECT CASE 1 WHEN 2 THEN 31 - 1 WHEN 1 THEN 32 + 1 WHEN orderkey THEN 34
   //  ELSE 35 END FROM orders;
   // When this Presto expression is converted to velox switch expression, the
@@ -182,11 +179,11 @@ RowExpressionConverter::getSwitchSpecialFormArgs(
     const auto& caseValue = switchInputs[i + 1];
     auto inputWhenArgs = getRowExpressionArguments(arguments[argsIdx]);
 
-    if (switchInputs[i]->isConstant()) {
-      auto constantExpr =
-          std::dynamic_pointer_cast<const exec::ConstantExpr>(switchInputs[i]);
+    if (auto constantExpr =
+            std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
+                switchInputs[i])) {
       if (auto constVector =
-              constantExpr->value()->as<ConstantVector<bool>>()) {
+              constantExpr->valueVector()->as<ConstantVector<bool>>()) {
         // If this is the first switch case that evaluates to true, return the
         // expression corresponding to this case. From the aforementioned
         // example, `eq(1, 1)` evaluates to true, so the value corresponding to
@@ -229,7 +226,7 @@ RowExpressionConverter::getSwitchSpecialFormArgs(
 }
 
 json RowExpressionConverter::getSpecialForm(
-    const exec::ExprPtr& expr,
+    const core::CallTypedExprPtr& expr,
     const RowExpressionPtr& input) {
   json result;
   result["@type"] = kSpecial;
@@ -249,9 +246,7 @@ json RowExpressionConverter::getSpecialForm(
   // false and the field 'arguments' contains the 'when' clauses needed by the
   // Presto switch SpecialFormExpression.
   if (form == kSwitch) {
-    auto switchExpr = dynamic_cast<exec::SwitchExpr*>(expr.get());
-    VELOX_CHECK_NOT_NULL(switchExpr);
-    auto switchResult = getSwitchSpecialFormArgs(switchExpr, inputArguments);
+    auto switchResult = getSwitchSpecialFormArgs(expr, inputArguments);
     if (switchResult.isSimplified) {
       return switchResult.caseExpression;
     } else {
@@ -264,11 +259,7 @@ json RowExpressionConverter::getSpecialForm(
     // helper function `isPrestoSpecialForm`.
     auto exprInputs = expr->inputs();
     const auto numInputs = exprInputs.size();
-    if (form == kCoalesce) {
-      VELOX_CHECK_LE(numInputs, inputArguments.size());
-    } else {
-      VELOX_CHECK_EQ(numInputs, inputArguments.size());
-    }
+    VELOX_CHECK_EQ(numInputs, inputArguments.size());
     result["arguments"] = json::array();
     for (auto i = 0; i < numInputs; i++) {
       result["arguments"].push_back(
@@ -280,12 +271,12 @@ json RowExpressionConverter::getSpecialForm(
 }
 
 json RowExpressionConverter::getRowConstructorSpecialForm(
-    std::shared_ptr<const exec::ConstantExpr>& constantExpr) {
+    const core::ConstantTypedExprPtr& constantExpr) {
   json result;
   result["@type"] = kSpecial;
   result["form"] = kRowConstructor;
-  result["returnType"] = getTypeSignature(constantExpr->type());
-  auto value = constantExpr->value();
+  result["returnType"] = getTypeSignature(constantExpr->valueVector()->type());
+  auto value = constantExpr->valueVector();
   auto* constVector = value->as<ConstantVector<ComplexType>>();
   auto* rowVector = constVector->valueVector()->as<RowVector>();
   auto type = asRowType(constantExpr->type());
@@ -304,7 +295,7 @@ json RowExpressionConverter::getRowConstructorSpecialForm(
 }
 
 json RowExpressionConverter::toCallRowExpression(
-    const exec::ExprPtr& expr,
+    const core::CallTypedExprPtr& expr,
     const RowExpressionPtr& input) {
   json result;
   result["@type"] = kCall;
@@ -345,13 +336,11 @@ json RowExpressionConverter::toCallRowExpression(
 }
 
 json RowExpressionConverter::veloxToPrestoRowExpression(
-    const exec::ExprPtr& expr,
+    const core::TypedExprPtr& expr,
     const RowExpressionPtr& input) {
-  if (expr->isConstant()) {
+  if (auto constantExpr =
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(expr)) {
     if (expr->inputs().empty()) {
-      auto constantExpr =
-          std::dynamic_pointer_cast<const exec::ConstantExpr>(expr);
-      VELOX_CHECK_NOT_NULL(constantExpr);
       // Constant velox expressions of ROW type map to ROW_CONSTRUCTOR special
       // form expression in Presto.
       if (expr->type()->isRow()) {
@@ -366,20 +355,25 @@ json RowExpressionConverter::veloxToPrestoRowExpression(
       // unchanged in such cases.
       return input;
     }
-  }
-
-  if (auto field =
-          std::dynamic_pointer_cast<const exec::FieldReference>(expr)) {
+  } else if (
+      auto field =
+          std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(expr)) {
     return toVariableReferenceExpression(field);
+  } else if (
+      auto callTypedExpr =
+          std::dynamic_pointer_cast<const core::CallTypedExpr>(expr)) {
+    // Check if special form expression or call expression.
+    auto exprName = callTypedExpr->name();
+    boost::algorithm::to_lower(exprName);
+    if (isPrestoSpecialForm(exprName)) {
+      return getSpecialForm(callTypedExpr, input);
+    }
+    return toCallRowExpression(callTypedExpr, input);
   }
 
-  // Check if special form expression or call expression.
-  auto exprName = expr->name();
-  boost::algorithm::to_lower(exprName);
-  if (isPrestoSpecialForm(exprName)) {
-    return getSpecialForm(expr, input);
-  }
-  return toCallRowExpression(expr, input);
+  VELOX_FAIL(
+      "Conversion to RowExpression from TypedExpr {} unsupported",
+      expr->toString());
 }
 
 } // namespace facebook::presto::expression

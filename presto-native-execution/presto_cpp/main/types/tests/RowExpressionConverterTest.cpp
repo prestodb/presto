@@ -16,9 +16,7 @@
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/http/tests/HttpTestBase.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
-#include "velox/expression/CastExpr.h"
-#include "velox/expression/ConjunctExpr.h"
-#include "velox/expression/FieldReference.h"
+#include "velox/core/Expressions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/VectorStream.h"
@@ -46,7 +44,7 @@ class RowExpressionConverterTest
   }
 
   void testFile(
-      const std::vector<exec::ExprPtr>& inputs,
+      const std::vector<core::TypedExprPtr>& inputs,
       const std::string& fileName) {
     json::array_t expected = json::parse(
         slurp(facebook::presto::test::utils::getDataPath(fileName)));
@@ -66,14 +64,14 @@ class RowExpressionConverterTest
   }
 
   void testConstantExpressionConversion(
-      const std::vector<exec::ExprPtr>& inputs) {
+      const std::vector<core::TypedExprPtr>& inputs) {
     json::array_t expected =
         json::parse(slurp(facebook::presto::test::utils::getDataPath(
             "ConstantExpressionConversion.json")));
     auto numExpr = inputs.size();
     for (auto i = 0; i < numExpr; i++) {
       auto constantExpr =
-          std::dynamic_pointer_cast<exec::ConstantExpr>(inputs[i]);
+          std::dynamic_pointer_cast<const core::ConstantTypedExpr>(inputs[i]);
       EXPECT_EQ(
           rowExpressionConverter_->getConstantRowExpression(constantExpr),
           expected[i]);
@@ -84,34 +82,37 @@ class RowExpressionConverterTest
 };
 
 TEST_F(RowExpressionConverterTest, constant) {
-  auto inputs = std::vector<exec::ExprPtr>{
-      std::make_shared<exec::ConstantExpr>(makeConstant<bool>(true, 1)),
-      std::make_shared<exec::ConstantExpr>(makeConstant<int8_t>(12, 1)),
-      std::make_shared<exec::ConstantExpr>(makeConstant<int16_t>(123, 1)),
-      std::make_shared<exec::ConstantExpr>(makeConstant<int32_t>(1234, 1)),
-      std::make_shared<exec::ConstantExpr>(makeConstant<int64_t>(12345, 1)),
-      std::make_shared<exec::ConstantExpr>(
+  auto inputs = std::vector<core::TypedExprPtr>{
+      std::make_shared<core::ConstantTypedExpr>(makeConstant<bool>(true, 1)),
+      std::make_shared<core::ConstantTypedExpr>(makeConstant<int8_t>(12, 1)),
+      std::make_shared<core::ConstantTypedExpr>(makeConstant<int16_t>(123, 1)),
+      std::make_shared<core::ConstantTypedExpr>(makeConstant<int32_t>(1234, 1)),
+      std::make_shared<core::ConstantTypedExpr>(
+          makeConstant<int64_t>(12345, 1)),
+      std::make_shared<core::ConstantTypedExpr>(
           makeConstant<int64_t>(std::numeric_limits<int64_t>::max(), 1)),
-      std::make_shared<exec::ConstantExpr>(makeConstant<float>(123.456, 1)),
-      std::make_shared<exec::ConstantExpr>(makeConstant<double>(1234.5678, 1)),
-      std::make_shared<exec::ConstantExpr>(
+      std::make_shared<core::ConstantTypedExpr>(
+          makeConstant<float>(123.456, 1)),
+      std::make_shared<core::ConstantTypedExpr>(
+          makeConstant<double>(1234.5678, 1)),
+      std::make_shared<core::ConstantTypedExpr>(
           makeConstant<double>(std::numeric_limits<double>::quiet_NaN(), 1)),
-      std::make_shared<exec::ConstantExpr>(
+      std::make_shared<core::ConstantTypedExpr>(
           makeConstant<StringView>("abcd", 1))};
   testFile(inputs, "ConstantExpressionConversion.json");
   testConstantExpressionConversion(inputs);
 }
 
 TEST_F(RowExpressionConverterTest, rowConstructor) {
-  auto inputs = std::vector<exec::ExprPtr>{
-      std::make_shared<exec::ConstantExpr>(makeConstantRow(
+  auto inputs = std::vector<core::TypedExprPtr>{
+      std::make_shared<core::ConstantTypedExpr>(makeConstantRow(
           ROW({BIGINT(), REAL(), VARCHAR()}),
           variant::row(
               {static_cast<int64_t>(123456),
                static_cast<float>(12.345),
                "abc"}),
           1)),
-      std::make_shared<exec::ConstantExpr>(makeConstantRow(
+      std::make_shared<core::ConstantTypedExpr>(makeConstantRow(
           ROW({REAL(), VARCHAR(), INTEGER()}),
           variant::row(
               {std::numeric_limits<float>::quiet_NaN(),
@@ -122,52 +123,33 @@ TEST_F(RowExpressionConverterTest, rowConstructor) {
 }
 
 TEST_F(RowExpressionConverterTest, variable) {
-  auto inputs = std::vector<exec::ExprPtr>{
-      std::make_shared<exec::FieldReference>(
-          VARCHAR(), std::vector<exec::ExprPtr>{}, "c0"),
-      std::make_shared<exec::FieldReference>(
-          ARRAY(BIGINT()), std::vector<exec::ExprPtr>{}, "c1"),
-      std::make_shared<exec::FieldReference>(
-          MAP(INTEGER(), REAL()), std::vector<exec::ExprPtr>{}, "c2"),
-      std::make_shared<exec::FieldReference>(
-          ROW({SMALLINT(), VARCHAR(), DOUBLE()}),
-          std::vector<exec::ExprPtr>{},
-          "c3"),
-      std::make_shared<exec::FieldReference>(
-          MAP(ARRAY(TINYINT()), BOOLEAN()), std::vector<exec::ExprPtr>{}, "c4"),
+  auto inputs = std::vector<core::TypedExprPtr>{
+      std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "c0"),
+      std::make_shared<core::FieldAccessTypedExpr>(ARRAY(BIGINT()), "c1"),
+      std::make_shared<core::FieldAccessTypedExpr>(
+          MAP(INTEGER(), REAL()), "c2"),
+      std::make_shared<core::FieldAccessTypedExpr>(
+          ROW({SMALLINT(), VARCHAR(), DOUBLE()}), "c3"),
+      std::make_shared<core::FieldAccessTypedExpr>(
+          MAP(ARRAY(TINYINT()), BOOLEAN()), "c4"),
   };
   testFile(inputs, "VariableExpressionConversion.json");
 }
 
 TEST_F(RowExpressionConverterTest, special) {
-  auto castExpr = std::make_shared<exec::CastCallToSpecialForm>();
-  auto orExpr = std::make_shared<exec::ConjunctCallToSpecialForm>(false);
-  auto andExpr = std::make_shared<exec::ConjunctCallToSpecialForm>(true);
-  auto inputs = std::vector<exec::ExprPtr>{
-      castExpr->constructSpecialForm(
-          VARCHAR(),
-          {std::make_shared<exec::FieldReference>(
-              BIGINT(), std::vector<exec::ExprPtr>{}, "c0")},
-          false,
-          core::QueryConfig({})),
-      orExpr->constructSpecialForm(
+  auto inputs = std::vector<core::TypedExprPtr>{
+      std::make_shared<core::CallTypedExpr>(
           BOOLEAN(),
-          {std::make_shared<exec::FieldReference>(
-               BOOLEAN(), std::vector<exec::ExprPtr>{}, "c1"),
-           std::make_shared<exec::ConstantExpr>(makeConstant(true, 1))},
-          false,
-          core::QueryConfig({})),
-      andExpr->constructSpecialForm(
+          std::vector<core::TypedExprPtr>(
+              {std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c1"),
+               std::make_shared<core::ConstantTypedExpr>(
+                   makeConstant(true, 1))}),
+          "or"),
+      std::make_shared<core::CallTypedExpr>(
           BOOLEAN(),
-          {castExpr->constructSpecialForm(
-               BOOLEAN(),
-               {std::make_shared<exec::FieldReference>(
-                   INTEGER(), std::vector<exec::ExprPtr>{}, "c2")},
-               false,
-               core::QueryConfig({})),
-           std::make_shared<exec::FieldReference>(
-               BOOLEAN(), std::vector<exec::ExprPtr>{}, "c3")},
-          false,
-          core::QueryConfig({}))};
+          std::vector<core::TypedExprPtr>(
+              {std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c2"),
+               std::make_shared<core::FieldAccessTypedExpr>(BOOLEAN(), "c3")}),
+          "and")};
   testFile(inputs, "CallAndSpecialFormExpressionConversion.json");
 }

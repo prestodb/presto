@@ -522,10 +522,11 @@ public class PrestoNativeQueryRunnerUtils
             boolean enableRuntimeMetricsCollection,
             boolean enableSsdCache)
     {
-        return getExternalWorkerLauncher(catalogName, prestoServerPath, OptionalInt.empty(), cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled);
+        return getExternalWorkerLauncher(catalogName, prestoServerPath, OptionalInt.empty(), cacheMaxSize, remoteFunctionServerUds, failOnNestedLoopJoin, isCoordinatorSidecarEnabled, enableRuntimeMetricsCollection, enableSsdCache);
     }
 
-    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, OptionalInt port, int cacheMaxSize, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled)
+    public static Optional<BiFunction<Integer, URI, Process>> getExternalWorkerLauncher(String catalogName, String prestoServerPath, OptionalInt port, int cacheMaxSize, Optional<String> remoteFunctionServerUds, Boolean failOnNestedLoopJoin, boolean isCoordinatorSidecarEnabled, boolean enableRuntimeMetricsCollection,
+                                                                                        boolean enableSsdCache)
     {
         return
                 Optional.of((workerIndex, discoveryUri) -> {

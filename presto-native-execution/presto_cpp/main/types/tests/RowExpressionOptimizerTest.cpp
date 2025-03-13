@@ -17,8 +17,6 @@
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/http/tests/HttpTestBase.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
-#include "velox/expression/FieldReference.h"
-#include "velox/expression/RegisterSpecialForm.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/VectorStream.h"
@@ -28,7 +26,7 @@ using namespace facebook::presto;
 
 // RowExpressionOptimizerTest only tests for basic expression optimization.
 // End-to-end tests for different types of expressions can be found in
-// TestDelegatingExpressionOptimizer.java in presto-native-sidecar-plugin.
+// TestNativeExpressionOptimizer.java in presto-native-sidecar-plugin.
 class RowExpressionOptimizerTest
     : public ::testing::Test,
       public facebook::velox::test::VectorTestBase {
@@ -40,7 +38,6 @@ class RowExpressionOptimizerTest
   void SetUp() override {
     parse::registerTypeResolver();
     functions::prestosql::registerAllScalarFunctions("presto.default.");
-    exec::registerFunctionCallToSpecialForms();
     rowExpressionOptimizer_ =
         std::make_unique<expression::RowExpressionOptimizer>(pool());
   }

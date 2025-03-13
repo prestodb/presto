@@ -16,6 +16,7 @@
 #include <proxygen/lib/http/HTTPMessage.h>
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/RowExpressionConverter.h"
+#include "velox/expression/Expr.h"
 
 using namespace facebook::velox;
 
@@ -40,9 +41,18 @@ class RowExpressionOptimizer {
       const json::array_t& input);
 
  private:
+  /// Comparator for core::TypedExprPtr; used to deduplicate arguments to
+  /// COALESCE special form expression.
+  struct TypedExprComparator {
+    bool operator()(const core::TypedExprPtr& a, const core::TypedExprPtr& b)
+        const {
+      return a->hash() < b->hash();
+    }
+  };
+
   /// Converts Presto protocol RowExpression into a velox expression with
   /// constant folding enabled during velox expression compilation.
-  exec::ExprPtr compileExpression(const RowExpressionPtr& inputRowExpr);
+  core::TypedExprPtr compileExpression(const RowExpressionPtr& inputRowExpr);
 
   /// Evaluates Presto protocol SpecialFormExpression `AND` when the inputs can
   /// be constant folded to `true`, `false`, or `NULL`.
@@ -64,10 +74,21 @@ class RowExpressionOptimizer {
   RowExpressionPtr optimizeOrSpecialForm(
       const SpecialFormExpressionPtr& specialFormExpr);
 
+  /// Adds input expression to the COALESCE expression's arguments. Returns
+  /// input if it is a non-NULL constant, returns nullptr otherwise.
+  RowExpressionPtr addCoalesceArgument(
+      const RowExpressionPtr& input,
+      std::set<core::TypedExprPtr, TypedExprComparator>& optimizedTypedExprs,
+      std::vector<RowExpressionPtr>& optimizedRowExpressions);
+
   /// Optimizes Presto protocol SpecialFormExpression `COALESCE` by removing
-  /// `NULL`s from the argument list.
+  /// `NULL`s from the argument list. Returns the first non-NULL constant
+  /// argument to COALESCE. Otherwise NULLs and duplicate arguments are skipped
+  /// from optimizedArguments and nullptr is returned.
   RowExpressionPtr optimizeCoalesceSpecialForm(
-      const SpecialFormExpressionPtr& specialFormExpr);
+      const SpecialFormExpressionPtr& specialFormExpr,
+      std::set<core::TypedExprPtr, TypedExprComparator>& optimizedTypedExprSet,
+      std::vector<RowExpressionPtr>& optimizedArguments);
 
   /// Optimizes Presto protocol SpecialFormExpressions using optimization rules
   /// borrowed from Presto function visitSpecialForm() in

@@ -1175,8 +1175,7 @@ public class TestNativeExpressionOptimizer
         assertOptimizedEquals("case ARRAY[CAST(null AS BIGINT)] when ARRAY[CAST(1 AS BIGINT)] then 'matched' else 'not_matched' end", "'not_matched'");
     }
 
-    ///  TODO: Dedup arguments
-    @Test(enabled = false)
+    @Test
     public void testCoalesce()
     {
         assertOptimizedEquals("coalesce(null, null)", "coalesce(null, null)");
