@@ -253,28 +253,28 @@ public class PrestoNativeQueryRunnerUtils
     public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift)
             throws Exception
     {
-        return createNativeIcebergQueryRunner(useThrift, ICEBERG_DEFAULT_STORAGE_FORMAT, Optional.empty());
+        return createNativeIcebergQueryRunner(useThrift, ICEBERG_DEFAULT_STORAGE_FORMAT, Optional.empty(), false);
     }
 
-    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, boolean addStorageFormatToPath)
+    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
-        return createNativeIcebergQueryRunner(useThrift, ICEBERG_DEFAULT_STORAGE_FORMAT, Optional.empty(), addStorageFormatToPath);
+        return createNativeIcebergQueryRunner(useThrift, ICEBERG_DEFAULT_STORAGE_FORMAT, Optional.empty(), addStorageFormatToPath, isCoordinatorSidecarEnabled);
     }
 
-    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat)
+    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
-        return createNativeIcebergQueryRunner(useThrift, storageFormat, Optional.empty());
+        return createNativeIcebergQueryRunner(useThrift, storageFormat, Optional.empty(), isCoordinatorSidecarEnabled);
     }
 
-    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds)
+    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
-        return createNativeIcebergQueryRunner(useThrift, storageFormat, remoteFunctionServerUds, false);
+        return createNativeIcebergQueryRunner(useThrift, storageFormat, remoteFunctionServerUds, false, isCoordinatorSidecarEnabled);
     }
 
-    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds, boolean addStorageFormatToPath)
+    public static QueryRunner createNativeIcebergQueryRunner(boolean useThrift, String storageFormat, Optional<String> remoteFunctionServerUds, boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
         int cacheMaxSize = 0;
@@ -287,7 +287,8 @@ public class PrestoNativeQueryRunnerUtils
                 useThrift,
                 remoteFunctionServerUds,
                 storageFormat,
-                addStorageFormatToPath);
+                addStorageFormatToPath,
+                isCoordinatorSidecarEnabled);
     }
 
     public static QueryRunner createNativeIcebergQueryRunner(
@@ -298,7 +299,8 @@ public class PrestoNativeQueryRunnerUtils
             boolean useThrift,
             Optional<String> remoteFunctionServerUds,
             String storageFormat,
-            boolean addStorageFormatToPath)
+            boolean addStorageFormatToPath,
+            boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
         ImmutableMap<String, String> icebergProperties = ImmutableMap.<String, String>builder()
@@ -308,16 +310,17 @@ public class PrestoNativeQueryRunnerUtils
         // Make query runner with external workers for tests
         return IcebergQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8080")
+                        .put("http-server.http.port", "0")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .put("query.max-stage-count", "110")
                         .putAll(getNativeWorkerSystemProperties())
+                        .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
                         .build())
                 .setFormat(FileFormat.valueOf(storageFormat))
                 .setCreateTpchTables(false)
                 .setAddJmxPlugin(false)
                 .setNodeCount(OptionalInt.of(workerCount.orElse(4)))
-                .setExternalWorkerLauncher(getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, false, false, false))
+                .setExternalWorkerLauncher(getExternalWorkerLauncher("iceberg", prestoServerPath, cacheMaxSize, remoteFunctionServerUds, false, isCoordinatorSidecarEnabled, false, false))
                 .setAddStorageFormatToPath(addStorageFormatToPath)
                 .setDataDirectory(dataDirectory)
                 .setTpcdsProperties(getNativeWorkerTpcdsProperties())
@@ -358,7 +361,7 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8081")
+                        .put("http-server.http.port", "0")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .putAll(getNativeWorkerSystemProperties())
                         .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
@@ -374,13 +377,13 @@ public class PrestoNativeQueryRunnerUtils
                 getNativeWorkerTpcdsProperties());
     }
 
-    public static QueryRunner createNativeCteQueryRunner(boolean useThrift, String storageFormat)
+    public static QueryRunner createNativeCteQueryRunner(boolean useThrift, String storageFormat, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
-        return createNativeCteQueryRunner(useThrift, storageFormat, true);
+        return createNativeCteQueryRunner(useThrift, storageFormat, true, isCoordinatorSidecarEnabled);
     }
 
-    public static QueryRunner createNativeCteQueryRunner(boolean useThrift, String storageFormat, boolean addStorageFormatToPath)
+    public static QueryRunner createNativeCteQueryRunner(boolean useThrift, String storageFormat, boolean addStorageFormatToPath, boolean isCoordinatorSidecarEnabled)
             throws Exception
     {
         int cacheMaxSize = 0;
@@ -404,9 +407,10 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8081")
+                        .put("http-server.http.port", "0")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .putAll(getNativeWorkerSystemProperties())
+                        .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
                         .put("query.cte-partitioning-provider-catalog", "hive")
                         .build(),
                 ImmutableMap.of(),
@@ -414,7 +418,7 @@ public class PrestoNativeQueryRunnerUtils
                 hiveProperties,
                 workerCount,
                 Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory + "/" + storageFormat : dataDirectory)),
-                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), false, false, false, false),
+                getExternalWorkerLauncher("hive", prestoServerPath, cacheMaxSize, Optional.empty(), false, isCoordinatorSidecarEnabled, false, false),
                 getNativeWorkerTpcdsProperties());
     }
 
@@ -462,6 +466,12 @@ public class PrestoNativeQueryRunnerUtils
             throws Exception
     {
         return createNativeQueryRunner(useThrift, storageFormat, Optional.empty(), false, false, false, false, false);
+    }
+
+    public static QueryRunner createNativeQueryRunner(boolean useThrift, String storageFormat, boolean isCoordinatorSidecarEnabled)
+            throws Exception
+    {
+        return createNativeQueryRunner(useThrift, storageFormat, Optional.empty(), false, isCoordinatorSidecarEnabled, false, false, false);
     }
 
     public static QueryRunner createNativeQueryRunner(

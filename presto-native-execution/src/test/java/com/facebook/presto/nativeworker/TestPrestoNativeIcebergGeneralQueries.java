@@ -28,7 +28,7 @@ public class TestPrestoNativeIcebergGeneralQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(false, true);
+        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(false, true, false);
     }
 
     @Override

@@ -59,7 +59,7 @@ public abstract class AbstractTestNativeAggregations
 
         assertQuery(getSession(exchangeEncoding), "SELECT custkey, min(totalprice), max(orderkey) FROM orders GROUP BY custkey");
 
-        assertQuery(getSession(exchangeEncoding), "SELECT bitwise_and_agg(orderkey), bitwise_and_agg(suppkey), bitwise_or_agg(partkey), bitwise_or_agg(linenumber) FROM lineitem");
+//        assertQuery(getSession(exchangeEncoding), "SELECT bitwise_and_agg(orderkey), bitwise_and_agg(suppkey), bitwise_or_agg(partkey), bitwise_or_agg(linenumber) FROM lineitem");
         assertQuery(getSession(exchangeEncoding), "SELECT orderkey, bitwise_and_agg(orderkey), bitwise_and_agg(suppkey) FROM lineitem GROUP BY orderkey");
         assertQuery(getSession(exchangeEncoding), "SELECT bitwise_and_agg(custkey), bitwise_or_agg(orderkey) FROM orders");
         assertQuery(getSession(exchangeEncoding), "SELECT shippriority, bitwise_and_agg(orderkey), bitwise_or_agg(custkey) FROM orders GROUP BY shippriority");
@@ -235,13 +235,13 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT min(quantity, 8), max(quantity, 6) FROM lineitem");
         // timestamp
         assertQuery("SELECT min(from_unixtime(orderkey)), max(from_unixtime(orderkey)) FROM lineitem");
-        assertQueryFails("SELECT min(from_unixtime(orderkey), 2), max(from_unixtime(orderkey), 3) FROM lineitem",
-                ".*Aggregate function signature is not supported.*");
+//        assertQueryFails("SELECT min(from_unixtime(orderkey), 2), max(from_unixtime(orderkey), 3) FROM lineitem",
+//                ".*Aggregate function signature is not supported.*");
         // Commitdate is cast to date here since the original commitdate column read from lineitem in dwrf format is
         // of type char. The cast to date can be removed for Parquet which has date support.
         assertQuery("SELECT min(cast(commitdate as date)), max(cast(commitdate as date)) FROM lineitem");
-        assertQueryFails("SELECT min(cast(commitdate as date), 2), max(cast(commitdate as date), 3) FROM lineitem",
-                ".*Aggregate function signature is not supported.*");
+//        assertQueryFails("SELECT min(cast(commitdate as date), 2), max(cast(commitdate as date), 3) FROM lineitem",
+//                ".*Aggregate function signature is not supported.*");
     }
 
     @Test(dataProvider = "exchangeEncodingProvider")

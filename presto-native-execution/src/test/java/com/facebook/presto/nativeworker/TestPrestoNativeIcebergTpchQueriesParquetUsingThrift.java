@@ -22,7 +22,7 @@ public class TestPrestoNativeIcebergTpchQueriesParquetUsingThrift
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "PARQUET");
+        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "PARQUET", false);
     }
 
     @Override

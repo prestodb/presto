@@ -11,37 +11,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.nativeworker;
+package com.facebook.presto.sidecar;
 
+import com.facebook.presto.nativeworker.AbstractTestNativeTpchConnectorQueries;
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
-import org.testng.annotations.Test;
+import com.facebook.presto.tests.DistributedQueryRunner;
 
-@Test(groups = {"parquet"})
-public class TestPrestoNativeIcebergTpcdsQueriesParquetUsingThrift
-        extends AbstractTestNativeTpcdsQueries
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+
+public class TestNativeTpchConnectorQueriesWithSidecarEnabled
+        extends AbstractTestNativeTpchConnectorQueries
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, "PARQUET", false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createNativeQueryRunner(true, "PARQUET", true);
+        setupNativeSidecarPlugin(queryRunner);
+        return queryRunner;
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        this.storageFormat = "PARQUET";
-        return PrestoNativeQueryRunnerUtils.createJavaIcebergQueryRunner("PARQUET");
+        return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
     }
 
-    @Test
-    public void doDeletesAndQuery() throws Exception
+    @Override
+    public void testMissingTpchConnector()
     {
-        doDeletes();
-        verifyDeletes();
-        runAllQueries();
+        super.testMissingTpchConnector("No nodes available to run query");
     }
 }

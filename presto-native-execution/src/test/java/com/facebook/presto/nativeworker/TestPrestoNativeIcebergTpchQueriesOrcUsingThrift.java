@@ -24,7 +24,7 @@ public class TestPrestoNativeIcebergTpchQueriesOrcUsingThrift
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, storageFormat);
+        return PrestoNativeQueryRunnerUtils.createNativeIcebergQueryRunner(true, storageFormat, false);
     }
 
     @Override

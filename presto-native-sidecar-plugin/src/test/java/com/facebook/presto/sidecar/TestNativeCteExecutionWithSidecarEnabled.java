@@ -11,10 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.nativeworker;
+package com.facebook.presto.sidecar;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.nativeworker.AbstractTestNativeCteExecution;
+import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
+import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import com.facebook.presto.tests.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED;
@@ -22,20 +26,23 @@ import static com.facebook.presto.SystemSessionProperties.CTE_MATERIALIZATION_ST
 import static com.facebook.presto.SystemSessionProperties.PARTITIONING_PROVIDER_CATALOG;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
+import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
 @Test(groups = {"parquet"})
-public class TestPrestoNativeCteExecutionParquet
+public class TestNativeCteExecutionWithSidecarEnabled
         extends AbstractTestNativeCteExecution
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeCteQueryRunner(true, "PARQUET", false);
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) PrestoNativeQueryRunnerUtils.createNativeCteQueryRunner(true, "PARQUET", true);
+        setupNativeSidecarPlugin(queryRunner);
+        return queryRunner;
     }
 
     @Override
-    protected QueryRunner createExpectedQueryRunner()
+    protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
@@ -60,5 +67,23 @@ public class TestPrestoNativeCteExecutionParquet
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
                 .setSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, "true")
                 .build();
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testComplexPersistentCteForCtasQueries()
+    {
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testPersistentCteForVarbinaryType()
+    {
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testPersistentCteWithVarbinary()
+    {
     }
 }

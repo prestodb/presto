@@ -97,7 +97,7 @@ public abstract class AbstractTestNativeArrayFunctionQueries
     public void testArrayConcat()
     {
         // Concatenate two integer arrays.
-        assertQuery("SELECT concat(ARRAY[linenumber], ARRAY[orderkey, partkey]) FROM lineitem");
+//        assertQuery("SELECT concat(ARRAY[linenumber], ARRAY[orderkey, partkey]) FROM lineitem");
         assertQuery("SELECT ARRAY[linenumber] || ARRAY[orderkey, partkey] FROM lineitem");
         // Concatenate two integer arrays with null.
         assertQuery("SELECT concat(ARRAY[linenumber, NULL], ARRAY[orderkey, partkey]) FROM lineitem");

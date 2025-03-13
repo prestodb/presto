@@ -28,7 +28,7 @@ public class TestPrestoNativeIcebergPositionDeleteQueriesParquetUsingThrift
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createNativeIcebergQueryRunner(true, storageFormat);
+        return createNativeIcebergQueryRunner(true, storageFormat, false);
     }
 
     @Override
