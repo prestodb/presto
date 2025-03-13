@@ -150,6 +150,7 @@ public final class ThriftMetastoreUtil
         result.setOwnerType(toMetastoreApiPrincipalType(database.getOwnerType()));
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
+        database.getCatalogName().ifPresent(result::setCatalogName);
         return result;
     }
 
@@ -157,6 +158,7 @@ public final class ThriftMetastoreUtil
     {
         org.apache.hadoop.hive.metastore.api.Table result = new org.apache.hadoop.hive.metastore.api.Table();
 
+        table.getCatalogName().ifPresent(result::setCatName);
         result.setDbName(table.getDatabaseName());
         result.setTableName(table.getTableName());
         result.setOwner(table.getOwner());
@@ -371,6 +373,7 @@ public final class ThriftMetastoreUtil
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition, ColumnConverter columnConverter)
     {
         org.apache.hadoop.hive.metastore.api.Partition result = new org.apache.hadoop.hive.metastore.api.Partition();
+        partition.getCatalogName().ifPresent(result::setCatName);
         result.setDbName(partition.getDatabaseName());
         result.setTableName(partition.getTableName());
         result.setValues(partition.getValues());
@@ -506,6 +509,7 @@ public final class ThriftMetastoreUtil
         }
 
         Partition.Builder partitionBuilder = Partition.builder()
+                .setCatalogName(Optional.ofNullable(partition.getCatName()))
                 .setDatabaseName(partition.getDbName())
                 .setTableName(partition.getTableName())
                 .setValues(partition.getValues())

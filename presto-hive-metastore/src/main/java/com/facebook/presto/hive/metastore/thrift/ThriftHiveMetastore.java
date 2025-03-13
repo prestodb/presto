@@ -168,6 +168,9 @@ import static org.apache.hadoop.hive.metastore.api.LockState.ACQUIRED;
 import static org.apache.hadoop.hive.metastore.api.LockState.WAITING;
 import static org.apache.hadoop.hive.metastore.api.LockType.EXCLUSIVE;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_FILTER_FIELD_PARAMS;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.CAT_NAME;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.DB_NAME;
+import static org.apache.hadoop.hive.metastore.utils.MetaStoreUtils.parseDbName;
 
 @ThreadSafe
 public class ThriftHiveMetastore
@@ -261,10 +264,11 @@ public class ThriftHiveMetastore
     public List<UniqueConstraint<String>> getUniqueConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
     {
         try {
+            String[] parseDbName = parseDbName(dbName, null);
             Optional<UniqueConstraintsResponse> uniqueConstraintsResponse = retry()
                     .stopOnIllegalExceptions()
                     .run("getUniqueConstraints", stats.getGetUniqueConstraints().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints("hive", dbName, tableName))));
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getUniqueConstraints(parseDbName[CAT_NAME], parseDbName[DB_NAME], tableName))));
 
             if (!uniqueConstraintsResponse.isPresent() || uniqueConstraintsResponse.get().getUniqueConstraints().size() == 0) {
                 return ImmutableList.of();
@@ -298,10 +302,11 @@ public class ThriftHiveMetastore
     public List<NotNullConstraint<String>> getNotNullConstraints(MetastoreContext metastoreContext, String dbName, String tableName)
     {
         try {
+            String[] parseDbName = parseDbName(dbName, null);
             Optional<NotNullConstraintsResponse> notNullConstraintsResponse = retry()
                     .stopOnIllegalExceptions()
                     .run("getNotNullConstraints", stats.getGetNotNullConstraints().wrap(() ->
-                            getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints("hive", dbName, tableName))));
+                            getMetastoreClientThenCall(metastoreContext, client -> client.getNotNullConstraints(parseDbName[CAT_NAME], parseDbName[DB_NAME], tableName))));
 
             if (!notNullConstraintsResponse.isPresent() || notNullConstraintsResponse.get().getNotNullConstraints().size() == 0) {
                 return ImmutableList.of();
@@ -312,6 +317,23 @@ public class ThriftHiveMetastore
                     .collect(toImmutableList());
 
             return result;
+        }
+        catch (TException e) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public List<String> getDatabases(MetastoreContext context, String pattern)
+    {
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getDatabases", stats.getGetDatabases().wrap(() ->
+                            getMetastoreClientThenCall(context, client -> client.getDatabases(pattern))));
         }
         catch (TException e) {
             throw new PrestoException(HIVE_METASTORE_ERROR, e);
@@ -1646,15 +1668,16 @@ public class ThriftHiveMetastore
 
         if (tableConstraint instanceof PrimaryKeyConstraint) {
             for (String column : constraintColumns) {
-                primaryKeyConstraint.add(
-                        new SQLPrimaryKey(table.getDbName(),
-                                table.getTableName(),
-                                column,
-                                keySequence++,
-                                tableConstraint.getName().orElse(null),
-                                tableConstraint.isEnabled(),
-                                tableConstraint.isEnforced(),
-                                tableConstraint.isRely()));
+                SQLPrimaryKey sqlPrimaryKey = new SQLPrimaryKey(table.getDbName(),
+                        table.getTableName(),
+                        column,
+                        keySequence++,
+                        tableConstraint.getName().orElse(null),
+                        tableConstraint.isEnabled(),
+                        tableConstraint.isEnforced(),
+                        tableConstraint.isRely());
+                sqlPrimaryKey.setCatName(table.getCatName());
+                primaryKeyConstraint.add(sqlPrimaryKey);
             }
             callableName = "addPrimaryKeyConstraint";
             apiStats = stats.getAddPrimaryKeyConstraint();

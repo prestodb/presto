@@ -16,6 +16,7 @@ package com.facebook.presto.delta;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HiveCommonClientConfig;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
@@ -60,6 +61,7 @@ import static com.facebook.presto.delta.DeltaTableProperties.EXTERNAL_LOCATION_P
 import static com.facebook.presto.delta.DeltaTableProperties.getTableStorageFormat;
 import static com.facebook.presto.delta.DeltaTableProperties.isExternalTable;
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
+import static com.facebook.presto.hive.MetadataUtils.constructSchemaName;
 import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
@@ -87,6 +89,7 @@ public class DeltaMetadata
     private final ExtendedHiveMetastore metastore;
     private final TypeManager typeManager;
     private final DeltaConfig config;
+    private final String catalogName;
 
     @Inject
     public DeltaMetadata(
@@ -94,20 +97,28 @@ public class DeltaMetadata
             DeltaClient deltaClient,
             ExtendedHiveMetastore metastore,
             TypeManager typeManager,
-            DeltaConfig config)
+            DeltaConfig config, HiveCommonClientConfig commonConfig)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.deltaClient = requireNonNull(deltaClient, "deltaClient is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.config = requireNonNull(config, "config is null");
+        this.catalogName = commonConfig.getCatalogName();
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
         ArrayList<String> schemas = new ArrayList<>();
-        schemas.addAll(metastore.getAllDatabases(metastoreContext(session)));
+        List<String> schemaNames;
+        if (catalogName != null) {
+            schemaNames = metastore.getDatabases(metastoreContext(session), constructSchemaName(Optional.of(catalogName), ""));
+        }
+        else {
+            schemaNames = metastore.getAllDatabases(metastoreContext(session));
+        }
+        schemas.addAll(schemaNames);
         schemas.add(PATH_SCHEMA.toLowerCase(US));
         return schemas;
     }
@@ -131,15 +142,16 @@ public class DeltaMetadata
     {
         DeltaTableHandle handle = (DeltaTableHandle) tableHandle;
         MetastoreContext metastoreContext = metastoreContext(session);
+        String schemaName = constructSchemaName(Optional.ofNullable(catalogName), handle.getDeltaTable().getSchemaName());
 
-        Optional<Table> target = metastore.getTable(metastoreContext, handle.getDeltaTable().getSchemaName(), handle.getDeltaTable().getTableName());
+        Optional<Table> target = metastore.getTable(metastoreContext, schemaName, handle.getDeltaTable().getTableName());
         if (!target.isPresent()) {
             throw new TableNotFoundException(handle.toSchemaTableName());
         }
 
         metastore.dropTable(
                 metastoreContext,
-                handle.getDeltaTable().getSchemaName(),
+                schemaName,
                 handle.getDeltaTable().getTableName(),
                 false);
     }
@@ -164,6 +176,7 @@ public class DeltaMetadata
         }
 
         Table.Builder tableBuilder = Table.builder()
+                .setCatalogName(Optional.ofNullable(catalogName))
                 .setDatabaseName(schemaName)
                 .setTableName(tableName)
                 .setOwner(session.getUser())
@@ -195,7 +208,7 @@ public class DeltaMetadata
             tableLocation = deltaTableName.getTableNameOrPath();
         }
         else {
-            Optional<Table> metastoreTable = metastore.getTable(metastoreContext(session), schemaName, deltaTableName.getTableNameOrPath());
+            Optional<Table> metastoreTable = metastore.getTable(metastoreContext(session), constructSchemaName(Optional.ofNullable(catalogName), schemaName), deltaTableName.getTableNameOrPath());
             if (!metastoreTable.isPresent()) {
                 return null; // indicates table doesn't exist
             }
@@ -284,7 +297,7 @@ public class DeltaMetadata
                 .orElseGet(() -> listSchemaNames(session));
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schema : schemaNames) {
-            for (String tableName : metastore.getAllTables(metastoreContext(session), schema).orElse(emptyList())) {
+            for (String tableName : metastore.getAllTables(metastoreContext(session), constructSchemaName(Optional.ofNullable(catalogName), schema)).orElse(emptyList())) {
                 tableNames.add(new SchemaTableName(schema, tableName));
             }
         }
