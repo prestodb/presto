@@ -355,7 +355,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
 
   If ``true``, global arbitration does not reclaim memory by spilling, but
   only by aborting. This flag is only effective if
-  'shared-arbitrator.global-arbitration-enabled' is true
+  ``shared-arbitrator.global-arbitration-enabled`` is ``true``.
 
 Cache Properties
 ----------------
