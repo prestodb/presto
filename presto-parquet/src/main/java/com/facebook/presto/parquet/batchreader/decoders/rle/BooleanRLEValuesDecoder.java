@@ -11,12 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
 import com.facebook.presto.parquet.batchreader.decoders.ValuesDecoder.BooleanValuesDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -33,8 +35,10 @@ public class BooleanRLEValuesDecoder
 
     public BooleanRLEValuesDecoder(ByteBuffer inputBuffer)
     {
-        super(Integer.MAX_VALUE, 1, null); // initialize the super class. The input stream is not used.
+        super(Integer.MAX_VALUE, 1, new ByteArrayInputStream(inputBuffer.array(), inputBuffer.arrayOffset() + inputBuffer.position(), inputBuffer.remaining()));
         this.inputBuffer = requireNonNull(inputBuffer);
+        currentBuffer = null;
+        mode = Mode.RLE;
     }
 
     @Override
@@ -56,23 +60,9 @@ public class BooleanRLEValuesDecoder
 
             int numEntriesToFill = Math.min(remainingToCopy, getCurrentCount());
             int endIndex = destinationIndex + numEntriesToFill;
-            switch (getCurrentMode()) {
-                case RLE: {
-                    byte rleValue = (byte) getDecodedInt();
-                    while (destinationIndex < endIndex) {
-                        values[destinationIndex++] = rleValue;
-                    }
-                    break;
-                }
-                case PACKED: {
-                    int[] decodedInts = getDecodedInts();
-                    for (int i = decodedInts.length - getCurrentCount(); destinationIndex < endIndex; i++) {
-                        values[destinationIndex++] = (byte) decodedInts[i];
-                    }
-                    break;
-                }
-                default:
-                    throw new ParquetDecodingException("not a valid mode " + getCurrentMode());
+            byte rleValue = (byte) getDecodedInt();
+            while (destinationIndex < endIndex) {
+                values[destinationIndex++] = rleValue;
             }
             decrementCurrentCount(numEntriesToFill);
             remainingToCopy -= numEntriesToFill;

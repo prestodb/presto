@@ -47,6 +47,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -595,14 +596,60 @@ public abstract class TestValuesDecoders
         booleanBatchReadWithSkipHelper(89, 29, valueCount, booleanPlain(pageBytes), expectedValues);
         booleanBatchReadWithSkipHelper(1024, 1024, valueCount, booleanPlain(pageBytes), expectedValues);
     }
+    private static byte[] generateBooleanRLEData(List<Integer> values) throws IOException
+    {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        int count = 0;
+        boolean currentValue = false;
+
+        for (int value : values) {
+            boolean newValue = value == 1;
+            if (count == 0) {
+                currentValue = newValue;
+                count = 1;
+            }
+            else if (currentValue == newValue) {
+                count++;
+            }
+            else {
+                writeRLEBitPackedRun(outputStream, currentValue, count);
+                currentValue = newValue;
+                count = 1;
+            }
+        }
+        writeRLEBitPackedRun(outputStream, currentValue, count);
+        return outputStream.toByteArray();
+    }
+
+    private static void writeRLEBitPackedRun(ByteArrayOutputStream outputStream, boolean value, int count) throws IOException
+    {
+        int header = (count << 1) | (value ? 1 : 0);
+        while ((header & ~0x7F) != 0) {
+            outputStream.write((header & 0x7F) | 0x80);
+            header >>>= 7;
+        }
+        outputStream.write(header);
+    }
+    @Test
+    public void testMinimalBooleanRLE() throws IOException
+    {
+        List<Integer> values = Arrays.asList(0, 1, 0);
+        byte[] dataPage = generateBooleanRLEData(values);
+        List<Object> expectedValues = new ArrayList<>(values);
+
+        booleanBatchReadWithSkipHelper(1, 0, 3, booleanRLE(dataPage), expectedValues);
+    }
 
     @Test
-    public void testBooleanRLE()
+    public void testBooleanRLE() throws IOException
     {
         int valueCount = 2048;
         List<Integer> values = new ArrayList<>();
+        for (int i = 0; i < valueCount; i++) {
+            values.add(i % 2); // Alternating 0s and 1s
+        }
 
-        byte[] dataPage = generateDictionaryIdPage2048(1, values);
+        byte[] dataPage = generateBooleanRLEData(values);
 
         List<Object> expectedValues = new ArrayList<>(values);
 

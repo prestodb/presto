@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.parquet.batchreader.decoders.rle;
 
 import org.apache.parquet.io.ParquetDecodingException;
@@ -77,9 +78,22 @@ public abstract class GenericRLEDictionaryValuesDecoder
         return INSTANCE_SIZE + sizeOf(currentBuffer);
     }
 
-    protected boolean decode()
-            throws IOException
+    protected boolean decode() throws IOException
     {
+        if (this instanceof BooleanRLEValuesDecoder) {
+            // Boolean RLE specific logic
+            if (inputStream.available() <= 0) {
+                currentCount = 0;
+                return false;
+            }
+
+            int header = readUnsignedVarInt(inputStream);
+            mode = RLE; // Boolean RLE is always RLE
+            currentValue = (header & 1) == 1 ? 1 : 0;
+            currentCount = header >>> 1;
+            return true;
+        }
+
         if (rleOnlyMode) {
             // for RLE only mode there is nothing more to read
             return false;
@@ -117,6 +131,7 @@ public abstract class GenericRLEDictionaryValuesDecoder
                 throw new ParquetDecodingException("not a valid mode " + mode);
         }
     }
+
     public int[] getDecodedInts()
     {
         return currentBuffer;
@@ -180,9 +195,8 @@ public abstract class GenericRLEDictionaryValuesDecoder
             }
         }
     }
-    public enum Mode
-    {
-        RLE,
-        PACKED
+
+    public enum Mode {
+        RLE, PACKED
     }
 }
