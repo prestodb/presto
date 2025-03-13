@@ -345,7 +345,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
   The ratio used with ``shared-arbitrator.memory-reclaim-max-wait-time``,
   beyond which global arbitration will no longer reclaim memory by
   spilling, but instead directly abort. It is only in effect when
-  'global-arbitration-enabled' is true
+  ``global-arbitration-enabled`` is ``true``.
 
 ``shared-arbitrator.global-arbitration-without-spill``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
