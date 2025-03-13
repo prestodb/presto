@@ -24,12 +24,10 @@ import com.facebook.airlift.http.server.TheServlet;
 import com.facebook.presto.server.InternalCommunicationModule;
 import com.facebook.presto.server.security.AuthenticationFilter;
 import com.facebook.presto.server.security.CustomPrestoAuthenticator;
-import com.facebook.presto.server.security.DefaultWebUiAuthenticationManager;
 import com.facebook.presto.server.security.PasswordAuthenticator;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.server.security.SecurityConfig.AuthenticationType;
-import com.facebook.presto.server.security.WebUiAuthenticationManager;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
@@ -54,7 +52,6 @@ public class RouterSecurityModule
     protected void setup(Binder binder)
     {
         install(new InternalCommunicationModule());
-        newOptionalBinder(binder, WebUiAuthenticationManager.class).setDefault().to(DefaultWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
                 .to(AuthenticationFilter.class).in(Scopes.SINGLETON);
 
