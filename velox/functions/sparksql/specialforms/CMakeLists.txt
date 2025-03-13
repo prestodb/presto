@@ -17,6 +17,7 @@ velox_add_library(
   AtLeastNNonNulls.cpp
   DecimalRound.cpp
   FromJson.cpp
+  GetStructField.cpp
   MakeDecimal.cpp
   SparkCastExpr.cpp
   SparkCastHooks.cpp)
