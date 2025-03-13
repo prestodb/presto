@@ -13,6 +13,7 @@
  */
 //@flow
 import React from "react";
+import { getLastUrl } from '../utils'
 
 type Props = {
     titles: string[],
@@ -69,7 +70,14 @@ export class PageTitle extends React.Component<Props, State> {
     refreshLoop: () => void = () => {
         clearTimeout(this.timeoutId);
         fetch("/v1/info")
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 401) {
+                    const lastUrl = encodeURIComponent(getLastUrl());
+                    window.location.href = window.location.origin + '/?lastURL=' + lastUrl;
+                } else {
+                    return response.json();
+                }
+            })
             .then(info => {
                 this.setState({
                     info: info,
@@ -173,6 +181,11 @@ export class PageTitle extends React.Component<Props, State> {
                                          </span>
                                         &nbsp;
                                         <span className="text" id="uptime">{isOffline() ? 'Offline' : info?.uptime}</span>
+                                    </span>
+                                </li>
+                                <li>
+                                    <span className="navbar-cluster-info logout">
+                                        <a className="btn btn-md btn-info style-check logout-btn" href="/logout">Logout</a>
                                     </span>
                                 </li>
                             </ul>
