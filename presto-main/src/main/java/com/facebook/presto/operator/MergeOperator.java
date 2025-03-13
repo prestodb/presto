@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.page.PagesSerde;
@@ -127,6 +128,7 @@ public class MergeOperator
 
     private WorkProcessor<Page> mergedPages;
     private boolean closed;
+    private final LocalMemoryContext systemMemoryContext;
 
     public MergeOperator(
             OperatorContext operatorContext,
@@ -144,6 +146,9 @@ public class MergeOperator
         this.comparator = requireNonNull(comparator, "comparator is null");
         this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
         this.outputTypes = requireNonNull(outputTypes, "outputTypes is null");
+
+        this.systemMemoryContext = operatorContext.localSystemMemoryContext();
+        this.systemMemoryContext.setBytes(pagesSerde.getRetainedSizeInBytes());
     }
 
     @Override
@@ -248,6 +253,7 @@ public class MergeOperator
     public void close()
     {
         try {
+            this.systemMemoryContext.setBytes(0);
             closer.close();
             closed = true;
         }
