@@ -323,7 +323,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Type:** ``string``
 * **Default value:** ``0.5``
 
-  Floating point number used in calculating how many threads we would use
+  Floating point number used in calculating how many threads to use
   for memory reclaim execution: hw_concurrency x multiplier. 0.5 is
   default.
 
