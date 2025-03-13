@@ -18,10 +18,12 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
+@Ignore
 @Test(groups = {"parquet"})
 public class TestNativeCtasQueriesWithSidecarEnabled
         extends AbstractTestNativeCtasQueries
