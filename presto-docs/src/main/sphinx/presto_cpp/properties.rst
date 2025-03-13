@@ -297,7 +297,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
   Specifies the starting memory capacity limit for global arbitration to
   search for victim participant to reclaim used memory by abort. For
   participants with capacity larger than the limit, the global arbitration
-  choose to abort the youngest participant which has the largest
+  chooses to abort the youngest participant which has the largest
   participant id. This helps to let the old queries to run to completion.
   The abort capacity limit is reduced by half if could not find a victim
   participant until this reaches to zero.
