@@ -87,13 +87,6 @@ class SharedArbitrator : public memory::MemoryArbitrator {
     static uint64_t maxMemoryArbitrationTimeNs(
         const std::unordered_map<std::string, std::string>& configs);
 
-    // TODO: Remove after name change complete
-    static constexpr std::string_view kMemoryReclaimMaxWaitTime{
-        "memory-reclaim-max-wait-time"};
-    static constexpr std::string_view kDefaultMemoryReclaimMaxWaitTime{"5m"};
-    static uint64_t memoryReclaimMaxWaitTimeNs(
-        const std::unordered_map<std::string, std::string>& configs);
-
     /// When shrinking capacity, the shrink bytes will be adjusted in a way such
     /// that AFTER shrink, the stricter (whichever is smaller) of the following
     /// conditions is met, in order to better fit the pool's current memory
