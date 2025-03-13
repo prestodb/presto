@@ -49,7 +49,7 @@
         <dep.slice.version>0.38</dep.slice.version>
         <dep.testing-mysql-server-5.version>0.6</dep.testing-mysql-server-5.version>
         <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
-        <dep.okhttp.version>4.12.0</dep.okhttp.version>
+        <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.40</dep.drift.version>
@@ -222,12 +222,12 @@
                 <version>3.6.0</version>
             </dependency>
 
-             <!-- pull up to the version used in okio-jvm to avoid conlict with okhttp-* -->
-             <dependency>
+            <!-- pull up to the version used in okio-jvm to avoid conlict with okhttp-* -->
+            <dependency>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-stdlib-jdk8</artifactId>
                 <version>1.9.10</version>
-             </dependency>
+            </dependency>
 
             <dependency>
                 <groupId>org.eclipse.jetty</groupId>
@@ -2549,7 +2549,6 @@
                 <artifactId>flight-core</artifactId>
                 <version>${dep.arrow.version}</version>
             </dependency>
-
         </dependencies>
     </dependencyManagement>
 
