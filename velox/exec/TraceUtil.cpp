@@ -186,6 +186,36 @@ std::string getNodeName(
   }
 }
 
+std::string getHiveConnectorId(
+    const std::string& nodeId,
+    const std::string& taskMetaFilePath,
+    const std::shared_ptr<filesystems::FileSystem>& fs,
+    memory::MemoryPool* pool) {
+  try {
+    const auto file = fs->openFileForRead(taskMetaFilePath);
+    VELOX_CHECK_NOT_NULL(file);
+    const auto taskMeta = file->pread(0, file->size());
+    VELOX_USER_CHECK(!taskMeta.empty());
+    folly::dynamic metaObj = folly::parseJson(taskMeta);
+    const auto planFragment = ISerializable::deserialize<core::PlanNode>(
+        metaObj[TraceTraits::kPlanNodeKey], pool);
+    const auto* traceNode = core::PlanNode::findFirstNode(
+        planFragment.get(),
+        [&nodeId](const core::PlanNode* node) { return node->id() == nodeId; });
+    const auto* tableScanNode =
+        dynamic_cast<const core::TableScanNode*>(traceNode);
+    VELOX_CHECK_NOT_NULL(tableScanNode);
+    const auto connectorId = tableScanNode->tableHandle()->connectorId();
+    VELOX_CHECK(!connectorId.empty());
+    return connectorId;
+  } catch (const std::exception& e) {
+    VELOX_FAIL(
+        "Failed to get the hive connector id from '{}' with error: {}",
+        taskMetaFilePath,
+        e.what());
+  }
+}
+
 RowTypePtr getDataType(
     const core::PlanNodePtr& tracedPlan,
     const std::string& tracedNodeId,

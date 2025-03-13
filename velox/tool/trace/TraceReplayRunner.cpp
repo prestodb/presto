@@ -296,13 +296,6 @@ void TraceReplayRunner::init() {
   if (!facebook::velox::connector::hasConnectorFactory("hive")) {
     connector::registerConnectorFactory(
         std::make_shared<connector::hive::HiveConnectorFactory>());
-    const auto hiveConnector =
-        connector::getConnectorFactory("hive")->newConnector(
-            "test-hive",
-            std::make_shared<config::ConfigBase>(
-                std::unordered_map<std::string, std::string>()),
-            ioExecutor_.get());
-    connector::registerConnector(hiveConnector);
   }
 
   fs_ = filesystems::getFileSystem(FLAGS_root_dir, nullptr);
@@ -355,6 +348,21 @@ TraceReplayRunner::createReplayer() const {
         queryCapacityBytes,
         cpuExecutor_.get());
   } else if (traceNodeName == "TableScan") {
+    const auto connectorId = exec::trace::getHiveConnectorId(
+        FLAGS_node_id,
+        exec::trace::getTaskTraceMetaFilePath(taskTraceDir),
+        fs_,
+        memory::MemoryManager::getInstance()->tracePool());
+    if (const auto& collectors = connector::getAllConnectors();
+        collectors.find(connectorId) == collectors.end()) {
+      const auto hiveConnector =
+          connector::getConnectorFactory("hive")->newConnector(
+              connectorId,
+              std::make_shared<config::ConfigBase>(
+                  std::unordered_map<std::string, std::string>()),
+              ioExecutor_.get());
+      connector::registerConnector(hiveConnector);
+    }
     replayer = std::make_unique<tool::trace::TableScanReplayer>(
         FLAGS_root_dir,
         FLAGS_query_id,

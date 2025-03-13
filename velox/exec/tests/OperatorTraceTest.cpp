@@ -1148,4 +1148,42 @@ TEST_F(OperatorTraceTest, canTrace) {
     ASSERT_EQ(testData.canTrace, trace::canTrace(testData.operatorType));
   }
 }
+
+TEST_F(OperatorTraceTest, hiveConnectorId) {
+  constexpr auto numSplits = 2;
+  const auto vectors = makeVectors(10, 10);
+  const auto testDir = TempDirectoryPath::create();
+  const auto traceRoot = fmt::format("{}/{}", testDir->getPath(), "traceRoot");
+  const auto fs = filesystems::getFileSystem(testDir->getPath(), nullptr);
+  std::vector<std::shared_ptr<TempFilePath>> splitFiles;
+  for (int i = 0; i < numSplits; ++i) {
+    auto filePath = TempFilePath::create();
+    writeToFile(filePath->getPath(), vectors);
+    splitFiles.push_back(std::move(filePath));
+  }
+  auto splits = makeHiveConnectorSplits(splitFiles);
+  auto traceDirPath = TempDirectoryPath::create();
+  core::PlanNodeId scanNodeId;
+  auto plan = PlanBuilder()
+                  .tableScan(dataType_)
+                  .capturePlanNodeId(scanNodeId)
+                  .planNode();
+  std::shared_ptr<Task> task;
+  AssertQueryBuilder(plan)
+      .config(core::QueryConfig::kQueryTraceEnabled, true)
+      .config(core::QueryConfig::kQueryTraceDir, traceDirPath->getPath())
+      .config(core::QueryConfig::kQueryTraceTaskRegExp, ".*")
+      .config(core::QueryConfig::kQueryTraceNodeIds, "0")
+      .splits(splits)
+      .runWithoutResults(task);
+  const auto taskTraceDir =
+      getTaskTraceDirectory(traceDirPath->getPath(), *task);
+  std::vector<std::string> traceDirs;
+  const auto connectorId = exec::trace::getHiveConnectorId(
+      scanNodeId,
+      exec::trace::getTaskTraceMetaFilePath(taskTraceDir),
+      fs,
+      memory::MemoryManager::getInstance()->tracePool());
+  ASSERT_EQ("test-hive", connectorId);
+}
 } // namespace facebook::velox::exec::trace::test

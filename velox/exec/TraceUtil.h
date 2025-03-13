@@ -88,6 +88,14 @@ std::string getNodeName(
     const std::shared_ptr<filesystems::FileSystem>& fs,
     memory::MemoryPool* pool);
 
+/// Extracts the hive connector from the trace metadata file, return empty if
+/// it does not exist.
+std::string getHiveConnectorId(
+    const std::string& nodeId,
+    const std::string& taskMetaFilePath,
+    const std::shared_ptr<filesystems::FileSystem>& fs,
+    memory::MemoryPool* pool);
+
 /// Extracts the input data type for the trace scan operator. The function first
 /// uses the traced node id to find traced operator's plan node from the traced
 /// plan fragment. Then it uses the specified source node index to find the
