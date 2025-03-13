@@ -179,6 +179,238 @@ struct IPSubnetOfFunction {
   }
 };
 
+template <typename T>
+struct IPPrefixCollapseFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<Array<IPPrefix>>& result,
+      const arg_type<Array<IPPrefix>>& ipPrefixes) {
+    if (ipPrefixes.size() == 0) {
+      return;
+    }
+
+    std::vector<std::tuple<int128_t, int8_t>> prefixes;
+    prefixes.reserve(ipPrefixes.size());
+
+    for (const auto& ipPrefix : ipPrefixes) {
+      if (ipPrefix.has_value()) {
+        prefixes.push_back(std::make_tuple(
+            *ipPrefix->template at<0>(), *ipPrefix->template at<1>()));
+      } else {
+        // ip_prefix_collapse does not support null elements. Thus we throw here
+        // with the same error message as Presto java.
+        VELOX_USER_FAIL("ip_prefix_collapse does not support null elements");
+      }
+    }
+
+    std::sort(
+        prefixes.begin(), prefixes.end(), [](const auto& a, const auto& b) {
+          // First compare by the first tuple to see if we can order the
+          // ipaddresses.
+          auto ipCompare = IPADDRESS()->compare(std::get<0>(a), std::get<0>(b));
+          if (ipCompare != 0) {
+            return ipCompare < 0;
+          }
+
+          // Compare the prefix bits if the ip addresses are the same.
+          return std::get<1>(a) < std::get<1>(b);
+        });
+
+    // If the length of the prefixes is 1 and it is not null, we can simply
+    // return.
+    if (prefixes.size() == 1) {
+      writeIpPrefix(result, prefixes);
+      return;
+    }
+
+    // All IPAddresses must be the same IP version
+    const bool isFirstIpV4 = isIPv4(std::get<0>(prefixes.front()));
+    for (size_t i = 1; i < prefixes.size(); i++) {
+      const bool isIpV4 = isIPv4(std::get<0>(prefixes[i]));
+      if (isFirstIpV4 != isIpV4) {
+        VELOX_USER_FAIL("All IPPREFIX elements must be the same IP version.");
+      }
+    }
+
+    auto mergedRanges = mergeIpRanges(prefixes);
+    const auto ipMaxBitLength =
+        isFirstIpV4 ? ipaddress::kIPV4Bits : ipaddress::kIPV6Bits;
+
+    for (auto& range : mergedRanges) {
+      writeIpPrefix(
+          result,
+          generateMinIpPrefixes(
+              std::get<0>(range), std::get<1>(range), ipMaxBitLength));
+    }
+  }
+
+ private:
+  FOLLY_ALWAYS_INLINE static void writeIpPrefix(
+      exec::ArrayWriter<IPPrefix>& writer,
+      const std::vector<std::tuple<int128_t, int8_t>>& ipprefixes) {
+    for (auto& ipprefix : ipprefixes) {
+      writer.add_item() = ipprefix;
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE static int64_t bitLength(int128_t num) {
+    // Handle the case when the number is zero
+    if (num == 0) {
+      return 0;
+    }
+
+    // Work with the absolute value of the number
+    uint128_t abs_num =
+        (num < 0) ? static_cast<uint128_t>(-num) : static_cast<uint128_t>(num);
+
+    // Find the position of the highest bit using logarithm (base 2)
+    return static_cast<int64_t>(std::log2(abs_num)) + 1;
+  }
+
+  FOLLY_ALWAYS_INLINE static int64_t getLowestSetBit(int128_t x) {
+    if (x == 0) {
+      return -1; // No set bits
+    }
+
+    // Check the lower 64 bits
+    static constexpr uint64_t mask = 0xFFFFFFFFFFFFFFFF;
+    if (x & mask) {
+      return __builtin_ctzll(x & mask);
+    }
+
+    // Check the upper 64 bits
+    return __builtin_ctzll(x >> 64) + 64;
+  }
+
+  FOLLY_ALWAYS_INLINE static int64_t findRangeBits(
+      int128_t firstIpAddress,
+      int128_t lastIpAddress) {
+    // The number of IP addresses in the range
+    constexpr int128_t kOne = 1;
+    const int128_t ipCount = lastIpAddress - firstIpAddress + kOne;
+
+    // We have two possibilities for determining the right prefix boundary
+
+    // Case 1. Find the largest possible prefix that firstIpAddress can be.
+    //     Say we have an input range of 192.168.0.0 to 192.184.0.0.
+    //     The number of IP addresses in the range is 1048576 = 2^20, so we
+    //     would need a /12 (32-20). to cover that many IP addresses but the
+    //     largest valid prefix that can start from 192.168.0.0 is /13.
+    const int64_t firstAddressMaxBits = getLowestSetBit(firstIpAddress);
+
+    // Case 2. Find the largest prefix length to cover N IP addresses.
+    //     The number of IP addresses within a valid prefix must be a power of 2
+    //     but the IP count in our IP ranges may not be a power of 2. If it
+    //     isn't exactly a power of 2, we find the highest power of 2 that the
+    //     doesn't overrun the ipCount.
+
+    // If ipCount's bitLength is greater than the number of IP addresses (i.e.,
+    // not a power of 2), then use 1 bit less.
+    const int64_t ipCountBitLength = bitLength(ipCount);
+
+    const int128_t numIpAddress = static_cast<int128_t>(1) << ipCountBitLength;
+    const int64_t ipRangeMaxBits =
+        numIpAddress > ipCount ? ipCountBitLength - 1 : ipCountBitLength;
+    return std::min(firstAddressMaxBits, ipRangeMaxBits);
+  }
+
+  FOLLY_ALWAYS_INLINE static std::vector<std::tuple<int128_t, int8_t>>
+  generateMinIpPrefixes(
+      int128_t firstIpAddress,
+      int128_t lastIpAddress,
+      uint32_t ipVersionMaxBits) {
+    std::vector<std::tuple<int128_t, int8_t>> ipPrefixSlices;
+    // i.e., while firstIpAddress <= lastIpAddress
+    while (IPADDRESS()->compare(firstIpAddress, lastIpAddress) <= 0) {
+      // find the number of bits for the next prefix in the range
+      const auto rangeBits = findRangeBits(firstIpAddress, lastIpAddress);
+
+      const auto prefixLength = ipVersionMaxBits - rangeBits;
+
+      VELOX_USER_CHECK(
+          prefixLength >= 0 && prefixLength <= ipVersionMaxBits,
+          fmt::format(
+              "Recieved invalid ipprefix:{} prefix length: {}",
+              firstIpAddress,
+              prefixLength));
+
+      ipPrefixSlices.emplace_back(firstIpAddress, prefixLength);
+
+      int128_t ipCount = static_cast<int128_t>(1)
+          << static_cast<int128_t>(ipVersionMaxBits - prefixLength);
+      firstIpAddress += ipCount;
+    }
+    return ipPrefixSlices;
+  }
+
+  FOLLY_ALWAYS_INLINE static std::vector<std::pair<int128_t, int128_t>>
+  mergeIpRanges(const std::vector<std::tuple<int128_t, int8_t>>& prefixes) {
+    std::vector<std::pair<int128_t, int128_t>> mergedRanges;
+    mergedRanges.reserve(prefixes.size());
+
+    int128_t firstIpAddress = std::get<0>(prefixes.front());
+    int128_t lastIpAddress = getIPSubnetMax(
+        std::get<0>(prefixes.front()), std::get<1>(prefixes.front()));
+
+    /*
+      There are four cases to cover for two IP ranges where range1.startIp <=
+      range2.startIp
+
+      1. Could be equal/duplicates.
+          [-------]
+          [-------]
+          In this case, we just ignore the second one.
+
+      2. Second could be subnet/contained within first.
+          [-------]  OR  [-------]  OR  [-------]
+            [---]        [----]            [----]
+          In this case we ignore the second one.
+
+      3. Second could be adjacent/contiguous with the first.
+          [-------]
+                    [-------]
+          In this case we extend the range to include the last IP address of the
+          second one.
+
+      4. Second can be disjoint from the first.
+          [-------]
+                      [-------]
+          In this case the first range is finalized, and the second range
+          becomes the current one.
+    */
+
+    for (size_t i = 1; i < prefixes.size(); i++) {
+      int128_t nextFirstIpAddress = std::get<0>(prefixes[i]);
+      int128_t nextLastIpAddress =
+          getIPSubnetMax(std::get<0>(prefixes[i]), std::get<1>(prefixes[i]));
+
+      // If nextFirstIpAddress <= lastIpAddress then there is overlap.
+      // However, based on the properties of the input sorted array, this will
+      // always mean that the next* range is a subnet of [firstIpAddress,
+      // lastIpAddress]. We just ignore these prefixes since they are already
+      // covered (case 1 and case 2).
+      //
+      // i.e. nextFirstIpAddress > lastIpAddress -- the next range does not
+      // overlap the first
+      if (IPADDRESS()->compare(lastIpAddress, nextFirstIpAddress) < 0) {
+        // If they are not contiguous (case 4), finalize the range.
+        // Otherwise, extend the current range (case 3).
+        if (IPADDRESS()->compare(
+                lastIpAddress + static_cast<int128_t>(1), nextFirstIpAddress) !=
+            0) {
+          mergedRanges.emplace_back(firstIpAddress, lastIpAddress);
+          firstIpAddress = nextFirstIpAddress;
+        }
+        lastIpAddress = nextLastIpAddress;
+      }
+    }
+
+    mergedRanges.emplace_back(firstIpAddress, lastIpAddress);
+    return mergedRanges;
+  }
+};
+
 void registerIPAddressFunctions(const std::string& prefix) {
   registerIPAddressType();
   registerIPPrefixType();
@@ -196,6 +428,8 @@ void registerIPAddressFunctions(const std::string& prefix) {
       {prefix + "is_subnet_of"});
   registerFunction<IPSubnetOfFunction, bool, IPPrefix, IPPrefix>(
       {prefix + "is_subnet_of"});
+  registerFunction<IPPrefixCollapseFunction, Array<IPPrefix>, Array<IPPrefix>>(
+      {prefix + "ip_prefix_collapse"});
 }
 
 } // namespace facebook::velox::functions

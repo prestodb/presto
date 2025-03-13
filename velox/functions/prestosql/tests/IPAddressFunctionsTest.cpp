@@ -16,6 +16,8 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/functions/prestosql/types/IPPrefixType.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::functions::prestosql {
 class IPAddressFunctionsTest : public functions::test::FunctionBaseTest {
@@ -290,6 +292,261 @@ TEST_F(IPAddressFunctionsTest, IPSubnetOfIPPrefix) {
       isSubnetOfIPPrefix("2804:431:b000::/38", "2804:431:b000::/37"), false);
   EXPECT_EQ(isSubnetOfIPPrefix("170.0.52.0/22", "170.0.52.0/24"), true);
   EXPECT_EQ(isSubnetOfIPPrefix("170.0.52.0/24", "170.0.52.0/22"), false);
+}
+
+TEST_F(IPAddressFunctionsTest, IPPrefixCollapseTest) {
+  auto makeIPPrefixFunc =
+      [](const std::string& ipprefix) -> std::tuple<int128_t, int8_t> {
+    auto ret = ipaddress::tryParseIpPrefixString(ipprefix);
+    return std::make_tuple(ret->first, ret->second);
+  };
+
+  // Test cannot order by a single null element
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{std::nullopt}};
+    VELOX_ASSERT_THROW(
+        evaluate(
+            "ip_prefix_collapse(c0)",
+            makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())})),
+        "ip_prefix_collapse does not support null elements");
+  }
+
+  // Test edge case where we have ipv4 between two ipv6 addresses after sorting
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("2200::/64"),
+          makeIPPrefixFunc("1.1.1.1/32"),
+          makeIPPrefixFunc("::1/32")}};
+    VELOX_ASSERT_THROW(
+        evaluate(
+            "ip_prefix_collapse(c0)",
+            makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())})),
+        "All IPPREFIX elements must be the same IP version.");
+  }
+
+  // Test that single element case
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("192.168.1.0/24")}};
+    auto ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    auto expected = vectorMaker_.arrayOfRowVector(data, IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+
+    data = {{makeIPPrefixFunc("2804:431:b000::/38")}};
+    ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    expected = vectorMaker_.arrayOfRowVector(data, IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+  }
+
+  // Test a single null element with non-null elements
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("192.168.1.0/24"), std::nullopt}};
+    VELOX_ASSERT_THROW(
+        evaluate(
+            "ip_prefix_collapse(c0)",
+            makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())})),
+        "ip_prefix_collapse does not support null elements");
+  }
+
+  // Test empty case
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{}};
+    auto ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    auto expected = vectorMaker_.arrayOfRowVector(data, IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+  }
+
+  // Test different IP version case
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("192.168.0.0/22"),
+          makeIPPrefixFunc("2409:4043:251a:d200::/56")}};
+    VELOX_ASSERT_THROW(
+        evaluate(
+            "ip_prefix_collapse(c0)",
+            makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())})),
+        "All IPPREFIX elements must be the same IP version.");
+  }
+
+  // Basic IPV6 test
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("2620:10d:c090::/48"),
+          makeIPPrefixFunc("2620:10d:c091::/48")}};
+    auto ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    auto expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("2620:10d:c090::/47")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+
+    data = {
+        {makeIPPrefixFunc("2804:13c:4d6:e200::/56"),
+         makeIPPrefixFunc("2804:13c:4d6:dd00::/56"),
+         makeIPPrefixFunc("2804:13c:4d6:dc00::/56"),
+         makeIPPrefixFunc("2804:13c:4d6:de00::/56")}};
+    ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("2804:13c:4d6:dc00::/55"),
+             makeIPPrefixFunc("2804:13c:4d6:de00::/56"),
+             makeIPPrefixFunc("2804:13c:4d6:e200::/56")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+  }
+
+  // Test collapse single IPv4s
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("192.168.0.1/32"),
+          makeIPPrefixFunc("192.168.33.1/32")}};
+    auto ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    auto expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("192.168.0.1/32"),
+             makeIPPrefixFunc("192.168.33.1/32")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+  }
+
+  // Test collapse single IPv6s
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("2620:10d:c090:400::5:a869/128"),
+          makeIPPrefixFunc("2620:10d:c091:400::5:a869/128")}};
+    auto ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    auto expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("2620:10d:c090:400::5:a869/128"),
+             makeIPPrefixFunc("2620:10d:c091:400::5:a869/128")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+  }
+
+  // Test same ipprefix
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("192.168.0.0/22")}};
+    auto ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    auto expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("192.168.0.0/22")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+  }
+
+  // Test overlapping prefixes
+  {
+    std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>> data =
+        {{makeIPPrefixFunc("192.168.0.0/22"),
+          makeIPPrefixFunc("192.168.0.0/24")}};
+    auto ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    auto expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("192.168.0.0/22")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+
+    data = {
+        {makeIPPrefixFunc("192.168.0.0/22"),
+         makeIPPrefixFunc("192.168.2.0/24")}};
+    ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("192.168.0.0/22")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+
+    data = {
+        {makeIPPrefixFunc("192.168.0.0/22"),
+         makeIPPrefixFunc("192.168.3.0/24")}};
+    ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("192.168.0.0/22")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+
+    data = {
+        {makeIPPrefixFunc("10.0.64.0/18"),
+         makeIPPrefixFunc("10.2.0.0/15"),
+         makeIPPrefixFunc("10.0.0.0/8"),
+         makeIPPrefixFunc("11.0.0.0/8"),
+         makeIPPrefixFunc("172.168.32.0/20"),
+         makeIPPrefixFunc("172.168.0.0/18")}};
+    ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("10.0.0.0/7"),
+             makeIPPrefixFunc("172.168.0.0/18")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+
+    data = {{makeIPPrefixFunc("10.0.0.0/8"), makeIPPrefixFunc("10.0.0.0/7")}};
+    ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("10.0.0.0/7")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+
+    data = {
+        {makeIPPrefixFunc("192.168.0.0/24"),
+         makeIPPrefixFunc("192.168.1.0/24")}};
+    ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("192.168.0.0/23")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+
+    data = {
+        {makeIPPrefixFunc("192.168.1.0/24"),
+         makeIPPrefixFunc("192.168.0.0/24"),
+         makeIPPrefixFunc("192.168.2.0/24"),
+         makeIPPrefixFunc("192.168.9.0/24")}};
+    ret = evaluate(
+        "ip_prefix_collapse(c0)",
+        makeRowVector({vectorMaker_.arrayOfRowVector(data, IPPREFIX())}));
+    expected = vectorMaker_.arrayOfRowVector(
+        std::vector<std::vector<std::optional<std::tuple<int128_t, int8_t>>>>{
+            {makeIPPrefixFunc("192.168.0.0/23"),
+             makeIPPrefixFunc("192.168.2.0/24"),
+             makeIPPrefixFunc("192.168.9.0/24")}},
+        IPPREFIX());
+    ::facebook::velox::test::assertEqualVectors(ret, expected);
+  }
 }
 
 } // namespace facebook::velox::functions::prestosql
