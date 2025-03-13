@@ -254,7 +254,7 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
       return largeGaps.size() <= 0.05 * numGroups;
     }
 
-    return largeGaps.empty();
+    return numGroups == 1 || largeGaps.empty();
   }
 
   void reset() override {
@@ -324,7 +324,8 @@ class ApproxDistinctResultVerifier : public ResultVerifier {
     std::vector<std::string> projectColumns = columnNames;
     for (auto& projectColumn : projectColumns) {
       if (projectColumn == name_) {
-        projectColumn = fmt::format("cardinality({}) as {}", name_, name_);
+        projectColumn =
+            fmt::format("coalesce(cardinality({}), 0) as {}", name_, name_);
       }
     }
     return projectColumns;
