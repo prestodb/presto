@@ -23,18 +23,18 @@ namespace facebook::velox::dwio::common {
 template <typename T>
 inline void ensureCapacity(
     BufferPtr& data,
-    size_t capacity,
+    size_t numElements,
     velox::memory::MemoryPool* pool,
     bool preserveOldData = false,
     bool clearBits = false) {
   size_t oldSize = 0;
+  size_t newCapacity = BaseVector::byteSize<T>(numElements);
   if (!data) {
-    data = AlignedBuffer::allocate<T>(capacity, pool);
+    data = AlignedBuffer::allocate<T>(numElements, pool);
   } else {
     oldSize = data->size();
-    if (!data->isMutable() ||
-        data->capacity() < BaseVector::byteSize<T>(capacity)) {
-      auto newData = AlignedBuffer::allocate<T>(capacity, pool);
+    if (!data->isMutable() || data->capacity() < newCapacity) {
+      auto newData = AlignedBuffer::allocate<T>(numElements, pool);
       if (preserveOldData) {
         std::memcpy(
             newData->template asMutable<uint8_t>(),
@@ -45,9 +45,11 @@ inline void ensureCapacity(
     }
   }
 
-  if (clearBits) {
+  if (clearBits && newCapacity > oldSize) {
     std::memset(
-        (void*)(data->asMutable<int8_t>() + oldSize), 0L, capacity - oldSize);
+        (void*)(data->asMutable<int8_t>() + oldSize),
+        0L,
+        newCapacity - oldSize);
   }
 }
 
