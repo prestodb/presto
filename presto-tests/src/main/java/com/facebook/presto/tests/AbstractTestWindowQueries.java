@@ -1016,7 +1016,7 @@ public abstract class AbstractTestWindowQueries
     }
 
     @Test
-    public void testEmptyFrame()
+    public void testEmptyFrameIntegralBounds()
     {
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a DESC NULLS LAST RANGE BETWEEN 1 PRECEDING AND 10 PRECEDING) " +
                         "FROM (VALUES 1, 2, 3, null, null, 2, 1, null, null) T(a)",
@@ -1044,6 +1044,23 @@ public abstract class AbstractTestWindowQueries
                         "ARRAY[null, null, null, null], " +
                         "ARRAY[null, null, null, null]");
 
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
+                        "FROM (VALUES 1, 2) T(a)",
+                "VALUES " +
+                        "null, " +
+                        "ARRAY[1]");
+
+        assertQuery("SELECT array_agg(a) OVER(ORDER BY a NULLS FIRST RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
+                        "FROM (VALUES null, 1, 2) T(a)",
+                "VALUES " +
+                        "ARRAY[null], " +
+                        "null, " +
+                        "ARRAY[1]");
+    }
+
+    @Test
+    public void testEmptyFrameMixedBounds()
+    {
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN 0.5 FOLLOWING AND 1.5 FOLLOWING) " +
                         "FROM (VALUES 1, 2, 4) T(a)",
                 "VALUES " +
@@ -1076,19 +1093,6 @@ public abstract class AbstractTestWindowQueries
                         "ARRAY[cast(null as decimal(2,1))], " +
                         "null, " +
                         "null");
-
-        assertQuery("SELECT array_agg(a) OVER(ORDER BY a RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
-                        "FROM (VALUES 1, 2) T(a)",
-                "VALUES " +
-                        "null, " +
-                        "ARRAY[1]");
-
-        assertQuery("SELECT array_agg(a) OVER(ORDER BY a NULLS FIRST RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING) " +
-                        "FROM (VALUES null, 1, 2) T(a)",
-                "VALUES " +
-                        "ARRAY[null], " +
-                        "null, " +
-                        "ARRAY[1]");
 
         assertQuery("SELECT array_agg(a) OVER(ORDER BY a NULLS FIRST RANGE BETWEEN 2 PRECEDING AND 1.5 PRECEDING) " +
                         "FROM (VALUES null, 1, 2) T(a)",
