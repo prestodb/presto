@@ -315,7 +315,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
   reclaimable used capacity is less than this threshold. This is to
   prevent inefficient memory reclaim operations on a participant with
   small reclaimable used capacity, which could cause a large number of
-  small spilled file on disk.
+  small spilled files on disk.
 
 ``shared-arbitrator.memory-reclaim-threads-hw-multiplier``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
