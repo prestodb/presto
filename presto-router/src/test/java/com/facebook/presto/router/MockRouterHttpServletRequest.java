@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.server;
+package com.facebook.presto.router;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -44,36 +44,21 @@ import static java.util.Collections.emptyEnumeration;
 import static java.util.Collections.enumeration;
 import static java.util.Objects.requireNonNull;
 
-public class MockHttpServletRequest
+public class MockRouterHttpServletRequest
         implements HttpServletRequest
 {
-    private static final String DEFAULT_ADDRESS = "127.0.0.1";
     private final ListMultimap<String, String> headers;
     private final String remoteAddress;
     private final Map<String, Object> attributes;
 
     private final String requestUrl;
 
-    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, String requestUrl)
-    {
-        this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
-        this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
-        this.requestUrl = requireNonNull(requestUrl, "requestUrl is null");
-        this.attributes = ImmutableMap.of();
-    }
-
-    public MockHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Map<String, Object> attributes)
+    public MockRouterHttpServletRequest(ListMultimap<String, String> headers, String remoteAddress, Map<String, Object> attributes)
     {
         this.headers = ImmutableListMultimap.copyOf(requireNonNull(headers, "headers is null"));
         this.remoteAddress = requireNonNull(remoteAddress, "remoteAddress is null");
         this.requestUrl = null;
         this.attributes = ImmutableMap.copyOf(requireNonNull(attributes, "attributes is null"));
-    }
-
-    public MockHttpServletRequest(ListMultimap<String, String> headers)
-    {
-        // Default remoteAddress and empty attributes
-        this(headers, DEFAULT_ADDRESS, ImmutableMap.of());
     }
 
     @Override
