@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.RouterConfig;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.SchedulerFactory;
-import com.facebook.presto.router.scheduler.SchedulerType;
 import com.facebook.presto.router.spec.GroupSpec;
 import com.facebook.presto.router.spec.RouterSpec;
 import com.facebook.presto.router.spec.SelectorRuleSpec;
@@ -43,7 +42,6 @@ import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +50,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.facebook.airlift.concurrent.Threads.threadsNamed;
@@ -68,31 +65,26 @@ public class ClusterManager
 {
     private Map<String, GroupSpec> groups;
     private List<SelectorRuleSpec> groupSelectors;
-    private SchedulerType schedulerType;
     private Scheduler scheduler;
     private HashMap<String, HashMap<URI, Integer>> serverWeights = new HashMap<>();
     private HashMap<URI, URI> discoveryURIs = new HashMap<>();
     public final RouterConfig routerConfig;
-    private final ScheduledExecutorService scheduledExecutorService;
-    private final AtomicLong lastConfigUpdate = new AtomicLong();
     private final RemoteInfoFactory remoteInfoFactory;
     private final Logger log = Logger.get(ClusterManager.class);
 
     // Cluster status
-    private static Duration pollingInterval = Duration.ofSeconds(5);
+    private static Duration pollingInterval;
     private final ConcurrentHashMap<URI, RemoteClusterInfo> remoteClusterInfos = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<URI, RemoteQueryInfo> remoteQueryInfos = new ConcurrentHashMap<>();
 
     @Inject
-    public ClusterManager(RouterConfig config, @ForClusterManager ScheduledExecutorService scheduledExecutorService, RemoteInfoFactory remoteInfoFactory, RemoteStateConfig remoteStateConfig)
+    public ClusterManager(RouterConfig config, RemoteInfoFactory remoteInfoFactory, RemoteStateConfig remoteStateConfig)
     {
         this.routerConfig = config;
-        this.scheduledExecutorService = scheduledExecutorService;
         RouterSpec routerSpec = parseRouterConfig(config)
                 .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
         this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
         this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
-        this.schedulerType = routerSpec.getSchedulerType();
         this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
         this.remoteInfoFactory = requireNonNull(remoteInfoFactory, "remoteInfoFactory is null");
         this.initializeServerWeights();
@@ -133,7 +125,6 @@ public class ClusterManager
                                     .orElseThrow(() -> new PrestoException(CONFIGURATION_INVALID, "Failed to load router config"));
                             this.groups = ImmutableMap.copyOf(routerSpec.getGroups().stream().collect(toMap(GroupSpec::getName, group -> group)));
                             this.groupSelectors = ImmutableList.copyOf(routerSpec.getSelectors());
-                            this.schedulerType = routerSpec.getSchedulerType();
                             this.scheduler = new SchedulerFactory(routerSpec.getSchedulerType()).create();
                             this.initializeServerWeights();
                             this.initializeMembersDiscoveryURI();
@@ -190,7 +181,7 @@ public class ClusterManager
                 .collect(Collectors.toList());
 
         if (healthyClusterURIs.isEmpty()) {
-            log.info("healthy cluster not found");
+            log.info("No healthy clusters found");
             return Optional.empty();
         }
 
@@ -230,13 +221,6 @@ public class ClusterManager
         });
     }
 
-    public void refreshHealthStatuses()
-    {
-        List<RemoteState> remoteStates = new ArrayList<>(remoteClusterInfos.values());
-        remoteStates.addAll(remoteQueryInfos.values());
-        remoteStates.forEach(RemoteState::asyncRefresh);
-    }
-
     public ConcurrentHashMap<URI, RemoteClusterInfo> getRemoteClusterInfos()
     {
         return remoteClusterInfos;
@@ -255,9 +239,7 @@ public class ClusterManager
         private final ScheduledExecutorService queryInfoUpdateExecutor;
 
         @Inject
-        public ClusterStatusTracker(
-                ClusterManager clusterManager,
-                RemoteInfoFactory remoteInfoFactory)
+        public ClusterStatusTracker(ClusterManager clusterManager)
         {
             this.clusterManager = requireNonNull(clusterManager, "clusterManager is null");
             this.queryInfoUpdateExecutor = newSingleThreadScheduledExecutor(threadsNamed("query-info-poller-%s"));

@@ -90,7 +90,6 @@ public class TestClusterManager
 
         Injector injector = app.doNotInitializeLogging()
                 .setRequiredConfigurationProperty("router.config-file", configFile.getAbsolutePath())
-                .setRequiredConfigurationProperty("presto.version", "testversion")
                 .quiet().initialize();
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
@@ -146,20 +145,16 @@ public class TestClusterManager
         String originalConfigContent = new String(Files.readAllBytes(configFilePath));
         String modifiedConfigContent = originalConfigContent.replaceAll("\"members\"\\s*:\\s*\\[.*?\\]", "\"members\": []");
 
-        FileOutputStream fos = new FileOutputStream(configFile, false);
-        fos.write(modifiedConfigContent.getBytes());
-        fos.flush();
-        fos.getFD().sync();
-        fos.close();
+        try (FileOutputStream fos = new FileOutputStream(configFile, false)) {
+            fos.write(modifiedConfigContent.getBytes());
+        }
         Thread.sleep(3000);
 
         assertEquals(clusterManager.getAllClusters().size(), 0);
 
-        fos = new FileOutputStream(configFile, false);
-        fos.write(originalConfigContent.getBytes());
-        fos.flush();
-        fos.getFD().sync();
-        fos.close();
+        try (FileOutputStream fos = new FileOutputStream(configFile, false)) {
+            fos.write(originalConfigContent.getBytes());
+        }
         Thread.sleep(3000);
 
         assertEquals(clusterManager.getAllClusters().size(), 3);

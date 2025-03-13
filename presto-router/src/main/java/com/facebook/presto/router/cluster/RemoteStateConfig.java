@@ -19,11 +19,13 @@ import com.facebook.airlift.configuration.ConfigDescription;
 import javax.validation.constraints.NotNull;
 
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 
 public class RemoteStateConfig
 {
-    private Duration clusterUnhealthyTimeout;
-    private Duration pollingInterval;
+    private Duration clusterUnhealthyTimeout = Duration.of(30, ChronoUnit.SECONDS);
+    private Duration pollingInterval = Duration.of(5, ChronoUnit.SECONDS);
 
     @Config("router.remote-state.cluster-unhealthy-timeout")
     @ConfigDescription("The amount of that a cluster must remain unresponsive to health checks in order to be deemed \"unhealthy\"")

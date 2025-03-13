@@ -117,43 +117,37 @@ public class TestHealthChecks
         TestingPrestoServer server1 = prestoServers.get(1);
         TestingPrestoServer server2 = prestoServers.get(2);
 
-        List<URI> destinations = getDestinations(3);
-        assertTrue(destinations.contains(server0.getBaseUrl()));
-        assertTrue(destinations.contains(server1.getBaseUrl()));
-        assertTrue(destinations.contains(server2.getBaseUrl()));
+        List<URI> healthyDestinations = getDestinations(3); // Make at least 3 requests to get all possible healthy servers
+        assertTrue(healthyDestinations.contains(server0.getBaseUrl()));
+        assertTrue(healthyDestinations.contains(server1.getBaseUrl()));
+        assertTrue(healthyDestinations.contains(server2.getBaseUrl()));
 
         server0.stopResponding();
         while (clusterManager.getRemoteClusterInfos().get(server0.getBaseUrl()).isHealthy()) {
             Thread.sleep(1);
         }
 
-        destinations = getDestinations(3);
-        assertFalse(destinations.contains(server0.getBaseUrl()));
-        assertTrue(destinations.contains(server1.getBaseUrl()));
-        assertTrue(destinations.contains(server2.getBaseUrl()));
+        healthyDestinations = getDestinations(3);
+        assertFalse(healthyDestinations.contains(server0.getBaseUrl()));
+        assertTrue(healthyDestinations.contains(server1.getBaseUrl()));
+        assertTrue(healthyDestinations.contains(server2.getBaseUrl()));
 
         server0.startResponding();
         while (!clusterManager.getRemoteClusterInfos().get(server0.getBaseUrl()).isHealthy()) {
             Thread.sleep(1);
         }
 
-        destinations = getDestinations(3);
-        assertTrue(destinations.contains(server0.getBaseUrl()));
-        assertTrue(destinations.contains(server1.getBaseUrl()));
-        assertTrue(destinations.contains(server2.getBaseUrl()));
+        healthyDestinations = getDestinations(3);
+        assertTrue(healthyDestinations.contains(server0.getBaseUrl()));
+        assertTrue(healthyDestinations.contains(server1.getBaseUrl()));
+        assertTrue(healthyDestinations.contains(server2.getBaseUrl()));
     }
 
     private List<URI> getDestinations(int requests)
     {
         List<URI> destinations = new ArrayList<>();
         for (int i = 0; i < requests; i++) {
-            Optional<URI> destinationWrapper = getDestinationWrapper();
-            if (!destinationWrapper.isPresent()) {
-                destinations.add(URI.create("null"));
-            }
-            else {
-                destinations.add(destinationWrapper.get());
-            }
+            destinations.add(getDestinationWrapper().orElse(null));
         }
         return destinations;
     }

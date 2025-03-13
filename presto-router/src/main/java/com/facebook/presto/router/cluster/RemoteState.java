@@ -53,7 +53,7 @@ public abstract class RemoteState
     private final AtomicReference<Future<?>> future = new AtomicReference<>();
     private final AtomicLong lastUpdateNanos = new AtomicLong();
     private final AtomicLong lastWarningLogged = new AtomicLong();
-    private final java.time.Duration timeToUnhealthy;
+    private final java.time.Duration clusterUnhealthyTimeout;
 
     private boolean isHealthy = true;
     private Instant lastHealthyResponseTime = Instant.now();
@@ -63,7 +63,7 @@ public abstract class RemoteState
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.remoteUri = requireNonNull(remoteUri, "remoteUri is null");
-        this.timeToUnhealthy = remoteStateConfig.getClusterUnhealthyTimeout();
+        this.clusterUnhealthyTimeout = remoteStateConfig.getClusterUnhealthyTimeout();
     }
 
     public void handleResponse(JsonNode response) {}
@@ -82,7 +82,7 @@ public abstract class RemoteState
             lastWarningLogged.set(System.nanoTime());
         }
 
-        if (java.time.Duration.between(lastHealthyResponseTime, Instant.now()).compareTo(timeToUnhealthy) >= 0 && isHealthy) {
+        if (java.time.Duration.between(lastHealthyResponseTime, Instant.now()).compareTo(clusterUnhealthyTimeout) >= 0 && isHealthy) {
             isHealthy = false;
             log.warn("%s:%d marked as unhealthy", remoteUri.getHost(), remoteUri.getPort());
         }

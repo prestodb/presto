@@ -26,8 +26,6 @@ import com.facebook.presto.router.predictor.ForQueryMemoryPredictor;
 import com.facebook.presto.router.predictor.PredictorManager;
 import com.facebook.presto.router.predictor.RemoteQueryFactory;
 import com.facebook.presto.server.PluginManagerConfig;
-import com.facebook.presto.server.ServerConfig;
-import com.facebook.presto.server.WebUiResource;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.units.Duration;
@@ -59,17 +57,12 @@ public class RouterModule
     @Override
     protected void setup(Binder binder)
     {
-        ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
-
         httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
 
         configBinder(binder).bindConfig(RemoteStateConfig.class);
         configBinder(binder).bindConfigDefaults(RemoteStateConfig.class, config -> config.setClusterUnhealthyTimeout(java.time.Duration.ofSeconds(30)));
         configBinder(binder).bindConfigDefaults(RemoteStateConfig.class, config -> config.setPollingInterval(java.time.Duration.ofSeconds(5)));
-
-        // resource for serving static content
-        jaxrsBinder(binder).bind(WebUiResource.class);
 
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForClusterManager.class).toInstance(newSingleThreadScheduledExecutor(threadsNamed("cluster-config")));
 
