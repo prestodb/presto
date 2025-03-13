@@ -65,15 +65,13 @@ public class HiveMinIODataLake
 
         ImmutableMap.Builder filesToMount = ImmutableMap.<String, String>builder()
                 .putAll(hiveHadoopFilesToMount);
-        if (testType.equalsIgnoreCase("s3_insert")) {
-            String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
-            if (hiveHadoopImage == HIVE3_IMAGE) {
-                hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
-                filesToMount.put("hive_s3_insert_overwrite/hive-site.xml", "/opt/hive/conf/hive-site.xml");
-            }
-            filesToMount.put("hive_s3_insert_overwrite/hadoop-core-site.xml", hadoopCoreSitePath);
+        String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
+        if (hiveHadoopImage == HIVE3_IMAGE) {
+            hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
+            filesToMount.put("hive_s3_insert_overwrite/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
-        else if (testType.equalsIgnoreCase("hive_ssl")) {
+        filesToMount.put("hive_s3_insert_overwrite/hadoop-core-site.xml", hadoopCoreSitePath);
+        if (testType.equalsIgnoreCase("hive_ssl")) {
             filesToMount.put("hive_ssl_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
             filesToMount.put("hive_ssl_enable/hive-metastore.jks", "/opt/hive/conf/hive-metastore.jks");
             filesToMount.put("hive_ssl_enable/hive-metastore-truststore.jks", "/opt/hive/conf/hive-metastore-truststore.jks");

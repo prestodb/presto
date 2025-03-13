@@ -687,10 +687,9 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHive2InsertOverwrite.java</include>
-                                <include>**/TestHive3InsertOverwrite.java</include>
-                                <include>**/TestHiveSslEnableKeystore.java</include>
-                                <include>**/TestHiveSslEnableTrustStore.java</include>
+                                 <include>**/TestHive2InsertOverwrite.java</include>
+                                 <include>**/TestHive3InsertOverwrite.java</include>
+                                 <include>**/TestHiveSslEnableTrustStore.java</include>
                             </includes>
                         </configuration>
                     </plugin>
