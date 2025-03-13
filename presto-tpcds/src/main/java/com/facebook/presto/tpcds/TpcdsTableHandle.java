@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftTpcdsTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,6 +28,16 @@ public class TpcdsTableHandle
 {
     private final String tableName;
     private final double scaleFactor;
+
+    public TpcdsTableHandle(ThriftTpcdsTableHandle thriftHandle)
+    {
+        this(thriftHandle.getTableName(), thriftHandle.getScaleFactor());
+    }
+
+    public ThriftTpcdsTableHandle toThrift()
+    {
+        return new ThriftTpcdsTableHandle(tableName, scaleFactor);
+    }
 
     @JsonCreator
     public TpcdsTableHandle(@JsonProperty("tableName") String tableName, @JsonProperty("scaleFactor") double scaleFactor)

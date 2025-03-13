@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftDwrfEncryptionMetadata;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -21,12 +22,14 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_ENCRYPTION_METADATA;
 import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.STRUCT;
@@ -46,6 +49,23 @@ public class DwrfEncryptionMetadata
     private final Map<String, String> extraMetadata;
     private final String encryptionAlgorithm;
     private final String encryptionProvider;
+
+    public DwrfEncryptionMetadata(ThriftDwrfEncryptionMetadata thriftMetadata)
+    {
+        this(thriftMetadata.getFieldToKeyData().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey,
+                entry -> entry.getValue().array())), thriftMetadata.getExtraMetadata(), thriftMetadata.getEncryptionAlgorithm(), thriftMetadata.getEncryptionProvider());
+    }
+
+    public ThriftDwrfEncryptionMetadata toThrift()
+    {
+        return new ThriftDwrfEncryptionMetadata(
+                fieldToKeyData.entrySet().stream().collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> ByteBuffer.wrap(entry.getValue()))),
+                extraMetadata,
+                encryptionAlgorithm,
+                encryptionProvider);
+    }
 
     /**
      * Visible only for JSON deserialization. In code use {@link this#forPerField} or {@link this#forTable} methods.

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
+
 public interface ConnectorTableHandle
+        extends ThriftSerializable
 {
 }

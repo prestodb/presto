@@ -14,6 +14,10 @@
 
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftCreateHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftExecutionWriterTarget;
 import com.facebook.presto.metadata.DeleteTableHandle;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
@@ -23,6 +27,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,12 +43,25 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = ExecutionWriterTarget.UpdateHandle.class, name = "UpdateHandle")})
 @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
 public abstract class ExecutionWriterTarget
+        implements ThriftSerializable
 {
     public static class CreateHandle
             extends ExecutionWriterTarget
     {
         private final OutputTableHandle handle;
         private final SchemaTableName schemaTableName;
+
+        static {
+            ThriftSerializationRegistry.registerSerializer(CreateHandle.class, CreateHandle::toThrift, null);
+            ThriftSerializationRegistry.registerDeserializer(CreateHandle.class, ThriftCreateHandle.class, CreateHandle::deserialize, null);
+        }
+
+        public static CreateHandle newCreateHandle(ThriftCreateHandle thriftHandle)
+        {
+            OutputTableHandle outputTableHandle = new OutputTableHandle(thriftHandle.getHandle());
+            SchemaTableName schemaTableName = new SchemaTableName(thriftHandle.getSchemaTableName());
+            return new CreateHandle(outputTableHandle, schemaTableName);
+        }
 
         @JsonCreator
         public CreateHandle(
@@ -67,6 +88,41 @@ public abstract class ExecutionWriterTarget
         public String toString()
         {
             return handle.toString();
+        }
+
+        @Override
+        public ThriftExecutionWriterTarget toThriftInterface()
+        {
+            ThriftExecutionWriterTarget thriftTarget = new ThriftExecutionWriterTarget();
+
+            try {
+                thriftTarget.setType(this.getClass().getName());
+                TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+                thriftTarget.setSerializedTarget(serializer.serialize(this.toThrift()));
+            }
+            catch (TException e) {
+                throw new RuntimeException(e);
+            }
+            return thriftTarget;
+        }
+
+        @Override
+        public ThriftCreateHandle toThrift()
+        {
+            return new ThriftCreateHandle(handle.toThrift(), schemaTableName.toThrift());
+        }
+
+        public static CreateHandle deserialize(byte[] bytes)
+        {
+            try {
+                ThriftCreateHandle thriftHandle = new ThriftCreateHandle();
+                TDeserializer deserializer = new TDeserializer(new TJSONProtocol.Factory());
+                deserializer.deserialize(thriftHandle, bytes);
+                return newCreateHandle(thriftHandle);
+            }
+            catch (TException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

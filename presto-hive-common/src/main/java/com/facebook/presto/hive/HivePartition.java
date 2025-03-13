@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.ColumnHandleAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHivePartition;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SchemaTableName;
@@ -21,7 +23,9 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.predicate.NullableValue.createNullableValue;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartition
@@ -31,6 +35,15 @@ public class HivePartition
     private final SchemaTableName tableName;
     private final PartitionNameWithVersion partitionId;
     private final Map<ColumnHandle, NullableValue> keys;
+
+    public HivePartition(ThriftHivePartition thriftHivePartition)
+    {
+        this(new SchemaTableName(thriftHivePartition.getTableName()),
+                new PartitionNameWithVersion(thriftHivePartition.getPartitionId()),
+                thriftHivePartition.getKeys().entrySet().stream().collect(Collectors.toMap(
+                        entry -> (ColumnHandle) ColumnHandleAdapter.fromThrift(entry.getKey()),
+                        entry -> createNullableValue(entry.getValue()))));
+    }
 
     public HivePartition(SchemaTableName tableName)
     {

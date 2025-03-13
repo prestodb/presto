@@ -13,10 +13,19 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSortedRangeSet;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftValueSet;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -50,6 +59,45 @@ public final class SortedRangeSet
 {
     private final Type type;
     private final NavigableMap<Marker, Range> lowIndexedRanges;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(SortedRangeSet.class, SortedRangeSet::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(SortedRangeSet.class, ThriftSortedRangeSet.class, SortedRangeSet::deserialize, null);
+    }
+
+    public SortedRangeSet(ThriftSortedRangeSet thriftSet)
+    {
+        this((Type) TypeAdapter.fromThrift(thriftSet.getType()),
+                thriftSet.getLowIndexedRanges().entrySet().stream().collect(Collectors.toMap(
+                        entry -> new Marker(entry.getKey()),
+                        entry -> new Range(entry.getValue()),
+                        (v1, v2) -> v1,
+                        TreeMap::new)));
+    }
+
+    @Override
+    public ThriftSortedRangeSet toThrift()
+    {
+        return new ThriftSortedRangeSet((ThriftType) type.toThriftInterface(), lowIndexedRanges.entrySet().stream().collect(Collectors.toMap(
+                entry -> entry.getKey().toThrift(),
+                entry -> entry.getValue().toThrift())));
+    }
+
+    @Override
+    public ThriftValueSet toThriftInterface()
+    {
+        try {
+            ThriftValueSet thriftValueSet = new ThriftValueSet();
+            thriftValueSet.setType(this.getClass().getName());
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            thriftValueSet.setSerializedValueSet(serializer.serialize(this.toThrift()));
+
+            return thriftValueSet;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private SortedRangeSet(Type type, NavigableMap<Marker, Range> lowIndexedRanges)
     {
@@ -413,7 +461,7 @@ public final class SortedRangeSet
                                     boolean removeConstants = entry.getValue().getLow().getBound().equals(Marker.Bound.EXACTLY) && entry.getValue().getHigh().getBound().equals(Marker.Bound.EXACTLY);
                                     return entry.getValue().canonicalize(removeConstants);
                                 },
-                                (e1, e2) -> { throw new IllegalStateException(format("Duplicate key %s", e1)); },
+                                (e1, e2) -> {throw new IllegalStateException(format("Duplicate key %s", e1));},
                                 TreeMap::new)));
     }
 
@@ -497,6 +545,19 @@ public final class SortedRangeSet
             }
 
             return new SortedRangeSet(type, result);
+        }
+    }
+
+    public static SortedRangeSet deserialize(byte[] bytes)
+    {
+        try {
+            ThriftSortedRangeSet thriftSet = new ThriftSortedRangeSet();
+            TDeserializer deserializer = new TDeserializer(new TJSONProtocol.Factory());
+            deserializer.deserialize(thriftSet, bytes);
+            return new SortedRangeSet(thriftSet);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
         }
     }
 }

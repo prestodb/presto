@@ -13,8 +13,13 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 
 import java.util.List;
 import java.util.Objects;
@@ -27,6 +32,34 @@ public class HiveTableHandle
         extends BaseHiveTableHandle
 {
     private final Optional<List<List<String>>> analyzePartitionValues;
+
+    public HiveTableHandle(ThriftHiveTableHandle thriftHandle)
+    {
+        this(thriftHandle.getSchemaName(), thriftHandle.getTableName(), thriftHandle.getAnalyzePartitionValues());
+    }
+
+    @Override
+    public ThriftHiveTableHandle toThrift()
+    {
+        ThriftHiveTableHandle thriftHiveTableHandle = new ThriftHiveTableHandle(getSchemaName(), getTableName());
+        analyzePartitionValues.ifPresent(thriftHiveTableHandle::setAnalyzePartitionValues);
+        return thriftHiveTableHandle;
+    }
+
+    @Override
+    public ThriftConnectorTableHandle toThriftInterface()
+    {
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            ThriftConnectorTableHandle thriftHandle = new ThriftConnectorTableHandle();
+            thriftHandle.setType(getImplementationType());
+            thriftHandle.setSerializedConnectorTableHandle(serializer.serialize(this.toThrift()));
+            return thriftHandle;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @JsonCreator
     public HiveTableHandle(
@@ -85,5 +118,11 @@ public class HiveTableHandle
                 .add("tableName", getTableName())
                 .add("analyzePartitionValues", analyzePartitionValues)
                 .toString();
+    }
+
+    @Override
+    public String getImplementationType()
+    {
+        return "HIVE_HANDLE";
     }
 }

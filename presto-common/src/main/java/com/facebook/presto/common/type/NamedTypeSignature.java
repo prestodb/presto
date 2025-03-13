@@ -16,8 +16,11 @@ package com.facebook.presto.common.type;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftNamedTypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+
+import javax.validation.constraints.NotNull;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -30,6 +33,20 @@ public class NamedTypeSignature
 {
     private final Optional<RowFieldName> fieldName;
     private final TypeSignature typeSignature;
+
+    public NamedTypeSignature(@NotNull ThriftNamedTypeSignature thriftNamedTypeSignature)
+    {
+        this.fieldName = thriftNamedTypeSignature.getRowFieldName().map(RowFieldName::new);
+        this.typeSignature = new TypeSignature(thriftNamedTypeSignature.getTypeSignature());
+    }
+
+    public ThriftNamedTypeSignature toThrift()
+    {
+        ThriftNamedTypeSignature thriftNamedTypeSignature = new ThriftNamedTypeSignature(this.getTypeSignature().toThrift());
+        this.getFieldName().map(fieldName -> thriftNamedTypeSignature.setRowFieldName(fieldName.toThrift()));
+
+        return thriftNamedTypeSignature;
+    }
 
     @ThriftConstructor
     @JsonCreator

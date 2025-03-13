@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.tpcds;
 
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorSplit;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTpcdsSplit;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.NodeProvider;
@@ -20,9 +23,14 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -37,6 +45,44 @@ public class TpcdsSplit
     private final int partNumber;
     private final List<HostAddress> addresses;
     private final boolean noSexism;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(TpcdsSplit.class, TpcdsSplit::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(TpcdsSplit.class, ThriftTpcdsSplit.class, TpcdsSplit::deserialize, null);
+    }
+
+    public static TpcdsSplit createTpcdsSplit(ThriftTpcdsSplit thriftSplit)
+    {
+        return new TpcdsSplit(new TpcdsTableHandle(thriftSplit.getTableHandle()),
+                thriftSplit.getPartNumber(),
+                thriftSplit.getTotalParts(),
+                thriftSplit.getAddresses().stream().map(HostAddress::new).collect(Collectors.toList()),
+                thriftSplit.isNoSexism());
+    }
+
+    public ThriftTpcdsSplit toThrift()
+    {
+        return new ThriftTpcdsSplit(
+                tableHandle.toThrift(),
+                totalParts,
+                partNumber,
+                addresses.stream().map(HostAddress::toThrift).collect(Collectors.toList()),
+                noSexism);
+    }
+
+    public ThriftConnectorSplit toThriftInterface()
+    {
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            ThriftConnectorSplit thriftSplit = new ThriftConnectorSplit();
+            thriftSplit.setType(getImplementationType());
+            thriftSplit.setSerializedSplit(serializer.serialize(this.toThrift()));
+            return thriftSplit;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @JsonCreator
     public TpcdsSplit(
@@ -138,5 +184,18 @@ public class TpcdsSplit
                 .add("totalParts", totalParts)
                 .add("noSexism", noSexism)
                 .toString();
+    }
+
+    public static TpcdsSplit deserialize(byte[] bytes)
+    {
+        try {
+            ThriftTpcdsSplit thriftSplit = new ThriftTpcdsSplit();
+            TDeserializer deserializer = new TDeserializer(new TJSONProtocol.Factory());
+            deserializer.deserialize(thriftSplit, bytes);
+            return createTpcdsSplit(thriftSplit);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

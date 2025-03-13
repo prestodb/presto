@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftStorageFormat;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -35,6 +36,16 @@ public class StorageFormat
     private final String serDe;
     private final String inputFormat;
     private final String outputFormat;
+
+    public StorageFormat(ThriftStorageFormat thriftStorageFormat)
+    {
+        this(thriftStorageFormat.getSerDe(), thriftStorageFormat.getInputFormat(), thriftStorageFormat.getOutputFormat());
+    }
+
+    public ThriftStorageFormat toThrift()
+    {
+        return new ThriftStorageFormat(serDe, inputFormat, outputFormat);
+    }
 
     private StorageFormat(String serDe, String inputFormat, String outputFormat)
     {

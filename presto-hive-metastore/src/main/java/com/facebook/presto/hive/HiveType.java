@@ -13,6 +13,14 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
+import com.facebook.presto.common.experimental.TypeInfoAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftCharTypeInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftDecimalTypeInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHiveType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftPrimitiveTypeInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTypeInfo;
+import com.facebook.presto.common.experimental.auto_gen.ThriftVarcharTypeInfo;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
 import com.facebook.presto.common.type.StandardTypes;
@@ -33,6 +41,9 @@ import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.VarcharTypeInfo;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
@@ -76,6 +87,7 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfoFr
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils.getTypeInfosFromTypeString;
 
 public final class HiveType
+        implements ThriftSerializable
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(HiveType.class).instanceSize();
 
@@ -134,6 +146,39 @@ public final class HiveType
 
     private final HiveTypeName hiveTypeName;
     private final TypeInfo typeInfo;
+
+    public HiveType(ThriftHiveType thriftHiveType)
+    {
+        this((TypeInfo) TypeInfoAdapter.fromThrift(thriftHiveType.getTypeInfo()));
+    }
+
+    @Override
+    public ThriftHiveType toThrift()
+    {
+        ThriftTypeInfo thriftTypeInfo = new ThriftTypeInfo();
+        thriftTypeInfo.setType(typeInfo.getClass().getName());
+
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            if (typeInfo instanceof VarcharTypeInfo) {
+                thriftTypeInfo.setSerializedTypeInfo(serializer.serialize(new ThriftVarcharTypeInfo(((VarcharTypeInfo) typeInfo).getLength())));
+            }
+            else if (typeInfo instanceof DecimalTypeInfo) {
+                DecimalTypeInfo decimalTypeInfo = (DecimalTypeInfo) typeInfo;
+                thriftTypeInfo.setSerializedTypeInfo(serializer.serialize(new ThriftDecimalTypeInfo(decimalTypeInfo.getPrecision(), decimalTypeInfo.getScale())));
+            }
+            else if (typeInfo instanceof CharTypeInfo) {
+                thriftTypeInfo.setSerializedTypeInfo(serializer.serialize(new ThriftCharTypeInfo(((CharTypeInfo) typeInfo).getLength())));
+            }
+            else if (typeInfo instanceof PrimitiveTypeInfo) {
+                thriftTypeInfo.setSerializedTypeInfo(serializer.serialize(new ThriftPrimitiveTypeInfo(typeInfo.getTypeName())));
+            }
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+        return new ThriftHiveType(thriftTypeInfo);
+    }
 
     private HiveType(TypeInfo typeInfo)
     {

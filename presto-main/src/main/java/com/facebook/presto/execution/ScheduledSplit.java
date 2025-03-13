@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.experimental.auto_gen.ThriftScheduledSplit;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -27,6 +28,21 @@ public class ScheduledSplit
     private final long sequenceId;
     private final PlanNodeId planNodeId;
     private final Split split;
+
+    public ScheduledSplit(ThriftScheduledSplit thriftSplit)
+    {
+        this(thriftSplit.getSequenceId(),
+                new PlanNodeId(thriftSplit.getPlanNodeId()),
+                new Split(thriftSplit.getSplit()));
+    }
+
+    public ThriftScheduledSplit toThrift()
+    {
+        return new ThriftScheduledSplit(
+                this.getSequenceId(),
+                this.planNodeId.toString(),
+                this.split.toThrift());
+    }
 
     @JsonCreator
     public ScheduledSplit(

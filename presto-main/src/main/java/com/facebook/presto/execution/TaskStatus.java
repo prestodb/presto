@@ -16,19 +16,26 @@ package com.facebook.presto.execution;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTaskStatus;
+import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.execution.TaskState.PLANNED;
+import static com.facebook.presto.execution.TaskState.createTaskState;
+import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThriftStruct
@@ -78,6 +85,63 @@ public class TaskStatus
 
     private final long totalCpuTimeInNanos;
     private final long taskAgeInMillis;
+
+    public static TaskStatus createTaskStatus(ThriftTaskStatus thriftTaskStatus)
+    {
+        try {
+            return new TaskStatus(
+                    thriftTaskStatus.getTaskInstanceIdLeastSignificantBits(),
+                    thriftTaskStatus.getTaskInstanceIdMostSignificantBits(),
+                    thriftTaskStatus.getVersion(),
+                    createTaskState(thriftTaskStatus.getState()),
+                    new URI(thriftTaskStatus.getSelf()),
+                    thriftTaskStatus.getCompletedDriverGroups().stream().map(Lifespan::new).collect(Collectors.toSet()),
+                    thriftTaskStatus.getFailures().stream().map(ExecutionFailureInfo::new).collect(Collectors.toList()),
+                    thriftTaskStatus.getQueuedPartitionedDrivers(),
+                    thriftTaskStatus.getRunningPartitionedDrivers(),
+                    thriftTaskStatus.getOutputBufferUtilization(),
+                    thriftTaskStatus.outputBufferOverutilized,
+                    thriftTaskStatus.getPhysicalWrittenDataSizeInBytes(),
+                    thriftTaskStatus.getMemoryReservationInBytes(),
+                    thriftTaskStatus.getSystemMemoryReservationInBytes(),
+                    thriftTaskStatus.getPeakNodeTotalMemoryReservationInBytes(),
+                    thriftTaskStatus.getFullGcCount(),
+                    thriftTaskStatus.getFullGcTimeInMillis(),
+                    thriftTaskStatus.getTotalCpuTimeInNanos(),
+                    thriftTaskStatus.getTaskAgeInMillis(),
+                    thriftTaskStatus.getQueuedPartitionedSplitsWeight(),
+                    thriftTaskStatus.getRunningPartitionedSplitsWeight());
+        }
+        catch (URISyntaxException e) {
+            throw new PrestoException(SYNTAX_ERROR, format("Invalid URI string: %s", e.getMessage()));
+        }
+    }
+
+    public ThriftTaskStatus toThrift()
+    {
+        return new ThriftTaskStatus(
+                taskInstanceIdLeastSignificantBits,
+                taskInstanceIdMostSignificantBits,
+                version,
+                state.toThrift(),
+                self.toString(),
+                completedDriverGroups.stream().map(Lifespan::toThrift).collect(Collectors.toSet()),
+                failures.stream().map(ExecutionFailureInfo::toThrift).collect(Collectors.toList()),
+                queuedPartitionedDrivers,
+                runningPartitionedDrivers,
+                outputBufferUtilization,
+                outputBufferOverutilized,
+                physicalWrittenDataSizeInBytes,
+                memoryReservationInBytes,
+                systemMemoryReservationInBytes,
+                peakNodeTotalMemoryReservationInBytes,
+                fullGcCount,
+                fullGcTimeInMillis,
+                totalCpuTimeInNanos,
+                taskAgeInMillis,
+                queuedPartitionedSplitsWeight,
+                runningPartitionedSplitsWeight);
+    }
 
     @JsonCreator
     @ThriftConstructor

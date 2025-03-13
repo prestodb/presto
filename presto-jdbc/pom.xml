@@ -229,6 +229,8 @@
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                     <ignoredClassPatterns>
+                        <ignoredClassPattern>okhttp.internal.tls.DistinguishedNameParser</ignoredClassPattern>
+                        <ignoredClassPattern>okhttp.internal.tls.LegacyHostnameVerifier</ignoredClassPattern>
                         <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>
                         <ignoredClassPattern>module-info</ignoredClassPattern>
                         <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>

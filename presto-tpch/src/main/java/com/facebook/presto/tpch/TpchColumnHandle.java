@@ -13,10 +13,19 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.TypeAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftColumnHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftTpchColumnHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
 
 import java.util.Objects;
 
@@ -27,6 +36,16 @@ public class TpchColumnHandle
 {
     private final String columnName;
     private final Type type;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(TpchColumnHandle.class, TpchColumnHandle::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(TpchColumnHandle.class, ThriftTpchColumnHandle.class, TpchColumnHandle::deserialize, null);
+    }
+
+    public TpchColumnHandle(ThriftTpchColumnHandle thriftHandle)
+    {
+        this(thriftHandle.columnName, (Type) TypeAdapter.fromThrift(thriftHandle.getType()));
+    }
 
     @JsonCreator
     public TpchColumnHandle(
@@ -72,5 +91,51 @@ public class TpchColumnHandle
     public int hashCode()
     {
         return Objects.hash(columnName);
+    }
+
+    @Override
+    public ThriftColumnHandle toThriftInterface()
+    {
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            ThriftColumnHandle thriftHandle = new ThriftColumnHandle();
+            thriftHandle.setType(getImplementationType());
+            thriftHandle.setSerializedHandle(serializer.serialize(this.toThrift()));
+            return thriftHandle;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ThriftTpchColumnHandle toThrift()
+    {
+        return new ThriftTpchColumnHandle(columnName, (ThriftType) type.toThriftInterface());
+    }
+
+    public static TpchColumnHandle deserialize(byte[] bytes)
+    {
+        try {
+            ThriftTpchColumnHandle thriftHandle = new ThriftTpchColumnHandle();
+            TDeserializer deserializer = new TDeserializer(new TJSONProtocol.Factory());
+            deserializer.deserialize(thriftHandle, bytes);
+            return new TpchColumnHandle(thriftHandle);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static byte[] serialize(TpchColumnHandle tpchColumnHandle)
+    {
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            byte[] result = serializer.serialize(tpchColumnHandle.toThrift());
+            return result;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

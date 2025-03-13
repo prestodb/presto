@@ -16,6 +16,7 @@ package com.facebook.presto.spi.function;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftLongVariableConstraint;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -26,6 +27,16 @@ public class LongVariableConstraint
 {
     private final String name;
     private final String expression;
+
+    public LongVariableConstraint(ThriftLongVariableConstraint thriftConstraint)
+    {
+        this(thriftConstraint.getName(), thriftConstraint.getExpression());
+    }
+
+    public ThriftLongVariableConstraint toThrift()
+    {
+        return new ThriftLongVariableConstraint(name, expression);
+    }
 
     @ThriftConstructor
     @JsonCreator

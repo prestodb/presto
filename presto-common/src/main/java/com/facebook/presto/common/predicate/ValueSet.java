@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.experimental.ThriftSerializable;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
@@ -32,6 +33,7 @@ import static java.util.stream.Collectors.toList;
         @JsonSubTypes.Type(value = SortedRangeSet.class, name = "sortable"),
         @JsonSubTypes.Type(value = AllOrNoneValueSet.class, name = "allOrNone")})
 public interface ValueSet
+        extends ThriftSerializable
 {
     static ValueSet none(Type type)
     {
@@ -158,13 +160,13 @@ public interface ValueSet
 
     /**
      * @return A canonicalized ValueSet with a consistent representation.
-     *
+     * <p>
      * When removeSafeConstants is true, we return a ValueSet with all point constants removed,
      * and range constants are kept.
      * Example:
      * `x = 1` is equivalent to `x = 1000`
      * `x >= 1` is NOT equivalent to `x >= 1000`
-     *
+     * <p>
      * All types and bounds information is preserved.
      */
     ValueSet canonicalize(boolean removeSafeConstants);

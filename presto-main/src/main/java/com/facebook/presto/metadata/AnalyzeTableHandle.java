@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.experimental.ConnectorTableHandleAdapter;
+import com.facebook.presto.common.experimental.ConnectorTransactionHandleAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftAnalyzeTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTableHandle;
+import com.facebook.presto.common.experimental.auto_gen.ThriftConnectorTransactionHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -28,6 +33,21 @@ public class AnalyzeTableHandle
     private final ConnectorId connectorId;
     private final ConnectorTransactionHandle transactionHandle;
     private final ConnectorTableHandle connectorHandle;
+
+    public AnalyzeTableHandle(ThriftAnalyzeTableHandle thriftHandle)
+    {
+        this(new ConnectorId(thriftHandle.getConnectorId()),
+                (ConnectorTransactionHandle) ConnectorTransactionHandleAdapter.fromThrift(thriftHandle.getTransactionHandle()),
+                (ConnectorTableHandle) ConnectorTableHandleAdapter.fromThrift(thriftHandle.getConnectorHandle()));
+    }
+
+    public ThriftAnalyzeTableHandle toThrift()
+    {
+        return new ThriftAnalyzeTableHandle(
+                connectorId.toString(),
+                (ThriftConnectorTransactionHandle) transactionHandle.toThriftInterface(),
+                (ThriftConnectorTableHandle) connectorHandle.toThriftInterface());
+    }
 
     @JsonCreator
     public AnalyzeTableHandle(

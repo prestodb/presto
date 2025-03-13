@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.presto.common.experimental.ValueSetAdapter;
+import com.facebook.presto.common.experimental.auto_gen.ThriftDomain;
+import com.facebook.presto.common.experimental.auto_gen.ThriftValueSet;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -43,10 +46,22 @@ public final class Domain
     private final ValueSet values;
     private final boolean nullAllowed;
 
+    public Domain(ThriftDomain thriftDomain)
+    {
+        this((ValueSet) ValueSetAdapter.fromThrift(thriftDomain.getValueSet()), thriftDomain.isNullAllowed());
+    }
+
     private Domain(ValueSet values, boolean nullAllowed)
     {
         this.values = requireNonNull(values, "values is null");
         this.nullAllowed = nullAllowed;
+    }
+
+    public ThriftDomain toThrift()
+    {
+        return new ThriftDomain(
+                (ThriftValueSet) values.toThriftInterface(),
+                nullAllowed);
     }
 
     @JsonCreator
@@ -270,21 +285,19 @@ public final class Domain
                         return Optional.empty();
                     }
                     return Optional.of(ValueSet.all(values.getType()));
-                },
-                allOrNone -> Optional.empty())
-                .orElse(values);
+                }, allOrNone -> Optional.empty()).orElse(values);
         return Domain.create(simplifiedValueSet, nullAllowed);
     }
 
     /**
      * @return A canonicalized Domain with a consistent representation.
-     *
+     * <p>
      * When removeSafeConstants is true, we return a Domain with all point constants removed,
      * and range constants are kept.
      * Example:
      * `x = 1` is equivalent to `x = 1000`
      * `x >= 1` is NOT equivalent to `x >= 1000`
-     *
+     * <p>
      * All types and bounds information is preserved.
      */
     public Domain canonicalize(boolean removeConstants)

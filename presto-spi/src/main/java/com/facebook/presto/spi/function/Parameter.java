@@ -17,6 +17,7 @@ package com.facebook.presto.spi.function;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftParameter;
 import com.facebook.presto.common.type.TypeSignature;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,6 +31,16 @@ public class Parameter
 {
     private final String name;
     private final TypeSignature type;
+
+    public Parameter(ThriftParameter thriftParameter)
+    {
+        this(thriftParameter.getName(), new TypeSignature(thriftParameter.getType()));
+    }
+
+    public ThriftParameter toThrift()
+    {
+        return new ThriftParameter(name, type.toThrift());
+    }
 
     @ThriftConstructor
     @JsonCreator

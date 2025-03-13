@@ -13,19 +13,31 @@
  */
 package com.facebook.presto.common.block;
 
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftBlock;
+import com.facebook.presto.common.experimental.auto_gen.ThriftSlice;
+import com.facebook.presto.common.experimental.auto_gen.ThriftVariableWidthBlock;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.UnsafeSlice;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
+import org.apache.thrift.transport.TTransportException;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.block.BlockUtil.appendNullToIsNullArray;
 import static com.facebook.presto.common.block.BlockUtil.appendNullToOffsetsArray;
@@ -60,6 +72,72 @@ public class VariableWidthBlock
 
     private final long retainedSizeInBytes;
     private final long sizeInBytes;
+
+    static {
+        ThriftSerializationRegistry.registerSerializer(VariableWidthBlock.class, VariableWidthBlock::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(VariableWidthBlock.class, ThriftVariableWidthBlock.class, VariableWidthBlock::deserialize, null);
+    }
+
+    public VariableWidthBlock(ThriftVariableWidthBlock thriftBlock)
+    {
+        this(thriftBlock.getPositionCount(),
+                Slices.wrappedBuffer(thriftBlock.getSlice().getData()),
+                thriftBlock.getOffsets().stream().mapToInt(Integer::intValue).toArray(),
+                thriftBlock.getValueIsNull().map(list -> {
+                    boolean[] valueIsNull = new boolean[list.size()];
+                    for (int i = 0; i < list.size(); i++) {
+                        Boolean value = list.get(i);
+                        valueIsNull[i] = value != null && value;
+                    }
+                    return valueIsNull;
+                }));
+    }
+
+    public static VariableWidthBlock deserialize(byte[] bytes)
+    {
+        try {
+            TDeserializer deserializer = new TDeserializer(new TJSONProtocol.Factory());
+            ThriftVariableWidthBlock thriftVariableWidthBlock = new ThriftVariableWidthBlock();
+            deserializer.deserialize(thriftVariableWidthBlock, bytes);
+            return new VariableWidthBlock(thriftVariableWidthBlock);
+        }
+        catch (TTransportException e) {
+            throw new RuntimeException(e);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public ThriftVariableWidthBlock toThrift()
+    {
+        ThriftSlice thriftSlice = new ThriftSlice();
+        thriftSlice.setData(slice.getBytes());
+
+        ThriftVariableWidthBlock thriftBlock = new ThriftVariableWidthBlock(positionCount, thriftSlice, Arrays.stream(offsets).boxed().collect(Collectors.toList()));
+        if (valueIsNull != null) {
+            List<Boolean> thriftValueIsNull = new ArrayList<>();
+            for (boolean value : valueIsNull) {
+                thriftValueIsNull.add(value);
+            }
+            thriftBlock.setValueIsNull(thriftValueIsNull);
+        }
+        return thriftBlock;
+    }
+
+    public ThriftBlock toThriftInterface()
+    {
+        try {
+            ThriftBlock thriftBlock = new ThriftBlock();
+            thriftBlock.setType(this.getClass().getName());
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            thriftBlock.setSerializedBlock(serializer.serialize(this.toThrift()));
+            return thriftBlock;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public VariableWidthBlock(int positionCount, Slice slice, int[] offsets, Optional<boolean[]> valueIsNull)
     {

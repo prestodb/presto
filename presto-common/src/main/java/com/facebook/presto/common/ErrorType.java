@@ -15,6 +15,7 @@ package com.facebook.presto.common;
 
 import com.facebook.drift.annotations.ThriftEnum;
 import com.facebook.drift.annotations.ThriftEnumValue;
+import com.facebook.presto.common.experimental.auto_gen.ThriftErrorType;
 
 @ThriftEnum
 public enum ErrorType
@@ -25,6 +26,16 @@ public enum ErrorType
     EXTERNAL(3);
 
     private final int code;
+
+    public static ErrorType createErrorType(ThriftErrorType thriftErrorType)
+    {
+        return ErrorType.valueOf(thriftErrorType.name());
+    }
+
+    public ThriftErrorType toThrift()
+    {
+        return ThriftErrorType.valueOf(this.name());
+    }
 
     ErrorType(int code)
     {

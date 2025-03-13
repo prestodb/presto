@@ -13,11 +13,29 @@
  */
 package com.facebook.presto.common.type;
 
+import com.facebook.presto.common.experimental.ThriftSerializationRegistry;
+import com.facebook.presto.common.experimental.auto_gen.ThriftType;
+import com.facebook.presto.common.experimental.auto_gen.ThriftVarcharType;
+import org.apache.thrift.TDeserializer;
+import org.apache.thrift.TException;
+import org.apache.thrift.TSerializer;
+import org.apache.thrift.protocol.TJSONProtocol;
+
 import static java.util.Collections.singletonList;
 
 public final class VarcharType
         extends AbstractVarcharType
 {
+    static {
+        ThriftSerializationRegistry.registerSerializer(VarcharType.class, VarcharType::toThrift, null);
+        ThriftSerializationRegistry.registerDeserializer(VarcharType.class, ThriftVarcharType.class, VarcharType::deserialize, null);
+    }
+
+    public VarcharType(ThriftVarcharType thriftVarcharType)
+    {
+        this(thriftVarcharType.getLength());
+    }
+
     public static final VarcharType VARCHAR = new VarcharType(UNBOUNDED_LENGTH);
 
     public static VarcharType createUnboundedVarcharType()
@@ -46,5 +64,39 @@ public final class VarcharType
                 new TypeSignature(
                         StandardTypes.VARCHAR,
                         singletonList(TypeSignatureParameter.of((long) length))));
+    }
+
+    @Override
+    public ThriftType toThriftInterface()
+    {
+        try {
+            TSerializer serializer = new TSerializer(new TJSONProtocol.Factory());
+            ThriftType thriftType = new ThriftType();
+            thriftType.setType(getImplementationType());
+            thriftType.setSerializedData(serializer.serialize(this.toThrift()));
+            return thriftType;
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ThriftVarcharType toThrift()
+    {
+        return new ThriftVarcharType(getLengthSafe());
+    }
+
+    public static VarcharType deserialize(byte[] bytes)
+    {
+        try {
+            TDeserializer deserializer = new TDeserializer(new TJSONProtocol.Factory());
+            ThriftVarcharType thriftType = new ThriftVarcharType();
+            deserializer.deserialize(thriftType, bytes);
+            return new VarcharType(thriftType);
+        }
+        catch (TException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
