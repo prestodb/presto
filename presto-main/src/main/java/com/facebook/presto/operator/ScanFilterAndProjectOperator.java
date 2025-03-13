@@ -264,6 +264,11 @@ public class ScanFilterAndProjectOperator
         }
     }
 
+    public TableHandle getTable()
+    {
+        return table;
+    }
+
     private Page processColumnSource()
     {
         DriverYieldSignal yieldSignal = operatorContext.getDriverContext().getYieldSignal();
