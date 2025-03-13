@@ -708,12 +708,16 @@ jobs:
             path: |
               /tmp/exchange_fuzzer_repro
 
-  row-number-fuzzer-run:
+  presto-java-row-number-fuzzer-run:
     name: RowNumber Fuzzer
     runs-on: ubuntu-latest
-    container: ghcr.io/facebookincubator/velox-dev:centos9
+    container: ghcr.io/facebookincubator/velox-dev:presto-java
     needs: compile
     timeout-minutes: 120
+    env:
+      CCACHE_DIR: "${{ github.workspace }}/ccache/"
+      LINUX_DISTRO: "centos"
+
     steps:
 
       - name: Download row number fuzzer
@@ -721,8 +725,28 @@ jobs:
         with:
           name: row_number
 
+      - name: "Checkout Repo"
+        uses: actions/checkout@v4
+        with:
+          path: velox
+          submodules: 'recursive'
+          ref: "${{ inputs.ref }}"
+
+      - name: Fix git permissions
+        # Usually actions/checkout does this but as we run in a container
+        # it doesn't work
+        run: git config --global --add safe.directory ${GITHUB_WORKSPACE}/velox
+
       - name: Run RowNumber Fuzzer
         run: |
+          cd velox
+          cp ./scripts/presto/etc/hive.properties $PRESTO_HOME/etc/catalog
+          ls -lR $PRESTO_HOME/etc
+          $PRESTO_HOME/bin/launcher run -v > /tmp/server.log 2>&1 &
+          # Sleep for 60 seconds to allow Presto server to start.
+          sleep 60
+          /opt/presto-cli --server 127.0.0.1:8080 --execute 'CREATE SCHEMA hive.tpch;'
+          cd -
           cat /proc/sys/vm/max_map_count
           mkdir -p /tmp/row_fuzzer_repro/logs/
           chmod -R 777 /tmp/row_fuzzer_repro
@@ -735,6 +759,7 @@ jobs:
                 --minloglevel=0 \
                 --stderrthreshold=2 \
                 --log_dir=/tmp/row_fuzzer_repro/logs \
+                --presto_url=http://127.0.0.1:8080 \
             && echo -e "\n\Row number fuzzer run finished successfully."
 
       - name: Archive row number production artifacts
