@@ -16,10 +16,12 @@ package com.facebook.presto.client;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftErrorLocation;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
+import javax.validation.constraints.NotNull;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -30,6 +32,16 @@ public class ErrorLocation
 {
     private final int lineNumber;
     private final int columnNumber;
+
+    public ErrorLocation(@NotNull ThriftErrorLocation thriftErrorLocation)
+    {
+        this(thriftErrorLocation.getLineNumber(), thriftErrorLocation.getColumnNumber());
+    }
+
+    public ThriftErrorLocation toThrift()
+    {
+        return new ThriftErrorLocation(lineNumber, columnNumber);
+    }
 
     @JsonCreator
     @ThriftConstructor

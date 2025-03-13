@@ -69,7 +69,7 @@
         <dependency>
             <groupId>com.facebook.airlift</groupId>
             <artifactId>stats</artifactId>
-            <scope>test</scope>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 

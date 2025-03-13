@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
-    
+
     <dependencies>
         <dependency>
             <groupId>com.facebook.airlift</groupId>
@@ -61,6 +61,12 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.thrift</groupId>
+                    <artifactId>libthrift</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

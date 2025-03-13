@@ -16,6 +16,7 @@ package com.facebook.presto.spi;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.experimental.auto_gen.ThriftHostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
@@ -76,6 +77,16 @@ public class HostAddress
      * Validated port number in the range [0..65535], or NO_PORT
      */
     private final int port;
+
+    public HostAddress(ThriftHostAddress thriftHostAddress)
+    {
+        this(thriftHostAddress.getHost(), thriftHostAddress.getPort());
+    }
+
+    public ThriftHostAddress toThrift()
+    {
+        return new ThriftHostAddress(host, port);
+    }
 
     @ThriftConstructor
     public HostAddress(String host, int port)

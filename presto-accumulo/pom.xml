@@ -19,17 +19,6 @@
         <dep.log4j.version>2.24.3</dep.log4j.version>
     </properties>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.apache.thrift</groupId>
-                <artifactId>libthrift</artifactId>
-                <!-- libthrift >= 0.14.1 not compatible with accumulo-minicluster 1.x -->
-                <version>0.9.3-1</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.accumulo</groupId>
@@ -87,6 +76,10 @@
                 <exclusion>
                     <groupId>log4j</groupId>
                     <artifactId>log4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId></groupId>
+                    <artifactId></artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -276,12 +269,32 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>http-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.facebook.drift</groupId>
+                    <artifactId>drift-protocol</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>com.facebook.drift</groupId>
             <artifactId>drift-api</artifactId>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>httpclient</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
