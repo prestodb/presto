@@ -662,6 +662,14 @@ class SystemConfig : public ConfigBase {
 
   // Specifies the type of worker pool
   static constexpr std::string_view kPoolType{"pool-type"};
+  
+  // Spill related configs
+  static constexpr std::string_view kSpillEnabled{"spill-enabled"};
+  static constexpr std::string_view kJoinSpillEnabled{"join-spill-enabled"};
+  static constexpr std::string_view kAggregationSpillEnabled{
+      "aggregation-spill-enabled"};
+  static constexpr std::string_view kOrderBySpillEnabled{
+      "order-by-spill-enabled"};
 
   SystemConfig();
 
@@ -901,9 +909,18 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
+  
   std::string prestoDefaultNamespacePrefix() const;
 
   std::string poolType() const;
+
+  bool spillEnabled() const; 
+
+  bool joinSpillEnabled() const;
+
+  bool aggregationSpillEnabled() const;
+
+  bool orderBySpillEnabled() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
