@@ -29,7 +29,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
         implements Int64TimeAndTimestampMicrosValuesDecoder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder.class).instanceSize();
@@ -57,17 +57,17 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
         int destinationIndex = offset;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (currentCount == 0) {
+            if (getCurrentCount() == 0) {
                 if (!decode()) {
                     break;
                 }
             }
 
-            int numEntriesToFill = Math.min(remainingToCopy, currentCount);
+            int numEntriesToFill = Math.min(remainingToCopy, getCurrentCount());
             int endIndex = destinationIndex + numEntriesToFill;
-            switch (mode) {
+            switch (getCurrentMode()) {
                 case RLE: {
-                    final int rleValue = currentValue;
+                    final int rleValue = getDecodedInt();
                     final long rleDictionaryValue = MICROSECONDS.toMillis(dictionary.decodeToLong(rleValue));
                     while (destinationIndex < endIndex) {
                         values[destinationIndex++] = packFunction.pack(rleDictionaryValue);
@@ -75,9 +75,9 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     break;
                 }
                 case PACKED: {
-                    final int[] localBuffer = currentBuffer;
+                    final int[] localBuffer = getDecodedInts();
                     final LongDictionary localDictionary = dictionary;
-                    for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++) {
+                    for (int srcIndex = localBuffer.length - getCurrentCount(); destinationIndex < endIndex; srcIndex++) {
                         long dictionaryValue = localDictionary.decodeToLong(localBuffer[srcIndex]);
                         long millisValue = MICROSECONDS.toMillis(dictionaryValue);
                         values[destinationIndex++] = packFunction.pack(millisValue);
@@ -85,10 +85,10 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + mode);
+                    throw new ParquetDecodingException("not a valid mode " + getCurrentMode());
             }
 
-            currentCount -= numEntriesToFill;
+            decrementCurrentCount(numEntriesToFill);
             remainingToCopy -= numEntriesToFill;
         }
 
@@ -102,14 +102,14 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
         checkArgument(length >= 0, "invalid length %s", length);
         int remaining = length;
         while (remaining > 0) {
-            if (currentCount == 0) {
+            if (getCurrentCount() == 0) {
                 if (!decode()) {
                     break;
                 }
             }
 
-            int chunkSize = Math.min(remaining, currentCount);
-            currentCount -= chunkSize;
+            int chunkSize = Math.min(remaining, getCurrentCount());
+            decrementCurrentCount(chunkSize);
             remaining -= chunkSize;
         }
 
@@ -119,6 +119,12 @@ public class Int64TimeAndTimestampMicrosRLEDictionaryValuesDecoder
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(currentBuffer);
+        return INSTANCE_SIZE + (dictionary == null ? 0 : dictionary.getRetainedSizeInBytes()) + sizeOf(getDecodedInts());
+    }
+
+    @FunctionalInterface
+    public interface PackFunction
+    {
+        long pack(long millis);
     }
 }

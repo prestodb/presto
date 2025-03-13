@@ -24,7 +24,7 @@ import static com.facebook.presto.parquet.batchreader.BytesUtils.getLongBigEndia
 import static java.util.Objects.requireNonNull;
 
 public class UuidRLEDictionaryValuesDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
         implements UuidValuesDecoder
 {
     private final BinaryRLEDictionaryValuesDecoder delegate;

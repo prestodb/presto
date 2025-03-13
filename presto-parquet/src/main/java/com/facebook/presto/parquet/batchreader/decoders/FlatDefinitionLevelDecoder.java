@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.parquet.batchreader.decoders;
 
-import com.facebook.presto.parquet.batchreader.decoders.rle.BaseRLEBitPackedDecoder;
+import com.facebook.presto.parquet.batchreader.decoders.rle.GenericRLEDictionaryValuesDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 
 import java.io.IOException;
@@ -25,7 +25,7 @@ import static com.google.common.base.Preconditions.checkState;
  * Definition Level decoder for non-nested types where the values are either 0 or 1
  */
 public class FlatDefinitionLevelDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
 {
     public FlatDefinitionLevelDecoder(int valueCount, InputStream inputStream)
     {
@@ -44,26 +44,26 @@ public class FlatDefinitionLevelDecoder
         int destinationIndex = offset;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (currentCount == 0) {
+            if (getCurrentCount() == 0) {
                 if (!decode()) {
                     break;
                 }
             }
 
-            int chunkSize = Math.min(remainingToCopy, currentCount);
+            int chunkSize = Math.min(remainingToCopy, getCurrentCount());
             int endIndex = destinationIndex + chunkSize;
-            switch (mode) {
+            switch (getCurrentMode()) {
                 case RLE: {
-                    boolean rleValue = currentValue == 0;
+                    boolean rleValue = getDecodedInt() == 0;
                     while (destinationIndex < endIndex) {
                         values[destinationIndex++] = rleValue;
                     }
-                    nonNullCount += currentValue * chunkSize;
+                    nonNullCount += getDecodedInt() * chunkSize;
                     break;
                 }
                 case PACKED: {
-                    int[] buffer = currentBuffer;
-                    for (int sourceIndex = buffer.length - currentCount; destinationIndex < endIndex; sourceIndex++, destinationIndex++) {
+                    int[] buffer = getDecodedInts();
+                    for (int sourceIndex = buffer.length - getCurrentCount(); destinationIndex < endIndex; sourceIndex++, destinationIndex++) {
                         final int value = buffer[sourceIndex];
                         values[destinationIndex] = value == 0;
                         nonNullCount += value;
@@ -71,9 +71,9 @@ public class FlatDefinitionLevelDecoder
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + mode);
+                    throw new ParquetDecodingException("not a valid mode " + getCurrentMode());
             }
-            currentCount -= chunkSize;
+            decrementCurrentCount(chunkSize);
             remainingToCopy -= chunkSize;
         }
 
