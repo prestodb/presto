@@ -353,7 +353,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Type:** ``string``
 * **Default value:** ``false``
 
-  If true, global arbitration will not reclaim memory by spilling, but
+  If ``true``, global arbitration does not reclaim memory by spilling, but
   only by aborting. This flag is only effective if
   'shared-arbitrator.global-arbitration-enabled' is true
 
