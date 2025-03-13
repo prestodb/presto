@@ -1955,7 +1955,7 @@ No other types are supported.
 
 
 Sorted Tables
-^^^^^^^^^^^^^
+-------------
 
 The Iceberg connector supports the creation of sorted tables.
 Data in the Iceberg table is sorted as each file is written.
