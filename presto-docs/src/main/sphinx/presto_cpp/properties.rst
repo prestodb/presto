@@ -314,7 +314,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
   global arbitration also avoids reclaiming from a participant if its
   reclaimable used capacity is less than this threshold. This is to
   prevent inefficient memory reclaim operations on a participant with
-  small reclaimable used capacity which could causes a large number of
+  small reclaimable used capacity, which could cause a large number of
   small spilled file on disk.
 
 ``shared-arbitrator.memory-reclaim-threads-hw-multiplier``
