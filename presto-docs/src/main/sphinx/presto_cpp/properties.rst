@@ -302,7 +302,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
   The abort capacity limit is reduced by half if could not find a victim
   participant until this reaches to zero.
 
-  NOTE: the limit must be zero or a power of 2.
+  NOTE: the limit value must be either zero, or a power of 2.
 
 ``shared-arbitrator.memory-pool-min-reclaim-bytes``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
