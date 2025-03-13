@@ -91,7 +91,7 @@ class PartitionedOutputTest
 
  private:
   const std::shared_ptr<OutputBufferManager> bufferManager_{
-      OutputBufferManager::getInstance().lock()};
+      OutputBufferManager::getInstanceRef()};
 };
 
 TEST_P(PartitionedOutputTest, flush) {

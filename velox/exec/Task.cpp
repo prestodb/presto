@@ -305,7 +305,7 @@ Task::Task(
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(std::move(onError)),
       splitsStates_(buildSplitStates(planFragment_.planNode)),
-      bufferManager_(OutputBufferManager::getInstance()) {
+      bufferManager_(OutputBufferManager::getInstanceRef()) {
   // NOTE: the executor must not be folly::InlineLikeExecutor for parallel
   // execution.
   if (mode_ == Task::ExecutionMode::kParallel) {

@@ -122,7 +122,7 @@ TEST_F(LimitTest, partialLimitEagerFlush) {
     params.planNode = builder.partitionedOutput({}, 1).planNode();
     auto cursor = TaskCursor::create(params);
     ASSERT_FALSE(cursor->moveNext());
-    auto bufferManager = exec::OutputBufferManager::getInstance().lock();
+    auto bufferManager = exec::OutputBufferManager::getInstanceRef();
     auto [numPagesPromise, numPagesFuture] = folly::makePromiseContract<int>();
     ASSERT_TRUE(bufferManager->getData(
         cursor->task()->taskId(),

@@ -287,7 +287,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithOutputBuffer) {
 
   // 'Delete results' from output buffer triggers 'set all output consumed',
   // which should finish the task.
-  auto outputBufferManager = exec::OutputBufferManager::getInstance().lock();
+  auto outputBufferManager = exec::OutputBufferManager::getInstanceRef();
   outputBufferManager->deleteResults(task->taskId(), 0);
 
   // Task must be finished at this stage.
@@ -471,7 +471,7 @@ DEBUG_ONLY_TEST_F(
 
     // 'Delete results' from output buffer triggers 'set all output consumed',
     // which should finish the task.
-    auto outputBufferManager = exec::OutputBufferManager::getInstance().lock();
+    auto outputBufferManager = exec::OutputBufferManager::getInstanceRef();
     outputBufferManager->deleteResults(task->taskId(), 0);
 
     // Task must be finished at this stage.
@@ -627,7 +627,7 @@ TEST_F(GroupedExecutionTest, groupedExecutionWithHashAndNestedLoopJoin) {
 
     // 'Delete results' from output buffer triggers 'set all output consumed',
     // which should finish the task.
-    auto outputBufferManager = exec::OutputBufferManager::getInstance().lock();
+    auto outputBufferManager = exec::OutputBufferManager::getInstanceRef();
     outputBufferManager->deleteResults(task->taskId(), 0);
 
     // Task must be finished at this stage.

@@ -62,7 +62,7 @@ class OutputBufferManagerTest : public testing::Test {
 
   void SetUp() override {
     pool_ = facebook::velox::memory::memoryManager()->addLeafPool();
-    bufferManager_ = OutputBufferManager::getInstance().lock();
+    bufferManager_ = OutputBufferManager::getInstanceRef();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
           registerVectorSerde();

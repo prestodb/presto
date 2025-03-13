@@ -52,7 +52,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
 
     promise_ = std::move(promise);
 
-    auto buffers = OutputBufferManager::getInstance().lock();
+    auto buffers = OutputBufferManager::getInstanceRef();
     VELOX_CHECK_NOT_NULL(buffers, "invalid OutputBufferManager");
     VELOX_CHECK(requestPending_);
     auto requestedSequence = sequence_;
@@ -165,7 +165,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
   void pause() override {
     common::testutil::TestValue::adjust(
         "facebook::velox::exec::test::LocalExchangeSource::pause", nullptr);
-    auto buffers = OutputBufferManager::getInstance().lock();
+    auto buffers = OutputBufferManager::getInstanceRef();
     VELOX_CHECK_NOT_NULL(buffers, "invalid OutputBufferManager");
     int64_t ackSequence;
     {
@@ -178,7 +178,7 @@ class LocalExchangeSource : public exec::ExchangeSource {
   void close() override {
     checkSetRequestPromise();
 
-    auto buffers = OutputBufferManager::getInstance().lock();
+    auto buffers = OutputBufferManager::getInstanceRef();
     buffers->deleteResults(remoteTaskId_, destination_);
   }
 

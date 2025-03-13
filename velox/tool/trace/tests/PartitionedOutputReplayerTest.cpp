@@ -120,7 +120,7 @@ class PartitionedOutputReplayerTest
   }
 
   const std::shared_ptr<OutputBufferManager> bufferManager_{
-      exec::OutputBufferManager::getInstance().lock()};
+      exec::OutputBufferManager::getInstanceRef()};
 };
 
 TEST_P(PartitionedOutputReplayerTest, defaultConsumer) {
