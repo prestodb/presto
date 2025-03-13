@@ -311,7 +311,7 @@ The configuration properties of Presto C++ workers are described here, in alphab
 * **Default value:** ``128MB``
 
   Specifies the minimum bytes to reclaim from a participant at a time. The
-  global arbitration also avoids to reclaim from a participant if its
+  global arbitration also avoids reclaiming from a participant if its
   reclaimable used capacity is less than this threshold. This is to
   prevent inefficient memory reclaim operations on a participant with
   small reclaimable used capacity which could causes a large number of
