@@ -109,10 +109,7 @@ public class ClusterManager
                 Path parentDir = routerConfigFile.toPath().getParent();
                 parentDir.register(
                         watchService,
-                        new WatchEvent.Kind[] {
-                                StandardWatchEventKinds.ENTRY_MODIFY,
-                                StandardWatchEventKinds.ENTRY_CREATE,
-                                StandardWatchEventKinds.ENTRY_DELETE},
+                        new WatchEvent.Kind[] {StandardWatchEventKinds.ENTRY_MODIFY},
                         SensitivityWatchEventModifier.HIGH);
 
                 while (true) {
