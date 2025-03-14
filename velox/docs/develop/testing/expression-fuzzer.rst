@@ -30,6 +30,107 @@ functions supported by the engine, and call ``FuzzerRunner::run()`` defined in
 
 Functions with known bugs can be excluded from testing using a skip-list.
 
+Custom Input Generators
+----------------------------
+
+Custom input generators for expression fuzzer are needed when:
+
+* A function requires input values to satisfy specific constraints (e.g., valid JSON or URL).
+
+* The default random input generation does not provide sufficient coverage of edge cases.
+
+A custom input generator can be defined with the following steps.
+
+Step 1: Define the generator class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The developer can implement a custom input generator class by
+inheriting from ``ArgValuesGenerator`` and overriding the ``generate()``
+method. An example is the `JsonParseArgValuesGenerator`_ class.
+
+.. _JsonParseArgValuesGenerator: https://github.com/facebookincubator/velox/blob/d25685bb6fddb76e467ee740d221455b1fac8f96/velox/expression/fuzzer/ArgValuesGenerators.h#L22
+
+.. code-block:: c++
+
+    class JsonParseArgValuesGenerator : public ArgValuesGenerator {
+     public:
+      ~JsonParseArgValuesGenerator() override = default;
+
+      std::vector<core::TypedExprPtr> generate(
+        const CallableSignature& signature,
+        const VectorFuzzer::Options& options,
+        FuzzerGenerator& rng,
+        ExpressionFuzzerState& state) override;
+    };
+
+
+Step 2: Implement the generate() method
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When implementing the ``generate()`` method, the developer first call
+``populateInputTypesAndNames(signature, state)`` to append argument types
+of ``signature`` and the corresponding input column names to ``state``.
+Next, for every argument of ``signature`` in order, if it requires a custom
+input generator, the developer emplace back an std::shared_ptr of a subclass
+of ``AbstractInputGenerator`` into ``state.customInputGenerators_``. The
+developer also emplace back a ``FieldAccessTypedExprPtr`` created with this
+argument type and the corresponding input column name into ``inputExpressions``.
+Every subclass of ``AbstractInputGenerator`` allows generating input values
+satisfying certain constraint. E.g., ``RangeConstrainedGenerator`` allows
+generating values in a specified range; ``JsonInputGenerator`` allows generating
+valid JSON strings that represent a specified data type.
+
+If the argument doesn't require a custom input generator, the developer emplace
+a nullptr back into both ``state.customInputGenerators_`` and ``inputExpressions``.
+Finally, this ``generate()`` method returns ``inputExpressions``.
+
+.. code-block:: c++
+
+    std::vector<core::TypedExprPtr> JsonParseArgValuesGenerator::generate(
+      const CallableSignature& signature,
+      const VectorFuzzer::Options& options,
+      FuzzerGenerator& rng,
+      ExpressionFuzzerState& state) {
+      VELOX_CHECK_EQ(signature.args.size(), 1);
+      populateInputTypesAndNames(signature, state);
+
+      const auto representedType = facebook::velox::randType(rng, 3);
+      const auto seed = rand<uint32_t>(rng);
+      const auto nullRatio = options.nullRatio;
+      state.customInputGenerators_.emplace_back(
+        std::make_shared<fuzzer::JsonInputGenerator>(
+            seed,
+            signature.args[0],
+            nullRatio,
+            fuzzer::getRandomInputGenerator(seed, representedType, nullRatio),
+            true));
+
+      std::vector<core::TypedExprPtr> inputExpressions{
+        signature.args.size(), nullptr};
+      inputExpressions[0] = std::make_shared<core::FieldAccessTypedExpr>(
+        signature.args[0], state.inputRowNames_.back());
+      return inputExpressions;
+    };
+
+
+Step 3: Register the custom input generator
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Once the custom input generator is implemented, the developer register it in
+the ``main`` function in ExpressionFuzzerTest.cpp as follows.
+
+.. code-block:: c++
+
+    std::unordered_map<std::string, std::shared_ptr<ArgValuesGenerator>>
+      argValuesGenerators = {
+          {"json_parse", std::make_shared<JsonParseArgValuesGenerator>()},
+          {"function_name", std::make_shared<CustomInputGeneratorClassName>()},
+          ...};
+
+
+
+
+
 How to run
 ----------------------------
 
