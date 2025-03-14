@@ -303,7 +303,7 @@ public class PrestoNativeQueryRunnerUtils
         // Make query runner with external workers for tests
         return IcebergQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8080")
+                        .put("http-server.http.port", "0")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .put("query.max-stage-count", "110")
                         .putAll(getNativeWorkerSystemProperties())
@@ -351,7 +351,7 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8081")
+                        .put("http-server.http.port", "0")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .putAll(getNativeWorkerSystemProperties())
                         .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
@@ -395,7 +395,7 @@ public class PrestoNativeQueryRunnerUtils
                 ImmutableList.of(),
                 ImmutableList.of(),
                 ImmutableMap.<String, String>builder()
-                        .put("http-server.http.port", "8081")
+                        .put("http-server.http.port", "0")
                         .put("experimental.internal-communication.thrift-transport-enabled", String.valueOf(useThrift))
                         .putAll(getNativeWorkerSystemProperties())
                         .putAll(isCoordinatorSidecarEnabled ? getNativeSidecarProperties() : ImmutableMap.of())
