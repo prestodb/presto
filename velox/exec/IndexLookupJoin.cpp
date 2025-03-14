@@ -94,7 +94,7 @@ bool addBetweenConditionBound(
 // types, and updating the lookup input channels and type to include the probe
 // input columns which contain the between condition bounds.
 void addBetweenCondition(
-    const core::BetweenIndexJoinConditionPtr& betweenCondition,
+    const core::BetweenIndexLookupConditionPtr& betweenCondition,
     const RowTypePtr& inputType,
     const TypePtr& indexKeyType,
     std::vector<std::string>& lookupInputNames,
@@ -238,7 +238,7 @@ void IndexLookupJoin::initLookupInput() {
     const auto indexKeyType = lookupType_->findChild(indexKeyName);
 
     if (const auto inCondition =
-            std::dynamic_pointer_cast<const core::InIndexJoinCondition>(
+            std::dynamic_pointer_cast<const core::InIndexLookupCondition>(
                 lookupCondition)) {
       const auto conditionInputName = getColumnName(inCondition->list);
       const auto conditionInputChannel =
@@ -259,7 +259,7 @@ void IndexLookupJoin::initLookupInput() {
     }
 
     if (const auto betweenCondition =
-            std::dynamic_pointer_cast<core::BetweenIndexJoinCondition>(
+            std::dynamic_pointer_cast<core::BetweenIndexLookupCondition>(
                 lookupCondition)) {
       addBetweenCondition(
           betweenCondition,

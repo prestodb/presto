@@ -66,7 +66,7 @@ std::shared_ptr<HiveBucketProperty> buildHiveBucketProperty(
       sortBy);
 }
 
-core::IndexJoinConditionPtr parseJoinCondition(
+core::IndexLookupConditionPtr parseJoinCondition(
     const std::string& joinCondition,
     const RowTypePtr& rowType,
     const parse::ParseOptions& options,
@@ -86,7 +86,7 @@ core::IndexJoinConditionPtr parseJoinCondition(
         std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
             typedCallExpr->inputs()[0]);
     VELOX_CHECK_NOT_NULL(conditionColumnExpr);
-    return std::make_shared<core::InIndexJoinCondition>(
+    return std::make_shared<core::InIndexLookupCondition>(
         std::move(keyColumnExpr), std::move(conditionColumnExpr));
   }
 
@@ -98,7 +98,7 @@ core::IndexJoinConditionPtr parseJoinCondition(
     VELOX_CHECK_NOT_NULL(keyColumnExpr);
     const auto& lowerExpr = typedCallExpr->inputs()[1];
     const auto& upperExpr = typedCallExpr->inputs()[2];
-    return std::make_shared<core::BetweenIndexJoinCondition>(
+    return std::make_shared<core::BetweenIndexLookupCondition>(
         std::move(keyColumnExpr), lowerExpr, upperExpr);
   }
   VELOX_USER_FAIL(
@@ -1630,7 +1630,7 @@ PlanBuilder& PlanBuilder::indexLookupJoin(
   auto leftKeyFields = fields(planNode_->outputType(), leftKeys);
   auto rightKeyFields = fields(right->outputType(), rightKeys);
 
-  std::vector<core::IndexJoinConditionPtr> joinConditionPtrs{};
+  std::vector<core::IndexLookupConditionPtr> joinConditionPtrs{};
   joinConditionPtrs.reserve(joinConditions.size());
   for (const auto& joinCondition : joinConditions) {
     joinConditionPtrs.push_back(

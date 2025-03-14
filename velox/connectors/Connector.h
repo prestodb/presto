@@ -48,7 +48,7 @@ class ITypedExpr;
 }
 
 namespace facebook::velox::core {
-struct IndexJoinCondition;
+struct IndexLookupCondition;
 }
 
 namespace facebook::velox::connector {
@@ -604,7 +604,7 @@ class Connector {
   virtual std::shared_ptr<IndexSource> createIndexSource(
       const RowTypePtr& inputType,
       size_t numJoinKeys,
-      const std::vector<std::shared_ptr<core::IndexJoinCondition>>&
+      const std::vector<std::shared_ptr<core::IndexLookupCondition>>&
           joinConditions,
       const RowTypePtr& outputType,
       const std::shared_ptr<ConnectorTableHandle>& tableHandle,

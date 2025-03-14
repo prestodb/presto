@@ -24,7 +24,7 @@ using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::exec::test {
 namespace {
 core::TypedExprPtr toJoinConditionExpr(
-    const std::vector<std::shared_ptr<core::IndexJoinCondition>>&
+    const std::vector<std::shared_ptr<core::IndexLookupCondition>>&
         joinConditions,
     const std::shared_ptr<TestIndexTable>& indexTable,
     const RowTypePtr& inputType,
@@ -41,7 +41,8 @@ core::TypedExprPtr toJoinConditionExpr(
     auto indexColumnExpr = std::make_shared<core::FieldAccessTypedExpr>(
         keyType->findChild(condition->key->name()), condition->key->name());
     if (auto inCondition =
-            std::dynamic_pointer_cast<core::InIndexJoinCondition>(condition)) {
+            std::dynamic_pointer_cast<core::InIndexLookupCondition>(
+                condition)) {
       conditionExprs.push_back(std::make_shared<const core::CallTypedExpr>(
           BOOLEAN(),
           std::vector<core::TypedExprPtr>{
@@ -50,7 +51,7 @@ core::TypedExprPtr toJoinConditionExpr(
       continue;
     }
     if (auto betweenCondition =
-            std::dynamic_pointer_cast<core::BetweenIndexJoinCondition>(
+            std::dynamic_pointer_cast<core::BetweenIndexLookupCondition>(
                 condition)) {
       conditionExprs.push_back(std::make_shared<const core::CallTypedExpr>(
           BOOLEAN(),
@@ -412,7 +413,7 @@ TestIndexConnector::TestIndexConnector(
 std::shared_ptr<connector::IndexSource> TestIndexConnector::createIndexSource(
     const RowTypePtr& inputType,
     size_t numJoinKeys,
-    const std::vector<core::IndexJoinConditionPtr>& joinConditions,
+    const std::vector<core::IndexLookupConditionPtr>& joinConditions,
     const RowTypePtr& outputType,
     const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
     const std::unordered_map<

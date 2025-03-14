@@ -41,29 +41,29 @@ std::vector<PlanNodePtr> deserializeSources(
 }
 
 namespace {
-IndexJoinConditionPtr createIndexJoinCondition(
+IndexLookupConditionPtr createIndexJoinCondition(
     const folly::dynamic& obj,
     void* context) {
   VELOX_USER_CHECK_EQ(obj.count("type"), 1);
   if (obj["type"] == "in") {
-    return InIndexJoinCondition::create(obj, context);
+    return InIndexLookupCondition::create(obj, context);
   }
   if (obj["type"] == "between") {
-    return BetweenIndexJoinCondition::create(obj, context);
+    return BetweenIndexLookupCondition::create(obj, context);
   }
   VELOX_USER_FAIL(
       "Unknown index join condition type {}", obj["type"].asString());
 }
 } // namespace
 
-std::vector<IndexJoinConditionPtr> deserializeJoinConditions(
+std::vector<IndexLookupConditionPtr> deserializeJoinConditions(
     const folly::dynamic& obj,
     void* context) {
   if (obj.count("joinConditions") == 0) {
     return {};
   }
 
-  std::vector<IndexJoinConditionPtr> joinConditions;
+  std::vector<IndexLookupConditionPtr> joinConditions;
   joinConditions.reserve(obj.count("joinConditions"));
   for (const auto& joinCondition : obj["joinConditions"]) {
     joinConditions.push_back(createIndexJoinCondition(joinCondition, context));
@@ -2900,40 +2900,40 @@ PlanNodePtr FilterNode::create(const folly::dynamic& obj, void* context) {
       deserializePlanNodeId(obj), filter, std::move(source));
 }
 
-folly::dynamic IndexJoinCondition::serialize() const {
+folly::dynamic IndexLookupCondition::serialize() const {
   folly::dynamic obj = folly::dynamic::object;
   obj["key"] = key->serialize();
   return obj;
 }
 
-folly::dynamic InIndexJoinCondition::serialize() const {
-  folly::dynamic obj = IndexJoinCondition::serialize();
+folly::dynamic InIndexLookupCondition::serialize() const {
+  folly::dynamic obj = IndexLookupCondition::serialize();
   obj["type"] = "in";
   obj["in"] = list->serialize();
   return obj;
 }
 
-std::string InIndexJoinCondition::toString() const {
+std::string InIndexLookupCondition::toString() const {
   return fmt::format("{} IN {}", key->toString(), list->toString());
 }
 
-IndexJoinConditionPtr InIndexJoinCondition::create(
+IndexLookupConditionPtr InIndexLookupCondition::create(
     const folly::dynamic& obj,
     void* context) {
-  return std::make_shared<InIndexJoinCondition>(
+  return std::make_shared<InIndexLookupCondition>(
       ISerializable::deserialize<FieldAccessTypedExpr>(obj["key"], context),
       ISerializable::deserialize<FieldAccessTypedExpr>(obj["in"], context));
 }
 
-folly::dynamic BetweenIndexJoinCondition::serialize() const {
-  folly::dynamic obj = IndexJoinCondition::serialize();
+folly::dynamic BetweenIndexLookupCondition::serialize() const {
+  folly::dynamic obj = IndexLookupCondition::serialize();
   obj["type"] = "between";
   obj["lower"] = lower->serialize();
   obj["upper"] = upper->serialize();
   return obj;
 }
 
-std::string BetweenIndexJoinCondition::toString() const {
+std::string BetweenIndexLookupCondition::toString() const {
   return fmt::format(
       "{} BETWEEN {} AND {}",
       key->toString(),
@@ -2941,10 +2941,10 @@ std::string BetweenIndexJoinCondition::toString() const {
       upper->toString());
 }
 
-IndexJoinConditionPtr BetweenIndexJoinCondition::create(
+IndexLookupConditionPtr BetweenIndexLookupCondition::create(
     const folly::dynamic& obj,
     void* context) {
-  return std::make_shared<BetweenIndexJoinCondition>(
+  return std::make_shared<BetweenIndexLookupCondition>(
       ISerializable::deserialize<FieldAccessTypedExpr>(obj["key"], context),
       ISerializable::deserialize<ITypedExpr>(obj["lower"], context),
       ISerializable::deserialize<ITypedExpr>(obj["upper"], context));

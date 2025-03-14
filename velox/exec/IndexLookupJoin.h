@@ -92,7 +92,7 @@ class IndexLookupJoin : public Operator {
   const RowTypePtr probeType_;
   const RowTypePtr lookupType_;
   const std::shared_ptr<connector::ConnectorTableHandle> lookupTableHandle_;
-  const std::vector<core::IndexJoinConditionPtr> lookupConditions_;
+  const std::vector<core::IndexLookupConditionPtr> lookupConditions_;
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       lookupColumnHandles_;
   const std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
