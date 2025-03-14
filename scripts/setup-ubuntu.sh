@@ -178,13 +178,7 @@ function install_boost {
 
 function install_protobuf {
   wget_and_untar https://github.com/protocolbuffers/protobuf/releases/download/v21.8/protobuf-all-21.8.tar.gz protobuf
-  (
-    cd ${DEPENDENCY_DIR}/protobuf
-    ./configure CXXFLAGS="-fPIC" --prefix=${INSTALL_PREFIX}
-    make "-j${NPROC}"
-    make install
-    ldconfig
-  )
+  cmake_install_dir protobuf -Dprotobuf_BUILD_TESTS=OFF
 }
 
 function install_folly {
@@ -251,17 +245,29 @@ function install_stemmer {
 
 function install_thrift {
   wget_and_untar https://github.com/apache/thrift/archive/${THRIFT_VERSION}.tar.gz thrift
-  (
-    cd ${DEPENDENCY_DIR}/thrift
-    ./bootstrap.sh
-    EXTRA_CXXFLAGS="-O3 -fPIC"
-    # Clang will generate warnings and they need to be suppressed, otherwise the build will fail.
-    if [[ ${USE_CLANG} != "false" ]]; then
-      EXTRA_CXXFLAGS="-O3 -fPIC -Wno-inconsistent-missing-override -Wno-unused-but-set-variable"
-    fi
-    ./configure --prefix=${INSTALL_PREFIX} --enable-tests=no --enable-tutorial=no --with-boost=${INSTALL_PREFIX} CXXFLAGS="${EXTRA_CXXFLAGS}"
-    make "-j${NPROC}" install
-  )
+
+  EXTRA_CXXFLAGS="-O3 -fPIC"
+  # Clang will generate warnings and they need to be suppressed, otherwise the build will fail.
+  if [[ ${USE_CLANG} != "false" ]]; then
+    EXTRA_CXXFLAGS="-O3 -fPIC -Wno-inconsistent-missing-override -Wno-unused-but-set-variable"
+  fi
+
+  CXX_FLAGS="$EXTRA_CXXFLAGS" cmake_install_dir thrift \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DBUILD_COMPILER=ON \
+    -DBUILD_EXAMPLES=OFF \
+    -DBUILD_TUTORIALS=OFF \
+    -DCMAKE_DEBUG_POSTFIX= \
+    -DWITH_AS3=OFF \
+    -DWITH_CPP=ON \
+    -DWITH_C_GLIB=OFF \
+    -DWITH_JAVA=OFF \
+    -DWITH_JAVASCRIPT=OFF \
+    -DWITH_LIBEVENT=OFF \
+    -DWITH_NODEJS=OFF \
+    -DWITH_PYTHON=OFF \
+    -DWITH_QT5=OFF \
+    -DWITH_ZLIB=OFF
 }
 
 function install_arrow {

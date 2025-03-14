@@ -143,12 +143,14 @@ dwio_debug:			#: Minimal build with dwio debugging symbols.
 benchmarks-basic-build:
 	$(MAKE) release EXTRA_CMAKE_FLAGS=" ${EXTRA_CMAKE_FLAGS} \
                                             -DVELOX_BUILD_TESTING=OFF \
-                                            -DVELOX_ENABLE_BENCHMARKS_BASIC=ON"
+                                            -DVELOX_ENABLE_BENCHMARKS_BASIC=ON \
+					    -DVELOX_BUILD_RUNNER=OFF"
 
 benchmarks-build:
 	$(MAKE) release EXTRA_CMAKE_FLAGS=" ${EXTRA_CMAKE_FLAGS} \
                                             -DVELOX_BUILD_TESTING=OFF \
-                                            -DVELOX_ENABLE_BENCHMARKS=ON"
+                                            -DVELOX_ENABLE_BENCHMARKS=ON \
+					    -DVELOX_BUILD_RUNNER=OFF"
 
 benchmarks-basic-run:
 	scripts/benchmark-runner.py run \
