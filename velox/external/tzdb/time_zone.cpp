@@ -480,7 +480,7 @@ class __named_rule_until {
   // are beyond the current year's "next year" (where "next year" is not always
   // year + 1) the algorithm should end.
   for (auto __it = __rules.begin(); __it != __rules.end(); ++__it) {
-    for (date::year __y = __it->__from; __y <= __it->__to; ++__y) {
+    for (date::year __y = std::max(__year - date::years(1), __it->__from); __y <= __it->__to; ++__y) {
       // Adding the current entry for the current year may lead to infinite
       // loops due to the SAVE adjustment. Skip these entries.
       if (__y == __year && __it == __current)
@@ -656,6 +656,93 @@ class __named_rule_until {
               std::chrono::duration_cast<std::chrono::minutes>(__save),
               __format(__continuation, __rule->__letters, __save)},
           false};
+    }
+  }
+
+  date::year year =
+      date::year_month_day{std::chrono::floor<date::days>(__time)}.year();
+
+  // Some time zones have rules that handle annual transitions
+  // like daylight savings time that apply forever (no end). This can
+  // make using the loop below really slow for years far in the
+  // future. This handles jumping ahead to the year before __time
+  // in such cases.
+
+  // Make sure the continuation goes forever (otherwise we'll end early anyway).
+  // Make sure the year is at least 1900, this prevents underflows
+  // there are no rules that start prior to 1900 that have no end.
+  if (__continuation.__year == date::year::min() && year >= date::year(1900)) {
+    // Use the time from 2 years prior and check if forever rules
+    // applied at that time
+    year -= date::years(2);
+    size_t numForeverRules = 0;
+    // Currently there is no rule that has more than 2 forever
+    // rules that alternate.
+    std::pair<std::vector<tzdb::__rule>::const_iterator, std::vector<tzdb::__rule>::const_iterator> foreverRules{};
+    bool isInForeverRules = true;
+    for (auto iter = __rules.cbegin(); iter < __rules.cend(); ++iter) {
+      if (iter->__to == date::year::max() && iter->__from <= year) {
+        // We found a forever rule that started to apply prior to year.
+        numForeverRules++;
+        if (numForeverRules == 1) {
+          std::get<0>(foreverRules) = iter;
+        } else if (numForeverRules == 2) {
+          std::get<1>(foreverRules) = iter;
+        } else {
+          // If we find more than 2 forever rules we have to go
+          // through the loop (currently this is impossible).
+          break;
+        }
+      } else {
+        if (iter->__to >= year) {
+          // We found a non-forever rule that still applies in year.
+          // In this case we can't skip forward (nor do we need to).
+          isInForeverRules = false;
+          break;
+        }
+      }
+    }
+
+    // If only forever rules applied 3 years ago and there were
+    // exactly 2, then skip forward.
+    if (isInForeverRules && numForeverRules == 2) {
+      // We know that the forever rules applied 2 years ago, so if
+      // we look at the times the rules transitioned 1 year ago we
+      // know the local time prior to that transition was the other
+      // forever rule.
+      // We use 1 year ago to be conservative and because it simplifies
+      // things (we only need to look at transitions in that year).
+      date::year transitionYear = date::year_month_day{std::chrono::floor<date::days>(__time)}.year() - date::years(1);
+      date::sys_seconds firstTransition = 
+            __rule_to_sys_seconds(__continuation.__stdoff, std::get<1>(foreverRules)->__save.__time, *std::get<0>(foreverRules), transitionYear);
+      date::sys_seconds secondTransition =
+            __rule_to_sys_seconds(__continuation.__stdoff, std::get<0>(foreverRules)->__save.__time, *std::get<1>(foreverRules), transitionYear);
+
+      // Pick whichever transition happened earlier in transition year.
+      // Then we set the current rule to be the rule with the earlier
+      // transition, and we set next rule to be the other rule with
+      // a start time of the later transition.
+      // This effectively skips us ahead to ~2 years prior to our target
+      // time.
+      if (firstTransition < secondTransition) {
+        __rule = std::get<0>(foreverRules);
+        __rule_begin = firstTransition;
+        __next = __next_rule(
+          __rule_begin,
+          __continuation.__stdoff,
+          __rule->__save.__time,
+          __rules,
+          __rule);
+      } else {
+        __rule = std::get<1>(foreverRules);
+        __rule_begin = secondTransition;
+        __next = __next_rule(
+          __rule_begin,
+          __continuation.__stdoff,
+          __rule->__save.__time,
+          __rules,
+          __rule);
+      }
     }
   }
 
@@ -896,6 +983,11 @@ time_zone::~time_zone() = default;
   for (auto __it = __continuations.begin(); __it != __continuations.end();
        ++__it) {
     const auto& __continuation = *__it;
+
+    if (date::year_month_day{std::chrono::floor<date::days>(__named_rule_until(__continuation).__until())}.year() + date::years(1) <  date::year_month_day{std::chrono::floor<date::days>(__time)}.year()) {
+      continue;
+    }
+
     __sys_info_result __sys_info = __get_sys_info(
         __time, __continuation_begin, __continuation, __rules_db);
 
