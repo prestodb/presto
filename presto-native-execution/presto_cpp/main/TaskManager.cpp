@@ -329,7 +329,7 @@ TaskManager::TaskManager(
     folly::Executor* driverExecutor,
     folly::Executor* httpSrvCpuExecutor,
     folly::Executor* spillerExecutor)
-    : bufferManager_(velox::exec::OutputBufferManager::getInstance().lock()),
+    : bufferManager_(velox::exec::OutputBufferManager::getInstanceRef()),
       queryContextManager_(std::make_unique<QueryContextManager>(
           driverExecutor,
           spillerExecutor)),

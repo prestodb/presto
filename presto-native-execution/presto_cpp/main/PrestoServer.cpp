@@ -103,7 +103,7 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::OutputBufferManager::getInstance().lock()->setListenerFactory(
+  velox::exec::OutputBufferManager::getInstanceRef()->setListenerFactory(
       []() {
         return std::make_unique<
             velox::serializer::presto::PrestoOutputStreamListener>();
@@ -283,7 +283,6 @@ void PrestoServer::run() {
   registerPrestoToVeloxConnector(
       std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
 
-  velox::exec::OutputBufferManager::initialize({});
   initializeVeloxMemory();
   initializeThreadPools();
 
