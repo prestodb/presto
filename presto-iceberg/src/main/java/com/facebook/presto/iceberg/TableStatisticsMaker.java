@@ -282,6 +282,7 @@ public class TableStatisticsMaker
             List<PartitionField> partitionFields)
     {
         TableScan tableScan = icebergTable.newScan()
+                .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                 .filter(toIcebergExpression(intersection))
                 .select(selectedColumns.stream().map(IcebergColumnHandle::getName).collect(Collectors.toList()))
                 .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get())
@@ -301,7 +302,8 @@ public class TableStatisticsMaker
                 tableHandle.getIcebergTableName().getSnapshotId().get(),
                 intersection,
                 tableHandle.getPartitionSpecId(),
-                tableHandle.getEqualityFieldIds());
+                tableHandle.getEqualityFieldIds(),
+                session.getRuntimeStats());
         CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(deleteFiles, deleteFile -> deleteFile);
         return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
     }

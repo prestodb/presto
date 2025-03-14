@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.BigintType;
@@ -291,12 +292,14 @@ public abstract class IcebergAbstractMetadata
             partitions = ImmutableList.of(new HivePartition(handle.getSchemaTableName()));
         }
         else {
+            RuntimeStats runtimeStats = session.getRuntimeStats();
             partitions = getPartitions(
                     typeManager,
                     handle,
                     icebergTable,
                     constraint,
-                    partitionColumns);
+                    partitionColumns,
+                    runtimeStats);
         }
 
         ConnectorTableLayout layout = getTableLayout(
