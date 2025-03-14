@@ -71,6 +71,7 @@ import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -473,6 +474,29 @@ public class UnaliasSymbolReferences
             PlanNode source = context.rewrite(node.getSource());
             SymbolMapper mapper = new SymbolMapper(mapping, types, warningCollector);
             return mapper.map(node, source);
+        }
+
+        @Override
+        public PlanNode visitTableFunction(TableFunctionNode node, RewriteContext<Void> context)
+        {
+            // TODO rewrite sources, tableArgumentProperties, and inputDescriptorMappings when we add support for input tables
+            /*
+            Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
+            SymbolMapper mapper = symbolMapper(mapping);
+
+            List<Symbol> newProperOutputs = mapper.map(node.getProperOutputs());*/
+
+            return new TableFunctionNode(
+                    node.getSourceLocation(),
+                    node.getId(),
+                    Optional.empty(),
+                    node.getName(),
+                    node.getArguments(),
+                    node.getOutputVariables(),
+                    node.getSources(),
+                    node.getTableArgumentProperties(),
+                    node.getInputDescriptorMappings(),
+                    node.getHandle());
         }
 
         @Override

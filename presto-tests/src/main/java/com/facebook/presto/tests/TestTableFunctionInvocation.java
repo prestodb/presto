@@ -13,19 +13,27 @@
  */
 package com.facebook.presto.tests;
 
-import com.facebook.presto.connector.MockConnectorFactory;
-import com.facebook.presto.connector.MockConnectorPlugin;
-import com.facebook.presto.connector.TestingTableFunctions.SimpleTableFunction;
-import com.facebook.presto.connector.TestingTableFunctions.SimpleTableFunction.SimpleTableFunctionHandle;
+import com.facebook.presto.connector.tvf.MockConnectorColumnHandle;
+import com.facebook.presto.connector.tvf.MockConnectorFactory;
+import com.facebook.presto.connector.tvf.MockConnectorPlugin;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.SimpleTableFunction;
+import com.facebook.presto.connector.tvf.TestingTableFunctions.SimpleTableFunction.SimpleTableFunctionHandle;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
+import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class TestTableFunctionInvocation
         extends AbstractTestQueryFramework
@@ -49,6 +57,11 @@ public class TestTableFunctionInvocation
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
 
+        BiFunction<ConnectorSession, ConnectorTableHandle, Map<String, MockConnectorColumnHandle>> getColumnHandles = (session, tableHandle) -> IntStream.range(0, 100)
+                .boxed()
+                .map(i -> "column_" + i)
+                .collect(toImmutableMap(column -> column, column -> new MockConnectorColumnHandle(column, createUnboundedVarcharType()) {}));
+
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withTableFunctions(ImmutableSet.of(new SimpleTableFunction()))
                 .withApplyTableFunction((session, handle) -> {
@@ -57,7 +70,7 @@ public class TestTableFunctionInvocation
                         return Optional.of(new TableFunctionApplicationResult<>(functionHandle.getTableHandle(), functionHandle.getTableHandle().getColumns().orElseThrow(() -> new IllegalStateException("Columns are missing"))));
                     }
                     throw new IllegalStateException("Unsupported table function handle: " + handle.getClass().getSimpleName());
-                })
+                }).withGetColumnHandles(getColumnHandles)
                 .build()));
         queryRunner.createCatalog(TESTING_CATALOG, "mock");
     }
