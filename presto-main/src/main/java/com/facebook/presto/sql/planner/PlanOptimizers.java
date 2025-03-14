@@ -405,6 +405,7 @@ public class PlanOptimizers
                                         new RemoveRedundantIdentityProjections(),
                                         new RemoveFullSample(),
                                         new EvaluateZeroSample(),
+                                        new TimestampRuleChange(metadata.getFunctionAndTypeManager()),
                                         new PushOffsetThroughProject(),
                                         new PushLimitThroughOffset(),
                                         new PushLimitThroughProject(),
