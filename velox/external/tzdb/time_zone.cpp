@@ -927,7 +927,35 @@ time_zone::~time_zone() = default;
   return __impl_->__name();
 }
 
+sys_info
+time_zone::load_sys_info(std::vector<date::transition>::const_iterator i) const
+{
+    using namespace std::chrono;
+    const auto& transitions = __impl_->transitions();
+    assert(!transitions.empty());
+    assert(i != transitions.begin());
+
+    sys_info r;
+    r.begin = i[-1].timepoint;
+    r.end = i != transitions.end() ? i->timepoint :
+                                      date::sys_seconds(date::sys_days(date::year::max()/date::December/31));
+    r.offset = i[-1].info->offset;
+    r.save = i[-1].info->is_dst ? minutes{1} : minutes{0};
+    r.abbrev = i[-1].info->abbrev;
+    return r;
+}
+
 [[nodiscard]] sys_info time_zone::__get_info(date::sys_seconds __time) const {
+  const auto& transitions = __impl_->transitions();
+  const auto iter = upper_bound(transitions.begin(), transitions.end(), __time,
+                                     [](const date::sys_seconds& x, const date::transition& t)
+                                     {
+                                         return x < t.timepoint;
+                                     });
+  if (iter != transitions.begin() && iter != transitions.end()) {
+    return load_sys_info(iter);
+  }
+  
   std::optional<sys_info> __result;
   bool __valid_result =
       false; // true iff __result.has_value() is true and

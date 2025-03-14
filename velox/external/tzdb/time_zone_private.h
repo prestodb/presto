@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "velox/external/date/tz.h"
 #include "velox/external/tzdb/time_zone.h"
 #include "velox/external/tzdb/types_private.h"
 
@@ -39,6 +40,22 @@ class time_zone::__impl {
     return __rules_db_;
   }
 
+  [[nodiscard]] std::vector<date::transition>& transitions() {
+    return transitions_;
+  }
+
+  [[nodiscard]] const std::vector<date::transition>& transitions() const {
+    return transitions_;
+  }
+
+  [[nodiscard]] std::vector<date::expanded_ttinfo>& ttinfos() {
+    return ttinfos_;
+  }
+
+  [[nodiscard]] const std::vector<date::expanded_ttinfo>& ttinfos() const {
+    return ttinfos_;
+  }
+
  private:
   std::string __name_;
   // Note the first line has a name + __continuation, the other lines
@@ -51,6 +68,9 @@ class time_zone::__impl {
   // to find its associated tzdb entry and thus not possible to find its
   // associated rules. Therefore a link to the rules in stored in this class.
   const __rules_storage_type& __rules_db_;
+
+  std::vector<date::transition>      transitions_;
+  std::vector<date::expanded_ttinfo> ttinfos_;
 };
 
 } // namespace facebook::velox::tzdb

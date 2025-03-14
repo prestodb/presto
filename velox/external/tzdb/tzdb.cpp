@@ -654,6 +654,10 @@ static void __parse_zone(
     __skip_optional_whitespace(__input);
   } while (std::isdigit(__input.peek()) || __input.peek() == '-');
 
+  std::filesystem::path __root = __libcpp_tzdb_directory();
+  std::ifstream zone_file{__root / __p->__name()};
+  date::populate_transitions(__p->transitions(), __p->ttinfos(), zone_file);
+
   __tzdb.zones.emplace_back(time_zone::__create(std::move(__p)));
 }
 
