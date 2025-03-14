@@ -22,8 +22,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
-
 import static com.facebook.airlift.testing.Closeables.closeAllRuntimeException;
 import static com.facebook.presto.hive.containers.HiveHadoopContainer.HIVE3_IMAGE;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
@@ -59,7 +57,16 @@ public class TestHiveSslEnableTrustStore
                         .put("hive.metastore.thrift.client.tls.truststore.path", this.getClass().getClassLoader().getResource("hive_ssl_enable/hive-metastore-truststore.jks").getPath())
                         .put("hive.metastore.thrift.client.tls.truststore.password", "123456")
                         .build(),
-                new HashMap<>());
+                ImmutableMap.<String, String>builder()
+                        // This is required when connecting to ssl enabled hms
+                        .put("hive.metastore.thrift.client.tls.enabled", "true")
+                        .put("hive.s3.path-style-access", "true")
+                        .put("hive.non-managed-table-writes-enabled", "true")
+//                        .put("hive.metastore.thrift.client.tls.keystore.path", this.getClass().getClassLoader().getResource("hive_ssl_enable/hive-metastore.jks").getPath())
+//                        .put("hive.metastore.thrift.client.tls.keystore.password", "123456")
+                        .put("hive.metastore.thrift.client.tls.truststore.path", this.getClass().getClassLoader().getResource("hive_ssl_enable/hive-metastore-truststore.jks").getPath())
+                        .put("hive.metastore.thrift.client.tls.truststore.password", "123456")
+                        .build());
     }
 
     @BeforeClass
