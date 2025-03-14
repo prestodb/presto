@@ -68,6 +68,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -113,7 +114,22 @@ public final class ValidateDependenciesChecker
         @Override
         public Void visitPlan(PlanNode node, Set<VariableReferenceExpression> boundVariables)
         {
+            // TODO: Michael: Is this okay? Trino's TypeValidator's Visitor extends off of
+            // SimplePlanVisitor. This is what is in SimplePlanVisitor's visitPlan. May need
+            // to change this later.
+            /*
+            for (PlanNode source : node.getSources()) {
+                source.accept(this, boundVariables);
+            }
+            return null;
+             */
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
+        }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Set<VariableReferenceExpression> boundSymbols)
+        {
+            return null;
         }
 
         @Override
