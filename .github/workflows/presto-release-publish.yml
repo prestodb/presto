@@ -114,7 +114,6 @@ jobs:
           distribution: 'temurin'
           overwrite-settings: true
           gpg-private-key: ${{ secrets.GPG_SECRET }}
-          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Install dependencies
         run: |
@@ -183,6 +182,7 @@ jobs:
       - name: Set up GPG key
         env:
           GPG_TTY: $(tty)
+          GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
           GPG_KEY_FILE: /tmp/gpg-key.txt
         run: |
           echo "${{ secrets.GPG_SECRET }}" > ${{ env.GPG_KEY_FILE }}
@@ -194,13 +194,14 @@ jobs:
         if: ${{ github.event.inputs.publish_maven == 'true' }}
         env:
           GPG_TTY: $(tty)
+          GPG_PASSPHRASE: "${{ secrets.GPG_PASSPHRASE }}"
         run: |
           unset MAVEN_CONFIG
           ./mvnw -s ${{ github.workspace }}/settings.xml -V -B -U -e -T1C deploy \
             -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
             -Dmaven.wagon.http.retryHandler.count=8 \
             -DskipTests \
-            -DstagingProfileId=${{ secrets.MAVEN_STAGING_PROFILE_ID }} \
+            -DstagingProfileId="${{ secrets.MAVEN_STAGING_PROFILE_ID }}" \
             -DkeepStagingRepositoryOnFailure=true \
             -DkeepStagingRepositoryOnCloseRuleFailure=true \
             -DautoReleaseAfterClose=true \
