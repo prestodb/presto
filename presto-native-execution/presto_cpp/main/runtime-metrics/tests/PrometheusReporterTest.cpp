@@ -20,7 +20,7 @@ namespace facebook::presto::prometheus {
 class PrometheusReporterTest : public testing::Test {
  public:
   void SetUp() override {
-    reporter = std::make_shared<PrometheusStatsReporter>(testLabels);
+    reporter = std::make_shared<PrometheusStatsReporter>(testLabels, 1);
   }
 
   void verifySerializedResult(
@@ -76,6 +76,9 @@ TEST_F(PrometheusReporterTest, testCountAndGauge) {
   reporter->addMetricValue("test.key1");
   reporter->addMetricValue("test.key3");
 
+  // 🔹 Wait for all async updates to finish before validation
+  reporter->waitForCompletion();
+
   auto fullSerializedResult = reporter->fetchMetrics();
 
   std::vector<std::string> expected = {
@@ -114,6 +117,8 @@ TEST_F(PrometheusReporterTest, testHistogramSummary) {
     }
   }
   reporter->addHistogramMetricValue(histogramKey, 10);
+  // 🔹 Wait for all async updates to finish before validation
+  reporter->waitForCompletion();
   auto fullSerializedResult = reporter->fetchMetrics();
   std::replace(histSummaryKey.begin(), histSummaryKey.end(), '.', '_');
   std::replace(histogramKey.begin(), histogramKey.end(), '.', '_');

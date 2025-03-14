@@ -16,6 +16,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/StatsReporter.h"
+#include <folly/executors/CPUThreadPoolExecutor.h>
 
 namespace facebook::presto::prometheus {
 
@@ -38,8 +39,13 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   class PrometheusImpl;
 
  public:
+  /**
+   * @brief Constructor with optional thread count (for testing).
+   * @param labels Labels for metrics.
+   * @param numThreads Number of threads in the executor (default: 2).
+   */
   explicit PrometheusStatsReporter(
-      const std::map<std::string, std::string>& labels);
+      const std::map<std::string, std::string>& labels, int numThreads = 2);
 
   void registerMetricExportType(const char* key, velox::StatType)
       const override;
@@ -77,6 +83,12 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
 
   std::string fetchMetrics() override;
 
+  /**
+   * Waits for all pending metric updates to complete.
+   * This is only used in tests to ensure correct timing.
+   */
+  void waitForCompletion() const;
+
   static std::unique_ptr<velox::BaseStatsReporter> createPrometheusReporter() {
     auto nodeConfig = NodeConfig::instance();
     const std::string cluster = nodeConfig->nodeEnvironment();
@@ -88,6 +100,7 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   }
 
  private:
+  std::shared_ptr<folly::CPUThreadPoolExecutor> executor_;
   std::shared_ptr<PrometheusImpl> impl_;
   // A map of labels assigned to each metric which helps in filtering at client
   // end.
