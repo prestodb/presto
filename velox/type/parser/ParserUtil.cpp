@@ -30,9 +30,8 @@ TypePtr typeFromString(
     upper = "DOUBLE";
   }
   auto inferredType = getType(upper, {});
-  if (failIfNotRegistered) {
-    VELOX_CHECK(
-        inferredType, "Failed to parse type [{}]. Type not registered.", type);
+  if (failIfNotRegistered == true && inferredType == nullptr) {
+    VELOX_UNSUPPORTED("Failed to parse type [{}]. Type not registered.", type);
   }
   return inferredType;
 }

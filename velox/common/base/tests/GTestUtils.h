@@ -52,6 +52,10 @@
   VELOX_ASSERT_THROW_IMPL(                                  \
       facebook::velox::VeloxUserError, _expression, _errorMessage)
 
+#define VELOX_ASSERT_UNSUPPORTED_THROW(_expression, _errorMessage) \
+  VELOX_ASSERT_THROW_IMPL(                                         \
+      facebook::velox::VeloxUserError, _expression, _errorMessage)
+
 #define VELOX_ASSERT_RUNTIME_THROW(_expression, _errorMessage) \
   VELOX_ASSERT_THROW_IMPL(                                     \
       facebook::velox::VeloxRuntimeError, _expression, _errorMessage)

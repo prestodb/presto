@@ -165,7 +165,7 @@ TEST_F(TypeParserTest, invalidType) {
   VELOX_ASSERT_THROW(parseType("x"), "Failed to parse type [x]");
 
   // Ensure this is not treated as a row type.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_UNSUPPORTED_THROW(
       parseType("rowxxx(a)"), "Failed to parse type [a]. Type not registered.");
 }
 
@@ -242,7 +242,7 @@ TEST_F(TypeParserTest, rowType) {
 
   ASSERT_EQ(*parseType("row(array(Json))"), *ROW({ARRAY(JSON())}));
 
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_UNSUPPORTED_THROW(
       *parseType("row(col0 row(array(HyperLogLog)))"),
       "Failed to parse type [HyperLogLog]. Type not registered.");
 
@@ -250,14 +250,14 @@ TEST_F(TypeParserTest, rowType) {
   ASSERT_EQ(*parseType("row(col iNt)"), *ROW({"col"}, {INTEGER()}));
 
   // Can only have names within rows.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_UNSUPPORTED_THROW(
       parseType("asd bigint"),
       "Failed to parse type [asd bigint]. Type not registered.");
 }
 
 TEST_F(TypeParserTest, typesWithSpaces) {
   // Type is not registered.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_UNSUPPORTED_THROW(
       parseType("row(time time with time zone)"),
       "Failed to parse type [time with time zone]. Type not registered.");
 
@@ -293,7 +293,7 @@ TEST_F(TypeParserTest, typesWithSpaces) {
           {TIMESTAMP_WITH_TIME_ZONE(), DOUBLE()}));
 
   // quoted field name with invalid type with spaces.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_UNSUPPORTED_THROW(
       parseType(
           "row(\"timestamp with time zone\" timestamp timestamp with time zone)"),
       "Failed to parse type [timestamp timestamp with time zone]. Type not registered.");
