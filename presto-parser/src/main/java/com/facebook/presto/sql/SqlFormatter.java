@@ -283,19 +283,14 @@ public final class SqlFormatter
                                 .map(expr -> formatExpression(expr, parameters))
                                 .collect(joining(", ")));
             }
-            if (node.isPruneWhenEmpty()) {
+            node.getEmptyTableTreatment().ifPresent(treatment -> {
                 builder.append("\n");
-                append(indent, "PRUNE WHEN EMPTY");
-            }
-            else {
-                builder.append("\n");
-                append(indent, "KEEP WHEN EMPTY");
-            }
+                append(indent, treatment.getTreatment().name() + " WHEN EMPTY");
+            });
             node.getOrderBy().ifPresent(orderBy -> {
                 builder.append("\n");
                 append(indent, formatOrderBy(orderBy, Optional.empty()));
             });
-
             return null;
         }
 
