@@ -91,6 +91,7 @@ public class IcebergSplitManager
             long toSnapshot = table.getIcebergTableName().getChangelogEndSnapshot()
                     .orElseGet(icebergTable.currentSnapshot()::snapshotId);
             IncrementalChangelogScan scan = icebergTable.newIncrementalChangelogScan()
+                    .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .fromSnapshotExclusive(fromSnapshot)
                     .toSnapshot(toSnapshot);
             return new ChangelogSplitSource(session, typeManager, icebergTable, scan);
@@ -100,12 +101,14 @@ public class IcebergSplitManager
                     table.getIcebergTableName().getSnapshotId().get(),
                     predicate,
                     table.getPartitionSpecId(),
-                    table.getEqualityFieldIds());
+                    table.getEqualityFieldIds(),
+                    session.getRuntimeStats());
 
             return new EqualityDeletesSplitSource(session, icebergTable, deleteFiles);
         }
         else {
             TableScan tableScan = icebergTable.newScan()
+                    .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
                     .filter(toIcebergExpression(predicate))
                     .useSnapshot(table.getIcebergTableName().getSnapshotId().get())
                     .planWith(executor);
