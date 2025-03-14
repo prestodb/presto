@@ -48,7 +48,7 @@ public class TempStorageStandaloneSpillerFactory
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
-        this.serdeFactory = new PagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.isSpillCompressionEnabled());
+        this.serdeFactory = new PagesSerdeFactory(blockEncodingSerde, nodeSpillConfig.getSpillCompressionCodec());
         this.tempStorageName = requireNonNull(featuresConfig, "featuresConfig is null").getSpillerTempStorage();
         this.spillerStats = requireNonNull(spillerStats, "spillerStats can not be null");
     }

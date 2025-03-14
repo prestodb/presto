@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.airlift.configuration.Config;
 import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.presto.CompressionCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDataSize;
@@ -32,7 +33,7 @@ public class FileFragmentResultCacheConfig
 {
     private boolean cachingEnabled;
     private URI baseDirectory;
-    private boolean blockEncodingCompressionEnabled;
+    private CompressionCodec blockEncodingCompressionCodec = CompressionCodec.NONE;
 
     private int maxCachedEntries = 10_000;
     private Duration cacheTtl = new Duration(2, DAYS);
@@ -68,16 +69,16 @@ public class FileFragmentResultCacheConfig
         return this;
     }
 
-    public boolean isBlockEncodingCompressionEnabled()
+    public CompressionCodec getBlockEncodingCompressionCodec()
     {
-        return blockEncodingCompressionEnabled;
+        return blockEncodingCompressionCodec;
     }
 
-    @Config("fragment-result-cache.block-encoding-compression-enabled")
-    @ConfigDescription("Enable compression for block encoding")
-    public FileFragmentResultCacheConfig setBlockEncodingCompressionEnabled(boolean blockEncodingCompressionEnabled)
+    @Config("fragment-result-cache.block-encoding-compression-codec")
+    @ConfigDescription("Compression codec for block encoding")
+    public FileFragmentResultCacheConfig setBlockEncodingCompressionCodec(CompressionCodec blockEncodingCompressionCodec)
     {
-        this.blockEncodingCompressionEnabled = blockEncodingCompressionEnabled;
+        this.blockEncodingCompressionCodec = blockEncodingCompressionCodec;
         return this;
     }
 

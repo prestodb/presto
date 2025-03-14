@@ -14,6 +14,7 @@
 package com.facebook.presto.spiller;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.presto.CompressionCodec;
 import io.airlift.units.DataSize;
 
 import javax.validation.constraints.NotNull;
@@ -25,7 +26,7 @@ public class NodeSpillConfig
     private DataSize queryMaxSpillPerNode = new DataSize(100, DataSize.Unit.GIGABYTE);
     private DataSize tempStorageBufferSize = new DataSize(4, DataSize.Unit.KILOBYTE);
 
-    private boolean spillCompressionEnabled;
+    private CompressionCodec spillCompressionCodec = CompressionCodec.NONE;
     private boolean spillEncryptionEnabled;
 
     @NotNull
@@ -67,15 +68,15 @@ public class NodeSpillConfig
         return this;
     }
 
-    public boolean isSpillCompressionEnabled()
+    public CompressionCodec getSpillCompressionCodec()
     {
-        return spillCompressionEnabled;
+        return spillCompressionCodec;
     }
 
-    @Config("experimental.spill-compression-enabled")
-    public NodeSpillConfig setSpillCompressionEnabled(boolean spillCompressionEnabled)
+    @Config("experimental.spill-compression-codec")
+    public NodeSpillConfig setSpillCompressionCodec(CompressionCodec spillCompressionCodec)
     {
-        this.spillCompressionEnabled = spillCompressionEnabled;
+        this.spillCompressionCodec = spillCompressionCodec;
         return this;
     }
 

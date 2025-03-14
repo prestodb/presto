@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.CompressionCodec;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -36,7 +37,7 @@ public class TestFileFragmentResultCacheConfig
         assertRecordedDefaults(recordDefaults(FileFragmentResultCacheConfig.class)
                 .setCachingEnabled(false)
                 .setBaseDirectory(null)
-                .setBlockEncodingCompressionEnabled(false)
+                .setBlockEncodingCompressionCodec(CompressionCodec.NONE)
                 .setMaxCachedEntries(10_000)
                 .setCacheTtl(new Duration(2, DAYS))
                 .setMaxInFlightSize(new DataSize(1, GIGABYTE))
@@ -52,7 +53,7 @@ public class TestFileFragmentResultCacheConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("fragment-result-cache.enabled", "true")
                 .put("fragment-result-cache.base-directory", "tcp://abc")
-                .put("fragment-result-cache.block-encoding-compression-enabled", "true")
+                .put("fragment-result-cache.block-encoding-compression-codec", "LZ4")
                 .put("fragment-result-cache.max-cached-entries", "100000")
                 .put("fragment-result-cache.cache-ttl", "1d")
                 .put("fragment-result-cache.max-in-flight-size", "2GB")
@@ -64,7 +65,7 @@ public class TestFileFragmentResultCacheConfig
         FileFragmentResultCacheConfig expected = new FileFragmentResultCacheConfig()
                 .setCachingEnabled(true)
                 .setBaseDirectory(new URI("tcp://abc"))
-                .setBlockEncodingCompressionEnabled(true)
+                .setBlockEncodingCompressionCodec(CompressionCodec.LZ4)
                 .setMaxCachedEntries(100000)
                 .setCacheTtl(new Duration(1, DAYS))
                 .setMaxInFlightSize(new DataSize(2, GIGABYTE))
