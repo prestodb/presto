@@ -1294,7 +1294,6 @@ class StatementAnalyzer
 
             Map<String, Argument> passedArguments = analyzeArguments(node, function.getArguments(), node.getArguments());
 
-            // a call to getOptionalCatalogMetadata() is necessary so that the catalog is recorded by the TransactionManager
             CatalogMetadata registrationCatalogMetadata = transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), connectorId.getCatalogName()).orElseThrow(() -> new IllegalStateException("Missing catalog metadata"));
             ConnectorTransactionHandle transactionHandle = transactionManager.getConnectorTransaction(
                     session.getRequiredTransactionId(), registrationCatalogMetadata.getConnectorId());

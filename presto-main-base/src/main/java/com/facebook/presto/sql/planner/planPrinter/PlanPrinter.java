@@ -95,6 +95,7 @@ import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SequenceNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
+import com.facebook.presto.sql.planner.plan.TableFunctionNode;
 import com.facebook.presto.sql.planner.plan.TableWriterMergeNode;
 import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -1305,6 +1306,32 @@ public class PlanPrinter
 
             return processChildren(node, context);
         }
+
+        @Override
+        public Void visitTableFunction(TableFunctionNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(
+                    node,
+                    "TableFunction",
+                    "name");
+
+            checkArgument(
+                    node.getSources().isEmpty() && node.getTableArgumentProperties().isEmpty() && node.getInputDescriptorMappings().isEmpty(),
+                    "Table or descriptor arguments are not yet supported in PlanPrinter");
+
+            // TODO: Add details here for plan printer
+            // node.getArguments().entrySet().stream()
+            //        .forEach(entry -> nodeOutput.appendDetails(entry.getKey() + " => " + formatArgument((ScalarArgument) entry.getValue())));
+
+            return processChildren(node, context);
+        }
+
+        /*
+        private String formatArgument(ScalarArgument argument)
+        {
+            return format("ScalarArgument{type=%s, value=%s}", argument.getType(), valuePrinter.castToVarchar(argument.getType(), argument.getValue()));
+        }
+         */
 
         @Override
         public Void visitPlan(PlanNode node, Void context)

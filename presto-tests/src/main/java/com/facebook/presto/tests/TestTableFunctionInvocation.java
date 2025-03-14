@@ -74,7 +74,7 @@ public class TestTableFunctionInvocation
                 .build()));
         queryRunner.createCatalog(TESTING_CATALOG, "mock");
     }
-/*
+
     @Test
     public void testPrimitiveDefaultArgument()
     {
@@ -84,7 +84,6 @@ public class TestTableFunctionInvocation
         assertQuery("SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column'))",
                 "SELECT true WHERE false");
     }
- */
 
     @Test
     public void testNoArgumentsPassed()
