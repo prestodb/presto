@@ -19,6 +19,8 @@
 
 namespace facebook::velox {
 
+/// Note the below function is only used for converting Varchar to JSON
+/// and thus escapes the varchar.
 /// Escape the unicode characters of `input` to make it canonical for JSON
 /// and legal to print in JSON text. It is assumed that the input is UTF-8
 /// encoded.
@@ -85,6 +87,15 @@ inline bool needNormalizeForJsonParse(const char* input, size_t length) {
   }
   return false;
 }
+
+/// Unescape for JSON casting. This is used when going from
+/// JSON  -> ARRAY(JSON) or JSON -> MAP(_, JSON) etc.
+/// In these cases Presto unescapes the string, replacing \\ with \, \n with
+/// newline, etc. The function will return valid utf-8
+void unescapeForJsonCast(const char* input, size_t length, char* output);
+
+/// Size of output buffer required when unescaping for json cast.
+size_t unescapeSizeForJsonCast(const char* input, size_t length);
 
 /// Compares two string views. The comparison takes into account
 /// escape sequences and also unicode characters.

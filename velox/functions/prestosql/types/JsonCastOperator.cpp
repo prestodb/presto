@@ -688,10 +688,26 @@ struct CastFromJsonTypedImpl {
         Input value,
         exec::GenericWriter& writer) {
       SIMDJSON_ASSIGN_OR_RAISE(auto type, value.type());
-      std::string_view s;
+
       if (isJsonType(writer.type())) {
-        SIMDJSON_ASSIGN_OR_RAISE(s, rawJson(value, type));
+        std::string_view json;
+        SIMDJSON_ASSIGN_OR_RAISE(json, rawJson(value, type));
+        auto& vectorWriter = writer.castTo<Varchar>();
+
+        // The needNormalizeForJsonParse() just checks for escape sequences
+        // in the string
+        if (needNormalizeForJsonParse(json.data(), json.size())) {
+          // Unescape the json string as calling raw_json does not unescape in
+          // simdjson.
+          auto size = unescapeSizeForJsonCast(json.data(), json.size());
+          vectorWriter.resize(size);
+          unescapeForJsonCast(json.data(), json.size(), vectorWriter.data());
+          vectorWriter.finalize();
+        } else {
+          vectorWriter.append(json);
+        }
       } else {
+        std::string_view s;
         switch (type) {
           case simdjson::ondemand::json_type::string: {
             SIMDJSON_ASSIGN_OR_RAISE(s, value.get_string());
@@ -704,8 +720,9 @@ struct CastFromJsonTypedImpl {
           default:
             return simdjson::INCORRECT_TYPE;
         }
+        writer.castTo<Varchar>().append(s);
       }
-      writer.castTo<Varchar>().append(s);
+
       return simdjson::SUCCESS;
     }
   };
