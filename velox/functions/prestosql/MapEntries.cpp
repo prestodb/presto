@@ -51,7 +51,7 @@ class MapEntriesFunction : public exec::VectorFunction {
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     // map(K,V) -> array(row(K,V))
     return {exec::FunctionSignatureBuilder()
-                .knownTypeVariable("K")
+                .typeVariable("K")
                 .typeVariable("V")
                 .returnType("array(row(K,V))")
                 .argumentType("map(K,V)")

@@ -125,6 +125,25 @@ TEST_F(MapEntriesTest, constant) {
   test::assertEqualVectors(expected, result);
 }
 
+TEST_F(MapEntriesTest, unknownType) {
+  auto mapVector = makeMapVector<UnknownValue, UnknownValue>({
+      {},
+  });
+  auto result = evaluate("map_entries(c0)", makeRowVector({mapVector}));
+  auto keyVector = makeNullableFlatVector<UnknownValue>({});
+  auto valueVector = makeNullableFlatVector<UnknownValue>({});
+  auto elementVector = makeRowVector({keyVector, valueVector});
+  auto arrayVector = makeSingleRowArrayVector(elementVector);
+  test::assertEqualVectors(arrayVector, result);
+}
+
+TEST_F(MapEntriesTest, unknownTypeNonNullValue) {
+  auto mapVector = makeAllNullMapVector(1, UNKNOWN(), BIGINT());
+  auto result = evaluate("map_entries(c0)", makeRowVector({mapVector}));
+  auto expected = makeAllNullArrayVector(1, ROW({UNKNOWN(), BIGINT()}));
+  test::assertEqualVectors(expected, result);
+}
+
 TEST_F(MapEntriesTest, outputSizeIsBoundBySelectedRows) {
   // This test makes sure that map_entries output vector size is `rows.end()`
   // and not `rows.size()`. This is important for this function because it
