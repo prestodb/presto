@@ -179,7 +179,7 @@ public class PrestoSparkQueryRunner
 
     private final NodeManager nodeManager;
 
-    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
+    protected static final MetastoreContext METASTORE_CONTEXT = new MetastoreContext("test_user", Optional.empty(), "test_queryId", Optional.empty(), Collections.emptySet(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER, WarningCollector.NOOP, new RuntimeStats());
 
     public static PrestoSparkQueryRunner createHivePrestoSparkQueryRunner()
     {
