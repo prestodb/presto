@@ -148,9 +148,9 @@ import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SubqueryExpression;
 import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.Table;
-import com.facebook.presto.sql.tree.TableArgument;
 import com.facebook.presto.sql.tree.TableFunctionArgument;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
@@ -196,8 +196,6 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.GREATER
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.PRIMARY_KEY;
 import static com.facebook.presto.sql.tree.ConstraintSpecification.ConstraintType.UNIQUE;
-import static com.facebook.presto.sql.tree.DescriptorArgument.descriptorArgument;
-import static com.facebook.presto.sql.tree.DescriptorArgument.nullDescriptorArgument;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
 import static com.facebook.presto.sql.tree.RoutineCharacteristics.Language.SQL;
@@ -207,6 +205,8 @@ import static com.facebook.presto.sql.tree.SortItem.NullOrdering.LAST;
 import static com.facebook.presto.sql.tree.SortItem.NullOrdering.UNDEFINED;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.ASCENDING;
 import static com.facebook.presto.sql.tree.SortItem.Ordering.DESCENDING;
+import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.descriptorArgument;
+import static com.facebook.presto.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionOperator;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.TIMESTAMP;
 import static com.facebook.presto.sql.tree.TableVersionExpression.TableVersionType.VERSION;
@@ -3495,7 +3495,7 @@ public class TestSqlParser
                                 new TableFunctionArgument(
                                         new NodeLocation(1, 77),
                                         Optional.of(new Identifier(new NodeLocation(1, 77), "arg1", false)),
-                                        new TableArgument(
+                                        new TableFunctionTableArgument(
                                                 new NodeLocation(1, 85),
                                                 new AliasedRelation(
                                                         new NodeLocation(1, 85),

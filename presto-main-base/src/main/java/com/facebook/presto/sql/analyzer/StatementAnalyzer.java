@@ -100,7 +100,6 @@ import com.facebook.presto.sql.tree.Deallocate;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.Delete;
 import com.facebook.presto.sql.tree.DereferenceExpression;
-import com.facebook.presto.sql.tree.DescriptorArgument;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.DropConstraint;
 import com.facebook.presto.sql.tree.DropFunction;
@@ -174,6 +173,7 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionArgument;
+import com.facebook.presto.sql.tree.TableFunctionDescriptorArgument;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TruncateTable;
@@ -1304,7 +1304,7 @@ class StatementAnalyzer
             // This is a mapping of descriptor arguments to table arguments. It consists of two parts:
             // - mapping by descriptor field: (arg name of descriptor argument, and position in the descriptor) to (arg name of table argument)
             // - mapping by descriptor: (arg name of descriptor argument) to (arg name of table argument)
-            // 1. get the DescriptorField from the designated DescriptorArgument (or all fields for mapping by descriptor)
+            // 1. get the DescriptorField from the designated TableFunctionDescriptorArgument (or all fields for mapping by descriptor)
             // 2. validate there is no DataType specified,
             // 3. analyze the Identifier in the scope of the designated table (it is recorded, because args were already analyzed). Disable correlation.
             // 4. at this point, the Identifier should be recorded as a column reference to the appropriate table
@@ -1430,7 +1430,7 @@ class StatementAnalyzer
             if (argument.getValue() instanceof Relation) {
                 actualType = "table";
             }
-            else if (argument.getValue() instanceof DescriptorArgument) {
+            else if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
                 actualType = "descriptor";
             }
             else if (argument.getValue() instanceof Expression) {
@@ -1457,7 +1457,7 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, argument, "Table arguments are not yet supported for table functions");
             }
             if (argumentSpecification instanceof DescriptorArgumentSpecification) {
-                if (!(argument.getValue() instanceof DescriptorArgument)) {
+                if (!(argument.getValue() instanceof TableFunctionDescriptorArgument)) {
                     if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
                         // malformed descriptor which parsed as a function call
                         throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "Invalid descriptor argument %s. Descriptors should be formatted as 'DESCRIPTOR(name [type], ...)'", (Object) argumentSpecification.getName());
