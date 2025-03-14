@@ -175,6 +175,7 @@ import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableFunctionArgument;
 import com.facebook.presto.sql.tree.TableFunctionDescriptorArgument;
 import com.facebook.presto.sql.tree.TableFunctionInvocation;
+import com.facebook.presto.sql.tree.TableFunctionTableArgument;
 import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
@@ -1427,7 +1428,7 @@ class StatementAnalyzer
         private Argument analyzeArgument(ArgumentSpecification argumentSpecification, TableFunctionArgument argument)
         {
             String actualType;
-            if (argument.getValue() instanceof Relation) {
+            if (argument.getValue() instanceof TableFunctionTableArgument) {
                 actualType = "table";
             }
             else if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
@@ -1441,7 +1442,7 @@ class StatementAnalyzer
             }
 
             if (argumentSpecification instanceof TableArgumentSpecification) {
-                if (!(argument.getValue() instanceof Relation)) {
+                if (!(argument.getValue() instanceof TableFunctionTableArgument)) {
                     if (argument.getValue() instanceof FunctionCall) {
                         // probably an attempt to pass a table function call, which is not supported, and was parsed as a function call
                         throw new SemanticException(NOT_SUPPORTED, argument, "Invalid table argument %s. Table functions are not allowed as table function arguments", argumentSpecification.getName());
