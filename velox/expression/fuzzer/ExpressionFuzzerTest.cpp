@@ -114,7 +114,11 @@ int main(int argc, char** argv) {
       // make other functions throw VeloxRuntimeErrors.
       "from_unixtime",
       // JSON not supported, Real doesn't match exactly, etc.
-      "array_join"};
+      "array_join",
+      // BingTiles throw VeloxUserError when zoom/x/y are out of range.
+      "bing_tile",
+      "bing_tile_zoom_level",
+      "bing_tile_coordinates"};
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
 
   std::unordered_map<std::string, std::shared_ptr<ArgTypesGenerator>>

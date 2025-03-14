@@ -15,12 +15,36 @@
  */
 
 #include <string>
+#include "velox/functions/Registerer.h"
+#include "velox/functions/prestosql/GeospatialFunctions.h"
 #include "velox/functions/prestosql/types/BingTileRegistration.h"
+#include "velox/functions/prestosql/types/BingTileType.h"
+#include "velox/type/SimpleFunctionApi.h"
 
 namespace facebook::velox::functions {
 
+namespace {
+
+void registerBingTileFunctions(const std::string& prefix) {
+  // BingTile constructors
+  registerFunction<BingTileFunction, BingTile, int32_t, int32_t, int8_t>(
+      {prefix + "bing_tile"});
+
+  // BingTile accessors
+  registerFunction<BingTileZoomLevelFunction, int8_t, BingTile>(
+      {prefix + "bing_tile_zoom_level"});
+  registerFunction<
+      BingTileCoordinatesFunction,
+      Row<int32_t, int32_t>,
+      BingTile>({prefix + "bing_tile_coordinates"});
+}
+
+} // namespace
+
 void registerGeospatialFunctions(const std::string& prefix) {
   registerBingTileType();
+
+  registerBingTileFunctions(prefix);
 }
 
 } // namespace facebook::velox::functions
