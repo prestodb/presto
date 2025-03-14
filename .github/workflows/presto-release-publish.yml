@@ -85,7 +85,7 @@ jobs:
 
       - name: Delete existing release tag
         run: |
-          git push origin :${{ env.RELEASE_TAG }} || true
+          git push --delete origin ${{ env.RELEASE_TAG }} || true
           git tag -d ${{ env.RELEASE_TAG }} || true
 
       - name: Create new release tag
@@ -181,24 +181,26 @@ jobs:
             presto-docs/target/presto-docs-*.zip
 
       - name: Set up GPG key
+        env:
+          GPG_TTY: $(tty)
+          GPG_KEY_FILE: /tmp/gpg-key.txt
         run: |
           echo "${{ secrets.GPG_SECRET }}" > ${{ env.GPG_KEY_FILE }}
           chmod 600 ${{ env.GPG_KEY_FILE }}
           gpg --import --batch ${{ env.GPG_KEY_FILE }}
           gpg --batch --yes --pinentry-mode loopback --passphrase "${{ secrets.GPG_PASSPHRASE }}" --sign ${{ env.GPG_KEY_FILE }}
-        env:
-          GPG_TTY: $(tty)
-          GPG_KEY_FILE: /tmp/gpg-key.txt
 
       - name: Release Maven Artifacts
         if: ${{ github.event.inputs.publish_maven == 'true' }}
+        env:
+          GPG_TTY: $(tty)
         run: |
           unset MAVEN_CONFIG
           ./mvnw -s ${{ github.workspace }}/settings.xml -V -B -U -e -T1C deploy \
             -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
             -Dmaven.wagon.http.retryHandler.count=8 \
             -DskipTests \
-            -DstagingProfileId=28a0d8c4350ed \
+            -DstagingProfileId=${{ secrets.MAVEN_STAGING_PROFILE_ID }} \
             -DkeepStagingRepositoryOnFailure=true \
             -DkeepStagingRepositoryOnCloseRuleFailure=true \
             -DautoReleaseAfterClose=true \
@@ -206,8 +208,6 @@ jobs:
             -Poss-release \
             -Pdeploy-to-ossrh \
             -pl '!presto-test-coverage'
-        env:
-          GPG_TTY: $(tty)
 
   publish-docker-images:
     if: ${{ github.event.inputs.publish_docker == 'true' && always() }}
