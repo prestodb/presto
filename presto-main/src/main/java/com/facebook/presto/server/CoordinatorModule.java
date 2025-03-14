@@ -291,6 +291,7 @@ public class CoordinatorModule
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(SectionExecutionFactory.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(SectionExecutionFactory.class).withGeneratedName();
 
         binder.bind(PartialResultQueryManager.class).in(Scopes.SINGLETON);
         binder.bind(DDLDefinitionExecutionFactory.class).in(Scopes.SINGLETON);

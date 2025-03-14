@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.SqlStageExecution;
@@ -40,6 +41,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static com.facebook.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
@@ -60,6 +63,8 @@ import static java.util.Objects.requireNonNull;
 public class SourcePartitionedScheduler
         implements SourceScheduler
 {
+    private static final Logger log = Logger.get(SourcePartitionedScheduler.class);
+
     private enum State
     {
         /**
@@ -99,6 +104,7 @@ public class SourcePartitionedScheduler
     private State state = State.INITIALIZED;
 
     private SettableFuture<?> whenFinishedOrNewLifespanAdded = SettableFuture.create();
+    private final ExecutorService taskSchedulerExecutorService;
 
     private SourcePartitionedScheduler(
             SqlStageExecution stage,
@@ -106,7 +112,8 @@ public class SourcePartitionedScheduler
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
             int splitBatchSize,
-            boolean groupedExecution)
+            boolean groupedExecution,
+            ExecutorService taskSchedulerExecutorService)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.partitionedNode = requireNonNull(partitionedNode, "partitionedNode is null");
@@ -116,6 +123,7 @@ public class SourcePartitionedScheduler
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
         this.groupedExecution = groupedExecution;
+        this.taskSchedulerExecutorService = taskSchedulerExecutorService;
     }
 
     public PlanNodeId getPlanNodeId()
@@ -135,12 +143,14 @@ public class SourcePartitionedScheduler
             PlanNodeId partitionedNode,
             SplitSource splitSource,
             SplitPlacementPolicy splitPlacementPolicy,
-            int splitBatchSize)
+            int splitBatchSize,
+            ExecutorService taskSchedulerExecutorService)
     {
-        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false);
+        SourcePartitionedScheduler sourcePartitionedScheduler = new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, false, taskSchedulerExecutorService);
         sourcePartitionedScheduler.startLifespan(Lifespan.taskWide(), NOT_PARTITIONED);
 
-        return new StageScheduler() {
+        return new StageScheduler()
+        {
             @Override
             public ScheduleResult schedule()
             {
@@ -176,7 +186,7 @@ public class SourcePartitionedScheduler
             int splitBatchSize,
             boolean groupedExecution)
     {
-        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution);
+        return new SourcePartitionedScheduler(stage, partitionedNode, splitSource, splitPlacementPolicy, splitBatchSize, groupedExecution, null);
     }
 
     @Override
@@ -448,12 +458,15 @@ public class SourcePartitionedScheduler
 
     private Set<RemoteTask> assignSplits(Multimap<InternalNode, Split> splitAssignment, Multimap<InternalNode, Lifespan> noMoreSplitsNotification)
     {
+        long start = System.currentTimeMillis();
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
         ImmutableSet<InternalNode> nodes = ImmutableSet.<InternalNode>builder()
                 .addAll(splitAssignment.keySet())
                 .addAll(noMoreSplitsNotification.keySet())
                 .build();
+        List<Future<Set<RemoteTask>>> futureList = new ArrayList<>();
+        // Do this is in parallel
         for (InternalNode node : nodes) {
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()
                     .putAll(partitionedNode, splitAssignment.get(node))
@@ -464,11 +477,30 @@ public class SourcePartitionedScheduler
                 noMoreSplits.putAll(partitionedNode, noMoreSplitsNotification.get(node));
             }
 
-            newTasks.addAll(stage.scheduleSplits(
-                    node,
-                    splits,
-                    noMoreSplits.build()));
+            if (taskSchedulerExecutorService != null) {
+                futureList.add(taskSchedulerExecutorService.submit(() -> stage.scheduleSplits(node, splits, noMoreSplits.build())));
+                log.error("NIKHIL submitted task to pool");
+            }
+            else {
+                newTasks.addAll(stage.scheduleSplits(
+                        node,
+                        splits,
+                        noMoreSplits.build()));
+            }
         }
+
+        if (!futureList.isEmpty()) {
+            for (Future<Set<RemoteTask>> future : futureList) {
+                try {
+                    newTasks.addAll(future.get());
+                }
+                catch (Exception e) {
+                    log.error("NIKHIL error happened in the future get");
+                }
+            }
+        }
+
+        log.error("NIKHIL assignSplits latency: %d, nodesCount: %d", System.currentTimeMillis() - start, nodes.size());
         return newTasks.build();
     }
 
