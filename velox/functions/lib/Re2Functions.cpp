@@ -1840,13 +1840,13 @@ std::vector<std::string> PatternMetadata::parseSubstrings(
   // Not support substrings-search with '_' for best performance.
   static const re2::RE2 fullPattern(R"((%+[^%_#\\]+)+%+)");
   static const re2::RE2 subPattern(R"((?:%+)([^%_#\\]+))");
-  re2::StringPiece full(pattern);
+  re2::StringPiece full(pattern.data(), pattern.size());
   re2::StringPiece cur;
   std::vector<std::string> substrings;
   if (RE2::FullMatch(full, fullPattern)) {
     while (RE2::PartialMatch(full, subPattern, &cur)) {
-      substrings.push_back(cur.as_string());
-      full.set(cur.end(), full.end() - cur.end());
+      substrings.push_back(std::string(cur));
+      full = re2::StringPiece(cur.end(), full.end() - cur.end());
     }
   }
   return substrings;
