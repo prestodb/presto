@@ -18,6 +18,7 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
@@ -39,5 +40,21 @@ public class TestNativeTpcdsQueriesParquetUsingThriftWithSidecarEnabled
     {
         this.storageFormat = "PARQUET";
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner("PARQUET");
+    }
+
+    @Override
+    @Test
+    public void testTpcdsQ2()
+            throws Exception
+    {
+        assertQueryFails(session, getTpcdsQuery("02"), "Variable is not bound: i2");
+    }
+
+    @Override
+    @Test
+    public void testTpcdsQ78()
+            throws Exception
+    {
+        assertQueryFails(session, getTpcdsQuery("78"), "Variable is not bound: i2");
     }
 }

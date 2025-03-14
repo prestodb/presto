@@ -410,10 +410,10 @@ public class PrestoNativeQueryRunnerUtils
                 getNativeWorkerTpcdsProperties());
     }
 
-    public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds, boolean isCoordinatorSidecarEnabled)
+    public static QueryRunner createNativeQueryRunner(String remoteFunctionServerUds)
             throws Exception
     {
-        return createNativeQueryRunner(false, DEFAULT_STORAGE_FORMAT, Optional.ofNullable(remoteFunctionServerUds), false, false, isCoordinatorSidecarEnabled);
+        return createNativeQueryRunner(false, DEFAULT_STORAGE_FORMAT, Optional.ofNullable(remoteFunctionServerUds), false, false, false);
     }
 
     public static QueryRunner createNativeQueryRunner(boolean useThrift)

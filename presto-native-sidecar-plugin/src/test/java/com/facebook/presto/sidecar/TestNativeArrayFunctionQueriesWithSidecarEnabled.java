@@ -18,11 +18,10 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import org.testng.annotations.Ignore;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
-@Ignore
 public class TestNativeArrayFunctionQueriesWithSidecarEnabled
         extends AbstractTestNativeArrayFunctionQueries
 {
@@ -40,5 +39,14 @@ public class TestNativeArrayFunctionQueriesWithSidecarEnabled
             throws Exception
     {
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
+    }
+
+    @Override
+    @Test
+    public void testArraySort()
+    {
+        assertQuery("SELECT array_sort(quantities), array_sort_desc(quantities) FROM orders_ex");
+        assertQueryFails("SELECT array_sort(quantities, (x, y) -> if (x < y, 1, if (x > y, -1, 0))) FROM orders_ex",
+                "line 1:31: Expected a lambda that takes 1 argument\\(s\\) but got 2");
     }
 }

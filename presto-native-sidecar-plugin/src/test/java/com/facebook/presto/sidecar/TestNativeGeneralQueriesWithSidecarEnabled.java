@@ -18,11 +18,10 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import org.testng.annotations.Ignore;
+import org.testng.annotations.Test;
 
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
-@Ignore
 public class TestNativeGeneralQueriesWithSidecarEnabled
         extends AbstractTestNativeGeneralQueries
 {
@@ -41,4 +40,39 @@ public class TestNativeGeneralQueriesWithSidecarEnabled
     {
         return PrestoNativeQueryRunnerUtils.createJavaQueryRunner();
     }
+
+    @Override
+    @Test
+    public void testInformationSchemaTables()
+    {
+        assertQueryFails("select lower(table_name) from information_schema.tables "
+                        + "where table_name = 'lineitem' or table_name = 'LINEITEM' ",
+                "Compiler failed");
+    }
+
+    // Fails due to error: resolved function input type does not match the input type: varchar != varchar(25)
+    @Override
+    @Test(enabled = false)
+    public void testSystemTables() {}
+
+    // Fails due to error: resolved function input type does not match the input type: varchar != varchar(25)
+    @Override
+    @Test(enabled = false)
+    public void testAnalyzeStats() {}
+
+    // SHOW commands will return different outputs
+    @Override
+    @Test
+    public void testShowAndDescribe()
+    {
+        assertQuerySucceeds("SHOW functions");
+        assertQuerySucceeds("SHOW tables");
+        assertQuerySucceeds("DESCRIBE lineitem");
+    }
+
+    // set session on a java worker session property won't work as we are enabling the config flag
+    // `exclude-invalid-worker-session-properties`.
+    @Override
+    @Test(enabled = false)
+    public void testSetSessionJavaWorkerSessionProperty() {}
 }

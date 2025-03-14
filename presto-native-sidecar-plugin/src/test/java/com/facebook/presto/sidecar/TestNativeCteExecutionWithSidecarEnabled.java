@@ -19,7 +19,6 @@ import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
-import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED;
@@ -29,7 +28,6 @@ import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENA
 import static com.facebook.presto.SystemSessionProperties.VERBOSE_OPTIMIZER_INFO_ENABLED;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
 
-@Ignore
 @Test(groups = {"parquet"})
 public class TestNativeCteExecutionWithSidecarEnabled
         extends AbstractTestNativeCteExecution
@@ -69,5 +67,23 @@ public class TestNativeCteExecutionWithSidecarEnabled
                 .setSystemProperty(CTE_MATERIALIZATION_STRATEGY, "ALL")
                 .setSystemProperty(CTE_FILTER_AND_PROJECTION_PUSHDOWN_ENABLED, "true")
                 .build();
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testComplexPersistentCteForCtasQueries()
+    {
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testPersistentCteForVarbinaryType()
+    {
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void testPersistentCteWithVarbinary()
+    {
     }
 }

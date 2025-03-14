@@ -22,7 +22,7 @@ public class TestPrestoNativeRemoteFunctions
     @Override
     protected QueryRunner createQueryRunner() throws Exception
     {
-        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(remoteFunctionServerUds, false);
+        return PrestoNativeQueryRunnerUtils.createNativeQueryRunner(remoteFunctionServerUds);
     }
 
     @Override
