@@ -393,12 +393,23 @@ public class TestArraySqlFunctions
         // Test exceptions
         assertInvalidFunction("ARRAY_TOP_N(ARRAY [ROW('a', 1), ROW('a', null), null, ROW('a', 0)], 2)", StandardErrorCode.INVALID_FUNCTION_ARGUMENT);
         assertInvalidFunction("ARRAY_TOP_N(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])], 2)", SemanticErrorCode.FUNCTION_NOT_FOUND);
-        assertInvalidFunction("ARRAY_TOP_N(ARRAY ['a', 'a', 'd', 'a', 'a', 'a'], -1)", StandardErrorCode.GENERIC_USER_ERROR, "Parameter n: -1 to ARRAY_TOP_N is negative");
 
         // Test edge cases
         assertFunction("ARRAY_TOP_N(ARRAY [null, null], 3)", new ArrayType(UNKNOWN), asList(null, null));
         assertFunction("ARRAY_TOP_N(ARRAY [3, 5, 1, 2], 0)", new ArrayType(INTEGER), emptyList());
         assertFunction("ARRAY_TOP_N(ARRAY [], 3)", new ArrayType(UNKNOWN), emptyList());
         assertFunction("ARRAY_TOP_N(ARRAY [1, 4], 3)", new ArrayType(INTEGER), ImmutableList.of(4, 1));
+    }
+
+    @Test
+    public void testArrayTopNNegativeParameter()
+    {
+        assertFunction("ARRAY_TOP_N(ARRAY ['a', 'a', 'd', 'a', 'a', 'a'], -1)", new ArrayType(createVarcharType(1)), null);
+        assertFunction("ARRAY_TOP_N(ARRAY [1,2,3,4,5,6], -5)", new ArrayType(INTEGER), null);
+        assertFunction("ARRAY_TOP_N(ARRAY [DOUBLE '1.0', 100, 2, DOUBLE '5.0', DOUBLE '3.0'], -3)", new ArrayType(DOUBLE), null);
+        assertFunction("ARRAY_TOP_N(ARRAY [true, true, false, true, false], -4)", new ArrayType(BOOLEAN), null);
+        assertFunction("ARRAY_TOP_N(ARRAY [null, null], -3)", new ArrayType(UNKNOWN), null);
+        assertFunction("ARRAY_TOP_N(ARRAY [], -3)", new ArrayType(UNKNOWN), null);
+        assertFunction("ARRAY_TOP_N(null, -3)", new ArrayType(UNKNOWN), null);
     }
 }
