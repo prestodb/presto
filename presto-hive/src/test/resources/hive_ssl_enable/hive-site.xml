@@ -95,4 +95,14 @@
         <value>123456</value>
     </property>
 
+    <property>
+        <name>hive.metastore.event.db.notification.api.auth</name>
+        <value>false</value>
+    </property>
+
+    <property>
+        <name>hive.server2.active.passive.ha.enable</name>
+        <value>true</value>
+    </property>
+
 </configuration>
