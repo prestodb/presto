@@ -370,7 +370,7 @@ class IndexSource {
   virtual std::shared_ptr<LookupResultIterator> lookup(
       const LookupRequest& request) = 0;
 
-  virtual std::unordered_map<std::string, RuntimeCounter> runtimeStats() = 0;
+  virtual std::unordered_map<std::string, RuntimeMetric> runtimeStats() = 0;
 };
 
 /// Collection of context data for use in a DataSource, IndexSource or DataSink.

@@ -120,10 +120,7 @@ class TestIndexSource : public connector::IndexSource,
   std::shared_ptr<LookupResultIterator> lookup(
       const LookupRequest& request) override;
 
-  std::unordered_map<std::string, RuntimeCounter> runtimeStats() override {
-    // TODO: add runtime stats.
-    return {};
-  }
+  std::unordered_map<std::string, RuntimeMetric> runtimeStats() override;
 
   memory::MemoryPool* pool() const {
     return pool_.get();
@@ -232,6 +229,8 @@ class TestIndexSource : public connector::IndexSource,
   // Initialize the condition filter input type and projections if configured.
   void initConditionProjections();
 
+  void recordCpuTiming(const CpuWallTiming& timing);
+
   const std::shared_ptr<TestIndexTableHandle> tableHandle_;
   const RowTypePtr inputType_;
   const RowTypePtr outputType_;
@@ -242,6 +241,8 @@ class TestIndexSource : public connector::IndexSource,
   const std::unique_ptr<exec::ExprSet> conditionExprSet_;
   const std::shared_ptr<memory::MemoryPool> pool_;
   folly::Executor* const executor_;
+
+  mutable std::mutex mutex_;
 
   // Join condition filter input type.
   RowTypePtr conditionInputType_;
@@ -257,6 +258,7 @@ class TestIndexSource : public connector::IndexSource,
   std::vector<IdentityProjection> conditionInputProjections_;
   std::vector<IdentityProjection> conditionTableProjections_;
   std::vector<IdentityProjection> lookupOutputProjections_;
+  std::unordered_map<std::string, RuntimeMetric> runtimeStats_;
 };
 
 class TestIndexConnector : public connector::Connector {

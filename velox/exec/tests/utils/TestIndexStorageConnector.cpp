@@ -17,6 +17,9 @@
 #include "velox/exec/tests/utils/TestIndexStorageConnector.h"
 
 #include "velox/common/testutil/TestValue.h"
+#include "velox/common/time/CpuWallTimer.h"
+#include "velox/exec/IndexLookupJoin.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FieldReference.h"
 
@@ -202,6 +205,24 @@ void TestIndexSource::initOutputProjections() {
   VELOX_CHECK_EQ(lookupOutputProjections_.size(), outputType_->size());
 }
 
+void TestIndexSource::recordCpuTiming(const CpuWallTiming& timing) {
+  VELOX_CHECK_EQ(timing.count, 1);
+  std::lock_guard<std::mutex> l(mutex_);
+  addOperatorRuntimeStats(
+      IndexLookupJoin::kConnectorLookupWallTime,
+      RuntimeCounter(timing.wallNanos, RuntimeCounter::Unit::kNanos),
+      runtimeStats_);
+  addOperatorRuntimeStats(
+      IndexLookupJoin::kConnectorLookupCpuTime,
+      RuntimeCounter(timing.cpuNanos, RuntimeCounter::Unit::kNanos),
+      runtimeStats_);
+}
+
+std::unordered_map<std::string, RuntimeMetric> TestIndexSource::runtimeStats() {
+  std::lock_guard<std::mutex> l(mutex_);
+  return runtimeStats_;
+}
+
 TestIndexSource::ResultIterator::ResultIterator(
     std::shared_ptr<TestIndexSource> source,
     const LookupRequest& request,
@@ -281,6 +302,9 @@ void TestIndexSource::ResultIterator::asyncLookup(
   executor_->add([this, size, promise = std::move(asyncPromise)]() mutable {
     VELOX_CHECK(!asyncResult_.has_value());
     VELOX_CHECK(hasPendingRequest_);
+    TestValue::adjust(
+        "facebook::velox::exec::test::TestIndexSource::ResultIterator::asyncLookup",
+        this);
     SCOPE_EXIT {
       hasPendingRequest_ = false;
       promise->setValue();
@@ -296,6 +320,11 @@ TestIndexSource::ResultIterator::syncLookup(vector_size_t size) {
     return nullptr;
   }
 
+  CpuWallTiming timing;
+  SCOPE_EXIT {
+    source_->recordCpuTiming(timing);
+  };
+  CpuWallTimer timer{timing};
   try {
     TestValue::adjust(
         "facebook::velox::exec::test::TestIndexSource::ResultIterator::syncLookup",

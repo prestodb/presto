@@ -334,10 +334,32 @@ void IndexLookupJoin::initOutputProjections() {
 
 BlockingReason IndexLookupJoin::isBlocked(ContinueFuture* future) {
   if (!lookupFuture_.valid()) {
+    endLookupBlockWait();
     return BlockingReason::kNotBlocked;
   }
   *future = std::move(lookupFuture_);
+  startLookupBlockWait();
   return BlockingReason::kWaitForIndexLookup;
+}
+
+void IndexLookupJoin::startLookupBlockWait() {
+  VELOX_CHECK(!blockWaitStartNs_.has_value());
+  blockWaitStartNs_ = getCurrentTimeNano();
+}
+
+void IndexLookupJoin::endLookupBlockWait() {
+  if (!blockWaitStartNs_.has_value()) {
+    return;
+  }
+  SCOPE_EXIT {
+    blockWaitStartNs_ = std::nullopt;
+  };
+  const auto blockWaitEndNs = getCurrentTimeNano();
+  VELOX_CHECK_GE(blockWaitEndNs, blockWaitStartNs_.value());
+  const auto blockWaitNs = blockWaitEndNs - blockWaitStartNs_.value();
+  stats_.wlock()->addRuntimeStat(
+      kLookupBlockWaitTime,
+      RuntimeCounter(blockWaitNs, RuntimeCounter::Unit::kNanos));
 }
 
 void IndexLookupJoin::addInput(RowVectorPtr input) {
@@ -671,6 +693,7 @@ void IndexLookupJoin::prepareOutputRowMappings(size_t outputBatchSize) {
 }
 
 void IndexLookupJoin::close() {
+  recordConnectorStats();
   // TODO: add close method for index source if needed to free up resource
   // or shutdown index source gracefully.
   indexSource_.reset();
@@ -682,5 +705,30 @@ void IndexLookupJoin::close() {
   lookupOutputNulls_ = nullptr;
 
   Operator::close();
+}
+
+void IndexLookupJoin::recordConnectorStats() {
+  if (indexSource_ == nullptr) {
+    // NOTE: index join might fail to create index source so skip record stats
+    // in that case.
+    return;
+  }
+  auto lockedStats = stats_.wlock();
+  auto connectorStats = indexSource_->runtimeStats();
+  for (auto& [name, value] : connectorStats) {
+    lockedStats->runtimeStats.erase(name);
+    lockedStats->runtimeStats.emplace(name, std::move(value));
+  }
+  if (connectorStats.count(kConnectorLookupCpuTime) != 0) {
+    VELOX_CHECK_EQ(
+        connectorStats[kConnectorLookupCpuTime].count,
+        connectorStats[kConnectorLookupWallTime].count);
+    const CpuWallTiming backgroundTiming{
+        static_cast<uint64_t>(connectorStats[kConnectorLookupCpuTime].count),
+        static_cast<uint64_t>(connectorStats[kConnectorLookupWallTime].sum),
+        static_cast<uint64_t>(connectorStats[kConnectorLookupCpuTime].sum)};
+    lockedStats->backgroundTiming.clear();
+    lockedStats->backgroundTiming.add(backgroundTiming);
+  }
 }
 } // namespace facebook::velox::exec

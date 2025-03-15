@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/exec/IndexLookupJoin.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/Connector.h"
@@ -1644,6 +1645,77 @@ TEST_P(IndexLookupJoinTest, outputBatchSize) {
   }
 }
 
+DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
+  SequenceTableData tableData;
+  generateIndexTableData({100, 1, 1}, tableData, pool_);
+  const int numProbeBatches{2};
+  const std::vector<RowVectorPtr> probeVectors = generateProbeInput(
+      numProbeBatches, 100, tableData, pool_, {"t0", "t1", "t2"}, {}, {}, 100);
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", {tableData.tableData});
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::test::TestIndexSource::ResultIterator::asyncLookup",
+      std::function<void(void*)>([&](void*) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // NOLINT
+      }));
+
+  const auto indexTable = createIndexTable(
+      /*numEqualJoinKeys=*/3, tableData.keyData, tableData.valueData);
+  const auto indexTableHandle = makeIndexTableHandle(indexTable, GetParam());
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  core::PlanNodeId indexScanNodeId;
+  std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
+      columnHandles;
+  const auto indexScanNode = makeIndexScanNode(
+      planNodeIdGenerator,
+      indexTableHandle,
+      makeScanOutputType({"u0", "u1", "u2", "u3", "u5"}),
+      indexScanNodeId,
+      columnHandles);
+
+  core::PlanNodeId joinNodeId;
+  auto plan = makeLookupPlan(
+      planNodeIdGenerator,
+      indexScanNode,
+      probeVectors,
+      {"t0", "t1", "t2"},
+      {"u0", "u1", "u2"},
+      {},
+      core::JoinType::kInner,
+      {"u3", "t5"},
+      joinNodeId);
+  auto task =
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .plan(plan)
+          .assertResults(
+              "SELECT u.c3, t.c5 FROM t, u WHERE t.c0 = u.c0 AND t.c1 = u.c1 AND t.c2 = u.c2");
+  auto taskStats = toPlanStats(task->taskStats());
+  auto& operatorStats = taskStats.at(joinNodeId);
+  ASSERT_EQ(operatorStats.backgroundTiming.count, numProbeBatches);
+  ASSERT_GT(operatorStats.backgroundTiming.cpuNanos, 0);
+  ASSERT_GT(operatorStats.backgroundTiming.wallNanos, 0);
+  auto runtimeStats = operatorStats.customStats;
+  ASSERT_EQ(
+      runtimeStats.at(IndexLookupJoin::kConnectorLookupWallTime).count,
+      numProbeBatches);
+  ASSERT_GT(runtimeStats.at(IndexLookupJoin::kConnectorLookupWallTime).sum, 0);
+  ASSERT_EQ(
+      runtimeStats.at(IndexLookupJoin::kConnectorLookupCpuTime).count,
+      numProbeBatches);
+  ASSERT_GT(runtimeStats.at(IndexLookupJoin::kConnectorLookupCpuTime).sum, 0);
+  if (GetParam()) {
+    ASSERT_GE(
+        runtimeStats.at(IndexLookupJoin::kLookupBlockWaitTime).count,
+        numProbeBatches);
+    ASSERT_GE(runtimeStats.at(IndexLookupJoin::kLookupBlockWaitTime).sum, 0);
+  } else {
+    ASSERT_TRUE(
+        runtimeStats.find(IndexLookupJoin::kLookupBlockWaitTime) ==
+        runtimeStats.end());
+  }
+}
+
 TEST_P(IndexLookupJoinTest, joinFuzzer) {
   SequenceTableData tableData;
   generateIndexTableData({1024, 1, 1}, tableData, pool_);
@@ -1692,5 +1764,8 @@ TEST_P(IndexLookupJoinTest, joinFuzzer) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     IndexLookupJoinTest,
     IndexLookupJoinTest,
-    testing::ValuesIn({false, true}));
+    testing::ValuesIn({false, true}),
+    [](const testing::TestParamInfo<bool>& info) {
+      return fmt::format("{}", info.param ? "async" : "sync");
+    });
 } // namespace fecebook::velox::exec::test
