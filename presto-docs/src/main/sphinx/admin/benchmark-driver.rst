@@ -2,11 +2,26 @@
 Benchmark Driver
 ================
 
-The benchmark driver can be used to measure the performance of queries in a
-Presto cluster. We use it to continuously measure the performance of trunk.
+The benchmark driver measures the performance of queries in a Presto cluster.
+It is used to continuously evaluate the performance of trunk.
 
-Download :maven_download:`benchmark-driver`, rename it to ``presto-benchmark-driver``,
-then make it executable with ``chmod +x``.
+Installation
+------------
+
+Download :maven_download:`benchmark-driver`.
+
+Rename the JAR file to ``presto-benchmark-driver`` with the following command
+(replace ``*`` with the version number of the downloaded jar file):
+
+.. code-block:: none
+
+    mv presto-benchmark-driver-*-executable.jar presto-benchmark-driver
+
+Use ``chmod +x`` to make the renamed file executable:
+
+.. code-block:: none
+
+    chmod +x presto-benchmark-driver
 
 Suites
 ------
