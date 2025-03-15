@@ -826,6 +826,51 @@ public class PropertyDerivations
             return ActualProperties.builder().build();
         }
 
+        // TODO: Missing Node implementations
+        @Override
+        public ActualProperties visitTableFunction(TableFunctionNode node, List<ActualProperties> inputProperties)
+        {
+            throw new IllegalStateException(format("Unexpected node: TableFunctionNode (%s)", node.getName()));
+        }
+
+        @Override
+        public ActualProperties visitTableFunctionProcessor(TableFunctionProcessorNode node, List<ActualProperties> inputProperties)
+        {
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+
+            if (node.getSource().isPresent()) {
+                ActualProperties properties = Iterables.getOnlyElement(inputProperties);
+
+                // Only the partitioning properties of the source are passed-through, because the pass-through mechanism preserves the partitioning values.
+                // Sorting properties might be broken because input rows can be shuffled or nulls can be inserted as the result of pass-through.
+                // Constant properties might be broken because nulls can be inserted as the result of pass-through.
+                if (!node.getPrePartitioned().isEmpty()) {
+                    GroupingProperty<Symbol> prePartitionedProperty = new GroupingProperty<>(node.getPrePartitioned());
+                    for (LocalProperty<Symbol> localProperty : properties.getLocalProperties()) {
+                        if (!prePartitionedProperty.isSimplifiedBy(localProperty)) {
+                            break;
+                        }
+                        localProperties.add(localProperty);
+                    }
+                }
+            }
+
+            List<Symbol> partitionBy = node.getSpecification()
+                    .map(DataOrganizationSpecification::getPartitionBy)
+                    .orElse(ImmutableList.of());
+            if (!partitionBy.isEmpty()) {
+                localProperties.add(new GroupingProperty<>(partitionBy));
+            }
+
+            // TODO add global single stream property when there's Specification present with no partitioning columns
+
+            return ActualProperties.builder()
+                    .local(localProperties.build())
+                    .build()
+                    // Crop properties to output columns.
+                    .translate(symbol -> node.getOutputSymbols().contains(symbol) ? Optional.of(symbol) : Optional.empty());
+        }
+
         private Global deriveGlobalProperties(TableLayout layout, Map<ColumnHandle, VariableReferenceExpression> assignments, Map<ColumnHandle, ConstantExpression> constants)
         {
             Optional<List<VariableReferenceExpression>> streamPartitioning = layout.getStreamPartitioningColumns()
