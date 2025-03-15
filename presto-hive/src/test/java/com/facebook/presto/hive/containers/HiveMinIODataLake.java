@@ -47,10 +47,10 @@ public class HiveMinIODataLake
 
     public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount)
     {
-        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE);
+        this(bucketName, hiveHadoopFilesToMount, HiveHadoopContainer.DEFAULT_IMAGE, "hms_ssl");
     }
 
-    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage)
+    public HiveMinIODataLake(String bucketName, Map<String, String> hiveHadoopFilesToMount, String hiveHadoopImage, String testType)
     {
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
         Network network = closer.register(newNetwork());
@@ -65,14 +65,17 @@ public class HiveMinIODataLake
 
         ImmutableMap.Builder filesToMount = ImmutableMap.<String, String>builder()
                 .putAll(hiveHadoopFilesToMount);
-
         String hadoopCoreSitePath = "/etc/hadoop/conf/core-site.xml";
         if (hiveHadoopImage == HIVE3_IMAGE) {
             hadoopCoreSitePath = "/opt/hadoop/etc/hadoop/core-site.xml";
             filesToMount.put("hive_s3_insert_overwrite/hive-site.xml", "/opt/hive/conf/hive-site.xml");
         }
         filesToMount.put("hive_s3_insert_overwrite/hadoop-core-site.xml", hadoopCoreSitePath);
-
+        if (testType.equalsIgnoreCase("hive_ssl")) {
+            filesToMount.put("hive_ssl_enable/hive-site.xml", "/opt/hive/conf/hive-site.xml");
+            filesToMount.put("hive_ssl_enable/hive-metastore.jks", "/opt/hive/conf/hive-metastore.jks");
+            filesToMount.put("hive_ssl_enable/hive-metastore-truststore.jks", "/opt/hive/conf/hive-metastore-truststore.jks");
+        }
         this.hiveHadoopContainer = closer.register(
                 HiveHadoopContainer.builder()
                         .withFilesToMount(filesToMount.build())
