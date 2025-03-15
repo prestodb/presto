@@ -21,6 +21,8 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.util.function.Supplier;
+
 import static java.util.Objects.requireNonNull;
 
 public abstract class PrimitiveValueWriter
@@ -28,12 +30,14 @@ public abstract class PrimitiveValueWriter
 {
     private Statistics<?> statistics;
     private final PrimitiveType parquetType;
-    private final ValuesWriter valuesWriter;
+    private final Supplier<ValuesWriter> valuesWriterSupplier;
+    private ValuesWriter valuesWriter;
 
-    public PrimitiveValueWriter(PrimitiveType parquetType, ValuesWriter valuesWriter)
+    public PrimitiveValueWriter(PrimitiveType parquetType, Supplier<ValuesWriter> valuesWriterSupplier)
     {
         this.parquetType = requireNonNull(parquetType, "parquetType is null");
-        this.valuesWriter = requireNonNull(valuesWriter, "valuesWriter is null");
+        this.valuesWriterSupplier = requireNonNull(valuesWriterSupplier, "valuesWriterSupplier is null");
+        this.valuesWriter = this.valuesWriterSupplier.get();
         this.statistics = Statistics.createStats(parquetType);
     }
 
@@ -74,6 +78,12 @@ public abstract class PrimitiveValueWriter
     public void reset()
     {
         valuesWriter.reset();
+        this.statistics = Statistics.createStats(parquetType);
+    }
+
+    public void resetChunk()
+    {
+        valuesWriter = valuesWriterSupplier.get();
         this.statistics = Statistics.createStats(parquetType);
     }
 
