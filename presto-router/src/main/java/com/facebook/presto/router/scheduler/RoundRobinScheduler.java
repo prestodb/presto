@@ -50,11 +50,7 @@ public class RoundRobinScheduler
 
     public void setCandidates(List<URI> candidates)
     {
-        // Only keeps the first given `candidates` due to maintaining the
-        // selected index for round-robin.
-        if (this.candidates == null) {
-            this.candidates = candidates;
-        }
+        this.candidates = candidates;
     }
 
     public List<URI> getCandidates()

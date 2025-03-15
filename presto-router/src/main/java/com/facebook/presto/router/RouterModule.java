@@ -16,24 +16,29 @@ package com.facebook.presto.router;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.presto.router.cluster.ClusterManager;
 import com.facebook.presto.router.cluster.ClusterStatusResource;
-import com.facebook.presto.router.cluster.ClusterStatusTracker;
 import com.facebook.presto.router.cluster.ForClusterInfoTracker;
+import com.facebook.presto.router.cluster.ForClusterManager;
 import com.facebook.presto.router.cluster.ForQueryInfoTracker;
 import com.facebook.presto.router.cluster.RemoteInfoFactory;
+import com.facebook.presto.router.cluster.RemoteStateConfig;
 import com.facebook.presto.router.predictor.ForQueryCpuPredictor;
 import com.facebook.presto.router.predictor.ForQueryMemoryPredictor;
 import com.facebook.presto.router.predictor.PredictorManager;
 import com.facebook.presto.router.predictor.RemoteQueryFactory;
+import com.facebook.presto.server.PluginManagerConfig;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.units.Duration;
 
 import java.lang.annotation.Annotation;
+import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.airlift.concurrent.Threads.threadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class RouterModule
@@ -55,16 +60,24 @@ public class RouterModule
         httpServerBinder(binder).bindResource(UI_PATH, ROUTER_UI).withWelcomeFile(INDEX_HTML);
         configBinder(binder).bindConfig(RouterConfig.class);
 
+        configBinder(binder).bindConfig(RemoteStateConfig.class);
+        configBinder(binder).bindConfigDefaults(RemoteStateConfig.class, config -> config.setClusterUnhealthyTimeout(java.time.Duration.ofSeconds(30)));
+        configBinder(binder).bindConfigDefaults(RemoteStateConfig.class, config -> config.setPollingInterval(java.time.Duration.ofSeconds(5)));
+
+        binder.bind(ScheduledExecutorService.class).annotatedWith(ForClusterManager.class).toInstance(newSingleThreadScheduledExecutor(threadsNamed("cluster-config")));
+
         binder.bind(ClusterManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteInfoFactory.class).in(Scopes.SINGLETON);
 
         bindHttpClient(binder, QUERY_TRACKER, ForQueryInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
         bindHttpClient(binder, QUERY_TRACKER, ForClusterInfoTracker.class, IDLE_TIMEOUT_SECOND, REQUEST_TIMEOUT_SECOND);
 
-        binder.bind(ClusterStatusTracker.class).in(Scopes.SINGLETON);
+        binder.bind(ClusterManager.ClusterStatusTracker.class).in(Scopes.SINGLETON);
 
         binder.bind(PredictorManager.class).in(Scopes.SINGLETON);
         binder.bind(RemoteQueryFactory.class).in(Scopes.SINGLETON);
+
+        configBinder(binder).bindConfig(PluginManagerConfig.class);
 
         bindHttpClient(binder, QUERY_PREDICTOR, ForQueryCpuPredictor.class, IDLE_TIMEOUT_SECOND, PREDICTOR_REQUEST_TIMEOUT_SECOND);
         bindHttpClient(binder, QUERY_PREDICTOR, ForQueryMemoryPredictor.class, IDLE_TIMEOUT_SECOND, PREDICTOR_REQUEST_TIMEOUT_SECOND);
