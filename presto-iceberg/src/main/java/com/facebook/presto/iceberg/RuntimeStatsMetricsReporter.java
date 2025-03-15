@@ -25,34 +25,78 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
             return;
         }
 
+        // Cast report to scanReport instance
         ScanReport scanReport = (ScanReport)report;
 
-        //tablename-nameofmetrics
-        //tablename-totalPlanningDuration
-
-        //
-
         String table_name = scanReport.tableName();
-        // check null
-        if(scanReport.scanMetrics().totalPlanningDuration() != null && Objects.requireNonNull(scanReport.scanMetrics().totalPlanningDuration()).totalDuration() != null)
+
+        // TotalPlanning Duration Metric
+        if(scanReport.scanMetrics().totalPlanningDuration() != null)
         {
             runtimeStats.addMetricValue(table_name + "-totalPlanningDuration", RuntimeUnit.NANO,
                     scanReport.scanMetrics().totalPlanningDuration().totalDuration().toNanos() );
         }
 
-        // do rest for ScanReport
 
-        // can test by run Query on iCeberg Connector
-        // check webUi in runtimestats
+        // resultDataFiles Metric
+        runtimeStats.addMetricValue(
+                table_name + "-resultDataFiles()",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().resultDataFiles().value()
+        );
+
+        // resultDeleteFiles Metric
+        runtimeStats.addMetricValue(
+                table_name + "-resultDeleteFiles()",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().resultDeleteFiles().value()
+        );
+
+
+        // totalDataManifests Metric
+
+
+        // totalDeleteManifests() Metric
+
+
+        // scannedDataManifests() Metric
+
+
+        // skippedDataManifests() Metric
+
+
+        // totalFileSizeInBytes() -> RuntimeUnit.BYTES ?
+
+
+        // totalDeleteFileSizeInBytes() -> RuntimeUnit.BYTES ?
+
+
+        // skippedDataFiles() Metric
+
+
+        // skippedDeleteFiles() Metric
+
+
+        // scannedDeleteManifests() Metric
+
+
+        // skippedDeleteManifests() Metric
+
+
+        // indexedDeleteFiles() Metric
+
+
+        // equalityDeleteFiles() Metric
+
+
+        // positionalDeleteFiles() Metric
 
 
 
 
 
 
-
-
+        // test this code by running Query on iceBerg connector
+        // check webUi -> runtimestats
     }
-
-
 }
