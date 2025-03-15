@@ -69,14 +69,14 @@ public class SnapshotsTable
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata(COMMITTED_AT_COLUMN_NAME, TIMESTAMP_WITH_TIME_ZONE))
-                        .add(new ColumnMetadata(SNAPSHOT_ID_COLUMN_NAME, BIGINT))
-                        .add(new ColumnMetadata(PARENT_ID_COLUMN_NAME, BIGINT))
-                        .add(new ColumnMetadata(OPERATION_COLUMN_NAME, VARCHAR))
-                        .add(new ColumnMetadata(MANIFEST_LIST_COLUMN_NAME, VARCHAR))
-                        .add(new ColumnMetadata(SUMMARY_COLUMN_NAME, typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
+                        .add(ColumnMetadata.builder(COMMITTED_AT_COLUMN_NAME, TIMESTAMP_WITH_TIME_ZONE).build())
+                        .add(ColumnMetadata.builder(SNAPSHOT_ID_COLUMN_NAME, BIGINT).build())
+                        .add(ColumnMetadata.builder(PARENT_ID_COLUMN_NAME, BIGINT).build())
+                        .add(ColumnMetadata.builder(OPERATION_COLUMN_NAME, VARCHAR).build())
+                        .add(ColumnMetadata.builder(MANIFEST_LIST_COLUMN_NAME, VARCHAR).build())
+                        .add(ColumnMetadata.builder(SUMMARY_COLUMN_NAME, typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                                 TypeSignatureParameter.of(VARCHAR.getTypeSignature()),
-                                TypeSignatureParameter.of(VARCHAR.getTypeSignature())))))
+                                TypeSignatureParameter.of(VARCHAR.getTypeSignature())))).build())
                         .build());
     }
 

@@ -104,8 +104,8 @@ public class TestHiveCommitHandleOutput
         testTableMetadata = new ConnectorTableMetadata(
                 new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
                 ImmutableList.of(
-                        new ColumnMetadata("b", BIGINT),
-                        new ColumnMetadata("a", BIGINT)),
+                        ColumnMetadata.builder("b", BIGINT).build(),
+                        ColumnMetadata.builder("a", BIGINT).build()),
                 testTableProperties);
     }
 

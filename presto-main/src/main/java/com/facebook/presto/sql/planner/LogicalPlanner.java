@@ -595,7 +595,7 @@ public class LogicalPlanner
         int aliasPosition = 0;
         for (Field field : plan.getDescriptor().getVisibleFields()) {
             String columnName = columnAliases.isPresent() ? columnAliases.get().get(aliasPosition).getValue() : field.getName().get();
-            columns.add(new ColumnMetadata(columnName, field.getType()));
+            columns.add(ColumnMetadata.builder(columnName, field.getType()).build());
             aliasPosition++;
         }
         return columns.build();

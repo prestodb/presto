@@ -49,14 +49,10 @@ public class Conversions
 
     static ColumnMetadata toColumnMetadata(Field field)
     {
-        return new ColumnMetadata(
-                field.getName(), // name
-                adapt(field).getPrestoType(),
-                getMode(field) == NULLABLE, //nullable
-                field.getDescription(), // comment
-                null, // extraInfo
-                false, // hidden
-                ImmutableMap.of()); // properties
+        return ColumnMetadata.builder(field.getName(), adapt(field).getPrestoType())
+                .setNullable(getMode(field) == NULLABLE)
+                .setComment(field.getDescription())
+                .setHidden(false).build();
     }
 
     static BigQueryType.Adaptor adapt(Field field)

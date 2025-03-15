@@ -113,13 +113,10 @@ public class AddColumnTask
                 metadata,
                 parameterExtractor(statement, parameters));
 
-        ColumnMetadata column = new ColumnMetadata(
-                element.getName().getValue(),
-                type,
-                element.isNullable(), element.getComment().orElse(null),
-                null,
-                false,
-                columnProperties);
+        ColumnMetadata column = ColumnMetadata.builder(element.getName().getValue(), type)
+                .setNullable(element.isNullable())
+                .setComment(element.getComment().orElse(null))
+                .setProperties(columnProperties).build();
 
         metadata.addColumn(session, tableHandle.get(), column);
 

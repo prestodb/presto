@@ -90,11 +90,9 @@ public final class JdbcColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return ColumnMetadata.builder()
-                .setName(columnName)
-                .setType(columnType)
+        return ColumnMetadata.builder(columnName, columnType)
                 .setNullable(nullable)
-                .setComment(comment)
+                .setComment(comment.orElse(null))
                 .build();
     }
 

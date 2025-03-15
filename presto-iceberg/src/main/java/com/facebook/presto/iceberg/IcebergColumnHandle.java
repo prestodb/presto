@@ -158,9 +158,7 @@ public class IcebergColumnHandle
 
     private static ColumnMetadata getColumnMetadata(IcebergMetadataColumn metadataColumn)
     {
-        return ColumnMetadata.builder()
-                .setName(metadataColumn.getColumnName())
-                .setType(metadataColumn.getType())
+        return ColumnMetadata.builder(metadataColumn.getColumnName(), metadataColumn.getType())
                 .setHidden(true)
                 .build();
     }

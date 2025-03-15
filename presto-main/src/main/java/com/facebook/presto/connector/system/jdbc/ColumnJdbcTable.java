@@ -149,7 +149,7 @@ public class ColumnJdbcTable
                     decimalDigits(column.getType()),
                     numPrecRadix(column.getType()),
                     column.isNullable() ? DatabaseMetaData.columnNullable : DatabaseMetaData.columnNoNulls,
-                    column.getComment(),
+                    column.getComment().orElse(null),
                     null,
                     null,
                     null,

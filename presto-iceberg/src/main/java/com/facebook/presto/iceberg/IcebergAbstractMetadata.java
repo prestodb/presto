@@ -477,10 +477,8 @@ public abstract class IcebergAbstractMetadata
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
         IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
-        return ColumnMetadata.builder()
-                .setName(column.getName())
-                .setType(column.getType())
-                .setComment(column.getComment())
+        return ColumnMetadata.builder(column.getName(), column.getType())
+                .setComment(column.getComment().orElse(null))
                 .setHidden(false)
                 .build();
     }
@@ -663,15 +661,12 @@ public abstract class IcebergAbstractMetadata
     {
         Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
         return table.schema().columns().stream()
-                .map(column -> ColumnMetadata.builder()
-                        .setName(column.name())
-                        .setType(toPrestoType(column.type(), typeManager))
-                        .setComment(Optional.ofNullable(column.doc()))
+                .map(column -> ColumnMetadata.builder(column.name(), toPrestoType(column.type(), typeManager))
+                        .setComment(column.doc())
                         .setHidden(false)
-                        .setExtraInfo(Optional.ofNullable(
-                                partitionFields.containsKey(column.name()) ?
+                        .setExtraInfo(partitionFields.containsKey(column.name()) ?
                                         columnExtraInfo(partitionFields.get(column.name())) :
-                                        null))
+                                        null)
                         .build())
                 .collect(toImmutableList());
     }
@@ -679,10 +674,8 @@ public abstract class IcebergAbstractMetadata
     protected List<ColumnMetadata> getColumnMetadata(View view)
     {
         return view.schema().columns().stream()
-                .map(column -> ColumnMetadata.builder()
-                        .setName(column.name())
-                        .setType(toPrestoType(column.type(), typeManager))
-                        .setComment(Optional.ofNullable(column.doc()))
+                .map(column -> ColumnMetadata.builder(column.name(), toPrestoType(column.type(), typeManager))
+                        .setComment(column.doc())
                         .setHidden(false)
                         .build())
                 .collect(toImmutableList());
@@ -755,8 +748,8 @@ public abstract class IcebergAbstractMetadata
                 int index = icebergColumns.size();
                 Type type = toIcebergType(column.getType());
                 NestedField field = column.isNullable()
-                        ? NestedField.optional(index, column.getName(), type, column.getComment())
-                        : NestedField.required(index, column.getName(), type, column.getComment());
+                        ? NestedField.optional(index, column.getName(), type, column.getComment().orElse(null))
+                        : NestedField.required(index, column.getName(), type, column.getComment().orElse(null));
                 icebergColumns.add(field);
             }
         }
@@ -818,7 +811,7 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         Transaction transaction = icebergTable.newTransaction();
-        transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment()).commit();
+        transaction.updateSchema().addColumn(column.getName(), columnType, column.getComment().orElse(null)).commit();
         if (column.getProperties().containsKey(PARTITIONING_PROPERTY)) {
             String transform = (String) column.getProperties().get(PARTITIONING_PROPERTY);
             transaction.updateSpec().addField(getPartitionColumnName(column.getName(), transform),

@@ -71,7 +71,7 @@ public final class ExampleColumnHandle
 
     public ColumnMetadata getColumnMetadata()
     {
-        return new ColumnMetadata(columnName, columnType);
+        return ColumnMetadata.builder(columnName, columnType).build();
     }
 
     @Override
