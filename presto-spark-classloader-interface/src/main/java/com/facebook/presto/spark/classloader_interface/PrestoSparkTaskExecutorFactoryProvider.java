@@ -19,6 +19,4 @@ public interface PrestoSparkTaskExecutorFactoryProvider
         extends Serializable
 {
     IPrestoSparkTaskExecutorFactory get();
-
-    IPrestoSparkTaskExecutorFactory getNative();
 }
