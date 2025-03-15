@@ -1892,8 +1892,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``TIME``
   * - ``TIMESTAMP``
     - ``TIMESTAMP``
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP_WITH_TIMEZONE``
+  * - ``TIMESTAMP TZ``
+    - ``TIMESTAMP WITH TIME ZONE``
   * - ``UUID``
     - ``UUID``
   * - ``LIST``
@@ -1938,9 +1938,9 @@ Map of PrestoDB types to the relevant Iceberg types:
   * - ``TIME``
     - ``TIME``
   * - ``TIMESTAMP``
-    - ``TIMESTAMP WITHOUT ZONE``
-  * - ``TIMESTAMP WITH TIMEZONE``
-    - ``TIMESTAMP WITH ZONE``
+    - ``TIMESTAMP``
+  * - ``TIMESTAMP WITH TIME ZONE``
+    - ``TIMESTAMP TZ``
   * - ``UUID``
     - ``UUID``
   * - ``ARRAY``
