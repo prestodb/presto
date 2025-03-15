@@ -31,7 +31,7 @@ else
 fi
 
 function install_presto_deps_from_package_managers {
-  dnf install -y maven java clang-tools-extra jq perl-XML-XPath
+  dnf install -y maven java clang-tools-extra jq perl-XML-XPath vim-common
   # This python version is installed by the Velox setup scripts
   pip install regex pyyaml chevron black
 }
