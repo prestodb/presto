@@ -16,6 +16,7 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -110,11 +111,14 @@ public class CatalogMetadata
 
     public ConnectorId getConnectorId(Session session, QualifiedObjectName table)
     {
-        if (table.getSchemaName().equals(INFORMATION_SCHEMA_NAME)) {
+        if (table.getSchemaName().equalsIgnoreCase(INFORMATION_SCHEMA_NAME)) {
             return informationSchemaId;
         }
 
-        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), toSchemaTableName(table)) != null) {
+        SchemaTableName schemaTableName = toSchemaTableName(systemTables.normalizeIdentifier(session.toConnectorSession(systemTablesId), table.getSchemaName()),
+                systemTables.normalizeIdentifier(session.toConnectorSession(systemTablesId), table.getObjectName()));
+
+        if (systemTables.getTableHandle(session.toConnectorSession(systemTablesId), schemaTableName) != null) {
             return systemTablesId;
         }
 
