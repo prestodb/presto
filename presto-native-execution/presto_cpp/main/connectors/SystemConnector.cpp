@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/SystemConnector.h"
+#include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/TaskManager.h"
 
