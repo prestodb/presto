@@ -222,7 +222,68 @@ class RelationPlanner
         PlanNode root = new TableScanNode(getSourceLocation(node.getLocation()), idAllocator.getNextId(), handle, outputVariables, columns.build(),
                 tableConstraints, TupleDomain.all(), TupleDomain.all(), Optional.empty());
 
-        return new RelationPlan(root, scope, outputVariables);
+        RelationPlan tableScan = new RelationPlan(root, scope, outputVariables);
+        tableScan = addRowFilters(node, tableScan, context);
+        tableScan = addColumnMasks(node, tableScan, context);
+        return tableScan;
+    }
+
+    private RelationPlan addRowFilters(Table node, RelationPlan plan, SqlPlannerContext context)
+    {
+        PlanBuilder planBuilder = initializePlanBuilder(plan);
+
+        for (Expression filter : analysis.getRowFilters(node)) {
+            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, filter, context);
+
+            planBuilder = planBuilder.withNewRoot(new FilterNode(
+                    getSourceLocation(node.getLocation()),
+                    idAllocator.getNextId(),
+                    planBuilder.getRoot(),
+                    rowExpression(planBuilder.rewrite(filter), context)));
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings());
+    }
+
+    private RelationPlan addColumnMasks(Table table, RelationPlan plan, SqlPlannerContext context)
+    {
+        Map<String, Expression> columnMasks = analysis.getColumnMasks(table);
+
+        PlanBuilder planBuilder = initializePlanBuilder(plan);
+        List<VariableReferenceExpression> mappings = plan.getFieldMappings();
+        ImmutableList.Builder<VariableReferenceExpression> newMappings = ImmutableList.builder();
+
+        Assignments.Builder assignments = new Assignments.Builder();
+        for (VariableReferenceExpression variableReferenceExpression : planBuilder.getRoot().getOutputVariables()) {
+            assignments.put(variableReferenceExpression, rowExpression(new SymbolReference(variableReferenceExpression.getName()), context));
+        }
+
+        for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
+            Field field = plan.getDescriptor().getFieldByIndex(i);
+
+            VariableReferenceExpression fieldMapping;
+            RowExpression rowExpression;
+            if (field.getName().isPresent() && columnMasks.containsKey(field.getName().get())) {
+                Expression mask = columnMasks.get(field.getName().get());
+                planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask, context);
+                fieldMapping = newVariable(variableAllocator, field);
+                rowExpression = rowExpression(planBuilder.rewrite(mask), context);
+            }
+            else {
+                fieldMapping = mappings.get(i);
+                rowExpression = rowExpression(createSymbolReference(fieldMapping), context);
+            }
+
+            assignments.put(fieldMapping, rowExpression);
+            newMappings.add(fieldMapping);
+        }
+
+        planBuilder = planBuilder.withNewRoot(new ProjectNode(
+                idAllocator.getNextId(),
+                planBuilder.getRoot(),
+                assignments.build()));
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), newMappings.build());
     }
 
     @Override
