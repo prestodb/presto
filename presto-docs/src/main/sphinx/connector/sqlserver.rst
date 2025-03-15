@@ -29,6 +29,10 @@ Connection security
 
 The JDBC driver and connector automatically use Transport Layer Security (TLS) encryption and certificate validation. This requires a suitable TLS certificate configured on your SQL Server database host.
 
+.. note::
+
+   Starting from release 0.292, the default value of ``encrypt`` has changed from ``false`` to ``true``.
+
 To disable encryption in the connection string, use the ``encrypt`` property:
 
 .. code-block:: none
@@ -61,6 +65,41 @@ A connection string using a truststore would be similar to the following example
 .. code-block:: none
 
     connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=true;trustServerCertificate=false;trustStoreType=PEM;hostNameInCertificate=hostname;trustStore=path/to/truststore.pem;trustStorePassword=password
+
+Authentication
+^^^^^^^^^^^^^^
++--------------------------+-----------------------------------------------------------------+------------------+
+| **Property**             | **Description**                                                 | **Default Value**|
++--------------------------+-----------------------------------------------------------------+------------------+
+| ``integratedSecurity``   | Enables Windows Authentication for SQL Server.                  | ``false``        |
+|                          |                                                                 |                  |
+|                          | - Set to ``true`` with ``authenticationScheme=JavaKerberos``    |                  |
+|                          |   to indicate that Kerberos credentials are used by SQL Server. |                  |
+|                          | - Set to ``true`` with ``authenticationScheme=NTLM`` to         |                  |
+|                          |   indicate that NTLM credentials are used by SQL Server.        |                  |
++--------------------------+-----------------------------------------------------------------+------------------+
+| ``authentication``       | Specifies the authentication method to use for connection.      | ``NotSpecified`` |
+|                          | Possible values:                                                |                  |
+|                          |                                                                 |                  |
+|                          | - ``NotSpecified``                                              |                  |
+|                          | - ``SqlPassword``                                               |                  |
+|                          | - ``ActiveDirectoryPassword``                                   |                  |
+|                          | - ``ActiveDirectoryIntegrated``                                 |                  |
+|                          | - ``ActiveDirectoryManagedIdentity``                            |                  |
+|                          | - ``ActiveDirectoryMSI``                                        |                  |
+|                          | - ``ActiveDirectoryInteractive``                                |                  |
+|                          | - ``ActiveDirectoryServicePrincipal``                           |                  |
++--------------------------+-----------------------------------------------------------------+------------------+
+
+Below is a sample connection URL with the NTLM authentication:
+
+.. code-block:: none
+
+    connection-url=jdbc:sqlserver://<host>:<port>;databaseName=<databaseName>;encrypt=true;trustServerCertificate=false;integratedSecurity=true;authenticationScheme=NTLM;
+
+
+Refer to `setting the connection properties <https://learn.microsoft.com/en-us/sql/connect/jdbc/setting-the-connection-properties?view=sql-server-ver16>`_ from the Microsoft official documentation.
+
 
 Multiple SQL Server Databases or Servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
