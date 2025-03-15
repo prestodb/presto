@@ -33,8 +33,11 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
         // TotalPlanning Duration Metric
         if(scanReport.scanMetrics().totalPlanningDuration() != null)
         {
-            runtimeStats.addMetricValue(table_name + "-totalPlanningDuration", RuntimeUnit.NANO,
-                    scanReport.scanMetrics().totalPlanningDuration().totalDuration().toNanos() );
+            runtimeStats.addMetricValue(
+                    table_name + "-totalPlanningDuration",
+                    RuntimeUnit.NANO,
+                    scanReport.scanMetrics().totalPlanningDuration().totalDuration().toNanos()
+            );
         }
 
 
@@ -86,33 +89,74 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
 
 
         // totalFileSizeInBytes() -> RuntimeUnit.BYTES ?
+        runtimeStats.addMetricValue(
+                table_name + "-totalFileSizeInBytes",
+                RuntimeUnit.BYTE,
+                scanReport.scanMetrics().totalFileSizeInBytes().value()
+        );
 
 
         // totalDeleteFileSizeInBytes() -> RuntimeUnit.BYTES ?
+        runtimeStats.addMetricValue(
+                table_name + "-totalDeleteFileSizeInBytes",
+                RuntimeUnit.BYTE,
+                scanReport.scanMetrics().totalDeleteFileSizeInBytes().value()
+        );
 
 
         // skippedDataFiles() Metric
+        runtimeStats.addMetricValue(
+                table_name + "-skippedDataFiles",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().skippedDataFiles().value()
+        );
 
 
         // skippedDeleteFiles() Metric
+        runtimeStats.addMetricValue(
+                table_name + "-skippedDeleteFiles",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().skippedDeleteFiles().value()
+        );
 
 
         // scannedDeleteManifests() Metric
-
+        runtimeStats.addMetricValue(
+                table_name + "-scannedDeleteManifests",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().scannedDeleteManifests().value()
+        );
 
         // skippedDeleteManifests() Metric
+        runtimeStats.addMetricValue(
+                table_name + "-skippedDeleteManifests",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().skippedDeleteManifests().value()
+        );
 
 
         // indexedDeleteFiles() Metric
+        runtimeStats.addMetricValue(
+                table_name + "-indexedDeleteFiles",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().indexedDeleteFiles().value()
+        );
 
 
         // equalityDeleteFiles() Metric
+        runtimeStats.addMetricValue(
+                table_name + "-equalityDeleteFiles",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().equalityDeleteFiles().value()
+        );
 
 
         // positionalDeleteFiles() Metric
-
-
-
+        runtimeStats.addMetricValue(
+                table_name + "-positionalDeleteFiles",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().positionalDeleteFiles().value()
+        );
 
 
 
