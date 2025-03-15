@@ -113,6 +113,11 @@ public class StageExecutionInfo
                 taskStatsAggregator.blockedDrivers,
                 taskStatsAggregator.completedDrivers,
 
+                taskStatsAggregator.totalSplits,
+                taskStatsAggregator.queuedSplits,
+                taskStatsAggregator.runningSplits,
+                taskStatsAggregator.completedSplits,
+
                 taskStatsAggregator.cumulativeUserMemory,
                 taskStatsAggregator.cumulativeTotalMemory,
                 taskStatsAggregator.userMemoryReservation,
@@ -246,6 +251,11 @@ public class StageExecutionInfo
         private int blockedDrivers;
         private int completedDrivers;
 
+        private int totalSplits;
+        private int queuedSplits;
+        private int runningSplits;
+        private int completedSplits;
+
         private double cumulativeUserMemory;
         private double cumulativeTotalMemory;
         private long userMemoryReservation;
@@ -290,6 +300,11 @@ public class StageExecutionInfo
             runningDrivers += taskStats.getRunningDrivers();
             blockedDrivers += taskStats.getBlockedDrivers();
             completedDrivers += taskStats.getCompletedDrivers();
+
+            totalSplits += taskStats.getTotalSplits();
+            queuedSplits += taskStats.getQueuedSplits();
+            runningSplits += taskStats.getRunningSplits();
+            completedSplits += taskStats.getCompletedSplits();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
             cumulativeTotalMemory += taskStats.getCumulativeTotalMemory();
