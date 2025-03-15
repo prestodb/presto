@@ -40,29 +40,49 @@ public class RuntimeStatsMetricsReporter implements MetricsReporter {
 
         // resultDataFiles Metric
         runtimeStats.addMetricValue(
-                table_name + "-resultDataFiles()",
+                table_name + "-resultDataFiles",
                 RuntimeUnit.NONE,
                 scanReport.scanMetrics().resultDataFiles().value()
         );
 
         // resultDeleteFiles Metric
         runtimeStats.addMetricValue(
-                table_name + "-resultDeleteFiles()",
+                table_name + "-resultDeleteFiles",
                 RuntimeUnit.NONE,
                 scanReport.scanMetrics().resultDeleteFiles().value()
         );
 
 
         // totalDataManifests Metric
+        runtimeStats.addMetricValue(
+                table_name + "-totalDataManifests",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().totalDataManifests().value()
+        );
 
 
         // totalDeleteManifests() Metric
+        runtimeStats.addMetricValue(
+                table_name + "-totalDeleteManifests",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().totalDeleteManifests().value()
+        );
 
 
         // scannedDataManifests() Metric
+        runtimeStats.addMetricValue(
+                table_name + "-scannedDataManifests",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().scannedDataManifests().value()
+        );
 
 
         // skippedDataManifests() Metric
+        runtimeStats.addMetricValue(
+                table_name + "-skippedDataManifests",
+                RuntimeUnit.NONE,
+                scanReport.scanMetrics().skippedDataManifests().value()
+        );
 
 
         // totalFileSizeInBytes() -> RuntimeUnit.BYTES ?
