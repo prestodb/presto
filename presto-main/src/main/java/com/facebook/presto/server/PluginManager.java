@@ -18,6 +18,7 @@ import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.ClientRequestFilterManager;
 import com.facebook.presto.common.block.BlockEncoding;
 import com.facebook.presto.common.block.BlockEncodingManager;
+import com.facebook.presto.common.plugin.PluginClassLoader;
 import com.facebook.presto.common.type.ParametricType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.connector.ConnectorManager;
@@ -84,8 +85,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
-import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
-import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
+import static com.facebook.presto.common.plugin.PluginDiscovery.discoverPlugins;
+import static com.facebook.presto.common.plugin.PluginDiscovery.writePluginServices;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

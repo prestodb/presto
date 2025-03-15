@@ -11,13 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.router.scheduler;
+package com.facebook.presto.spi;
 
-public enum SchedulerType
+import com.facebook.presto.spi.router.SchedulerFactory;
+
+import static java.util.Collections.emptyList;
+
+public interface RouterPlugin
 {
-    RANDOM_CHOICE,
-    ROUND_ROBIN,
-    USER_HASH,
-    WEIGHTED_RANDOM_CHOICE,
-    CUSTOM_PLUGIN_SCHEDULER
+    default Iterable<SchedulerFactory> getSchedulerFactories()
+    {
+        return emptyList();
+    }
 }
