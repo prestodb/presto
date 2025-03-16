@@ -145,7 +145,9 @@ struct PlanNodeStats {
   /// Add stats for a single operator instance.
   void add(const OperatorStats& stats);
 
-  std::string toString(bool includeInputStats = false) const;
+  std::string toString(
+      bool includeInputStats = false,
+      bool includeRuntimeStats = false) const;
 
   bool isMultiOperatorTypeNode() const {
     return operatorStats.size() > 1;

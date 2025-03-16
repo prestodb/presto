@@ -15,6 +15,8 @@
  */
 
 #include "velox/exec/IndexLookupJoin.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest-matchers.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/Connector.h"
@@ -1714,6 +1716,10 @@ DEBUG_ONLY_TEST_P(IndexLookupJoinTest, runtimeStats) {
         runtimeStats.find(IndexLookupJoin::kLookupBlockWaitTime) ==
         runtimeStats.end());
   }
+  ASSERT_THAT(
+      operatorStats.toString(true, true),
+      testing::MatchesRegex(
+          ".*Runtime stats.*lookupWallNanos.*lookupCpuNanos.*"));
 }
 
 TEST_P(IndexLookupJoinTest, joinFuzzer) {

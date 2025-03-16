@@ -150,7 +150,9 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   spilledFiles += stats.spilledFiles;
 }
 
-std::string PlanNodeStats::toString(bool includeInputStats) const {
+std::string PlanNodeStats::toString(
+    bool includeInputStats,
+    bool includeRuntimeStats) const {
   std::stringstream out;
   if (includeInputStats) {
     out << "Input: " << inputRows << " rows (" << succinctBytes(inputBytes)
@@ -197,6 +199,13 @@ std::string PlanNodeStats::toString(bool includeInputStats) const {
              succinctNanos(getOutputTiming.cpuNanos),
              succinctNanos(finishTiming.cpuNanos));
 
+  if (includeRuntimeStats) {
+    out << ", Runtime stats: (";
+    for (const auto& [name, metric] : customStats) {
+      out << name << ": " << metric.toString() << ", ";
+    }
+    out << ")";
+  }
   return out.str();
 }
 
