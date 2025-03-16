@@ -367,7 +367,7 @@ class TestExternalBlockableOperator : public exec::Operator {
  private:
   RowVectorPtr input_;
   ExternalBlocker* externalBlocker_;
-  folly::SemiFuture<folly::Unit> continueFuture_;
+  ContinueFuture continueFuture_{ContinueFuture::makeEmpty()};
 };
 
 class TestExternalBlockableTranslator
@@ -957,6 +957,7 @@ TEST_F(TaskTest, serialExecutionExternalBlockable) {
       makeFlatVector<int64_t>(1'000, [](auto row) { return row; }),
   });
   auto blocker = std::make_shared<ExternalBlocker>();
+  core::PlanNodeId blockerNodeId;
   // Filter + Project.
   auto plan =
       PlanBuilder()
@@ -965,6 +966,7 @@ TEST_F(TaskTest, serialExecutionExternalBlockable) {
             return std::make_shared<TestExternalBlockableNode>(
                 id, input, std::move(blocker));
           })
+          .capturePlanNodeId(blockerNodeId)
           .project({"c0"})
           .planFragment();
 
@@ -987,6 +989,12 @@ TEST_F(TaskTest, serialExecutionExternalBlockable) {
     results.push_back(std::move(result));
   }
   EXPECT_EQ(3, results.size());
+  {
+    auto planStats = toPlanStats(nonBlockingTask->taskStats());
+    auto& blockerNodeStats = planStats.at(blockerNodeId);
+    ASSERT_EQ(blockerNodeStats.blockedWallNanos, 0);
+  }
+  return;
 
   results.clear();
   continueFuture = ContinueFuture::makeEmpty();
@@ -1006,6 +1014,7 @@ TEST_F(TaskTest, serialExecutionExternalBlockable) {
   blocker->block();
   EXPECT_EQ(nullptr, blockingTask->next(&continueFuture));
   EXPECT_TRUE(continueFuture.valid() && !continueFuture.isReady());
+  std::this_thread::sleep_for(std::chrono::milliseconds{100});
   // After the pipeline is unblocked by external event, `continueFuture` should
   // get realized right away
   blocker->unblock();
@@ -1019,6 +1028,11 @@ TEST_F(TaskTest, serialExecutionExternalBlockable) {
     results.push_back(std::move(result));
   }
   EXPECT_EQ(3, results.size());
+  {
+    auto planStats = toPlanStats(blockingTask->taskStats());
+    auto& blockerNodeStats = planStats.at(blockerNodeId);
+    ASSERT_GT(blockerNodeStats.blockedWallNanos, 0);
+  }
 }
 
 TEST_F(TaskTest, supportSerialExecutionMode) {
