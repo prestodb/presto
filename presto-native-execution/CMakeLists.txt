@@ -65,6 +65,8 @@ option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
 option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
+option(PRESTO_ENABLE_TPCDS_CONNECTOR "Enable TPC-DS connector" OFF)
+
 # Set all Velox options below
 add_compile_definitions(FOLLY_HAVE_INT128_T=1)
 
