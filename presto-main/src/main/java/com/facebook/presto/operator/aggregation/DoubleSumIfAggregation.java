@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.operator.aggregation.state.DoubleState;
+import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
@@ -31,18 +31,20 @@ public final class DoubleSumIfAggregation
     private DoubleSumIfAggregation() {}
 
     @InputFunction
-    public static void input(@AggregationState DoubleState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
+    public static void input(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
                              @SqlType(StandardTypes.DOUBLE) double sum)
     {
         if (value) {
+            state.setNull(false);
             state.setDouble(state.getDouble() + sum);
         }
     }
 
     @InputFunction
-    public static void input(@AggregationState DoubleState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
+    public static void input(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
                              @SqlType(StandardTypes.DOUBLE) double sum, @SqlType(StandardTypes.DOUBLE) double defaultValue)
     {
+        state.setNull(false);
         if (value) {
             state.setDouble(state.getDouble() + sum);
         }
@@ -52,14 +54,30 @@ public final class DoubleSumIfAggregation
     }
 
     @CombineFunction
-    public static void combine(@AggregationState DoubleState state, @AggregationState DoubleState otherState)
+    public static void combine(@AggregationState NullableDoubleState state, @AggregationState NullableDoubleState otherState)
     {
-        state.setDouble(state.getDouble() + otherState.getDouble());
+        if (state.isNull()) {
+            if (otherState.isNull()) {
+                return;
+            }
+            state.setNull(false);
+            state.setDouble(otherState.getDouble());
+            return;
+        }
+
+        if (!otherState.isNull()) {
+            state.setDouble(state.getDouble() + otherState.getDouble());
+        }
     }
 
     @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(@AggregationState DoubleState state, BlockBuilder out)
+    public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
     {
-        DOUBLE.writeDouble(out, state.getDouble());
+        if (state.isNull()) {
+            out.appendNull();
+        }
+        else {
+            DOUBLE.writeDouble(out, state.getDouble());
+        }
     }
 }

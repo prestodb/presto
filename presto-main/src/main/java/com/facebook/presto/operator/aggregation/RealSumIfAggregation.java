@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.operator.aggregation.state.DoubleState;
+import com.facebook.presto.operator.aggregation.state.NullableDoubleState;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
@@ -33,18 +33,20 @@ public class RealSumIfAggregation
     private RealSumIfAggregation() {}
 
     @InputFunction
-    public static void input(@AggregationState DoubleState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
+    public static void input(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
                              @SqlType(StandardTypes.REAL) long sum)
     {
         if (value) {
+            state.setNull(false);
             state.setDouble(state.getDouble() + intBitsToFloat((int) sum));
         }
     }
 
     @InputFunction
-    public static void input(@AggregationState DoubleState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
+    public static void input(@AggregationState NullableDoubleState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
                              @SqlType(StandardTypes.REAL) long sum, @SqlType(StandardTypes.REAL) long defaultValue)
     {
+        state.setNull(false);
         if (value) {
             state.setDouble(state.getDouble() + intBitsToFloat((int) sum));
         }
@@ -54,14 +56,30 @@ public class RealSumIfAggregation
     }
 
     @CombineFunction
-    public static void combine(@AggregationState DoubleState state, @AggregationState DoubleState otherState)
+    public static void combine(@AggregationState NullableDoubleState state, @AggregationState NullableDoubleState otherState)
     {
-        state.setDouble(state.getDouble() + otherState.getDouble());
+        if (state.isNull()) {
+            if (otherState.isNull()) {
+                return;
+            }
+            state.setNull(false);
+            state.setDouble(otherState.getDouble());
+            return;
+        }
+
+        if (!otherState.isNull()) {
+            state.setDouble(state.getDouble() + otherState.getDouble());
+        }
     }
 
     @OutputFunction(StandardTypes.REAL)
-    public static void output(@AggregationState DoubleState state, BlockBuilder out)
+    public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
     {
-        REAL.writeLong(out, floatToRawIntBits((float) state.getDouble()));
+        if (state.isNull()) {
+            out.appendNull();
+        }
+        else {
+            REAL.writeLong(out, floatToRawIntBits((float) state.getDouble()));
+        }
     }
 }

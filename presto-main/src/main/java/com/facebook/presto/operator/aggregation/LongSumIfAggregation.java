@@ -15,7 +15,7 @@ package com.facebook.presto.operator.aggregation;
 
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.StandardTypes;
-import com.facebook.presto.operator.aggregation.state.LongState;
+import com.facebook.presto.operator.aggregation.state.NullableLongState;
 import com.facebook.presto.spi.function.AggregationFunction;
 import com.facebook.presto.spi.function.AggregationState;
 import com.facebook.presto.spi.function.CombineFunction;
@@ -31,18 +31,20 @@ public final class LongSumIfAggregation
     private LongSumIfAggregation() {}
 
     @InputFunction
-    public static void input(@AggregationState LongState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
+    public static void input(@AggregationState NullableLongState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
                              @SqlType(StandardTypes.BIGINT) long sum)
     {
         if (value) {
+            state.setNull(false);
             state.setLong(state.getLong() + sum);
         }
     }
 
     @InputFunction
-    public static void input(@AggregationState LongState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
+    public static void input(@AggregationState NullableLongState state, @SqlType(StandardTypes.BOOLEAN) boolean value,
                              @SqlType(StandardTypes.BIGINT) long sum, @SqlType(StandardTypes.BIGINT) long defaultValue)
     {
+        state.setNull(false);
         if (value) {
             state.setLong(state.getLong() + sum);
         }
@@ -52,14 +54,30 @@ public final class LongSumIfAggregation
     }
 
     @CombineFunction
-    public static void combine(@AggregationState LongState state, @AggregationState LongState otherState)
+    public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
     {
-        state.setLong(state.getLong() + otherState.getLong());
+        if (state.isNull()) {
+            if (otherState.isNull()) {
+                return;
+            }
+            state.setNull(false);
+            state.setLong(otherState.getLong());
+            return;
+        }
+
+        if (!otherState.isNull()) {
+            state.setLong(state.getLong() + otherState.getLong());
+        }
     }
 
     @OutputFunction(StandardTypes.BIGINT)
-    public static void output(@AggregationState LongState state, BlockBuilder out)
+    public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
-        BIGINT.writeLong(out, state.getLong());
+        if (state.isNull()) {
+            out.appendNull();
+        }
+        else {
+            BIGINT.writeLong(out, state.getLong());
+        }
     }
 }
