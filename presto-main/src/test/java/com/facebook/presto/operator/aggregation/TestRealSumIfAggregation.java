@@ -42,13 +42,21 @@ public class TestRealSumIfAggregation
     @Override
     public Number getExpectedValue(int start, int length)
     {
+        if (length == 0) {
+            return null;
+        }
+
         float sum = 0;
+        boolean hasMatchingRows = false;
+
         for (int i = start; i < start + length; i++) {
             if (i % 2 == 0) {
                 sum += i;
+                hasMatchingRows = true;
             }
         }
-        return sum;
+
+        return hasMatchingRows ? sum : null;
     }
 
     @Override
