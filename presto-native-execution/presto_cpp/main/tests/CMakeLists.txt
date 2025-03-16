@@ -59,6 +59,10 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"
   target_link_libraries(presto_server_test atomic)
 endif()
 
+if(PRESTO_ENABLE_TPCDS_CONNECTOR)
+  target_link_libraries(presto_server_test presto_tpcds_connector)
+endif()
+
 set_property(TARGET presto_server_test PROPERTY JOB_POOL_LINK
                                                 presto_link_job_pool)
 

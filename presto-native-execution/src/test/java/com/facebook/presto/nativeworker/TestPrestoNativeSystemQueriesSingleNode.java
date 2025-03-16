@@ -31,7 +31,8 @@ public class TestPrestoNativeSystemQueriesSingleNode
                 Optional.empty(),
                 false,
                 false,
-                true);
+                true,
+                false);
     }
 
     @Override
