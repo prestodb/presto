@@ -92,7 +92,7 @@ public class TpcdsConnectorFactory
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                return new TpcdsSplitManager(nodeManager, splitsPerNode, isWithNoSexism(config));
+                return new TpcdsSplitManager(nodeManager, splitsPerNode, isWithNoSexism(config), context.getConnectorSystemConfig().isNativeExecution());
             }
 
             @Override
