@@ -256,7 +256,7 @@ std::shared_ptr<MemoryPool> MemoryManager::addRootPool(
         VELOX_FAIL("Duplicate root pool name found: {}", poolName);
       }
       pools_.emplace(poolName, pool);
-    } catch (const VeloxRuntimeError& ex) {
+    } catch (const VeloxRuntimeError&) {
       arbitrator_->removePool(pool.get());
       throw;
     }

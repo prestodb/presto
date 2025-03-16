@@ -441,7 +441,7 @@ bool SsdFile::write(
   try {
     writeFile_->write(iovecs, offset, length);
     return true;
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     VELOX_SSD_CACHE_LOG(ERROR)
         << "Failed to write to SSD, file name: " << fileName_
         << ", size: " << iovecs.size() << ", offset: " << offset

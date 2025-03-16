@@ -1930,11 +1930,11 @@ struct ParseDurationFunction {
       double value = std::stod(match[1].str());
       std::string unit = match[2].str();
       result = valueOfTimeUnitToMillis(value, unit);
-    } catch (std::out_of_range& e) {
+    } catch (std::out_of_range&) {
       VELOX_USER_FAIL(
           "Input duration value is out of range for double: {}",
           match[1].str());
-    } catch (std::invalid_argument& e) {
+    } catch (std::invalid_argument&) {
       VELOX_USER_FAIL(
           "Input duration value is not a valid number: {}", match[1].str());
     }

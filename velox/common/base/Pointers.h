@@ -36,7 +36,7 @@ inline void castUniquePointer(
     auto* rawDstPtr = dynamic_cast<DestinationType*>(rawSrcPtr);
     VELOX_CHECK_NOT_NULL(rawDstPtr);
     dstPtr.reset(rawDstPtr);
-  } catch (const std::exception& e) {
+  } catch (const std::exception&) {
     srcPtr.reset(rawSrcPtr);
     throw;
   }
