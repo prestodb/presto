@@ -17,6 +17,8 @@
 
 #include <fmt/format.h>
 #include <chrono>
+
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/process/ProcessBase.h"
 
 namespace facebook::velox {
@@ -41,7 +43,10 @@ struct CpuWallTiming {
 
   std::string toString() const {
     return fmt::format(
-        "count: {}, wallNanos: {}, cpuNanos: {}", count, wallNanos, cpuNanos);
+        "count: {}, wallTime: {}, cpuTime: {}",
+        count,
+        succinctNanos(wallNanos),
+        succinctNanos(cpuNanos));
   }
 };
 

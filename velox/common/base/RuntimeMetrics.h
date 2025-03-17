@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include <fmt/format.h>
+#include <folly/CppAttributes.h>
 #include <limits>
 #include <sstream>
 
-#include <fmt/format.h>
-#include <folly/CppAttributes.h>
+#include "velox/common/base/SuccinctPrinter.h"
 
 namespace facebook::velox {
 
@@ -60,10 +61,7 @@ struct RuntimeMetric {
 
   void merge(const RuntimeMetric& other);
 
-  std::string toString() const {
-    return fmt::format(
-        "sum:{}, count:{}, min:{}, max:{}", sum, count, min, max);
-  }
+  std::string toString() const;
 };
 
 /// Simple interface to implement writing of runtime stats to Velox Operator

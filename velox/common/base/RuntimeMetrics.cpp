@@ -61,9 +61,36 @@ void RuntimeMetric::printMetric(std::stringstream& stream) const {
              << ", max: " << succinctBytes(max);
       break;
     case RuntimeCounter::Unit::kNone:
+      [[fallthrough]];
     default:
       stream << " sum: " << sum << ", count: " << count << ", min: " << min
              << ", max: " << max;
+  }
+}
+
+std::string RuntimeMetric::toString() const {
+  switch (unit) {
+    case RuntimeCounter::Unit::kNanos:
+      return fmt::format(
+          "sum:{}, count:{}, min:{}, max:{}",
+          succinctNanos(sum),
+          count,
+          succinctNanos(min),
+          succinctNanos(max));
+      break;
+    case RuntimeCounter::Unit::kBytes:
+      return fmt::format(
+          "sum:{}, count:{}, min:{}, max:{}",
+          succinctBytes(sum),
+          count,
+          succinctBytes(min),
+          succinctBytes(max));
+      break;
+    case RuntimeCounter::Unit::kNone:
+      [[fallthrough]];
+    default:
+      return fmt::format(
+          "sum:{}, count:{}, min:{}, max:{}", sum, count, min, max);
   }
 }
 
