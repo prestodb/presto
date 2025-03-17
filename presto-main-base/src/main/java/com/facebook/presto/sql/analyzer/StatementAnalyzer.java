@@ -1473,7 +1473,7 @@ class StatementAnalyzer
                 }
                 Expression expression = (Expression) argument.getValue();
                 // 'descriptor' as a function name is not allowed in this context
-                if (argument.getValue() instanceof FunctionCall && ((FunctionCall) argument.getValue()).getName().hasSuffix(QualifiedName.of("decsriptor"))) { // function name is always compared case-insensitive
+                if (expression instanceof FunctionCall && ((FunctionCall) expression).getName().hasSuffix(QualifiedName.of("descriptor"))) { // function name is always compared case-insensitive
                     throw new SemanticException(INVALID_FUNCTION_ARGUMENT, argument, "'descriptor' function is not allowed as a table function argument");
                 }
                 return analyzeScalarArgument(expression, ((ScalarArgumentSpecification) argumentSpecification).getType());
