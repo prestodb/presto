@@ -273,9 +273,9 @@ TEST_F(ReduceTest, limit) {
   auto data = makeRowVector({makeArrayVector(
       {0, 1'000, 10'000, 120'000, 120'010}, makeConstant(123, 1'000'000))});
 
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_UNSUPPORTED_THROW(
       evaluate("reduce(c0, 0, (s, x) -> s + x, s -> 1 * s)", data),
-      "reduce lambda function doesn't support arrays with more than");
+      "Reduce lambda function doesn't support arrays with more than 100000 elements");
 
   // Exclude huge arrays (at rows 2 and 4).
   SelectivityVector rows(4);
@@ -288,9 +288,9 @@ TEST_F(ReduceTest, limit) {
   assertEqualVectors(expected, result, rows);
 
   // TRY should not mask errors.
-  VELOX_ASSERT_THROW(
+  VELOX_ASSERT_UNSUPPORTED_THROW(
       evaluate("TRY(reduce(c0, 0, (s, x) -> s + x, s -> 1 * s))", data),
-      "reduce lambda function doesn't support arrays with more than");
+      "Reduce lambda function doesn't support arrays with more than 100000 elements");
 }
 
 TEST_F(ReduceTest, rewrites) {

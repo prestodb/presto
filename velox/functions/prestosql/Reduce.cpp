@@ -38,11 +38,11 @@ void checkArraySizes(
     }
     const auto size = rawSizes[indices[row]];
     // We do not want this error to be suppressed by TRY(), so we simply throw.
-    VELOX_CHECK_LT(
-        size,
-        maxArraySize,
-        "reduce lambda function doesn't support arrays with more than {} elements",
-        maxArraySize);
+    if (size >= maxArraySize) {
+      VELOX_UNSUPPORTED(
+          "Reduce lambda function doesn't support arrays with more than {} elements",
+          maxArraySize);
+    }
   });
 }
 
