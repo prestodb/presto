@@ -42,6 +42,7 @@ public interface AccessControl
 
     /**
      * Check if the query is unexpectedly modified using the credentials passed in the identity.
+     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if query is modified.
      */
     void checkQueryIntegrity(Identity identity, AccessControlContext context, String query);
@@ -245,11 +246,12 @@ public interface AccessControl
     /**
      * Check if identity is allowed to select from the specified columns.
      * For columns with type row, subfields are provided. The column set can be empty.
-     *
+     * <p>
      * For example, "SELECT col1.field, col2 from table" will have:
      * columnOrSubfieldNames = [col1.field, col2]
-     *
+     * <p>
      * Implementations can choose which to use
+     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames);
@@ -291,6 +293,7 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to show roles on the specified catalog.
+     *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanShowRoles(TransactionId transactionId, Identity identity, AccessControlContext context, String catalogName);
@@ -322,4 +325,8 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanAddConstraints(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName constraintName);
+
+    boolean isUnifiedPermissionsCheckEnabled(Identity identity);
+
+    boolean isSkipPermissionsCheckEnabled();
 }

@@ -24,4 +24,6 @@ public interface SessionSupplier
     Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory);
 
     SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory);
+
+    SessionBuilder createSessionBuilder(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, String query);
 }

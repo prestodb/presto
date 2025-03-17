@@ -32,13 +32,11 @@ import com.facebook.presto.server.SessionPropertyDefaults;
 import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.sql.analyzer.QueryPreparerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -96,7 +94,7 @@ public class DispatchManager
 
     /**
      * Dispatch Manager is used for the pre-queuing part of queries prior to the query execution phase.
-     *
+     * <p>
      * Dispatch Manager object is instantiated when the presto server is launched by server bootstrap time. It is a critical component in resource management section of the query.
      *
      * @param queryIdGenerator query ID generator for generating a new query ID when a query is created
@@ -183,7 +181,7 @@ public class DispatchManager
 
     /**
      * Create a query id
-     *
+     * <p>
      * This method is called when a {@code Query} object is created
      *
      * @return {@link QueryId}
@@ -272,20 +270,8 @@ public class DispatchManager
             }
 
             // decode session
-            sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory);
+            sessionBuilder = sessionSupplier.createSessionBuilder(queryId, sessionContext, warningCollectorFactory, query);
 
-            AccessControlContext accessControlContext = new AccessControlContext(
-                    queryId,
-                    Optional.ofNullable(sessionContext.getClientInfo()),
-                    sessionContext.getClientTags(),
-                    Optional.ofNullable(sessionContext.getSource()),
-                    WarningCollector.NOOP,
-                    sessionContext.getRuntimeStats(),
-                    Optional.empty(),
-                    Optional.ofNullable(sessionContext.getCatalog()),
-                    Optional.ofNullable(sessionContext.getSchema()));
-
-            accessControl.checkQueryIntegrity(sessionContext.getIdentity(), accessControlContext, query);
             session = sessionBuilder.build();
 
             // prepare query
@@ -392,7 +378,6 @@ public class DispatchManager
 
     /**
      * Return a list of {@link BasicQueryInfo}.
-     *
      */
     public List<BasicQueryInfo> getQueries()
     {

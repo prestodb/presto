@@ -798,6 +798,18 @@ public class AccessControlManager
         }
     }
 
+    @Override
+    public boolean isUnifiedPermissionsCheckEnabled(Identity identity)
+    {
+        return systemAccessControl.get().isUnifiedPermissionsCheckEnabled(identity);
+    }
+
+    @Override
+    public boolean isSkipPermissionsCheckEnabled()
+    {
+        return systemAccessControl.get().isSkipPermissionsCheckEnabled();
+    }
+
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
     {
         return transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
