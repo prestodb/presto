@@ -1388,6 +1388,7 @@ class StatementAnalyzer
                 Map<String, ArgumentSpecification> argumentSpecificationsByName = new HashMap<>();
                 for (ArgumentSpecification argumentSpecification : argumentSpecifications) {
                     if (argumentSpecificationsByName.put(argumentSpecification.getName(), argumentSpecification) != null) {
+                        // this should never happen, because the argument names are validated at function registration time
                         throw new IllegalStateException("Duplicate argument specification for name: " + argumentSpecification.getName());
                     }
                 }
