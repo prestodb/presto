@@ -1249,6 +1249,18 @@ Examples:
   SELECT cast(ipaddress '1.2.3.4' as ipprefix) -- ipprefix '1.2.3.4/32'
   SELECT cast(ipaddress '2001:db8::ff00:42:8329' as ipprefix) -- ipprefix '2001:db8::ff00:42:8329/128'
 
+Data Size Functions
+-------------------
+
+.. function:: parse_presto_data_size(string) -> decimal(38)
+
+    Parses ``string`` of format ``value unit`` into a number, where ``value`` is the fractional number of unit values::
+
+      SELECT parse_presto_data_size('1B'); -- 1
+      SELECT parse_presto_data_size('1kB'); -- 1024
+      SELECT parse_presto_data_size('1MB'); -- 1048576
+      SELECT parse_presto_data_size('2.3MB'); -- 2411724
+
 Miscellaneous
 -------------
 

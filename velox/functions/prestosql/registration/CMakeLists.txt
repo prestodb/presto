@@ -22,6 +22,7 @@ velox_add_library(
   CheckedArithmeticRegistration.cpp
   ComparisonFunctionsRegistration.cpp
   DateTimeFunctionsRegistration.cpp
+  DataSizeFunctionsRegistration.cpp
   GeneralFunctionsRegistration.cpp
   GeospatialFunctionsRegistration.cpp
   HyperLogFunctionsRegistration.cpp
