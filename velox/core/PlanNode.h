@@ -128,7 +128,7 @@ struct PlanSummaryOptions {
   /// summary. Each field has a name and a type. The amount of type information
   /// is controlled by 'maxChildTypes' option. Use 0 to include only the number
   /// of output fields.
-  size_t maxOutputFileds = 5;
+  size_t maxOutputFields = 5;
 
   /// For a given output type, maximum number of child types to include in the
   /// summary. By default, only top-level type is included: BIGINT, ARRAY, MAP,

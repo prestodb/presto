@@ -2735,7 +2735,7 @@ std::string summarizeOutputType(
   out << type->size() << " fields";
 
   // Include names and types for the first few fields.
-  const auto cnt = std::min<size_t>(options.maxOutputFileds, type->size());
+  const auto cnt = std::min<size_t>(options.maxOutputFields, type->size());
   if (cnt > 0) {
     out << ": ";
     for (auto i = 0; i < cnt; ++i) {

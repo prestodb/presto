@@ -92,7 +92,7 @@ TEST_F(PlanNodeToSummaryStringTest, basic) {
       "          table: hive_table\n",
       plan->toSummaryString({
           .project = {.maxProjections = 2},
-          .maxOutputFileds = 3,
+          .maxOutputFields = 3,
           .maxChildTypes = 2,
       }));
 }
