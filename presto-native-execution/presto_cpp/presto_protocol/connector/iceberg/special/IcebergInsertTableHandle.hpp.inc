@@ -26,6 +26,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
+  List<SortField> sortOrder = {};
 
   IcebergInsertTableHandle() noexcept;
 };
