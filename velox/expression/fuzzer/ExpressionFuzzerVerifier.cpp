@@ -408,6 +408,10 @@ void ExpressionFuzzerVerifier::go() {
     auto [inputTestCases, inputRowMetadata] =
         generateInput(inputType, *vectorFuzzer_, inputGenerators);
     totalTestCases += inputTestCases.size();
+    for (auto j = 0; j < inputTestCases.size(); ++j) {
+      VLOG(1) << "Input test case " << j << ": ";
+      exec::test::logVectors({inputTestCases[j].inputVector});
+    }
 
     auto resultVectors = generateResultVectors(plans);
     std::vector<fuzzer::ResultOrError> results;
