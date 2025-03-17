@@ -415,42 +415,51 @@ public class TestIcebergHiveStatistics
 
     @Test
     public void testStatisticsCachePartialEviction()
-            throws Exception
     {
         String catalogName = "ice_stat_file_cache";
-        Map<String, String> catalogProperties = ImmutableMap.<String, String>builder().putAll(icebergQueryRunner.getIcebergCatalogs().get("iceberg"))
-                .put("iceberg.max-statistics-file-cache-size", "1024B")
-                .build();
-        getQueryRunner().createCatalog(catalogName, "iceberg", catalogProperties);
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setCatalog(catalogName)
-                // set histograms enabled to increase statistics cache size
-                .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
-                .setCatalogSessionProperty(catalogName, STATISTICS_KLL_SKETCH_K_PARAMETER, "32768")
-                .build();
+        String tableName = "lineitem_statisticsFileCache";
+        try {
+            Map<String, String> catalogProperties = ImmutableMap.<String, String>builder().putAll(icebergQueryRunner.getIcebergCatalogs().get("iceberg"))
+                    .put("iceberg.max-statistics-file-cache-size", "1024B")
+                    .build();
+            getQueryRunner().createCatalog(catalogName, "iceberg", catalogProperties);
+            Session session = Session.builder(getSession())
+                    // runtime stats must be reset manually when using the builder
+                    .setRuntimeStats(new RuntimeStats())
+                    .setCatalog(catalogName)
+                    // set histograms enabled to increase statistics cache size
+                    .setSystemProperty(OPTIMIZER_USE_HISTOGRAMS, "true")
+                    .setCatalogSessionProperty(catalogName, STATISTICS_KLL_SKETCH_K_PARAMETER, "32768")
+                    .build();
 
-        assertQuerySucceeds(session, "ANALYZE lineitem");
-        // get table statistics, to populate some of the cache
-        TableStatistics statistics = getTableStatistics(getQueryRunner(), session, "lineitem");
-        assertTrue(statistics.getColumnStatistics().values().stream().map(ColumnStatistics::getHistogram).anyMatch(Optional::isPresent));
-        RuntimeStats runtimeStats = session.getRuntimeStats();
-        runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("ColumnCount")).findFirst()
-                .ifPresent(stat -> assertEquals(runtimeStats.getMetric(stat).getSum(), 32));
-        runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("PuffinFileSize")).findFirst()
-                .ifPresent(stat -> assertTrue(runtimeStats.getMetric(stat).getSum() > 1024));
-        // get them again to trigger retrieval of _some_ cached statistics
-        statistics = getTableStatistics(getQueryRunner(), session, "lineitem");
-        RuntimeMetric partialMiss = runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("PartialMiss")).findFirst()
-                .map(runtimeStats::getMetric)
-                .orElseThrow(() -> new RuntimeException("partial miss on statistics cache should have occurred"));
-        assertTrue(partialMiss.getCount() > 0);
+            assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM lineitem", tableName));
 
-        statistics.getColumnStatistics().forEach((handle, stats) -> {
-            assertFalse(stats.getDistinctValuesCount().isUnknown());
-            if (isKllHistogramSupportedType(((IcebergColumnHandle) handle).getType())) {
-                assertTrue(stats.getHistogram().isPresent());
-            }
-        });
+            assertQuerySucceeds(session, "ANALYZE " + tableName);
+            // get table statistics, to populate some of the cache
+            TableStatistics statistics = getTableStatistics(getQueryRunner(), session, tableName);
+            assertTrue(statistics.getColumnStatistics().values().stream().map(ColumnStatistics::getHistogram).anyMatch(Optional::isPresent));
+            RuntimeStats runtimeStats = session.getRuntimeStats();
+            runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("ColumnCount")).findFirst()
+                    .ifPresent(stat -> assertEquals(runtimeStats.getMetric(stat).getSum(), 32, "column count must be 32 on metric: " + stat));
+            runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("PuffinFileSize")).findFirst()
+                    .ifPresent(stat -> assertTrue(runtimeStats.getMetric(stat).getSum() > 1024));
+            // get them again to trigger retrieval of _some_ cached statistics
+            statistics = getTableStatistics(getQueryRunner(), session, tableName);
+            RuntimeMetric partialMiss = runtimeStats.getMetrics().keySet().stream().filter(name -> name.contains("PartialMiss")).findFirst()
+                    .map(runtimeStats::getMetric)
+                    .orElseThrow(() -> new RuntimeException("partial miss on statistics cache should have occurred"));
+            assertTrue(partialMiss.getCount() > 0);
+
+            statistics.getColumnStatistics().forEach((handle, stats) -> {
+                assertFalse(stats.getDistinctValuesCount().isUnknown());
+                if (isKllHistogramSupportedType(((IcebergColumnHandle) handle).getType())) {
+                    assertTrue(stats.getHistogram().isPresent());
+                }
+            });
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE " + tableName);
+        }
     }
 
     private TableStatistics getScanStatsEstimate(Session session, @Language("SQL") String sql)
