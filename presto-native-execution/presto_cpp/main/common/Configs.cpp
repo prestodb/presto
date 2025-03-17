@@ -250,6 +250,10 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
           STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
           STR_PROP(kPoolType, "DEFAULT"),
+          BOOL_PROP(kSpillEnabled, false),
+          BOOL_PROP(kJoinSpillEnabled, true),
+          BOOL_PROP(kAggregationSpillEnabled, true),
+          BOOL_PROP(kOrderBySpillEnabled, true),
       };
 }
 
@@ -311,6 +315,22 @@ std::string SystemConfig::poolType() const {
       "{} must be one of 'LEAF', 'INTERMEDIATE', or 'DEFAULT'",
       kPoolType);
   return value;
+}
+
+bool SystemConfig::spillEnabled() const {
+  return optionalProperty<bool>(kSpillEnabled).value();
+}
+
+bool SystemConfig::joinSpillEnabled() const {
+  return optionalProperty<bool>(kJoinSpillEnabled).value();
+}
+
+bool SystemConfig::aggregationSpillEnabled() const {
+  return optionalProperty<bool>(kAggregationSpillEnabled).value();
+}
+
+bool SystemConfig::orderBySpillEnabled() const {
+  return optionalProperty<bool>(kOrderBySpillEnabled).value();
 }
 
 bool SystemConfig::mutableConfig() const {
