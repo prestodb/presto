@@ -81,6 +81,10 @@ AbstractClasses:
         - { name: HiveInsertTableHandle,          key: hive }
         - { name: IcebergInsertTableHandle,       key: hive-iceberg }
 
+    ConnectorDeleteTableHandle:
+      super: JsonEncodedSubclass
+      subclasses:
+
     ConnectorTransactionHandle:
       super: JsonEncodedSubclass
       subclasses:
@@ -335,6 +339,7 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/execution/scheduler/ExecutionWriterTarget.java
   - presto-main/src/main/java/com/facebook/presto/metadata/OutputTableHandle.java
   - presto-main/src/main/java/com/facebook/presto/metadata/InsertTableHandle.java
+  - presto-main/src/main/java/com/facebook/presto/metadata/DeleteTableHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/TableToPartitionMapping.java
   - presto-main/src/main/java/com/facebook/presto/execution/TaskInfo.java
   - presto-main/src/main/java/com/facebook/presto/execution/TaskSource.java

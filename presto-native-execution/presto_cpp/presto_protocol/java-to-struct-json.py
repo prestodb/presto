@@ -41,7 +41,7 @@ IGNORED_TYPES = {
 language = {
     "cpp": {
         "TypeMap": {
-            r"([ ,<])(ColumnHandle|PlanNode|RowExpression|ConnectorMetadataUpdateHandle)([ ,>])": r"\1std::shared_ptr<\2>\3",
+            r"([ ,<])(ColumnHandle|PlanNode|RowExpression|ConnectorMetadataUpdateHandle|ConnectorDeleteTableHandle)([ ,>])": r"\1std::shared_ptr<\2>\3",
             r"Optional<int\[\]>": "Optional<List<int>>",
             r"Optional<byte\[\]>": "Optional<List<byte>>",
             r"int\[\]": "List<int>",
@@ -351,23 +351,25 @@ def main():
             classes[abstract_name].comparable = True
         classes[abstract_name].subclasses = []
 
-        for subclass in abstract_value.subclasses:
-            subclasses[subclass.name] = util.attrdict(
-                super=abstract_name, key=subclass.key
-            )
-
-            classes[abstract_name].subclasses.append(
-                util.attrdict(
-                    type=subclass.name,
-                    name=member_name(subclass.name),
-                    key=subclass.key,
+        if abstract_value.subclasses:
+            for subclass in abstract_value.subclasses:
+                subclasses[subclass.name] = util.attrdict(
+                    super=abstract_name, key=subclass.key
                 )
-            )
-            classes[abstract_name].subclasses[-1]._N = len(
-                classes[abstract_name].subclasses
-            )
 
-        classes[abstract_name].subclasses[-1]._last = True
+                classes[abstract_name].subclasses.append(
+                    util.attrdict(
+                        type=subclass.name,
+                        name=member_name(subclass.name),
+                        key=subclass.key,
+                    )
+                )
+                classes[abstract_name].subclasses[-1]._N = len(
+                    classes[abstract_name].subclasses
+                )
+
+        if classes[abstract_name].subclasses:
+            classes[abstract_name].subclasses[-1]._last = True
 
         if "source" in abstract_value:
             file = abstract_value.source
