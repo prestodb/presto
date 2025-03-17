@@ -29,6 +29,36 @@ public class AccessControlUtils
 {
     private AccessControlUtils() {}
 
+    public static boolean isUnifiedPermissionsCheckEnabled(AccessControl accessControl, SessionContext sessionContext)
+    {
+        Identity identity = sessionContext.getIdentity();
+        return accessControl.isUnifiedPermissionsCheckEnabled(identity);
+    }
+
+    public static boolean isSkipPermissionsCheckEnabled(AccessControl accessControl)
+    {
+        return accessControl.isSkipPermissionsCheckEnabled();
+    }
+
+    public static void validateQueryToken(AccessControl accessControl, QueryId queryId, SessionContext sessionContext, String query)
+    {
+        Identity identity = sessionContext.getIdentity();
+        accessControl.checkQueryIntegrity(
+                identity,
+                new AccessControlContext(
+                        queryId,
+                        Optional.ofNullable(sessionContext.getClientInfo()),
+                        sessionContext.getClientTags(),
+                        Optional.ofNullable(sessionContext.getSource()),
+                        WarningCollector.NOOP,
+                        sessionContext.getRuntimeStats(),
+                        Optional.empty(),
+                        Optional.ofNullable(sessionContext.getCatalog()),
+                        Optional.ofNullable(sessionContext.getSchema())),
+                query
+        );
+    }
+
     /**
      * Uses checkCanSetUser API to check delegation permissions
      *

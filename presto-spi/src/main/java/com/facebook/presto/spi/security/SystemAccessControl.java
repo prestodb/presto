@@ -380,4 +380,8 @@ public interface SystemAccessControl
     {
         denyAddConstraint(table.toString());
     }
+
+    default boolean isUnifiedPermissionsCheckEnabled(Identity identity) {return false;}
+
+    default boolean isSkipPermissionsCheckEnabled() {return false;}
 }

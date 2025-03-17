@@ -315,4 +315,16 @@ public class DenyAllAccessControl
     {
         denyAddConstraint(tableName.toString());
     }
+
+    @Override
+    public boolean isUnifiedPermissionsCheckEnabled(Identity identity)
+    {
+        return false;
+    }
+
+    @Override
+    public boolean isSkipPermissionsCheckEnabled()
+    {
+        return false;
+    }
 }
