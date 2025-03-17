@@ -52,7 +52,7 @@ namespace {
 #define CHECKED_GROW(pool, growBytes, reservationBytes) \
   try {                                                 \
     checkedGrow(pool, growBytes, reservationBytes);     \
-  } catch (const VeloxRuntimeError& e) {                \
+  } catch (const VeloxRuntimeError&) {                  \
     freeCapacity(growBytes);                            \
     throw;                                              \
   }
